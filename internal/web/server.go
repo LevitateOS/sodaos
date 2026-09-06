@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"embed"
 	"github.com/levitateos/sodaos/assets"
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/store"
 	"html/template"
 	"io/fs"
@@ -16,12 +18,13 @@ var content embed.FS
 type Server struct {
 	Config    config.Config
 	Store     *store.Store
+	Forgejo   *forgejo.Client
 	mux       *http.ServeMux
 	templates *template.Template
 }
 
 func New(c config.Config, db *store.Store) *Server {
-	s := &Server{Config: c, Store: db, mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
+	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
 	static, _ := fs.Sub(content, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files))))
@@ -30,6 +33,7 @@ func New(c config.Config, db *store.Store) *Server {
 		w.Write([]byte("ok\n"))
 	})
 	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { s.render(w, "home", nil) })
+	s.authRoutes()
 	return s
 }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -39,8 +43,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 func (s *Server) render(w http.ResponseWriter, name string, data any) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates.ExecuteTemplate(w, name, data); err != nil {
+	var b bytes.Buffer
+	if err := s.templates.ExecuteTemplate(&b, name, data); err != nil {
+		http.Error(w, "Cannot render response", 500)
 		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(b.Bytes())
 }

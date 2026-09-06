@@ -22,3 +22,7 @@ SQLite via modernc.org/sqlite v1.58.0 (upstream module metadata), schema and con
 ## M03 — source implemented
 
 Forgejo 15.0.7 API client, confidential OAuth setup CLI, persistent Forgejo container definition and operator-native installation instructions. Native API/schema source inspected; no live accounts or OAuth applications created.
+
+## M04 — source implemented
+
+Forgejo OAuth authorization code + S256, session rotation/logout, CSRF/origin checks, profile/public-key forms, operator user creation, and real provider/database wiring. Tests authored; not run. Browser and native OAuth behavior remain unverified.
