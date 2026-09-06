@@ -1,5 +1,7 @@
 # Source-first implementation plan
 
+> **Historical initial plan:** M01–M18 describe the original Go + HTMX/native implementation. For the selected React frontend and Forgejo-extension backend, use the [U01–U20 implementation plan](dashboard-implementation-plan.md). See [implementation status](implementation-status.md) for work and checks actually completed. This document does not reset that work or direct the new dashboard migration back to M01.
+
 **Status:** Planned. No implementation milestone is marked complete by writing this plan.
 
 **Governing scope:** [Architecture](architecture.md), [deferred and excluded work](deferred.md), [branding](branding.md) and the [existing asset inventory](../assets/README.md).

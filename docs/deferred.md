@@ -2,6 +2,8 @@
 
 This is the scope boundary for the [current architecture](architecture.md). It records parked ideas and edge-case work so they are not repeatedly promoted into prerequisites for the first version.
 
+The [current dashboard implementation plan](dashboard-implementation-plan.md) changes the frontend and extends supported Forgejo UI coverage; it does not reopen the native deferrals below. Its conditional environment milestones require an explicit scope decision before implementation.
+
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
 
 The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. The predecessor's operator Cockpit **Tailnet and Runners pages and backing logic are selected for reuse, not deferred**. Deferral is not a request to strip their existing working validation or focused error handling.

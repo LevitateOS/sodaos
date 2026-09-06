@@ -8,7 +8,9 @@
 
 **Scope boundary:** [Deferred and excluded work](deferred.md) records ideas and edge-case work that must stay outside the first version. Those items are not prerequisites for the first end-to-end proof and must not be silently restored as requirements.
 
-**Implementation order:** Follow the [source-first implementation plan](implementation-plan.md). Implement the current scope, deployment/build recipes and test source now; builds and validation execution wait for later native-machine access. Required native proofs below are later completion evidence, not a blanket gate on source implementation.
+**Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. The [initial M01–M18 plan](implementation-plan.md) describes the existing Go + HTMX/native source work and original proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
+
+**Dashboard direction update:** the user has selected client-rendered TypeScript/React + PatternFly + Vite+ + Zustand, backed by Go and Forgejo, with no SSR, Tailwind or TanStack. [Dashboard planning](dashboard-plan.md) inventories the proposed pages, dependencies and authentication work. The Go + HTMX descriptions below still describe the existing implementation; the React migration is not implemented. The unified frontend includes developer and administrator views, but Forgejo remains upstream owner of its data, rules, permissions and administration. Soda's backend is a development-environment/access extension and bounded API adapter, not a replacement forge backend. Other native, identity and authority boundaries remain in force.
 
 ## 1. Purpose
 

@@ -5,9 +5,11 @@
 Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
+- `docs/dashboard-plan.md` — selected frontend/ownership constraints and page/dependency inventory
+- `docs/dashboard-implementation-plan.md` — current U01–U20 implementation milestones and conditional E01–E03 extensions
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence
-- `docs/implementation-plan.md` — milestone scope and later validation stages
+- `docs/implementation-plan.md` — historical initial M01–M18 plan; not the new dashboard implementation sequence
 
 For deployment changes, also read `docs/installation.md` and `docs/native-validation.md`. Read the relevant feature guide before changing project environments, Cockpit, Tailnet or Runners.
 
@@ -38,9 +40,16 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
 
 ## Product and security boundaries
 
-- Forgejo owns human identity and dashboard authentication. Soda owns profiles,
-  public development-access keys, project associations and memberships—not a
-  second password authority or a mirror of all provider permissions.
+- Forgejo is upstream. Do not take over its business rules, data, permissions or
+  administration, fork its backend for UI parity, or access its database directly.
+  The unified frontend includes Forgejo developer **and administrator** views;
+  those views delegate through supported upstream interfaces, not a replacement
+  Soda forge/administration backend.
+- Soda's backend is an environment/access extension plus the necessary web/API
+  adapter. Forgejo owns identity and authentication; Soda owns only its additional
+  profile/preferences data, development-access public keys, environment
+  associations and memberships—not a second password authority or provider-role
+  inventory. Forgejo Git key management remains upstream-owned.
 - Developers have Linux accounts **inside projects**, not human host accounts.
   The repository's human owner administers its project, not the appliance.
   Native root, the configured dashboard operator and arbitrary Forgejo site
@@ -144,7 +153,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- HTMX for the developer dashboard; retain TypeScript/React for Cockpit Tailnet/Runners.
+- The current dashboard is Go + HTMX. The user selected a client-rendered TypeScript/React + PatternFly + Vite+ + Zustand dashboard with a Go API next, without SSR, Tailwind or TanStack. See `docs/dashboard-plan.md` for the inventory and `docs/dashboard-implementation-plan.md` for the implementation sequence; migration is not yet implemented. Retain the separate Cockpit Tailnet/Runners frontend and native boundaries.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.
