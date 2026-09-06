@@ -1,6 +1,8 @@
 # Source-first implementation plan
 
-**Status:** Planned. No implementation milestone is marked complete by writing this plan.
+**Status:** This is the original source-first plan; actual completion and native evidence are recorded in [implementation status](implementation-status.md). No milestone is marked complete merely by writing a plan.
+
+**Follow-up tooling:** The [native artifact and acceptance porting plan](native-porting-plan.md) proposes selective predecessor reuse, CoreOS media delivery and x86_64-first execution support for M15–M18. Its P01–P13 milestones are planned, not implemented, and do not authorize execution or a release/Updates platform.
 
 **Governing scope:** [Architecture](architecture.md), [deferred and excluded work](deferred.md), [branding](branding.md) and the [existing asset inventory](../assets/README.md).
 

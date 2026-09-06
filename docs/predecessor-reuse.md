@@ -34,6 +34,12 @@ Relevant operating instructions are linked from the README. Native application c
 - Old PAM-backed Forgejo human identity, fixed `:30000` browser links and the assumption that workspaces share the host network.
 - Unrelated renderer/tooling directories solely to increase copied line count. Their source can be reassessed for a concrete future caller without modifying the predecessor.
 
+## Planned native artifact and acceptance reuse
+
+The [full porting plan](native-porting-plan.md) identifies selected VM/QMP, process cleanup, SSH/evidence, artifact-inspection and installed-scenario helpers for a future coherent port, with source destinations, tests, dependencies and execution gates. It retains CoreOS and project-local identities rather than importing bootc/Anaconda, old host-workspace assertions or release qualification/publication machinery.
+
+This is planning only: none of those additional helpers or media recipes has been ported. ISO/QCOW2 delivery semantics, network dependencies and the actual client route are explicit decisions in the plan. Native x86_64 comes first; aarch64 evidence remains independent.
+
 ## Evidence boundary
 
 The work copied/adapted source and inspected upstream configuration/release metadata. No dependency resolution, source archive/client binary downloads, builds, renderer/browser checks, native service mutation, account/provider registration or screenshots ran. Focused tests are authored, not passed. Follow [implementation status](implementation-status.md) and [later native validation](native-validation.md) before making any installed capability claim.

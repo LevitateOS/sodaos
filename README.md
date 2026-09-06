@@ -68,7 +68,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 - [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
 - [Development environment](docs/development-environment.md), [project services](docs/project-services.md) and [provider CLIs](docs/project-clis.md)
 - [Operator welcome](docs/console-welcome.md), [branding review](docs/branding-review.md) and [screenshot guidance](docs/screenshot-capture.md)
-- [Predecessor reuse inventory](docs/predecessor-reuse.md)
+- [Predecessor reuse inventory](docs/predecessor-reuse.md) and [native artifact/acceptance porting plan](docs/native-porting-plan.md)
 - [Local test host access](docs/local-testing.md) and [native validation](docs/native-validation.md)
 - [Coding-agent instructions](AGENTS.md)
 

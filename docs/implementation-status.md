@@ -44,6 +44,14 @@ Merged `origin/main` through `f4fe066` into `c96530c`, preserving both histories
 
 Only source/diff, conflict-marker and whitespace checks were performed for this merge. No builds, tests, dependency resolution, VM/service operations or provider actions were run; the combined tree remains unvalidated.
 
+## Native artifact and acceptance porting plan
+
+Added [the full porting plan](native-porting-plan.md), based on current source `6f7b51e` and predecessor `bc1d3e0`. It maps selected VM/QMP, process/cleanup, SSH/evidence, artifact-inspection and scenario source/tests to proposed destinations, with P01–P13 dependencies, source/native exits and exact-target execution gates. CoreOS remains the proposed host path; bootc/Anaconda, the old account model, Updates and release publication/qualification machinery remain excluded.
+
+The plan explicitly distinguishes application OCI from a bootable host image, public media from private provisioning, a QCOW2 deployment kit from a preinstalled image, and forwarded access from a real client route. It prioritizes fresh x86_64 installation/developer/persistence evidence and preserves independent aarch64 follow-up. Existing `soda-test` state and its backing disk must remain untouched.
+
+Planning/documentation only. Reviewed source/documentation, diffs, local documentation link targets, plan anchors and whitespace. No port implementation, generated artifacts, builds, product tests, dependency resolution, VM/service/network/provider operations or publication ran. P01–P13 remain not started; prior native results and the merged tree's unvalidated status are unchanged.
+
 ## Original source handoff (historical)
 
 The M01–M14 entries below describe the original source-only handoff, when builds, tests, type checks, dependency resolution, installation and publication had not run. Their original “not run” statements are historical; current evidence is recorded above and in [local testing](local-testing.md).

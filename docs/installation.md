@@ -2,6 +2,8 @@
 
 Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
+Future ISO/QCOW2 wrappers and exact-candidate bundling are described in the [native porting plan](native-porting-plan.md). They are proposed, not implemented. The commands below remain the existing installation path; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is already available.
+
 ## 1. Prepare the native builder
 
 Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.

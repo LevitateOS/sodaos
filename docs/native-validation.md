@@ -2,6 +2,8 @@
 
 **Started on x86_64; full product journeys remain pending.** [Local testing](local-testing.md) records the successful source/staging checks and isolated test-host startup, including the limits of that evidence. Those results precede the merged follow-ups; this merged tree and its added checks have not been rebuilt or retested. Name the actual builder, installed target, architecture, developer client and permitted actions before additional execution. A build permit is not a disk-install, provider-registration, service-stop or reboot permit. Missing access is **unverified**, not passed or simulated.
 
+The [native artifact and acceptance porting plan](native-porting-plan.md) describes proposed tooling, fresh-media checks and automation for these journeys. It does not replace the currently implemented entrypoints below or establish new evidence; its execution gates still require explicit target/action permission.
+
 ## M15: native source/build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
