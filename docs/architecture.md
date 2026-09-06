@@ -4,31 +4,36 @@
 
 **Supersedes:** [`levitateos/soda-os`](https://github.com/levitateos/soda-os)
 
-**Status:** Initial product direction for the new repository. This document records the selected model and distinguishes it from implementation questions still requiring investigation. It is not a claim that the system has been built or validated.
+**Status:** Initial product direction for the new repository: a usable development pod and Soda Project OS, with selected operator integrations reused from the predecessor. This document distinguishes current scope, provisional ideas and native mechanisms still requiring proof. It is not a claim that the system has been built or validated.
+
+**Scope boundary:** [Deferred and excluded work](deferred.md) records ideas and edge-case work that must stay outside the first version. Those items are not prerequisites for the first end-to-end proof and must not be silently restored as requirements.
+
+**Implementation order:** Follow the [source-first implementation plan](implementation-plan.md). Implement the current scope, deployment/build recipes and test source now; builds and validation execution wait for later native-machine access. Required native proofs below are later completion evidence, not a blanket gate on source implementation.
 
 ## 1. Purpose
 
 SodaOS gives a team persistent, shared development environments on a centrally operated machine. People use lightweight clients, a browser and ordinary SSH; the project environment runs their development tools, builds, agents, databases and services.
 
-A person has one human identity and can join multiple projects. A project is a lasting development environment, not merely a repository entry or a disposable application container. People join it, work together, temporarily diverge where needed, and return to its shared resources.
+A person has one human identity and can join multiple projects. A project is a lasting development environment, not merely a repository entry or a disposable application container. People join it and work with ordinary repository checkouts, shared files, installed tools and services.
 
-Soda handles the necessary integration. It must not move that work back onto developers merely to make its own architecture smaller. Equally, it should not become a generic cloud platform, identity product or replacement for upstream Linux tools.
+Soda supplies the usable environment and its appliance integration. Developers retain their normal Git, tool-installation and container workflows; Soda does not manage development branches, merges or cleanup for them. Private toolchain/service branching and selection machinery are deferred, not prerequisites for delivering the shared environment.
 
 ## 2. Selected direction
 
 | Area | Direction |
 | --- | --- |
 | Host | An immutable, CoreOS-style appliance host. Fedora CoreOS is the leading candidate; its exact composition is not yet selected or validated. |
-| Runtime | Podman-based project environments and appliance services. |
+| Runtime | Podman-based project environments and containerized application services, with native host tooling for operator integrations where appropriate. |
 | Project base | Rocky Linux + mise. |
 | Project lifetime | Persistent and mutable; users develop inside the environment rather than routinely discard and reconstruct it. |
 | Human identity | Forgejo is the identity provider. Developers do not need individual Linux accounts on the host. |
 | Developer interface | A Soda dashboard written in Go + HTMX. |
-| Host administration | Stock Cockpit, accessible only to the root/operator identity. No custom Soda Cockpit pages. |
-| Soda data | A dashboard database for Soda-specific profiles, public SSH keys, projects, memberships and required environment choices. |
+| Host administration | Stock Cockpit plus the predecessor's Tailnet and Runners pages and backing logic, accessible only to the root/operator identity. No custom Cockpit developer workspace UI. |
+| Project administration | Working rule: the owner of the associated Forgejo project/repository administers the project pod, not the host. |
+| Soda data | A dashboard database for Soda-specific profiles, public SSH keys, projects and memberships. |
 | Joining | **Add me to this project** creates the person's Linux account inside the project environment and establishes usable SSH access. |
-| SSH | `{user}@{project-address}`, not `{user}-{project}@{host-address}`. |
-| Development resources | Project-shared installed tools, files and services, with independently selectable workspace-private overrides. |
+| SSH | `{user}@{project-ip}`, for example `alice@192.168.1.101`. No project DNS naming scheme. |
+| Development resources | Shared installed tools, files and services, alongside ordinary personal repository checkouts. Soda-managed private resource branches and switching are deferred. |
 
 The database engine, Rocky release, host release, image layout and provisioning mechanisms remain open. None should be inferred from the old repository's choices.
 
@@ -37,26 +42,29 @@ The database engine, Rocky release, host release, image layout and provisioning 
 ```text
 Developer's browser
     ├── Forgejo authentication
-    └── Soda dashboard: profile, projects, membership and environment choices
+    └── Soda dashboard: profile, projects and membership
 
 Immutable Soda host
-    ├── Native operator access and stock Cockpit
+    ├── Native operator access and Cockpit
+    │   ├── stock host-management pages
+    │   ├── retained Tailnet page + native Tailscale integration
+    │   └── retained Runners page + local CI runner integration
     ├── Podman
     ├── Soda dashboard service + persistent Soda database
     ├── Forgejo service/pod + persistent Forgejo data
     └── Persistent project environments
-        ├── Project A — Rocky Linux + mise
-        │   ├── alice: Linux account, home and SSH access
-        │   ├── bob: Linux account, home and SSH access
+        ├── Project A — Rocky Linux + mise — 192.168.1.101
+        │   ├── alice: Linux account, home and ordinary repository checkouts
+        │   ├── bob: Linux account, home and ordinary repository checkouts
         │   ├── shared project files and installed toolchain
-        │   └── shared services and private overrides
-        └── Project B — Rocky Linux + mise
+        │   └── project services (runtime placement still to be proved)
+        └── Project B — Rocky Linux + mise — 192.168.1.102
             ├── alice: a separate project-local Linux account
             └── that project's files, tools and services
 
 Developer's SSH client
-    ├── alice@project-a
-    └── alice@project-b
+    ├── alice@192.168.1.101
+    └── alice@192.168.1.102
 ```
 
 This is an immutable host OS plus a project userspace image, not necessarily two independently maintained operating-system distributions. A project container shares the host kernel; Rocky supplies its userspace.
@@ -65,13 +73,22 @@ This is an immutable host OS plus a project userspace image, not necessarily two
 
 A Podman pod groups containers. It does not itself supply a unified Linux user database, init system or persistent filesystem. The exact container/pod arrangement must provide the product model above; the terms are not interchangeable.
 
-In this document, a **workspace** means one person's working context within a project: their project-local account, personal files and private overrides alongside access to shared resources. It does not imply a host Linux account or an entire separate project container for every person.
+In this document, a **workspace** means one person's working context within a project: their project-local account and personal files alongside access to shared resources. It does not imply a host Linux account, a separate project container per person or a Soda-managed resource branch.
+
+A possible home layout is:
+
+```text
+~/shared/       access to the same project-shared files for Alice and Bob
+~/repo-name/    an ordinary repository checkout in this person's home
+```
+
+These are layout ideas, not fixed paths or a new repository convention. Shared tool installations would live outside individual homes in the project filesystem. `/etc` is a candidate for configuration, not an assumed installation root for tool binaries; select actual paths using Rocky and mise's native conventions. Links, mounts and permissions remain implementation choices. Soda does not need to manage Git worktrees or synchronize personal checkouts.
 
 ## 4. Identities and roles
 
 ### Host operator
 
-The root/operator identity administers the appliance through native host access and stock Cockpit. It also has administrator access to the Soda dashboard and can create people there.
+The root/operator identity administers the appliance through native host access and Cockpit, including the retained Tailnet and Runners pages. It also has administrator access to the Soda dashboard and can create people there. Project administrators do not acquire access to these host-level pages merely by owning a project.
 
 Dashboard administrator access does not mean the dashboard web process must run as root. The service privilege and the authorization of a human request are separate implementation concerns.
 
@@ -91,7 +108,13 @@ The person can create projects, discover existing projects and use **Add me to t
 
 The intended dashboard administrator is the operator. Ordinary Soda users do not acquire host administration rights merely by creating or joining a project.
 
-Whether every Soda user may join every project, or whether some projects restrict joining, remains an explicit product decision. Do not invent invitation, approval or enterprise-role machinery by default.
+The initial flow is a trusted team's straightforward project join. Do not introduce invitation, approval or enterprise-role machinery for it. More elaborate access-lifecycle policies are deferred.
+
+### Project administrator
+
+The working rule is that the owner of the associated Forgejo project/repository is the administrator of the project's development pod. This is project-local administration, not host-root or Soda dashboard administration.
+
+The native Linux and Podman permissions must implement that project-local authority in the chosen runtime arrangement. This rule does not require a new Soda role hierarchy or a copy of all Forgejo permissions. Organization ownership, transfers and more elaborate ownership mappings are deferred.
 
 ### Project Linux user
 
@@ -99,7 +122,7 @@ Joining creates a real Linux account inside the project environment. That accoun
 
 For example, Alice can have an `alice` account in both Project A and Project B without having an `alice` account on the host. Homes such as `/home/alice` inside a project are compatible with this model; the rejected arrangement is a separate developer account/home on the host.
 
-The project address distinguishes the environments. There is no reason to preserve the old host-level derived username or hashed-name convention.
+The project IP address distinguishes the environments. There is no reason to preserve the old host-level derived username or hashed-name convention. Username changes, reuse and generalized account-remapping machinery are deferred; retain the stable Forgejo identity association for the ordinary account path.
 
 Runtime service accounts required by the host's native tooling are a separate concern from developer identities. Their arrangement has not been selected.
 
@@ -116,36 +139,37 @@ The Soda database legitimately owns information needed by Soda, including:
 - the association to the Forgejo identity;
 - Soda-specific profile information;
 - public SSH keys used for development-environment access;
-- project records and their environment associations;
-- project membership;
-- shared/private resource selections where native configuration does not already provide the needed representation.
+- project records, their environment associations and the associated Forgejo ownership;
+- project membership.
+
+Do not add private-resource selection state for the deferred branching feature.
 
 This is not an independently assumed closed field list or a proposed database schema. Do not add an inventory of speculative fields, copied provider permissions or a generic resource model.
 
-Soda's profiles are not a second identity provider. Forgejo owns human authentication; Soda owns the additional information and product relationships it needs.
+Soda's profiles are not a second identity provider. Forgejo owns human identity and dashboard authentication; OpenSSH authenticates project access using the public keys registered through Soda. Soda owns the additional information and product relationships it needs.
 
-Soda must not request a user's private SSH key for onboarding. Public-key registration, propagation to joined environments, later key changes and access revocation need a clear behavior contract. Whether key changes affect existing memberships immediately or through another explicit operation is not yet decided.
+Soda must not request a user's private SSH key for onboarding. Public-key registration and installation when joining a project are in scope. Cross-environment key changes, revocation propagation, existing-session termination and account/membership drift repair are deferred; the first version does not promise automatic synchronization of those events.
 
 ## 6. The Soda dashboard
 
 The developer interface is a dedicated Go + HTMX application, not a set of custom Cockpit packages. The operator also uses it for Soda administration, including creating people.
 
-Its purpose is to make these outcomes coherent:
+Its initial purpose is to make these outcomes coherent:
 
 1. Authenticate through Forgejo.
-2. Manage the person's Soda profile and development-access keys.
+2. Manage the person's Soda profile and register development-access public keys.
 3. Create and discover projects.
 4. Join a project and obtain a usable project-local account.
-5. See the project's SSH address and connect as oneself.
-6. Use shared installed tools and services.
-7. Create and select independent private overrides.
-8. Return to the shared project resources.
+5. See the project's IP address and connect as oneself.
+6. Work in the provided environment using ordinary tools and project services.
 
-The dashboard's backend may perform the narrow host/runtime operations needed for those outcomes. The service privilege boundary and project-account provisioning mechanism require investigation. A generic privileged command endpoint, full host-management API or permanent custom guest agent is not a selected mechanism.
+Private-resource branching, shared/private selectors and merge-related cleanup are not first-version dashboard features.
 
-Operation execution, progress reporting and partial-failure handling also remain to be designed. Do not automatically import either the old synchronous-only restrictions or a new general background-job platform. Select what the actual operations require.
+The dashboard's backend may perform the narrow host/runtime operations needed for the supported outcomes. The service privilege boundary and project-account provisioning mechanism require investigation. A generic privileged command endpoint, full host-management API or permanent custom guest agent is not a selected mechanism.
 
-Stock Cockpit remains an operator tool for host services, logs, networking, storage and diagnostics. Developers do not log into Cockpit as host users or switch into project accounts to manage their resources through the browser.
+Run the necessary native operations and report their actual results. Detailed cross-system retry, rollback and recovery orchestration is deferred. This does not require either the old synchronous-only restrictions or a new general background-job platform.
+
+Stock Cockpit remains the operator tool for host services, logs, networking, storage and diagnostics. The predecessor's Tailnet and Runners pages are explicit retained extensions, not a return to custom Cockpit developer pages. They stay in Cockpit rather than being rewritten into the Go + HTMX dashboard. Developers do not log into Cockpit as host users or switch into project accounts to manage their resources through the browser.
 
 ## 7. Joining a project
 
@@ -159,111 +183,79 @@ The operation establishes the guest account, installs the appropriate public key
 
 Linux inside the project remains authoritative for the resulting account, home, permissions and processes. Soda membership records express the product relationship; they must not pretend that a failed account-creation operation succeeded.
 
-Repeated requests and partial failures must not create duplicate accounts or destroy existing project work. The supported retry or repair behavior must be derived from the chosen native mechanism, not invented as an elaborate workflow before that mechanism is known.
+Use native account tools and report failures without destructively recreating existing project work. General retry, concurrent-request, partial-failure recovery and drift-repair machinery is deferred, not an additional prerequisite for this first join flow.
 
 ## 8. Persistent, mutable project environments
 
-The project environment is a lasting place where a team works. Users can install development tools, change files, run services and retain project-local state. Adding a member or installing a project tool must not require building a new OS image.
+The project environment is a lasting place where a team works. Users can install development tools, change files, run services and retain project-local state, using normal Linux permissions. Adding a member or installing a project tool must not require building a new OS image.
 
-Mutability belongs to the project environment, not the appliance host. How much project-local system administration or package installation users receive is unresolved; project-local privilege must not be confused with host-root privilege.
+Mutability belongs to the project environment, not the appliance host. The project administrator manages project-local system setup and shared installations. Ordinary user operations and project administration must not grant host administration; prove the necessary permissions with the selected native runtime.
 
-The persistence design must cover the actual environment: Linux account records, SSH host keys, homes, shared files, installed tools, service data and configuration. Selecting volumes or a writable container layer is an engineering decision still to be proved.
+Persistence must cover Linux account records, SSH host keys, homes, shared files, installed tools, service data and configuration. Selecting volumes or a writable container layer remains an engineering decision to prove. Normal stop/start and host reboot must not unexpectedly discard that state.
 
-Do not assume projects are routinely deleted and recreated, or make such recreation a prerequisite for normal project management. Do not substitute a disposable-container workflow for the requested persistent development experience.
-
-Host reboot and normal environment stop/start must not unexpectedly discard project state. Longer-term image maintenance and preservation of user-made system changes need explicit design; this document does not select an automatic replacement/rebuild policy.
-
-No project-deletion, archival, transfer or destructive rebuild workflow was requested as part of this architecture. Do not expand the product around hypothetical deletion scenarios.
+Do not substitute routine deletion/recreation for the persistent development experience. Broader backup/restore, disaster recovery, resource-pressure policies and long-term replacement/rebuild machinery are deferred. No project-deletion, archival or transfer workflow is added to the first version.
 
 ## 9. Rocky Linux + mise
 
-Rocky Linux is the selected project-userspace direction. It supplies the Linux account environment, SSH, system libraries and base administration tools. The exact supported Rocky version and base package set remain to be selected.
+Rocky Linux supplies the project userspace: Linux accounts, SSH, system libraries and base administration tools. The exact supported Rocky version and base package set remain to be selected.
 
-mise owns development-tool installation and version selection. Soda integrates the shared/private experience rather than implementing another version manager, downloader or package format.
+Provide mise for development-tool installation and version selection. Developers and the project administrator use normal mise and OS package commands, within their native permissions. Soda does not become another version manager, downloader, package format or tool catalog.
 
-The intended steady state is an **actual project-shared installed toolchain**:
+The baseline remains an **actual project-shared installed toolchain**. Members use the installed shared tools by default; they must not each download and install the same tools independently. A common configuration file or download cache alone is not that shared installation. Verify the shared paths, permissions and executable resolution with real tools and two users.
 
-- Members use the same installed project tools by default.
-- Each member must not independently download and install the same shared tools.
-- A shared version/configuration file or download cache alone is not sufficient.
-- A person can clone the installed project toolchain into a private workspace toolchain.
-- Changes to the private toolchain must not mutate the shared one.
-- Workspace-specific tools and configuration can coexist with shared resources.
-- A person can independently disable the private toolchain selection and return to the project toolchain.
+Repositories remain ordinary repositories. A project may choose a native mise configuration such as `mise.toml` to declare tool versions, or install tools directly. Soda does not require a new repository schema, a mandatory toolchain declaration or a specially packaged development repository. Personal tools and configuration can coexist with the shared installation through normal native mechanisms.
 
-mise alone has not been proved to provide this complete arrangement. Verify permissions, installation paths, executable resolution, relocatability and the behavior of representative installed tools. Do not assume a directory copy is sufficient, or respond to a gap by removing the shared-installed-tool requirement.
+Soda-managed cloning of installed toolchains, private selectors and promotion/cleanup are deferred. The first version does not need to solve portable copies of arbitrary installed tools.
 
-The method of applying reviewed toolchain changes to the shared environment remains open.
+## 10. Project services
 
-## 10. Shared services and private overrides
+The first version provides a development environment in which the team can start and use project services with normal container tools. Shared project services, including databases, remain in scope; a Soda-managed service catalog, cloning interface and per-user routing selector do not.
 
-Each project supports both shared services and separate workspace-private services. Neither one global host environment nor exclusively private services meets the requirement.
+Repositories may carry ordinary `Containerfile`/`Dockerfile` image recipes and Compose or native Podman workload definitions. An image recipe builds an image; the workload definition describes how services run. Soda wires the native tools to the project's runtime rather than introducing its own service-definition format.
 
-Through their primary Soda dashboard session, a person can choose whether their workspace's service endpoint uses the shared project service or a private service. Service and toolchain selections are independent.
+A command such as `podman compose up` is a candidate familiar interface, subject to selecting and proving a compatible native Compose provider and runtime connection. Docker CLI compatibility is not implied, and neither `docker up` nor `pod up` is a newly promised Soda command.
 
-For a stateful service, creating a private copy includes the relevant data, not only a container definition. Database copying must produce a consistent database through an appropriate native mechanism.
-
-The defining example is PostgreSQL:
-
-1. Alice and Bob use the project's shared PostgreSQL service.
-2. Alice chooses to create a private copy through Soda.
-3. Soda establishes the private service and a consistent copy of its relevant data.
-4. Alice's workspace service selection points to that instance.
-5. Alice makes and tests mutations without changing the shared database or Bob's selected service.
-6. After reproducible changes are integrated into the shared environment, Alice disables the private override and uses the shared service again.
-
-This must work for PostgreSQL TCP and other applicable non-HTTP protocols. An HTTP-only link or reverse proxy does not satisfy the requirement.
-
-Address/port representation and the routing mechanism are unresolved. Likewise, disabling an override does not silently imply deletion of its private state. Whether that state is retained or explicitly removed needs a product decision.
+Developers use the services' normal addresses, ports and protocols, including PostgreSQL TCP. Private copies, consistent database-cloning automation, shared/private switching and the effects on existing shells or connections are deferred. Developers may still use ordinary native tools themselves; deferral does not ban normal development practices.
 
 ## 11. Container and service arrangement
 
-Podman is the intended host runtime. The initial direction is a container-based project environment, not parallel support for VM, Docker and Podman project backends.
+Podman is the intended host runtime. The initial direction is a container-based project environment, not parallel VM, Docker and Podman project backends.
 
-Two arrangements need comparison before selecting the service implementation:
+Investigate these arrangements in this order:
 
-- **Nested Podman:** project services run within the project environment. This keeps the environment self-contained but requires proof of nested storage, networking, cgroup and privilege behavior.
-- **Sibling containers:** project services run beside the development container on the host. This avoids some nesting constraints but requires Soda to compose their project/workspace ownership, networks, storage and endpoint selections.
+1. **Nested Podman — preferred if workable.** Run Podman inside the Rocky development container to create the project's service containers/pods. This is the intended meaning of “pods in pods,” not an assertion that a Podman pod is itself a nested runtime. Prove storage, networking, cgroups and permissions on the selected host and project userspace.
+2. **Project-scoped host Podman — fallback to investigate.** If nesting is not workable, run project workloads beside the development container on the CoreOS host. The developer should still be able to invoke normal workload commands from inside the project environment, through an appropriate native remote connection or narrow integration. Soda must tie those workloads, storage and networking to the correct project.
 
-Neither arrangement has been selected. Packaging software in the Rocky image does not itself establish runtime networking, persistence or permissions.
+Neither path has been validated. A remote Podman connection alone does not establish project-scoped authority. Do not hand developers an unrestricted host Podman socket and call it project isolation; project administration must not grant control over the appliance or unrelated projects.
 
-A broadly privileged project container or unrestricted host Podman socket is not an assumed shortcut. Establish the narrow access actually needed for a trusted team's development workflow without inventing an enterprise hostile-tenant platform.
+Select the smallest native arrangement that works for a trusted team. Do not invent a general container proxy/orchestrator merely to preserve a guessed CLI. If neither arrangement meets the development experience cleanly, return the concrete gap for a decision rather than silently adding a VM fallback or deleting service support.
 
-If the chosen container arrangement cannot meet the required experience cleanly, return the demonstrated gap for a decision. Do not silently implement a VM fallback or delete required functionality.
+## 12. Ordinary repositories and contribution flow
 
-## 12. Git and contribution flow
+Developers clone repositories, install tools, run services, edit, commit, push and merge using normal tools. Soda supplies their development environment; it does not manage the repository's branch lifecycle.
 
-Git carries reproducible project changes: application code, database migrations, seed scripts, service definitions and toolchain configuration. It does not carry running databases or installed binaries.
+Git carries reproducible changes such as application code, migrations, seed scripts, service definitions and optional toolchain configuration. It does not carry running databases or installed binaries. Pulling changes does not apply migrations, replace tools or restart services; developers and the project administrator perform those operations through their ordinary workflows and native permissions.
 
-The intended lifecycle is:
+Associate the development environment with its Forgejo project/repository for the project-owner administration rule in section 4. The environment remains a lasting development place, not a Git branch or a replacement for repository layout. A checkout on an external Git host does not replace Forgejo as Soda's human identity authority.
 
-1. Start from project-shared tools and services.
-2. Clone only the tools and/or services that need private changes.
-3. Develop and test privately.
-4. Commit and push the reproducible changes.
-5. Pull and apply the reviewed changes to the shared project environment.
-6. Disable the private selections and return to the updated shared resources.
+This ownership association does not imply mirroring every repository, organization or team permission into Soda. Joining a development environment and receiving Git repository access remain distinct operations; broader permission synchronization is deferred.
 
-Pulling changes and applying them are distinct operations. The exact project update interaction and who may apply shared changes remain unresolved. Do not invent an automatic promotion or database-state merge workflow.
-
-Forgejo owns its repositories and collaboration. A Soda project is not automatically identical to a Forgejo repository, organization or team. Repositories on external Git hosts do not change the choice of Forgejo as Soda's human identity provider.
-
-Joining the development environment must not silently be equated with repository permission. Decide any membership-to-Git-access integration explicitly rather than copying provider permissions into Soda by accident.
+The idea of temporarily branching installed tools or service state is recorded in [deferred.md](deferred.md). Even if revisited, a Git merge is not authorization for Soda to promote live state, delete a temporary pod/toolchain or restart a developer's processes. Cleanup and return to shared resources are developer responsibilities, not a merge automation feature.
 
 ## 13. Networking and access
 
-Developers connect as themselves to the project's reachable address:
+Each project has its own IP address reachable from the intended developer network. Developers connect directly:
 
 ```text
-ssh alice@project-a
-ssh alice@project-b
+ssh alice@192.168.1.101
+ssh alice@192.168.1.102
 ```
 
-The displayed address may be an IP address or a stable hostname. It must be usable from the intended developer network; a Podman-internal address alone does not establish that outcome.
+These are illustrative private-network addresses. `project-a` is a project label or shorthand for its IP, not a hostname Soda must resolve. The dashboard displays the actual project IP; the first version needs no project DNS naming scheme or custom SSH gateway.
 
-Project addressing, DNS, SSH exposure and shared/private service routing require a coherent native network design. The exact mechanisms are open. Do not introduce a custom SSH gateway merely to retain an old host-account convention.
+Prove native IP assignment, reachability and SSH exposure with the selected Podman networking arrangement. An address reachable only inside Podman does not satisfy developer access. Ordinary service addresses and ports must also work; per-workspace shared/private routing is deferred.
 
-Trusted LAN and private remote/cloud access remain relevant deployment contexts. Do not assume publicly exposed host administration or development services. The chosen access mechanism must support ordinary developer clients and must not become the human identity authority merely because it provides connectivity.
+Trusted LAN and private remote/cloud access remain relevant contexts. Reuse the Tailnet page and native Tailscale logic for operator-managed private connectivity. Host enrollment alone does not make every project IP reachable; prove the actual project route in the chosen deployment. Native Tailnet device names may be displayed without creating a project DNS requirement. Tailscale supplies connectivity, not Soda's human identity authority. Do not assume publicly exposed host administration or development services.
 
 ## 14. Host provisioning and operator access
 
@@ -271,11 +263,24 @@ The installation goal is operator-only host administration, not creating the fir
 
 The earlier idea of entering only a root password during Anaconda expressed that goal. It is not a requirement to keep Anaconda if Fedora CoreOS is selected. Fedora CoreOS normally uses Ignition; the actual installation/provisioning experience must be selected and verified against its native mechanisms.
 
-Cockpit is not assumed to be present in a default CoreOS installation. Verify its supported delivery method, available management features and root-only authentication configuration on the selected host. Do not recreate its host-management pages in the Soda dashboard.
+Cockpit is not assumed to be present in a default CoreOS installation. Verify its supported delivery method, available management features and root/operator-only authentication configuration on the selected host. Do not recreate its host-management pages in the Soda dashboard.
+
+### Retained operator Cockpit pages
+
+The predecessor's **Tailnet** and **Runners** pages, including their backing logic, are selected for reuse. These are explicit exceptions to stock-only Cockpit, not deferred ideas:
+
+| Page | Carry over |
+| --- | --- |
+| Tailnet (named **Tailscale** in the predecessor UI) | Native browser sign-in, connection state, device addresses and visible peers, exit-node selection/advertisement and the native LAN-access preference. Reuse the frontend state/native bridge and supporting Tailnet/Forgejo integration. |
+| Runners | Local CI runner registration and capacity/status views for bundled Forgejo and GitHub, with native start/stop/restart/removal operations. Reuse the UI, coordinator/helper/launch logic and required service integration. |
+
+Both are operator-only. Forgejo and GitHub continue to own CI workflows, registration authority, scheduling, results and history; Soda manages local execution capacity, not another CI platform. Native runner service accounts are runtime identities, not developer host accounts. Do not conflate a runner with a person's project workspace.
+
+Port these features with their necessary callers, native service/policy wiring and focused tests, rather than copying only the page markup. Adapt host packaging, persistent paths and the Forgejo connection/address-refresh integration to the selected CoreOS and containerized-Forgejo arrangement. Reuse is not proof that the predecessor's fixed endpoints, host network layout or native packaging work unchanged here.
 
 Bootstrap order and the initial dashboard/Forgejo administrator relationship remain unresolved. Native console access must remain a way for the operator to administer the host; normal developer authentication does not need a host Linux account.
 
-The immutable host's maintenance follows the selected upstream host model. No release pipeline, update ceremony, image-signing policy or cross-image update coupling is selected by this document.
+The immutable host's maintenance follows the selected upstream host model. No release pipeline, update ceremony, image-signing policy or cross-image update coupling is selected by this document. Retaining Tailnet and Runners does not authorize taking over the separately reserved Updates page/work.
 
 ## 15. Ownership and decision discipline
 
@@ -291,28 +296,29 @@ For a proposed mechanism:
 4. Add the smallest Soda integration that supplies the complete outcome.
 5. Keep unproved mechanisms and unresolved product choices explicit.
 
-Do not confuse necessary integration with a competing subsystem. Conversely, the existence of upstream primitives is not a reason to return developers to manually assembling the experience.
+Necessary integration means delivering a usable development pod, not automating users' repository workflows. Ordinary mise, Git and container commands remain developer tools; Soda must connect those tools to the correct project environment rather than require developers to assemble the appliance integration themselves.
 
-State is not forbidden: Soda has an explicitly required database. Generic workflow engines, reconciliation systems, authorization frameworks or guest agents are not selected simply because some operations require state or coordination.
+State is not forbidden: Soda has an explicitly required database. It does not imply a generic workflow engine, reconciliation system, authorization framework or guest agent. Consult [deferred.md](deferred.md) before turning an edge case or future idea into an implementation prerequisite.
 
 Deleting obsolete implementation should remove its supporting callers, tests and documentation coherently. A negative line-count target must not constrain delivery of genuinely new capabilities.
 
 ## 16. First end-to-end proof
 
-Before building a broad platform, demonstrate this one complete journey:
+This journey is the first installed validation target after source implementation and native builds, following [the implementation plan](implementation-plan.md). Lack of x86 access does not block implementing the current scope in source. Deferred machinery stays out of both the source scope and this proof:
 
 - An operator establishes Forgejo and dashboard administration without creating developer host accounts.
 - The operator creates Alice and Bob through the intended dashboard flow, backed by Forgejo identities.
-- Alice signs in and registers a public SSH key.
-- Alice creates a Rocky + mise project environment.
-- Bob registers his key and selects **Add me to this project**.
-- Both connect by ordinary SSH as themselves at the project address.
-- Both use shared project files and the same installed toolchain without separate tool downloads.
-- Alice uses a private toolchain copy without mutating the shared installation.
-- Alice creates a consistent private PostgreSQL copy and selects it without changing Bob's shared service.
-- Reproducible changes are committed, pushed, pulled and explicitly applied to the shared environment.
-- Alice can independently disable toolchain and service overrides and return to the shared resources, without an unrequested destructive cleanup.
+- Both sign in and register public SSH keys.
+- Alice, the owner of the associated Forgejo project/repository, creates its Rocky + mise development environment and is its project administrator, not a host administrator.
+- Alice and Bob select **Add me to this project** and obtain their project-local accounts. This proof does not depend on an unstated automatic join for the creator.
+- Both connect by ordinary SSH as themselves at the displayed project IP.
+- Both can use ordinary home-directory repository checkouts and the project's shared files.
+- The project administrator installs a shared development tool through mise; both users execute that same installation without separate tool downloads.
+- A normal repository-defined service is started from inside the development environment using native workload commands. The proven runtime is either nested Podman or the project-scoped host fallback, not unrestricted host access.
+- Developers use ordinary Git and native tool/service commands; Soda does not interpret merges as resource promotion or cleanup.
 - The environment retains its intended state across normal stop/start and host reboot.
+
+Private resource branches, dashboard selectors and the deferred edge-case/recovery matrices are not acceptance requirements for this first proof.
 
 AArch64 and x86-64 remain equal target architectures. Verify architecture-specific container/runtime behavior on matching native hardware and record gaps honestly. Successful source checks or compilation do not prove a usable installed development environment.
 
@@ -320,9 +326,18 @@ AArch64 and x86-64 remain equal target architectures. Verify architecture-specif
 
 This new repository is an architectural restart, not a compatibility layer over [`levitateos/soda-os`](https://github.com/LevitateOS/soda-os).
 
-The previous model of host Linux developer accounts, derived host workspace usernames, custom Cockpit developer pages, a minimal-catalog-only backend and exclusively private installed dependencies is not the governing design here.
+The previous model of host Linux developer accounts, derived host workspace usernames, custom Cockpit developer pages, a minimal-catalog-only backend and exclusively private installed dependencies is not the governing design here. This does not prohibit reuse of the operator-only Tailnet and Runners pages described in section 14.
 
-The shared-resource requirements from [the previous repository's issue #80](https://github.com/LevitateOS/soda-os/issues/80) are incorporated above. Its host-account assumptions are replaced by the project-local account model described here.
+### Selected predecessor reuse
+
+The source references below were inspected at [`856c6b9`](https://github.com/LevitateOS/soda-os/tree/856c6b961dd704ce4f6ba05615a964134375de5f). They identify useful source, not an installed validation result or a frozen dependency version:
+
+- **Tailnet:** [`cockpit/src/pages/TailscalePage.tsx`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/cockpit/src/pages/TailscalePage.tsx), `cockpit/src/tailscale/`, their UI components and `cockpit/soda-tailscale/`; supporting `internal/tailnet/`, `cmd/soda-tailnet/`, `cmd/soda-forgejo-tailnet/` and the existing Forgejo address-refresh integration. The predecessor's [`docs/networking.md`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/docs/networking.md) explains the old behavior, not the new project's network contract.
+- **Runners:** [`cockpit/src/pages/RunnersPage.tsx`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/cockpit/src/pages/RunnersPage.tsx), `cockpit/src/runners/`, their UI components and `cockpit/soda-runners/`; `internal/runners/`, `cmd/soda-runners/`, `cmd/soda-runner-helper/`, `cmd/soda-runner-launch/` and the required runner service/policy/package wiring. The predecessor's [CI runner guide](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/docs/public/30-Develop/40-ci-runners.md) records the native user journey.
+
+Bring over the relevant tests with the logic and verify the adapted native journeys on the selected host. This document records the reuse scope; it does not claim that either feature has been ported.
+
+The shared-resource direction from [the previous repository's issue #80](https://github.com/LevitateOS/soda-os/issues/80) informs this architecture, but its full private-resource branching and switching experience is deferred in this repository. Shared installed tools, files and project services remain current scope. Its host-account assumptions are replaced by project-local accounts and direct-IP SSH. This narrowing does not modify or close the previous repository's issue.
 
 The previous audit issues must be reassessed against this architecture rather than implemented blindly or automatically transferred. Reuse code, assets and evidence only where they fit the selected outcome; old implementation and tests do not create new product requirements.
 
