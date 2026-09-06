@@ -33,7 +33,7 @@ func enrollmentMessage(status tailnet.Status, statusErr error) string {
 		message += fmt.Sprintf("Tailnet identity: %s\n", status.Identity)
 	}
 	if host := status.URLHost(); host != "" {
-		return message + fmt.Sprintf("  Cockpit: https://%s:9090\n  Forgejo: http://%s:30000/\n", host, host)
+		return message + fmt.Sprintf("Tailnet endpoint: %s\nBrowser services use their configured HTTPS origins; Cockpit is loopback-first.\n", host)
 	}
 	return message + "Tailnet service addresses are unavailable.\n"
 }

@@ -1,5 +1,7 @@
 # SodaOS
 
+**Source-complete, unbuilt, unvalidated (M01–M14).** Native builds and validation are held for later authorized targets. See [implementation status](docs/implementation-status.md), [installation source/guide](docs/installation.md), and [native validation](docs/native-validation.md).
+
 Persistent shared Rocky + mise development environments on an immutable appliance host.
 
 See [architecture](docs/architecture.md), [implementation plan](docs/implementation-plan.md), [source handoff](docs/implementation-status.md), and [deferred scope](docs/deferred.md).

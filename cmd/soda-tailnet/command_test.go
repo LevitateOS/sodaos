@@ -29,16 +29,16 @@ func TestEnrollmentMessage(t *testing.T) {
 	require.Contains(t, enrollmentMessage(tailnet.Status{}, errors.New("unavailable")), "status is unavailable")
 }
 
-func TestConnectedMessageIncludesBothServiceURLs(t *testing.T) {
+func TestConnectedMessageDoesNotInventServiceURLs(t *testing.T) {
 	status := tailnet.Status{BackendState: "Running", Identity: "atlas.example.ts.net", IPv4: "100.64.0.1", MagicDNSEnabled: true}
 	message := enrollmentMessage(status, nil)
 	require.Contains(t, message, "Tailnet identity: atlas.example.ts.net")
-	require.Contains(t, message, "Cockpit: https://atlas.example.ts.net:9090")
-	require.Contains(t, message, "Forgejo: http://atlas.example.ts.net:30000/")
+	require.Contains(t, message, "Tailnet endpoint: atlas.example.ts.net")
+	require.NotContains(t, message, ":30000")
 	status.MagicDNSEnabled = false
 	message = enrollmentMessage(status, nil)
-	require.Contains(t, message, "Cockpit: https://100.64.0.1:9090")
-	require.Contains(t, message, "Forgejo: http://100.64.0.1:30000/")
+	require.Contains(t, message, "Tailnet endpoint: 100.64.0.1")
+	require.Contains(t, message, "configured HTTPS origins")
 }
 
 func TestExecuteKeepsUnavailableStatusNonFatal(t *testing.T) {

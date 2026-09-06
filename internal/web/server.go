@@ -34,7 +34,16 @@ func New(c config.Config, db *store.Store) *Server {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("ok\n"))
 	})
-	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { s.render(w, "home", nil) })
+	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if c, err := r.Cookie("soda_session"); err == nil && s.Store != nil {
+			if _, err = s.Store.Session(r.Context(), c.Value); err == nil {
+				http.Redirect(w, r, "/projects", 303)
+				return
+			}
+		}
+		s.render(w, "home", nil)
+	})
 	s.authRoutes()
 	s.projectRoutes()
 	return s

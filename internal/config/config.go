@@ -43,14 +43,21 @@ func Load(path string) (Config, error) {
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8080"
 	}
-	if _, _, err = net.SplitHostPort(c.Listen); err != nil {
-		return c, errors.New("listen must be host:port")
+	listenHost, _, err := net.SplitHostPort(c.Listen)
+	if err != nil || !net.ParseIP(listenHost).IsLoopback() {
+		return c, errors.New("listen must be a loopback IP:port behind the private HTTPS proxy")
 	}
 	for name, value := range map[string]string{"public_url": c.PublicURL, "forgejo_url": c.ForgejoURL, "forgejo_internal_url": c.ForgejoInternalURL} {
 		if err := BaseURL(value); err != nil {
 			return c, fmt.Errorf("%s: %w", name, err)
 		}
 	}
+	if !strings.HasPrefix(c.PublicURL, "https://") || !strings.HasPrefix(c.ForgejoURL, "https://") {
+		return c, errors.New("browser origins must use HTTPS")
+	}
+	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
+	c.ForgejoURL = strings.TrimRight(c.ForgejoURL, "/")
+	c.ForgejoInternalURL = strings.TrimRight(c.ForgejoInternalURL, "/")
 	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "admin_token_file": c.AdminTokenFile} {
 		if !filepath.IsAbs(value) {
 			return c, fmt.Errorf("%s must be an absolute path", name)

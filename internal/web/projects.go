@@ -91,6 +91,10 @@ func (s *Server) project(w http.ResponseWriter, r *http.Request, v store.Session
 	s.render(w, "project", p)
 }
 func (s *Server) joinProject(w http.ResponseWriter, r *http.Request, v store.Session) {
+	if !projectLogin.MatchString(v.User.Login) || v.User.Login == "root" {
+		s.fail(w, "This Forgejo username cannot be a supported project Linux account. Ask the operator before joining.", 400)
+		return
+	}
 	p, err := s.Store.Project(r.Context(), r.PathValue("id"))
 	if err != nil || !p.Ready {
 		s.fail(w, "Project is not provisioned.", 409)

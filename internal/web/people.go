@@ -7,8 +7,11 @@ import (
 	"golang.org/x/crypto/ssh"
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strings"
 )
+
+var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Page struct {
 	Environment host.Environment
@@ -73,8 +76,8 @@ func (s *Server) createPerson(w http.ResponseWriter, r *http.Request, v store.Se
 		return
 	}
 	login, email, password := strings.TrimSpace(r.FormValue("login")), strings.TrimSpace(r.FormValue("email")), r.FormValue("password")
-	if _, err := mail.ParseAddress(email); err != nil || login == "" || len(login) > 64 || len(password) < 12 {
-		s.fail(w, "Provide a username, email and initial password of at least 12 characters.", 400)
+	if _, err := mail.ParseAddress(email); err != nil || !projectLogin.MatchString(login) || login == "root" || len(password) < 12 {
+		s.fail(w, "Provide a lowercase Linux-compatible username (1–31 characters, not root), email and initial password of at least 12 characters.", 400)
 		return
 	}
 	admin, err := config.Secret(s.Config.AdminTokenFile)

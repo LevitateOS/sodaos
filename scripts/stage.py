@@ -53,12 +53,18 @@ css.write_text(css.read_text().replace('../theme/palette.css', 'palette.css'))
 shutil.copy2(source / 'assets/branding/theme/palette.css', brand / 'palette.css')
 for name in ['soda-logo-horizontal.svg', 'soda-logo-horizontal-dark.svg', 'soda-symbol.svg']:
     shutil.copy2(source / 'assets/branding/source' / name, brand / name)
-# Preserve Forgejo theme relative imports under the native custom/public root.
+# Adapt the canonical asset tree to Forgejo's native /assets URL root.
 custom = stage / 'var/lib/soda/forgejo/gitea/public/assets'
 shutil.copytree(source / 'assets/branding/forgejo/css', custom / 'css')
 shutil.copytree(source / 'assets/branding/theme', custom / 'theme')
-for name in ['logo.png', 'favicon.png']:
-    shutil.copy2(source / 'assets/branding/forgejo' / name, custom / name)
+for stylesheet in (custom / 'css').glob('*.css'):
+    stylesheet.write_text(stylesheet.read_text().replace('../../theme/palette.css', '../theme/palette.css'))
+images = custom / 'img'
+images.mkdir()
+for name in ['logo.svg', 'favicon.svg']:
+    shutil.copy2(source / 'assets/branding/source/soda-symbol.svg', images / name)
+for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
+    shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
 copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 link = stage / 'usr/local/sbin/soda-setup'

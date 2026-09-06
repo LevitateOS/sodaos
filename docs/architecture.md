@@ -22,7 +22,7 @@ Soda supplies the usable environment and its appliance integration. Developers r
 
 | Area | Direction |
 | --- | --- |
-| Host | An immutable, CoreOS-style appliance host. Fedora CoreOS is the leading candidate; its exact composition is not yet selected or validated. |
+| Host | An immutable, CoreOS-style appliance host. The implemented source candidate is Fedora CoreOS stable 44.20260817.3.2 with native rpm-ostree extensions; compatibility is unvalidated. |
 | Runtime | Podman-based project environments and containerized application services, with native host tooling for operator integrations where appropriate. |
 | Project base | Rocky Linux + mise. |
 | Project lifetime | Persistent and mutable; users develop inside the environment rather than routinely discard and reconstruct it. |
@@ -35,7 +35,7 @@ Soda supplies the usable environment and its appliance integration. Developers r
 | SSH | `{user}@{project-ip}`, for example `alice@192.168.1.101`. No project DNS naming scheme. |
 | Development resources | Shared installed tools, files and services, alongside ordinary personal repository checkouts. Soda-managed private resource branches and switching are deferred. |
 
-The database engine, Rocky release, host release, image layout and provisioning mechanisms remain open. None should be inferred from the old repository's choices.
+Implemented source choices: SQLite through modernc.org/sqlite, Rocky 9.6, mise 2026.9.1, Forgejo 15.0.7, create-once persistent Podman writable roots, and native Butane/Ignition plus rpm-ostree provisioning. See [implementation status](implementation-status.md) and [installation](installation.md). These are concrete source decisions, **unbuilt and unvalidated**, not inherited installation proof.
 
 ## 3. System shape
 
@@ -92,7 +92,7 @@ The root/operator identity administers the appliance through native host access 
 
 Dashboard administrator access does not mean the dashboard web process must run as root. The service privilege and the authorization of a human request are separate implementation concerns.
 
-The exact mechanism that establishes the operator's first dashboard session is unresolved. In particular, do not silently assume that:
+The implemented bootstrap uses operator-native Forgejo installation, a restricted operator API token and `soda-setup` to create the OAuth application and record the operator's stable provider ID. See [operator setup](operator-setup.md). This does not mean that:
 
 - a Forgejo site administrator automatically has host-root privileges;
 - the host root password is a Forgejo password; or
@@ -124,7 +124,7 @@ For example, Alice can have an `alice` account in both Project A and Project B w
 
 The project IP address distinguishes the environments. There is no reason to preserve the old host-level derived username or hashed-name convention. Username changes, reuse and generalized account-remapping machinery are deferred; retain the stable Forgejo identity association for the ordinary account path.
 
-Runtime service accounts required by the host's native tooling are a separate concern from developer identities. Their arrangement has not been selected.
+Runtime service accounts are separate from developer identities: `soda` UID/GID 2000 runs the dashboard; per-runner noninteractive native accounts run CI jobs. They are not human host onboarding.
 
 ## 5. Forgejo and the Soda database
 
@@ -165,7 +165,7 @@ Its initial purpose is to make these outcomes coherent:
 
 Private-resource branching, shared/private selectors and merge-related cleanup are not first-version dashboard features.
 
-The dashboard's backend may perform the narrow host/runtime operations needed for the supported outcomes. The service privilege boundary and project-account provisioning mechanism require investigation. A generic privileged command endpoint, full host-management API or permanent custom guest agent is not a selected mechanism.
+The dashboard's backend may perform the narrow host/runtime operations needed for the supported outcomes. The implemented boundary is a root:soda systemd Unix socket exposing only fixed project operations, with stateless project-local account setup through Podman exec. Its native permissions remain to be proved. A generic privileged command endpoint, full host-management API or permanent custom guest agent is not a selected mechanism.
 
 Run the necessary native operations and report their actual results. Detailed cross-system retry, rollback and recovery orchestration is deferred. This does not require either the old synchronous-only restrictions or a new general background-job platform.
 
@@ -197,7 +197,7 @@ Do not substitute routine deletion/recreation for the persistent development exp
 
 ## 9. Rocky Linux + mise
 
-Rocky Linux supplies the project userspace: Linux accounts, SSH, system libraries and base administration tools. The exact supported Rocky version and base package set remain to be selected.
+Rocky Linux supplies the project userspace: Linux accounts, SSH, system libraries and base administration tools. The source recipe selects Rocky 9.6 and explicitly installs the native account, SSH, Git, mise and workload dependencies in `project-os/Containerfile`; native build/behavior remains unverified.
 
 Provide mise for development-tool installation and version selection. Developers and the project administrator use normal mise and OS package commands, within their native permissions. Soda does not become another version manager, downloader, package format or tool catalog.
 
@@ -261,7 +261,7 @@ Trusted LAN and private remote/cloud access remain relevant contexts. Reuse the 
 
 The installation goal is operator-only host administration, not creating the first developer as a host Linux user.
 
-The earlier idea of entering only a root password during Anaconda expressed that goal. It is not a requirement to keep Anaconda if Fedora CoreOS is selected. Fedora CoreOS normally uses Ignition; the actual installation/provisioning experience must be selected and verified against its native mechanisms.
+The earlier idea of entering only a root password during Anaconda expressed that goal. It is not a requirement to keep Anaconda if Fedora CoreOS is selected. Fedora CoreOS normally uses Ignition; the implemented provisioning source now uses Butane/Ignition and native extension requests, with actual installation still held for native verification.
 
 Cockpit is not assumed to be present in a default CoreOS installation. Verify its supported delivery method, available management features and root/operator-only authentication configuration on the selected host. Do not recreate its host-management pages in the Soda dashboard.
 
@@ -278,7 +278,7 @@ Both are operator-only. Forgejo and GitHub continue to own CI workflows, registr
 
 Port these features with their necessary callers, native service/policy wiring and focused tests, rather than copying only the page markup. Adapt host packaging, persistent paths and the Forgejo connection/address-refresh integration to the selected CoreOS and containerized-Forgejo arrangement. Reuse is not proof that the predecessor's fixed endpoints, host network layout or native packaging work unchanged here.
 
-Bootstrap order and the initial dashboard/Forgejo administrator relationship remain unresolved. Native console access must remain a way for the operator to administer the host; normal developer authentication does not need a host Linux account.
+The implemented bootstrap order and administrator association are documented in [installation](installation.md) and [operator setup](operator-setup.md). Native console access must remain a way for the operator to administer the host; normal developer authentication does not need a host Linux account.
 
 The immutable host's maintenance follows the selected upstream host model. No release pipeline, update ceremony, image-signing policy or cross-image update coupling is selected by this document. Retaining Tailnet and Runners does not authorize taking over the separately reserved Updates page/work.
 
@@ -335,7 +335,7 @@ The source references below were inspected at [`856c6b9`](https://github.com/Lev
 - **Tailnet:** [`cockpit/src/pages/TailscalePage.tsx`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/cockpit/src/pages/TailscalePage.tsx), `cockpit/src/tailscale/`, their UI components and `cockpit/soda-tailscale/`; supporting `internal/tailnet/`, `cmd/soda-tailnet/`, `cmd/soda-forgejo-tailnet/` and the existing Forgejo address-refresh integration. The predecessor's [`docs/networking.md`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/docs/networking.md) explains the old behavior, not the new project's network contract.
 - **Runners:** [`cockpit/src/pages/RunnersPage.tsx`](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/cockpit/src/pages/RunnersPage.tsx), `cockpit/src/runners/`, their UI components and `cockpit/soda-runners/`; `internal/runners/`, `cmd/soda-runners/`, `cmd/soda-runner-helper/`, `cmd/soda-runner-launch/` and the required runner service/policy/package wiring. The predecessor's [CI runner guide](https://github.com/LevitateOS/soda-os/blob/856c6b961dd704ce4f6ba05615a964134375de5f/docs/public/30-Develop/40-ci-runners.md) records the native user journey.
 
-Bring over the relevant tests with the logic and verify the adapted native journeys on the selected host. This document records the reuse scope; it does not claim that either feature has been ported.
+Bring over the relevant tests with the logic and verify the adapted native journeys on the selected host. Both features have now been ported in source, as recorded in [implementation status](implementation-status.md); neither has been built or validated here.
 
 The shared-resource direction from [the previous repository's issue #80](https://github.com/LevitateOS/soda-os/issues/80) informs this architecture, but its full private-resource branching and switching experience is deferred in this repository. Shared installed tools, files and project services remain current scope. Its host-account assumptions are replaced by project-local accounts and direct-IP SSH. This narrowing does not modify or close the previous repository's issue.
 

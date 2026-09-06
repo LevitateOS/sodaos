@@ -2,6 +2,12 @@
 
 Source-only: no builds, tests, type checks, installed validation or artifact publication have run.
 
+## Current handoff
+
+**M01–M14: source-complete, unbuilt, unvalidated.** M15–M18 remain held for named native targets and explicit execution authorization. Start with [native validation](native-validation.md) and [installation](installation.md), not an automatic CI run.
+
+Required later generated inputs: real `go.sum`/any resolver-required indirect Go requirements, native binaries/frontend bundles/images/staging, private Ignition, real TLS/operator credentials and actual client routes. No fabricated checksums, artifacts or PASS records are supplied. Nested Podman and direct client routing remain the highest native risks.
+
 ## Baseline
 
 - New backend and privileged integration: Go; no Rust subsystem without a concrete need. Retained Cockpit frontend: TypeScript/React.
@@ -53,7 +59,7 @@ Selected native CoreOS package layering for Cockpit, root-only PAM, loopback-fir
 
 ## M11 — source implemented
 
-Tailnet page/native state/store/components and focused tests ported. Native host refresh now updates Forgejo Git SSH advertisement while preserving configured browser/OAuth origins, inspects live environment and restarts the actual container unit when needed. No Tailnet enrollment or native execution performed.
+Tailnet page/native state/store/components and focused tests ported. Native host refresh now updates Forgejo Git SSH advertisement while preserving configured browser/OAuth origins, inspects live environment and restarts the actual container unit when needed. No Tailnet enrollment or native execution performed. M14 additionally verifies the actual Git SSH listener before advertising a Tailnet address, avoiding unreachable clone guidance.
 
 ## M12 — source implemented
 
@@ -62,3 +68,11 @@ Runners page, native provider/lifecycle/helper/launcher code, service wiring and
 ## M13 — source implemented
 
 Native build/staging, first-install and private Butane provisioning recipes authored; dashboard/proxy Quadlets, TLS activation, service identity/ownership, native extension package requests, provider-client checksum fetch and branding staging included. Routes require explicit deployment configuration; no project DNS/gateway added. Native staging tests authored. No build, package install, provisioning render, provider download, activation or validation executed.
+
+## M14 — source implemented
+
+Integrated authenticated navigation, visible HTMX error responses, pending native-operation states, basic accessibility and direct SSH/SCP/SFTP guidance that is withheld for stopped/unavailable endpoints. Added server-side compatible username validation, HTTPS/loopback configuration guards, provider/native journey and privilege test source, and the missing retained Cockpit process-test support. Removed predecessor-guessed Tailnet service URLs; actual listener inspection now guards Forgejo advertisement. Corrected native Forgejo SVG/favicon destinations and relocated theme imports from inspected upstream template paths without modifying canonical branding assets.
+
+Authored explicit matching-native source/staging check entrypoint and the full later Alice/Bob, persistence, Tailnet and provider-runner journey. Architecture documentation now reflects implemented choices rather than describing them as unresolved. x/sys v0.47.0 source metadata was inspected; dependency resolution was not run.
+
+**Source-complete, unbuilt, unvalidated.** No builds, compilation/type checks, tests, dependency installations, provisioning renders, native activations, enrollments, registrations or CI jobs were executed. M15–M18 remain held.

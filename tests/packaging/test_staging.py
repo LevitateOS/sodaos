@@ -40,6 +40,15 @@ class NativeStage(unittest.TestCase):
         for name in ['palette.css', 'theme.css', 'soda-logo-horizontal.svg', 'soda-logo-horizontal-dark.svg']:
             self.assertTrue((brand / name).is_file(), name)
 
+    def test_forgejo_native_asset_paths(self):
+        public = self.root / 'var/lib/soda/forgejo/gitea/public/assets'
+        for name in ['logo.svg', 'favicon.svg', 'favicon.png']:
+            self.assertTrue((public / 'img' / name).is_file(), name)
+        css = (public / 'css/theme-soda-light.css').read_text()
+        self.assertIn('../theme/palette.css', css)
+        self.assertNotIn('../../theme/palette.css', css)
+        self.assertTrue((public / 'theme/palette.css').is_file())
+
 
 if __name__ == '__main__':
     unittest.main()
