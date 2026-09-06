@@ -58,7 +58,7 @@ class ProjectTools(unittest.TestCase):
                 self.assertNotIn('GOFLAGS', kwargs['env'])
                 self.assertEqual(kwargs['env']['TEA_VERSION'], '0.15.1')
                 (Path(kwargs['cwd']) / 'tea').write_text('not a real binary; process double\n')
-            return subprocess.CompletedProcess(args, 0, stdout='tea version 0.15.1\n')
+            return subprocess.CompletedProcess(args, 0, stdout='Version: \x1b[1m0.15.1\x1b[0m\tgolang: 1.26.7\tgo-sdk: v1.2.0\n')
 
         with patch.dict(self.module.os.environ, {'GOFLAGS': '-mod=readonly'}), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.subprocess, 'run', side_effect=run):
             self.module.build('x86_64')
@@ -69,6 +69,16 @@ class ProjectTools(unittest.TestCase):
         self.assertEqual(calls[1], ['make', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'])
         self.assertEqual(calls[2], [str(output / 'bin/tea'), '--version'])
         self.assertFalse((self.root / '.artifacts/native/x86_64/rootfs').exists())
+
+    def test_different_native_version_is_rejected(self):
+        def run(args, **kwargs):
+            if args[0] == 'make':
+                (Path(kwargs['cwd']) / 'tea').write_text('fixture binary\n')
+            return subprocess.CompletedProcess(args, 0, stdout='Version: \x1b[1m0.15.10\x1b[0m\tgolang: 1.26.7\n')
+
+        with patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.subprocess, 'run', side_effect=run):
+            with self.assertRaisesRegex(SystemExit, 'version does not match'):
+                self.module.build('x86_64')
 
 
 if __name__ == '__main__':

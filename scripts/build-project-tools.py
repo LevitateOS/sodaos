@@ -7,7 +7,6 @@ and executes the resulting CLI's --version. No login or provider registration.
 import argparse
 import os
 import platform
-import re
 import shutil
 import subprocess
 import tarfile
@@ -49,7 +48,10 @@ def build(arch):
         shutil.copy2(sources[0] / 'tea', binary)
         binary.chmod(0o755)
         version = subprocess.run([str(binary), '--version'], check=True, capture_output=True, text=True)
-        if not re.search(r'\b' + re.escape(lock['version']) + r'\b', version.stdout):
+        # Pinned Tea's version.Format always surrounds Version with bold/reset
+        # SGR, even with NO_COLOR and piped stdout. Match its actual version field.
+        plain_version = version.stdout.replace('\x1b[1m', '').replace('\x1b[0m', '')
+        if not plain_version.startswith('Version: ' + lock['version'] + '\tgolang: '):
             raise SystemExit('built Tea version does not match its source lock')
     license_dir = output / 'licenses/tea'
     license_dir.mkdir(parents=True)
