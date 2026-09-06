@@ -137,8 +137,17 @@ within the request and rejects unsupported changes rather than claiming success.
 Forgejo owns target delivery/host policy; Soda never calls a hook URL. Its pinned
 default resolves an empty allowed-host setting to external hosts and verifies TLS;
 no appliance webhook override was found by source inspection. Authored redaction,
-preservation, unsafe-input and native-denial tests remain unexecuted. Other U12
-settings/access/protection/organization/team work remains pending.
+preservation, unsafe-input and native-denial tests remain unexecuted. U12 now also has connected repository metadata/feature/merge settings, native
+collaborator permission inspection/set/remove, Git deploy-key list/add/remove,
+and branch/tag protection list/create/edit. Repository settings submit only
+changed fields; native rename/transfer/archive/delete are not exposed. Deploy
+keys remain separate from Soda development keys, and provider access changes do
+not propagate to Linux. Pinned branch/tag PATCH implementations were inspected;
+omitted protection values are retained, otherwise-ignored nested push flags are
+rejected, and IDs remain lossless. Added settings-only-patch, privilege-denial,
+public-key rejection and protection dependency/opaque-ID cases plus a focused DOM
+test. Only gofmt/diff inspection ran. Advanced branch-policy form details,
+organization/team work and the full native permission matrix remain pending.
 
 ### Current milestone ledger
 
@@ -154,7 +163,7 @@ settings/access/protection/organization/team work remains pending.
 | U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
 | U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
 | U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
-| U12 | Partial connected webhook source with inspected native secret/PATCH constraints | None | Settings/access/protection/org/team implementation and permission matrix |
+| U12 | Connected settings/access/deploy-key/protection/webhook source | None | Advanced protection forms, org/team implementation and full native permission matrix |
 | U13–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 

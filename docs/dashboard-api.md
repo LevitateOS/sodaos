@@ -162,7 +162,24 @@ Pinned PATCH does not rotate signing secrets or change package/action event flag
 Unsupported rotation input is rejected; changing those flags fails explicitly,
 as does silently turning an eventless hook into the native default push hook.
 Native settings remain the labeled dependency for these gaps pending U17 decision.
-Other U12 settings/access/org/team work and all execution evidence remain pending.
+Organization/team work and all execution evidence remain pending.
+
+`/settings` GET/PATCH exposes bounded native description/website/visibility/default
+branch, feature and merge-method fields only. Pointer patches preserve omitted
+values; React sends only changed fields. Rename, transfer, archive and delete are
+not accepted. `/collaborators` lists native users; `/{login}` inspects native
+permission or delegates PUT/DELETE direct collaborator changes. `/deploy-keys`
+lists/adds Git public keys with explicit read-only intent; individual DELETE
+removes only the native deploy key. No Linux key/account operation occurs.
+
+`/branch-protections` and `/tag-protections` list/create with fixed individual PATCH
+routes. Native branch/tag PATCH was inspected: omitted fields are retained;
+otherwise-ignored nested push flags require their explicit enabling parents.
+Identifiers are opaque/lossless, rule path segments reject dot traversal, and
+native organization team/user resolution remains upstream. Basic connected forms
+exist; advanced branch allowlist/file-pattern form details remain pending. Native
+423 locked-resource and 405 state/settings denials map to explicit 409 rather
+than a fabricated successful change. Authored focused cases remain unexecuted.
 
 ## OAuth, credentials and migration
 

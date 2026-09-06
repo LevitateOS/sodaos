@@ -18,6 +18,9 @@ import { Issues, NewIssue, IssueDetail } from "./issues";
 import { Labels, Milestones } from "./issue-metadata";
 import { Pulls, NewPull, PullDetail } from "./pulls";
 import { Hooks } from "./hooks";
+import { RepositorySettings } from "./repository-settings";
+import { Collaborators, DeployKeys } from "./repository-access";
+import { BranchProtections, TagProtections } from "./protections";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -53,6 +56,11 @@ export function App() {
           <Route path="/repositories/:owner/:repo/pulls" element={<Pulls session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/new" element={<NewPull session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/:index" element={<PullDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/settings" element={<RepositorySettings session={session} />} />
+          <Route path="/repositories/:owner/:repo/collaborators" element={<Collaborators session={session} />} />
+          <Route path="/repositories/:owner/:repo/deploy-keys" element={<DeployKeys session={session} />} />
+          <Route path="/repositories/:owner/:repo/branch-protections" element={<BranchProtections session={session} />} />
+          <Route path="/repositories/:owner/:repo/tag-protections" element={<TagProtections session={session} />} />
           <Route path="/repositories/:owner/:repo/hooks" element={<Hooks session={session} />} />
           <Route path="/repositories/:owner/:repo/labels" element={<Labels session={session} />} />
           <Route path="/repositories/:owner/:repo/milestones" element={<Milestones session={session} />} />

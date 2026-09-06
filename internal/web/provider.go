@@ -139,7 +139,7 @@ func providerError(w http.ResponseWriter, err error) {
 		case 404:
 			jsonError(w, 404, "provider_not_found", "Forgejo object not found or not visible.")
 			return
-		case 405:
+		case 405, 423:
 			jsonError(w, 409, "provider_operation_unavailable", "Forgejo does not permit this operation in its current state or settings.")
 			return
 		case 409:
