@@ -167,6 +167,9 @@ func TestSelectedSignerAndMalformedStatus(t *testing.T) {
 }
 func TestPrivateOutputRefusesExistingAndSymlinkedParents(t *testing.T) {
 	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
 	out := filepath.Join(root, "private.json")
 	if err := PrivateDestination(out); err != nil {
 		t.Fatal(err)
