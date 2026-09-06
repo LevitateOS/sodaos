@@ -18,6 +18,67 @@ Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
 provider resource, project state or networking was changed. Deployment/migration,
 developer routing and installed workload/persistence acceptance remain pending.
 
+## Native first developer fixtures and complete core build
+
+Full matching-native x86_64 build/staging/sealing succeeded at `8417a90`, after
+correcting a payload filter that mistook npm's `installed-deep.js` for appliance
+installation state. The signed pinned gh RPM installed successfully in Rocky.
+Cockpit type checks plus 60 tests, dashboard type checks plus 21 tests, 12 build
+fixture tests and 9 staging tests passed against that checkout/stage. The aggregate
+`check-native.sh` stopped on two Go test-fixture directories that assumed a private
+umask; `eca7673` makes their private parents explicit, and the full Go suite passed
+with Go 1.26.7, CGO disabled and umask 022. Do not call the earlier aggregate
+entrypoint a pass; its remaining components were invoked separately.
+
+The `8417a90` helper and project image were transferred with verified hashes and
+installed on `soda-test`, retaining prior artifacts in
+`/var/lib/soda/u08-core-8417a90/`. Host configuration stayed unchanged; the image
+is used for new projects, never to replace existing writable roots. Stopping the
+helper socket also stopped the dashboard through its native Requires dependency;
+the same preview dashboard was explicitly restarted. No Forgejo, proxy, Cockpit,
+Tailnet or VM restart occurred.
+
+Core-owned installed browser tests created `u08-alice-8417` and `u08-bob-8417`
+through Soda's acting-admin People API. Native first-login password changes,
+independent OAuth sessions, development public-key registration, two private
+repositories, two persistent environments and explicit owner joins succeeded.
+Bob joined Alice's environment as a non-administrator. Alice separately granted
+native repository write collaboration; that did not grant Linux membership.
+Before collaboration Bob could not read the private repository; afterward he
+still could not create its environment. Bob's explicitly admin-scoped OAuth grant
+was denied by native site-admin authorization. Both users remain absent from the
+appliance's host passwd database.
+
+The run was resumed explicitly after two PatternFly alert selectors timed out
+after successful writes. Existing fixture identities/keys were checked rather
+than recreated; private inputs, bindings and failed-attempt logs were preserved.
+The new tests do not automatically retry uncertain provisioning or clean up
+resources. Their resumed result is not a fresh-install acceptance run.
+
+Both users' authenticated connection responses and join-required denial were
+checked. Advertised public host keys matched an independent pinned operator SSH
+read of each project's public host-key file; private developer keys remain only
+on infra. Known-host entries and connection metadata are retained privately under
+`.artifacts/test-vm/u08-8417a90/`. Project-local home/public-key/Tea/gh checks passed
+through operator `podman exec` as each local administrator, explicitly **not** as
+client SSH proof. No developer private key was copied into the VM or projects.
+
+Logs: `u08-core-native-build-payload-fix.log`, `u08-core-native-check-8417a90.log`,
+`u08-native-go-umask022.log`, `u08-*-check-8417a90.log`,
+`u08-*-tests-8417a90.log`, `u08-core-runtime-rollout.log`,
+`u08-developer-browser*.log`, `u08-{alice,bob}-connections.log`, and
+`u08-project-local-observations.log`. The application remains `35df189` at `/app/`;
+helper/project image are `8417a90`. U08 is still incomplete: direct client
+SSH/SCP/SFTP, personal project Git, shared installs, nested workload/data and
+persistence are not proven. A narrow Layer-3 SSH tunnel/route was proposed for
+infra→project access and awaits approval; no infra routing/Tailnet change was made.
+Independent arm64, U15 wiki/packages, U16 and U17–U20 remain unfinished.
+
+**Preservation:** real developer identities, keys, repositories, memberships and
+project writable state now exist. The old pre-migration backup cannot be restored
+without an explicit decision preserving those later writes. Do not reset fixtures,
+replace project containers or roll back the Soda DB as a repair shortcut.
+
 ## Native React preview migration and operator browser proof
 
 Executed on infra and its existing x86_64 `soda-test` guest, with strict pinned

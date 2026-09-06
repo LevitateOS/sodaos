@@ -28,7 +28,24 @@ node tests/installed/dashboard-react.mjs \
 `SODA_RECONSENT_APPLICATION='SodaOS dashboard'` is a separate explicit mutation:
 it revokes only this user's uniquely named native Soda grant before reconsenting.
 Do not enable it as an automatic retry or for unrelated applications/users.
-Two-user/project/workload/persistence and direct developer routing remain pending.
+Two developer fixtures now exist: `u08-alice-8417` and `u08-bob-8417`, each owning
+a private repository and persistent environment. Both explicitly joined; Bob also
+joined Alice's environment without project-administrator rights. Native
+collaboration and admin/owner denials were verified separately from Linux access.
+Inputs and observed bindings are private under `.artifacts/test-vm/u08-8417a90/`.
+Do not recreate these users/projects, discard their writable roots or restore the
+old pre-migration DB over them. Direct developer routing/SSH, personal project Git,
+shared tools, nested workloads and persistence remain pending.
+
+`SODA_U08_FIXTURES_DIR` enables real fixture creation through the core-owned
+`tests/installed/developer-first-workflow.mjs`. It requires a private fixture
+manifest with two specifically named users, separate initial/final password files
+and development public keys. Its explicitly selected
+`SODA_U08_RESUME_FIXTURES=1` reuses retained observed identities and verifies state;
+it does not retry incomplete reservations or reset anything.
+`SODA_U08_CONNECTIONS_DIR` enables read-only authenticated connection checks and
+independent operator verification of **public** host keys. Neither mode proves
+client reachability; private keys remain on the client.
 
 ## Open the dashboard
 
@@ -156,4 +173,4 @@ The initial build/install exposed concrete curl-package, mise-checksum, CLI-vali
 
 Next, exercise the developer journey in [native validation](native-validation.md): create people through Soda, repositories through Forgejo, register public keys, create/join project environments, use shared tools and nested workloads, and validate persistence. Real client routing to project IPs must be established deliberately before claiming direct SSH works; port forwarding is not proof of it.
 
-Still unvalidated: the full developer onboarding/create/join/SSH journey, nested Podman, shared tools, project persistence, Tailnet enrollment/routing/exit-node operations, provider-scheduled runner jobs and AArch64. There is one local Forgejo operator identity and its Soda profile, but no developer users, repositories or project environments were created during dashboard bootstrap.
+Still unvalidated: the full developer onboarding/create/join/SSH journey, nested Podman, shared tools, project persistence, Tailnet enrollment/routing/exit-node operations, provider-scheduled runner jobs and AArch64. The original bootstrap created only the operator. The later React fixtures described above now add real developer users, private repositories, environments and memberships; preserve them.

@@ -4,6 +4,8 @@
 // Optional SODA_RECONSENT_APPLICATION='SodaOS dashboard' explicitly revokes
 // only the uniquely named grant in this user's native Applications UI.
 // SODA_ADMIN_CONSENT=1 explicitly requests the native administrator scope.
+// SODA_U08_FIXTURES_DIR explicitly enables the core-owned developer fixture
+// mutations described in developer-first-workflow.mjs; it requires fresh inputs.
 import assert from 'node:assert/strict';
 import { readFile, lstat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -83,12 +85,23 @@ try {
  await page.reload(); await page.getByRole('heading', { name: 'Persistent environments', exact: true }).waitFor();
  assert.equal(renderingErrors, 0, 'Installed React rendering failed');
  console.log('Acting-user native reads, React navigation and direct-link reload verified.');
+ if (process.env.SODA_U08_FIXTURES_DIR) {
+  assert.equal(process.env.SODA_ADMIN_CONSENT, '1');
+  stage = 'core developer fixtures';
+  const { runFirstWorkflow } = await import('./developer-first-workflow.mjs');
+  await runFirstWorkflow({ browser, operatorPage: page, soda: sodaURL.origin, forgejo: forgejoURL.origin, fixtureDirectory: process.env.SODA_U08_FIXTURES_DIR });
+ }
+ if (process.env.SODA_U08_CONNECTIONS_DIR) {
+  stage = 'project connection/public-key observations';
+  const { observeProjectConnections } = await import('./project-connections.mjs');
+  await observeProjectConnections({ page, username, fixtureDirectory: process.env.SODA_U08_CONNECTIONS_DIR });
+ }
  stage = 'Soda logout';
  await page.getByRole('button', { name: 'Sign out of Soda', exact: true }).click();
  await page.getByRole('link', { name: 'Sign in with Forgejo', exact: true }).waitFor();
  assert(!(await context.cookies(sodaURL.origin)).some(value => value.name === 'soda_session'));
  assert.equal(await page.evaluate(async () => (await fetch('/api/forgejo/me')).status), 401);
- console.log('Installed CSRF-protected logout cleared session/provider access. No project/workload proof claimed.');
+ console.log('Installed CSRF-protected logout cleared session/provider access. No client SSH/workload/persistence proof claimed.');
 } catch (error) {
  const summary = error.message.split('\n')[0].replaceAll(password, '[redacted]').replace(/(https?:\/\/[^\s?]+)\?[^\s]*/g, '$1?[redacted]');
  console.error(`Installed React check failed during ${stage}: ${summary}`); process.exitCode = 1;

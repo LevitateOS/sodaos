@@ -2,13 +2,13 @@
 
 Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
-The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The active [support source and recipes](native-support.md) are now authored but unbuilt/untested. The commands below retain the existing installation path with sealed bundles and private provisioning; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
+The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The [support source and recipes](native-support.md) have now participated in the sealed x86_64 `8417a90` build; their remaining native/architecture limits are recorded in the [implementation status](implementation-status.md). The commands below retain the existing installation path with sealed bundles and private provisioning; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
 
 ## 1. Prepare the native builder
 
 Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
 
-The new React preview requires a real reviewed `dashboard/pnpm-lock.yaml`, which has not yet been resolved in the source-only phase. Both build entrypoints refuse to proceed without it; do not fabricate it or silently reuse Cockpit's lockfile. See [dashboard build/migration notes](../dashboard/README.md). Dependency resolution, compilation and deployment still need their applicable authorization.
+The React preview has a real resolved `dashboard/pnpm-lock.yaml`, exercised by the native build. Both build entrypoints require it; do not fabricate metadata or silently reuse Cockpit's lockfile. See [dashboard build/migration notes](../dashboard/README.md). Dependency resolution, compilation and deployment still need their applicable authorization.
 
 Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. Cockpit's predecessor dependency lockfile is retained. Then invoke:
 
@@ -63,7 +63,7 @@ Activation applies file ownership for the unprivileged dashboard, retains operat
 
 ### Existing-state dashboard migration
 
-The new unbuilt source requires `grant_key_file` and schema-v3 encrypted session
+The current dashboard requires `grant_key_file` and schema-v3 encrypted session
 grants. Do not run first-install or OAuth bootstrap again on an existing target.
 Follow the [controlled credential migration and rollback procedure](dashboard-credentials.md),
 including a consistent SQLite backup, matching config/key/artifact set and
