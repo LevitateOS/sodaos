@@ -47,6 +47,20 @@ it does not retry incomplete reservations or reset anything.
 independent operator verification of **public** host keys. Neither mode proves
 client reachability; private keys remain on the client.
 
+## Approved project routing from infra
+
+The private Layer-3 SSH tunnel is now approved and running. Infra has a runtime
+route to `10.89.0.0/24` through `tun8417`, restricted by dedicated firewall rules;
+no LAN/Tailnet change was made. `tests/installed/developer-access.py` passed direct
+SSH/PTY/SCP/SFTP for Alice in her project and Bob in both projects, including sudo
+boundaries and denial of Alice's authentication to the unjoined second project.
+See [current routing evidence and exact teardown](implementation-status.md#approved-private-routing-and-direct-developer-access).
+
+This routes **infra**, not your laptop. Browser tunnels remain separate. Keep the
+run-owned transport and probe data for subsequent Git/shared-tool/workload checks;
+no project or VM lifecycle test has been performed. Earlier direct-access-pending
+statements in the historical observations below are superseded by this result.
+
 ## Open the dashboard
 
 **The dashboard, Forgejo and HTTPS proxy are now running in `soda-test`.** Native Forgejo login, OAuth consent/callback, the authenticated Projects/Profile/People pages and Soda sign-out have been exercised in Chromium with certificate verification enabled.

@@ -1,5 +1,53 @@
 # Implementation handoff
 
+## Approved private routing and direct developer access
+
+The user explicitly approved the private SSH tunnel after the `6a1f129` plan
+update. Infra is now the routed developer client for the existing `soda-test`
+projects. The exact-target private recipe is
+`.artifacts/tools/u08-project-tunnel.py`; evidence is
+`.artifacts/logs/u08-project-tunnel.log`. It creates `tun8417` at both ends,
+point-to-point `169.254.84.1` (infra) / `169.254.84.2` (guest), MTU 1400, and only
+the project route `10.89.0.0/24` on infra. Preflight checked target names,
+interface/route/table/config collisions and existing VM forwarding (already 1).
+No global forwarding sysctl, LAN route, Tailnet enrollment or existing firewall
+chain was changed.
+
+Dedicated `inet soda_u08_tunnel` tables restrict tunnel traffic: infra cannot
+forward LAN/container traffic through it; VM ingress is limited to forwarding
+from the client address to `soda0`/the project subnet, with established return
+traffic only. Tunnel access to VM-local services and project-initiated access to
+infra are dropped. SSH `PermitTunnel point-to-point` is scoped to root from the
+QEMU management address `10.0.2.2`, port 22, in the new
+`/etc/ssh/sshd_config.d/00-soda-u08-tunnel.conf`. Configuration validation preceded
+SSH reload; no service restart, VM reboot or project replacement occurred.
+
+`tests/installed/developer-access.py` passed for Alice in her project and Bob in
+both projects: own-key direct-IP SSH, exact username/home/non-root identity,
+interactive PTY, bidirectional SCP and SFTP with byte comparison, mapped
+non-host-root UID namespace, administrator sudo success and ordinary-member sudo
+denial. Alice's attempt to authenticate to Bob's unjoined project failed with
+actual public-key authentication denial, not a transport or host-key error.
+The final run disables personal SSH configuration and agent/port forwarding;
+strict independently verified host keys remain required. Private keys were used
+only by the client and never transferred. Logs:
+`u08-first-direct-project-ssh.log`, `u08-direct-developer-access.log` and
+`u08-direct-developer-access-isolated-client.log` in `.artifacts/logs/`.
+
+New uniquely named probe directories/files are retained in the three project
+homes and under `.artifacts/test-vm/u08-8417a90/u08-access-*`. The tunnel control
+socket and rule inputs are in that fixture root's `tunnel/` directory. The exact
+teardown recipe `.artifacts/tools/u08-project-tunnel-stop.py` is authored but
+**not executed**; it removes only this route/tunnel/tables/SSH drop-in and reloads
+SSH, preserving project data and evidence. The route is not persistent across
+host reboots and does not provide access from the user's laptop automatically.
+
+This supersedes earlier routing-approval/direct-SSH-pending statements below.
+U08 remains incomplete: personal Git, genuinely shared tools/files, nested
+application/database work, remaining runtime isolation and stop/start/reboot
+persistence are still unverified. Installed application/helper/image revisions
+remain unchanged; no build, provider job or lifecycle test ran in this follow-up.
+
 ## Current local verification after execution approval
 
 The user's “go until finished”, following the listed execution gates, authorized

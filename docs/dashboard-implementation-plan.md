@@ -10,7 +10,9 @@ This is the leading implementation sequence for the **core product**: frontend, 
 
 The [initial M01–M18 plan](implementation-plan.md) remains historical context for the existing Go + HTMX/native implementation; its completed source work is reused, not implemented again. U08/U20 revisit its still-unverified native requirements. Milestone numbers here do not inherit earlier PASS records.
 
-## Current execution snapshot — through `cde7ebb`
+## Current execution snapshot — approved routed-access follow-up
+
+The source/provisioning baseline is `cde7ebb`; the subsequent approved tunnel and direct-access evidence below extends that baseline without changing installed application bytes.
 
 ### What is actually built and installed
 
@@ -20,7 +22,7 @@ The [initial M01–M18 plan](implementation-plan.md) remains historical context 
 - **Checks:** Cockpit type checks and 60 tests; dashboard type checks and 21 tests; 12 build-fixture and 9 staging tests passed. The aggregate native check stopped on private-directory fixture assumptions. `eca7673` corrected those fixtures and the full pinned Go suite passed afterward; **the complete aggregate entrypoint was not rerun successfully**.
 - **Migration/authentication:** private consistent backups, isolated schema 1→3 rehearsal, missing/wrong-key and missing-asset startup refusals, operator OAuth/consent/session/navigation/logout checks. The rehearsal preserved one user/two sessions but had no existing projects/keys/memberships; it does not prove populated-state migration or a live rollback.
 - **Real developer state:** Alice and Bob have native accounts, completed first-password change/OAuth, registered development public keys, created private repositories and persistent environments, and explicitly joined. Bob also joined Alice's environment without project-administrator rights. Native collaboration, private-repository visibility and administrator/owner denials were checked separately from Linux membership.
-- **Connection evidence:** authenticated connection authorization and independent public host-key verification passed. Project-local home/public-key/Tea/gh checks ran through operator execution as project users—not developer SSH. The browser fixture run used explicit resumption after selector failures following successful writes; it was not a clean first-install run.
+- **Connection evidence:** authenticated connection authorization and independent public host-key verification passed. After explicit routing approval, infra now reaches project IPs through a project-only Layer-3 SSH tunnel. Alice in her project and Bob in both projects passed direct SSH, interactive PTY, bidirectional SCP/SFTP, non-host-root UID mapping and expected sudo boundaries. Alice's public-key authentication to Bob's unjoined project was denied. Personal SSH configuration/agent forwarding is disabled in the test. Earlier home/public-key/Tea/gh observations used operator execution; shared tools/workloads are not yet proven through the client. The browser fixture run used explicit resumption after selector failures following successful writes; it was not a clean first-install run.
 
 ### Milestone status and remaining work
 
@@ -35,7 +37,7 @@ The [initial M01–M18 plan](implementation-plan.md) remains historical context 
 | **U05 — Accounts/keys/People** | Connected profile/Git-key/People/development-key source; actual two-user onboarding and non-admin denial | Remaining account/key/UI cases and full Forgejo-admin/non-Soda-operator versus Soda-operator authority matrix. |
 | **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
 | **U07 — Environments** | Actual two-project creation, explicit account/key provisioning, memberships and public connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
-| **U08 — First product proof** | Build/migration and first developer provisioning/authorization subset installed | Routed interactive SSH/commands/SCP/SFTP; personal Git clone/commit/push; sudo/host-engine/isolation checks; truly shared files/mise installs; nested HTTP/database workload and bind mounts; existing-container stop/start and VM reboot persistence. |
+| **U08 — First product proof** | Build/migration, first developer provisioning and routed SSH/PTY/SCP/SFTP verified; owner/member sudo and unjoined-project authentication checked | Personal Git clone/commit/push; remaining host-engine/isolation checks; truly shared files/mise installs; nested HTTP/database workload and bind mounts; existing-container stop/start and VM reboot persistence. |
 | **U09 — Code/history/writes** | Connected history/refs/compare/file-write/fork/basic-import source locally checked | Blame and fuller diff/import coverage; real Git readback, stale/protected writes, forks and import failure journeys. |
 | **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked | Structured native templates, remaining comment attachment/reaction detail, expanded failure cases and real two-user collaboration proof. |
 | **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked | Existing inline threads, old-side positions, team reviewers and real reviewer/merger/conflict/check-failure/stale-head journeys. |
@@ -51,8 +53,8 @@ The [initial M01–M18 plan](implementation-plan.md) remains historical context 
 
 ### Next execution and decisions
 
-1. **Finish U08 from the retained fixtures.** Client access to `10.89.0.0/24` is not established. The proposed private Layer-3 SSH tunnel, VM tunnel forwarding and narrowly scoped infra route await explicit approval. Browser tunnels and operator-local execution do not substitute for direct project-IP access.
-2. After routing is approved, exercise personal SSH/Git/shared tools/nested workloads. Obtain explicit permission before fixture stop/start and reboot of **only `soda-test`**; preserve and compare existing state.
+1. **Finish U08 from the retained fixtures.** The user approved the private tunnel, and direct project-IP access from infra now works. The route is runtime-only: `10.89.0.0/24` through `tun8417`, with interface-specific firewall restrictions. No LAN/Tailnet routes or global forwarding sysctls changed. This does not route the user's laptop automatically.
+2. Next exercise personal Git, shared tools and nested workloads through that client path. Obtain explicit permission before fixture stop/start and reboot of **only `soda-test`**; preserve and compare existing state. Retain tunnel/evidence resources for these tests; exact teardown instructions are in the handoff.
 3. **Continue independent source work:** U15 wiki/packages, U16 administration, missing U09–U14 interactions and focused tests. Routing is not a blocker to this work, and checkpoints are not completion.
 4. Approve an exact disposable runner/repository before real Actions dispatch. Select approved native aarch64 and fresh-install targets for U20; neither has acceptance evidence yet.
 5. Close U17 with explicit upstream-gap decisions before U18 cutover, then complete U19/U20. The current preview rollout is not authorization to discard data or perform final cutover.
