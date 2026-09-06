@@ -1,5 +1,17 @@
 # Implementation handoff
 
+## U08 completion execution authorized — preparation
+
+The user requested execution of the entire recorded U08 completion plan, including
+the exact `soda-test` rollout, one additional fixture, its stop/start and the VM
+reboot. This does not authorize unrelated targets or destructive cleanup.
+Prepared fresh-fixture browser coverage, parameterized existing Git/access/shared-
+tool/workload cases, retained private passphrase inputs for new Git agents, and
+bounded all-project lifecycle snapshots/comparisons. Exact private transport
+restoration is authored under `.artifacts/tools/u08-completion-transports.py`.
+Preparation is not a new native PASS; the following build/rollout/runtime stages
+must record their actual outcomes before acceptance.
+
 ## U08 completion plan recorded
 
 Added the [U08 completion checklist](dashboard-implementation-plan.md#u08-completion-execution-plan--baseline-0d4c4eb)

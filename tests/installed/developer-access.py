@@ -21,6 +21,7 @@ def main():
     assert root.is_absolute()
     st = root.lstat()
     assert root.is_dir() and not root.is_symlink() and st.st_uid == os.getuid() and not st.st_mode & 0o077
+    target = json.loads((root / 'target.json').read_text()) if (root / 'target.json').exists() else None
     run_name = 'u08-access-' + uuid.uuid4().hex
     output = root / run_name
     output.mkdir(mode=0o700)
@@ -48,7 +49,7 @@ def main():
         known = root / (login + '-known-hosts')
         assert known.is_file() and not known.is_symlink()
         connections = json.loads((root / (login + '-connections.json')).read_text())
-        assert len(connections) == (1 if who == 'alice' else 2)
+        assert len(connections) == (1 if target or who == 'alice' else 2)
         bindings = json.loads((root / 'observed-bindings.json').read_text())
         for connection in connections:
             identifier, ip = connection['id'], connection['ip']
@@ -95,8 +96,12 @@ def main():
                             'direct_ssh': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
                             'probe_directory': destination})
             (output / 'results.json').write_text(json.dumps(results, indent=2))
-    bob_project = next(b for b in bindings if b['login'] == 'u08-bob-8417')
-    bob_ip = next(c['ip'] for c in connections if c['id'] == bob_project['environmentID'])
+    if target:
+        bob_ip = target['isolation_ip']
+        assert re.fullmatch(r'10\.89\.0\.[0-9]{1,3}', bob_ip) and 1 < int(bob_ip.split('.')[-1]) < 255
+    else:
+        bob_project = next(b for b in bindings if b['login'] == 'u08-bob-8417')
+        bob_ip = next(c['ip'] for c in connections if c['id'] == bob_project['environmentID'])
     # Bob's known-host file contains independently verified keys for both projects.
     # It is public trust material, not Bob's authentication credential.
     denied = execute(['ssh', '-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
@@ -105,7 +110,7 @@ def main():
                       '-i', str(root / 'alice/development'), 'u08-alice-8417@' + bob_ip, 'true'])
     assert denied.returncode == 255 and b'Permission denied (publickey' in denied.stderr, 'Require actual cross-project authentication denial, not a routing/host-key failure'
     (output / 'cross-project-denial.json').write_text(json.dumps({'alice_to_bob_project': 'public-key authentication denied'}))
-    print('Three memberships passed direct SSH, interactive PTY, bidirectional SCP/SFTP and expected sudo boundaries; Alice cannot authenticate to the unjoined second project.')
+    print('Selected memberships passed direct SSH, interactive PTY, bidirectional SCP/SFTP and expected sudo boundaries; Alice cannot authenticate to the unjoined second project.')
     print('Shared tools, personal Git, nested workloads and persistence are separate checks.')
 
 

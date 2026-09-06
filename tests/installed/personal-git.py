@@ -8,6 +8,9 @@ first establish the explicitly verified loopback Git transport and host key.
 Existing keys/checkouts are never replaced or automatically retried.
 """
 import json
+import ipaddress
+import re
+import secrets
 import os
 from pathlib import Path
 import subprocess
@@ -18,10 +21,14 @@ import urllib.parse
 
 def main():
     assert os.environ.get('SODA_NATIVE_VALIDATE') == 'soda-test'
-    assert len(sys.argv) == 3 and sys.argv[1] in ('prepare', 'exercise')
+    assert len(sys.argv) == 3 and sys.argv[1] in ('prepare', 'exercise', 'unlock')
     phase = sys.argv[1]
     fixture = Path(sys.argv[2]); assert fixture.is_absolute()
     st = fixture.lstat(); assert fixture.is_dir() and not fixture.is_symlink() and st.st_uid == os.getuid() and not st.st_mode & 0o077
+    target = json.loads((fixture / 'target.json').read_text()) if (fixture / 'target.json').exists() else {'ip': '10.89.0.2', 'repository': 'shared-alice'}
+    ip = target['ip']; repository = target['repository']
+    assert ipaddress.ip_address(ip) in ipaddress.ip_network('10.89.0.0/24')
+    assert re.fullmatch(r'[a-z0-9][a-z0-9-]{0,99}', repository)
     directory = fixture / 'personal-git'
     if phase == 'prepare': directory.mkdir(mode=0o700)
 
@@ -36,17 +43,23 @@ def main():
         ssh = ['ssh', '-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
                '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
                '-o', 'UserKnownHostsFile=' + str(fixture / (login + '-known-hosts')),
-               '-i', str(fixture / who / 'development'), login + '@10.89.0.2']
+               '-i', str(fixture / who / 'development'), login + '@' + ip]
+        passfile = directory / (login + '-passphrase')
         if phase == 'prepare':
+            with open(passfile, 'x', opener=lambda p, flags: os.open(p, flags, 0o600)) as stream:
+                stream.write(secrets.token_urlsafe(32))
+        if phase in ('prepare', 'unlock'):
+            assert passfile.stat().st_uid == os.getuid() and not passfile.stat().st_mode & 0o077
+            passphrase = passfile.read_text(); assert re.fullmatch(r'[A-Za-z0-9_-]{43}', passphrase)
             program = textwrap.dedent('''\
                 import os, pathlib, re, secrets, subprocess
                 base = pathlib.Path.home()/'.ssh/u08-personal-git'
                 base.parent.mkdir(mode=0o700,exist_ok=True)
-                base.mkdir(mode=0o700)
+                PREPARE_DIRECTORY
                 os.umask(0o077)
                 password = base/'temporary-passphrase'
                 ask = base/'temporary-askpass'
-                password.write_text(secrets.token_urlsafe(32))
+                password.write_text(PASSPHRASE_INPUT)
                 ask.write_text('#!/bin/sh\\nexec /usr/bin/head -c 128 '+str(password)+'\\n')
                 ask.chmod(0o700)
                 env = {**os.environ,'SSH_ASKPASS':str(ask),'SSH_ASKPASS_REQUIRE':'force','DISPLAY':'soda-u08'}
@@ -54,7 +67,12 @@ def main():
                     r=subprocess.run(args,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                     if r.returncode: raise RuntimeError('Git key/agent operation failed')
                     return r.stdout
-                run(['ssh-keygen','-q','-t','ed25519','-f',str(base/'identity'),'-C','U08 personal project Git'])
+                PREPARE_KEY
+                # A socket without a live agent is a retained run-owned transient.
+                if (base/'agent').exists():
+                    probe=subprocess.run(['ssh-add','-l'],env={**env,'SSH_AUTH_SOCK':str(base/'agent')},stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    if probe.returncode != 2: raise RuntimeError('Agent already live; no duplicate start')
+                    (base/'agent').unlink()
                 agent=run(['ssh-agent','-a',str(base/'agent'),'-s']).decode()
                 pid=re.search(r'SSH_AGENT_PID=(\\d+)',agent).group(1)
                 (base/'agent.pid').write_text(pid+'\\n')
@@ -67,17 +85,20 @@ def main():
                 (base/'git-ssh').chmod(0o700)
                 print((base/'identity.pub').read_text().strip())
                 ''')
+            program = program.replace('PASSPHRASE_INPUT', repr(passphrase)).replace('PREPARE_DIRECTORY', 'base.mkdir(mode=0o700)' if phase == 'prepare' else 'assert base.is_dir()').replace('PREPARE_KEY', "run(['ssh-keygen','-q','-t','ed25519','-f',str(base/'identity'),'-C','U08 personal project Git'])" if phase == 'prepare' else "assert (base/'identity').is_file()")
             public = checked(ssh + ['python3 -'], program.encode())
+            del passphrase, program
             assert public.startswith(b'ssh-ed25519 ') and public.count(b'\n') == 1
-            (directory / (login + '.pub')).write_bytes(public)
-            print(login, 'encrypted project-local Git key prepared; only public part exported', flush=True)
+            if phase == 'prepare': (directory / (login + '.pub')).write_bytes(public)
+            else: assert public == (directory / (login + '.pub')).read_bytes()
+            print(login, 'encrypted project-local Git key/agent ready; only public part exported', flush=True)
             continue
         repo = json.loads((directory / (login + '-repository.json')).read_text())
         url = urllib.parse.urlsplit(repo['ssh_url'])
         # Use the actual returned advertisement, never guessed predecessor ports.
         assert url.scheme == 'ssh' and url.hostname == '127.0.0.1' and url.port == 2222
         assert url.username == 'git' and not url.password and not url.query and not url.fragment
-        assert url.path == '/u08-alice-8417/shared-alice.git'
+        assert url.path == '/u08-alice-8417/' + repository + '.git'
         clone = repo['ssh_url']
         branch = 'u08-native-' + who
         command = f'''set -eu
