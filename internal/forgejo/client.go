@@ -22,16 +22,21 @@ type User struct {
 	Admin bool   `json:"is_admin"`
 }
 type Repository struct {
-	ID            int64  `json:"id"`
-	Name          string `json:"name"`
-	FullName      string `json:"full_name"`
-	Owner         User   `json:"owner"`
-	Description   string `json:"description"`
-	Private       bool   `json:"private"`
-	DefaultBranch string `json:"default_branch"`
-	CloneURL      string `json:"clone_url"`
-	SSHURL        string `json:"ssh_url"`
-	Empty         bool   `json:"empty"`
+	ID                  int64  `json:"id"`
+	Name                string `json:"name"`
+	FullName            string `json:"full_name"`
+	Owner               User   `json:"owner"`
+	Description         string `json:"description"`
+	Private             bool   `json:"private"`
+	DefaultBranch       string `json:"default_branch"`
+	CloneURL            string `json:"clone_url"`
+	SSHURL              string `json:"ssh_url"`
+	Empty               bool   `json:"empty"`
+	AllowMerge          bool   `json:"allow_merge_commits"`
+	AllowSquash         bool   `json:"allow_squash_merge"`
+	AllowRebase         bool   `json:"allow_rebase"`
+	AllowRebaseExplicit bool   `json:"allow_rebase_explicit"`
+	AllowFastForward    bool   `json:"allow_fast_forward_only_merge"`
 }
 type Application struct {
 	ClientID string `json:"client_id"`

@@ -115,6 +115,19 @@ comment-attachment/reaction details and full stale/permission/native journey
 coverage remain source work. Attachment downloads explicitly use configured
 native Forgejo links, not borrowed cookies or a fabricated custom binary proxy.
 
+U11 source adds connected PR list/create/detail, a shared native issue/PR
+conversation component, commit/file/diff/status inspection, reviewer requests,
+explicit-head reviews/new-side inline comments and protected native merge. Native
+review/merge source was inspected at v15.0.7: review comments use file line numbers,
+reviews receive explicit `commit_id`, and merges receive `head_commit_id` with
+force/auto-merge/branch deletion fixed false. File/diff reads check displayed
+head/base/merge-base before and after retrieval; stale snapshots fail closed.
+No merge operation calls the project helper. Authored changed-diff, stale-review,
+merge-protection/no-force and retained-draft DOM cases; none executed. Existing
+inline-thread rendering, old-side positions, team reviewers and full native
+permission/conflict evidence remain pending. Native pending comments can remain
+after a failed review submission; no automatic retry or invented recovery occurs.
+
 ### Current milestone ledger
 
 | Milestones | Source | Built / tested / installed | Remaining |
@@ -128,7 +141,8 @@ native Forgejo links, not borrowed cookies or a fabricated custom binary proxy.
 | U08 | Pending | None | Explicit build/deployment/fixture/lifecycle permissions, approved direct client route and two-project/workload/persistence proof |
 | U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
 | U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
-| U11–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
+| U12–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

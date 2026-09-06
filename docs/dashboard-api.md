@@ -118,6 +118,30 @@ Structured templates, full comment-attachment/reaction detail and complete nativ
 journey/permission coverage remain pending. Connected source and authored tests
 are not U10 completion.
 
+## Pull requests (U11 source)
+
+Explicit `/pulls` list/create, `/{index}` detail, `/commits`, `/files`, `/diff`,
+`/reviews`, `/reviewers` and `/merge` routes use acting-user repository scopes.
+Issue/PR conversation uses the same issue-scoped comment API and React component.
+`/commit-status/{sha}` lists native base-repository head statuses, not an invented
+aggregate of all protection/review requirements or a CI scheduler.
+
+Diff/files require full `head`, `base`, `merge_base` query SHAs checked before and
+after retrieval. Diff is inert UTF-8 text up to 1 MiB; oversized/unsupported input
+fails explicitly, never as a successful truncated review model. Review POST
+requires the same snapshot and binds native `commit_id` to the displayed head.
+Optional inline comments use `{path,line,body}` where line is a native new-side
+file line number. Old-side mapping and existing inline-thread rendering remain
+unfinished, not falsely presented as supported parity. Native submission may
+leave pending comments after failure; no automatic retries are made.
+
+Merge requires explicit snapshot and native strategy; native `head_commit_id`
+preconditions are retained. Force merge, auto-merge and branch deletion are fixed
+false, unknown override fields rejected, and there is no environment mutation.
+Native 405 state/settings rejection maps to 409 `provider_operation_unavailable`.
+Forgejo owns mergeability, protection and execution; UI reloads native results.
+Authored tests are unexecuted and U11 acceptance remains pending.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy

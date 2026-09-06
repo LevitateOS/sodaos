@@ -24,6 +24,7 @@ func (s *Server) forgejoRoutes() {
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/download", s.apiProvider(s.apiDownload, "read:repository", "GET"))
 	s.historyRoutes()
 	s.issueRoutes()
+	s.pullRoutes()
 }
 
 type providerUserView struct {

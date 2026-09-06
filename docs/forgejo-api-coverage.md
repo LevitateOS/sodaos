@@ -87,6 +87,17 @@ The schema supplies `/issue_templates` and structured field metadata. Its faithf
 custom rendering/validation and comment-asset/reaction detail remain unfinished
 source work, **not** a claimed upstream gap. All new tests remain unexecuted.
 
+U11 follow-up inspected pinned `routers/api/v1/repo/pull_review.go`,
+`modules/structs/pull_review.go` and `routers/api/v1/repo/pull.go` against Swagger.
+Create review maps `new_position`/`old_position` to positive/negative file line
+numbers, not unified-diff offsets, and accepts explicit `commit_id`. Native review
+submission associates pending comments and is not assumed atomic across comment
+creation and submission. Initial custom inline input supports only the new side;
+old-side mapping, existing threads and team requests remain source work. Native
+merge passes `head_commit_id` through to merge execution and returns conflict for
+stale head; force/auto-merge/delete-branch remain fixed false in Soda. This is
+source research and authored tests, not a verified native review/merge journey.
+
 ## Authority register
 
 - Forgejo: identity/password/MFA, account fields, repositories, organizations/teams, collaboration, Git keys, CI and upstream administration.
