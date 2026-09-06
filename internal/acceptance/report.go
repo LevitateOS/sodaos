@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,7 +37,7 @@ type Observation struct {
 
 func (e *Evidence) Hashes() (map[string]string, error) {
 	files := map[string]string{}
-	err := filepath.WalkDir(e.Path(), func(path string, d os.DirEntry, err error) error {
+	err := fs.WalkDir(e.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -46,18 +47,44 @@ func (e *Evidence) Hashes() (map[string]string, error) {
 		if !d.Type().IsRegular() {
 			return errors.New("unexpected evidence entry")
 		}
-		rel, err := filepath.Rel(e.Path(), path)
+		sum, err := nativebuild.HashAt(e.root, path)
 		if err != nil {
 			return err
 		}
-		sum, err := nativebuild.HashFile(path)
-		if err != nil {
-			return err
-		}
-		files[rel] = sum
+		files[path] = sum
 		return nil
 	})
 	return files, err
+}
+
+// readObservation binds decoded metadata and all retained-file hashes through
+// one open directory, even if its pathname is renamed during the read.
+func readObservation(file string) (Observation, string, error) {
+	var o Observation
+	root, err := os.OpenRoot(filepath.Dir(file))
+	if err != nil {
+		return o, "", err
+	}
+	defer root.Close()
+	digest, err := nativebuild.ReadJSONAt(root, filepath.Base(file), &o)
+	if err != nil {
+		return o, "", err
+	}
+	for name, sum := range o.Artifacts {
+		if name == "" || !nativebuild.Digest(sum) {
+			return o, "", errors.New("invalid public artifact reference")
+		}
+	}
+	for name, sum := range o.Files {
+		if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
+			return o, "", errors.New("unsafe observation reference")
+		}
+		actual, err := nativebuild.HashAt(root, name)
+		if err != nil || actual != sum {
+			return o, "", errors.New("observation bytes changed")
+		}
+	}
+	return o, digest, nil
 }
 
 // Handoff cites exact observations and explicitly leaves missing scopes open.
@@ -73,11 +100,14 @@ func Handoff(out, arch, revision string, records []string) error {
 		return errors.New("full candidate revision required")
 	}
 	var text strings.Builder
-	fmt.Fprintf(&text, "# Native support handoff\n\nCandidate: `%s` / `%s`.\n\nProduct readiness: **not assessed here; U20 owns it**. No ISO/QCOW2 delivery selected by this report. Sibling architecture is independent.\n\n", revision, arch)
+	fmt.Fprintf(&text, "# Native support handoff\n\nCandidate: `%s` / `%s`.\n\nProduct readiness: **not assessed here; U20 owns it**. No ISO/QCOW2 delivery selected by this report. Sibling architecture is independent.\n\nCandidate/target fields are requested identities, not independently discovered facts for arbitrary exec commands. Read each owner's invoked check and retained artifact references for actual binding. Artifact references are historical digests, not a fresh verification of files at their former locations.\n\n", revision, arch)
 	seen := map[string]bool{}
 	for _, file := range records {
-		var o Observation
-		if err := nativebuild.ReadJSON(file, &o); err != nil {
+		if filepath.Base(file) != "observation.json" {
+			return errors.New("finalized observation.json required")
+		}
+		o, digest, err := readObservation(file)
+		if err != nil {
 			return err
 		}
 		if !ValidOwner(o.Owner) {
@@ -95,35 +125,13 @@ func Handoff(out, arch, revision string, records []string) error {
 		if o.RequestedRevision != revision || o.RequestedArchitecture != arch {
 			return errors.New("observation belongs to a different candidate/platform")
 		}
-		root, err := os.OpenRoot(filepath.Dir(file))
-		if err != nil {
-			return err
-		}
-		for name, sum := range o.Files {
-			if !filepath.IsLocal(name) {
-				root.Close()
-				return errors.New("unsafe observation reference")
-			}
-			st, err := root.Lstat(name)
-			if err != nil || !st.Mode().IsRegular() {
-				root.Close()
-				return errors.New("non-regular observation reference")
-			}
-			actual, err := nativebuild.HashFile(filepath.Join(filepath.Dir(file), name))
-			if err != nil || actual != sum {
-				root.Close()
-				return errors.New("observation bytes changed")
-			}
-		}
-		if err = root.Close(); err != nil {
-			return err
-		}
-		digest, err := nativebuild.HashFile(file)
-		if err != nil {
-			return err
-		}
 		// JSON quoting avoids Markdown/control injection from an external log index.
-		description, _ := json.Marshal(struct{ Owner, Target, Outcome, Execution, Evidence string }{o.Owner, o.Target, o.Outcome, o.Execution, o.Evidence})
+		description, _ := json.Marshal(struct {
+			Owner, Target, Outcome, Execution, Evidence, Cleanup, Topology string
+			ExitCode                                                       *int
+			Invocation                                                     []string
+			Artifacts                                                      map[string]string
+		}{o.Owner, o.Target, o.Outcome, o.Execution, o.Evidence, o.Cleanup, o.Topology, o.ExitCode, o.Invocation, o.Artifacts})
 		location, _ := json.Marshal(file)
 		fmt.Fprintf(&text, "    %s\n    record-sha256: %s\n    path: %s\n\n", description, digest, location)
 		seen[o.Owner] = true

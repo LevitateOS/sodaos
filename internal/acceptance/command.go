@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -31,6 +30,7 @@ type Result struct {
 	Err            error
 	Started        bool
 	ExitCode       *int
+	Artifacts      map[string]string
 }
 
 // Execute does not print argv or stdin. Result.Err is execution, the returned
@@ -51,38 +51,38 @@ func Execute(ctx context.Context, e *Evidence, label string, c Command) (Result,
 	// Captured bytes are sanitized, too; callers never receive secret-bearing logs.
 	oa := &redactingWriter{out: nopCloser{io.MultiWriter(out, &a)}, secrets: e.secrets}
 	ob := &redactingWriter{out: nopCloser{io.MultiWriter(stderr, &b)}, secrets: e.secrets}
-	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
-	cmd.Dir = c.Dir
-	cmd.Stdin = c.Stdin
-	cmd.Env = append(os.Environ(), c.Env...)
-	cmd.Stdout = oa
-	cmd.Stderr = ob
-	cmd.WaitDelay = 10 * time.Second
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
-		if errors.Is(err, syscall.ESRCH) {
-			return os.ErrProcessDone
-		}
-		return err
+	p, runErr := StartProcess(ctx, c, oa, ob)
+	closeWriters := func() error { return errors.Join(oa.Close(), ob.Close(), out.Close(), stderr.Close()) }
+	if p == nil {
+		return Result{Err: e.RedactError(runErr)}, e.RedactError(closeWriters())
 	}
-	runErr := cmd.Run()
-	writeErr := errors.Join(oa.Close(), ob.Close(), out.Close(), stderr.Close())
+	runErr = p.Wait(ctx)
+	if ctx.Err() != nil {
+		runErr = errors.Join(runErr, ctx.Err(), p.Stop())
+	}
+	select {
+	case <-p.Done():
+	default:
+		// Do not race a still-owned writer after an uninterruptible native exit.
+		go func() { <-p.Done(); _ = closeWriters() }()
+		return Result{Err: e.RedactError(runErr), Started: true}, errors.New("evidence still owned by incomplete process cleanup")
+	}
+	writeErr := closeWriters()
 	var exitCode *int
-	if cmd.ProcessState != nil {
-		code := cmd.ProcessState.ExitCode()
+	if p.cmd.ProcessState != nil {
+		code := p.cmd.ProcessState.ExitCode()
 		exitCode = &code
-		if cmd.ProcessState.Success() && runErr != nil && ctx.Err() == nil {
-			// A successful child plus pipe/WaitDelay failure is not a native denial.
-			writeErr = errors.Join(writeErr, runErr)
-			runErr = nil
+		if p.cmd.ProcessState.Success() && p.waitErr != nil && ctx.Err() == nil {
+			// Copy/pipe failures after exit zero belong to retention, not a
+			// native denial. Group cleanup failures remain execution failures.
+			writeErr = errors.Join(writeErr, p.waitErr)
+			runErr = p.cleanupErr
 		}
 	}
-	runErr = errors.Join(runErr, ctx.Err())
 	if runErr != nil {
 		runErr = e.RedactError(fmt.Errorf("command execution: %w", runErr))
 	}
-	return Result{Stdout: a.Bytes(), Stderr: b.Bytes(), Err: runErr, Started: cmd.Process != nil, ExitCode: exitCode}, e.RedactError(writeErr)
+	return Result{Stdout: a.Bytes(), Stderr: b.Bytes(), Err: runErr, Started: true, ExitCode: exitCode}, e.RedactError(writeErr)
 }
 
 type nopCloser struct{ io.Writer }
@@ -141,6 +141,9 @@ func (r Remote) Command(args []string, input io.Reader) (Command, error) {
 	return Command{Name: "ssh", Args: append(base, Quote(bounded)), Stdin: input}, nil
 }
 func (r Remote) WaitReady(ctx context.Context) error {
+	if _, err := exec.LookPath("ssh"); err != nil {
+		return err
+	}
 	args, err := r.Args()
 	if err != nil {
 		return err

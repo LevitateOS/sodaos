@@ -2,6 +2,7 @@
 package nativebuild
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"syscall"
 )
 
 func OCIArchitecture(arch string) (string, error) {
@@ -53,6 +55,35 @@ func HashFile(path string) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
+
+// HashAt keeps path resolution confined to the caller's open directory.
+func HashAt(root *os.Root, name string) (string, error) {
+	st, err := root.Lstat(name)
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() {
+		return "", errors.New("regular non-symlink file required")
+	}
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	actual, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !actual.Mode().IsRegular() || !os.SameFile(st, actual) {
+		return "", errors.New("file changed before hashing")
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 func FreshDirectory(path string) error {
 	if !filepath.IsAbs(path) {
 		return errors.New("absolute new directory required")
@@ -96,26 +127,53 @@ func WriteNew(path string, data []byte, mode os.FileMode) error {
 	return errors.Join(err, f.Close())
 }
 func ReadJSON(path string, v any) error {
-	st, err := os.Lstat(path)
+	root, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		return err
+	}
+	defer root.Close()
+	_, err = ReadJSONAt(root, filepath.Base(path), v)
+	return err
+}
+
+// ReadJSONAt returns the digest of the exact bounded bytes it decoded, not a
+// later reopening of the filename. The directory remains caller-owned.
+func ReadJSONAt(root *os.Root, name string, v any) (string, error) {
+	st, err := root.Lstat(name)
+	if err != nil {
+		return "", err
 	}
 	if !st.Mode().IsRegular() || st.Size() > 4<<20 {
-		return errors.New("bounded regular JSON input required")
+		return "", errors.New("bounded regular JSON input required")
 	}
-	f, err := os.Open(path)
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer f.Close()
-	d := json.NewDecoder(f)
+	actual, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !actual.Mode().IsRegular() || !os.SameFile(st, actual) {
+		return "", errors.New("JSON input changed before reading")
+	}
+	data, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
+	if err != nil {
+		return "", err
+	}
+	if len(data) > 4<<20 {
+		return "", errors.New("JSON input exceeds limit")
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
 	if err = d.Decode(v); err != nil {
-		return err
+		return "", err
 	}
 	var extra any
 	if err = d.Decode(&extra); err != io.EOF {
-		return errors.New("trailing JSON data")
+		return "", errors.New("trailing JSON data")
 	}
-	return nil
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }

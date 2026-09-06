@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -192,6 +191,9 @@ func run(ctx context.Context, args []string) error {
 			o.Invocation = []string{"transfer sealed bundle", *source, *destination}
 			r, werr := remote.TransferBundle(phase, e, *source, *destination, *arch, *revision, *target)
 			o.ExitCode = r.ExitCode
+			for name, hash := range r.Artifacts {
+				o.Artifacts[name] = hash
+			}
 			operationErr = r.Err
 			evidenceErr = werr
 			if r.Started {
@@ -212,6 +214,13 @@ func run(ctx context.Context, args []string) error {
 			o.Cleanup = "not-reached or failed launch; work retained"
 			var vm *acceptance.VM
 			vm, operationErr = acceptance.LaunchVM(phase, vmConfig, e)
+			if operationErr != nil && vm != nil {
+				o.Execution = "failed"
+				o.Cleanup = "completed after failed launch; private work retained"
+				if vm.Close() != nil {
+					o.Cleanup = "failed after failed launch; private work retained"
+				}
+			}
 			if operationErr == nil {
 				o.Execution = "completed"
 				evidenceErr = e.Write("boot-ready.txt", []byte("Fresh guest reached pinned SSH readiness. This is fixture evidence, not a product check.\n"))
@@ -225,15 +234,15 @@ func run(ctx context.Context, args []string) error {
 					fmt.Fprintln(os.Stdout, "Fresh guest ready. Invoke owned checks separately. Interrupt shuts down and retains disks; cancellation is not a pass.")
 					operationErr = vm.Wait(phase)
 				}
+				if operationErr != nil {
+					o.Execution = "failed"
+				}
 				cleanupErr := vm.Close()
 				o.Cleanup = "completed; private disk/NVRAM retained at " + vmConfig.Work
 				if cleanupErr != nil {
 					o.Cleanup = "failed; private work retained"
 				}
 				operationErr = errors.Join(operationErr, cleanupErr)
-				if operationErr != nil {
-					o.Execution = "failed"
-				}
 			}
 		}
 	}
@@ -279,11 +288,9 @@ func run(ctx context.Context, args []string) error {
 		safeArtifacts[e.RedactString(name)] = sum
 	}
 	o.Artifacts = safeArtifacts
-	data, merr := json.MarshalIndent(o, "", "  ")
-	if merr == nil {
-		merr = e.Write("observation.json", append(data, '\n'))
-	}
-	return e.RedactError(errors.Join(operationErr, evidenceErr, merr, e.CheckSecrets()))
+	// No success-shaped final record exists until retention has finalized.
+	merr := e.PublishObservation(o)
+	return e.RedactError(errors.Join(operationErr, evidenceErr, merr))
 }
 func report(args []string) error {
 	f := flag.NewFlagSet("report", flag.ContinueOnError)

@@ -137,6 +137,9 @@ func TestProcessCancellationBeforeStart(t *testing.T) {
 	}
 }
 func TestOwnedProcessWaitAndCleanup(t *testing.T) {
+	if err := ownedGroupsSupported(); err != nil {
+		t.Skip(err)
+	}
 	p, err := StartProcess(context.Background(), Command{Name: "/bin/sh", Args: []string{"-c", "exit 0"}}, nil, nil)
 	if err != nil {
 		t.Fatal(err)

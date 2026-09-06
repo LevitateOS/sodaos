@@ -90,8 +90,10 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if _, err := exec.LookPath(c.QEMU); err != nil {
 		return err
 	}
-	if _, err := exec.LookPath("qemu-img"); err != nil {
-		return err
+	for _, tool := range []string{"qemu-img", "ssh"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			return err
+		}
 	}
 	kvm, err := os.OpenFile("/dev/kvm", os.O_RDWR, 0)
 	if err != nil {
@@ -149,11 +151,15 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	if err != nil {
 		return nil, err
 	}
-	description, _ := json.Marshal(struct{ Name, Architecture, BaseSHA256, Release, FirmwareSHA256, VariablesSHA256, Work string }{c.Name, c.Architecture, base.SHA256, base.Release, firmwareHash, varsHash, c.Work})
-	if err = e.Write("fixture.json", append(description, '\n')); err != nil {
+	description := struct{ Name, Architecture, BaseSHA256, Release, FirmwareSHA256, VariablesSHA256, Work string }{c.Name, c.Architecture, base.SHA256, base.Release, firmwareHash, varsHash, c.Work}
+	if err = e.WriteJSON("fixture.json", description); err != nil {
 		return nil, err
 	}
 	version, err := Execute(ctx, e, "qemu-version", Command{Name: c.QEMU, Args: []string{"--version"}})
+	if err != nil || version.Err != nil {
+		return nil, errors.Join(err, version.Err)
+	}
+	version, err = Execute(ctx, e, "qemu-img-version", Command{Name: "qemu-img", Args: []string{"--version"}})
 	if err != nil || version.Err != nil {
 		return nil, errors.Join(err, version.Err)
 	}
@@ -190,7 +196,7 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	}
 	v := &VM{config: c, evidence: e}
 	if err = v.start(ctx); err != nil {
-		return nil, errors.Join(err, v.Close())
+		return v, errors.Join(err, v.Close())
 	}
 	return v, nil
 }
@@ -307,6 +313,22 @@ func (v *VM) Close() error {
 		v.closeErr = v.powerDown(ctx)
 		if v.process != nil {
 			v.closeErr = errors.Join(v.closeErr, v.process.Stop())
+			select {
+			case <-v.process.Done():
+			default:
+				// A kernel-stuck child still owns the capture writers. Do not
+				// close them concurrently or describe their retention as complete.
+				process, outputs := v.process, v.outputs
+				v.outputs = nil
+				go func() {
+					<-process.Done()
+					for _, out := range outputs {
+						_ = out.Close()
+					}
+				}()
+				v.closeErr = errors.Join(v.closeErr, errors.New("VM capture still owned by incomplete cleanup"))
+				return
+			}
 		}
 		v.closeErr = errors.Join(v.closeErr, v.closeOutputs())
 	})
