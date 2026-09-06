@@ -35,11 +35,15 @@ def build(arch):
         env = os.environ | {
             'CGO_ENABLED': '0', 'GOOS': 'linux',
             'GOARCH': {'x86_64': 'amd64', 'aarch64': 'arm64'}[arch],
-            'GOTOOLCHAIN': 'local', 'GOFLAGS': '-mod=readonly',
+            'GOTOOLCHAIN': 'local',
             'TEA_VERSION': lock['version'],
         }
-        # Preserve upstream's version/SDK linker flags instead of inventing them.
-        subprocess.run(['make', 'BUILDMODE=-buildvcs=false', 'build'], cwd=sources[0], env=env, check=True)
+        # Tea appends shell-quoted tags/linker arguments to its Make GOFLAGS.
+        # An inherited GOFLAGS would remain exported to Go, where those separate
+        # argument values are invalid. Keep readonly mode on the build command,
+        # while preserving upstream's own version/SDK linker flags.
+        env.pop('GOFLAGS', None)
+        subprocess.run(['make', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'], cwd=sources[0], env=env, check=True)
         (output / 'bin').mkdir()
         binary = output / 'bin/tea'
         shutil.copy2(sources[0] / 'tea', binary)

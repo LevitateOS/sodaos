@@ -55,18 +55,18 @@ class ProjectTools(unittest.TestCase):
                 self.assertEqual(kwargs['env']['GOOS'], 'linux')
                 self.assertEqual(kwargs['env']['GOARCH'], 'amd64')
                 self.assertEqual(kwargs['env']['CGO_ENABLED'], '0')
-                self.assertEqual(kwargs['env']['GOFLAGS'], '-mod=readonly')
+                self.assertNotIn('GOFLAGS', kwargs['env'])
                 self.assertEqual(kwargs['env']['TEA_VERSION'], '0.15.1')
                 (Path(kwargs['cwd']) / 'tea').write_text('not a real binary; process double\n')
             return subprocess.CompletedProcess(args, 0, stdout='tea version 0.15.1\n')
 
-        with patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.subprocess, 'run', side_effect=run):
+        with patch.dict(self.module.os.environ, {'GOFLAGS': '-mod=readonly'}), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.subprocess, 'run', side_effect=run):
             self.module.build('x86_64')
         output = self.root / '.artifacts/native/x86_64/project-tools'
         self.assertEqual((output / 'bin/tea').stat().st_mode & 0o777, 0o755)
         self.assertEqual((output / 'licenses/tea/LICENSE').read_text(), 'fixture license\n')
         self.assertEqual(calls[0], [str(self.root / 'scripts/fetch-tea-source.sh')])
-        self.assertEqual(calls[1], ['make', 'BUILDMODE=-buildvcs=false', 'build'])
+        self.assertEqual(calls[1], ['make', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'])
         self.assertEqual(calls[2], [str(output / 'bin/tea'), '--version'])
         self.assertFalse((self.root / '.artifacts/native/x86_64/rootfs').exists())
 
