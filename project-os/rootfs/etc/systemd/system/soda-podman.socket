@@ -1,0 +1,14 @@
+[Unit]
+Description=Project-local Podman API socket for project administrators
+Requires=soda-project-init.service
+After=soda-project-init.service
+
+[Socket]
+ListenStream=/run/soda-podman/podman.sock
+SocketUser=root
+SocketGroup=wheel
+SocketMode=0660
+DirectoryMode=0750
+
+[Install]
+WantedBy=sockets.target

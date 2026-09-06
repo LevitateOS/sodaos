@@ -4,7 +4,12 @@ services:
     environment:
       POSTGRES_DB: soda_example
       POSTGRES_USER: developer
-      POSTGRES_PASSWORD: ${EXAMPLE_DB_PASSWORD:?Set a disposable example password}
+      POSTGRES_PASSWORD_FILE: /run/secrets/soda-example-db
+    secrets:
+      - source: soda-example-db
+        uid: "999"
+        gid: "999"
+        mode: "0400"
     ports:
       - "5432:5432"
     volumes:
@@ -17,3 +22,6 @@ services:
       - ./public:/srv:ro
 volumes:
   database:
+secrets:
+  soda-example-db:
+    external: true

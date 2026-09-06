@@ -26,7 +26,7 @@ COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/license
 COPY project-os/rootfs/ /
 RUN chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
     chmod 0440 /etc/sudoers.d/soda-project && \
-    systemctl enable sshd.service soda-project-init.service soda-podman.service && \
+    systemctl enable sshd.service soda-project-init.service soda-podman.socket && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id
 ENV container=podman
 STOPSIGNAL SIGRTMIN+3

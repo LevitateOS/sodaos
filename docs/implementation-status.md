@@ -1,5 +1,103 @@
 # Implementation handoff
 
+## Personal Git, shared tools and nested workload evidence
+
+Continued the user's selected U08 work on the retained Alice/Bob projects from
+infra. No project container was stopped/replaced, no VM reboot occurred and no
+Forgejo listener/advertisement or appliance network configuration was changed.
+
+**Personal Git passed.** `tests/installed/personal-git.py` generated separate
+passphrase-encrypted outbound Git keys inside each user's home in Alice's project
+and loaded project-local agents. Only public parts reached the acting-user
+Forgejo Git-key UI/API through `personal-git.mjs`. No development key was reused,
+agent forwarded, provider token borrowed or private SSH key exported. Both users
+cloned their actual native private-repository URL, committed/pushed independent
+branches and matched remote ref readback; Bob separately fetched/read Alice's
+commit. This is native Git authority, separate from Soda membership. The generated
+passphrases were temporary and removed after agent loading: these fixture Git
+identities currently depend on the live agents, **not durable post-reboot Git
+login proof**. Encrypted keys, agent PID/socket records and ordinary checkouts are
+retained in each user's home; do not assume an agent will survive reboot.
+
+Forgejo actually advertises `ssh://git@127.0.0.1:2222/...` and listens only on VM
+loopback. The exact-target private `.artifacts/tools/u08-git-transport.py` carries
+that endpoint through infra loopback 24422 to project loopback 2222 using normal
+SSH forwards. The project-wide transport is shared; each Git operation still uses
+its own native identity and an independently verified Forgejo public host key.
+The two transport control sockets and public results are retained under
+`.artifacts/test-vm/u08-8417a90/personal-git/`. These forwards are test-origin
+transport, not a production Git gateway or a changed advertised endpoint.
+
+**Shared tools/files passed.** Alice used project sudo with umask 022 to install
+Node 24.20.0 through native global mise. `shared-tools.sh` verified both users run
+the same root-owned `/opt/mise` executable/device/inode through noninteractive
+SSH. Bob cannot write the binary or replace its parent/config/shim paths. Both
+users changed/read the same group-shared file/inode, absent in Bob's separate
+project. Probe files remain under `/srv/project/shared/u08-shared-*`.
+
+**Two native runtime defects corrected:** the project service's empty
+`CONTAINER_HOST` enabled Podman's remote mode; then its directly created socket
+was mode 0600, denying wheel clients. Current source uses `UnsetEnvironment`,
+native systemd socket activation, root:wheel socket 0660 and directory 0750.
+The units/init changes were applied only to Alice's existing project with prior
+files retained at `/var/lib/u08-podman-env-fix/` **inside that project**. Owner
+engine access succeeded and ordinary-member access was denied. Only the failed
+project-local API service was stopped/reconfigured; the outer project stayed up.
+Bob's second project still has its earlier image/service configuration.
+
+**Default nested networking is still blocked in the existing fixture.** Compose
+pulled postgres:17, built the Python HTTP image and created its resources, then
+both starts failed with a netavark Netlink permission error. A native NS_GET_USERNS
+inspection proved the project network namespace belongs to its own user namespace,
+not the host's; its capability set lacks NET_ADMIN. Current helper source adds
+NET_ADMIN to the fixed SYS_ADMIN/MKNOD set for future project creation. That change
+is source-tested, **not built/deployed or proved in a fresh project**. The installed
+host's Podman 5.8.4 has no capability-update option. Do not recreate current
+projects to apply it or call the bridge fixed on the installed target.
+
+**Real workload diagnostic passed using project-network mode.** Through the same
+nested engine, `u08-projectnet-files` and `u08-projectnet-database` use native
+`--network host`, meaning the project's namespace, never the appliance network.
+The HTTP image built by Compose is used with Alice's checkout bind-mounted;
+PostgreSQL uses a new native `u08_projectnet_database` volume. The original failed
+Compose containers/network/volume remain intact. `workload-access.py` verified a
+live dirty source edit through HTTP from infra/Alice/Bob; the real client inserted
+and committed PostgreSQL data, both users read it through TCP, Bob updated it and
+a fresh client connection read the committed value. This does not prove the
+unmodified Compose bridge path, complete isolation or restart/reboot persistence.
+
+The fixture now uses an external native `soda-example-db` secret with
+POSTGRES_PASSWORD_FILE instead of a password environment value that Compose
+would put into Podman argv. The server secret and client pgpass inputs are private,
+not tracked or logged. PostgreSQL's native client was installed inside Alice's
+project; infra uses a private venv with psycopg[binary] 3.2.9, not host package
+installation. Git/DB credentials remain outside checkouts/shared directories.
+Alice's checkout has a committed workload fixture plus a deliberately dirty public
+HTML edit. SQL rows and private evidence/pgpass files are retained under
+`.artifacts/test-vm/u08-8417a90/u08-workload-access-*` and the users' private homes.
+
+**Checks:** full Go suite passed with Go 1.26.7/CGO disabled; 15 Python build tests
+passed, including new service/socket/secret contracts. New Go creation-argument
+coverage preserves fixed namespace/privilege boundaries. Native Git/shared-tool/
+HTTP/PostgreSQL tests passed as described; shell/JS syntax checks passed. No full
+image rebuild, new default-bridge fixture, dashboard cutover, restart/reboot or
+provider CI job was executed. Installed dashboard/helper/image baselines remain
+35df189/8417a90/8417a90, with the explicit project-local unit patch above.
+
+Logs under `.artifacts/logs/`: `u08-personal-git-*`, `u08-*-git-registration.log`,
+`u08-git-transport.log`, `u08-shared-node-install.log`, `u08-shared-tools-files.log`,
+`u08-podman-*-fix.log`, `u08-project-engine-access.log`, `u08-workload-first-run.log`,
+`u08-nested-network-namespace.log`, `u08-project-network-workload.log`,
+`u08-workload-client-and-members.log`, `u08-postgres*-*.log`,
+`u08-host-capability-tests.log`, `u08-project-runtime-source-tests.log` and
+`u08-git-workload-all-go.log`. Failed attempts are retained, not rewritten as passes.
+
+Next: build the corrected helper/image and obtain an approved fresh fixture to
+validate native default bridge networking without replacing current projects.
+Complete remaining runtime/isolation checks and separately authorized project
+stop/start and VM reboot persistence. U08/U20 remain incomplete; source work on
+U15/U16 and coverage closure remains independent.
+
 ## Temporary worktree cleanup
 
 At the user's request, removed all six clean detached U08 worktrees after

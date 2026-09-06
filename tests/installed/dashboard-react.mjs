@@ -96,6 +96,11 @@ try {
   const { observeProjectConnections } = await import('./project-connections.mjs');
   await observeProjectConnections({ page, username, fixtureDirectory: process.env.SODA_U08_CONNECTIONS_DIR });
  }
+ if (process.env.SODA_U08_GIT_DIR) {
+  stage = 'personal native Git key registration';
+  const { registerPersonalGit } = await import('./personal-git.mjs');
+  await registerPersonalGit({ page, soda: sodaURL.origin, username, directory: process.env.SODA_U08_GIT_DIR });
+ }
  stage = 'Soda logout';
  await page.getByRole('button', { name: 'Sign out of Soda', exact: true }).click();
  await page.getByRole('link', { name: 'Sign in with Forgejo', exact: true }).waitFor();

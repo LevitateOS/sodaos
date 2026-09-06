@@ -1,15 +1,71 @@
-# Native project workloads — unvalidated candidate
+# Native project workloads — partial installed evidence
 
-The implemented candidate is nested Podman, not a second host-socket backend. Native Podman is installed in the Rocky userspace with podman-compose 1.6.0 (its source metadata requires Python >=3.9). The project-local systemd service owns the shared workload engine at `/run/soda-podman/podman.sock`.
+The candidate remains nested Podman, not a host-socket backend. Rocky contains
+Podman and podman-compose 1.6.0. The project-local engine uses
+`/run/soda-podman/podman.sock`; project owner/wheel members administer it with
+ordinary native commands. Other members consume service endpoints, not its
+rootful API. Giving that API to ordinary members would grant project-root power.
 
-The **project owner/wheel** can administer that engine with ordinary commands, such as `podman compose up -d --build`. Other project members consume its shared service endpoints; granting them access to a rootful project engine would also grant project-root authority, so the socket is not world/group-project writable. This is the normal project-admin boundary, not a per-user engine or private-resource selector.
+## Service and permission corrections
 
-Because the engine is inside the development environment, its bind-mount paths and build contexts refer to the same project filesystem. Workloads store native image/container/volume data under `/var/lib/containers/storage` in the retained project rootfs. Services use ordinary published project-IP ports. Developers manage changes and cleanup themselves.
+Installed testing found two concrete defects: `CONTAINER_HOST=` selected remote
+mode even when empty in Podman 5.8.2, and a directly created API socket was mode
+0600 despite the service umask. Current source unsets that variable and uses
+native systemd socket activation with root:wheel mode 0660. Project initialization
+creates the socket directory root:wheel 0750; the image enables the socket unit.
+The service uses the activation FD, not a second listener. These source units were
+applied to Alice's retained project with a private backup: owner API access works,
+and Bob's direct engine access is denied. This is not a rebuilt project image or
+an automatic update of other existing projects.
 
-## Host launch assumptions requiring native evidence
+## Networking: verified mode versus outstanding candidate
 
-The host creates the persistent development container with a delegated automatic user namespace, private cgroup namespace, `/dev/fuse`, SYS_ADMIN/MKNOD in that namespace and disabled SELinux labeling for the nested mount setup. It does **not** use `--privileged`, a host PID/network namespace, a host engine socket or arbitrary host mounts. The project service uses fuse-overlayfs and disables inner workload cgroups. Retain the host's default seccomp policy rather than disabling it speculatively.
+The outer project retains its automatic user namespace, private cgroup/network
+namespaces, `/dev/fuse`, disabled SELinux labeling and the host's default seccomp
+policy. No privileged parent, host PID/network namespace, appliance engine socket
+or arbitrary host mount was introduced. Storage uses fuse-overlayfs and inner
+workload cgroups remain disabled.
 
-The capability/storage candidate is informed by Red Hat's upstream article [Podman inside a container](https://www.redhat.com/en/blog/podman-inside-container), not proved on this selected CoreOS/Rocky combination. The combination of user-namespace mapping, systemd, cgroups, fuse and seccomp is a high-priority native validation risk. If it fails, change the concrete mechanism based on observed evidence; do not silently weaken to privileged host access or claim a scoped host fallback has already been implemented.
+The first real Compose image pull/build succeeded, but its default nested bridge
+failed at startup with `netavark: Netlink error: Operation not permitted`. Native
+inspection confirmed the project owns its network namespace but lacks NET_ADMIN.
+Current helper **source** adds that bounded capability alongside SYS_ADMIN/MKNOD
+for future project creation. It is locally tested but not installed/native-proven;
+Podman 5.8.4 cannot update that capability in place. Existing projects were not
+replaced, exported or recreated to apply it. A fresh approved fixture is needed to
+verify the corrected default bridge candidate.
 
-The ordinary example is `tests/fixtures/workload/`. It exercises a real image build, a source bind mount, a persistent database volume, and HTTP/PostgreSQL TCP ports. Its password is an operator-supplied disposable test value, not a production credential or new repository schema. Native workload checks are authored but have not run.
+As a diagnostic, two real workloads now run through the same nested engine with
+native `--network host`: here **host means the project's network namespace**, not
+the appliance's. HTTP source bind-mount changes and committed PostgreSQL data were
+verified by Alice, Bob and the routed infra client. This establishes useful nested
+runtime evidence, **not** working default Compose bridge networking, complete
+isolation or restart/reboot persistence. It is not an alternate appliance backend.
+
+## Ordinary example and secrets
+
+`tests/fixtures/workload/` contains the image build, source mount, database volume
+and intended HTTP/PostgreSQL ports. Its Compose file remains the bridge-network
+candidate; it was not silently switched to the diagnostic network mode.
+
+Before running it, the project administrator creates the native `soda-example-db`
+secret from a restricted disposable password file:
+
+```sh
+podman secret create soda-example-db /absolute/private/password-file
+podman compose up -d --build
+```
+
+PostgreSQL reads `/run/secrets/soda-example-db` through `POSTGRES_PASSWORD_FILE`.
+The external secret uses UID/GID 999 and mode 0400 for the selected postgres image.
+The installed podman-compose source confirms external-secret mode/ownership
+support; its file-secret path does not implement those fields. This avoids
+passing the password through Compose's generated Podman argv. Do not print
+expanded secret configuration, use real production credentials in fixtures or
+commit password files. Normal image/container/volume/secret storage remains owned
+by native Podman inside `/var/lib/containers/storage` and its native state paths.
+No Soda artifact/secret database was added.
+
+See the [handoff](implementation-status.md#personal-git-shared-tools-and-nested-workload-evidence)
+for exact resources, revisions, failures and retained state. Do not remove failed
+containers/volumes or run `down -v` as a repair shortcut.

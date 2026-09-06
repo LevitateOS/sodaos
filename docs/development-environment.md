@@ -1,6 +1,6 @@
 # Working inside a project
 
-Adapted from the predecessor's developer handbook for project-local identities and shared resources. These are instructions for the later installed environment, **not a claim that the source has been built or validated**.
+Adapted from the predecessor's developer handbook for project-local identities and shared resources. The retained x86_64 fixtures now have direct SSH/file-transfer, personal Git and shared-tool evidence. This is not complete product/persistence acceptance; see the [current handoff](implementation-status.md#personal-git-shared-tools-and-nested-workload-evidence).
 
 ## Join, verify and connect
 
@@ -63,7 +63,7 @@ Repository permissions remain with that host. Joining the Soda environment does 
 
 ## Native provider CLIs
 
-The project image recipe includes Tea and GitHub CLI, with native personal authentication rather than shared credentials. See [project CLIs](project-clis.md) for source inputs, build requirements and later login guidance. They remain unbuilt/unvalidated here; availability does not imply an authenticated session.
+The project image recipe includes Tea and GitHub CLI, with native personal authentication rather than shared credentials. See [project CLIs](project-clis.md) for source inputs, build requirements and later login guidance. Their versions/availability were checked in the native x86_64 projects; that does not imply authenticated Tea/GitHub CLI sessions. Personal native Git SSH was exercised separately.
 
 ## Shared installed tools
 
@@ -103,4 +103,4 @@ ssh -N -L 8080:127.0.0.1:8080 alice@PROJECT_IP
 
 Open `http://127.0.0.1:8080` on that client. For team access, bind/publish to the intended reachable project interface and use the deployment's permitted private route. Never open public ingress merely to bypass a routing problem.
 
-Open a new shell after changing shell configuration; this is native shell behavior, not live propagation by Soda. Coordinate service changes and authorized stop/start with teammates. Normal startup preserves the existing project's writable root, but broader recovery/image replacement remains deferred. Native account, shared-tool, workload and reboot behavior still need the [later installed journey](native-validation.md).
+Open a new shell after changing shell configuration; this is native shell behavior, not live propagation by Soda. Coordinate service changes and authorized stop/start with teammates. Normal startup preserves the existing project's writable root, but broader recovery/image replacement remains deferred. Native account/shared-tool checks now have installed evidence. Default nested bridge networking and restart/reboot persistence still need the [installed journey](native-validation.md); project-network workload evidence does not establish those.

@@ -1,16 +1,19 @@
 [Unit]
 Description=Project-local shared Podman service
-Requires=soda-project-init.service
-After=soda-project-init.service
+Requires=soda-project-init.service soda-podman.socket
+After=soda-project-init.service soda-podman.socket
 
 [Service]
 User=root
 Group=wheel
-RuntimeDirectory=soda-podman
-RuntimeDirectoryMode=0750
+Type=exec
+KillMode=process
 UMask=0007
-Environment=CONTAINER_HOST=
-ExecStart=/usr/bin/podman system service --time=0 unix:///run/soda-podman/podman.sock
+# Even an empty CONTAINER_HOST selects remote mode in Podman 5.8.2.
+# The service must run the local engine, not connect back to itself.
+UnsetEnvironment=CONTAINER_HOST
+# Use the native systemd activation FD; the socket unit owns access permissions.
+ExecStart=/usr/bin/podman system service --time=0
 Restart=on-failure
 
 [Install]

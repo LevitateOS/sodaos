@@ -47,6 +47,21 @@ it does not retry incomplete reservations or reset anything.
 independent operator verification of **public** host keys. Neither mode proves
 client reachability; private keys remain on the client.
 
+## Latest Git/shared-tool/workload results
+
+Personal native Git clone/commit/push/readback and shared root-owned Node/files
+now pass from infra and the retained project users. Real HTTP source-mount edits
+and committed PostgreSQL TCP data also pass, but only with nested **project-network
+mode**. Default Compose bridge startup failed for missing NET_ADMIN; its source
+correction has not been validated on a fresh project. Alice's existing project
+received native API service/socket fixes, not a replacement image/rootfs.
+See [exact evidence, credentials and remaining limits](implementation-status.md#personal-git-shared-tools-and-nested-workload-evidence).
+
+Git transport adds two private forwards for Forgejo's actual loopback clone URL;
+it does not change that URL or use shared Git authentication. Temporary Git agents
+and active workloads/probes/volumes remain. Do not assume those agents survive a
+reboot or destroy failed Compose resources. Lifecycle persistence remains pending.
+
 ## Approved project routing from infra
 
 The private Layer-3 SSH tunnel is now approved and running. Infra has a runtime
@@ -57,7 +72,7 @@ boundaries and denial of Alice's authentication to the unjoined second project.
 See [current routing evidence and exact teardown](implementation-status.md#approved-private-routing-and-direct-developer-access).
 
 This routes **infra**, not your laptop. Browser tunnels remain separate. Keep the
-run-owned transport and probe data for subsequent Git/shared-tool/workload checks;
+run-owned transport and probe data for subsequent runtime/persistence checks;
 no project or VM lifecycle test has been performed. Earlier direct-access-pending
 statements in the historical observations below are superseded by this result.
 
