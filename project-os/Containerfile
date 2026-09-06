@@ -5,7 +5,13 @@ ARG MISE_VERSION=2026.9.1
 ARG GH_VERSION=2.97.0
 # Native GitHub CLI repository; signature verification remains enabled.
 COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns "gh-${GH_VERSION}" && dnf clean all
+RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
+# The rolling repository no longer indexes this pinned version. Its signed
+# release RPM is retained upstream; enforce signature checking for local/URL RPMs
+# too, rather than upgrading the CLI or disabling the configured trust boundary.
+RUN case "$(uname -m)" in x86_64) arch=amd64;; aarch64) arch=arm64;; *) exit 1;; esac; \
+    rpm --import https://cli.github.com/packages/githubcli-archive-keyring.asc && \
+    dnf -y --setopt=localpkg_gpgcheck=1 install "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.rpm" && dnf clean all
 RUN python3 -m pip install --no-cache-dir podman-compose==1.6.0
 # Download is part of a later native build, not an implementation-time operation.
 RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; esac; \

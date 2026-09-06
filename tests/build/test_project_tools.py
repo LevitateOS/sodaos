@@ -70,6 +70,17 @@ class ProjectTools(unittest.TestCase):
         self.assertEqual(calls[2], [str(output / 'bin/tea'), '--version'])
         self.assertFalse((self.root / '.artifacts/native/x86_64/rootfs').exists())
 
+    def test_pinned_release_rpm_keeps_native_signature_checking(self):
+        root = Path(__file__).resolve().parents[2]
+        recipe = (root / 'project-os/Containerfile').read_text()
+        repository = (root / 'project-os/rootfs/etc/yum.repos.d/gh-cli.repo').read_text()
+        self.assertIn('localpkg_gpgcheck=1', recipe)
+        self.assertIn('rpm --import https://cli.github.com/packages/githubcli-archive-keyring.asc', recipe)
+        self.assertIn('gh_${GH_VERSION}_linux_${arch}.rpm', recipe)
+        self.assertIn('x86_64) arch=amd64;; aarch64) arch=arm64', recipe)
+        self.assertIn('gpgcheck=1', repository)
+        self.assertNotIn('--nogpgcheck', recipe)
+
     def test_different_native_version_is_rejected(self):
         def run(args, **kwargs):
             if args[0] == 'make':
