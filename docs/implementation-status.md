@@ -1,5 +1,18 @@
 # Implementation handoff
 
+## U08 completion plan recorded
+
+Added the [U08 completion checklist](dashboard-implementation-plan.md#u08-completion-execution-plan--baseline-0d4c4eb)
+against baseline `0d4c4eb`: prepare missing proof, build/check one candidate,
+backed-up matching preview/helper/image rollout, one additional approved project
+for default bridge verification, then separately authorized project stop/start
+and `soda-test` reboot persistence. It explicitly preserves current fixtures,
+handles ephemeral Git agents and transport restoration, and distinguishes stable
+state comparisons from volatile runtime observations. U08 closes only on actual
+criterion-by-criterion evidence; no U20/ISO requirement was added. This update is
+planning/documentation only; no build, deployment, fixture creation or lifecycle
+operation ran and no new approval was inferred.
+
 ## Native porting remaining-work audit
 
 Source/documentation audit at `58ddc0d0707b9b2c72f97363e8daa1b53853f341`, with a clean starting tree: [full findings, P01–P13 status, missing coverage and next steps](native-porting-audit.md). The earlier unconditional active-source-complete description was too strong. Concrete remaining work includes the public bundle accepting actual Soda credential filenames, incomplete descendant cleanup, structured redaction/finalization defects, path confinement, U02 payload/input alignment and evidence binding. Existing x86_64 `8417a90` build/seal and subsequent component/Go-suite evidence is credited; neither the aggregate check nor fresh support fixture/install/operator/aarch64 exits is newly passed. Core U08/U20 ownership and unselected P09/P10 media are unchanged.

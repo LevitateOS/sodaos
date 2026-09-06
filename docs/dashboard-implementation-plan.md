@@ -402,6 +402,70 @@ The map specifies the full target sequence, not completed work. Current partial 
 
 **Acceptance:** record source revision, target/client, commands, safe evidence and remaining limitations. Any unavailable routing, workload or persistence step stays unverified. Correct concrete blockers and rerun affected checks; no source-only or screenshot-only substitute makes this milestone verified. P tooling/host observations may be reused, but U08 owns the product tests and their interpretation.
 
+#### U08 completion execution plan — baseline `0d4c4eb`
+
+This is the remaining execution checklist, not new acceptance or permission to
+run it. Existing Git/shared-tool/project-network workload evidence is reusable,
+but does not pass default bridge networking or lifecycle persistence. No pruning
+is needed: the last observation showed approximately 690 GB free on infra and
+54 GB free in the guest. Keep existing projects, failed workloads, volumes,
+backups, logs and transports.
+
+**Fixed scope:** native x86_64 infra as builder and routed developer client;
+existing `soda-test` as the only appliance target. Retain Alice/Bob and their two
+existing projects. Propose one additional private Alice-owned repository named
+`u08-completion-<candidate-short-sha>` and its new environment, with Bob explicitly
+joining. Record the real repository/environment/container identities returned by
+native operations; names are not authority and no project ID is preselected.
+This extra fixture needs approval before creation. No aarch64/fresh-appliance/ISO
+requirement is added to U08; those remain U20 or separate optional delivery work.
+
+| Stage | Work and exit condition | Execution boundary |
+| --- | --- | --- |
+| **A — Prepare the remaining proof** | Extend existing `tests/installed/` cases to consume the new run's explicit identities/IPs and independently verified host keys rather than hardcoded old targets. Add fail-closed, secret-safe before/after observations and exact transport restoration. Prepare durable personal Git authentication for lifecycle tests. | Source/local checks are already authorized; preparation does not mutate fixtures. |
+| **B — Build/check one candidate** | Freeze a clean source revision containing the fixed NET_ADMIN creation contract, local-engine environment handling and root:wheel socket activation. Run `scripts/build-native.sh x86_64` and the **entire** `scripts/check-native.sh x86_64` with the pinned native toolchain. Retain logs, checksums and sealed metadata. Exit only on an actual aggregate pass, not inferred component results. | Existing local build/test scope; no automatic CI, publication or sibling-architecture barrier. |
+| **C — Back up and stage the candidate** | Inventory current installed bytes and populated state. Take a consistent current DB/config/key/artifact backup and rehearse startup/migration on a restricted copy. Deploy matching dashboard/backend assets at `/app/`, host helper and new-project image; verify TLS, service identity, socket/secret permissions, health and retained Cockpit paths. | Confirm this exact rollout on `soda-test`; no bootstrap, U18 cutover, project replacement or unrelated service restart. Account for helper-socket Requires dependencies stopping the dashboard and deliberately restore its prior active state. |
+| **D — Create the fresh bridge fixture** | Through the real acting-user UI/API, create the approved private repository/environment, explicitly join Alice and Bob and verify public host keys/direct access. Confirm installed socket permissions, actual NET_ADMIN, project-owned network/user namespaces and the unchanged non-privileged outer-container boundary. | Approve the one additional repository/project. Do not try to retrofit capabilities by exporting/recreating the old projects or editing Podman state. |
+| **E — Prove the default runtime** | Repeat personal Git, shared-tool/file and member/administrator checks in the fresh project. Run the ordinary Compose example **without project-network/host-mode overrides**: image build, default bridge, source bind-mount edit, reachable HTTP and committed PostgreSQL read/write/readback from Alice, Bob and infra. Verify the second project is independent and ordinary members cannot administer the engine. | Approved fixture operations only. A failure stops acceptance, preserves partial resources and triggers exact diagnosis—not a privileged parent, appliance socket, deleted volume or silently changed networking mode. |
+| **F — Project stop/start persistence** | Capture complete before-state, stop/start only the new project's existing `soda-project@ID.service`, reconnect both users, normally start existing workloads if required and compare state/data. Observe the two older projects remain intact and unaffected. | Separate explicit approval for this exact project stop/start. No rebuild/recreate, `down -v`, pruning or repair reset. |
+| **G — Appliance reboot persistence** | Take the next complete snapshot, reboot **only `soda-test`**, verify changed boot ID, restore the recorded test transports, rediscover/verify endpoints and repeat functional/state comparisons. Check all three project identities/roots and retained appliance/Cockpit service health. | Separate explicit VM reboot approval. Do not reboot infra or use first-install/activation as recovery. |
+| **H — Close U08** | Reconcile every U08 criterion with exact revision/bytes, target/client, executed commands, positive/negative results and limitations. Rerun affected checks after any correction; update the plan/handoff and commit evidence references. | Mark U08 accepted only after all required cases pass. Document trusted-team/SELinux/cgroup/capability limits; do not claim U20 release readiness. |
+
+**Details that must be settled before stage F:**
+
+- The current fixture Git keys depend on live project-local agents; their generated
+  passphrases were removed. Do not count them as durable post-reboot authentication.
+  For the new fixture, retain passphrase inputs in restricted private channels and
+  exercise native agent unlock after reconnect. Generate private keys in personal
+  project homes, register only public keys through acting-user Forgejo interfaces,
+  and never export private keys, forward another user's agent or borrow tokens.
+- Keep the actual Forgejo Git advertisement distinct from browser/project routes.
+  Its current loopback endpoint needs the recorded private Git forwards. Restore
+  the exact approved tunnel, VM firewall rules and browser/Git forwards after reboot
+  without duplicate listeners, broader routes or host-key bypasses. A transport
+  failure is not an authorization denial or a persistence failure by itself.
+- Snapshot all three environments' stable container/repository/provider/account
+  associations, public host-key fingerprints, UID/GID/groups/permissions, homes,
+  canonical installed tool paths/content, shared files, relevant system config,
+  native workload/volume identities and committed database values. Preserve dirty
+  and untracked checkout content and native Git refs. Use bounded allowlisted
+  observations, not full container inspection, shadow/password files or private
+  key export; incomplete reads fail the snapshot.
+- Separate stable comparisons from volatile boot IDs, PIDs, socket paths, mount
+  device numbers and live IP observations. Re-resolve current addresses and verify
+  trusted host keys before connecting. Shared executable/file inode equality is
+  useful **within one running project**, not a required cross-reboot inode promise.
+- Record the native workload restart behavior honestly. An explicit start of the
+  same existing containers/volumes is allowed when required; automatic resurrection
+  must not be claimed unless actually observed. PostgreSQL must return the exact
+  committed pre-stop/pre-reboot fixture value without reinitialization or reseeding.
+
+**Immediate next step:** author the missing parameterized/snapshot/transport and
+credential-lifetime checks, then build/check the candidate. Before native rollout,
+confirm stages C/D/F/G as one explicit scoped execution agreement if desired;
+that avoids repeated prompts for the same approved actions. Permission for those
+stages does not authorize destructive cleanup or changes on other targets.
+
 #### Core-owned native proof detail
 
 These concrete techniques were retained from the incoming P07/P08 proposal and are now owned here and reused by U20. Extend the existing `tests/installed/` and bounded workload/Git fixtures; do not create a parallel Go product-scenario runner. Predecessor `product_scenarios.go`, `project_scenarios.go`, `fixtures.go` and `preservation.go`/`preservation.sh` are references for selective test reuse at `bc1d3e0`, not imported product requirements.
