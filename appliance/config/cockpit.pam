@@ -1,0 +1,10 @@
+#%PAM-1.0
+# Operator-only appliance access; project owners are not host administrators.
+auth       substack     system-auth
+auth       include      postlogin
+account    requisite    pam_succeed_if.so uid = 0 quiet
+account    include      system-auth
+password   include      system-auth
+session    required     pam_loginuid.so
+session    include      system-auth
+session    include      postlogin
