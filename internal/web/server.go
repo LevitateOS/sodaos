@@ -6,6 +6,7 @@ import (
 	"github.com/levitateos/sodaos/assets"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 	"html/template"
 	"io/fs"
@@ -19,12 +20,13 @@ type Server struct {
 	Config    config.Config
 	Store     *store.Store
 	Forgejo   *forgejo.Client
+	Host      *host.Client
 	mux       *http.ServeMux
 	templates *template.Template
 }
 
 func New(c config.Config, db *store.Store) *Server {
-	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
+	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), Host: host.NewClient(c.HostSocket), mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
 	static, _ := fs.Sub(content, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files))))

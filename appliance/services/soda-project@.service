@@ -1,0 +1,15 @@
+[Unit]
+Description=Persistent Soda project %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/podman start --attach soda-%i
+ExecStop=/usr/bin/podman stop --time 30 soda-%i
+Restart=on-failure
+TimeoutStopSec=60
+KillMode=none
+
+[Install]
+WantedBy=multi-user.target

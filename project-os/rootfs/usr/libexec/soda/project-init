@@ -6,3 +6,4 @@ install -d -m 2775 -o root -g soda-project /srv/project/shared
 install -d -m 0755 /etc/ssh/authorized_keys
 install -d -m 0700 /var/lib/soda/accounts
 ssh-keygen -A
+touch /run/soda-project-ready

@@ -1,0 +1,6 @@
+{
+  "image": "localhost/soda-project-os:dev",
+  "network": "soda-projects",
+  "subnet": "10.89.0.0/24",
+  "bridge": "soda0"
+}

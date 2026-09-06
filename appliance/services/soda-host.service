@@ -1,0 +1,12 @@
+[Unit]
+Description=Native Soda project provisioning
+Requires=soda-host.socket
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/libexec/soda/soda-host
+User=root
+Group=root
+UMask=0077
+# Podman and systemctl require real host namespaces. Authorization is at the
+# root:soda Unix socket and the fixed operation surface, never a public listener.
