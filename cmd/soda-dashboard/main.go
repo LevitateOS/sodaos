@@ -1,0 +1,37 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/web"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
+func main() {
+	path := flag.String("config", "/etc/soda/dashboard.json", "configuration file")
+	flag.Parse()
+	c, err := config.Load(*path)
+	if err != nil {
+		slog.Error("configuration", "error", err)
+		os.Exit(1)
+	}
+	server := &http.Server{Addr: c.Listen, Handler: web.New(c), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		server.Shutdown(shutdown)
+	}()
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("HTTP server stopped", "error", err)
+		os.Exit(1)
+	}
+}

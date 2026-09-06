@@ -1,0 +1,8 @@
+/.artifacts/
+/.local/
+/node_modules/
+/cockpit/node_modules/
+/cockpit/dist/
+*.db
+*.db-shm
+*.db-wal
