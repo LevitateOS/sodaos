@@ -48,6 +48,7 @@ func (c *Client) SetIssueSubscription(ctx context.Context, token, owner, repo st
 }
 
 type Attachment struct {
+	Type string `json:"type"`
 	ID   int64  `json:"id"`
 	UUID string `json:"uuid"`
 	Name string `json:"name"`
@@ -60,6 +61,9 @@ func (c *Client) IssueAttachments(ctx context.Context, token, owner, repo string
 	return items, err
 }
 func (c *Client) AddIssueAttachment(ctx context.Context, token, owner, repo string, index int64, name string, data []byte) (Attachment, error) {
+	return c.uploadAttachment(ctx, token, fmt.Sprintf("%s/issues/%d/assets", repoAPI(owner, repo), index), name, data)
+}
+func (c *Client) uploadAttachment(ctx context.Context, token, path, name string, data []byte) (Attachment, error) {
 	var result Attachment
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -73,7 +77,7 @@ func (c *Client) AddIssueAttachment(ctx context.Context, token, owner, repo stri
 	if err = writer.Close(); err != nil {
 		return result, ErrInvalidResponse
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", c.Base+"/api/v1"+fmt.Sprintf("%s/issues/%d/assets", repoAPI(owner, repo), index), &body)
+	req, err := http.NewRequestWithContext(ctx, "POST", c.Base+"/api/v1"+path, &body)
 	if err != nil {
 		return result, ErrUnavailable
 	}

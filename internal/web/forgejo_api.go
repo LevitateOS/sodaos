@@ -31,6 +31,7 @@ func (s *Server) forgejoRoutes() {
 	s.organizationRoutes()
 	s.workRoutes()
 	s.actionRoutes()
+	s.releaseRoutes()
 }
 
 type providerUserView struct {

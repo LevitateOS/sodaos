@@ -18,6 +18,25 @@ Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
 provider resource, project state or networking was changed. Deployment/migration,
 developer routing and installed workload/persistence acceptance remain pending.
 
+## U15 release/asset source and local verification
+
+Connected native release list/detail/create/changed-field edit and bounded asset
+upload/download. Creation requires an explicit draft state (the UI defaults to
+draft); duplicate tags and upstream permission errors are not retried. The pinned
+release PATCH ignores empty title/body replacements, so Soda rejects those rather
+than claiming a clear. Asset downloads first resolve repository/release-scoped
+metadata and then use only the fixed native attachment UUID path with the acting
+grant. External URLs and redirects are never credential-forwarding targets.
+Uploads are bounded to 32 KiB; inert downloads to 8 MiB before browser headers.
+No Soda artifact store or release records were added.
+
+Full local Go suite, dashboard type check, existing 21 UI tests and production
+build passed; `.artifacts/logs/u15-releases-*.log`. Focused Go tests cover duplicate
+creation, changed-field edits, ignored clears, scoped download denial, redirects,
+lossless attachment IDs and invalid uploads. Release-specific DOM and installed
+provider proof remain pending, as do wiki/packages and the rest of U15–U20.
+No release, tag or asset was created on a real provider.
+
 ## U14 source and local verification; U08 access observation
 
 Connected native Actions runs/detail, repository tasks, recursive workflow-file
@@ -244,7 +263,8 @@ acceptance remain source/execution work.
 | U12 | Connected repository settings/access/protection/hooks and organization/team source | None | Advanced team/protection forms, sub-action coverage and full native permission matrix |
 | U13 | Connected overview/search/notifications/native profiles/activity | Local Go/UI/type/build checks passed; no installed proof | Native two-user visibility/update journeys and coverage closure |
 | U14 | Connected runs/tasks/workflows/dispatch and repository/organization Actions configuration | Local Go/UI/type/build checks passed; no provider mutation | Real approved provider/runner journeys and explicit native run-control gap disposition |
-| U15–U20 | Pending | None | Releases/wiki/packages/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U15 | Connected releases and bounded assets | Local Go/type/build and existing UI suite passed; no installed proof | Wiki/packages, release DOM cases and native permission/transfer journeys |
+| U16–U20 | Pending | None | Admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

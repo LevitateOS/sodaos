@@ -24,7 +24,7 @@ introspection extension, so no additional OAuth dependency was selected. This is
 not a claim of general OAuth/OIDC compatibility. Native settings and browser
 consent/refresh behavior remain unverified.
 
-Connected **unbuilt/untested** source now covers per-session encrypted grants,
+Connected source, now locally Go/UI/type/build tested, covers per-session encrypted grants,
 actual-scope introspection, refresh/logout handling, native profile/settings/Git
 keys/People creation, repository discovery/create/content and Soda environment
 create/join/inspection/public-host-key connection views. See the actual
@@ -85,7 +85,7 @@ leave for the configured native `/attachments/{uuid}` route, confirmed in
 
 The schema supplies `/issue_templates` and structured field metadata. Its faithful
 custom rendering/validation and comment-asset/reaction detail remain unfinished
-source work, **not** a claimed upstream gap. All new tests remain unexecuted.
+source work, **not** a claimed upstream gap. Local tests have since passed; installed provider journeys remain unexecuted.
 
 U11 follow-up inspected pinned `routers/api/v1/repo/pull_review.go`,
 `modules/structs/pull_review.go` and `routers/api/v1/repo/pull.go` against Swagger.
@@ -122,10 +122,39 @@ admin units. Explicit adapters preserve omitted fields, reject otherwise-ignored
 inputs and delegate all actual membership/repository authority. No native
 organization/team or protection operation has been executed by this work.
 
+## U14 Actions capability and gap audit
+
+Pinned `routers/api/v1/repo/action.go` verifies repository run ownership on detail,
+Actions reader/writer gates in `api.go`, explicit dispatch ref/string inputs and
+native `return_run_info`. Run/task lists have body totals but no Link headers;
+Soda reads `/settings/api`'s public cap for exact requested pagination. Native
+`modules/actions/workflows.go` chooses the first existing standard directory and
+recursively lists YAML files; the adapter retains that priority and delegates
+recursive tree paging without parsing or scheduling workflows.
+
+Repository/organization secret/variable routes remain native-admin gated and
+separately scoped. Secrets return name/creation metadata only. Native variable
+creation uses POST, replacement PUT. Connected source and focused local tests
+cover actor/route binding, large IDs, native cap, denial without retry, secret
+redaction and explicit replacement fields. No native mutation was executed.
+
+**U17-ACTIONS-WEB — disposition required:** `routers/web/web.go` registers run
+jobs, logs, artifacts, cancel and rerun under native web routes. Inspected
+[`services/auth/method/oauth2.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/services/auth/method/oauth2.go):
+`OAuth2.Verify` accepts only API, attachment, OAuth userinfo/introspection,
+raw/attach and archive paths; ordinary Actions web routes are excluded. Therefore
+these web handlers cannot be called with the retained human OAuth grant. No
+runner-token protocol, native password or borrowed session is substituted.
+Fallback is the configured Forgejo origin's `/{owner}/{repo}/actions/runs/{number}`
+under the user's own native login. Proposed upstream work: human-scoped supported
+job/step/log/artifact and run-control endpoints with native repository gates.
+No upstream issue has been filed or acceptance of this dependency obtained.
+U17/U18 acceptance must choose native dependency, upstream wait or changed scope.
+
 ## Authority register
 
 - Forgejo: identity/password/MFA, account fields, repositories, organizations/teams, collaboration, Git keys, CI and upstream administration.
-- Soda session: stable provider identity link plus separate Soda-only preferences/development keys/environment associations. Existing session rows carry no user API grant.
+- Soda session: stable provider identity link plus separate Soda-only preferences/development keys/environment associations. Schema-v3 grants are encrypted and bound to individual sessions; legacy sessions require reauthentication.
 - Configured Soda operator: narrow extension/operator association, not arbitrary Forgejo admin or host root.
 - Human repository owner: initial environment administration, not host privileges; explicit join remains required.
 - Project membership: join-time Linux/public-key access, separate from native Git permission; no implied later offboarding/key synchronization.
@@ -133,10 +162,10 @@ organization/team or protection operation has been executed by this work.
 
 ## Dependency research and unresolved work
 
-Public npm package metadata inspected for `react-router-dom` **7.18.3**: MIT, Node >=20, React/ReactDOM >=18; selected in the new dashboard manifest against the existing Node 24/React 18 baseline. This is metadata compatibility, not a resolved lockfile or tested bundle.
+Public npm package metadata inspected for `react-router-dom` **7.18.3**: MIT, Node >=20, React/ReactDOM >=18; selected in the new dashboard manifest against the existing Node 24/React 18 baseline. Subsequent authorized dependency resolution produced the real dashboard lockfile and local type/UI/build checks passed; installed compatibility remains pending.
 
-Selected `react-markdown` **10.1.0** and `remark-gfm` **4.0.1** from public npm metadata (both MIT, compatible unified 11 dependencies; react-markdown requires React/types >=18). Inspected react-markdown's matching-tag README for `skipHtml`, default URL sanitation and component overrides. Actual safe GFM/README callers and tests now exist; dependency resolution/transitive license review/build remain unexecuted. Matching Forgejo `repo/file.go` source confirms the raw-file endpoint/ref query and separates it from LFS-redirecting media; the download adapter does not follow the latter.
+Selected `react-markdown` **10.1.0** and `remark-gfm` **4.0.1** from public npm metadata (both MIT, compatible unified 11 dependencies; react-markdown requires React/types >=18). Inspected react-markdown's matching-tag README for `skipHtml`, default URL sanitation and component overrides. Actual safe GFM/README callers and tests now exist; dependency resolution and local builds have since passed; transitive license completeness and installed verification remain pending. Matching Forgejo `repo/file.go` source confirms the raw-file endpoint/ref query and separates it from LFS-redirecting media; the download adapter does not follow the latter.
 
 `@vitejs/plugin-react` latest metadata reports **6.1.1** with Vite 8/OXC-related peers. It was **not** added blindly: the initial preview uses Vite+'s existing JSX compilation path, as Cockpit does, without claiming Fast Refresh. New plugin/Markdown/diff/OAuth-library selections remain owning-milestone work. Inspected the installed Vite+ 0.3.0 exports to confirm `vite-plus/client` and `vite-plus/test` declaration paths.
 
-Next audit work: exact upstream scope/middleware/refresh and admin consent behavior; bounded endpoint-specific DTO/error/pagination contracts; verify required package peers/transitive licenses and generate a real dashboard lockfile only in the authorized dependency phase. The API families above must not be replaced by an unrestricted proxy to avoid that work.
+Next audit work: exact upstream scope/middleware/refresh and admin consent behavior; bounded endpoint-specific DTO/error/pagination contracts; verify required package peers/transitive licenses and review the resolved dashboard lockfile and retain exact executed evidence. The API families above must not be replaced by an unrestricted proxy to avoid that work.

@@ -23,7 +23,10 @@ func (c *Client) RawFile(ctx context.Context, token, owner, repo, ref, file stri
 }
 
 func (c *Client) readBytes(ctx context.Context, path, token string, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.Base+"/api/v1"+path, nil)
+	return c.readNativeBytes(ctx, "/api/v1"+path, token, limit)
+}
+func (c *Client) readNativeBytes(ctx context.Context, path, token string, limit int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.Base+path, nil)
 	if err != nil {
 		return nil, ErrUnavailable
 	}

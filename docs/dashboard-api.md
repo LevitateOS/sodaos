@@ -202,6 +202,25 @@ policy editors remain unfinished. Native last-write semantics remain explicit.
 No rename/delete/org-to-environment mapping or Linux offboarding synchronization
 is implemented. All focused tests and native permission matrices remain unexecuted.
 
+## Releases and assets (U15)
+
+Repository `/api/forgejo/repos/{owner}/{repo}/releases` supports GET/POST;
+`/{release}` supports GET/PATCH; `/{release}/assets` accepts a bounded base64
+upload converted into the native multipart attachment operation. Creation requires
+explicit tag/ref/draft state; PATCH forwards only supplied fields. Native empty
+title/body PATCH values are known to be ignored and rejected as
+`native_release_clear_gap`, not falsely acknowledged as cleared. Native duplicate
+tag and permission results are preserved. No automatic retry follows uncertainty.
+
+`/{release}/assets/{asset}/download` resolves native scoped metadata before a
+fixed authenticated `/attachments/{uuid}` read, never a returned remote URL.
+Native attachment OAuth support is source-verified; redirects/external assets
+are refused. The browser receives a bounded, inert attachment only after the
+whole supported payload is read. Upload limit 32 KiB, download limit 8 MiB;
+Soda stores no release/artifact records. Larger/external assets use the user's
+native Forgejo releases page. Local Go/type/build checks passed; release DOM and
+installed provider proof, wiki and package coverage remain pending.
+
 ## Actions (U14)
 
 Repository `/api/forgejo/repos/{owner}/{repo}/actions` exposes GET `/runs`,
