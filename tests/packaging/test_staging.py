@@ -49,6 +49,18 @@ class NativeStage(unittest.TestCase):
         self.assertNotIn('../../theme/palette.css', css)
         self.assertTrue((public / 'theme/palette.css').is_file())
 
+    def test_forgejo_branding_settings_and_review_exclusion(self):
+        env = self.root / 'etc/soda/forgejo.env'
+        values = dict(line.split('=', 1) for line in env.read_text().splitlines()
+                      if line and not line.startswith('#'))
+        self.assertEqual(values['FORGEJO____APP_NAME'], 'Soda OS')
+        self.assertEqual(values['FORGEJO__ui_0x2E_meta__AUTHOR'], 'Soda OS')
+        self.assertEqual(values['FORGEJO__server__STATIC_CACHE_TIME'], '0')
+        for theme in ['soda-auto', 'forgejo-auto', 'forgejo-auto-deuteranopia-protanopia', 'forgejo-auto-tritanopia']:
+            self.assertIn(theme, values['FORGEJO__ui__THEMES'].split(','))
+        self.assertEqual(env.stat().st_mode & 0o777, 0o600)
+        self.assertFalse((self.root / 'var/lib/soda/forgejo/gitea/public/assets/soda-theme-preview.html').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

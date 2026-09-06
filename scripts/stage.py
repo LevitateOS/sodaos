@@ -69,6 +69,5 @@ copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 link = stage / 'usr/local/sbin/soda-setup'
 link.symlink_to('/usr/local/libexec/soda/soda-setup')
-(stage / 'etc/soda/forgejo.env').write_text('FORGEJO__ui__THEMES=forgejo-auto,forgejo-light,forgejo-dark,soda-auto,soda-light,soda-dark\nFORGEJO__ui__DEFAULT_THEME=soda-auto\n')
-(stage / 'etc/soda/forgejo.env').chmod(0o600)
+copy(source / 'appliance/config/forgejo.env', '/etc/soda/forgejo.env', 0o600)
 print(stage)
