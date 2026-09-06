@@ -1,0 +1,11 @@
+[Unit]
+Description=Initialize persistent Soda project state
+Before=sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/soda/project-init
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

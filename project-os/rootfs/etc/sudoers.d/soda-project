@@ -1,0 +1,2 @@
+# Project-owner administration is confined to this project userspace.
+%wheel ALL=(ALL) NOPASSWD: ALL

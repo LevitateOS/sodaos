@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+umask 077
+getent group soda-project >/dev/null || groupadd soda-project
+install -d -m 2775 -o root -g soda-project /srv/project/shared
+install -d -m 0755 /etc/ssh/authorized_keys
+install -d -m 0700 /var/lib/soda/accounts
+ssh-keygen -A

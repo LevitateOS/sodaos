@@ -26,3 +26,7 @@ Forgejo 15.0.7 API client, confidential OAuth setup CLI, persistent Forgejo cont
 ## M04 — source implemented
 
 Forgejo OAuth authorization code + S256, session rotation/logout, CSRF/origin checks, profile/public-key forms, operator user creation, and real provider/database wiring. Tests authored; not run. Browser and native OAuth behavior remain unverified.
+
+## M05 — source implemented
+
+Rocky 9.6 + mise project image recipe, systemd/OpenSSH initialization, native project-account setup, root-owned SSH keys and retained writable-rootfs strategy. Native image/account/SSH behavior remains unbuilt and unvalidated.
