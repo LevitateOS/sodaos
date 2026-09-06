@@ -128,6 +128,18 @@ inline-thread rendering, old-side positions, team reviewers and full native
 permission/conflict evidence remain pending. Native pending comments can remain
 after a failed review submission; no automatic retry or invented recovery occurs.
 
+U12 hook source now exposes native metadata/list/create/edit with URLs and
+credentials write-only to the browser. Inspected v15.0.7 hook implementation:
+responses contain decrypted authorization headers; PATCH resets omitted
+headers/events/filter, does not rotate signing secrets, and cannot change existing
+package/action event flags. The adapter redacts outputs, preserves omitted values
+within the request and rejects unsupported changes rather than claiming success.
+Forgejo owns target delivery/host policy; Soda never calls a hook URL. Its pinned
+default resolves an empty allowed-host setting to external hosts and verifies TLS;
+no appliance webhook override was found by source inspection. Authored redaction,
+preservation, unsafe-input and native-denial tests remain unexecuted. Other U12
+settings/access/protection/organization/team work remains pending.
+
 ### Current milestone ledger
 
 | Milestones | Source | Built / tested / installed | Remaining |
@@ -142,7 +154,8 @@ after a failed review submission; no automatic retry or invented recovery occurs
 | U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
 | U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
 | U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
-| U12–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U12 | Partial connected webhook source with inspected native secret/PATCH constraints | None | Settings/access/protection/org/team implementation and permission matrix |
+| U13–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

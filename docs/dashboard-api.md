@@ -142,6 +142,28 @@ Native 405 state/settings rejection maps to 409 `provider_operation_unavailable`
 Forgejo owns mergeability, protection and execution; UI reloads native results.
 Authored tests are unexecuted and U11 acceptance remains pending.
 
+## Repository webhooks (partial U12 source)
+
+Explicit `/hooks` GET/POST and `/hooks/{hook}` GET/PATCH require acting-user native
+repository scopes/permissions. Responses expose only metadata, decimal ID and
+configured-value booleans: no URL (which can contain query credentials), decrypted
+authorization, signing secret or provider metadata/config object. New hooks use
+native Forgejo JSON payloads; no system-hook flag, delivery-test or replay endpoint
+is exposed. HTTP(S) targets exclude embedded userinfo/fragments and Soda never
+requests them; Forgejo owns delivery and its configured host restrictions.
+
+PATCH reads the current authorized native hook and retains omitted target,
+authorization, events and branch filter for this request only. This is necessary
+because pinned upstream unconditionally replaces some omitted fields. The UI has
+explicit header replacement/clear intent, never a secret readback. Native edits
+remain last-write operations, not fabricated atomic versioned writes.
+
+Pinned PATCH does not rotate signing secrets or change package/action event flags.
+Unsupported rotation input is rejected; changing those flags fails explicitly,
+as does silently turning an eventless hook into the native default push hook.
+Native settings remain the labeled dependency for these gaps pending U17 decision.
+Other U12 settings/access/org/team work and all execution evidence remain pending.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy

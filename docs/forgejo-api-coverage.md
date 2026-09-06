@@ -98,6 +98,19 @@ merge passes `head_commit_id` through to merge execution and returns conflict fo
 stale head; force/auto-merge/delete-branch remain fixed false in Soda. This is
 source research and authored tests, not a verified native review/merge journey.
 
+U12 hook audit inspected pinned `routers/api/v1/utils/hook.go`,
+`services/webhook/general.go`, `services/webhook/deliver.go`,
+`modules/setting/webhook.go` and `modules/webhook/type.go`. Hook conversion returns
+a decrypted `authorization_header` and a potentially credential-bearing URL:
+Soda's explicit DTO omits both. Native PATCH unconditionally sets authorization,
+events and filter; it neither assigns `config.secret` nor updates package/action
+flags (unlike creation). The bounded adapter preserves omitted values and rejects
+these unsupported edits. Exact native UI dependency/acceptance remains an U17
+item; no fake rotation control is exposed. Empty native allowed-host configuration
+selects external hosts at delivery, with TLS verification on by default; inspected
+appliance source does not override these settings. No hook target was contacted
+and no live hook was created, activated or tested.
+
 ## Authority register
 
 - Forgejo: identity/password/MFA, account fields, repositories, organizations/teams, collaboration, Git keys, CI and upstream administration.

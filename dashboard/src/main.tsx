@@ -17,6 +17,7 @@ import { ForkRepository, ImportRepository } from "./repository-copy";
 import { Issues, NewIssue, IssueDetail } from "./issues";
 import { Labels, Milestones } from "./issue-metadata";
 import { Pulls, NewPull, PullDetail } from "./pulls";
+import { Hooks } from "./hooks";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -52,6 +53,7 @@ export function App() {
           <Route path="/repositories/:owner/:repo/pulls" element={<Pulls session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/new" element={<NewPull session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/:index" element={<PullDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/hooks" element={<Hooks session={session} />} />
           <Route path="/repositories/:owner/:repo/labels" element={<Labels session={session} />} />
           <Route path="/repositories/:owner/:repo/milestones" element={<Milestones session={session} />} />
           <Route path="/repositories/:owner/:repo" element={<RepositoryDetail session={session} />} />

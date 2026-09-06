@@ -25,6 +25,7 @@ func (s *Server) forgejoRoutes() {
 	s.historyRoutes()
 	s.issueRoutes()
 	s.pullRoutes()
+	s.hookRoutes()
 }
 
 type providerUserView struct {
