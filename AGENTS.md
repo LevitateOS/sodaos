@@ -13,7 +13,7 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 ## Current execution boundary
 
-The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user's request to begin testing/start the host initiated native execution on `linux-infra.dimensionlab.net` (x86_64 builder) and a new isolated `soda-test` CoreOS KVM VM. M15 source/build checks pass; initial host services run, but dashboard activation and full product journeys remain pending. See `docs/local-testing.md` and `docs/implementation-status.md` for actual evidence and limits.
+The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user's request to begin testing/start the host initiated native execution on `linux-infra.dimensionlab.net` (x86_64 builder) and a new isolated `soda-test` CoreOS KVM VM. M15 source/build checks pass; the local dashboard is activated and its operator OAuth/browser journey is verified, while full developer/project/workload journeys remain pending. See `docs/local-testing.md` and `docs/implementation-status.md` for actual evidence and limits.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 

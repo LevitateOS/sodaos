@@ -16,13 +16,29 @@
         </tr>{{end}}</tbody>
 </table>
 <h2>Create an environment</h2>
-<p>Create your repository in <a hx-boost="false" href="{{.ForgejoURL}}">Forgejo</a> first. Its human owner administers
-    this project environment, not the host.</p>
-<form method="post" action="/projects" hx-disabled-elt="find button"><input type="hidden" name="csrf"
-        value="{{.Session.CSRF}}"><label>Forgejo repository<input name="repository" required
-            placeholder="alice/repo-name"></label><button>Create project environment</button>
+<p id="repository-help">Choose a Forgejo repository you own. Repositories with an existing Soda environment are not
+    listed in the picker. Its human owner administers the project environment, not the host.</p>
+{{if .RepositoryError}}
+<p class="error" role="alert">Could not load your Forgejo repositories. Existing Soda projects are still shown above.
+    Try refreshing the repository list.</p>
+{{else if .Repositories}}
+<form method="post" action="/projects" hx-disabled-elt="find button">
+    <input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+    <label for="project-repository">Forgejo repository</label>
+    <select id="project-repository" name="repository" required aria-describedby="repository-help">
+        <option value="" selected disabled>Choose a repository…</option>
+        {{range .Repositories}}<option value="{{.FullName}}">{{.FullName}}</option>{{end}}
+    </select>
+    <button>Create project environment</button>
     <p class="request-status" role="status">Creating the native environment; please wait…</p>
-</form>{{template "foot" .}}{{end}}
+</form>
+{{else}}
+<p class="notice">No repositories available to create an environment. Create a repository in Forgejo, or use an
+    existing Soda project above.</p>
+{{end}}
+<p><a hx-boost="false" href="{{.ForgejoURL}}/repo/create">Create a repository in Forgejo</a> ·
+    <a href="/projects">Refresh repositories</a></p>
+{{template "foot" .}}{{end}}
 {{define "project"}}{{template "head" .}}{{template "accountnav" .}}<h1>{{.Project.Name}}</h1>
 <p>Repository: <code>{{.Project.Repository}}</code></p>
 <p>Native environment: <code>{{.Project.ID}}</code></p>{{if not .Project.Ready}}<p class="error">Provisioning did not

@@ -37,6 +37,7 @@ configs = {
     '90-soda-routing.conf': '/etc/sysctl.d/90-soda-routing.conf',
     'cockpit.pam': '/etc/pam.d/cockpit',
     'cockpit.conf': '/etc/cockpit/cockpit.conf',
+    'users.override.json': '/etc/cockpit/users.override.json',
     'cockpit.socket.conf': '/etc/systemd/system/cockpit.socket.d/10-soda.conf',
     'proxy.Caddyfile': '/etc/soda/proxy.Caddyfile',
 }

@@ -2,15 +2,35 @@
 
 ## Current execution — 2026-09-06
 
-**M15 x86_64 build/source checks executed successfully.** An isolated `soda-test` CoreOS KVM host has booted, received native extensions and Soda's first-install components, and serves the Forgejo installer and Cockpit. See [local testing](local-testing.md) for access, exact scope, discovered/fixed defects and logs. The working tree contains the real resolved Go metadata; no artifact publication or commit was made.
+**M15 x86_64 build/source checks pass; the local dashboard is activated and its operator browser journey is verified.** The isolated `soda-test` CoreOS KVM host runs Forgejo, the Soda dashboard, Caddy and native operator services. See [local testing](local-testing.md) for URLs, private credential locations, exact scope and logs. Initial native startup fixes and resolved Go metadata are in `88be176`; subsequent navigation and dashboard-access changes remain in the working tree. No artifact publication was performed.
 
-Dashboard OAuth/TLS activation and the M16–M17 product journeys remain pending. AArch64 M18 remains unverified. A first install recovered from the discovered copy/label defects is not a fresh-disk proof of the final installer. Nested Podman and direct client routing remain the highest native risks. Additional installations, network changes and provider/lifecycle operations still require named targets and explicit permission.
+The full M16–M17 developer/project/workload journeys remain pending. AArch64 M18 remains unverified. A first install recovered from the discovered copy/label defects is not a fresh-disk proof of the final installer. Nested Podman and direct client routing remain the highest native risks. Additional installations, network changes and provider/lifecycle operations still require named targets and explicit permission.
+
+### Dashboard activation and browser access
+
+Completed Forgejo's native installer on the isolated VM with a new local `operator` administrator, created a scoped native token, and ran the real `soda-setup` OAuth bootstrap and `soda-activate`. Soda is at `https://localhost:24443`, Forgejo at `https://localhost:24444`, through loopback-only SSH tunnels; Cockpit remains at port 29090. The existing localhost test certificate/CA is used, not public production TLS. Added `scripts/test-vm.sh web-tunnel` and documented the separate laptop forwards and private credentials.
+
+Added and executed `tests/installed/dashboard.mjs`: real browser TLS verification, Forgejo password authentication, consent/S256 OAuth callback into Soda, secure HTTP-only session, authenticated Projects/Profile/operator People navigation, and CSRF-protected sign-out. Chromium trusts the CA in an isolated NSS home; no certificate bypass or normal browser/system trust changes were used. The native dashboard process is UID/GID 2000 with zero effective capabilities, services are active, and no failed systemd units were observed. Evidence is in `dashboard-browser-check.log` and `dashboard-services.log`.
+
+No developer users, repositories, project containers or provider runners were created. This is operator authentication/navigation evidence, not the full product journey. Corrected operator command examples to use `/usr/local/sbin` explicitly because the CoreOS root SSH PATH omits it. Dashboard bootstrap intentionally restarted only the VM's Forgejo service, not the host or VM itself.
+
+### Forgejo repository picker
+
+Replaced manual `owner/repository` entry on Projects with an accessible native select populated from Forgejo's `GET /users/{username}/repos`, verified against the installed 15.0.7 API schema. Requests target the signed-in user, not `/user/repos` for the privileged operator token. Pagination continues until an empty page; the dashboard filters by stable owner ID and excludes every existing project reservation, including incomplete provisioning, then sorts names. Creation still re-fetches the selected repository and enforces ownership server-side.
+
+Added native Forgejo creation/refresh links and distinct empty/provider-error states that retain the existing Projects table. Go tests cover pagination (including server page-size caps), malformed/failed responses, cancellation, ownership/privacy filtering, existing reservations, empty states and forged selection rejection. All source/staging checks pass. Rebuilt and loaded only the dashboard image, updated its staged/native binary, and restarted only `soda-dashboard.service`; application data and the other services were preserved. The old image archive was retained after Podman's refusal to overwrite it directly.
+
+The real browser check now verifies the picker or its empty state, native create/refresh links, and the existing OAuth/navigation/logout journey. The test operator currently owns zero repositories, so the live run verified the empty state; populated/filtering cases are covered by Go tests, not claimed as an installed populated-repository journey. No repository or project fixture was created. Evidence: `repository-picker-tests.log`, `repository-picker-build.log`, `repository-picker-deploy.log`, and `dashboard-browser-check.log`. Changes remain uncommitted.
 
 ### Cockpit/Tailnet native correction
 
 The first interactive Tailnet read exposed a missing SELinux PAM session transition: root authenticated successfully but its bridge remained in `cockpit_session_t`, where Tailscale socket access and stock systemd operations were denied. Restored the native Fedora Cockpit PAM stack while retaining the required UID-0 account gate. A new authenticated Cockpit WebSocket session now runs in the native operator context and successfully reads `tailscale status --json` and LocalAPI preferences. SELinux remains enforcing; no socket permission changes, daemon restart or Tailnet enrollment were performed. Native PAM account checks allow root and deny the existing non-operator `core` account.
 
-Added a staging regression for the root-only gate and ordered SELinux session rules. The old staged config fails it; the corrected stage passes all five packaging checks, along with Go, TypeScript, 60 Cockpit tests and installed host checks. Existing Cockpit users must log out and back in to receive the correction. Changes remain uncommitted.
+Added a staging regression for the root-only gate and ordered SELinux session rules. The old staged config fails it; the corrected stage passes all five packaging checks, along with Go, TypeScript, 60 Cockpit tests and installed host checks. Existing Cockpit users must log out and back in to receive the correction. This correction is included in `88be176`.
+
+### Accounts navigation
+
+At the operator's request, hide only Cockpit's stock Accounts menu entry through the native `/etc/cockpit/users.override.json` merge patch. The source config is staged for future installations and applied to `soda-test`; no packages, host accounts or native account tools were removed, and no services restarted. Native `cockpit-bridge --packages` before/after output confirms that `users` loses only its Accounts label and every other menu entry is unchanged (`cockpit-packages-before.log` / `cockpit-packages-after.log`). Added a packaging regression; all six packaging checks, Go tests, TypeScript checks and 60 Cockpit tests pass. Browser sessions may need logout/login to discard cached manifests. This navigation change is uncommitted.
 
 ## Original source handoff (historical)
 

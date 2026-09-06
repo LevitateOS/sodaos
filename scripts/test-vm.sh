@@ -48,11 +48,17 @@ case "$action" in
       -L 127.0.0.1:23000:127.0.0.1:3000 \
       -L 127.0.0.1:29090:127.0.0.1:9090 root@127.0.0.1
     ;;
+  web-tunnel)
+    echo 'Keep this running: Soda https://localhost:24443; Forgejo https://localhost:24444'
+    exec ssh "${ssh_args[@]}" -o ExitOnForwardFailure=yes -NT \
+      -L 127.0.0.1:24443:127.0.0.1:24443 \
+      -L 127.0.0.1:24444:127.0.0.1:24444 root@127.0.0.1
+    ;;
   console)
     exec tail -n 80 -f "$vm/console.log"
     ;;
   *)
-    echo 'usage: scripts/test-vm.sh [start|status|ssh [COMMAND...]|tunnel|console]' >&2
+    echo 'usage: scripts/test-vm.sh [start|status|ssh [COMMAND...]|tunnel|web-tunnel|console]' >&2
     exit 2
     ;;
 esac

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/config"
@@ -29,6 +30,29 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request, v store.Sessio
 	if err != nil {
 		s.fail(w, "Cannot list projects.", 500)
 		return
+	}
+	admin, err := config.Secret(s.Config.AdminTokenFile)
+	if err == nil {
+		p.Repositories, err = s.Forgejo.UserRepositories(r.Context(), admin, v.User.Login)
+	}
+	if err != nil {
+		p.RepositoryError = true
+	} else {
+		existing := make(map[int64]bool, len(p.Projects))
+		for _, project := range p.Projects {
+			// Failed/incomplete provisioning still reserves this repository.
+			existing[project.RepositoryID] = true
+		}
+		available := p.Repositories[:0]
+		for _, repo := range p.Repositories {
+			if repo.ID > 0 && repo.Owner.ID == v.User.ID && repo.FullName != "" && !existing[repo.ID] {
+				available = append(available, repo)
+			}
+		}
+		p.Repositories = available
+		sort.Slice(p.Repositories, func(i, j int) bool {
+			return strings.ToLower(p.Repositories[i].FullName) < strings.ToLower(p.Repositories[j].FullName)
+		})
 	}
 	s.render(w, "projects", p)
 }

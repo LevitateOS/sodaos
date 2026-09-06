@@ -1,106 +1,92 @@
-# Local test host
+# Local Soda dashboard and test host
 
-## Current instance
+## Open the dashboard
 
-On 2026-09-06, native execution started on `linux-infra.dimensionlab.net` (Rocky Linux, x86_64). A **new, isolated `soda-test` KVM VM** was booted and Soda's first-install components were installed there. No Soda installation, infrastructure-service restart, physical-disk installation, firewall change or Tailnet enrollment was performed on the builder.
+**The dashboard, Forgejo and HTTPS proxy are now running in `soda-test`.** Native Forgejo login, OAuth consent/callback, the authenticated Projects/Profile/People pages and Soda sign-out have been exercised in Chromium with certificate verification enabled.
 
-- Fedora CoreOS `44.20260817.3.2`, 4 vCPU, 8 GiB RAM.
-- Persistent 64 GiB sparse overlay: `.artifacts/test-vm/disk.qcow2`.
-- Backing image: `.artifacts/downloads/fedora-coreos.qcow2`. **Keep both files**; do not replace the backing image while the overlay exists.
-- QEMU user networking; only SSH is forwarded to builder loopback `127.0.0.1:22220`.
-- Guest project subnet configuration: `10.89.0.0/24`. This is **not routed to developer clients** yet.
-- Private operator/provisioning files are under `.artifacts/test-vm/` (directory mode 0700), excluded from Git and container build contexts. Do not publish this directory.
+On your laptop, keep this SSH tunnel to the builder running:
 
-The upstream stable-stream metadata and both compressed/uncompressed SHA-256 checks were used for the CoreOS image. Provisioning used `scripts/render-provisioning.py` and strict Butane conversion, with test-only hostname and pre-generated SSH host-key files added to the private Butane input. SSH uses the corresponding pinned `known_hosts`; it does not disable host-key checking.
+```sh
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 24443:127.0.0.1:24443 -L 24444:127.0.0.1:24444 \
+  vince@192.168.2.253
+```
 
-This workspace is already prepared. `scripts/test-vm.sh` manages that instance; it is not a general provisioning/downloader command. For a different machine or a fresh workspace, follow [installation](installation.md) and the [upstream QEMU provisioning guide](https://docs.fedoraproject.org/en-US/fedora-coreos/provisioning-qemu/), using a new disk and new private credentials.
+Then open:
 
-## Open the host
+- **Soda dashboard:** <https://localhost:24443/>
+- **Forgejo:** <https://localhost:24444/>
 
-From this repository on the builder:
+Use these exact localhost origins; the ports are part of the OAuth configuration. Both ports must be forwarded because sign-in visits Forgejo and returns to Soda. You do not need a hosts-file change.
+
+Select **Sign in with Forgejo**. The VM-local administrator is `operator`. Its generated password is stored privately on the builder at:
+
+```text
+/home/vince/Projects/sodaos/.artifacts/test-vm/forgejo-operator-password
+```
+
+View that file privately, not in shared logs/chat. This identity is distinct from the host's `root` login and from the builder's existing infrastructure Forgejo. No developer host account was created.
+
+### Choose a repository
+
+Projects now offers a Forgejo repository picker instead of a text field. It lists repositories owned by the signed-in user that do not already have a Soda environment (including incomplete reservations). If none are available, use **Create a repository in Forgejo**, then return and select **Refresh repositories**. Other existing Soda environments remain accessible from the Projects table. Loading failures show an error rather than pretending there are no repositories.
+
+### Test TLS
+
+All three browser endpoints use the VM's test certificate for `localhost`, issued by its private CA. The public CA certificate is `.artifacts/test-vm/cockpit-ca.pem`. Copy only that public file to your laptop and trust it for websites in your intended test browser/profile:
+
+```sh
+scp vince@192.168.2.253:/home/vince/Projects/sodaos/.artifacts/test-vm/cockpit-ca.pem soda-test-ca.pem
+```
+
+The CA is not publicly trusted production TLS. Browser trust on your laptop is **not** installed automatically. The automated browser test used a separate private NSS trust database; it did not disable TLS verification or change the builder's normal browser/system trust store. The dashboard/proxy use the same localhost test certificate already used by Cockpit.
+
+## Cockpit and VM access
+
+Cockpit remains at <https://localhost:29090/> through the existing host tunnel. From another client, forward `29090:127.0.0.1:29090` to the builder separately if needed. Username: `root`; its separate password is `.artifacts/test-vm/root-password` on the builder.
+
+Cockpit's Accounts navigation entry is intentionally hidden; native host-account tools remain available. Existing sessions may need logout/login to discard cached manifests. Also log out and back in if an old session still reports `tailscaled.sock: connect: permission denied`: the initial PAM stack omitted Fedora's SELinux session transition, which is now corrected. SELinux remains enforcing.
+
+From the repository on the builder:
 
 ```sh
 scripts/test-vm.sh status
 scripts/test-vm.sh ssh
-```
-
-An SSH tunnel was started during this session. While it is running:
-
-- **Forgejo first-run installer:** <http://localhost:23000/>
-- **Cockpit host administration:** <https://localhost:29090/>
-
-Cockpit username: `root`. The generated password is in `.artifacts/test-vm/root-password`; view it privately on the builder, not in shared logs/chat. Its test certificate uses a private CA: `.artifacts/test-vm/cockpit-ca.pem` is the **public** CA certificate fetched over pinned SSH. Trust it only in your intended test browser/profile. This is not publicly trusted production TLS.
-
-If your browser is on your laptop rather than the builder, run there:
-
-```sh
-ssh -N -o ExitOnForwardFailure=yes \
-  -L 23000:127.0.0.1:23000 -L 29090:127.0.0.1:29090 \
-  vince@192.168.2.253
-```
-
-Then open the same localhost URLs on the laptop. Do not bind these unfinished installers to `0.0.0.0`.
-
-To restart a missing builder-to-VM tunnel, keep this command running in a builder terminal (do not run a second copy while its ports are occupied):
-
-```sh
-scripts/test-vm.sh tunnel
-```
-
-If an existing Cockpit session reports `tailscaled.sock: connect: permission denied`, **log out completely and sign back in**. The initial custom PAM stack omitted Fedora's SELinux session transition; that configuration is now corrected in source and this VM. Existing sessions retain their old context until logout. A fresh authenticated bridge has been verified to read Tailscale status and preferences with SELinux enforcing, without changing socket permissions or restarting the daemon.
-
-For subsequent VM starts and diagnosis:
-
-```sh
-scripts/test-vm.sh start      # reuses the disk; does not recreate it
 scripts/test-vm.sh console
-scripts/test-vm.sh ssh 'systemctl --failed --no-pager'
 ```
 
-When you explicitly want to shut down **this test guest only**:
+Builder-to-VM tunnels were started during setup. If either is missing, keep the corresponding command running in a builder terminal; do not start duplicates while their ports are occupied:
 
 ```sh
-scripts/test-vm.sh ssh 'systemctl poweroff'
+scripts/test-vm.sh web-tunnel  # Soda 24443 and Forgejo HTTPS 24444
+scripts/test-vm.sh tunnel      # Cockpit 29090 and legacy Forgejo bootstrap 23000
 ```
 
-## Next: activate the product
+Port 23000 remains loopback-only diagnostic/bootstrap access; use Forgejo's configured HTTPS origin for normal browser sign-in now.
 
-**The Soda dashboard/proxy are not activated yet.** A host login or an installer page is not the full product journey.
+For a later start, `scripts/test-vm.sh start` reuses the existing disk. When explicitly shutting down **only this guest**, use `scripts/test-vm.sh ssh 'systemctl poweroff'`. There is no automatic disk deletion or replacement.
 
-1. Choose distinct Soda and Forgejo HTTPS browser origins, browser-trusted TLS material, and how your test client will resolve/reach them. The localhost tunnel ports above are bootstrap access, not the final OAuth origins.
-2. Complete Forgejo's native installer and create its administrator. This is the VM's new Forgejo, **not** the builder's existing infrastructure Forgejo.
-3. Follow [operator setup](operator-setup.md): create the restricted Forgejo token, store it privately on the VM, and run `soda-setup` there with the chosen origins.
-4. Follow [activation](installation.md#3-install-the-built-components) with those certificates and the guest's selected private bind IP. Add the corresponding HTTPS tunnel or private connectivity deliberately; the current helper forwards only bootstrap ports.
-5. Establish real client routing to the project subnet before claiming direct project SSH works. QEMU port forwarding alone cannot prove that journey. A bridged/routed host VM network or approved Tailnet subnet route requires a separate networking decision.
-6. Run the Alice/Bob, shared-tool, nested-workload and persistence journeys in [native validation](native-validation.md). Provider registrations and destructive lifecycle checks need their own approved test resources/actions.
+## Current instance and bootstrap
 
-## Observed evidence
+Native execution started on 2026-09-06 on `linux-infra.dimensionlab.net` (Rocky Linux, x86_64). The new `soda-test` VM uses:
 
-Source revision: `3a12d135bc4362273c209d78a40b7458993cb373` **plus the uncommitted native-startup fixes in this working tree**. No commit or artifact publication was made.
+- Fedora CoreOS `44.20260817.3.2`, 4 vCPU, 8 GiB RAM, direct QEMU/KVM (not a libvirt domain).
+- A persistent 64 GiB sparse overlay at `.artifacts/test-vm/disk.qcow2`, backed by `.artifacts/downloads/fedora-coreos.qcow2`. **Keep both files; do not replace the backing image.**
+- QEMU user networking, with only SSH forwarded to builder loopback `127.0.0.1:22220`; browser access goes through pinned SSH tunnels.
+- Project subnet configuration `10.89.0.0/24`. It is **not routed to developer clients** yet.
+- Private provisioning/operator files in `.artifacts/test-vm/` (directory mode 0700), excluded from Git and container build contexts.
 
-Executed successfully:
+The upstream CoreOS image was checked against both compressed and uncompressed SHA-256 metadata. Provisioning used `scripts/render-provisioning.py` and strict Butane conversion, adding a test hostname and pre-generated SSH host keys to the private input. SSH pins those host keys rather than disabling checking.
 
-- Dependency resolution with Go `1.26.7`; real `go.sum` and indirect requirements generated.
-- `scripts/build-native.sh x86_64`: native commands, both Cockpit pages, Rocky project/dashboard images, verified GitHub runner download and staging.
-- `scripts/check-native.sh x86_64`: Go tests, TypeScript checking, 10 Cockpit test files / 60 tests, and initially 4 packaging checks. All 5 packaging checks now pass after adding the Cockpit PAM regression.
-- CoreOS first boot, native extension installation, and a reboot of only the new VM to activate the packages.
-- Soda installation after correcting the install copy mechanism; active Forgejo, helper socket, Cockpit socket and Tailscale daemon. No failed systemd units observed.
-- Forgejo installer HTTP 200; Cockpit login page HTTP 200 with explicit CA verification; Cockpit native root authentication HTTP 200.
-- `tests/installed/host.sh`: first-install service state, root-owned native commands, helper socket permissions, dashboard directory ownership, SELinux labels and Cockpit page files.
-- The dashboard image's executable starts as UID 2000 (`-h` smoke check without networking or dashboard configuration).
-- Fresh authenticated Cockpit bridge: native operator SELinux context, Tailscale status `NeedsLogin`, and LocalAPI preferences HTTP 200. The exact reported permission error was reproduced before the PAM correction; logs are `cockpit-tailnet-before.log` and `cockpit-tailnet-after.log`. Native PAM account checks allow root and deny `core`; no account was created or changed.
+Forgejo's native web installer created the VM-local `operator` administrator. A scoped native token (`read:user`, `write:user`, `write:admin`, `read:repository`) was saved privately on the VM. `/usr/local/sbin/soda-setup` created the actual OAuth application/configuration, and `/usr/local/sbin/soda-activate` enabled the services with bind IP `127.0.0.1`. Use those absolute command paths: the CoreOS root SSH PATH does not include `/usr/local/sbin`.
 
-The first executions exposed and corrected the Rocky `curl`/`curl-minimal` conflict, mise's `./`-prefixed checksum filenames, runner CLI argument-validation ordering, and dashboard executable permissions. The original recursive installation copy failed on CoreOS's read-only `/usr` and imported builder ownership/SELinux labels. The installer now extracts into the three writable prefixes without changing existing parent metadata, uses root ownership, and restores native labels on delivered paths. The partial attempt's affected ownership/labels were repaired in this new VM; **a fresh-disk rerun of the final installer remains a separate check**.
+The dashboard runs as UID/GID 2000, without effective capabilities. Credentials are root:soda 0640 under `/etc/soda` (0750); its database directory is soda:soda 0700; the helper socket remains root:soda 0660. Caddy and the Go listener bind only guest loopback. Activation restarted only the VM's Forgejo container as required; it did not restart infrastructure services or reboot the builder/VM.
 
-Logs are under `.artifacts/logs/`, notably `build-native.log`, `check-native.log`, `vm-first-boot.log`, `vm-install.log`, `vm-services.log` and `vm-host-check.log`. Failed-attempt logs are retained rather than represented as passes.
+No Soda installation, physical-disk installation, host firewall/routing change, Tailnet enrollment or provider-runner registration was performed on the builder. This workspace is already prepared; `scripts/test-vm.sh` is not a general installer. A new target still needs [installation](installation.md) and separate operator provisioning. No Soda installer ISO has been built.
 
-Read-only first-install checks can be repeated without creating projects or enrolling providers:
+## Repeat the checks
 
-```sh
-scripts/test-vm.sh ssh 'SODA_NATIVE_VALIDATE=soda-test bash -s' < tests/installed/host.sh
-```
-
-To repeat source checks using the workspace-local pnpm installation:
+Source/staging checks (Go, TypeScript, 10 Cockpit test files / 60 tests, and 6 packaging tests):
 
 ```sh
 export PATH="$PWD/.artifacts/tools/node_modules/.bin:$PATH"
@@ -108,4 +94,36 @@ export GOTOOLCHAIN=go1.26.7
 scripts/check-native.sh x86_64
 ```
 
-Still unvalidated: dashboard/OAuth/browser journey, project creation/join/SSH, nested Podman, shared tools, project persistence, Tailnet enrollment/routing/exit-node operations, provider-scheduled runner jobs, and all AArch64 behavior. No real provider accounts, developer users or projects have been created in the VM.
+Read-only native first-install checks:
+
+```sh
+scripts/test-vm.sh ssh 'SODA_NATIVE_VALIDATE=soda-test bash -s' < tests/installed/host.sh
+```
+
+The opt-in browser check creates authentication/consent/session state for the explicitly selected operator, then signs out of Soda. It does not create people, repositories, project environments, keys or workloads. This workspace's isolated browser home already trusts the test CA and Playwright's Chromium is installed:
+
+```sh
+node tests/installed/dashboard.mjs \
+  https://localhost:24443 https://localhost:24444 operator \
+  "$PWD/.artifacts/test-vm/forgejo-operator-password" \
+  "$PWD/.artifacts/test-vm/browser-home"
+```
+
+For another builder, prepare a private isolated browser home with the selected target's CA trusted; do not bypass certificate verification or use a personal browser profile containing unrelated credentials.
+
+## Evidence and remaining work
+
+The initial native build/startup fixes are in commit `88be176`; subsequent Accounts-navigation and dashboard-access/test changes are in the working tree. No artifact publication was performed. Logs are under `.artifacts/logs/`, including:
+
+- `build-native.log`, `check-native.log`, `vm-first-boot.log`, `vm-install.log`, `vm-host-check.log`;
+- `cockpit-tailnet-before.log` / `cockpit-tailnet-after.log` and `cockpit-packages-before.log` / `cockpit-packages-after.log`;
+- `dashboard-activation.log`, `dashboard-services.log` and `dashboard-browser-check.log`;
+- `repository-picker-tests.log`, `repository-picker-build.log` and `repository-picker-deploy.log` for the later dashboard-only picker deployment.
+
+The native browser picker check exercised the empty state because the test operator had no repositories. Populated listings, pagination, ownership filtering and forged submissions have Go test coverage; no live repository/project fixture was created for this change.
+
+The initial build/install exposed concrete curl-package, mise-checksum, CLI-validation, binary-mode, CoreOS copy/ownership/label and Cockpit PAM defects. Failed-attempt logs are retained. The first installation was repaired after its partial copy; **a fresh-disk run of the final installer remains unverified**.
+
+Next, exercise the developer journey in [native validation](native-validation.md): create people through Soda, repositories through Forgejo, register public keys, create/join project environments, use shared tools and nested workloads, and validate persistence. Real client routing to project IPs must be established deliberately before claiming direct SSH works; port forwarding is not proof of it.
+
+Still unvalidated: the full developer onboarding/create/join/SSH journey, nested Podman, shared tools, project persistence, Tailnet enrollment/routing/exit-node operations, provider-scheduled runner jobs and AArch64. There is one local Forgejo operator identity and its Soda profile, but no developer users, repositories or project environments were created during dashboard bootstrap.

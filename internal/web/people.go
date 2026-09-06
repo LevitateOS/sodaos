@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 	"golang.org/x/crypto/ssh"
@@ -15,16 +16,18 @@ import (
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Page struct {
-	Environment host.Environment
-	NativeError bool
-	Session     store.Session
-	Operator    bool
-	Keys        []store.Key
-	Users       []store.User
-	Projects    []store.Project
-	Project     store.Project
-	Member      string
-	ForgejoURL  string
+	Environment     host.Environment
+	NativeError     bool
+	Session         store.Session
+	Operator        bool
+	Keys            []store.Key
+	Users           []store.User
+	Projects        []store.Project
+	Repositories    []forgejo.Repository
+	RepositoryError bool
+	Project         store.Project
+	Member          string
+	ForgejoURL      string
 }
 
 func (s *Server) page(v store.Session) Page {

@@ -2,7 +2,7 @@
 
 Persistent, shared development environments on an immutable appliance host. Developers use a browser, ordinary SSH, Git, mise and container tools—not individual Linux accounts on the host.
 
-**Native x86_64 build and source checks pass; an isolated CoreOS test host has booted.** Full product journeys remain unvalidated; this is not a ready-to-deploy release. Start with [local testing and host access](docs/local-testing.md), then [operator setup](docs/operator-setup.md). See [implementation status](docs/implementation-status.md) for evidence and remaining work.
+**The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Native x86_64 build/source checks pass; full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
 
 ## How it fits together
 
@@ -33,7 +33,7 @@ Native package layering and initial services have been exercised on the isolated
 
 1. The operator establishes Forgejo and Soda administration, then creates people through Soda.
 2. Developers sign in through Forgejo and register public SSH keys in their Soda profiles. Private keys stay on their clients.
-3. A repository's human owner creates its project environment. That owner administers the project, not the host.
+3. A repository's human owner selects it from the Projects repository picker and creates its environment. Repositories with an existing environment are excluded. That owner administers the project, not the host.
 4. Each person explicitly selects **Add me to this project**, including the creator.
 5. Developers connect directly to the project's IP, for example `ssh alice@192.168.1.101`, and use ordinary SSH commands, SCP and SFTP.
 6. Personal checkouts coexist with shared files, actual shared mise installations and project services. Git credentials remain separately managed by Forgejo.

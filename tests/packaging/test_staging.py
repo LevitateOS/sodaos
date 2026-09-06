@@ -1,4 +1,5 @@
 """Authored staging checks. Run later against an explicitly built native stage."""
+import json
 import os
 import unittest
 from pathlib import Path
@@ -50,6 +51,11 @@ class NativeStage(unittest.TestCase):
             ['session', 'required', 'pam_selinux.so', 'open', 'env_params'],
         ])
         self.assertIn(['session', 'include', 'password-auth'], sessions[3:])
+
+    def test_cockpit_hides_only_accounts_navigation(self):
+        override = self.root / 'etc/cockpit/users.override.json'
+        self.assertEqual(json.loads(override.read_text()), {'menu': {'index': None}})
+        self.assertEqual(override.stat().st_mode & 0o777, 0o644)
 
     def test_branding_closure(self):
         brand = self.root / 'etc/cockpit/branding'

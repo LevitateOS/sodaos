@@ -46,7 +46,7 @@ This is an explicit first-install operation, not an updater. It stages native fi
 Follow [operator setup](operator-setup.md). The native Forgejo installer is initially accessible only over an operator SSH tunnel to port 3000. `soda-setup` uses the resulting operator API token to create its actual OAuth application/configuration. Supply valid, browser-trusted TLS material covering the distinct Soda and Forgejo origins, then:
 
 ```sh
-sudo soda-activate --bind-ip PRIVATE_APPLIANCE_IP \
+sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP \
   --certificate /secure/browser-cert.pem --private-key /secure/browser-key.pem
 ```
 
