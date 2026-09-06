@@ -202,11 +202,33 @@ policy editors remain unfinished. Native last-write semantics remain explicit.
 No rename/delete/org-to-environment mapping or Linux offboarding synchronization
 is implemented. All focused tests and native permission matrices remain unexecuted.
 
+## My work, search, notifications and native profiles (U13)
+
+`GET /api/forgejo/work` delegates bounded native issue/PR search and personal
+assigned/created/mentioned/review-requested/reviewed booleans. Personal identity
+comes from the acting grant, never a caller `uid`. `GET /repository-search`
+uses native visibility/search/pagination; optional owner names resolve through
+native user lookup before the exclusive owner filter. Missing owners fail closed.
+
+`GET /notifications` lists the acting user's inbox with native all/page filters;
+`PATCH /notifications/{id}` accepts read/unread/pinned. Native permissions are
+retained and the native 205 acknowledgement becomes Soda 204 before authoritative
+reload. Subject navigation uses fixed Soda repository routes, extracting only a
+canonical subject number, not following or exposing a provider-supplied URL.
+
+`GET /users/{login}` and `/activity` expose bounded native public-profile fields
+and native permission-filtered activity, with optional date and pagination. No
+email/auth-source/private security fields or remote avatar requests are added.
+Activity payload text remains inert; this is not advanced graph parity. Overview
+panels fail independently; superseded reads abort and discard late results.
+
+Local Go/UI/type/build checks passed; installed two-user native proof is pending.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy
 return is `/projects`. Other return values are rejected. The callback remains
-`/oauth/callback`. Default requested consent is `write:user write:repository write:issue write:organization`;
+`/oauth/callback`. Default requested consent is `write:user write:repository write:issue write:organization write:notification`;
 `administration=1` additionally requests `write:admin`, without conferring native
 administrator status. Reads accept corresponding read scopes.
 

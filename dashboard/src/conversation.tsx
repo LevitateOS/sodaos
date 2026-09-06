@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Alert, Button, Form, FormGroup, Spinner, TextArea } from "@patternfly/react-core";
 import { APIError, request, type Session } from "./api";
 import { useSession } from "./session";
@@ -32,7 +32,7 @@ export function Conversation({ session, owner, repo, index }: { session: Session
   }
   function turn(page: number) { const nextQuery = new URLSearchParams(query); nextQuery.set("comments_page", String(page)); setQuery(nextQuery); }
   return <section aria-busy={busy} aria-label="Conversation"><h2>Conversation</h2>{error && <Alert isInline variant="danger" title={error} />}{!items && !error && <Spinner aria-label="Loading comments" />}
-    {items?.map(item => <article key={item.id}><h3>{item.user.login} — {item.created_at}</h3><Markdown text={item.body} />{item.user.id === session.user.id && <Button variant="link" isDisabled={busy} onClick={() => { setEditing(item.id); setBody(item.body); }}>Edit this comment</Button>}</article>)}
+    {items?.map(item => <article key={item.id}><h3><Link to={`/users/${encodeURIComponent(item.user.login)}`}>{item.user.login}</Link> — {item.created_at}</h3><Markdown text={item.body} />{item.user.id === session.user.id && <Button variant="link" isDisabled={busy} onClick={() => { setEditing(item.id); setBody(item.body); }}>Edit this comment</Button>}</article>)}
     <Button variant="secondary" isDisabled={busy || Number(page) <= 1} onClick={() => turn(Number(page) - 1)}>Previous comments</Button><Button variant="secondary" isDisabled={busy || next === null} onClick={() => next !== null && turn(next)}>Next comments</Button>
     <Form onSubmit={event => { event.preventDefault(); void save(); }}><FormGroup label={editing ? "Edit comment" : "New comment"} fieldId="conversation-comment"><TextArea id="conversation-comment" value={body} isDisabled={busy} rows={8} onChange={(_, value) => setBody(value)} /></FormGroup><Button type="submit" isDisabled={busy || !body.trim()}>{editing ? "Save comment" : "Post comment"}</Button>{editing && <Button variant="link" isDisabled={busy} onClick={() => { setEditing(null); setBody(""); }}>Cancel edit</Button>}</Form>
   </section>;

@@ -18,6 +18,25 @@ Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
 provider resource, project state or networking was changed. Deployment/migration,
 developer routing and installed workload/persistence acceptance remain pending.
 
+## U13 source and local verification
+
+Connected My work, native permission-filtered repository/issue/PR search,
+notification read/unread/pin updates and native user profiles/activity. Personal
+work filters use the acting grant, not a caller-selected user ID. Profile-owned
+repository search resolves the user through Forgejo and never widens a missing
+owner into an unfiltered search. Notification navigation extracts only a trusted
+repository subject number, never provider URL hosts/query credentials. Native
+notification permission and 205 acknowledgement semantics were inspected, as were
+native profile/activity visibility rules. Added verified `write:notification`
+consent; no work/activity/notification inventory is stored in Soda.
+
+Executed `go test ./...`, dashboard type checking, 18 DOM/unit tests in 11 files,
+and production build: all passed locally. Logs: `.artifacts/logs/u13-*.log`.
+Focused cases cover personal-actor binding, large IDs, notification denial/links,
+missing-owner scope, superseded search and independently failing overview panels.
+Installed native-user verification, advanced activity/coverage decisions and the
+remaining U14–U20 work are still pending. No provider or VM mutation was executed.
+
 ## Core/support rebase integration — source only
 
 Resolved the build/context/installation-guide overlap in favor of U02's real React payload and missing-lockfile guard. The full native build skips the dashboard in its generic command loop and calls the core `build-dashboard.sh` with `--payload-only`; support then builds/exports the dashboard image exactly once with native identity metadata. The standalone dashboard entrypoint retains its existing image build and does not depend on support tooling. Container context rules admit the generated dashboard assets while retaining dashboard dependency/dist exclusions and denying other artifact trees by default. Staging and the core Containerfile continue to consume that same payload. This is source integration, not executed build or runtime evidence; builds/tests and dependency resolution remain held.
@@ -195,7 +214,8 @@ acceptance remain source/execution work.
 | U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
 | U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
 | U12 | Connected repository settings/access/protection/hooks and organization/team source | None | Advanced team/protection forms, sub-action coverage and full native permission matrix |
-| U13–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U13 | Connected overview/search/notifications/native profiles/activity | Local Go/UI/type/build checks passed; no installed proof | Native two-user visibility/update journeys and coverage closure |
+| U14–U20 | Pending | None | Automation/releases/wiki/packages/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

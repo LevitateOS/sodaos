@@ -23,6 +23,9 @@ import { Collaborators, DeployKeys } from "./repository-access";
 import { BranchProtections, TagProtections } from "./protections";
 import { Organizations, NewOrganization, OrganizationDetail } from "./organizations";
 import { TeamDetail } from "./teams";
+import { MyWork, Search } from "./work";
+import { Notifications } from "./notifications";
+import { UserProfile } from "./user-profile";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -36,13 +39,16 @@ export function App() {
       {phase === "anonymous" && <><h1>Welcome to Soda</h1><p>Sign in with Forgejo. Your password stays with Forgejo.</p><a href="/login?return_to=%2Fapp%2F">Sign in with Forgejo</a></>}
       {phase === "authenticated" && session && <>
         <nav aria-label="Soda navigation">
-          <Link to="/">Overview</Link><Link to="/profile">Profile and development keys</Link><Link to="/help">Help</Link>
+          <Link to="/">My work</Link><Link to="/search">Search</Link><Link to="/notifications">Notifications</Link><Link to={`/users/${encodeURIComponent(session.user.login)}`}>Native profile</Link><Link to="/profile">Profile and development keys</Link><Link to="/help">Help</Link>
           <Link to="/repositories">Repositories</Link><Link to="/organizations">Organizations</Link><Link to="/environments">Environments</Link><Link to="/account">Forgejo account</Link>
           <a href={session.forgejo_url}>Open Forgejo</a>
           <Button variant="link" onClick={() => void logout()}>Sign out of Soda</Button>
         </nav>
         <Routes key={`${session.user.id}:${location.pathname}`}>
-          <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>Discover or create a Forgejo repository, create its persistent environment, then explicitly join using your public development-access key.</p><p><Link to="/repositories">Browse repositories</Link> · <Link to="/environments">Discover environments</Link></p><Alert isInline variant="warning" title="Preview: installed developer verification, direct project routing and native workload/persistence proof remain pending." /></>} />
+          <Route path="/" element={<MyWork session={session} />} />
+          <Route path="/search" element={<Search session={session} />} />
+          <Route path="/notifications" element={<Notifications session={session} />} />
+          <Route path="/users/:login" element={<UserProfile session={session} />} />
           <Route path="/repositories" element={<RepositoryList session={session} />} />
           <Route path="/repositories/new" element={<CreateRepository session={session} />} />
           <Route path="/repositories/import" element={<ImportRepository session={session} />} />
