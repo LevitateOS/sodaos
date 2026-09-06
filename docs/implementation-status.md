@@ -18,6 +18,34 @@ Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
 provider resource, project state or networking was changed. Deployment/migration,
 developer routing and installed workload/persistence acceptance remain pending.
 
+## U14 source and local verification; U08 access observation
+
+Connected native Actions runs/detail, repository tasks, recursive workflow-file
+selection and explicit dispatch; repository/organization secret and variable
+configuration is native, with write-only secret values and no Soda persistence.
+Run/event payloads and runner credentials are excluded from DTOs. Run polling
+retains one response and stops on navigation, logout, terminal status or failure.
+Run/task pagination reads the native public API cap because those endpoints
+return body totals without Link headers. Workflow discovery retains the pinned
+first-directory rule, native recursive tree pagination and a 30-second/10,000-entry
+bound. Provider denial is not retried with another authority.
+
+Pinned web run routes exist for logs/artifacts/cancel/rerun, but OAuth2.Verify
+explicitly excludes those web paths. No runner protocol, password, or borrowed
+cookie adapter was introduced. Native-login fallback remains an explicit U17
+disposition, not completed parity or user acceptance of the gap.
+
+Executed local full Go suite, dashboard type checking, 21 tests in 12 UI files
+and production build successfully; logs `.artifacts/logs/u14-*.log`. No real run,
+secret, variable, repository or VM mutation was executed.
+
+Read-only U08 builder observation attempts failed before execution: the recorded
+`vince@192.168.2.253` address rejected public-key authentication, and
+`vince@linux-infra.dimensionlab.net` had no trusted ED25519 host-key entry here.
+Strict host-key checking was retained. Logs `u08-builder-observation.log` and
+`u08-builder-hostname-observation.log` contain only those failures. Existing VM
+state was not observed or changed; approved SSH access needs restoration.
+
 ## U13 source and local verification
 
 Connected My work, native permission-filtered repository/issue/PR search,
@@ -215,7 +243,8 @@ acceptance remain source/execution work.
 | U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
 | U12 | Connected repository settings/access/protection/hooks and organization/team source | None | Advanced team/protection forms, sub-action coverage and full native permission matrix |
 | U13 | Connected overview/search/notifications/native profiles/activity | Local Go/UI/type/build checks passed; no installed proof | Native two-user visibility/update journeys and coverage closure |
-| U14–U20 | Pending | None | Automation/releases/wiki/packages/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U14 | Connected runs/tasks/workflows/dispatch and repository/organization Actions configuration | Local Go/UI/type/build checks passed; no provider mutation | Real approved provider/runner journeys and explicit native run-control gap disposition |
+| U15–U20 | Pending | None | Releases/wiki/packages/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

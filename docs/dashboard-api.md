@@ -202,6 +202,34 @@ policy editors remain unfinished. Native last-write semantics remain explicit.
 No rename/delete/org-to-environment mapping or Linux offboarding synchronization
 is implemented. All focused tests and native permission matrices remain unexecuted.
 
+## Actions (U14)
+
+Repository `/api/forgejo/repos/{owner}/{repo}/actions` exposes GET `/runs`,
+`/runs/{id}`, `/tasks`, `/workflows?ref=…`, and POST
+`/workflows/{relative-filename}/dispatch` with explicit ref and string-valued
+inputs. Native dispatch validates workflow capability/inputs and returns a native
+run ID; uncertain failures are never automatically replayed. Run IDs/numbers
+remain decimal strings. Task records are repository-wide, not complete per-run
+job/step graphs. Run event payloads and runner credentials are omitted.
+
+Both repository Actions and `/api/forgejo/organizations/{org}/actions` expose
+GET `/secrets`, PUT/DELETE `/secrets/{name}`, GET `/variables` and POST/PUT/DELETE
+`/variables/{name}`. Native create/update methods are preserved. Secret data is
+write-only; missing/null replacement values are rejected rather than clearing
+existing values. Names/values are bounded; native reserved-name rules remain
+upstream-owned. Browser inputs are ephemeral, with secrets cleared on submission.
+Every operation uses the acting grant and upstream permissions, not Soda operator
+identity. Native configuration is not copied to SQLite or browser persistence.
+
+Runs/tasks use native body totals and the actual public API page cap, not an
+assumed deployment default. Workflow directory priority/recursive traversal follow
+pinned native source, failing explicitly at the traversal/time bound. Only the
+viewed run polls (five seconds); terminal results and failures stop polling.
+Native web jobs/logs/artifacts/run controls require the user's own Forgejo login;
+the pinned OAuth verifier excludes those paths. This is an unresolved U17 gap,
+not a fallback to privileged credentials. Local tests passed; native execution
+with approved repositories/runners remains pending.
+
 ## My work, search, notifications and native profiles (U13)
 
 `GET /api/forgejo/work` delegates bounded native issue/PR search and personal

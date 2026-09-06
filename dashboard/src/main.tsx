@@ -26,6 +26,8 @@ import { TeamDetail } from "./teams";
 import { MyWork, Search } from "./work";
 import { Notifications } from "./notifications";
 import { UserProfile } from "./user-profile";
+import { Actions, ActionRunDetail, ActionTasks, Workflows } from "./actions";
+import { ActionConfiguration } from "./action-configuration";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -64,6 +66,12 @@ export function App() {
           <Route path="/repositories/:owner/:repo/pulls" element={<Pulls session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/new" element={<NewPull session={session} />} />
           <Route path="/repositories/:owner/:repo/pulls/:index" element={<PullDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/actions" element={<Actions session={session} />} />
+          <Route path="/repositories/:owner/:repo/actions/runs/:run" element={<ActionRunDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/actions/tasks" element={<ActionTasks session={session} />} />
+          <Route path="/repositories/:owner/:repo/actions/workflows" element={<Workflows session={session} />} />
+          <Route path="/repositories/:owner/:repo/actions/configuration" element={<ActionConfiguration session={session} />} />
+          <Route path="/organizations/:org/actions/configuration" element={<ActionConfiguration session={session} />} />
           <Route path="/repositories/:owner/:repo/settings" element={<RepositorySettings session={session} />} />
           <Route path="/repositories/:owner/:repo/collaborators" element={<Collaborators session={session} />} />
           <Route path="/repositories/:owner/:repo/deploy-keys" element={<DeployKeys session={session} />} />
