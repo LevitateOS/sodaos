@@ -1,5 +1,34 @@
 # Implementation handoff
 
+## Native support audit remediation — source only
+
+Implemented the next active support-source pass from clean baseline `15e49b1`.
+No current native milestone exit is claimed. The [audit follow-up](native-porting-audit.md#source-remediation-follow-up) maps the changes and remaining work; the original audit remains a historical snapshot.
+
+- **P02/P03:** structured JSON is sanitized before encoding; observations publish under their final name only after write/close/leak checks, with the pending file retained. Evidence scanning/hashing and report reads use open-directory capabilities; reports hash the exact decoded metadata and expose cleanup/exit/invocation/artifact context. Transfers retain the actual manifest digest and detect changed streamed bytes. Failed VM launches retain cleanup facts separately. Linux child groups use non-reaping `waitid(WNOWAIT)` before group cleanup, preventing leader exit/PID reuse from dropping or misdirecting cleanup. Non-Linux owned execution now fails closed; portable metadata/report/direct-key-probe operations remain available. This is not a sandbox for processes that deliberately leave their group or change privileges.
+- **U02/P04 shared contract:** moved the existing core frontend validation unchanged into `internal/frontend`; web startup retains its entrypoint and P04 now consumes the same validator. No second frontend build or manifest policy was added. Record the real dashboard package/lock inputs and cross-check public build revision/platform/image IDs. `/etc` export admits only the current public staging paths, excluding actual OAuth/admin/grant credentials and unknown files. Directory-relative bundle copies verify copied hashes; OCI checks now include schema/media types, local descriptors and rootfs/diff-ID structure. Compressed layer contents still require native import proof.
+- **P05/P06/P11:** preflight SSH availability, record qemu-img version, bound signature/decompression phases and tighten public download URLs. Build parents are checked before descendant creation. First-install preflight checks existing host/container networks, destination ancestors and one booted deployment before writes; the existing installer/setup/activation ownership is unchanged. Installed checks assert configured credential/TLS modes and native bindings, accounting for rootful DNAT publication rather than assuming every published port appears in `ss`. Cockpit browser observations require SELinux enforcing. Installed-byte verification has explicit filesystem/command test inputs and preserves CoreOS's writable-prefix mapping.
+
+Authored focused tests for escaped/structured redaction, finalization failures,
+renamed evidence roots, Linux leader-first/TERM-resistant group cleanup, CLI
+cancellation, changed transfer inputs, credential contamination, missing/stale
+React payloads, metadata/OCI failures, bounded trusted-CA HTTP downloads, installed
+identity/mode/image failures and explicit remote phase ordering/refusal. These
+new tests have **not run**. Formatting, shell syntax, Python AST inspection and
+whitespace review are source checks only, not compilation or behavioral proof.
+
+The tightened verifier requires a freshly built bundle with the new public
+inputs. Preserve old stages/bundles and use their matching historical verifier;
+never edit/reseal retained metadata to satisfy new checks. Current installed
+component revisions and the existing VM/projects/tunnels/data are untouched.
+Remaining work includes executing/fixing the new and aggregate suites on an
+explicitly authorized exact native candidate; additional external-tool/VM and
+installer failure fixtures; selecting actual trusted native inputs; fresh
+fixture/install/operator and independent aarch64 evidence. P07/P08 still belong
+to U08/U20, and P09/P10 media remain unselected. No build, dependency resolution,
+test execution, native target/provider action, publication or cleanup occurred
+in this pass.
+
 ## U08 completion plan recorded
 
 Added the [U08 completion checklist](dashboard-implementation-plan.md#u08-completion-execution-plan--baseline-0d4c4eb)

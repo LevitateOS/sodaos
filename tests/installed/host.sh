@@ -56,4 +56,56 @@ fi
 [[ ${SODA_HOST_PHASE:-$phase} == "$phase" ]] || { echo 'Observed activation phase differs from requested phase' >&2; exit 1; }
 printf 'Observed phase: %s. Native listeners (not routed-client proof):\n' "$phase"
 ss -lnt
+python3 - "$phase" <<'PY'
+import ipaddress, json, socket, stat, subprocess, sys
+from pathlib import Path
+from urllib.parse import urlsplit
+rows = subprocess.check_output(['ss', '-H', '-ltn'], text=True).splitlines()
+listeners = set()
+for row in rows:
+    fields = row.split()
+    if len(fields) < 5: raise SystemExit('malformed listener observation')
+    address, port = fields[3].rsplit(':', 1)
+    listeners.add((address.strip('[]'), int(port)))
+def bound(address, port):
+    if (address, port) not in listeners: raise SystemExit('required service binding missing')
+    if any(p == port and a not in (address, '::1' if address == '127.0.0.1' else address) for a, p in listeners):
+        raise SystemExit('unexpected additional service binding')
+bound('127.0.0.1', 9090)
+def published(address, host_port, container_port):
+    mapping = subprocess.check_output(['podman', '--remote=false', 'port', 'soda-forgejo', f'{container_port}/tcp'], text=True).strip()
+    expected = f'[{address}]:{host_port}' if ':' in address else f'{address}:{host_port}'
+    if mapping != expected: raise SystemExit('unexpected published Git/HTTP mapping')
+    # Rootful bridge publication may use DNAT, not a host listening process.
+    if any(p == host_port and a != address for a, p in listeners): raise SystemExit('unexpected host listener on published port')
+    with socket.create_connection((address, host_port), timeout=5): pass
+published('127.0.0.1', 3000, 3000)
+if sys.argv[1] == 'activated':
+    cfg = json.loads(Path('/etc/soda/dashboard.json').read_text())
+    for key in ('oauth_secret_file', 'admin_token_file', 'grant_key_file'):
+        path = Path(cfg[key])
+        info = path.lstat()
+        if not path.is_absolute() or not stat.S_ISREG(info.st_mode) or (info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)) != (0, 2000, 0o640):
+            raise SystemExit('configured dashboard credential permissions invalid')
+    for name in ('cert.pem', 'key.pem'):
+        info = (Path('/etc/soda/tls') / name).lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o600:
+            raise SystemExit('TLS material permissions invalid')
+    # These are the variables actually consumed by the packaged Caddy config,
+    # not ports reconstructed from a client's unrelated browser tunnel.
+    env = dict(line.split('=', 1) for line in Path('/etc/soda/proxy.env').read_text().splitlines() if line)
+    address = str(ipaddress.ip_address(env['SODA_BIND']))
+    if not ipaddress.ip_address(address).is_private or ipaddress.ip_address(address).is_unspecified:
+        raise SystemExit('private explicit proxy bind required')
+    for key in ('SODA_ORIGIN', 'FORGEJO_ORIGIN'):
+        origin = urlsplit(env[key])
+        if origin.scheme != 'https' or not origin.hostname: raise SystemExit('invalid configured HTTPS origin')
+        bound(address, origin.port or 443)
+    host, port = cfg['listen'].rsplit(':', 1)
+    bound(host.strip('[]'), int(port))
+    published(address, 2222, 22)
+else:
+    published('127.0.0.1', 2222, 22)
+print('Configured native listener and credential-mode boundaries observed; not a login or client-route proof.')
+PY
 printf 'First-install services, ownership, labels and page files checked on %s. Dashboard/project/provider journeys remain separate.\n' "$(hostname)"

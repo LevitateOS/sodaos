@@ -23,11 +23,26 @@ func fixtureOCI(t *testing.T, file, arch string, unsafe bool) {
 		blobs["blobs/sha256/"+digest] = data
 		return descriptor{Digest: "sha256:" + digest, Size: int64(len(data))}
 	}
-	config, _ := json.Marshal(map[string]any{"os": "linux", "architecture": arch, "config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.revision": fixtureRevision, "org.opencontainers.image.source": "https://github.com/LevitateOS/sodaos", "org.opencontainers.image.base.name": "synthetic-base", "org.opencontainers.image.base.digest": "sha256:" + strings.Repeat("b", 64)}}})
+	var layerBytes bytes.Buffer
+	lw := tar.NewWriter(&layerBytes)
+	body := []byte("synthetic layer fixture; never executed")
+	if err := lw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0644, Size: int64(len(body))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lw.Write(body); err != nil {
+		t.Fatal(err)
+	}
+	if err := lw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	layer := add(layerBytes.Bytes())
+	layer.MediaType = "application/vnd.oci.image.layer.v1.tar"
+	config, _ := json.Marshal(map[string]any{"os": "linux", "architecture": arch, "rootfs": map[string]any{"type": "layers", "diff_ids": []string{layer.Digest}}, "config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.revision": fixtureRevision, "org.opencontainers.image.source": "https://github.com/LevitateOS/sodaos", "org.opencontainers.image.base.name": "synthetic-base", "org.opencontainers.image.base.digest": "sha256:" + strings.Repeat("b", 64)}}})
 	cfg := add(config)
-	layer := add([]byte("synthetic layer, not a container filesystem"))
+	cfg.MediaType = "application/vnd.oci.image.config.v1+json"
 	manifest, _ := json.Marshal(map[string]any{"schemaVersion": 2, "config": cfg, "layers": []descriptor{layer}})
 	m := add(manifest)
+	m.MediaType = "application/vnd.oci.image.manifest.v1+json"
 	blobs["index.json"], _ = json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []descriptor{m}})
 	blobs["oci-layout"] = []byte(`{"imageLayoutVersion":"1.0.0"}`)
 	if unsafe {

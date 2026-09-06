@@ -1,6 +1,7 @@
 package nativebuild
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -26,7 +27,7 @@ type VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 
 func httpsURL(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && u.Fragment == ""
+	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.Contains(raw, "#")
 }
 func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
 	var l CoreOSLock
@@ -87,12 +88,17 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	if err = os.Mkdir(home, 0700); err != nil {
 		return result, err
 	}
-	cmd := exec.CommandContext(ctx, "gpgv", "--homedir", home, "--keyring", keyring, "--status-fd=1", sig, archive)
-	status, err := cmd.Output()
+	verifyCtx, verifyCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer verifyCancel()
+	cmd := exec.CommandContext(verifyCtx, "gpgv", "--homedir", home, "--keyring", keyring, "--status-fd=1", sig, archive)
+	var status bytes.Buffer
+	cmd.Stdout = &limitWriter{w: &status, remaining: 1 << 20}
+	cmd.WaitDelay = 2 * time.Second
+	err = cmd.Run()
 	if err != nil {
 		return result, errors.New("CoreOS signature verification failed")
 	}
-	if !validSignature(status, signer) {
+	if !validSignature(status.Bytes(), signer) {
 		return result, errors.New("signature does not match selected signer")
 	}
 	dest := filepath.Join(out, "coreos.qcow2")
@@ -101,7 +107,9 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 		return result, err
 	}
 	hash := sha256.New()
-	cmd = exec.CommandContext(ctx, "xz", "--decompress", "--stdout", "--", archive)
+	decompressCtx, decompressCancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer decompressCancel()
+	cmd = exec.CommandContext(decompressCtx, "xz", "--decompress", "--stdout", "--", archive)
 	cmd.Stdout = &limitWriter{w: io.MultiWriter(f, hash), remaining: 64 << 30}
 	cmd.WaitDelay = 2 * time.Second
 	err = errors.Join(cmd.Run(), f.Close())
@@ -153,13 +161,23 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 	w.remaining -= int64(n)
 	return n, err
 }
-func download(ctx context.Context, source, dest string, max int64) error {
-	client := http.Client{Timeout: 30 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+func coreOSClient(transport http.RoundTripper) *http.Client {
+	return &http.Client{Transport: transport, Timeout: 30 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) > 5 || !httpsURL(req.URL.String()) {
 			return errors.New("unsafe download redirect")
 		}
 		return nil
 	}}
+}
+
+func download(ctx context.Context, source, dest string, max int64) error {
+	return downloadHTTP(ctx, coreOSClient(http.DefaultTransport), source, dest, max)
+}
+
+func downloadHTTP(ctx context.Context, client *http.Client, source, dest string, max int64) error {
+	if !httpsURL(source) || max <= 0 {
+		return errors.New("bounded HTTPS download required")
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 	if err != nil {
 		return err

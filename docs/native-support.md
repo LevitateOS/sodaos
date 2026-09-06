@@ -2,6 +2,8 @@
 
 **Implemented tooling with partial recorded execution, not completed support acceptance.** The full x86_64 `8417a90` build/stage/seal and component checks now provide evidence; the corrected pinned Go suite passed subsequently. The aggregate check was not successfully rerun. Fresh support-fixture/install/operator and aarch64 proof remain pending. The [remaining-work audit at `58ddc0d`](native-porting-audit.md) also identifies source defects and missing tests; this guide describes the intended contracts, not a claim that all are fully enforced.
 
+A subsequent [source remediation pass](native-porting-audit.md#source-remediation-follow-up) tightens these boundaries and adds tests. Those edits are not built/tested and do not complete native exits; preserve historical bundles with their own verifier rather than resealing them under the new contract.
+
 The [dashboard implementation plan](dashboard-implementation-plan.md) owns the core product and U08/U20 acceptance. These tools cover the active scope of the [native support plan](native-porting-plan.md): P01–P06, P11 and the P12/P13 reporting interfaces, subject to the audited remaining implementation work. P07/P08 remain redirects. P09/P10 media remain unselected. No helper, flag, source commit or report grants execution permission.
 
 ## Shared contracts and provenance
@@ -52,6 +54,13 @@ The export's parent must already exist; the `ARCH` directory must not. A bundle 
 The first installer verifies before copying writable prefixes, validates the RFC1918 subnet and subordinate ranges before applying them, and refuses existing/partial Soda state. `/etc/soda/install-started` remains after a partial failure; do not remove it to pretend the attempt was clean. Application setup, HTTPS activation and migrations still use core-owned commands. An extension request needs its separately approved activation reboot before installation. Do not install Soda on the builder.
 
 ## SSH, commands and exact-source remote phases
+
+Owned process execution (`exec`, `native`, `transfer`, `vm`) now requires Linux's
+non-reaping wait support. The leader remains pinned until its group is terminated,
+so an exited parent cannot leave descendants behind or let cleanup signal a reused
+PID. Non-Linux coordination can use existing approved SSH tooling; report/metadata
+and direct key-probe operations remain portable. This is group ownership, not a
+sandbox for a privileged child or one deliberately creating a different session.
 
 Connection JSON uses the Go field names below. Keys are file references, never inline contents. Private identities must be absolute regular files inaccessible to group/others; `KnownHosts` is an already trusted, non-writable-by-others regular file. No automatic trust refresh occurs.
 
@@ -177,7 +186,7 @@ Interactive console/native-branding reviews reuse the existing console welcome, 
 
 For candidate-bound host evidence, invoke `verify-installed` (directly or through the host check's bundle/revision variables). It compares the install-attempt revision, immutable delivered files/modes/links and current Forgejo/dashboard/proxy image IDs. It deliberately does not compare mutable configuration, databases or existing project containers, whose policy and assertions remain core-owned.
 
-Each new private evidence root has bounded, streaming-redacted captures and `observation.json`: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
+Each new private evidence root has bounded, streaming-redacted captures. Structured values are sanitized before JSON encoding; `observation.pending.json` is retained and linked exclusively to `observation.json` only after successful write/close/leak checks. A finalization failure leaves no new final record. The record includes: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Transfers automatically retain the selected manifest hash; handoffs show invocation, exit and cleanup context. Generic `exec` source/target fields remain caller-declared unless the invoked owner check verifies them. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
 
 ```sh
 /path/to/soda-acceptance report --arch x86_64 --revision FULL_COMMIT_SHA \

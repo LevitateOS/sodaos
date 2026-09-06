@@ -8,6 +8,36 @@ Audited source baseline: **`58ddc0d0707b9b2c72f97363e8daa1b53853f341`**. The wor
 
 The [dashboard implementation plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) remains authoritative. This audit does not create another product acceptance gate, require optional media, or transfer U08/U20 work back into P07/P08. Source findings below are reasoned from the cited implementation; their regression tests and fixes have **not** been executed or implemented by this audit.
 
+## Source remediation follow-up
+
+Source pass based on `15e49b1`; **unbuilt and unexecuted**, not a replacement for
+this audit's historical evidence. Detailed handoff:
+[implementation status](implementation-status.md#native-support-audit-remediation--source-only).
+The findings/line references below describe the audited baseline, not an assertion
+that those exact defects still exist in the edited source.
+
+| Finding | Implemented follow-up | Still to establish |
+| --- | --- | --- |
+| A01 | Explicit current public `/etc` export paths; actual credential/unknown-path rejection tests | Fresh full staging regression; filenames cannot prove arbitrary unknown secrets absent from otherwise permitted content |
+| A02 | Linux non-reaping leader wait, group termination before reap, bounded escalation; resistant-descendant cases | Execute lifecycle/cancellation tests; owned execution on non-Linux now refuses rather than offering weaker cleanup |
+| A03 | Separate structured serialization, escaped-secret handling, quote-safe URL matching and numeric-identity tests | Run failure/redaction cases; unknown credentials remain outside exact-secret guarantees |
+| A04 | Exclusive pending record followed by final-name publication only after retention checks; failed-launch cleanup facts | Execute finalization and native partial-launch cases; no power-loss durability or job-recovery claim |
+| A05 | Directory-relative evidence/report/tree/copy operations, exact decoded-record digest, copy/stream hash checks and destination-parent preflight | Execute changed-parent/special-file/native extraction cases; preserve supported CoreOS writable-prefix mapping |
+| A06 | One core `internal/frontend` validator consumed by startup and export; real dashboard dependency inputs and build-identity checks | Rebuild fresh matching payload; rerun core web/staging/aggregate checks; old bundles retain their old verifier |
+| A07 | OCI schema/media/local-descriptor/rootfs checks and real tiny tar-layer fixture | Native import/decompression proof for compressed layers and remaining malformed-input coverage |
+| A08 | Transfer manifest digest retained; handoff shows invocation/exit/cleanup/artifacts and labels requested identity honestly | Actual native end-to-end transfer and candidate-bound handoff; generic exec is not independently identity-certified |
+| A09 | Missing SSH detected before VM state; qemu-img version captured; bounded signature/decompression tools and stricter URLs | Actual trusted signer/keyring/tool/firmware selection and fresh boot/restart evidence |
+| A10 | Route/container-network collisions, writable destination ancestry and booted deployment preflight | Behavioral failure fixtures and clean first installation on an explicitly approved new target |
+| A11 | Configured credential/TLS modes, native socket versus DNAT boundaries, enforcing browser check, installed-identity fixtures | Current native checks and separately approved operator/provider journeys |
+| A12 | Current guide/handoff distinguishes remediation, historical evidence and unexecuted new source | P12/P13 exact-candidate evidence reports after execution |
+
+New coverage also includes a synthetic exact-source remote dispatcher and
+trusted-CA download server. Neither is installed/native evidence. Additional
+external-tool/VM/installer failure coverage and all relevant native exits remain
+open; **the plan is not marked complete**. Newer core evidence already establishes
+personal Git/shared files/tools and project-network workload subsets; follow the
+[leading core snapshot](dashboard-implementation-plan.md#current-execution-snapshot--gitshared-toolworkload-follow-up), not section 5's historical pending list.
+
 ## 1. Credit what already exists
 
 ### Implemented source

@@ -25,9 +25,13 @@ python3 - <<'PY'
 import os
 from pathlib import Path
 p = Path('.artifacts/native')
-p.mkdir(parents=True, exist_ok=True)
 for d in (Path('.artifacts'), p):
-    if d.resolve() != d.absolute() or d.stat().st_uid != os.getuid() or d.stat().st_mode & 0o022:
+    # Validate each ancestor before creating anything below it.
+    if d.is_symlink():
+        raise SystemExit('symlinked native output parent refused')
+    if not d.exists():
+        d.mkdir(mode=0o700)
+    if not d.is_dir() or d.resolve() != d.absolute() or d.stat().st_uid != os.getuid() or d.stat().st_mode & 0o022:
         raise SystemExit('native output parent must be real, owned and not writable by others')
 lock = p / '.build.lock'
 if lock.is_symlink() or (lock.exists() and not lock.is_file()):

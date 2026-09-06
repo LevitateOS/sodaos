@@ -1,6 +1,8 @@
 package nativebuild
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/levitateos/sodaos/internal/frontend"
 )
 
 // Inventory identifies bytes, not product acceptance or a signed release.
@@ -29,11 +33,11 @@ const inventoryName = "build-info.json"
 
 func allowedPayload(p string) bool {
 	if p == "rootfs" || strings.HasPrefix(p, "rootfs/") {
+		if p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") {
+			return publicEtcPath(p)
+		}
 		// The core owns the stage. Reject known runtime/private content rather than
 		// interpreting application config or inventing a React payload.
-		if p == "rootfs/etc/soda/installed" {
-			return false
-		}
 		for _, bad := range []string{"/dashboard.json", "/host.json", "/install-started", "/shadow", "/gshadow", "/machine-id", "/tailscale/", "/browser-home/", "/soda-artifacts", "/soda-acceptance", "/ssh_host_", "/authorized_keys"} {
 			if strings.Contains(p, bad) {
 				return false
@@ -43,14 +47,34 @@ func allowedPayload(p string) bool {
 		case ".ign", ".bu", ".key", ".pem", ".sqlite", ".db":
 			return false
 		}
-		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
+		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
 	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE":
+	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE":
 		return true
 	}
 	return false
 }
+
+// P04's export boundary follows the actual /etc outputs in scripts/stage.py.
+// Runtime config/credentials and unexpected files are never admitted merely
+// because their filename has no private extension.
+func publicEtcPath(p string) bool {
+	for _, name := range []string{
+		"containers/systemd/forgejo.container", "containers/systemd/soda-dashboard.container", "containers/systemd/soda-proxy.container",
+		"systemd/system/soda-host.service", "systemd/system/soda-host.socket", "systemd/system/soda-project@.service", "systemd/system/soda-runner@.service", "systemd/system/cockpit.socket.d/10-soda.conf",
+		"sysusers.d/soda.conf", "sysusers.d/soda-runners.conf", "tmpfiles.d/soda.conf", "tmpfiles.d/soda-runners.conf", "sysctl.d/90-soda-routing.conf",
+		"pam.d/cockpit", "cockpit/cockpit.conf", "cockpit/users.override.json", "cockpit/disallowed-users", "profile.d/soda-console-welcome.sh", "motd", "soda/forgejo.env", "soda/proxy.Caddyfile",
+		"cockpit/branding/branding.css", "cockpit/branding/theme.css", "cockpit/branding/palette.css", "cockpit/branding/login-background-light.svg", "cockpit/branding/login-background-dark.svg", "cockpit/branding/favicon.ico", "cockpit/branding/apple-touch-icon.png", "cockpit/branding/soda-logo-horizontal.svg", "cockpit/branding/soda-logo-horizontal-dark.svg", "cockpit/branding/soda-symbol.svg",
+	} {
+		full := "rootfs/etc/" + name
+		if p == full || strings.HasPrefix(full, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 func validLink(name, target string) bool {
 	fixed := map[string]string{"rootfs/usr/local/bin/soda-tailnet": "/usr/local/libexec/soda/soda-tailnet", "rootfs/usr/local/sbin/soda-setup": "/usr/local/libexec/soda/soda-setup"}
 	if expected, ok := fixed[name]; ok {
@@ -60,22 +84,26 @@ func validLink(name, target string) bool {
 	return !filepath.IsAbs(target) && strings.HasPrefix(name, prefix) && strings.HasPrefix(filepath.ToSlash(filepath.Clean(filepath.Join(filepath.Dir(name), target))), prefix)
 }
 func tree(root string) (map[string]File, error) {
+	cap, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer cap.Close()
+	st, err := cap.Lstat("tools")
+	if err != nil || !st.IsDir() {
+		return nil, errors.New("real tools directory required")
+	}
 	result := map[string]File{}
 	for _, top := range []string{"rootfs", "images", "tools/soda-artifacts", "install-native.sh", "inputs", "notices"} {
-		start := filepath.Join(root, top)
-		err := filepath.WalkDir(start, func(p string, d fs.DirEntry, err error) error {
+		err := fs.WalkDir(cap.FS(), top, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			rel, err := filepath.Rel(root, p)
-			if err != nil {
-				return err
-			}
-			rel = filepath.ToSlash(rel)
+			rel := p
 			if !allowedPayload(rel) {
 				return fmt.Errorf("non-payload path refused: %s", rel)
 			}
-			info, err := os.Lstat(p)
+			info, err := cap.Lstat(p)
 			if err != nil {
 				return err
 			}
@@ -86,9 +114,9 @@ func tree(root string) (map[string]File, error) {
 			switch {
 			case info.IsDir():
 			case info.Mode().IsRegular():
-				entry.SHA256, err = HashFile(p)
+				entry.SHA256, err = HashAt(cap, p)
 			case info.Mode()&os.ModeSymlink != 0:
-				entry.Link, err = os.Readlink(p)
+				entry.Link, err = cap.Readlink(p)
 				if err == nil && !validLink(rel, entry.Link) {
 					err = errors.New("unsafe payload symlink")
 				}
@@ -105,14 +133,55 @@ func tree(root string) (map[string]File, error) {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE"} {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "rootfs/usr/local/share/soda/dashboard/index.html", "rootfs/usr/local/share/soda/dashboard/LICENSES.txt", "rootfs/usr/local/share/soda/dashboard/.vite/manifest.json", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE"} {
 		entry, ok := result[required]
 		if !ok || entry.SHA256 == "" {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)
 		}
 	}
+	assets, err := cap.OpenRoot("rootfs/usr/local/share/soda/dashboard")
+	if err != nil {
+		return nil, err
+	}
+	_, err = frontend.Load(assets.FS())
+	err = errors.Join(err, assets.Close())
+	if err != nil {
+		return nil, err
+	}
 	return result, nil
 }
+
+func verifyBuildInputs(root, arch, revision string, images map[string]Image) error {
+	var record struct {
+		Revision, Architecture string
+		Tools                  map[string]string
+		Images                 map[string]struct {
+			ID, RegistryDigest string
+			RepositoryDigests  []string
+			RPMs               []string
+			CLIs               map[string]string
+		}
+	}
+	if err := ReadJSON(filepath.Join(root, "inputs/native-build.json"), &record); err != nil {
+		return err
+	}
+	if record.Revision != revision || record.Architecture != arch {
+		return errors.New("build inputs revision/platform mismatch")
+	}
+	for _, tool := range []string{"go", "node", "pnpm", "podman", "python", "kernel"} {
+		if record.Tools[tool] == "" {
+			return fmt.Errorf("missing build tool observation: %s", tool)
+		}
+	}
+	for name, image := range images {
+		id := strings.TrimPrefix(record.Images[name].ID, "sha256:")
+		if !Digest(id) || "sha256:"+id != image.Config {
+			return fmt.Errorf("build input image mismatch: %s", name)
+		}
+	}
+	return nil
+}
+
 func Seal(root, arch, revision string) error {
 	if err := RequireNative(arch); err != nil {
 		return err
@@ -138,6 +207,9 @@ func Seal(root, arch, revision string) error {
 			return fmt.Errorf("inspect %s: %w", name, err)
 		}
 		images[name] = img
+	}
+	if err = verifyBuildInputs(root, arch, revision, images); err != nil {
+		return err
 	}
 	data, err := json.MarshalIndent(Inventory{revision, arch, files, images}, "", "  ")
 	if err != nil {
@@ -197,6 +269,9 @@ func Verify(root, arch, revision string) (Inventory, error) {
 			return inv, errors.New("image identity changed")
 		}
 	}
+	if err = verifyBuildInputs(root, arch, revision, inv.Images); err != nil {
+		return inv, err
+	}
 	return inv, nil
 }
 
@@ -206,33 +281,39 @@ func Bundle(source, dest, arch, revision string) error {
 	if err != nil {
 		return err
 	}
-	if err = FreshDirectory(dest); err != nil {
-		return err
-	}
-	// Walk the source in parent-before-child order; all paths were validated.
-	files, err := tree(source)
+	srcRoot, err := os.OpenRoot(source)
 	if err != nil {
 		return err
 	}
+	defer srcRoot.Close()
+	if err = FreshDirectory(dest); err != nil {
+		return err
+	}
+	destRoot, err := os.OpenRoot(dest)
+	if err != nil {
+		return err
+	}
+	defer destRoot.Close()
+	files := inv.Files
 	for name, entry := range files {
 		if entry.Directory {
-			if err = os.MkdirAll(filepath.Join(dest, name), 0755); err != nil {
+			if err = destRoot.MkdirAll(name, 0755); err != nil {
 				return err
 			}
 		}
 	}
 	for name, entry := range files {
-		target := filepath.Join(dest, name)
+		target := name
 		if entry.Directory {
 			continue
 		}
-		if err = os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err = destRoot.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
 		if entry.Link != "" {
-			err = os.Symlink(entry.Link, target)
+			err = destRoot.Symlink(entry.Link, target)
 		} else {
-			err = copyExclusive(filepath.Join(source, name), target, os.FileMode(entry.Mode))
+			err = copyExclusive(srcRoot, destRoot, name, entry)
 		}
 		if err != nil {
 			return err
@@ -240,7 +321,7 @@ func Bundle(source, dest, arch, revision string) error {
 	}
 	for name, entry := range files {
 		if entry.Directory {
-			if err = os.Chmod(filepath.Join(dest, name), os.FileMode(entry.Mode)); err != nil {
+			if err = destRoot.Chmod(name, os.FileMode(entry.Mode)); err != nil {
 				return err
 			}
 		}
@@ -265,16 +346,27 @@ func checksums(root string) error {
 	}
 	return WriteNew(filepath.Join(root, "SHA256SUMS"), []byte(sum+"  "+inventoryName+"\n"), 0644)
 }
-func copyExclusive(src, dest string, mode os.FileMode) error {
-	in, err := os.Open(src)
+func copyExclusive(src, dest *os.Root, name string, entry File) error {
+	st, err := src.Lstat(name)
+	if err != nil {
+		return err
+	}
+	if !st.Mode().IsRegular() || uint32(st.Mode().Perm()) != entry.Mode {
+		return errors.New("payload type/mode changed before copying")
+	}
+	in, err := src.Open(name)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
+	out, err := dest.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.FileMode(entry.Mode))
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(out, in)
-	return errors.Join(err, out.Chmod(mode.Perm()), out.Close())
+	hash := sha256.New()
+	_, err = io.Copy(io.MultiWriter(out, hash), in)
+	if hex.EncodeToString(hash.Sum(nil)) != entry.SHA256 {
+		err = errors.Join(err, errors.New("payload changed during copying"))
+	}
+	return errors.Join(err, out.Chmod(os.FileMode(entry.Mode)), out.Close())
 }
