@@ -1,5 +1,5 @@
 #!/bin/bash
-# Explicit first installation on an authorized native target, never run now.
+# Explicit first installation on an authorized native target, not an updater.
 set -euo pipefail
 bundle=${1:?usage: install-native.sh /path/to/native/ARCH PRIVATE_PROJECT_SUBNET}
 subnet=${2:?Private routed IPv4 project subnet required}
@@ -8,12 +8,22 @@ subnet=${2:?Private routed IPv4 project subnet required}
 [[ ! -e /etc/soda/installed && ! -e /etc/soda/dashboard.json ]] || { echo 'Refusing blind reinstall over existing Soda state' >&2; exit 1; }
 [[ -d "$bundle/rootfs" && -f "$bundle/images/project-os.oci" && -f "$bundle/images/dashboard.oci" ]] || exit 1
 command -v python3 >/dev/null
+command -v restorecon >/dev/null
 command -v forgejo-runner >/dev/null
 command -v tailscale >/dev/null
 # Fail on a conflicting native service identity rather than adopting a person.
 if getent passwd soda >/dev/null; then [[ $(id -u soda) == 2000 && $(id -g soda) == 2000 ]] || exit 1; fi
 if getent passwd 2000 >/dev/null; then [[ $(getent passwd 2000 | cut -d: -f1) == soda ]] || exit 1; fi
-cp -a "$bundle/rootfs/." /
+# CoreOS has read-only /usr and /usr/local -> /var/usrlocal. Enter each
+# writable destination before extracting rather than traversing that symlink
+# inside an archive. Keep existing parent metadata and use root ownership,
+# never the builder's UID/GID, for newly installed privileged files.
+for prefix in etc usr/local var; do
+  tar -C "$bundle/rootfs/$prefix" -cf - . | tar -C "/$prefix" -xf - \
+    --no-same-owner --no-overwrite-dir
+done
+# Apply native SELinux labels only to delivered paths, before any service starts.
+find "$bundle/rootfs" -mindepth 1 -printf '/%P\0' | xargs -0 -r restorecon -F
 systemd-sysusers /etc/sysusers.d/soda.conf /etc/sysusers.d/soda-runners.conf
 systemd-tmpfiles --create /etc/tmpfiles.d/soda.conf /etc/tmpfiles.d/soda-runners.conf
 python3 - "$subnet" <<'PY'

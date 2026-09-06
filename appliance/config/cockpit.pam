@@ -1,10 +1,20 @@
 #%PAM-1.0
 # Operator-only appliance access; project owners are not host administrators.
-auth       substack     system-auth
+# Preserve the native Fedora Cockpit PAM stack, including SELinux transitions.
+auth       required     pam_sepermit.so
+auth       substack     password-auth
 auth       include      postlogin
+auth       optional     pam_ssh_add.so
 account    requisite    pam_succeed_if.so uid = 0 quiet
-account    include      system-auth
-password   include      system-auth
+account    required     pam_listfile.so item=user sense=deny file=/etc/cockpit/disallowed-users onerr=succeed
+account    required     pam_nologin.so
+account    include      password-auth
+password   include      password-auth
+# Close must be first; open must precede sessions run in the operator context.
+session    required     pam_selinux.so close
 session    required     pam_loginuid.so
-session    include      system-auth
+session    required     pam_selinux.so open env_params
+session    optional     pam_keyinit.so force revoke
+session    optional     pam_ssh_add.so
+session    include      password-auth
 session    include      postlogin

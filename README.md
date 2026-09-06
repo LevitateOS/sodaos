@@ -2,7 +2,7 @@
 
 Persistent, shared development environments on an immutable appliance host. Developers use a browser, ordinary SSH, Git, mise and container tools—not individual Linux accounts on the host.
 
-**Current handoff: source-complete, unbuilt, unvalidated (M01–M14).** This is not a tested appliance or a ready-to-deploy release. Native builds and validation remain held for explicitly authorized targets. See [implementation status](docs/implementation-status.md).
+**Native x86_64 build and source checks pass; an isolated CoreOS test host has booted.** Full product journeys remain unvalidated; this is not a ready-to-deploy release. Start with [local testing and host access](docs/local-testing.md), then [operator setup](docs/operator-setup.md). See [implementation status](docs/implementation-status.md) for evidence and remaining work.
 
 ## How it fits together
 
@@ -27,7 +27,7 @@ The implemented host candidate is **Fedora CoreOS**, with native packages reques
 
 **Forgejo is currently a standalone Podman container, not a Podman pod.** Its Quadlet is [`appliance/services/forgejo.container`](appliance/services/forgejo.container). The dashboard and HTTPS proxy also have separate container definitions.
 
-These are source choices, not native compatibility evidence. Nested Podman, package layering and real client routing still need validation.
+Native package layering and initial services have been exercised on the isolated x86_64 host. Nested Podman, real client routing and the full product journey still need validation.
 
 ## Developer workflow
 
@@ -56,7 +56,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 | `cockpit/` | Retained TypeScript/React Tailnet and Runners pages and tests |
 | `project-os/` | Rocky project image, accounts, SSH, shared tools and workload configuration |
 | `appliance/` | Native services, Quadlets, configuration and activation source |
-| `scripts/` | Explicit later build, staging, provisioning, installation and check entrypoints |
+| `scripts/` | Explicit build, staging, provisioning, installation, check and local test-VM entrypoints |
 | `tests/` | Authored staging checks and opt-in installed journeys/fixtures |
 | `assets/` | Canonical branding and attribution |
 | `docs/` | Architecture, scope, implementation handoff and operator guides |
@@ -67,12 +67,12 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 - [Implementation plan](docs/implementation-plan.md) and [current handoff](docs/implementation-status.md)
 - [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
 - [Development environment](docs/development-environment.md) and [project services](docs/project-services.md)
-- [Later native validation](docs/native-validation.md)
+- [Local test host access](docs/local-testing.md) and [native validation](docs/native-validation.md)
 - [Coding-agent instructions](AGENTS.md)
 
 ## Development and validation
 
-The current phase permits source changes and authored tests/recipes, **not their execution**. Do not run builds, compilation, type checks, tests, dependency installation, provisioning or live registration without later explicit authorization.
+Native execution has started on the x86_64 builder and its isolated `soda-test` VM. Installation on other targets, host networking changes, provider enrollment and destructive lifecycle checks still require explicit scope and permission. Keep source-check, host-boot and end-to-end evidence separate; do not report unexecuted checks as passed.
 
 The implementation targets native x86_64 and aarch64 independently. Evidence on one is not evidence on the other, and an unavailable sibling does not block useful authorized work.
 

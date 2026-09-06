@@ -3,6 +3,7 @@
 /node_modules/
 /cockpit/node_modules/
 /cockpit/dist/
+__pycache__/
 *.db
 *.db-shm
 *.db-wal

@@ -1,13 +1,13 @@
 FROM quay.io/rockylinux/rockylinux:9.6
 ARG MISE_VERSION=2026.9.1
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
+RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
 RUN python3 -m pip install --no-cache-dir podman-compose==1.6.0
 # Download is part of a later native build, not an implementation-time operation.
 RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; esac; \
     cd /tmp && file="mise-v${MISE_VERSION}-linux-${arch}.tar.gz" && \
     curl -fLSsO "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/${file}" && \
     curl -fLSsO "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/SHASUMS256.txt" && \
-    grep " ${file}$" SHASUMS256.txt | sha256sum -c - && \
+    awk -v file="$file" '$2 == file || $2 == "./" file { print }' SHASUMS256.txt | sha256sum -c - && \
     tar -xzf "$file" && install -m 0755 mise/bin/mise /usr/local/bin/mise && rm -rf /tmp/mise /tmp/mise-* /tmp/SHASUMS256.txt
 COPY rootfs/ /
 RUN chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \

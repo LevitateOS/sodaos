@@ -1,12 +1,20 @@
 # Implementation handoff
 
-Source-only: no builds, tests, type checks, installed validation or artifact publication have run.
+## Current execution — 2026-09-06
 
-## Current handoff
+**M15 x86_64 build/source checks executed successfully.** An isolated `soda-test` CoreOS KVM host has booted, received native extensions and Soda's first-install components, and serves the Forgejo installer and Cockpit. See [local testing](local-testing.md) for access, exact scope, discovered/fixed defects and logs. The working tree contains the real resolved Go metadata; no artifact publication or commit was made.
 
-**M01–M14: source-complete, unbuilt, unvalidated.** M15–M18 remain held for named native targets and explicit execution authorization. Start with [native validation](native-validation.md) and [installation](installation.md), not an automatic CI run.
+Dashboard OAuth/TLS activation and the M16–M17 product journeys remain pending. AArch64 M18 remains unverified. A first install recovered from the discovered copy/label defects is not a fresh-disk proof of the final installer. Nested Podman and direct client routing remain the highest native risks. Additional installations, network changes and provider/lifecycle operations still require named targets and explicit permission.
 
-Required later generated inputs: real `go.sum`/any resolver-required indirect Go requirements, native binaries/frontend bundles/images/staging, private Ignition, real TLS/operator credentials and actual client routes. No fabricated checksums, artifacts or PASS records are supplied. Nested Podman and direct client routing remain the highest native risks.
+### Cockpit/Tailnet native correction
+
+The first interactive Tailnet read exposed a missing SELinux PAM session transition: root authenticated successfully but its bridge remained in `cockpit_session_t`, where Tailscale socket access and stock systemd operations were denied. Restored the native Fedora Cockpit PAM stack while retaining the required UID-0 account gate. A new authenticated Cockpit WebSocket session now runs in the native operator context and successfully reads `tailscale status --json` and LocalAPI preferences. SELinux remains enforcing; no socket permission changes, daemon restart or Tailnet enrollment were performed. Native PAM account checks allow root and deny the existing non-operator `core` account.
+
+Added a staging regression for the root-only gate and ordered SELinux session rules. The old staged config fails it; the corrected stage passes all five packaging checks, along with Go, TypeScript, 60 Cockpit tests and installed host checks. Existing Cockpit users must log out and back in to receive the correction. Changes remain uncommitted.
+
+## Original source handoff (historical)
+
+The M01–M14 entries below describe the original source-only handoff, when builds, tests, type checks, dependency resolution, installation and publication had not run. Their original “not run” statements are historical; current evidence is recorded above and in [local testing](local-testing.md).
 
 ## Baseline
 

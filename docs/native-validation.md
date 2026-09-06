@@ -1,6 +1,6 @@
-# Later native validation
+# Native validation
 
-**Held. Nothing in this guide has run.** Name the actual builder, installed target, architecture, developer client and permitted actions before executing anything. A build permit is not a disk-install, provider-registration, service-stop or reboot permit. Missing access is **unverified**, not passed or simulated.
+**Started on x86_64; full product journeys remain pending.** [Local testing](local-testing.md) records the successful source/staging checks and isolated test-host startup, including the limits of that evidence. Name the actual builder, installed target, architecture, developer client and permitted actions before additional execution. A build permit is not a disk-install, provider-registration, service-stop or reboot permit. Missing access is **unverified**, not passed or simulated.
 
 ## M15: native source/build evidence
 
