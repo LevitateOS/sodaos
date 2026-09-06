@@ -62,8 +62,14 @@ Read-only U08 builder observation attempts failed before execution: the recorded
 `vince@192.168.2.253` address rejected public-key authentication, and
 `vince@linux-infra.dimensionlab.net` had no trusted ED25519 host-key entry here.
 Strict host-key checking was retained. Logs `u08-builder-observation.log` and
-`u08-builder-hostname-observation.log` contain only those failures. Existing VM
-state was not observed or changed; approved SSH access needs restoration.
+`u08-builder-hostname-observation.log` contain only those failures. Those were
+mistaken SSH-to-self attempts, not a builder access blocker: subsequent local
+`hostname`/address inspection confirmed this workspace is already on
+`linux-infra.dimensionlab.net` at `192.168.2.253`. Local
+`scripts/test-vm.sh status` reported the existing guest running, and the pinned
+`scripts/test-vm.sh ssh 'hostname; uname -m'` succeeded, reporting `soda-test`
+and `x86_64`. No SSH repair is required. These read-only observations did not
+change VM state or establish installed product acceptance.
 
 ## U13 source and local verification
 
