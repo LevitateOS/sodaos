@@ -1,0 +1,23 @@
+[Unit]
+Description=Forgejo collaboration and human identity
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=codeberg.org/forgejo/forgejo:15.0.7
+ContainerName=soda-forgejo
+PublishPort=127.0.0.1:3000:3000
+PublishPort=2222:22
+Volume=/var/lib/soda/forgejo:/data:Z
+Environment=USER_UID=1000
+Environment=USER_GID=1000
+Environment=FORGEJO__database__DB_TYPE=sqlite3
+Environment=FORGEJO__service__DISABLE_REGISTRATION=true
+EnvironmentFile=/etc/soda/forgejo.env
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
