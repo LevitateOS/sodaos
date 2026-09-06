@@ -1,0 +1,31 @@
+@import "../theme/palette.css";
+@import "./theme.css";
+
+/* Soda-owned page surfaces; stock administration pages retain their native layout. */
+.soda-page {
+  color: var(--soda-text);
+  min-height: 100vh;
+  background: var(--soda-canvas);
+}
+
+.soda-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--soda-text);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.soda-diagnostic {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.soda-code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.soda-external-link {
+  overflow-wrap: anywhere;
+}
