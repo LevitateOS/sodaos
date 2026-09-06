@@ -1,6 +1,6 @@
 # SodaOS architecture
 
-**Repository:** [`levitateos/sodaos`](https://github.com/levitateos/sodaos)
+**Repository:** [`levitateos/sodaos`](https://github.com/levitateos/sodaos) (new repo: I remove the dash)
 
 **Supersedes:** [`levitateos/soda-os`](https://github.com/levitateos/soda-os)
 
