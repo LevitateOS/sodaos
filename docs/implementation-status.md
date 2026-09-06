@@ -38,3 +38,7 @@ Fixed-operation root helper over a root:soda systemd Unix socket; dashboard clie
 ## M07 — source implemented
 
 Project discovery/create/detail and explicit join routes now reach the provider, native helper and database. Repository ownership is checked server-side; membership records follow native account success. Real IP inspection and non-ready errors are displayed. Authored a provider/native-double create-flow test, not run.
+
+## M08 — source implemented
+
+Shared mise install/shim path and native global config are wired into login profiles and SSH non-interactive environments. Project-owner installation instructions and authored two-user checks accompany ordinary Git/shared-file guidance. No private resource selection machinery. Build/validation not run.

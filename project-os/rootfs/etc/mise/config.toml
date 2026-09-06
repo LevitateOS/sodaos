@@ -1,0 +1,3 @@
+# The project administrator installs shared versions with native mise commands.
+# Login as project admin, then: sudo -i; mise use --global node@24; exit
+[tools]
