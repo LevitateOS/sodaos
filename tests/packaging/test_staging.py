@@ -33,6 +33,24 @@ class NativeStage(unittest.TestCase):
         pam = (self.root / 'etc/pam.d/cockpit').read_text()
         self.assertIn('uid = 0', pam)
 
+    def test_cockpit_native_pam_session_and_operator_gate(self):
+        pam = (self.root / 'etc/pam.d/cockpit').read_text()
+        rules = [line.split() for line in pam.splitlines()
+                 if line.strip() and not line.lstrip().startswith('#')]
+        self.assertIn(['account', 'requisite', 'pam_succeed_if.so',
+                       'uid', '=', '0', 'quiet'], rules)
+        self.assertIn(['auth', 'required', 'pam_sepermit.so'], rules)
+        self.assertIn(['account', 'required', 'pam_nologin.so'], rules)
+        sessions = [rule for rule in rules if rule[0] == 'session']
+        # Without these native rules root stays in cockpit_session_t: even
+        # read-only tailscale status and stock systemd administration fail.
+        self.assertEqual(sessions[:3], [
+            ['session', 'required', 'pam_selinux.so', 'close'],
+            ['session', 'required', 'pam_loginuid.so'],
+            ['session', 'required', 'pam_selinux.so', 'open', 'env_params'],
+        ])
+        self.assertIn(['session', 'include', 'password-auth'], sessions[3:])
+
     def test_branding_closure(self):
         brand = self.root / 'etc/cockpit/branding'
         css = (brand / 'branding.css').read_text()

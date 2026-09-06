@@ -1,14 +1,15 @@
 package web
 
 import (
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
-	"golang.org/x/crypto/ssh"
 	"net/http"
 	"net/mail"
 	"regexp"
 	"strings"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/store"
+	"golang.org/x/crypto/ssh"
 )
 
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)

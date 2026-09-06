@@ -23,19 +23,18 @@ func run() int {
 	// A signal must also unblock a request decoder waiting on stdin.
 	stopInput := context.AfterFunc(ctx, func() { _ = os.Stdin.Close() })
 	defer stopInput()
-	cfg, err := config.Load("/etc/soda/dashboard.json")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "runner integration configuration unavailable")
-		return 1
-	}
-	coordinator := runners.Coordinator{
-		ForgejoURL:       cfg.ForgejoInternalURL,
-		ForgejoPublicURL: cfg.ForgejoURL,
-		Authorizer:       runners.LinuxAuthorizer{Accounts: linuxhost.NewNative()},
-		Local:            runners.PKExecInvoker{},
-		Privileged:       runners.PKExecInvoker{},
-	}
-	err = execute(ctx, os.Args[1:], os.Stdin, os.Stdout, func(ctx context.Context, action string, input io.Reader) (any, error) {
+	err := execute(ctx, os.Args[1:], os.Stdin, os.Stdout, func(ctx context.Context, action string, input io.Reader) (any, error) {
+		cfg, err := config.Load("/etc/soda/dashboard.json")
+		if err != nil {
+			return nil, errors.New("runner integration configuration unavailable")
+		}
+		coordinator := runners.Coordinator{
+			ForgejoURL:       cfg.ForgejoInternalURL,
+			ForgejoPublicURL: cfg.ForgejoURL,
+			Authorizer:       runners.LinuxAuthorizer{Accounts: linuxhost.NewNative()},
+			Local:            runners.PKExecInvoker{},
+			Privileged:       runners.PKExecInvoker{},
+		}
 		current, err := user.Current()
 		if err != nil {
 			return nil, fmt.Errorf("resolve current Linux account: %w", err)

@@ -1,12 +1,26 @@
 # Implementation handoff
 
-Source-only: no builds, tests, type checks, installed validation or artifact publication have run.
+## Current execution — 2026-09-06
 
-## Current handoff
+**M15 x86_64 build/source checks executed successfully on the recorded native-session baseline.** An isolated `soda-test` CoreOS KVM host has booted, received native extensions and Soda's first-install components, and serves the Forgejo installer and Cockpit. See [local testing](local-testing.md) for access, exact scope, discovered/fixed defects and logs. The real resolved Go metadata and native-startup corrections were subsequently committed in `88be176`; no artifact publication was recorded.
 
-**M01–M14: source-complete, unbuilt, unvalidated.** M15–M18 remain held for named native targets and explicit execution authorization. Start with [native validation](native-validation.md) and [installation](installation.md), not an automatic CI run.
+Dashboard OAuth/TLS activation and the M16–M17 product journeys remain pending. AArch64 M18 remains unverified. A first install recovered from the discovered copy/label defects is not a fresh-disk proof of the final installer. Nested Podman and direct client routing remain the highest native risks. Additional installations, network changes and provider/lifecycle operations still require named targets and explicit permission.
 
-Required later generated inputs: real `go.sum`/any resolver-required indirect Go requirements, native binaries/frontend bundles/images/staging, private Ignition, real TLS/operator credentials and actual client routes. No fabricated checksums, artifacts or PASS records are supplied. Nested Podman and direct client routing remain the highest native risks.
+### Cockpit/Tailnet native correction
+
+The first interactive Tailnet read exposed a missing SELinux PAM session transition: root authenticated successfully but its bridge remained in `cockpit_session_t`, where Tailscale socket access and stock systemd operations were denied. Restored the native Fedora Cockpit PAM stack while retaining the required UID-0 account gate. A new authenticated Cockpit WebSocket session now runs in the native operator context and successfully reads `tailscale status --json` and LocalAPI preferences. SELinux remains enforcing; no socket permission changes, daemon restart or Tailnet enrollment were performed. Native PAM account checks allow root and deny the existing non-operator `core` account.
+
+Added a staging regression for the root-only gate and ordered SELinux session rules. The old staged config fails it; the corrected stage passes all five packaging checks, along with Go, TypeScript, 60 Cockpit tests and installed host checks. Existing Cockpit users must log out and back in to receive the correction. These corrections were subsequently committed in `88be176`.
+
+## Source merge — 2026-09-06
+
+Merged the local predecessor follow-ups (`0f25570`, `4e751ac`, `f2523ac`) with remote history through `95a194d`. Resolved conflicts in agent guidance, README navigation/status, operator setup and the project image. The image retains native `curl-minimal` and mise checksum fixes alongside Tea/GitHub CLI inputs; combined staging tests retain both the PAM regression and the branding/console checks. The real Go metadata and native installation fixes are preserved.
+
+The earlier native evidence does **not** validate this merged tree or its additional checks. This merge performs source/diff, conflict-marker, whitespace and local documentation-link review only. No dependency resolution, builds, product tests, VM/service operations or provider actions were run. The current request authorizes Git merge/commit/push, not additional native execution.
+
+## Original source handoff (historical)
+
+The M01–M14 entries below describe the original source-only handoff, when builds, tests, type checks, dependency resolution, installation and publication had not run. Their original “not run” statements are historical; current evidence is recorded above and in [local testing](local-testing.md).
 
 ## Baseline
 

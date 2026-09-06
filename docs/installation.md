@@ -1,12 +1,12 @@
-# Native build and installation — later execution only
+# Native build and installation
 
-No commands in this guide have run during source implementation. Use the actual authorized matching-native Linux builder and selected appliance target. Source completion does not establish package availability, boot success, networking or usable development environments.
+Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
 ## 1. Prepare the native builder
 
 Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
 
-Resolve initial Go dependency metadata with `go mod tidy`; inspect/commit the resulting `go.mod`/`go.sum`. No hashes have been fabricated and this resolution was intentionally not executed during source-only work. Cockpit's predecessor dependency lockfile is retained. Then invoke:
+Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. Cockpit's predecessor dependency lockfile is retained. Then invoke:
 
 ```sh
 scripts/build-native.sh x86_64

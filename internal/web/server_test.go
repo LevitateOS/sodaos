@@ -1,9 +1,10 @@
 package web
 
 import (
-	"github.com/levitateos/sodaos/internal/config"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/config"
 )
 
 func TestHome(t *testing.T) {

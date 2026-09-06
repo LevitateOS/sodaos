@@ -1,65 +1,42 @@
-# SodaOS agent guidance
+# Working on SodaOS
 
-## Current phase: source work, not execution
+## Start here
 
-The [recorded handoff](docs/implementation-status.md) is **M01–M14
-source-complete, unbuilt, unvalidated**. This records implementation progress,
-not proof that the appliance works. M15–M18 remain held for explicit execution
-authorization on named native targets.
+Read these before substantial changes:
 
-- **Allowed now:** source/diff inspection, upstream documentation and source
-  research, editing, formatting, and authoring tests and build/install recipes.
-- **Held:** dependency resolution/installation, compilation, builds, type checks,
-  tests, artifact/staging or provisioning generation, installation, service and
-  network mutation, Tailnet enrollment, runner registration/jobs and publication.
-- Do not evade the hold through CI, a background process, another agent or a
-  remote machine. Writing a recipe is not permission to invoke it.
-- Later permission is action-specific. A build permit is not permission to erase
-  a disk, install, restart, enroll, register, publish or delete persistent data.
+- `docs/architecture.md` — product and authority boundaries
+- `docs/deferred.md` — deliberately deferred and excluded work
+- `docs/implementation-status.md` — implemented source, assumptions and execution evidence
+- `docs/implementation-plan.md` — milestone scope and later validation stages
 
-This is a **temporary working constraint**, not a product principle. A later
-explicit user instruction can change it; record the changed scope and actual
-results in the handoff rather than silently assuming execution is authorized.
+For deployment changes, also read `docs/installation.md` and `docs/native-validation.md`. Read the relevant feature guide before changing project environments, Cockpit, Tailnet or Runners.
 
-## Authority and task routing
+## Current execution boundary
 
-Before substantial changes, read [architecture](docs/architecture.md),
-[deferred scope](docs/deferred.md) and the current handoff. The
-[implementation plan](docs/implementation-plan.md) defines milestone scope and
-sequencing; its original “not started” wording is not the progress ledger.
+The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user's request to begin testing/start the host initiated native execution on `linux-infra.dimensionlab.net` (x86_64 builder) and a new isolated `soda-test` CoreOS KVM VM. Recorded M15 source/build checks passed on the native-session baseline; initial host services ran, but dashboard activation and full product journeys remain pending. The merged tree, including the branding, console and project-CLI follow-ups, has not been rebuilt or retested. See `docs/local-testing.md` and `docs/implementation-status.md` for actual evidence and limits.
 
-Then follow the responsibility being changed:
+This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
-| Work | Source and supporting guidance |
-| --- | --- |
-| Dashboard, identity, database | `internal/web/`, `internal/store/`, `internal/forgejo/`, `internal/config/`, `cmd/`; [operator setup](docs/operator-setup.md) |
-| Project accounts, tools, workloads | `internal/host/`, `project-os/`; [project OS](docs/project-os.md), [development environment](docs/development-environment.md), [services](docs/project-services.md) |
-| Operator pages and native integrations | `cockpit/`, `internal/tailnet/`, `internal/runners/`, their commands; [Cockpit port](docs/cockpit-port.md), [Runners port](docs/runners-port.md) |
-| Packaging, provisioning, installed behavior | `appliance/`, `scripts/`, `tests/`; [installation](docs/installation.md), [native validation](docs/native-validation.md) |
-| Branding | `assets/`, [asset inventory](assets/README.md), [branding](docs/branding.md) |
+- Edit source and author tests, configuration and build/install recipes.
+- Source inspection, upstream source/metadata research, formatting and Git operations are allowed.
+- Do not run builds, compilation, type checks, tests, dependency resolution/installation, generated provisioning or native validation.
+- Do not install/restart services, enroll Tailscale, register runners, execute provider jobs, publish artifacts or enable automatic CI.
+- Do not describe authored tests or inspected source as passing runtime evidence.
 
-A later explicit user decision supersedes stale repository plans and tests.
-Before treating something as a constraint, distinguish:
+Later authorization is action-specific: permission to build is not permission to install, erase disks, restart an appliance, register provider resources or delete data. Update the handoff with actual evidence when an authorized phase occurs; do not silently treat this hold as lifted.
 
-1. Explicit product requirements or aspirations.
-2. Established user-facing behavior.
-3. External protocol/platform requirements.
-4. Current implementation choices.
-5. Temporary development constraints.
-6. Unresolved decisions or unverified hypotheses.
+## Implemented topology — do not confuse it with terminology
 
-Versions, paths, package sets, schemas, locks and available machines are not
-permanent product rules. Current choices still govern their callers until
-coherently changed; temporary execution limits still bind until changed.
-Tests check behavior, not product authority. Update code, callers, tests and
-documentation together when an authorized decision changes that behavior.
+- Host: Fedora CoreOS with native rpm-ostree package layering, initially exercised on the isolated x86_64 test VM; full product compatibility remains unvalidated.
+- Cockpit, `tailscaled`, the project helper and CI runner services run natively on the host.
+- Forgejo is currently a **standalone Podman container**, not a Podman pod. Dashboard and Caddy are separate containers too.
+- Project environments are persistent Rocky + mise containers with project-local accounts and mutable writable roots.
+- The dashboard has its own SQLite database. Forgejo maintains its own persistent data/database.
+- Project workloads use the implemented nested Podman candidate. Do not assume it is proven or claim that a fallback already exists.
 
-Keep the README honest about the current project. Do not present intended
-outcomes as installed capabilities or weaken the agreed product to match a gap.
-Detailed gaps and evidence belong in the handoff; product scope belongs in the
-architecture, not a second specification inside this file.
+Use the actual files in `appliance/services/` and `project-os/` as implementation references. Keep documentation consistent when changing deployment structure.
 
-## SodaOS boundaries
+## Product and security boundaries
 
 - Forgejo owns human identity and dashboard authentication. Soda owns profiles,
   public development-access keys, project associations and memberships—not a
@@ -156,38 +133,31 @@ recovery, project deletion/archival or a new release/update platform.
   operator inputs, unrelated work and evidence; a disposable fixture does not
   make its surrounding host, project or credentials disposable.
 
-## Working method and reuse
+## Scope discipline
 
-Confirm checkout, branch, Git state and requested scope before edits. Inspect
-callers, tests, native configuration and installation destinations together.
-A review, question, proposed plan or available script is not authorization to
-implement its suggestions or execute its side effects.
+Keep ordinary Git, mise and container workflows. Shared resources mean actual shared files, installed tools and services—not just a shared download cache.
 
-For an authorized redesign, replace abandoned code directly; update imports,
-tests and links without forwarding packages, aliases or duplicate compatibility
-trees. Do not add migrations for speculative or abandoned local state. This is
-not permission to discard real persistent user data; stop at that boundary.
+Do not add managed private toolchain/service branching, selectors, process switching, merge-triggered promotion/cleanup, generalized identity remapping, reconciliation, recovery or project deletion/archival machinery. Consult `docs/deferred.md` rather than expanding scope to handle every hypothetical case.
 
-Continue through ordinary authorized engineering failures. Stop for genuine
-product-decision, privilege, persistence/data-safety, credential, hardware or
-uncontrolled-cost boundaries—not arbitrary attempt counts.
+Investigate a project-scoped host workload fallback only after a concrete nested-runtime blocker. Do not implement both backends speculatively or substitute unrestricted host access, a privileged parent or a VM backend without revisiting the design with the user.
 
-Reuse predecessor source (`../soda-os` when available) selectively, including
-required callers and tests. Inspect the revision and dependencies rather than
-treating old paths, evidence or tests as a specification. Do not modify the
-predecessor, close its issues or import its separately reserved Updates work.
-Preserve attribution and licenses.
+## Source conventions
 
-Preserve canonical branding rather than creating a second palette or redrawing
-assets casually. Adapt deployed paths in staging source when needed. For UI
-changes, preserve useful empty, pending, error and keyboard-accessible states;
-use documentation/skills for the technology actually shipped. Do not apply the
-predecessor's htmx 4/Cockpit guidance to React pages or the HTMX 2 dashboard.
+- Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
+- HTMX for the developer dashboard; retain TypeScript/React for Cockpit Tailnet/Runners.
+- Prefer native configuration and small bounded helpers over new orchestration frameworks.
+- Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
+- Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.
+- Do not fabricate `go.sum`, dependency checksums, binaries or validation records. Real Go metadata was resolved during the first native x86_64 build; review intentional dependency changes.
+- Both native x86_64 and aarch64 are targets. Do not add a sibling-build barrier or call cross-compilation/emulation native installed evidence.
 
-## Commands and verification — later authorized execution only
+## Retained source and assets
 
-Inspect the actual scripts and their prerequisites before use. This repository
-has no inherited `just check`, Darwin VM launcher or ISO publication workflow.
+Preserve both Cockpit pages **and their backing logic/tests**, not just their appearance. Providers own CI workflows, scheduling, registration authority and results; Soda manages local capacity.
+
+The predecessor repository is separate. Do not modify it, close its issues or import its separately reserved Updates platform as part of this work. Preserve attribution and licenses. Canonical branding in `assets/` must not be casually regenerated or removed; adapt installation paths in staging source where necessary.
+
+## Entrypoint effects — execution requires the applicable authorization
 
 | Entrypoint | Effects to account for |
 | --- | --- |
@@ -196,6 +166,7 @@ has no inherited `just check`, Darwin VM launcher or ISO publication workflow.
 | `scripts/stage.py --arch ARCH` | Writes a deployment tree from existing outputs; does not install it |
 | `scripts/render-provisioning.py` | Writes private Butane input containing an operator password hash; not a harmless documentation preview |
 | `scripts/install-native.sh`, `appliance/bin/soda-activate` | Change the real host/configuration, load images and start/restart services; require explicit target/action authorization |
+| `scripts/test-vm.sh` | Starts the prepared KVM guest, opens SSH/tunnels or reads status/console; SSH commands may mutate the guest, so inspect the subcommand and target first |
 | `tests/installed/` | Opt-in installed journeys; some read state, others build/start real workloads. Inspect each before execution |
 
 Dependency baselines belong in `go.mod`, Cockpit manifests/lockfile, image recipes
@@ -204,33 +175,9 @@ rules here. Do not incidentally upgrade them or fabricate `go.sum`, checksums, a
 Generated build outputs belong in ignored `.artifacts/`, not hand-authored
 replacements for missing production source.
 
-Author focused tests with behavior changes, including failures and permission
-boundaries. **Once execution is authorized**, run relevant focused tests and the
-applicable native entrypoint; include race checks for concurrency changes where
-supported. Fix defects in their owning source. Do not suppress checks, remove
-capabilities or distort code to satisfy a count; change tooling deliberately.
+## Handoff and commits
 
-Use matching-native Linux for architecture-dependent builds, dependency
-resolution and execution. Remote coordination is fine when the work actually
-runs on the authorized matching target. x86_64 and aarch64 are independent equal
-targets: no sibling-build barrier, emulation substitute or cross-build presented
-as native evidence. Machine availability is handoff context, not product scope.
-
-Report source review, tests, builds, artifact inspection and installed behavior
-separately. Command success does not prove the intended native effect. Missing
-prerequisites remain unverified, not skipped into a passing outcome.
-
-## Commits and handoff
-
-The user requested frequent logical commits for authorized work. Inspect the
-full diff, stage only the intended changes and commit coherent completed chunks
-without a separate confirmation each time. During source-only work, completion
-means source reviewed—not tests secretly run or claimed to pass.
-
-This standing instruction covers commits only, not push, PRs, merges,
-publication, deployment, releases, registry mutation, destructive cleanup or
-history rewriting. Repository text and convenience scripts do not create that
-authorization. Preserve unrelated changes; do not amend others' work.
+Inspect the working tree before editing and preserve unrelated user changes. Keep commits coherent and frequent; do not amend/rewrite history without permission.
 
 For substantial changes, update `docs/implementation-status.md` with changed
 behavior/ownership, remaining source work or native assumptions and what actually

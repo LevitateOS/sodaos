@@ -1,4 +1,4 @@
-# Operator bootstrap (execution later)
+# Operator bootstrap
 
 Source baseline: Forgejo 15.0.7. API shapes were inspected in its upstream `templates/swagger/v1_json.tmpl`; authorization-code exchange and S256 PKCE are implemented in `routers/web/auth/oauth.go`. Soda uses OAuth2 and `/api/v1/user`, not an assumed OIDC identity-token flow.
 
@@ -10,6 +10,6 @@ Source baseline: Forgejo 15.0.7. API shapes were inspected in its upstream `temp
 
 Developers are created by the operator's Soda dashboard. Their initial password is sent only to Forgejo; Soda does not store it. They change it through native Forgejo onboarding. Git authentication uses native Forgejo SSH keys or HTTPS tokens, independently of Soda development-access public keys.
 
-An interactive root host login also displays the [operator console welcome](console-welcome.md): observed interfaces, loopback Cockpit access and configured browser origins. It is guidance, not enrollment or a reachability check.
+The merged source adds an interactive root [operator console welcome](console-welcome.md): observed interfaces, loopback Cockpit access and configured browser origins. It is guidance, not enrollment or a reachability check; its native deployment has not been validated.
 
-Native API, TLS, container and login behavior has not been built or exercised. No live registration is performed by editing these sources.
+The local x86_64 test host serves the native Forgejo installer and Cockpit from the earlier native baseline; see [local testing](local-testing.md). Dashboard OAuth, browser-trusted activation and the developer login journey remain unverified. No live registration is performed by editing these sources.
