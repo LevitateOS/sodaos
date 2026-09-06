@@ -65,6 +65,29 @@ The user explicitly requested implementation of the complete leading core plan. 
 
 **Execution:** source/metadata inspection, source edits, formatting and diff/documentation review only. No dependency installation/resolution, compilation/build, product tests, generated frontend assets, provider mutations, VM/network/service actions or deployment. The new dashboard lockfile is deliberately absent rather than fabricated; frozen build scripts fail with an explicit preflight message until authorized resolution/review. Go formatting completed. Frontend formatter attempts failed at the wrapper/workspace/config boundary because the new dashboard dependencies are not installed; no successful frontend format/type/test result is claimed, and no dependency installation was used to bypass the gate. The running test VM remains unchanged. See [dashboard source instructions](../dashboard/README.md) and [API/migration contracts](dashboard-api.md).
 
+### Provider response boundary follow-up
+
+Rechecked clean HEAD `70fe1da` and read the complete leading plan, handoff,
+architecture, inventory, deferred scope and native installation/validation guides.
+U03/U04 provider transport now returns sanitized typed HTTP status errors,
+preserves request cancellation, and rejects oversized, null, malformed or
+trailing JSON responses, including OAuth token responses. It does not retain raw
+provider errors or retry with another credential. Existing callers use this
+boundary; OAuth scopes and grant retention are unchanged.
+
+Authored focused response-size/format, status/denial/no-retry, cancellation and
+OAuth-response tests. Only Go formatting and `git diff --check` ran; no tests,
+builds, dependency resolution, provider requests or native changes ran. Requested
+specific build/test, backed-up dashboard deployment, fixture and lifecycle
+permissions; routing/client authority still needs an explicit selection.
+
+Milestone ledger remains: U01/U02/U03 and Soda-local U05 partial source;
+U04 has only this transport preparation, not per-user grant integration;
+U06–U20 pending. No new milestone is source-complete, built, source-tested or
+installed-verified. No new native fallback was implemented. E01–E03 remain
+unselected. Execution permissions do not block independent source work, which
+also remains unfinished; this follow-up does not complete the assignment.
+
 ## Core/native plan coordination merge
 
 Pulled `origin/main` (`9c8d672`) into local `55ce5cb` with `git pull --no-rebase --no-commit origin main`, preserving both documentation histories. The only textual conflict was the introduction to `docs/implementation-plan.md`; resolved it by retaining the historical M01–M18 context, the leading U plan and subordinate native-support reference. No application-source conflict or application change was involved.

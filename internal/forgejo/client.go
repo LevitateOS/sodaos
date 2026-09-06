@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -53,14 +51,14 @@ func (c *Client) request(ctx context.Context, method, path, token string, in, ou
 	req.Header.Set("Authorization", "token "+token)
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return errors.New("Forgejo could not be reached")
+		return transportError(ctx)
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return fmt.Errorf("Forgejo rejected operation (HTTP %d); inspect native Forgejo administration", res.StatusCode)
+		return &HTTPError{Status: res.StatusCode}
 	}
 	if out != nil {
-		return json.NewDecoder(io.LimitReader(res.Body, 2<<20)).Decode(out)
+		return decodeResponse(res.Body, 2<<20, out)
 	}
 	return nil
 }
@@ -112,18 +110,20 @@ func (c *Client) Exchange(ctx context.Context, clientID, secret, code, redirect,
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", errors.New("Forgejo token exchange unavailable")
+		return "", transportError(ctx)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return "", errors.New("Forgejo rejected token exchange")
+		return "", &HTTPError{Status: res.StatusCode}
 	}
 	var token struct {
 		Access string `json:"access_token"`
 	}
-	err = json.NewDecoder(io.LimitReader(res.Body, 65536)).Decode(&token)
-	if err != nil || token.Access == "" {
-		return "", errors.New("invalid Forgejo token response")
+	if err = decodeResponse(res.Body, 65536, &token); err != nil {
+		return "", err
+	}
+	if token.Access == "" {
+		return "", ErrInvalidResponse
 	}
 	return token.Access, nil
 }
