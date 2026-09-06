@@ -66,7 +66,9 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 - [Architecture](docs/architecture.md) and [deferred scope](docs/deferred.md)
 - [Implementation plan](docs/implementation-plan.md) and [current handoff](docs/implementation-status.md)
 - [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
-- [Development environment](docs/development-environment.md) and [project services](docs/project-services.md)
+- [Development environment](docs/development-environment.md), [project services](docs/project-services.md) and [provider CLIs](docs/project-clis.md)
+- [Operator welcome](docs/console-welcome.md), [branding review](docs/branding-review.md) and [screenshot guidance](docs/screenshot-capture.md)
+- [Predecessor reuse inventory](docs/predecessor-reuse.md)
 - [Later native validation](docs/native-validation.md)
 - [Coding-agent instructions](AGENTS.md)
 

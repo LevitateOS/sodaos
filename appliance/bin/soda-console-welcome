@@ -46,8 +46,9 @@ try:
         if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value):
             raise ValueError('invalid origin')
         url = urlsplit(value)
-        if url.scheme != 'https' or not url.hostname or url.username or url.password or url.query or url.fragment or url.path not in ('', '/'):
+        if url.scheme != 'https' or not url.hostname or url.username is not None or url.password is not None or url.query or url.fragment or url.path not in ('', '/'):
             raise ValueError('invalid origin')
+        _ = url.port  # Reject malformed/out-of-range ports without printing the value.
         origins.append((label, value.rstrip('/')))
 except (OSError, ValueError, KeyError):
     print('\nBrowser origins are not configured or cannot be read; complete operator setup.')

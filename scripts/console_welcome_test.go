@@ -77,12 +77,14 @@ func TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins(t *testing.T) {
 	if err != nil || len(out) != 0 {
 		t.Fatal("non-operator banner", err, string(out))
 	}
-	config, env = consoleFixture(t, "0", `{"public_url":"https://name:private-value@soda.example.test","forgejo_url":"https://forgejo.example.test"}`)
-	cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
-	cmd.Env = env
-	out, err = cmd.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "complete operator setup") || strings.Contains(string(out), "private-value") {
-		t.Fatal("unsafe origin handling", err, string(out))
+	for _, origin := range []string{"https://name:private-value@soda.example.test", "https://@soda.example.test", "https://soda.example.test:bad-port", "https://soda.example.test:65536"} {
+		config, env = consoleFixture(t, "0", `{"public_url":"`+origin+`","forgejo_url":"https://forgejo.example.test"}`)
+		cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+		cmd.Env = env
+		out, err = cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "complete operator setup") || strings.Contains(string(out), origin) {
+			t.Fatal("unsafe origin handling", err, string(out))
+		}
 	}
 }
 

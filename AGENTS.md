@@ -191,16 +191,16 @@ has no inherited `just check`, Darwin VM launcher or ISO publication workflow.
 
 | Entrypoint | Effects to account for |
 | --- | --- |
-| `scripts/build-native.sh ARCH` | Builds Go/frontend/images, installs frontend dependencies, fetches the locked runner client and stages artifacts; does not install or publish the appliance |
-| `scripts/check-native.sh ARCH` | Runs Go tests, TypeScript/UI checks and staging tests; needs prepared dependencies and the native stage |
+| `scripts/build-native.sh ARCH` | Resolves Go/frontend dependencies, builds native commands/project CLIs/images (including Tea's version execution), fetches locked inputs and stages artifacts; does not install or publish the appliance |
+| `scripts/check-native.sh ARCH` | Runs Go tests, TypeScript/UI checks, Python build-fixture and staging tests; needs prepared dependencies and the native stage |
 | `scripts/stage.py --arch ARCH` | Writes a deployment tree from existing outputs; does not install it |
 | `scripts/render-provisioning.py` | Writes private Butane input containing an operator password hash; not a harmless documentation preview |
 | `scripts/install-native.sh`, `appliance/bin/soda-activate` | Change the real host/configuration, load images and start/restart services; require explicit target/action authorization |
 | `tests/installed/` | Opt-in installed journeys; some read state, others build/start real workloads. Inspect each before execution |
 
 Dependency baselines belong in `go.mod`, Cockpit manifests/lockfile, image recipes
-and `appliance/locks/`, not duplicated version rules here. Do not incidentally
-upgrade them or fabricate `go.sum`, checksums, artifacts or PASS records.
+and the lockfiles under `appliance/` and `project-os/`, not duplicated version
+rules here. Do not incidentally upgrade them or fabricate `go.sum`, checksums, artifacts or PASS records.
 Generated build outputs belong in ignored `.artifacts/`, not hand-authored
 replacements for missing production source.
 

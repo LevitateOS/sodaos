@@ -1,6 +1,6 @@
 # Project userspace implementation candidate
 
-Rocky Linux 9.6 (tag existence inspected in Quay's registry API), mise 2026.9.1 (upstream release asset names inspected), systemd and OpenSSH. Build recipes download only when explicitly built later; the recipe verifies mise against its release checksums.
+Rocky Linux 9.6 (tag existence inspected in Quay's registry API), mise 2026.9.1 (upstream release asset names inspected), systemd and OpenSSH. Build recipes download only when explicitly built later; the recipe verifies mise against its release checksums. [Tea and GitHub CLI](project-clis.md) are project tools too, with separate native personal authentication. The project image now consumes matching-native Tea output and uses the repository-root build context through `scripts/build-native.sh`.
 
 A project is created once and retained. Account databases, SSH host keys, `/home`, shared files, system packages and service data live in its persistent writable container root filesystem. Normal systemd startup must use `podman start` on that existing container, never `run --replace`, `--rm`, `rm` or a recreating Quadlet. Deletion/replacement/update is outside current scope. Losing host container storage is not covered by this persistence claim.
 

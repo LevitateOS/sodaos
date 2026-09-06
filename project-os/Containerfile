@@ -1,6 +1,10 @@
 FROM quay.io/rockylinux/rockylinux:9.6
+ARG ARTIFACT_DIR
 ARG MISE_VERSION=2026.9.1
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
+ARG GH_VERSION=2.97.0
+# Native GitHub CLI repository; signature verification remains enabled.
+COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
+RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns "gh-${GH_VERSION}" && dnf clean all
 RUN python3 -m pip install --no-cache-dir podman-compose==1.6.0
 # Download is part of a later native build, not an implementation-time operation.
 RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; esac; \
@@ -9,7 +13,10 @@ RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; e
     curl -fLSsO "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/SHASUMS256.txt" && \
     grep " ${file}$" SHASUMS256.txt | sha256sum -c - && \
     tar -xzf "$file" && install -m 0755 mise/bin/mise /usr/local/bin/mise && rm -rf /tmp/mise /tmp/mise-* /tmp/SHASUMS256.txt
-COPY rootfs/ /
+# Supplied by the matching-native Tea source build, never a Fedora RPM in Rocky.
+COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
+COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
+COPY project-os/rootfs/ /
 RUN chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
     chmod 0440 /etc/sudoers.d/soda-project && \
     systemctl enable sshd.service soda-project-init.service soda-podman.service && \

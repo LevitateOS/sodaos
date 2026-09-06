@@ -5,6 +5,11 @@ set -eu
 test "$(id -u)" != 0
 command -v mise
 command -v git
+command -v tea
+command -v gh
+tea --version
+gh --version
+# CLI availability is not login or provider compatibility evidence.
 test -d "$HOME/shared"
 test -r "/etc/ssh/authorized_keys/$(id -un)"
 test "$(readlink "$HOME/shared")" = /srv/project/shared

@@ -1,11 +1,11 @@
 # Soda OS Cockpit identity kit
 
-The Soda Projects RPM installs the shared palette, Cockpit adapter, two login
-backgrounds, favicon and Apple touch icon into `/usr/share/cockpit/branding/sodaos/`, together with the
-canonical symbol and light/dark wordmarks. The four Soda pages bundle this same
-palette and canonical symbol. The preview and individual favicon PNG proofs are
-not installed. This describes image source composition, not deployment to an
-existing server.
+The SodaOS staging recipe selects the shared palette, Cockpit adapter, two login
+backgrounds, favicon, Apple touch icon and canonical SVGs for `/etc/cockpit/branding/`.
+The retained Tailnet and Runners pages bundle the same palette and symbol. The
+preview and individual favicon PNG proofs are not installed. This is unbuilt
+source composition, not deployment to an existing server; the predecessor's
+Projects RPM and four-page Cockpit layout are not carried over.
 
 Open `preview.html` locally to review both themes at 100% browser zoom. Its login
 panels are non-interactive placement studies, not stock Cockpit screenshots or
@@ -33,7 +33,7 @@ do not create a second copy of the symbol or wordmark for Cockpit.
 The background waves and bubbles echo the existing symbol without modifying it.
 Use these images decoratively, behind an opaque login card. There is no motion,
 so no reduced-motion alternative is needed. A plain canvas color is a sufficient
-fallback. The separate animated-wave experiment is unchanged and is not used here.
+fallback. No animated-background experiment is part of this native source selection.
 
 ## Color and type
 
@@ -55,10 +55,10 @@ Keep native warning, danger, success, and disabled-state semantics. Do not recol
 the approved logo to match control colors. The preview's system font is only for
 offline review: integration should retain Cockpit's native PatternFly fonts.
 
-Tests measure at least 4.5:1 for main/secondary text and link interaction
-states on canvas, surface and panel, and for button labels on all three action
-states. Input boundaries and focus colors are checked at 3:1 on those surfaces.
-These are token-pair measurements, not a complete UI accessibility audit.
+The palette targets at least 4.5:1 for main/secondary text, link interaction
+states and button labels, and 3:1 for input boundaries and focus colors.
+Token-pair measurements are not a complete UI accessibility audit. Current
+SodaOS native contrast and keyboard behavior remain unvalidated.
 Use underlines for text links. Use a 2px focus outline with 3px offset; do not
 replace native keyboard focus with color alone.
 
@@ -71,8 +71,8 @@ actual 16px, not just enlarged. No new font files or duplicate logo masters.
 
 - Product identity: **Soda OS** (the approved artwork uses lowercase lettering).
 - Login tagline: **Your development home.**
-- Login instruction: keep Cockpit's **Log in with your server user account.**
-- Page names: keep **Projects**, **Runners**, **Tailscale**, **Soda Updates** for now.
+- Login instruction: retain stock Cockpit authentication copy; actual host access is root/operator-only.
+- Operator extensions: **Runners** and **Tailscale**. Projects/People belong in the separate Soda dashboard; Updates is excluded.
 - Review-sheet headline: **Your workspace. Your machine.** This is proposed copy,
   not a new product guarantee or an instruction to add it to every page.
 
@@ -84,23 +84,15 @@ for this kit; the stock About dialog should remain intact.
 
 ## Reproduction and verification
 
-From the repository root, with Go and `rsvg-convert` (librsvg) installed:
+The canonical files are retained unchanged. The predecessor's
+`tools/render-cockpit-branding` generator/tests have not been ported; its old
+commands and package entry-point patching are not SodaOS build steps. PNG-encoded
+ICO frames target modern browsers, not legacy Windows icon consumers.
 
-```sh
-go run ./tools/render-cockpit-branding
-go test ./tools/render-cockpit-branding
-```
-
-The renderer writes only the four PNGs and the ICO. It does not edit SVG masters,
-CSS, previews, packages, or system settings. Tests compare freshly rendered pixels
-with tracked PNGs and check every ICO frame against its PNG. The PNG-encoded ICO
-is intended for modern browsers, not legacy Windows icon consumers.
-
-These are architecture-independent assets. No image build, installation, or
-native architecture support is established by generating them. Before shipping,
-validate real Cockpit 366 behavior in both themes, keyboard/error states, narrow
-screens, and favicon caching. The image build adds the native branding stylesheet
-link to the five Cockpit 366 entry points that omit it upstream. All shipped
-stock pages must receive the palette; preserve the stock authentication flow. See
-[`docs/cockpit-development.md`](../../../docs/cockpit-development.md#branding-verification)
-for reference-DOM and real installed-session browser checks.
+Assets are architecture-independent, but their presence does not establish a
+working native integration. Before shipping, validate the actually installed
+Cockpit version in both themes, keyboard/error states, narrow screens and favicon
+caching. Preserve stock authentication and operator navigation. Follow the
+[current Cockpit port](../../../docs/cockpit-port.md) and
+[native validation guide](../../../docs/native-validation.md), not predecessor
+RPM/release instructions. Execution remains held until explicitly authorized.

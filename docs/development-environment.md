@@ -61,6 +61,10 @@ git switch -c my-change
 
 Repository permissions remain with that host. Joining the Soda environment does not grant repository access. A local commit is not a remote backup, and a Git merge does not install tools, migrate a database, restart services or remove temporary work.
 
+## Native provider CLIs
+
+The project image recipe includes Tea and GitHub CLI, with native personal authentication rather than shared credentials. See [project CLIs](project-clis.md) for source inputs, build requirements and later login guidance. They remain unbuilt/unvalidated here; availability does not imply an authenticated session.
+
 ## Shared installed tools
 
 The shared mise data/install/shim tree is `/opt/mise`; its global version configuration is `/etc/mise/config.toml`. These native settings come from mise's configuration interfaces. Shared installations remain within one project filesystem, not copied between machines.
