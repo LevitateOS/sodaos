@@ -1,6 +1,6 @@
 # Unified Soda frontend and backend implementation plan
 
-**Status: implementation in progress; no U milestone meets full acceptance. Local source suites and the React build have passed. Candidate `35df189` has backed-up native migration and operator React browser evidence on `soda-test`; full developer/product proof remains pending.** Source now includes the React preview, JSON session/preferences/development keys, schema-v3 encrypted session grants, actual-scope introspection/refresh, acting-user Forgejo account/People/repository adapters and connected React environment create/join/inspection/public-host-key views. U01–U07 have partial locally tested source, U08 proof remains pending; U09 history/ref/file-write/fork/import source is connected but not installed-verified, U10 issue collaboration, U11 PR/review/merge and U12 repository settings/access/protection/hooks and organization/team handling have partial connected source, U13 and U14 have connected locally tested source; U15 releases/assets have locally tested source while wiki/packages remain pending; U16–U20 remain pending. Conditional E01–E03 remain unselected. Builds, dependency resolution, product tests, installation and native actions retain their applicable authorization gates. See [actual progress](implementation-status.md#core-implementation-started) and [implemented API contracts](dashboard-api.md).
+**Status: implementation in progress; 0/20 core milestones meet full acceptance.** The React preview, backed-up migration and first two-developer provisioning journey have installed evidence on `soda-test`. Substantial feature implementation and native verification remain—not just polish. The current snapshot below supersedes earlier source-only/pending statements for the specifically verified work; it does not relax the detailed acceptance criteria. See [native evidence](implementation-status.md#native-first-developer-fixtures-and-complete-core-build) and [implemented API contracts](dashboard-api.md).
 
 **Goal:** one usable React frontend for upstream Forgejo and Soda's development-environment extension, including developer and administrator workflows. First make real workflows work; then make them good. Security, accessibility basics, truthful failures and preservation of work are part of “works.”
 
@@ -9,6 +9,57 @@
 This is the leading implementation sequence for the **core product**: frontend, Go API/session/data integration, production native environment/access mechanisms and their product acceptance. The [native support porting plan](native-porting-plan.md) covers outside VM/SSH/evidence/artifact tools and retained host-operator integrations, under the [coordination contract below](#coordination-with-native-support-porting). **If the plans conflict, this plan wins.** Native support must not create a second core implementation, test suite or readiness gate.
 
 The [initial M01–M18 plan](implementation-plan.md) remains historical context for the existing Go + HTMX/native implementation; its completed source work is reused, not implemented again. U08/U20 revisit its still-unverified native requirements. Milestone numbers here do not inherit earlier PASS records.
+
+## Current execution snapshot — through `cde7ebb`
+
+### What is actually built and installed
+
+- **Location:** this workspace is on x86_64 infra (`linux-infra.dimensionlab.net`), with the existing `soda-test` VM accessible through the pinned local SSH tooling. Builder SSH-to-self is not a blocker.
+- **Dashboard:** candidate `35df189`, schema v3 encrypted grants, installed React preview at `/app/`. Default browser routes remain HTMX; **U18 has not happened**.
+- **Core payload:** full x86_64 build/stage/seal succeeded at `8417a90`; only its matching host helper and new-project image were installed, not the entire core payload. Existing project containers are not replaced on image updates.
+- **Checks:** Cockpit type checks and 60 tests; dashboard type checks and 21 tests; 12 build-fixture and 9 staging tests passed. The aggregate native check stopped on private-directory fixture assumptions. `eca7673` corrected those fixtures and the full pinned Go suite passed afterward; **the complete aggregate entrypoint was not rerun successfully**.
+- **Migration/authentication:** private consistent backups, isolated schema 1→3 rehearsal, missing/wrong-key and missing-asset startup refusals, operator OAuth/consent/session/navigation/logout checks. The rehearsal preserved one user/two sessions but had no existing projects/keys/memberships; it does not prove populated-state migration or a live rollback.
+- **Real developer state:** Alice and Bob have native accounts, completed first-password change/OAuth, registered development public keys, created private repositories and persistent environments, and explicitly joined. Bob also joined Alice's environment without project-administrator rights. Native collaboration, private-repository visibility and administrator/owner denials were checked separately from Linux membership.
+- **Connection evidence:** authenticated connection authorization and independent public host-key verification passed. Project-local home/public-key/Tea/gh checks ran through operator execution as project users—not developer SSH. The browser fixture run used explicit resumption after selector failures following successful writes; it was not a clean first-install run.
+
+### Milestone status and remaining work
+
+“Locally checked” means the implemented subset has source/build/test evidence, not that all milestone cases or installed workflows passed. “Installed subset” likewise does not mean milestone acceptance.
+
+| Milestone | Current progress | Still required |
+| --- | --- | --- |
+| **U01 — Audit** | Partial source-backed endpoint/scope/authority inventory | Complete every page/sub-action mapping, dependency/license closure and remaining native capability audit. |
+| **U02 — React foundation** | React shell, real lockfile, assets and packaging built; preview navigation installed | Finish asset/header/route/permission and development-arrangement acceptance coverage, local branding/notices and retained-service regression checks. |
+| **U03 — API/migration** | JSON/security foundation and encrypted schema v3 locally checked; native migration subset exercised | Complete populated-state preservation, incompatible/failing migration and installed API/security failure cases. |
+| **U04 — SSO/grants** | Session-bound encrypted grants and refresh source locally checked; real operator/developer login, consent and logout | Installed expiry/rotation/concurrent refresh, replay, multi-session isolation and logout-race/security coverage. |
+| **U05 — Accounts/keys/People** | Connected profile/Git-key/People/development-key source; actual two-user onboarding and non-admin denial | Remaining account/key/UI cases and full Forgejo-admin/non-Soda-operator versus Soda-operator authority matrix. |
+| **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
+| **U07 — Environments** | Actual two-project creation, explicit account/key provisioning, memberships and public connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
+| **U08 — First product proof** | Build/migration and first developer provisioning/authorization subset installed | Routed interactive SSH/commands/SCP/SFTP; personal Git clone/commit/push; sudo/host-engine/isolation checks; truly shared files/mise installs; nested HTTP/database workload and bind mounts; existing-container stop/start and VM reboot persistence. |
+| **U09 — Code/history/writes** | Connected history/refs/compare/file-write/fork/basic-import source locally checked | Blame and fuller diff/import coverage; real Git readback, stale/protected writes, forks and import failure journeys. |
+| **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked | Structured native templates, remaining comment attachment/reaction detail, expanded failure cases and real two-user collaboration proof. |
+| **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked | Existing inline threads, old-side positions, team reviewers and real reviewer/merger/conflict/check-failure/stale-head journeys. |
+| **U12 — Settings/orgs/teams** | Connected settings/access/protections/hooks/org/team subsets locally checked; native direct collaboration exercised | Advanced protection/team-policy forms and remaining sub-actions; full owner/collaborator/team/admin matrix; webhook API-gap disposition. |
+| **U13 — Work/search/notifications** | Connected and locally checked; installed operator notification reads | Real multi-user visibility/update/activity journeys, pagination, rapid query/account switching and advanced coverage decisions. |
+| **U14 — Actions** | Runs/tasks/workflow discovery/dispatch/configuration source locally checked | Approved real runner/run/dispatch/secret-variable journeys, expiry/large-output cases; job/step/log/artifact/cancel/rerun human-interface gap disposition. |
+| **U15 — Releases/wiki/packages** | Release/assets subset connected and locally checked | **Implement wiki index/page/editor/history and package owner/version/file/install-guidance views**; release-specific UI tests and native release/asset/wiki/package permission/conflict/transfer proof. |
+| **U16 — Administration/security** | Initial People capability only; wider work pending | Expanded account editing, administration overview, instance org/repo/hooks, supported quota/maintenance/provider-runner views; account-security/interface audit and complete admin permission tests. |
+| **U17 — Coverage closure** | Partial coverage register and identified upstream limitations | Reconcile every inventory row; implement supported missing interactions; obtain explicit dispositions for unavoidable native dependencies. Known gaps include webhook PATCH, Actions web-only interactions and release empty-field PATCH semantics. |
+| **U18 — SPA cutover** | Not performed; preview and legacy UI coexist | Complete U08 and agree U17 boundary; rehearse backed-up deployment, move React to `/`, preserve bookmarks/state, remove replaced HTMX paths/assets and document lossless rollback limits. |
+| **U19 — Polish** | Baseline UI/error/security handling exists; dedicated acceptance pending | Real-task usability, keyboard/focus/accessibility, responsive forms/tables/diffs, measured bundle/render/request performance and before/after evidence. |
+| **U20 — Final acceptance** | Earlier build/installed subsets provide reusable evidence only | Final-revision full/race/UI/browser/packaging regressions; fresh installation and controlled populated-state upgrade; complete developer/collaboration/admin journeys; independent native x86_64 and aarch64 proof and final handoff. |
+
+### Next execution and decisions
+
+1. **Finish U08 from the retained fixtures.** Client access to `10.89.0.0/24` is not established. The proposed private Layer-3 SSH tunnel, VM tunnel forwarding and narrowly scoped infra route await explicit approval. Browser tunnels and operator-local execution do not substitute for direct project-IP access.
+2. After routing is approved, exercise personal SSH/Git/shared tools/nested workloads. Obtain explicit permission before fixture stop/start and reboot of **only `soda-test`**; preserve and compare existing state.
+3. **Continue independent source work:** U15 wiki/packages, U16 administration, missing U09–U14 interactions and focused tests. Routing is not a blocker to this work, and checkpoints are not completion.
+4. Approve an exact disposable runner/repository before real Actions dispatch. Select approved native aarch64 and fresh-install targets for U20; neither has acceptance evidence yet.
+5. Close U17 with explicit upstream-gap decisions before U18 cutover, then complete U19/U20. The current preview rollout is not authorization to discard data or perform final cutover.
+
+**Preserve current state:** `u08-alice-8417` and `u08-bob-8417`, their repositories, project writable roots, accounts, keys and memberships are real retained resources. Private fixture inputs/bindings are under `.artifacts/test-vm/u08-8417a90/`; detailed backup/evidence locations are in the handoff. The pre-migration backup predates these writes and is **not a lossless rollback now**. Do not rerun bootstrap, recreate fixtures, replace containers or restore the old DB as a repair shortcut.
+
+**Not selected:** E01–E03 (image profiles, lifecycle controls, resource limits) remain conditional. ISO/QCOW2 delivery is separate optional support work; **no installable SodaOS ISO has been built**, and ISO delivery is not a prerequisite for completing this dashboard plan.
 
 ## 1. Governing decisions
 
