@@ -1,5 +1,11 @@
 # Implementation handoff
 
+## Native porting remaining-work audit
+
+Source/documentation audit at `58ddc0d0707b9b2c72f97363e8daa1b53853f341`, with a clean starting tree: [full findings, P01–P13 status, missing coverage and next steps](native-porting-audit.md). The earlier unconditional active-source-complete description was too strong. Concrete remaining work includes the public bundle accepting actual Soda credential filenames, incomplete descendant cleanup, structured redaction/finalization defects, path confinement, U02 payload/input alignment and evidence binding. Existing x86_64 `8417a90` build/seal and subsequent component/Go-suite evidence is credited; neither the aggregate check nor fresh support fixture/install/operator/aarch64 exits is newly passed. Core U08/U20 ownership and unselected P09/P10 media are unchanged.
+
+Only audit documentation/current native-guide summaries changed. No implementation fixes, tests, builds, artifact re-verification, private-input inspection, SSH/VM/provider actions or cleanup were performed. Existing private evidence was not reread; historical execution claims are taken from the recorded handoff, with retained-worktree mapping noted. No commit or push was performed for the audit.
+
 ## Personal Git, shared tools and nested workload evidence
 
 Continued the user's selected U08 work on the retained Alice/Bob projects from

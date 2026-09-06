@@ -1,6 +1,6 @@
 # Native support and artifact porting plan
 
-**Status: active support source implemented; source checks and native observations remain unexecuted.** P01–P06/P11 tools, callers and authored tests, plus P12/P13 reporting interfaces, are described in the [support guide](native-support.md). No native milestone exit or current-candidate product readiness is claimed. P07/P08 remain core redirects; P09/P10 remain conditional/unselected. Source implementation does not authorize builds, tests, installation, VM/provider operations or publication.
+**Status: active implementation exists, but source and native completion remain open.** The [remaining-work audit at `58ddc0d`](native-porting-audit.md) identifies concrete safety/contract defects, missing tests and per-milestone native proof. P04 has recorded x86_64 build/stage/seal evidence at `8417a90`; component checks and the subsequently corrected pinned Go suite passed, but the full aggregate check was not successfully rerun. Fresh fixture/install/operator exits and aarch64 evidence remain pending. P01–P06/P11 tools and P12/P13 reporting interfaces are described in the [support guide](native-support.md); their existence is not completion. P07/P08 remain core redirects; P09/P10 remain conditional/unselected. This plan/audit does not authorize execution.
 
 **Precedence:** [dashboard-implementation-plan.md](dashboard-implementation-plan.md) is the leading plan for the **core product**, including its production native environment integration—not just React screens. This plan owns only the surrounding support tools and retained host-operator integrations. If the plans conflict, the dashboard implementation plan wins; change this plan instead of forking the core's behavior, contracts or acceptance criteria.
 
@@ -365,12 +365,12 @@ Before changing shared configuration/build/staging/test paths, name the U/P owne
 
 - [x] Core precedence, shared-file interfaces and active/conditional/moved P dispositions are explicit.
 - [x] Selected helpers/tests have actual outside callers; no copied core scenario/release/account/Updates framework.
-- [x] Source build/staging guards exclude infrastructure binaries/private inputs from appliance payloads; existing VM/base remain untouched. Actual packaging/native verification is pending.
+- [ ] Close the audited public/private artifact and confinement gaps, including actual Soda credential filenames. Existing build/staging separation and VM/base preservation remain; x86_64 packaging has recorded evidence, not exhaustive boundary proof.
 - [ ] Exact native artifacts and selected OS/operator observations have revision/byte/target-specific evidence.
 - [ ] Media paths have independent proof only if approved; no media or sibling-architecture gate blocks core work.
 - [x] U08/U20 own developer/workload/persistence assertions and overall product readiness; support reports link, not duplicate them.
-- [x] Source reports preserve failed/missing/unselected work and privacy/cleanup failures; native limitations remain visible.
-- [x] Installation/validation/reuse guidance and shared build contracts follow the leading core plan. See the source-only handoff; no execution is implied.
+- [ ] Close audited report finalization, artifact-binding and cleanup gaps; existing failed/missing/unselected report paths and native limitations remain documented.
+- [x] Installation/validation/reuse guidance and shared build contracts follow the leading core plan. See the [audit](native-porting-audit.md) and revision-specific handoff; historical observations are not new execution permission.
 
 ## References
 

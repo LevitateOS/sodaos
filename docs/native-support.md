@@ -1,8 +1,8 @@
 # Native support tools
 
-**Source implementation, not execution evidence.** The new tools, tests and recipes have not been built or executed in this implementation session. Existing native observations concern earlier candidates. Both current-candidate x86_64 and aarch64 validation remain pending.
+**Implemented tooling with partial recorded execution, not completed support acceptance.** The full x86_64 `8417a90` build/stage/seal and component checks now provide evidence; the corrected pinned Go suite passed subsequently. The aggregate check was not successfully rerun. Fresh support-fixture/install/operator and aarch64 proof remain pending. The [remaining-work audit at `58ddc0d`](native-porting-audit.md) also identifies source defects and missing tests; this guide describes the intended contracts, not a claim that all are fully enforced.
 
-The [dashboard implementation plan](dashboard-implementation-plan.md) owns the core product and U08/U20 acceptance. This implements the active **source** scope of the [native support plan](native-porting-plan.md): P01–P06, P11 and the P12/P13 reporting interfaces. P07/P08 remain redirects. P09/P10 media remain unselected. No helper, flag, source commit or report grants execution permission.
+The [dashboard implementation plan](dashboard-implementation-plan.md) owns the core product and U08/U20 acceptance. These tools cover the active scope of the [native support plan](native-porting-plan.md): P01–P06, P11 and the P12/P13 reporting interfaces, subject to the audited remaining implementation work. P07/P08 remain redirects. P09/P10 media remain unselected. No helper, flag, source commit or report grants execution permission.
 
 ## Shared contracts and provenance
 
@@ -188,4 +188,4 @@ Each new private evidence root has bounded, streaming-redacted captures and `obs
 
 Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Core observations are cited with owner U08/U20, not independently certified. No sibling/media/product qualification gate is introduced.
 
-Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`, `tests/build/test_native_support.py` and existing core/packaging/Cockpit tests. **None of those checks was executed in this implementation session.** The next allowed step is source review; native builds/checks/VM/provider work still need exact action/target permission. See [implementation status](implementation-status.md).
+Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`, `tests/build/test_native_support.py` and existing core/packaging/Cockpit tests. Later execution of the existing suites is recorded in [implementation status](implementation-status.md); the [audit's coverage inventory](native-porting-audit.md#4-missing-authored-coverage-versus-tests-merely-awaiting-rerun) distinguishes missing cases from checks awaiting an exact-candidate rerun. Fix the audited source boundaries before relying on their advertised guarantees. Native builds/checks/VM/provider work still require the applicable action/target permission.
