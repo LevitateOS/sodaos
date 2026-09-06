@@ -142,7 +142,7 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	}
 	name := "soda-" + in.ID
 	// No --replace or --rm: the writable userspace is a lasting environment.
-	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", d.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", d.Config.Image}
+	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", d.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD", "--device=/dev/fuse", "--security-opt=label=disable", d.Config.Image}
 	if _, err := d.podman(ctx, nil, args...); err != nil {
 		return Environment{}, err
 	}

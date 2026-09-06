@@ -1,0 +1,19 @@
+services:
+  database:
+    image: docker.io/library/postgres:17
+    environment:
+      POSTGRES_DB: soda_example
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: ${EXAMPLE_DB_PASSWORD:?Set a disposable example password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - database:/var/lib/postgresql/data
+  files:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./public:/srv:ro
+volumes:
+  database:

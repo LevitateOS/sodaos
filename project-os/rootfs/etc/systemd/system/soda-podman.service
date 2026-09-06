@@ -1,0 +1,17 @@
+[Unit]
+Description=Project-local shared Podman service
+Requires=soda-project-init.service
+After=soda-project-init.service
+
+[Service]
+User=root
+Group=wheel
+RuntimeDirectory=soda-podman
+RuntimeDirectoryMode=0750
+UMask=0007
+Environment=CONTAINER_HOST=
+ExecStart=/usr/bin/podman system service --time=0 unix:///run/soda-podman/podman.sock
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

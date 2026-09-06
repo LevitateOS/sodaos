@@ -1,6 +1,7 @@
 FROM quay.io/rockylinux/rockylinux:9.6
 ARG MISE_VERSION=2026.9.1
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl tar gzip python3 procps-ng findutils which && dnf clean all
+RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git curl tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
+RUN python3 -m pip install --no-cache-dir podman-compose==1.6.0
 # Download is part of a later native build, not an implementation-time operation.
 RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; esac; \
     cd /tmp && file="mise-v${MISE_VERSION}-linux-${arch}.tar.gz" && \
@@ -11,7 +12,7 @@ RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; e
 COPY rootfs/ /
 RUN chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
     chmod 0440 /etc/sudoers.d/soda-project && \
-    systemctl enable sshd.service soda-project-init.service && \
+    systemctl enable sshd.service soda-project-init.service soda-podman.service && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id
 ENV container=podman
 STOPSIGNAL SIGRTMIN+3
