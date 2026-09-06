@@ -71,6 +71,13 @@ real fixed account helper before saving membership. The new core-owned helper
 `/connection` reads only a fixed public Ed25519 host key and observed address;
 stopped containers stay stopped, and routing is explicitly unverified.
 
+Follow-up source adds actual Link/total-header pagination (without following
+provider URLs), safe GFM/relative README rendering with raw HTML and automatic
+image loading disabled, bounded 8-MiB authenticated attachment downloads and a
+frontend render-error boundary. Markdown pins were selected from public npm
+metadata; no dependencies were resolved or installed. Pagination, download
+headers/size/traversal and Markdown safety tests are authored, not executed.
+
 U01 inspected matching upstream v15.0.7 OAuth, route middleware and repository
 search source. Important limits: confidential-client consent can remain at old
 scopes; token responses omit scope, so the new flow introspects actual consent.
@@ -94,13 +101,13 @@ VM, builder infrastructure and backing image are unchanged.
 | U02 | Partial preview/build packaging and new routes | None | Real lockfile/resolution, full error boundary/dev arrangement and frontend verification |
 | U03/U04 | Connected encrypted-grant/config/API source and focused tests | None | Executed migration/key/refresh/consent/permission suite, more callback/scope race cases, controlled upgrade rehearsal |
 | U05 | Native profile/Git SSH keys/People + Soda preferences/development keys | None | Native onboarding proof, remaining account/key coverage and focused UI cases |
-| U06 | Repository list/create/detail/ref-aware inert file text | None | Safe rich Markdown, bounded downloads, reliable final-page metadata, full visibility/ref/native-write proof |
+| U06 | Repository list/create/detail, ref-aware text/GFM/README, bounded downloads and native pagination metadata | None | Full visibility/ref/content tests, dependency resolution, browser/native-write proof |
 | U07 | Connected persistent create/join/inspect/member/connect paths | None | Additional partial-result/authorization/connection cases and native evidence |
 | U08 | Pending | None | Explicit build/deployment/fixture/lifecycle permissions, approved direct client route and two-project/workload/persistence proof |
 | U09–U20 | Pending | None | Mandatory functional expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
-No U milestone is complete. Plain-text files are not Markdown parity. Native
+No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native
 account-security links and consent recovery are labeled upstream dependencies;
 no runtime fallback or conditional environment extension was implemented.
 [Credential migration/rollback](dashboard-credentials.md) remains an authored

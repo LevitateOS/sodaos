@@ -52,18 +52,21 @@ Native permission checks remain authoritative on each call.
 | `GET/POST /api/forgejo/admin/users` | Native People inventory; POST `{login,email,password}` with required native first-password change; no Linux naming policy, no local user/session seeded |
 | `GET/POST /api/forgejo/repositories` | Native `/user/repos` visible inventory; POST `{name,description,private,auto_init}` without environment side effects |
 | `GET /api/forgejo/repos/{owner}/{repo}` | Typed repository metadata and actual clone URLs |
-| `GET /api/forgejo/repos/{owner}/{repo}/contents?ref=...&path=...` | Slash/Unicode refs in query; path components encoded independently; files shown only as bounded UTF-8 text, never active HTML |
+| `GET /api/forgejo/repos/{owner}/{repo}/contents?ref=...&path=...` | Slash/Unicode refs in query; path components encoded independently; bounded UTF-8 text, with safe GFM in the frontend, never active HTML |
+| `GET /api/forgejo/repos/{owner}/{repo}/download?ref=...&path=...` | Fixed native raw-file endpoint; at most 8 MiB buffered before response commitment; forced octet-stream attachment and sandbox CSP, no redirects/LFS forwarding |
 
-List routes accept page 1–1000000 and return `{items,next_page}`. The current
-continuation contract advances until an empty native page rather than assuming
-a requested page-size equals the provider's cap. `next_page` is a continuation,
-not a claim that another nonempty page exists. Header-based totals and final-page
-navigation refinement remain source work.
+List routes accept page 1–1000000 and return `{items,next_page,total}`. Metadata
+comes from native Link/X-Total-Count headers, not a guessed page-size cap. Totals
+are decimal strings or null. Link URLs are never followed or exposed: only a
+validated next page number is used to reconstruct the same explicit route.
+Malformed or conflicting next-page metadata fails rather than silently truncates.
 
 Files above 256 KiB, binary, symlink/submodule and unavailable encodings are not
-rendered as text. Provider transfer errors remain errors. Rich Markdown, bounded
-binary download and complete ref/file navigation acceptance remain U06 work;
-plain text is not claimed as Markdown parity.
+rendered as text. Provider transfer errors remain errors. README/Markdown uses
+react-markdown 10.1.0 and remark-gfm 4.0.1 with no raw HTML, automatic image loading
+or unsafe URL schemes. Relative links retain repository/ref context. Full
+ref/file/Markdown/download acceptance remains unexecuted U06 work; no complete
+Forgejo rendering-extension parity is claimed.
 
 ## OAuth, credentials and migration
 

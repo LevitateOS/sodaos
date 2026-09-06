@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Alert, Button, Checkbox, Form, FormGroup, Spinner, TextArea, TextInput } from "@patternfly/react-core";
 import { APIError, request, type Session } from "./api";
 import { useSession } from "./session";
+import { Markdown } from "./markdown";
 
 export interface Repository {
   id: string; name: string; full_name: string;
@@ -75,6 +76,8 @@ export function RepositoryDetail({ session }: { session: Session }) {
   const [search, setSearch] = useSearchParams(); const ref = search.get("ref") ?? ""; const path = search.get("path") ?? "";
   const [repository, setRepository] = useState<Repository | null>(null);
   const [contents, setContents] = useState<Content[] | null>(null);
+  const [readme, setReadme] = useState<Content | null>(null);
+  const [readmeError, setReadmeError] = useState("");
   const [error, setError] = useState(""); const [contentError, setContentError] = useState("");
   const [refDraft, setRefDraft] = useState(ref); const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
@@ -89,10 +92,21 @@ export function RepositoryDetail({ session }: { session: Session }) {
     return () => controller.abort();
   }, [api, session]);
   useEffect(() => {
-    const controller = new AbortController(); setContents(null); setContentError(""); setRefDraft(ref);
+    const controller = new AbortController(); setContents(null); setReadme(null); setReadmeError(""); setContentError(""); setRefDraft(ref);
     if (!repository || repository.empty) return () => controller.abort();
     const query = new URLSearchParams({ ref: ref || repository.default_branch, path });
-    request<{ items: Content[] }>(`${api}/contents?${query}`, { signal: controller.signal }).then(value => { if (!controller.signal.aborted) setContents(value.items); }).catch(failure => {
+    request<{ items: Content[] }>(`${api}/contents?${query}`, { signal: controller.signal }).then(async value => {
+      if (controller.signal.aborted) return;
+      setContents(value.items);
+      const entry = path === "" ? value.items.find(item => item.type === "file" && /^readme(?:\.md|\.markdown)?$/i.test(item.name)) : undefined;
+      if (entry) {
+        try {
+          const readmeQuery = new URLSearchParams({ ref: ref || repository.default_branch, path: entry.path });
+          const result = await request<{ items: Content[] }>(`${api}/contents?${readmeQuery}`, { signal: controller.signal });
+          if (!controller.signal.aborted) setReadme(result.items[0] ?? null);
+        } catch (failure) { if (!controller.signal.aborted) setReadmeError(failure instanceof Error ? failure.message : "README unavailable."); }
+      }
+    }).catch(failure => {
       if (controller.signal.aborted) return;
       if (failure instanceof APIError && failure.status === 401) useSession.getState().invalidate(session);
       else setContentError(failure instanceof Error ? failure.message : "Files unavailable.");
@@ -122,10 +136,13 @@ export function RepositoryDetail({ session }: { session: Session }) {
         {contentError && <Alert isInline variant="danger" title={contentError} />}
         {!contents && !contentError && <Spinner aria-label="Loading files" />}
         <ul>{contents?.map(item => <li key={item.path}><Button variant="link" onClick={() => setSearch({ ref, path: item.path })}>{item.path}</Button> {item.type} ({item.size} bytes)
-          {item.text !== null && <pre tabIndex={0} aria-label={`Contents of ${item.path}`}>{item.text}</pre>}
-          {item.unavailable && <p>Binary, oversized or unavailable content is not rendered. Use your native Git checkout.</p>}
+          {item.text !== null && (/\.(md|markdown)$/i.test(item.name) ? <Markdown text={item.text} repository={{ route: repositoryPath(owner, repo), ref: ref || repository.default_branch, path: item.path }} /> : <pre tabIndex={0} aria-label={`Contents of ${item.path}`}>{item.text}</pre>)}
+          {item.type === "file" && <p><a href={`${api}/download?${new URLSearchParams({ ref: ref || repository.default_branch, path: item.path })}`}>Download file (up to 8 MiB)</a></p>}
+          {item.unavailable && <p>Binary, oversized or unavailable content is not rendered. Use the bounded download or your native Git checkout.</p>}
         </li>)}</ul>
-        <p>Files, including Markdown, are currently shown as inert text; rich Markdown rendering is not yet implemented.</p>
+        {readmeError && <Alert isInline variant="warning" title={`README: ${readmeError}`} />}
+        {readme && <><h2>{readme.name}</h2>{readme.text !== null ? <Markdown text={readme.text} repository={{ route: repositoryPath(owner, repo), ref: ref || repository.default_branch, path: readme.path }} /> : <p>README content is oversized, binary or unavailable.</p>}</>}
+        <p>Markdown uses standard GFM without native Forgejo extensions. Raw HTML is ignored and images are not fetched automatically.</p>
       </>}
     </>}
   </section>;

@@ -42,31 +42,37 @@ func New(base string) *Client {
 	return &Client{Base: strings.TrimRight(base, "/"), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
 func (c *Client) request(ctx context.Context, method, path, token string, in, out any) error {
+	_, err := c.requestHeaders(ctx, method, path, token, in, out)
+	return err
+}
+func (c *Client) requestHeaders(ctx context.Context, method, path, token string, in, out any) (http.Header, error) {
 	var b bytes.Buffer
 	if in != nil {
 		if err := json.NewEncoder(&b).Encode(in); err != nil {
-			return err
+			return nil, ErrInvalidResponse
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, c.Base+"/api/v1"+path, &b)
 	if err != nil {
-		return err
+		return nil, ErrUnavailable
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "token "+token)
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return transportError(ctx)
+		return nil, transportError(ctx)
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return &HTTPError{Status: res.StatusCode}
+		return nil, &HTTPError{Status: res.StatusCode}
 	}
 	if out != nil {
-		return decodeResponse(res.Body, 2<<20, out)
+		if err := decodeResponse(res.Body, 2<<20, out); err != nil {
+			return nil, err
+		}
 	}
-	return nil
+	return res.Header, nil
 }
 func (c *Client) Current(ctx context.Context, token string) (User, error) {
 	var u User

@@ -2,7 +2,9 @@ package web
 
 import (
 	"encoding/base64"
+	"mime"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -19,6 +21,7 @@ func (s *Server) forgejoRoutes() {
 	s.mux.HandleFunc("/api/forgejo/repositories", s.apiProvider(s.apiRepositories, "write:repository", "GET", "POST"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}", s.apiProvider(s.apiRepository, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/contents", s.apiProvider(s.apiContents, "read:repository", "GET"))
+	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/download", s.apiProvider(s.apiDownload, "read:repository", "GET"))
 }
 
 type providerUserView struct {
@@ -80,20 +83,14 @@ func apiPage(w http.ResponseWriter, r *http.Request) (int, bool) {
 
 type pageView[T any] struct {
 	Items []T `json:"items"`
-	// Continue until an empty page: never infer completion from a provider cap.
-	NextPage *int `json:"next_page"`
+	forgejo.Pagination
 }
 
-func pageResult[T any](items []T, page int) pageView[T] {
+func pageResult[T any](items []T, metadata forgejo.Pagination) pageView[T] {
 	if items == nil {
 		items = []T{}
 	}
-	result := pageView[T]{Items: items}
-	if len(items) > 0 {
-		next := page + 1
-		result.NextPage = &next
-	}
-	return result
+	return pageView[T]{Items: items, Pagination: metadata}
 }
 func (s *Server) apiGitKeys(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
 	if r.Method == "POST" {
@@ -125,7 +122,7 @@ func (s *Server) apiGitKeys(w http.ResponseWriter, r *http.Request, v store.Sess
 	if !ok {
 		return
 	}
-	keys, err := s.Forgejo.GitKeys(r.Context(), token, page)
+	keys, metadata, err := s.Forgejo.GitKeys(r.Context(), token, page)
 	if err != nil {
 		providerError(w, err)
 		return
@@ -134,7 +131,7 @@ func (s *Server) apiGitKeys(w http.ResponseWriter, r *http.Request, v store.Sess
 	for _, key := range keys {
 		items = append(items, gitKeyView{strconv.FormatInt(key.ID, 10), key.Title, key.Key, key.Fingerprint})
 	}
-	jsonResponse(w, 200, pageResult(items, page))
+	jsonResponse(w, 200, pageResult(items, metadata))
 }
 
 type gitKeyView struct {
@@ -175,7 +172,7 @@ func (s *Server) apiPeople(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if !ok {
 		return
 	}
-	users, err := s.Forgejo.People(r.Context(), token, page)
+	users, metadata, err := s.Forgejo.People(r.Context(), token, page)
 	if err != nil {
 		providerError(w, err)
 		return
@@ -184,7 +181,7 @@ func (s *Server) apiPeople(w http.ResponseWriter, r *http.Request, v store.Sessi
 	for _, user := range users {
 		items = append(items, providerUser(user))
 	}
-	jsonResponse(w, 200, pageResult(items, page))
+	jsonResponse(w, 200, pageResult(items, metadata))
 }
 
 type repositoryView struct {
@@ -225,7 +222,7 @@ func (s *Server) apiRepositories(w http.ResponseWriter, r *http.Request, v store
 	if !ok {
 		return
 	}
-	repos, err := s.Forgejo.MyRepositories(r.Context(), token, page)
+	repos, metadata, err := s.Forgejo.MyRepositories(r.Context(), token, page)
 	if err != nil {
 		providerError(w, err)
 		return
@@ -234,7 +231,7 @@ func (s *Server) apiRepositories(w http.ResponseWriter, r *http.Request, v store
 	for _, repo := range repos {
 		items = append(items, repositoryDTO(repo))
 	}
-	jsonResponse(w, 200, pageResult(items, page))
+	jsonResponse(w, 200, pageResult(items, metadata))
 }
 func (s *Server) apiRepository(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
 	if !validRepositoryPart(r.PathValue("owner")) || !validRepositoryPart(r.PathValue("repo")) {
@@ -248,21 +245,49 @@ func (s *Server) apiRepository(w http.ResponseWriter, r *http.Request, v store.S
 	}
 	jsonResponse(w, 200, repositoryDTO(repo))
 }
-func (s *Server) apiContents(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
+func repositoryContentQuery(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	if !validRepositoryPart(r.PathValue("owner")) || !validRepositoryPart(r.PathValue("repo")) {
 		jsonError(w, 400, "invalid_repository", "Invalid repository identity.")
-		return
+		return "", "", false
 	}
 	ref, file := r.URL.Query().Get("ref"), r.URL.Query().Get("path")
 	if len(ref) > 1024 || len(file) > 4096 || strings.ContainsAny(ref+file, "\x00\r\n\\") || strings.HasPrefix(file, "/") {
 		jsonError(w, 400, "invalid_path", "Invalid repository ref or relative path.")
-		return
+		return "", "", false
 	}
 	for _, part := range strings.Split(file, "/") {
-		if part == "." || part == ".." {
-			jsonError(w, 400, "invalid_path", "Dot path segments are not supported.")
-			return
+		if part == "." || part == ".." || (file != "" && part == "") {
+			jsonError(w, 400, "invalid_path", "Empty and dot path segments are not supported.")
+			return "", "", false
 		}
+	}
+	return ref, file, true
+}
+func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
+	ref, file, ok := repositoryContentQuery(w, r)
+	if !ok {
+		return
+	}
+	if file == "" {
+		jsonError(w, 400, "invalid_path", "Select a file to download.")
+		return
+	}
+	body, err := s.Forgejo.RawFile(r.Context(), token, r.PathValue("owner"), r.PathValue("repo"), ref, file)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": path.Base(file)}))
+	w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
+}
+func (s *Server) apiContents(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
+	ref, file, ok := repositoryContentQuery(w, r)
+	if !ok {
+		return
 	}
 	contents, err := s.Forgejo.Contents(r.Context(), token, r.PathValue("owner"), r.PathValue("repo"), ref, file)
 	if err != nil {

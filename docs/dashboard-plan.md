@@ -228,8 +228,8 @@ Most of the requested stack already appears in `cockpit/package.json`. Reuse tha
 | `@patternfly/react-icons` | Icons | 6.6.1 |
 | `@patternfly/react-table` | Repository/issue/member tables | 6.6.1 |
 | `@patternfly/patternfly` | Base CSS, design tokens and assets | 6.6.1 |
-| `react-markdown` | README/issues/wiki rendering without enabling raw HTML | New pin to verify |
-| `remark-gfm` | Standard GitHub-flavored Markdown features | New pin to verify |
+| `react-markdown` | README/issues/wiki rendering without enabling raw HTML | 10.1.0 selected; build/closure unverified |
+| `remark-gfm` | Standard GitHub-flavored Markdown features | 4.0.1 selected; build/closure unverified |
 | `react-diff-view` | Commit/PR diff and review presentation; add when implementing that feature | Candidate pin/API to verify |
 
 `fetch`, `AbortController`, `URL` and browser file/clipboard APIs need no package. Use explicit feature-owned Zustand stores and a small HTTP client. Handle cancellation/stale responses, pagination, errors and post-write reloads deliberately; do not build a generic query/cache framework inside Zustand. No TanStack Query or Router, Axios, Redux or second state system.

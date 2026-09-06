@@ -119,6 +119,10 @@ func (s *Server) apiProvider(next func(http.ResponseWriter, *http.Request, store
 	}, methods...)
 }
 func providerError(w http.ResponseWriter, err error) {
+	if errors.Is(err, forgejo.ErrResponseTooLarge) {
+		jsonError(w, 413, "provider_response_too_large", "This object exceeds the dashboard's supported size. Use native Git or Forgejo for larger files.")
+		return
+	}
 	if errors.Is(err, store.ErrGrantUnavailable) || errors.Is(err, store.ErrGrantKey) {
 		jsonError(w, 401, "reauthentication_required", "Sign in again to authorize Forgejo access.")
 		return

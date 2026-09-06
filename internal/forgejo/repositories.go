@@ -15,10 +15,14 @@ type CreateRepository struct {
 	AutoInit    bool   `json:"auto_init"`
 }
 
-func (c *Client) MyRepositories(ctx context.Context, token string, page int) ([]Repository, error) {
+func (c *Client) MyRepositories(ctx context.Context, token string, page int) ([]Repository, Pagination, error) {
 	result := []Repository{}
-	err := c.request(ctx, "GET", fmt.Sprintf("/user/repos?page=%d&limit=50", page), token, nil, &result)
-	return result, err
+	headers, err := c.requestHeaders(ctx, "GET", fmt.Sprintf("/user/repos?page=%d&limit=50", page), token, nil, &result)
+	if err != nil {
+		return nil, Pagination{}, err
+	}
+	metadata, err := pagination(headers, page)
+	return result, metadata, err
 }
 func (c *Client) CreateRepository(ctx context.Context, token string, input CreateRepository) (Repository, error) {
 	var result Repository

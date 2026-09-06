@@ -30,10 +30,14 @@ type PublicKey struct {
 	Fingerprint string `json:"fingerprint"`
 }
 
-func (c *Client) GitKeys(ctx context.Context, token string, page int) ([]PublicKey, error) {
+func (c *Client) GitKeys(ctx context.Context, token string, page int) ([]PublicKey, Pagination, error) {
 	result := []PublicKey{}
-	err := c.request(ctx, "GET", fmt.Sprintf("/user/keys?page=%d&limit=50", page), token, nil, &result)
-	return result, err
+	headers, err := c.requestHeaders(ctx, "GET", fmt.Sprintf("/user/keys?page=%d&limit=50", page), token, nil, &result)
+	if err != nil {
+		return nil, Pagination{}, err
+	}
+	metadata, err := pagination(headers, page)
+	return result, metadata, err
 }
 func (c *Client) AddGitKey(ctx context.Context, token, title, key string) (PublicKey, error) {
 	var result PublicKey
@@ -44,8 +48,12 @@ func (c *Client) AddGitKey(ctx context.Context, token, title, key string) (Publi
 	}{title, key, false}, &result)
 	return result, err
 }
-func (c *Client) People(ctx context.Context, token string, page int) ([]User, error) {
+func (c *Client) People(ctx context.Context, token string, page int) ([]User, Pagination, error) {
 	result := []User{}
-	err := c.request(ctx, "GET", fmt.Sprintf("/admin/users?page=%d&limit=50", page), token, nil, &result)
-	return result, err
+	headers, err := c.requestHeaders(ctx, "GET", fmt.Sprintf("/admin/users?page=%d&limit=50", page), token, nil, &result)
+	if err != nil {
+		return nil, Pagination{}, err
+	}
+	metadata, err := pagination(headers, page)
+	return result, metadata, err
 }

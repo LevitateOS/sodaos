@@ -10,6 +10,7 @@ import { Profile } from "./profile";
 import { RepositoryList, CreateRepository, RepositoryDetail } from "./repositories";
 import { EnvironmentList, EnvironmentDetail } from "./environments";
 import { ForgejoAccount, People } from "./accounts";
+import { ErrorBoundary } from "./error-boundary";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -48,4 +49,4 @@ export function App() {
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing application root");
-createRoot(root).render(<StrictMode><BrowserRouter basename="/app"><App /></BrowserRouter></StrictMode>);
+createRoot(root).render(<StrictMode><ErrorBoundary><BrowserRouter basename="/app"><App /></BrowserRouter></ErrorBoundary></StrictMode>);

@@ -1,10 +1,10 @@
 # React dashboard preview
 
-Client-rendered React/PatternFly/Vite+/Zustand source. Go serves production files under `/app/`; the existing HTMX dashboard remains the default. Current connected features: real session discovery/local logout, Soda display-name preferences and development public-key registration/listing. Projects/People explicitly use legacy links; Forgejo-backed replacement views are still pending.
+Client-rendered React/PatternFly/Vite+/Zustand source. Go serves production files under `/app/`; the existing HTMX dashboard remains the default. Connected source now includes session/logout, Soda preferences/development keys, acting-user Forgejo account/Git keys/People/repositories, safe GFM/file views/downloads and persistent environment create/explicit-join/inspection/connect routes. None has been built, tested or deployed; the first-workflow source still requires full verification.
 
 ## Build boundary
 
-The manifest reuses the current Cockpit baseline and adds React Router 7.18.3 after public metadata inspection. No dashboard dependencies have been installed/resolved, and no lockfile or generated assets are fabricated. In an explicitly authorized dependency phase, resolve and review the real `pnpm-lock.yaml` and package/license closure, then commit it. Frozen build entrypoints intentionally refuse a missing lockfile.
+The manifest reuses the current Cockpit baseline and adds React Router 7.18.3, react-markdown 10.1.0 and remark-gfm 4.0.1 after public metadata/API/license inspection. No dashboard dependencies have been installed/resolved, and no lockfile or generated assets are fabricated. In an explicitly authorized dependency phase, resolve and review the real `pnpm-lock.yaml` and package/license closure, then commit it. Frozen build entrypoints intentionally refuse a missing lockfile.
 
 Later, with native build permission:
 
