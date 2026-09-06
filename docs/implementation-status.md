@@ -18,6 +18,50 @@ Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
 provider resource, project state or networking was changed. Deployment/migration,
 developer routing and installed workload/persistence acceptance remain pending.
 
+## Native React preview migration and operator browser proof
+
+Executed on infra and its existing x86_64 `soda-test` guest, with strict pinned
+SSH and browser certificate verification. Candidate application revision
+`35df189` was built with Go 1.26.7, Node 24.20.0 and pnpm 11.25.0 in a fresh
+checkout. Candidate archive SHA-256:
+`5c6e660829350b48d139bcc73802e159f43c7420a9dfed6630586643b1a5f276`.
+The full Go suite also passed with the pinned Go compiler.
+
+A private backup under `/var/lib/soda/u08-preview-35df189/` preserves the old
+SQLite database (backup API plus integrity check), configuration, credentials,
+unit metadata and immutable prior image archive. An isolated network-disabled
+candidate migrated a copy from schema 1 to 3 and served `/app/`; one user and two
+sessions were preserved, with zero existing keys/projects/memberships. Missing
+key, wrong key and missing frontend cases refused startup without modifying the
+copied DB. The prior image started against its matching schema-1 rollback copy.
+This is not evidence of populated project persistence or a live rollback.
+
+A second quiesced snapshot preceded the live dashboard-only rollout. The existing
+OAuth application/origins and Soda identity/project records were preserved; a new
+restricted grant key was provisioned. Only the dashboard was restarted; Forgejo
+and proxy container IDs stayed unchanged. The installed candidate now serves the
+React preview at `/app/`; default HTMX remains, and U18 cutover has not occurred.
+
+`tests/installed/dashboard-react.mjs` exercised native login/consent/callback,
+secure session attributes, acting-user account/repository/notification/admin
+reads, React navigation/direct-link reload and CSRF-protected logout. The initial
+old-consent attempt correctly failed with `consent_required`, without escalation.
+The operator's uniquely named Soda grant was explicitly revoked through its own
+native Applications UI, then reauthorized including administrator consent; the
+journey passed. Browser requests use the browser's trusted CA path rather than
+Playwright's separately untrusted Node request context. No TLS bypass was added.
+Logs: `u08-preview-*`, `u08-dashboard-*`, `u08-pinned-go-tests.log` and
+`u08-react-browser*.log` under `.artifacts/logs/`. The initial failed attempts are
+retained. Exact-target private operator recipes are retained in `.artifacts/tools/`.
+
+Full-core native build attempts then exposed Tea Make GOFLAGS export and ANSI
+version-matching defects, fixed in `9768dd1`/`5ab427f` with passing focused fixture
+tests. The next attempt reached an unavailable pinned gh RPM in the rolling
+vendor repository; `e4c1173` selects its signed retained release RPM without
+changing the version or disabling signature checking. Full image/staging checks,
+current helper/project-image installation, two-user/project/workload proof,
+client routing, independent arm64 and the remaining core work are not passed.
+
 ## U15 release/asset source and local verification
 
 Connected native release list/detail/create/changed-field edit and bounded asset

@@ -1,6 +1,9 @@
 # Dashboard credential migration and rollback
 
-**Authored procedure; not rehearsed or executed.** U03/U04 own the schema/key
+**Rehearsed and executed for dashboard candidate `35df189` on the existing
+`soda-test` guest; not a general installer or final cutover proof.** See
+[exact execution evidence](implementation-status.md#native-react-preview-migration-and-operator-browser-proof).
+U03/U04 own the schema/key
 contract; U18 owns later default-SPA cutover. This is a bounded dashboard upgrade,
 not first-install/bootstrap, an updater or a whole-appliance recovery system.
 Require explicit target/deployment permission before executing any step.
@@ -45,8 +48,9 @@ application startup. Setup/activation retain first-install refusal.
    service UID/socket and all project identities/state.
 
 A maintenance tool must refuse occupied backup/key destinations and verify
-ownership before mutation. Such a dashboard-only deployment tool and its
-executed rehearsal are still pending; the steps above are not deployment proof.
+ownership before mutation. A reusable dashboard-only deployment tool is still pending. Exact-target
+private operator recipes executed the recorded `35df189` rehearsal/rollout;
+the steps above do not establish deployment proof for other revisions/targets.
 
 ## Compatibility and rollback
 

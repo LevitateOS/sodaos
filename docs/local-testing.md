@@ -4,6 +4,32 @@
 
 The [native support tools](native-support.md) are source-only additions, not a replacement for this existing guest or new evidence about it. `scripts/test-vm.sh`, `.artifacts/test-vm/` and the overlay's backing image are preserved. New tool fixtures require fresh paths/ports/identities and separate permission; never point their work/cache outputs at these persistent files.
 
+## Current React preview candidate
+
+The existing guest now runs dashboard candidate `35df189` with a built React
+preview at <https://localhost:24443/app/>. The default routes remain HTMX; this is
+not U18 cutover. A consistent private backup, isolated schema-1→3/key-failure and
+rollback-copy rehearsals preceded the dashboard-only migration. Forgejo, proxy
+and project state were not replaced. See [exact evidence](implementation-status.md#native-react-preview-migration-and-operator-browser-proof).
+
+The installed React operator OAuth/native-read/navigation/logout check passed
+with certificate verification enabled. Older native Soda consent was explicitly
+replaced through the operator's own Applications UI; no bootstrap-token fallback
+was used. Repeat without revoking consent:
+
+```sh
+SODA_NATIVE_VALIDATE=soda-test SODA_ADMIN_CONSENT=1 \
+node tests/installed/dashboard-react.mjs \
+  https://localhost:24443 https://localhost:24444 operator \
+  "$PWD/.artifacts/test-vm/forgejo-operator-password" \
+  "$PWD/.artifacts/test-vm/browser-home"
+```
+
+`SODA_RECONSENT_APPLICATION='SodaOS dashboard'` is a separate explicit mutation:
+it revokes only this user's uniquely named native Soda grant before reconsenting.
+Do not enable it as an automatic retry or for unrelated applications/users.
+Two-user/project/workload/persistence and direct developer routing remain pending.
+
 ## Open the dashboard
 
 **The dashboard, Forgejo and HTTPS proxy are now running in `soda-test`.** Native Forgejo login, OAuth consent/callback, the authenticated Projects/Profile/People pages and Soda sign-out have been exercised in Chromium with certificate verification enabled.
