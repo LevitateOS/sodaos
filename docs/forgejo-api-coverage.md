@@ -111,6 +111,17 @@ selects external hosts at delivery, with TLS verification on by default; inspect
 appliance source does not override these settings. No hook target was contacted
 and no live hook was created, activated or tested.
 
+Repository protection follow-up inspected pinned `routers/api/v1/repo/branch.go`
+and `tag.go`: native pointer/slice PATCH fields retain omitted values; nested push
+allowlist flags are only applied under explicit enabled parents. Organization/team
+follow-up inspected `routers/api/v1/org/org.go`, `org/team.go`, `models/unit/unit.go`
+and the router at 1223–1310. Organization scope is separate from repository scope;
+profile PATCH unconditionally updates several strings, while team all-repository
+changes require explicit permission and native administrator teams have fixed
+admin units. Explicit adapters preserve omitted fields, reject otherwise-ignored
+inputs and delegate all actual membership/repository authority. No native
+organization/team or protection operation has been executed by this work.
+
 ## Authority register
 
 - Forgejo: identity/password/MFA, account fields, repositories, organizations/teams, collaboration, Git keys, CI and upstream administration.

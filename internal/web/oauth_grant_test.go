@@ -31,7 +31,7 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if location.Query().Get("scope") != "write:user write:repository write:issue write:admin" {
+	if location.Query().Get("scope") != "write:user write:repository write:issue write:organization write:admin" {
 		t.Fatal("incorrect requested consent")
 	}
 	state := location.Query().Get("state")

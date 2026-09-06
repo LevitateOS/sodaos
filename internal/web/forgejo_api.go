@@ -28,6 +28,7 @@ func (s *Server) forgejoRoutes() {
 	s.hookRoutes()
 	s.repositorySettingsRoutes()
 	s.protectionRoutes()
+	s.organizationRoutes()
 }
 
 type providerUserView struct {

@@ -21,6 +21,8 @@ import { Hooks } from "./hooks";
 import { RepositorySettings } from "./repository-settings";
 import { Collaborators, DeployKeys } from "./repository-access";
 import { BranchProtections, TagProtections } from "./protections";
+import { Organizations, NewOrganization, OrganizationDetail } from "./organizations";
+import { TeamDetail } from "./teams";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -35,7 +37,7 @@ export function App() {
       {phase === "authenticated" && session && <>
         <nav aria-label="Soda navigation">
           <Link to="/">Overview</Link><Link to="/profile">Profile and development keys</Link><Link to="/help">Help</Link>
-          <Link to="/repositories">Repositories</Link><Link to="/environments">Environments</Link><Link to="/account">Forgejo account</Link>
+          <Link to="/repositories">Repositories</Link><Link to="/organizations">Organizations</Link><Link to="/environments">Environments</Link><Link to="/account">Forgejo account</Link>
           <a href={session.forgejo_url}>Open Forgejo</a>
           <Button variant="link" onClick={() => void logout()}>Sign out of Soda</Button>
         </nav>
@@ -69,6 +71,10 @@ export function App() {
           <Route path="/environments/:id" element={<EnvironmentDetail session={session} />} />
           <Route path="/account" element={<ForgejoAccount session={session} />} />
           <Route path="/administration/people" element={<People session={session} />} />
+          <Route path="/organizations" element={<Organizations session={session} />} />
+          <Route path="/organizations/new" element={<NewOrganization session={session} />} />
+          <Route path="/organizations/:org" element={<OrganizationDetail session={session} />} />
+          <Route path="/teams/:team" element={<TeamDetail session={session} />} />
           <Route path="/profile" element={<Profile key={session.user.id} session={session} />} />
           <Route path="/help" element={<><h1>Development access</h1><p>Register only public SSH keys. Adding a key does not rotate keys already installed in environments. Explicitly join through Environments, then use the displayed project IP with SSH, SCP or SFTP.</p><p>Forgejo Git keys are separate. Signing out of Soda does not sign out of Forgejo or terminate SSH sessions.</p><p><a href="/app/LICENSES.txt">Frontend licenses</a></p></>} />
           <Route path="*" element={<><h1>Page not found</h1><Link to="/">Return to overview</Link></>} />

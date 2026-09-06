@@ -39,7 +39,7 @@ func grantedTestServer(t *testing.T, upstream http.HandlerFunc) *Server {
 		if err = db.UpsertUser(context.Background(), store.User{ID: uid, Login: login}); err != nil {
 			t.Fatal(err)
 		}
-		grant := store.Grant{Access: "acting-" + login, Refresh: "refresh-" + login, Scopes: "write:user write:repository write:issue write:admin", Expires: time.Now().Add(time.Hour).Unix()}
+		grant := store.Grant{Access: "acting-" + login, Refresh: "refresh-" + login, Scopes: "write:user write:repository write:issue write:organization write:admin", Expires: time.Now().Add(time.Hour).Unix()}
 		if err = db.CreateGrantedSession(context.Background(), "session-"+login, uid, "csrf-"+login, grant); err != nil {
 			t.Fatal(err)
 		}

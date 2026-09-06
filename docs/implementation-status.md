@@ -147,7 +147,20 @@ omitted protection values are retained, otherwise-ignored nested push flags are
 rejected, and IDs remain lossless. Added settings-only-patch, privilege-denial,
 public-key rejection and protection dependency/opaque-ID cases plus a focused DOM
 test. Only gofmt/diff inspection ran. Advanced branch-policy form details,
-organization/team work and the full native permission matrix remain pending.
+the full native permission matrix and advanced form details remain pending.
+
+Organization/team source now adds native directory/create/profile, members/team
+lists, scoped team detail/description, explicit member and repository assignment
+changes and bounded policy APIs. Default consent adds verified `write:organization`.
+Pinned router, organization/team mutation and unit definitions were inspected:
+organization PATCH clears omitted profile strings (retained in-request), team
+policy has parent-permission dependencies and administrator units cannot be
+pretended to accept limited overrides. Forgejo resolves actual organizations,
+teams, repositories and all permissions; no organization/member/role rows are
+stored in Soda. Org-owned environments remain unsupported under the existing
+human-owner rule. Authored preservation, opaque-ID, direct-denial and ignored-field
+cases are unexecuted. Advanced team policy/protection forms and native matrix
+acceptance remain source/execution work.
 
 ### Current milestone ledger
 
@@ -163,7 +176,7 @@ organization/team work and the full native permission matrix remain pending.
 | U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
 | U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
 | U11 | Connected bounded PR/review/merge source and revision-bound mutation tests authored | None | Inline-thread/old-side/team detail and real reviewer/merger/native conflict journeys |
-| U12 | Connected settings/access/deploy-key/protection/webhook source | None | Advanced protection forms, org/team implementation and full native permission matrix |
+| U12 | Connected repository settings/access/protection/hooks and organization/team source | None | Advanced team/protection forms, sub-action coverage and full native permission matrix |
 | U13–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 

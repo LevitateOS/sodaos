@@ -162,7 +162,7 @@ Pinned PATCH does not rotate signing secrets or change package/action event flag
 Unsupported rotation input is rejected; changing those flags fails explicitly,
 as does silently turning an eventless hook into the native default push hook.
 Native settings remain the labeled dependency for these gaps pending U17 decision.
-Organization/team work and all execution evidence remain pending.
+Advanced organization/team detail coverage and all execution evidence remain pending.
 
 `/settings` GET/PATCH exposes bounded native description/website/visibility/default
 branch, feature and merge-method fields only. Pointer patches preserve omitted
@@ -181,11 +181,32 @@ exist; advanced branch allowlist/file-pattern form details remain pending. Nativ
 423 locked-resource and 405 state/settings denials map to explicit 409 rather
 than a fabricated successful change. Authored focused cases remain unexecuted.
 
+## Organizations and teams (U12 source)
+
+Organization-scoped acting-user routes cover `/organizations` list/create (native
+`mine` filter), `/{org}` profile GET/PATCH, `/members` and `/teams`. Team routes
+use the native decimal team ID, not a caller-declared Soda role or organization
+membership record: `/teams/{team}` GET/PATCH, `/members` list with explicit username
+PUT/DELETE, and `/repositories` list with explicit owner/repository PUT/DELETE.
+Forgejo resolves real team/organization/repository authority on every request.
+
+Organization PATCH retains omitted profile strings only in the current request
+because pinned upstream otherwise clears them. Explicit email changes retain
+native email semantics. Team APIs expose bounded native permission/unit fields;
+otherwise-ignored repository-policy edits require explicit parent permission.
+Unknown units, empty ignored override maps and limited overrides of native admin
+units are rejected. These are protocol constraints, not a Soda permission engine.
+
+Connected directory/profile/team/member/assignment forms exist; advanced team
+policy editors remain unfinished. Native last-write semantics remain explicit.
+No rename/delete/org-to-environment mapping or Linux offboarding synchronization
+is implemented. All focused tests and native permission matrices remain unexecuted.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy
 return is `/projects`. Other return values are rejected. The callback remains
-`/oauth/callback`. Default requested consent is `write:user write:repository write:issue`;
+`/oauth/callback`. Default requested consent is `write:user write:repository write:issue write:organization`;
 `administration=1` additionally requests `write:admin`, without conferring native
 administrator status. Reads accept corresponding read scopes.
 
