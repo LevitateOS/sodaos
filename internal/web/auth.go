@@ -114,7 +114,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	value, csrf := token(), token()
-	if err = s.Store.CreateGrantedSession(r.Context(), value, u.ID, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: time.Now().Add(time.Duration(grant.ExpiresIn) * time.Second).Unix()}); err != nil {
+	if err = s.Store.CreateGrantedSession(r.Context(), value, u.ID, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: grant.ExpiresAt}); err != nil {
 		s.fail(w, "Could not create session.", 500)
 		return
 	}

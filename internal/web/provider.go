@@ -84,7 +84,7 @@ func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error
 		return store.Grant{}, store.ErrGrantUnavailable
 	}
 	grant.Access, grant.Refresh = renewed.Access, renewed.Refresh
-	grant.Expires = time.Now().Add(time.Duration(renewed.ExpiresIn) * time.Second).Unix()
+	grant.Expires = renewed.ExpiresAt
 	if err = s.Store.ReplaceGrant(r.Context(), cookie.Value, v.User.ID, grant); err != nil {
 		if deleteErr := s.discardGrant(r.Context(), cookie.Value); deleteErr != nil {
 			return store.Grant{}, deleteErr

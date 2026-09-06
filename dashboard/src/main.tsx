@@ -11,6 +11,9 @@ import { RepositoryList, CreateRepository, RepositoryDetail } from "./repositori
 import { EnvironmentList, EnvironmentDetail } from "./environments";
 import { ForgejoAccount, People } from "./accounts";
 import { ErrorBoundary } from "./error-boundary";
+import { History, CommitDetail, Refs, Compare } from "./history";
+import { FileEditor } from "./file-editor";
+import { ForkRepository, ImportRepository } from "./repository-copy";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -33,6 +36,13 @@ export function App() {
           <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>Discover or create a Forgejo repository, create its persistent environment, then explicitly join using your public development-access key.</p><p><Link to="/repositories">Browse repositories</Link> · <Link to="/environments">Discover environments</Link></p><Alert isInline variant="warning" title="This preview has not been built or installed-verified. Direct project routing and native workload/persistence proof remain pending." /></>} />
           <Route path="/repositories" element={<RepositoryList session={session} />} />
           <Route path="/repositories/new" element={<CreateRepository session={session} />} />
+          <Route path="/repositories/import" element={<ImportRepository session={session} />} />
+          <Route path="/repositories/:owner/:repo/history" element={<History session={session} />} />
+          <Route path="/repositories/:owner/:repo/commits/:sha" element={<CommitDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/refs" element={<Refs session={session} />} />
+          <Route path="/repositories/:owner/:repo/compare" element={<Compare session={session} />} />
+          <Route path="/repositories/:owner/:repo/edit" element={<FileEditor session={session} />} />
+          <Route path="/repositories/:owner/:repo/fork" element={<ForkRepository session={session} />} />
           <Route path="/repositories/:owner/:repo" element={<RepositoryDetail session={session} />} />
           <Route path="/environments" element={<EnvironmentList session={session} />} />
           <Route path="/environments/:id" element={<EnvironmentDetail session={session} />} />

@@ -30,7 +30,7 @@ export function RepositoryList({ session }: { session: Session }) {
     return () => controller.abort();
   }, [page, session]);
   return <section><h1>Repositories</h1><p>Forgejo determines which repositories you can see, including collaborator access. Creating a repository does not create or join an environment.</p>
-    <Link to="/repositories/new">Create repository</Link>
+    <Link to="/repositories/new">Create repository</Link> · <Link to="/repositories/import">Import Git repository</Link>
     {error && <Alert isInline variant="danger" title={error} />}
     {!result && !error && <Spinner aria-label="Loading repositories" />}
     {result && <><ul>{result.items.map(repo => <li key={repo.id}><Link to={repositoryPath(repo.owner.login, repo.name)}>{repo.full_name}</Link> {repo.private ? "Private" : "Public"}<p>{repo.description}</p></li>)}</ul>
@@ -126,7 +126,9 @@ export function RepositoryDetail({ session }: { session: Session }) {
   }
   return <section aria-busy={busy}><h1>{owner}/{repo}</h1>{error && <Alert isInline variant="danger" title={error} />}
     {!repository && !error && <Spinner aria-label="Loading repository" />}
-    {repository && <><p>{repository.description}</p><h2>Personal Git access</h2><p>Use your own Forgejo Git credentials; joining an environment grants no Git permissions.</p><pre>{repository.clone_url}{"\n"}{repository.ssh_url}</pre>
+    {repository && <><p>{repository.description}</p>
+      <nav aria-label="Repository navigation"><Link to={`${repositoryPath(owner, repo)}/history?${new URLSearchParams({ ref: ref || repository.default_branch, path })}`}>History</Link><Link to={`${repositoryPath(owner, repo)}/refs`}>Branches and tags</Link><Link to={`${repositoryPath(owner, repo)}/compare`}>Compare</Link><Link to={`${repositoryPath(owner, repo)}/fork`}>Fork</Link><Link to={`${repositoryPath(owner, repo)}/edit?${new URLSearchParams({ ref: ref || repository.default_branch, new: "1" })}`}>Create or upload file</Link></nav>
+      <h2>Personal Git access</h2><p>Use your own Forgejo Git credentials; joining an environment grants no Git permissions.</p><pre>{repository.clone_url}{"\n"}{repository.ssh_url}</pre>
       <h2>Development environment</h2><Link to="/environments">Discover existing environments and incomplete reservations</Link>
       {repository.owner.id === session.user.id && <Button isDisabled={busy} isLoading={busy} onClick={() => void createEnvironment()}>Create persistent Rocky environment</Button>}
       <p>The human owner administers the environment. Creation does not join you automatically.</p>
@@ -137,7 +139,7 @@ export function RepositoryDetail({ session }: { session: Session }) {
         {!contents && !contentError && <Spinner aria-label="Loading files" />}
         <ul>{contents?.map(item => <li key={item.path}><Button variant="link" onClick={() => setSearch({ ref, path: item.path })}>{item.path}</Button> {item.type} ({item.size} bytes)
           {item.text !== null && (/\.(md|markdown)$/i.test(item.name) ? <Markdown text={item.text} repository={{ route: repositoryPath(owner, repo), ref: ref || repository.default_branch, path: item.path }} /> : <pre tabIndex={0} aria-label={`Contents of ${item.path}`}>{item.text}</pre>)}
-          {item.type === "file" && <p><a href={`${api}/download?${new URLSearchParams({ ref: ref || repository.default_branch, path: item.path })}`}>Download file (up to 8 MiB)</a></p>}
+          {item.type === "file" && <p><Link to={`${repositoryPath(owner, repo)}/edit?${new URLSearchParams({ ref: ref || repository.default_branch, path: item.path })}`}>Edit or replace</Link> · <a href={`${api}/download?${new URLSearchParams({ ref: ref || repository.default_branch, path: item.path })}`}>Download file (up to 8 MiB)</a></p>}
           {item.unavailable && <p>Binary, oversized or unavailable content is not rendered. Use the bounded download or your native Git checkout.</p>}
         </li>)}</ul>
         {readmeError && <Alert isInline variant="warning" title={`README: ${readmeError}`} />}

@@ -68,6 +68,30 @@ or unsafe URL schemes. Relative links retain repository/ref context. Full
 ref/file/Markdown/download acceptance remains unexecuted U06 work; no complete
 Forgejo rendering-extension parity is claimed.
 
+## Repository history and writes (U09 source)
+
+Individually registered repository subroutes now include:
+
+- `GET /commits?ref=&path=&page=`, `GET /commits/{sha}` and `/commits/{sha}/diff`:
+  native history and pinned full SHA, with unified diff bounded to 1 MiB. No local
+  Git index or arbitrary ref-to-command execution.
+- `GET/POST /branches`, `GET/POST /tags`: native pagination and create operations,
+  with branch/tag protection and permissions remaining upstream.
+- `GET /compare?base=&head=`: commits/changed files and lossless native total;
+  this does not execute a merge.
+- `POST/PUT /files?ref=&path=`: explicit branch/path, base64 content up to 32 KiB,
+  commit message and exact loaded file SHA for updates. Native stale SHA produces
+  409; no retry overwrites newer work. Creation does not accept an update SHA.
+- `POST /fork`: optional personal fork name; no environment copy.
+- `POST /api/forgejo/repositories/import`: credential-free HTTPS Git URL, name,
+  privacy and optional separate transient credentials; owner is the acting user,
+  service is native `git`, no mirror or provider-specific issue migration.
+
+React history/ref/compare/editor/fork/import views call these operations. Unified
+text diff is the current bounded presentation, not inline-review position support.
+Blame and the full native import/diff detail audit remain pending. No source or
+installed tests for these new views/adapters have executed.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy

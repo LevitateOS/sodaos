@@ -93,6 +93,16 @@ checks only have run. No dependency resolution, build, type check, product test,
 provider mutation, native service/network operation or deployment has run. The
 VM, builder infrastructure and backing image are unchanged.
 
+U09 follow-up source connects commit/file history, pinned commit detail/bounded
+unified diff, branch/tag list/create, comparisons, SHA-preconditioned file
+create/edit/upload, personal forks and one-time HTTPS Git imports. These operations
+use native permissions, do not execute Git in Go or copy/mutate environments, and
+keep import credentials transient. Authored stale-file/protected-branch/import
+ownership and editor-draft tests. Added a real-handler OAuth callback/grant test
+and conservative token expiry measured before the exchange, not after later
+identity/introspection calls. All checks remain authored, unexecuted. Blame and
+full native diff/import capability coverage remain U09/U17 audit work.
+
 ### Current milestone ledger
 
 | Milestones | Source | Built / tested / installed | Remaining |
@@ -104,7 +114,8 @@ VM, builder infrastructure and backing image are unchanged.
 | U06 | Repository list/create/detail, ref-aware text/GFM/README, bounded downloads and native pagination metadata | None | Full visibility/ref/content tests, dependency resolution, browser/native-write proof |
 | U07 | Connected persistent create/join/inspect/member/connect paths | None | Additional partial-result/authorization/connection cases and native evidence |
 | U08 | Pending | None | Explicit build/deployment/fixture/lifecycle permissions, approved direct client route and two-project/workload/persistence proof |
-| U09–U20 | Pending | None | Mandatory functional expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
+| U10–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

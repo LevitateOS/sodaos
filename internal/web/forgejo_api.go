@@ -22,6 +22,7 @@ func (s *Server) forgejoRoutes() {
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}", s.apiProvider(s.apiRepository, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/contents", s.apiProvider(s.apiContents, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/download", s.apiProvider(s.apiDownload, "read:repository", "GET"))
+	s.historyRoutes()
 }
 
 type providerUserView struct {
@@ -234,8 +235,7 @@ func (s *Server) apiRepositories(w http.ResponseWriter, r *http.Request, v store
 	jsonResponse(w, 200, pageResult(items, metadata))
 }
 func (s *Server) apiRepository(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
-	if !validRepositoryPart(r.PathValue("owner")) || !validRepositoryPart(r.PathValue("repo")) {
-		jsonError(w, 400, "invalid_repository", "Invalid repository identity.")
+	if !validRepositoryRoute(w, r) {
 		return
 	}
 	repo, err := s.Forgejo.Repository(r.Context(), token, r.PathValue("owner"), r.PathValue("repo"))
@@ -246,8 +246,7 @@ func (s *Server) apiRepository(w http.ResponseWriter, r *http.Request, v store.S
 	jsonResponse(w, 200, repositoryDTO(repo))
 }
 func repositoryContentQuery(w http.ResponseWriter, r *http.Request) (string, string, bool) {
-	if !validRepositoryPart(r.PathValue("owner")) || !validRepositoryPart(r.PathValue("repo")) {
-		jsonError(w, 400, "invalid_repository", "Invalid repository identity.")
+	if !validRepositoryRoute(w, r) {
 		return "", "", false
 	}
 	ref, file := r.URL.Query().Get("ref"), r.URL.Query().Get("path")

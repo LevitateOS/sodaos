@@ -127,9 +127,11 @@ type TokenResponse struct {
 	Refresh   string `json:"refresh_token"`
 	Type      string `json:"token_type"`
 	ExpiresIn int64  `json:"expires_in"`
+	ExpiresAt int64  `json:"-"`
 }
 
 func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenResponse, error) {
+	started := time.Now()
 	var token TokenResponse
 	req, err := http.NewRequestWithContext(ctx, "POST", c.Base+"/login/oauth/access_token", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -150,5 +152,6 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenRespon
 	if token.Access == "" || token.Refresh == "" || !strings.EqualFold(token.Type, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 365*24*60*60 {
 		return TokenResponse{}, ErrInvalidResponse
 	}
+	token.ExpiresAt = started.Add(time.Duration(token.ExpiresIn) * time.Second).Unix()
 	return token, nil
 }

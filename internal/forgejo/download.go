@@ -18,8 +18,12 @@ func (c *Client) RawFile(ctx context.Context, token, owner, repo, ref, file stri
 	for i, part := range parts {
 		parts[i] = url.PathEscape(part)
 	}
-	endpoint := c.Base + "/api/v1/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/raw/" + strings.Join(parts, "/") + "?" + url.Values{"ref": {ref}}.Encode()
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	endpoint := repoAPI(owner, repo) + "/raw/" + strings.Join(parts, "/") + "?" + url.Values{"ref": {ref}}.Encode()
+	return c.readBytes(ctx, endpoint, token, DownloadLimit)
+}
+
+func (c *Client) readBytes(ctx context.Context, path, token string, limit int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.Base+"/api/v1"+path, nil)
 	if err != nil {
 		return nil, ErrUnavailable
 	}
@@ -33,14 +37,14 @@ func (c *Client) RawFile(ctx context.Context, token, owner, repo, ref, file stri
 	if res.StatusCode != 200 {
 		return nil, &HTTPError{Status: res.StatusCode}
 	}
-	if res.ContentLength > DownloadLimit {
+	if res.ContentLength > limit {
 		return nil, ErrResponseTooLarge
 	}
-	body, err := io.ReadAll(io.LimitReader(res.Body, DownloadLimit+1))
+	body, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	if len(body) > DownloadLimit {
+	if int64(len(body)) > limit {
 		return nil, ErrResponseTooLarge
 	}
 	return body, nil
