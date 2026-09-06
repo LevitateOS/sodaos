@@ -10,4 +10,6 @@ Source baseline: Forgejo 15.0.7. API shapes were inspected in its upstream `temp
 
 Developers are created by the operator's Soda dashboard. Their initial password is sent only to Forgejo; Soda does not store it. They change it through native Forgejo onboarding. Git authentication uses native Forgejo SSH keys or HTTPS tokens, independently of Soda development-access public keys.
 
+An interactive root host login also displays the [operator console welcome](console-welcome.md): observed interfaces, loopback Cockpit access and configured browser origins. It is guidance, not enrollment or a reachability check.
+
 Native API, TLS, container and login behavior has not been built or exercised. No live registration is performed by editing these sources.

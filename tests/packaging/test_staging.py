@@ -12,7 +12,7 @@ class NativeStage(unittest.TestCase):
         cls.root = Path(os.environ['SODA_STAGE'])
 
     def test_commands_and_extensions(self):
-        for name in ['soda-dashboard', 'soda-host', 'soda-setup', 'soda-forgejo-tailnet', 'soda-runners', 'soda-runner-helper', 'soda-runner-launch']:
+        for name in ['soda-dashboard', 'soda-host', 'soda-setup', 'soda-tailnet', 'soda-forgejo-tailnet', 'soda-runners', 'soda-runner-helper', 'soda-runner-launch']:
             p = self.root / 'usr/local/libexec/soda' / name
             self.assertTrue(p.is_file(), str(p))
             self.assertTrue(p.stat().st_mode & 0o111, str(p))
@@ -60,6 +60,17 @@ class NativeStage(unittest.TestCase):
             self.assertIn(theme, values['FORGEJO__ui__THEMES'].split(','))
         self.assertEqual(env.stat().st_mode & 0o777, 0o600)
         self.assertFalse((self.root / 'var/lib/soda/forgejo/gitea/public/assets/soda-theme-preview.html').exists())
+
+    def test_operator_console_delivery(self):
+        renderer = self.root / 'usr/local/libexec/soda/soda-console-welcome'
+        self.assertTrue(renderer.is_file())
+        self.assertTrue(renderer.stat().st_mode & 0o111)
+        hook = (self.root / 'etc/profile.d/soda-console-welcome.sh').read_text()
+        self.assertIn('case $- in', hook)
+        self.assertIn('/usr/local/libexec/soda/soda-console-welcome', hook)
+        link = self.root / 'usr/local/bin/soda-tailnet'
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(os.readlink(link), '/usr/local/libexec/soda/soda-tailnet')
 
 
 if __name__ == '__main__':

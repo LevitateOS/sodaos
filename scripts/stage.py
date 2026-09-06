@@ -39,6 +39,7 @@ configs = {
     'cockpit.conf': '/etc/cockpit/cockpit.conf',
     'cockpit.socket.conf': '/etc/systemd/system/cockpit.socket.d/10-soda.conf',
     'proxy.Caddyfile': '/etc/soda/proxy.Caddyfile',
+    'console-welcome.sh': '/etc/profile.d/soda-console-welcome.sh',
 }
 for src, dest in configs.items():
     copy(source / 'appliance/config' / src, dest, 0o644)
@@ -67,6 +68,10 @@ for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
 copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
+copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
+tailnet_cli = stage / 'usr/local/bin/soda-tailnet'
+tailnet_cli.parent.mkdir(parents=True, exist_ok=True)
+tailnet_cli.symlink_to('/usr/local/libexec/soda/soda-tailnet')
 link = stage / 'usr/local/sbin/soda-setup'
 link.symlink_to('/usr/local/libexec/soda/soda-setup')
 copy(source / 'appliance/config/forgejo.env', '/etc/soda/forgejo.env', 0o600)
