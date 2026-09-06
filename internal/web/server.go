@@ -3,14 +3,15 @@ package web
 import (
 	"bytes"
 	"embed"
+	"html/template"
+	"io/fs"
+	"net/http"
+
 	"github.com/levitateos/sodaos/assets"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
-	"html/template"
-	"io/fs"
-	"net/http"
 )
 
 //go:embed templates/*.html static/*

@@ -5,9 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/store"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // Authored journey over real handlers/database and an explicit native test double.

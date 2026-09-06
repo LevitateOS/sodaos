@@ -1,11 +1,12 @@
 package web
 
 import (
-	"github.com/levitateos/sodaos/internal/config"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/config"
 )
 
 func TestCSRFAndOrigin(t *testing.T) {

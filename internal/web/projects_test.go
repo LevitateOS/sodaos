@@ -2,8 +2,6 @@ package web
 
 import (
 	"context"
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/store"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type roundTrip func(*http.Request) (*http.Response, error)

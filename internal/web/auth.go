@@ -5,12 +5,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/store"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func token() string {
