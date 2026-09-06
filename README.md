@@ -6,6 +6,8 @@ Persistent, shared development environments on an immutable appliance host. Deve
 
 **Next dashboard direction:** a client-rendered React/PatternFly frontend over upstream Forgejo and Soda's Go environment/access extension. See the [full milestone plan](docs/dashboard-implementation-plan.md) and [page/dependency inventory](docs/dashboard-plan.md). This migration is planned, not implemented; the topology below describes the existing system.
 
+**Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite.
+
 ## How it fits together
 
 ```text
@@ -71,7 +73,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 - [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
 - [Development environment](docs/development-environment.md), [project services](docs/project-services.md) and [provider CLIs](docs/project-clis.md)
 - [Operator welcome](docs/console-welcome.md), [branding review](docs/branding-review.md) and [screenshot guidance](docs/screenshot-capture.md)
-- [Predecessor reuse inventory](docs/predecessor-reuse.md)
+- [Predecessor reuse inventory](docs/predecessor-reuse.md) and [subordinate native support porting plan](docs/native-porting-plan.md)
 - [Local test host access](docs/local-testing.md) and [native validation](docs/native-validation.md)
 - [Coding-agent instructions](AGENTS.md)
 

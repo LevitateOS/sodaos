@@ -34,6 +34,12 @@ Relevant operating instructions are linked from the README. Native application c
 - Old PAM-backed Forgejo human identity, fixed `:30000` browser links and the assumption that workspaces share the host network.
 - Unrelated renderer/tooling directories solely to increase copied line count. Their source can be reassessed for a concrete future caller without modifying the predecessor.
 
+## Planned native support reuse
+
+The [native support porting plan](native-porting-plan.md) identifies outside VM/QMP, process cleanup, SSH/evidence, artifact-inspection, provisioning and retained operator helpers. It is subordinate to the [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting), which owns the frontend/backend, production native environments and U08/U20 product tests. Predecessor product/workload/preservation scenarios are references for the core's existing test entrypoints, not another Go P-plan suite; former P07/P08 redirect to U08/U20.
+
+This is planning only: no additional helpers or media recipes have been ported. Optional ISO/QCOW2 wrappers require a delivery decision and do not gate core work. Retain CoreOS/project-local identities; do not import bootc/Anaconda, old host-workspace assertions or release qualification/publication machinery. Native architecture evidence remains independent.
+
 ## Evidence boundary
 
 The work copied/adapted source and inspected upstream configuration/release metadata. No dependency resolution, source archive/client binary downloads, builds, renderer/browser checks, native service mutation, account/provider registration or screenshots ran. Focused tests are authored, not passed. Follow [implementation status](implementation-status.md) and [later native validation](native-validation.md) before making any installed capability claim.

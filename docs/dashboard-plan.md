@@ -4,6 +4,8 @@
 
 Planning inventory following the user's React/dashboard direction. This is not an implemented migration, a frozen dependency lockfile or authorization to change the running appliance. The current dashboard remains Go + HTMX; the earlier architecture/milestone descriptions of that frontend describe the existing implementation. The page scope below is proposed for review. The [multi-milestone implementation plan](dashboard-implementation-plan.md) assigns the work, API/data/build boundaries, tests and acceptance criteria; it also separates conditional environment extensions from the core migration.
 
+**Coordination:** the [implementation plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) leads core frontend/backend, production environments and U08/U20 product acceptance. The [native support plan](native-porting-plan.md) is subordinate and covers outside tooling/operator integrations, not a parallel product roadmap. This inventory defines page families, not another execution sequence.
+
 Selected constraints:
 
 - One Soda dashboard is the custom frontend for upstream Forgejo plus Soda's development-environment extension, including both developer and administrator views.

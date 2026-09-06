@@ -2,7 +2,7 @@
 
 This is the scope boundary for the [current architecture](architecture.md). It records parked ideas and edge-case work so they are not repeatedly promoted into prerequisites for the first version.
 
-The [current dashboard implementation plan](dashboard-implementation-plan.md) changes the frontend and extends supported Forgejo UI coverage; it does not reopen the native deferrals below. Its conditional environment milestones require an explicit scope decision before implementation.
+The [current dashboard implementation plan](dashboard-implementation-plan.md) changes the frontend and extends supported Forgejo UI coverage; it does not reopen the native deferrals below. Its conditional environment milestones require an explicit scope decision before implementation. The subordinate [native support plan](native-porting-plan.md) cannot reopen those decisions, change production environment policy or make optional installer media a core prerequisite.
 
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
 
@@ -69,11 +69,11 @@ Basic persistence across normal project stop/start and host reboot stays in scop
 - **A Soda-specific repository/toolchain/service format.** Repositories can use normal files, optional native mise configuration, image recipes and native workload definitions. Soda is not a replacement version manager, package catalog or Git workflow engine.
 - **A project DNS or custom SSH-gateway project.** Show the project's reachable IP and use ordinary `ssh user@ip`; project labels are not a hostname-routing requirement.
 - **Unrestricted host Podman access presented as project scoping.** Prefer a workable nested runtime; investigate project-scoped host execution if needed. A remote connection alone is not that boundary.
-- **Restoring the old host-account developer model.** Developer accounts belong inside project environments and their dashboard is Go + HTMX. The explicitly retained operator Cockpit Tailnet and Runners pages do not restore custom Cockpit developer workspaces.
+- **Restoring the old host-account developer model.** Developer accounts belong inside project environments; their selected React/Go dashboard migration follows the core plan, while Go + HTMX remains the existing implementation. The explicitly retained operator Cockpit Tailnet and Runners pages do not restore custom Cockpit developer workspaces.
 - **Frameworks justified only by deferred scenarios.** Do not add generic authorization, reconciliation or orchestration platforms just because a future edge case could use one.
 
 ## 7. Still to prove, not deferred away
 
 A simpler scope still needs real native evidence: Rocky + mise shared installation paths and permissions, direct-IP project reachability, nested Podman feasibility or a properly project-scoped host fallback, and operator/project-admin separation. The home layout (`~/shared`, `~/repo-name`) is illustrative; neither a fixed filesystem layout nor a native runtime mechanism has been validated by documenting it.
 
-The [source-first implementation plan](implementation-plan.md) implements the current scope now and holds builds and validation execution for later native-machine access. Native evidence is required before claiming a verified product, not before writing the rest of the implementation. Follow the first end-to-end proof in [architecture.md](architecture.md#16-first-end-to-end-proof) at that later stage. Do not add the parked branch/selection/recovery machinery to either phase without an explicit scope change.
+The [leading core plan](dashboard-implementation-plan.md) owns implementation and U08/U20 native product proof; the [initial M01–M18 plan](implementation-plan.md) is historical. Outside helpers follow the subordinate native support plan without duplicating product tests or gating core work on optional media. Native evidence is required before claiming a verified product, not before writing independent source. Follow the first end-to-end proof in [architecture.md](architecture.md#16-first-end-to-end-proof) only with applicable target/action permission. Do not add parked branch/selection/recovery machinery to either track without an explicit scope change.

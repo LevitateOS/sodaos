@@ -6,7 +6,9 @@
 
 **Read with:** [page/dependency inventory](dashboard-plan.md), [architecture and authority boundaries](architecture.md), [deferred scope](deferred.md), [actual execution evidence](implementation-status.md), [installation](installation.md) and [native validation](native-validation.md).
 
-This is the implementation sequence for the new dashboard direction. The [initial M01–M18 plan](implementation-plan.md) remains historical context for the existing Go + HTMX/native implementation; its completed source work is reused, not implemented again. U08/U20 revisit its still-unverified native requirements. Milestone numbers here do not inherit earlier PASS records.
+This is the leading implementation sequence for the **core product**: frontend, Go API/session/data integration, production native environment/access mechanisms and their product acceptance. The [native support porting plan](native-porting-plan.md) covers outside VM/SSH/evidence/artifact tools and retained host-operator integrations, under the [coordination contract below](#coordination-with-native-support-porting). **If the plans conflict, this plan wins.** Native support must not create a second core implementation, test suite or readiness gate.
+
+The [initial M01–M18 plan](implementation-plan.md) remains historical context for the existing Go + HTMX/native implementation; its completed source work is reused, not implemented again. U08/U20 revisit its still-unverified native requirements. Milestone numbers here do not inherit earlier PASS records.
 
 ## 1. Governing decisions
 
@@ -22,7 +24,7 @@ This is the implementation sequence for the new dashboard direction. The [initia
 
 ## 2. Baseline and changes actually needed
 
-Baseline source inspected at `6f7b51e`, with the subsequent documentation-only dashboard direction in the working tree. Recheck HEAD and local work before implementation.
+Baseline source inspected at `6f7b51e`; this dashboard plan was committed in `55ce5cb` and then coordinated with the native support proposal from `9c8d672`. Those are documentation changes, not implemented U/E milestones. Recheck the merged HEAD and local work before implementation.
 
 | Existing source | Reuse | Required change |
 | --- | --- | --- |
@@ -125,6 +127,30 @@ The full direct-dependency inventory and existing versions remain in [dashboard 
 - Use a dedicated `dashboard/` manifest/lockfile, consistent with the existing separate `cockpit/` build. No workspace-wide restructuring is required to start.
 - Node/pnpm are development/build tools only. No Axios, TanStack, Tailwind, Redux, Node server, new database, ORM, Go web framework or GraphQL layer is selected.
 - Review licenses, transitive closure, native tooling architectures and generated notices. Do not fabricate lockfiles/checksums or claim compatibility from version strings alone.
+
+### Coordination with native support porting
+
+The [P plan](native-porting-plan.md) supplies outside helpers. It is subordinate to this core plan and does not redefine product scope or move runtime ownership merely because code runs on Linux. In particular, production `internal/host/` and `project-os/` remain core, not P-plan infrastructure.
+
+| Shared area / contract | Core owner | Outside support owner and limit |
+| --- | --- | --- |
+| React, Go routes/DTOs, provider authority, OAuth/session/CSRF and Soda migrations | U01–U19 as assigned | No P implementation of these; consume existing app/test entrypoints |
+| Production project helper, account/key setup, shared tools, workload runtime and persistent roots | U07/U08; policy/image/control additions only under approved E01–E03 | P02/P03 offer VM/SSH/observation primitives, not project APIs, image-policy decisions or alternate runtimes |
+| Application asset payload and build order | U02 | P04 inspects/bundles the specified output; does not create a second frontend build or missing-asset substitute |
+| Application config, secret/key provisioning, bootstrap, migrations and cutover | U03/U04/U18 | P05 transports private inputs/invokes approved existing steps, never copies OAuth/bootstrap or edits Soda/Forgejo databases |
+| `scripts/`, `appliance/`, shared config and staging checks | U02/U03/U04/U18 own app payload/semantics | P04/P05 own outer artifact format/integrity and CoreOS provisioning transport; agree changed interfaces before either edits them |
+| Product `tests/installed/dashboard.mjs`, project/shared-tools/workloads checks and fixtures | Owning U feature, integrated U08/U20 | P tools may invoke these exact entrypoints and retain evidence; do not copy browser flows or scenario catalogs into `internal/acceptance/` |
+| Host/service substrate checks, native Cockpit/Tailnet/local runners, console and native branding delivery | Preserve compatibility in U02/U18 and consume results in U20 | P06 host observations and P11 outside integrations; no Forgejo Actions/admin UI or dashboard redesign |
+| Exact-candidate/architecture evidence | U08/U20 own product assertions and overall readiness | P12/P13 hand off artifact/host/operator evidence, without independently qualifying the product |
+| Optional ISO/QCOW2 delivery | No core prerequisite; current CoreOS installation remains usable | Conditional P09/P10 only after explicit delivery selection; no bootc/Anaconda/updater decision implied |
+
+**Single implementation, reusable evidence:** name the owning milestone, affected paths and input/output contract before shared-file work. Keep existing build/install/test entrypoints and extend them coherently, instead of adding parallel builders, bootstrap scripts or product suites. Cross-plan callers pass exact revision, artifact identity, target/client and private input references; logs retain observations, not a second authoritative product database.
+
+**Overlap disposition:** former P07 developer/workload and P08 persistence work now belongs exclusively to U08/U20, with its useful techniques retained in the [core proof detail](#core-owned-native-proof-detail). P06 is limited to installed host/service facts; application browser/auth assertions stay U04–U08. P11 owns host-operator/companion behavior, not developer fixture/authentication logic. P12/P13 hand off their own observations rather than duplicate U20 acceptance.
+
+**Ordering without a second gate:** core U01–U07 source and U08 execution can use the existing authorized scripts/VM tools. P02–P06 can later supply safer reusable fixtures/artifact inputs; the entire P plan is not a dependency. U18/U20 do not wait for optional media or P12 completion, and P12/P13 do not wait for a U20 product verdict to report support results. U20 consumes available relevant evidence and records any missing architecture/integration proof. Unavailable routing or permission remains a real U08 blocker, not permission to substitute forwarded access.
+
+Defects follow their owner: a QMP/SSH/logging/bundling bug goes to P; a core auth/config/schema/project runtime defect goes to its U/E milestone. A cross-boundary fix coordinates both callers. Neither plan may weaken acceptance, change a core contract unilaterally or claim an old result validates changed bytes. The [native validation guide](native-validation.md) is shared operational guidance, not another roadmap.
 
 ## 5. Shared API, state and migration contracts
 
@@ -321,7 +347,21 @@ All statuses begin **not started**. Dependencies below are source/integration de
 - With separate permission, stop/start the existing project and reboot only the approved test host. Confirm container identity, accounts, host keys, homes, installed tools, shared files and service data survive.
 - Investigate user namespaces, cgroups, seccomp, capabilities and SELinux precisely. The current nested candidate's `label=disable` and extra capabilities are limitations to evaluate, not a claim of fully confined hostile-tenant isolation. Do not solve failures with unrestricted/privileged host access or an unapproved VM fallback.
 
-**Acceptance:** record source revision, target/client, commands, safe evidence and remaining limitations. Any unavailable routing, workload or persistence step stays unverified. Correct concrete blockers and rerun affected checks; no source-only or screenshot-only substitute makes this milestone verified.
+**Acceptance:** record source revision, target/client, commands, safe evidence and remaining limitations. Any unavailable routing, workload or persistence step stays unverified. Correct concrete blockers and rerun affected checks; no source-only or screenshot-only substitute makes this milestone verified. P tooling/host observations may be reused, but U08 owns the product tests and their interpretation.
+
+#### Core-owned native proof detail
+
+These concrete techniques were retained from the incoming P07/P08 proposal and are now owned here and reused by U20. Extend the existing `tests/installed/` and bounded workload/Git fixtures; do not create a parallel Go product-scenario runner. Predecessor `product_scenarios.go`, `project_scenarios.go`, `fixtures.go` and `preservation.go`/`preservation.sh` are references for selective test reuse at `bc1d3e0`, not imported product requirements.
+
+- Exercise populated repository discovery/selection, owner-only environment creation, native first-password change and both explicit joins through the actual frontend. Missing keys, denied provider/native operations and partial provisioning must not appear joined/ready. Do not seed sessions or Linux accounts to bypass onboarding.
+- Verify project public host keys through U07's trusted HTTPS connection information or an explicitly trusted native operator channel. From the named routed client, exercise interactive SSH, exact-output commands and bidirectional SCP/SFTP. QEMU remapping, `ProxyJump` or appliance-local SSH may support management but do not establish the claimed direct project-IP path.
+- Check positive authorized operations and specific permission denials. A transport/lookup failure is not proof of denied access or absent host accounts. The second project must have separate roots/host keys and scoped runtime authority; project-local UID numbers may legitimately coincide across environments.
+- Use personal home checkouts and independently authorized native Git credentials for real clone/commit/push/readback. Soda login, project join and Git authorization are distinct. Tea/gh delivery/version observations may come from P11; personal API authentication/credential isolation, if exercised, uses the core's user fixtures and separately approved provider access, never a P credential broker.
+- Prove both users consume the same canonical shared mise installation/files with the intended ownership/permissions and executable resolution, including noninteractive SSH. Equal version/path strings or duplicate installations/downloads are insufficient. The ordinary member can execute but cannot replace the administrator-owned shared installation.
+- Exercise the actual project-local workload engine/socket boundary: image build, source bind-mount edit, changed HTTP response and a committed PostgreSQL fixture value. Bob and the actual client reach the intended service ports. Compose parsing, a listed container or an unrelated host engine is insufficient.
+- Before authorized lifecycle changes, capture bounded secret-safe observations of container identity, account/provider association, groups/ownership, public host-key fingerprints, homes, dirty/untracked Git work, shared files/tools, system configuration and service data. Fail on incomplete/failed snapshots instead of comparing empty outputs. Do not export shadow files, password hashes or private keys.
+- Stop/start the existing project, reconnect as both users and compare state; repeat around the separately authorized appliance reboot. Confirm a changed boot ID only to prove that a reboot occurred; exclude volatile PIDs/timestamps from persistence equality. The second project and the same writable roots must remain intact.
+- Follow the documented native workload restart path. If a normal explicit workload start is needed after reboot, record it and verify retained data; do not imply automatic service resurrection or rebuild/delete volumes to get a passing query.
 
 ### U09 — Code history, comparison and native repository writes
 
@@ -452,7 +492,7 @@ All statuses begin **not started**. Dependencies below are source/integration de
 
 - Execute the approved source suite, focused race tests, DOM/store tests, real browser workflows and packaging checks against the final revision. Keep all retained Cockpit, PAM, branding, console, provider-CLI and runner test source in the regression set.
 - Exercise a clean first installation on a separately approved fresh target and an upgrade of controlled existing state. The recovered early VM installation is not evidence of a clean final installer. Verify static assets, dependency notices, migrations, secret permissions, callback origins, service identity and the fixed socket boundary.
-- Repeat U08 and the implemented collaboration/admin journeys with real provider state. Separately authorize runner jobs, native maintenance, network changes, destructive test fixtures and reboots; missing permissions stay explicit, not silently passed.
+- Repeat the core-owned U08 entrypoints/proof detail and implemented collaboration/admin journeys with real provider state. Consume P06/P11/P12/P13 host/operator/artifact observations by exact revision/bytes when available; do not create or count a second P product suite. Optional P09/P10 media needs its own delivery proof only if selected, not as a prerequisite for verifying the existing installation path. Separately authorize runner jobs, native maintenance, network changes, destructive test fixtures and reboots; missing permissions stay explicit, not silently passed.
 - Build and verify x86_64 and aarch64 independently on matching native hardware. The unavailable sibling does not block useful work, but cross-compilation or browser-only tests do not establish its native runtime compatibility.
 - Document supported/verified architectures, supported image profiles, remaining upstream-native screens, credential/session limits, trusted-team isolation assumptions, access lifecycle limits and operational instructions. Include honest current routing/SELinux/workload/persistence evidence.
 - Record changes and checks by revision; preserve clean Git history and unrelated work. Publication, provider enrollment on other instances, physical installation and an OS/component updater remain separate authorization/scope decisions.
@@ -524,7 +564,7 @@ Use this table with the detailed [page inventory](dashboard-plan.md#page-invento
 | Issue boards, advanced graphs and unresolved upstream interactions | U17 with the relevant feature owner |
 | Environment create/detail/members/join/connect/incomplete state/admin views | U07/U08; optional control/image/resource work E01–E03 |
 | Destructive/ownership/account-remapping controls | Decision register; U17 must record their explicit exclusion or newly approved scope |
-| Host administration/Tailnet/local runner capacity | Retained Cockpit, packaged U02 and regression-verified U20 |
+| Host administration/Tailnet/local runner capacity | Retained outside integration P11; preserve packaging U02/U18 and consume evidence in U20 |
 | Default routes, old bookmarks and removal of HTMX | U18 |
 | Responsive/accessibility/performance improvements | Baseline throughout, focused U19 |
 | Complete artifact/data migration and installed architecture evidence | U02/U03/U08/U18/U20 |
@@ -543,7 +583,7 @@ Track evidence separately:
 4. **Installed-verified** — named native target/client and real end-to-end outcomes recorded.
 5. **Blocked/native fallback/deferred** — exact reason and impact retained; not counted as custom-screen parity.
 
-Each milestone handoff records changed paths, authority/data effects, upstream contract evidence, tests authored versus executed, actual commands/targets, unresolved questions and the next milestone. Keep coherent commits; do not amend unrelated history or sweep other work into them. No milestone is checked off by writing this plan.
+Each milestone handoff records changed paths, authority/data effects, upstream contract evidence, tests authored versus executed, actual commands/targets, unresolved questions and the next milestone. Shared-file changes name their U/P owner and agreed interface; support evidence is linked by exact revision/artifact/target rather than duplicated or used as an independent product verdict. Keep coherent commits; do not amend unrelated history or sweep other work into them. No milestone is checked off by writing this plan.
 
 ### Verification matrix to maintain
 

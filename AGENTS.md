@@ -6,7 +6,8 @@ Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
 - `docs/dashboard-plan.md` — selected frontend/ownership constraints and page/dependency inventory
-- `docs/dashboard-implementation-plan.md` — current U01–U20 implementation milestones and conditional E01–E03 extensions
+- `docs/dashboard-implementation-plan.md` — leading core U01–U20 plan, including production native integration and product acceptance; conditional E01–E03 extensions
+- `docs/native-porting-plan.md` — subordinate outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence
 - `docs/implementation-plan.md` — historical initial M01–M18 plan; not the new dashboard implementation sequence
@@ -143,6 +144,8 @@ recovery, project deletion/archival or a new release/update platform.
   make its surrounding host, project or credentials disposable.
 
 ## Scope discipline
+
+**Plan precedence:** `docs/dashboard-implementation-plan.md` wins over `docs/native-porting-plan.md` for core behavior, API/auth/data/build contracts and product acceptance. Production `internal/host/` and `project-os/` are core, not outside harness code. Former P07/P08 developer/workload/persistence work belongs only to U08/U20. P tools can invoke those core-owned tests and hand off evidence, not copy scenarios or create a second readiness gate. Coordinate shared build/config/staging files by the core plan's ownership matrix. Optional native media and unfinished helper ports do not block core work using existing authorized tools.
 
 Keep ordinary Git, mise and container workflows. Shared resources mean actual shared files, installed tools and services—not just a shared download cache.
 

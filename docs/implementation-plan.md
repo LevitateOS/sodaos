@@ -1,8 +1,10 @@
 # Source-first implementation plan
 
-> **Historical initial plan:** M01–M18 describe the original Go + HTMX/native implementation. For the selected React frontend and Forgejo-extension backend, use the [U01–U20 implementation plan](dashboard-implementation-plan.md). See [implementation status](implementation-status.md) for work and checks actually completed. This document does not reset that work or direct the new dashboard migration back to M01.
+> **Historical initial plan:** M01–M18 describe the original Go + HTMX/native implementation. The [U01–U20 implementation plan](dashboard-implementation-plan.md) now leads the core product, including production native environment/access integration and product acceptance. This document does not reset that work or direct the new migration back to M01.
 
-**Status:** Planned. No implementation milestone is marked complete by writing this plan.
+**Status:** Actual completion and native evidence are recorded in [implementation status](implementation-status.md). No milestone is marked complete merely by writing a plan; the original scope/sequence below is retained as history.
+
+**Supporting work:** The subordinate [native support porting plan](native-porting-plan.md) covers outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations. It does not own a second developer/workload/persistence suite or gate core delivery on optional ISO/QCOW2 media. U08/U20 own current product proof; former P07/P08 redirect there. If plans conflict, the dashboard implementation plan wins.
 
 **Governing scope:** [Architecture](architecture.md), [deferred and excluded work](deferred.md), [branding](branding.md) and the [existing asset inventory](../assets/README.md).
 
@@ -332,7 +334,7 @@ Recommended serial order is M01 through M14. With multiple implementers, M05/M06
 
 ## 5. Later stages — held until target access and execution authorization
 
-These stages are deliberately **not prerequisites for starting or completing unrelated source milestones**. They are recorded so “implementation complete” is not confused with “usable appliance proved.” No work is currently authorized on an unspecified machine.
+These historical stages are deliberately **not prerequisites for starting or completing unrelated source milestones**. Their current product-proof successor is U08/U20 in the [leading core plan](dashboard-implementation-plan.md); the P plan supplies outside helpers, not a second acceptance sequence. Keep original evidence by revision rather than restarting these milestones. No work is authorized on an unspecified machine.
 
 ### M15 — Native x86 build and source-test execution
 
@@ -398,4 +400,4 @@ For each milestone, record a short update in the implementation handoff:
 
 Do not mark a milestone complete because its outline, interfaces or mocks exist. Do not let a missing native observation become an excuse to leave independent production source unfinished. Conversely, do not claim a hardware-dependent outcome has been proved by source inspection.
 
-**First assignment: M01.** Follow its source exit, then continue through the source dependency order. Native builds and validation remain held for the later stages.
+**Original first assignment was M01.** That source work is historical. For the next core implementation assignment use **U01** in the [dashboard implementation plan](dashboard-implementation-plan.md); supporting P work follows its coordinated interface scope and neither plan authorizes native execution by itself.

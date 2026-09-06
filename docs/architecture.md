@@ -8,7 +8,7 @@
 
 **Scope boundary:** [Deferred and excluded work](deferred.md) records ideas and edge-case work that must stay outside the first version. Those items are not prerequisites for the first end-to-end proof and must not be silently restored as requirements.
 
-**Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. The [initial M01–M18 plan](implementation-plan.md) describes the existing Go + HTMX/native source work and original proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
+**Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. It leads the core product, including production native environment/access integration and U08/U20 acceptance. The [native support porting plan](native-porting-plan.md) is subordinate: outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations only. Shared contracts follow the core plan; optional media and helper ports are not a second core gate. The [initial M01–M18 plan](implementation-plan.md) describes historical Go + HTMX/native source work and proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
 
 **Dashboard direction update:** the user has selected client-rendered TypeScript/React + PatternFly + Vite+ + Zustand, backed by Go and Forgejo, with no SSR, Tailwind or TanStack. [Dashboard planning](dashboard-plan.md) inventories the proposed pages, dependencies and authentication work. The Go + HTMX descriptions below still describe the existing implementation; the React migration is not implemented. The unified frontend includes developer and administrator views, but Forgejo remains upstream owner of its data, rules, permissions and administration. Soda's backend is a development-environment/access extension and bounded API adapter, not a replacement forge backend. Other native, identity and authority boundaries remain in force.
 
@@ -29,7 +29,7 @@ Soda supplies the usable environment and its appliance integration. Developers r
 | Project base | Rocky Linux + mise. |
 | Project lifetime | Persistent and mutable; users develop inside the environment rather than routinely discard and reconstruct it. |
 | Human identity | Forgejo is the identity provider. Developers do not need individual Linux accounts on the host. |
-| Developer interface | A Soda dashboard written in Go + HTMX. |
+| Developer interface | Selected client-rendered React/PatternFly dashboard over the Go API; the existing implementation is still Go + HTMX. |
 | Host administration | Stock Cockpit plus the predecessor's Tailnet and Runners pages and backing logic, accessible only to the root/operator identity. No custom Cockpit developer workspace UI. |
 | Project administration | Working rule: the owner of the associated Forgejo project/repository administers the project pod, not the host. |
 | Soda data | A dashboard database for Soda-specific profiles, public SSH keys, projects and memberships. |
@@ -154,7 +154,7 @@ Soda must not request a user's private SSH key for onboarding. Public-key regist
 
 ## 6. The Soda dashboard
 
-The developer interface is a dedicated Go + HTMX application, not a set of custom Cockpit packages. The operator also uses it for Soda administration, including creating people.
+The existing developer interface is a dedicated Go + HTMX application, with the selected React/Go migration governed by the leading core plan. It is not a set of custom Cockpit packages. The unified frontend includes upstream-authorized Forgejo administration and Soda environment/access administration; neither grants host-root authority.
 
 Its initial purpose is to make these outcomes coherent:
 
@@ -171,7 +171,7 @@ The dashboard's backend may perform the narrow host/runtime operations needed fo
 
 Run the necessary native operations and report their actual results. Detailed cross-system retry, rollback and recovery orchestration is deferred. This does not require either the old synchronous-only restrictions or a new general background-job platform.
 
-Stock Cockpit remains the operator tool for host services, logs, networking, storage and diagnostics. The predecessor's Tailnet and Runners pages are explicit retained extensions, not a return to custom Cockpit developer pages. They stay in Cockpit rather than being rewritten into the Go + HTMX dashboard. Developers do not log into Cockpit as host users or switch into project accounts to manage their resources through the browser.
+Stock Cockpit remains the operator tool for host services, logs, networking, storage and diagnostics. The predecessor's Tailnet and Runners pages are explicit retained extensions, not a return to custom Cockpit developer pages. They stay in Cockpit rather than being rewritten into the Soda dashboard. Developers do not log into Cockpit as host users or switch into project accounts to manage their resources through the browser.
 
 ## 7. Joining a project
 
@@ -306,7 +306,7 @@ Deleting obsolete implementation should remove its supporting callers, tests and
 
 ## 16. First end-to-end proof
 
-This journey is the first installed validation target after source implementation and native builds, following [the implementation plan](implementation-plan.md). Lack of x86 access does not block implementing the current scope in source. Deferred machinery stays out of both the source scope and this proof:
+This journey is owned by U08 and repeated in U20 of the [leading core implementation plan](dashboard-implementation-plan.md), which retains its concrete native assertions. The [native support plan](native-porting-plan.md) supplies outside transport/fixture/artifact tools, not another product suite or runtime owner. Lack of x86 access does not block implementing the current scope in source. Deferred machinery stays out of both the source scope and this proof:
 
 - An operator establishes Forgejo and dashboard administration without creating developer host accounts.
 - The operator creates Alice and Bob through the intended dashboard flow, backed by Forgejo identities.

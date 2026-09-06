@@ -2,6 +2,10 @@
 
 **Started on x86_64; full product journeys remain pending.** [Local testing](local-testing.md) records the successful source/staging checks and isolated test-host startup, including the limits of that evidence. Those results precede the merged follow-ups; this merged tree and its added checks have not been rebuilt or retested. Name the actual builder, installed target, architecture, developer client and permitted actions before additional execution. A build permit is not a disk-install, provider-registration, service-stop or reboot permit. Missing access is **unverified**, not passed or simulated.
 
+**Ownership:** U08/U20 in the [leading core plan](dashboard-implementation-plan.md#core-owned-native-proof-detail) own the browser/developer/workload/persistence journeys and overall product acceptance; individual features own their focused tests. The subordinate [native support plan](native-porting-plan.md) supplies VM/SSH/evidence/artifact/provisioning helpers, P06 host observations and P11 retained operator integrations. P07/P08 redirect to the core rather than create a second suite. Optional media and unfinished support ports do not block using the existing authorized entrypoints.
+
+This guide records operational checks, not another implementation roadmap. The M15–M18 labels below identify the historical proof stages and existing commands; current ownership follows U/P above. Record reused evidence by exact revision/bytes/target, never as a second independent PASS. No new execution is authorized by these plans.
+
 ## M15: native source/build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
@@ -22,9 +26,9 @@ Do not paste credentials, full container environment dumps, provisioning passwor
 
 ## M16–M17: explicitly permitted Alice/Bob journey
 
-These actions **change real state**. Use operator-approved users, projects/repositories and credentials, with real client reachability.
+These actions **change real state**. Use operator-approved users, projects/repositories and credentials, with real client reachability. Extend/invoke the core-owned installed tests and [U08 proof detail](dashboard-implementation-plan.md#core-owned-native-proof-detail), including shared installation identity, precise denials and failed-snapshot handling; do not implement this sequence again in the P harness.
 
-1. Complete the native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Verify developer requests cannot use People or native Cockpit administration.
+1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. For the current HTMX baseline verify its configured-operator People restriction; after U05 verify actual Forgejo administrator authority instead. Ordinary non-admin developers cannot use administrator APIs; Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority.
 2. Create `alice` and `bob` through People; each changes their initial password in Forgejo and signs into Soda separately. Register each person's public development-access key. Private keys stay on their clients.
 3. Alice creates an ordinary Forgejo repository with native Git credentials and then creates its Soda environment. Only its human owner may create that environment. Both explicitly select **Add me to this project**. No creator auto-enrollment is assumed.
 4. From the real developer client, verify the SSH host key through native operator access and connect to the displayed project IP as Alice and Bob. Exercise interactive SSH, a noninteractive command, SCP and SFTP. Do not disable host-key checking to manufacture a pass.

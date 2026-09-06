@@ -32,6 +32,16 @@ Added a staging regression for the root-only gate and ordered SELinux session ru
 
 At the operator's request, hide only Cockpit's stock Accounts menu entry through the native `/etc/cockpit/users.override.json` merge patch. The source config is staged for future installations and applied to `soda-test`; no packages, host accounts or native account tools were removed, and no services restarted. Native `cockpit-bridge --packages` before/after output confirms that `users` loses only its Accounts label and every other menu entry is unchanged (`cockpit-packages-before.log` / `cockpit-packages-after.log`). Added a packaging regression; all six packaging checks, Go tests, TypeScript checks and 60 Cockpit tests pass. Browser sessions may need logout/login to discard cached manifests. This navigation change is committed in `95a194d`.
 
+## Core/native plan coordination merge
+
+Pulled `origin/main` (`9c8d672`) into local `55ce5cb` with `git pull --no-rebase --no-commit origin main`, preserving both documentation histories. The only textual conflict was the introduction to `docs/implementation-plan.md`; resolved it by retaining the historical M01–M18 context, the leading U plan and subordinate native-support reference. No application-source conflict or application change was involved.
+
+At the user's direction, [dashboard-implementation-plan.md](dashboard-implementation-plan.md) leads the core—including Go/API/auth/data, production `internal/host`/`project-os`, shared build/config contracts and U08/U20 product acceptance. Reworked [native-porting-plan.md](native-porting-plan.md) around outside VM/QMP/SSH/evidence/artifact tools, provisioning transport and retained host-operator integrations. Former P07/P08 redirect to U08/U20; their useful direct-IP, shared-installation, workload and bounded-persistence test details are retained in the core plan. P06 owns host/service observations, P11 outside integrations, and P12/P13 scoped support evidence—not parallel browser/product suites or readiness verdicts. P09/P10 media remains conditional and is not a core gate.
+
+Added explicit shared-file/input/output ownership, evidence reuse and non-circular ordering to both plans; aligned AGENTS, README, architecture, inventory, deferred scope, historical plan, installation, native validation and reuse guidance. Existing authorized tools may support U08 without waiting for the P port. No U/E/P implementation milestone is completed by this coordination, and existing native limitations/evidence are unchanged.
+
+This merge/coordination performs documentation/diff, conflict-marker, local link/anchor, milestone-reference and whitespace review only. No builds, product tests, dependency installation/resolution, artifact generation, VM/service/network/provider operations, push or publication ran. The merged application remains unrebuilt/unretested.
+
 ## Unified React dashboard planning
 
 Recorded the user's next frontend direction and a proposed full page/direct-dependency inventory in [dashboard planning](dashboard-plan.md): client-rendered TypeScript/React, PatternFly, Vite+ and Zustand, without SSR, Tailwind or TanStack. Go remains the application API and Forgejo the identity/Git/collaboration authority. The plan separates the first working repository-to-environment flow, later functional coverage and native screens/API gaps; it does not add a host-administration frontend or a second password authority.
@@ -44,7 +54,7 @@ Clarified the upstream boundary at the user's request: Soda extends Forgejo with
 
 Added [the U01–U20 implementation plan](dashboard-implementation-plan.md) at the user's request. It sequences source-backed capability research, React/static packaging, JSON/schema migration, per-session Forgejo credentials, accounts/admin onboarding, repositories, native environments and early installed proof before broader collaboration/admin coverage, cutover, polish and final verification. It includes source ownership, API/state/security contracts, data/config migration and rollback constraints, page-to-milestone coverage, dependencies, acceptance cases and evidence levels. Forgejo remains upstream; the Go layer does not acquire its business or permission ownership.
 
-Rocky/Fedora profiles, existing-environment lifecycle controls and basic resource caps are conditional E01–E03 tracks, not silently approved scope. Other previously deferred lifecycle/ownership/recovery features remain explicit decisions. Linked the current plan from guidance, architecture, inventory and README and marked the original M01–M18 plan historical. This is documentation only; no implementation milestone, dependency resolution, compilation, product test, provider call, VM action or deployment ran. Documentation paths/anchors, milestone coverage references and whitespace were reviewed; changes remain uncommitted.
+Rocky/Fedora profiles, existing-environment lifecycle controls and basic resource caps are conditional E01–E03 tracks, not silently approved scope. Other previously deferred lifecycle/ownership/recovery features remain explicit decisions. Linked the current plan from guidance, architecture, inventory and README and marked the original M01–M18 plan historical. This is documentation only; no implementation milestone, dependency resolution, compilation, product test, provider call, VM action or deployment ran. Documentation paths/anchors, milestone coverage references and whitespace were reviewed; the planning work was committed as `55ce5cb`.
 
 ## Source merge — 2026-09-06
 
@@ -57,6 +67,14 @@ The earlier native evidence does **not** validate this merged tree or its additi
 Merged `origin/main` through `f4fe066` into `c96530c`, preserving both histories. Resolved five documentation conflicts by retaining the newer dashboard activation/browser and repository-picker evidence alongside the predecessor follow-ups and their unvalidated status. Reviewed the automatic staging/configuration merge; Accounts navigation, PAM checks and branding/console checks are retained. Updated stale uncommitted-change references.
 
 Only source/diff, conflict-marker and whitespace checks were performed for this merge. No builds, tests, dependency resolution, VM/service operations or provider actions were run; the combined tree remains unvalidated.
+
+## Original native artifact and acceptance proposal (scope superseded above)
+
+Upstream commit `9c8d672` added the original [porting proposal](native-porting-plan.md), based on current source `6f7b51e` and predecessor `bc1d3e0`. It maps selected VM/QMP, process/cleanup, SSH/evidence, artifact-inspection and scenario source/tests to proposed destinations, with P01–P13 dependencies, source/native exits and exact-target execution gates. CoreOS remains the proposed host path; bootc/Anaconda, the old account model, Updates and release publication/qualification machinery remain excluded.
+
+The plan explicitly distinguishes application OCI from a bootable host image, public media from private provisioning, a QCOW2 deployment kit from a preinstalled image, and forwarded access from a real client route. It prioritizes fresh x86_64 installation/developer/persistence evidence and preserves independent aarch64 follow-up. Existing `soda-test` state and its backing disk must remain untouched.
+
+Planning/documentation only. Reviewed source/documentation, diffs, local documentation link targets, plan anchors and whitespace. No port implementation, generated artifacts, builds, product tests, dependency resolution, VM/service/network/provider operations or publication ran. At that proposal's creation P01–P13 were not started. The coordination merge above transfers P07/P08 into core U08/U20 and narrows the remaining P scope; active P milestones are still unimplemented. Prior native results and the merged tree's unvalidated status are unchanged.
 
 ## Original source handoff (historical)
 

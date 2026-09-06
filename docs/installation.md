@@ -2,6 +2,8 @@
 
 Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
+The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The commands below remain the existing installation path; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
+
 ## 1. Prepare the native builder
 
 Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
@@ -56,7 +58,7 @@ Activation applies file ownership for the unprivileged dashboard, retains operat
 
 The implemented profile is a native routed Podman bridge (`soda0`) on the appliance. Host-to-project access is through that bridge; developer clients need a route for the chosen project subnet via the appliance. Set that route on the deployment's LAN router, or use a native Tailscale subnet route with the required Tailnet administrator approval. Respect existing firewall policy and authorize only the intended private ingress/forwarding. No project DNS, SSH gateway or extra identity authority is required.
 
-Host Tailnet enrollment by itself does not route the project subnet. Port-forward-only access to a builder VM is not proof that real developer clients can reach project IPs. Verify the actual routing/firewall setup in M16; do not call a Podman-only address usable because it appears on the dashboard.
+Host Tailnet enrollment by itself does not route the project subnet. Port-forward-only access to a builder VM is not proof that real developer clients can reach project IPs. Verify the actual routing/firewall setup in core U08 (the current owner of the historical M16 proof); do not call a Podman-only address usable because it appears on the dashboard.
 
 ## 5. Operator services and state
 
