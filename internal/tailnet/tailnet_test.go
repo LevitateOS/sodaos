@@ -1,0 +1,108 @@
+package tailnet
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/levitateos/sodaos/internal/process"
+	"github.com/stretchr/testify/require"
+)
+
+type recordingRunner struct {
+	output string
+	err    error
+	seen   []process.Command
+}
+
+func (r *recordingRunner) Run(context.Context, process.Command) error { return nil }
+
+func (r *recordingRunner) Output(_ context.Context, command process.Command) (string, error) {
+	r.seen = append(r.seen, command)
+	return r.output, r.err
+}
+
+func TestClientReadsCanonicalMagicDNSIdentity(t *testing.T) {
+	runner := &recordingRunner{output: `{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net."}}`}
+	client := New(Options{Runner: runner, CLI: "tailscale"})
+
+	identity, err := client.Identity(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "atlas.example.ts.net", identity)
+	require.Equal(t, []process.Command{{Name: "tailscale", Args: []string{"status", "--json"}}}, runner.seen)
+}
+
+func TestClientReadsTailnetEndpoint(t *testing.T) {
+	runner := &recordingRunner{output: `{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["fd7a:115c:a1e0::1","100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}`}
+	client := New(Options{Runner: runner, CLI: "tailscale"})
+
+	endpoint, err := client.Endpoint(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, Endpoint{Identity: "atlas.example.ts.net", IPv4: "100.88.77.66"}, endpoint)
+}
+
+func TestEndpointRejectsIdentityWithoutTailnetIPv4(t *testing.T) {
+	client := New(Options{Runner: &recordingRunner{output: `{"BackendState":"Running","Self":{"DNSName":"atlas.example.ts.net","TailscaleIPs":["fd7a:115c:a1e0::1"]}}`}, CLI: "tailscale"})
+	_, err := client.Endpoint(context.Background())
+	require.ErrorIs(t, err, ErrIPv4Unavailable)
+}
+
+func TestEnrollmentStateDoesNotPretendTailnetAccessIsAvailable(t *testing.T) {
+	for name, test := range map[string]struct {
+		status Status
+		want   EnrollmentState
+	}{
+		"needs login":        {status: Status{BackendState: "NeedsLogin"}, want: NeedsEnrollment},
+		"node is stopped":    {status: Status{BackendState: "Stopped"}, want: NeedsEnrollment},
+		"identity is absent": {status: Status{BackendState: "Running"}, want: IdentityUnavailable},
+		"identity is ready":  {status: Status{BackendState: "Running", Identity: "atlas.example.ts.net"}, want: Enrolled},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, test.want, test.status.EnrollmentState())
+		})
+	}
+}
+
+func TestIdentityRejectsUnenrolledAndIdentitylessNodes(t *testing.T) {
+	for name, test := range map[string]struct {
+		output string
+		want   error
+	}{
+		"needs login":          {output: `{"BackendState":"NeedsLogin","Self":{}}`, want: ErrNotEnrolled},
+		"identity unavailable": {output: `{"BackendState":"Running","Self":{}}`, want: ErrIdentityUnavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := New(Options{Runner: &recordingRunner{output: test.output}, CLI: "tailscale"})
+			_, err := client.Identity(context.Background())
+			require.ErrorIs(t, err, test.want)
+		})
+	}
+}
+
+func TestStatusRejectsInvalidMagicDNSIdentity(t *testing.T) {
+	client := New(Options{Runner: &recordingRunner{output: `{"BackendState":"Running","Self":{"DNSName":"atlas.local"}}`}, CLI: "tailscale"})
+	_, err := client.Status(context.Background())
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.ErrorIs(t, err, ErrInvalidMagicDNSName)
+}
+
+func TestStatusReportsUnavailableCLI(t *testing.T) {
+	client := New(Options{Runner: &recordingRunner{err: errors.New("daemon unavailable")}, CLI: "tailscale"})
+	_, err := client.Status(context.Background())
+	require.ErrorIs(t, err, ErrUnavailable)
+}
+
+func TestEndpointUsesIPv4WhenMagicDNSIsDisabled(t *testing.T) {
+	for _, dns := range []string{"", "atlas.example.ts.net."} {
+		client := New(Options{Runner: &recordingRunner{output: `{"BackendState":"Running","Self":{"DNSName":"` + dns + `","TailscaleIPs":["100.88.77.66"]}}`}, CLI: "tailscale"})
+		endpoint, err := client.Endpoint(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, Endpoint{Identity: "100.88.77.66", IPv4: "100.88.77.66"}, endpoint)
+	}
+}
+
+func TestExpiredIdentityIsNotAdvertised(t *testing.T) {
+	client := New(Options{Runner: &recordingRunner{output: `{"BackendState":"Running","Self":{"Expired":true,"DNSName":"atlas.example.ts.net.","TailscaleIPs":["100.88.77.66"]}}`}, CLI: "tailscale"})
+	_, err := client.Endpoint(context.Background())
+	require.ErrorIs(t, err, ErrNotEnrolled)
+}
