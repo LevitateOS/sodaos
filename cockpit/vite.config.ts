@@ -4,7 +4,7 @@ import { defineConfig } from "vite-plus";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-const pages = ["tailscale"] as const;
+const pages = ["tailscale", "runners"] as const;
 export default defineConfig({
   base: "./",
   resolve: {
