@@ -5,7 +5,8 @@ After=soda-project-init.service soda-podman.socket
 
 [Service]
 User=root
-Group=wheel
+# Keep the engine's native root identity; only the socket is group-accessible.
+Group=root
 Type=exec
 KillMode=process
 UMask=0007

@@ -5,6 +5,7 @@ No environment/secret/DB credential/shadow/private-key contents are exported.
 The caller supplies this on stdin over the selected administrator SSH session.
 """
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -12,10 +13,10 @@ import stat
 import subprocess
 
 
-def command(*args):
-    r = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+def command(*args, env=None):
+    r = subprocess.run(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
     if r.returncode:
-        raise RuntimeError('Required snapshot command failed: ' + args[0])
+        raise RuntimeError('Required snapshot command failed: ' + ' '.join(args[:5]))
     if len(r.stdout) > 4 * 1024 * 1024:
         raise RuntimeError('Snapshot output exceeded bound')
     return r.stdout.decode().strip()
@@ -85,14 +86,23 @@ def main():
         ids = command(*podman, 'ps', '-aq', '--no-trunc').splitlines()
         assert len(ids) >= 2, 'Missing required workload containers'
         for identifier in sorted(ids):
-            raw = command(*podman, 'inspect', '--format', '{{json .Id}} {{json .Name}} {{json .Image}} {{json .HostConfig.NetworkMode}} {{json .Mounts}}', identifier)
+            raw = command(*podman, 'container', 'inspect', '--format', '{{json .ID}} {{json .Name}} {{json .Image}} {{json .HostConfig.NetworkMode}} {{json .Mounts}}', identifier)
             data['workloads'].append(raw)
         data['volumes'] = sorted(command(*podman, 'volume', 'ls', '--format', '{{.Name}}').splitlines())
         databases = [name for name in command(*podman, 'ps', '--format', '{{.Names}}').splitlines() if name in ['u08-projectnet-database', 'workload_database_1']]
         assert databases, 'No running database; restore existing workload before snapshot'
         data['database'] = {}
+        ip = os.environ['SODA_PROJECT_IP']
+        assert ipaddress.ip_address(ip) in ipaddress.ip_network('10.89.0.0/24')
+        passfiles = sorted(Path('/home/u08-alice-8417/.config').glob('u08-db-client-*/pgpass'))
+        assert passfiles, 'Missing native client credential input'
+        passfile = passfiles[-1]
+        assert not passfile.is_symlink() and not passfile.stat().st_mode & 0o077
+        assert passfile.read_text().split(':', 1)[0] == ip, 'Cached credential endpoint differs from live native target'
         for name in databases:
-            data['database'][name] = command(*podman, 'exec', name, 'psql', '-X', '-U', 'developer', '-d', 'soda_example', '-At', '-c', 'SELECT run_id,value FROM soda_u08_probe ORDER BY run_id')
+            # Native TCP client, also used by both real developers; no dependency
+            # on exec into a different-UID workload and no credential export.
+            data['database'][name] = command('psql', '-X', '-w', '-h', ip, '-p', '5432', '-U', 'developer', '-d', 'soda_example', '-At', '-c', 'SELECT run_id,value FROM soda_u08_probe ORDER BY run_id', env={**os.environ, 'PGPASSFILE': str(passfile), 'PGCONNECT_TIMEOUT': '5'})
             assert data['database'][name], 'Empty required database snapshot'
     print(json.dumps(data, sort_keys=True))
 
@@ -103,5 +113,6 @@ if __name__ == '__main__':
     except Exception as failure:
         # Fail closed without printing exception values/private native output.
         import sys
-        print('Project snapshot failed: ' + type(failure).__name__, file=sys.stderr)
+        detail = str(failure) if isinstance(failure, (RuntimeError, AssertionError)) else ''
+        print('Project snapshot failed: ' + type(failure).__name__ + ' ' + detail, file=sys.stderr)
         sys.exit(1)

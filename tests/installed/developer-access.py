@@ -21,7 +21,7 @@ def main():
     assert root.is_absolute()
     st = root.lstat()
     assert root.is_dir() and not root.is_symlink() and st.st_uid == os.getuid() and not st.st_mode & 0o077
-    target = json.loads((root / 'target.json').read_text()) if (root / 'target.json').exists() else None
+    scenario = json.loads((root / 'target.json').read_text()) if (root / 'target.json').exists() else None
     run_name = 'u08-access-' + uuid.uuid4().hex
     output = root / run_name
     output.mkdir(mode=0o700)
@@ -49,7 +49,7 @@ def main():
         known = root / (login + '-known-hosts')
         assert known.is_file() and not known.is_symlink()
         connections = json.loads((root / (login + '-connections.json')).read_text())
-        assert len(connections) == (1 if target or who == 'alice' else 2)
+        assert len(connections) == (1 if scenario or who == 'alice' else 2)
         bindings = json.loads((root / 'observed-bindings.json').read_text())
         for connection in connections:
             identifier, ip = connection['id'], connection['ip']
@@ -96,8 +96,8 @@ def main():
                             'direct_ssh': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
                             'probe_directory': destination})
             (output / 'results.json').write_text(json.dumps(results, indent=2))
-    if target:
-        bob_ip = target['isolation_ip']
+    if scenario:
+        bob_ip = scenario['isolation_ip']
         assert re.fullmatch(r'10\.89\.0\.[0-9]{1,3}', bob_ip) and 1 < int(bob_ip.split('.')[-1]) < 255
     else:
         bob_project = next(b for b in bindings if b['login'] == 'u08-bob-8417')

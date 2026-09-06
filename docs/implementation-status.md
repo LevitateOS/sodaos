@@ -1,5 +1,50 @@
 # Implementation handoff
 
+## U08 completion execution — candidate and remaining runtime correction
+
+Candidate `952f3b3` completed the entire native x86_64 build/seal and aggregate
+`check-native.sh`: full Go, 60 Cockpit tests, 21 dashboard tests, 18 build tests
+and 9 staging tests passed. A private populated-v3 backup/rehearsal preserved
+users, keys, projects, memberships, sessions and encrypted grants. Matching
+preview/helper/new-project image deployed on `soda-test`; the existing two project,
+Forgejo and proxy container identities were preserved. A first preflight template
+error occurred before backup/service mutation and is retained in the logs.
+
+The approved private `u08-completion-952f3b3` repository/environment now exists:
+`ped30b9d6932974b14feb2278`, observed at `10.89.0.4`, with explicit Alice/Bob joins.
+Its exact image, project-owned user/network namespaces, NET_ADMIN, default seccomp
+and lack of privileged-parent/host accounts were verified. Direct SSH/PTY/SCP/SFTP,
+personal native Git and shared Node/files passed. New Git passphrases are retained
+only in restricted client files for post-reboot agent unlock. Browser fixture and
+transport test issues were corrected without recreating users/projects: an access
+test variable shadowed its scenario, and SSH control socket paths needed shortening.
+
+Default bridge startup exposed read-only per-interface network sysctls. A narrow
+project-local proc bind makes only `/proc/sys/net` writable, leaving the rest of
+`/proc/sys` read-only. The same failed workload containers/volumes were retained
+and started after the correction; an intermediate stale DNS/interface failure is
+also retained. HTTP source edits and committed PostgreSQL operations now passed
+from the real client and both users using the ordinary bridge, not host mode.
+The source initializer now performs that narrow setup before publishing readiness;
+it is applied to the fresh project's writable root with prior source retained
+inside `/var/lib/u08-proc-net-fix/`. A new full build/check is required for it.
+
+A separate native exec failure was traced through restricted process diagnostics
+to OCI `openat /proc/<pid>/ns/mnt: Permission denied`. The API service's wheel GID
+prevented same-UID access; keeping its native root GID while retaining the socket's
+root:wheel 0660 permissions fixes same-UID exec. Different-UID PostgreSQL exec
+still fails without namespaced ptrace authority. No SYS_PTRACE/privileged-parent
+shortcut has been applied. This remains a runtime coverage gap, not a passing
+Compose-exec case. State snapshots use the real native PostgreSQL TCP client and
+private pgpass input, not a fabricated or empty exec result. A complete preflight
+snapshot of all three projects and Soda associations succeeded.
+
+Current logs are `.artifacts/logs/u08-completion-*`; private candidate payload,
+backup and rehearsal are `/var/lib/soda/u08-completion-952f3b3/` on the VM. New
+fixture inputs/state/transports are `.artifacts/test-vm/u08-completion-952f3b3/`.
+No project stop/start or VM reboot has run in this continuation yet. U08 is not
+accepted; remaining execution and the different-UID exec gap stay explicit.
+
 ## U08 completion execution authorized — preparation
 
 The user requested execution of the entire recorded U08 completion plan, including

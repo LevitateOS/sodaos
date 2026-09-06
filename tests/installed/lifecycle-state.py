@@ -7,6 +7,7 @@ The private target.json selects the fresh project; old fixture identities are
 retained explicitly. No secret-bearing inspection or credential contents.
 """
 import json
+import ipaddress
 import os
 from pathlib import Path
 import re
@@ -36,7 +37,10 @@ def main():
     assert len(entries) == 3 and len({x[0] for x in entries}) == 3
     def run(args, data=None):
         result = subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
-        if result.returncode: raise RuntimeError('Snapshot command failed; no empty substitution')
+        if result.returncode:
+            # The project snapshot deliberately emits only its safe operation/type.
+            detail = result.stderr.decode().strip() if result.stderr.startswith(b'Project snapshot failed:') else 'operator observation failed'
+            raise RuntimeError('Snapshot command failed; no empty substitution: ' + detail)
         if len(result.stdout) > 8 * 1024 * 1024: raise RuntimeError('Snapshot exceeded bound')
         return result.stdout
     host = '''import json,sqlite3,pathlib
@@ -54,7 +58,10 @@ with sqlite3.connect('file:'+config['database']+'?mode=ro',uri=True) as db:
         # Operator transport observes exact trusted containers, not a substitute
         # for the separately executed real developer-client access tests.
         identity = run([vm, 'ssh', 'podman inspect --format "{{.Id}} {{.Image}} {{.Name}}" soda-' + identifier]).decode().strip()
-        state = json.loads(run([vm, 'ssh', 'podman exec -i --env SODA_EXPECT_WORKLOADS=' + ('1' if workloads else '0') + ' soda-' + identifier + ' python3 -'], program))
+        network = json.loads(run([vm, 'ssh', 'podman inspect --format "{{json .NetworkSettings.Networks}}" soda-' + identifier]))
+        ip = network['soda-projects']['IPAddress']
+        assert ipaddress.ip_address(ip) in ipaddress.ip_network('10.89.0.0/24')
+        state = json.loads(run([vm, 'ssh', 'podman exec -i --env SODA_PROJECT_IP=' + ip + ' --env SODA_EXPECT_WORKLOADS=' + ('1' if workloads else '0') + ' soda-' + identifier + ' python3 -'], program))
         assert state['people'] and state['files']
         stable['projects'][identifier] = {'identity': identity, 'state': state}
     boot = run([vm, 'ssh', 'head -c 64 /proc/sys/kernel/random/boot_id']).decode().strip()
@@ -68,5 +75,6 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        print('Lifecycle snapshot/comparison incomplete: ' + type(error).__name__, file=sys.stderr)
+        detail = str(error) if isinstance(error, (RuntimeError, AssertionError)) else ''
+        print('Lifecycle snapshot/comparison incomplete: ' + type(error).__name__ + ' ' + detail, file=sys.stderr)
         sys.exit(1)
