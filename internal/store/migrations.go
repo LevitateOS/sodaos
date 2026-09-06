@@ -18,6 +18,8 @@ CREATE TABLE memberships(project_id TEXT NOT NULL REFERENCES projects(id), user_
 CREATE TABLE sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
 CREATE TABLE oauth(state TEXT PRIMARY KEY, verifier TEXT NOT NULL, expires INTEGER NOT NULL);`,
 	`ALTER TABLE oauth ADD COLUMN return_path TEXT NOT NULL DEFAULT '/projects' CHECK(return_path IN ('/projects','/app/'));`,
+	`CREATE TABLE grant_key_check(id INTEGER PRIMARY KEY CHECK(id=1), ciphertext BLOB NOT NULL);
+CREATE TABLE session_grants(session_token TEXT PRIMARY KEY REFERENCES sessions(token) ON DELETE CASCADE, ciphertext BLOB NOT NULL);`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
@@ -74,6 +76,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT token,user_id,csrf,expires FROM sessions LIMIT 0`,
 		`SELECT state,verifier,expires,return_path FROM oauth LIMIT 0`,
+		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
+		`SELECT session_token,ciphertext FROM session_grants LIMIT 0`,
 	} {
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {

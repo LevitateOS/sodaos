@@ -87,7 +87,7 @@ func TestMigrationPreservesLegacyProductState(t *testing.T) {
 	}
 	defer s.Close()
 	var version, count int
-	if err = s.db.QueryRow(`SELECT count(*),max(version) FROM schema_version`).Scan(&count, &version); err != nil || version != 2 || count != 1 {
+	if err = s.db.QueryRow(`SELECT count(*),max(version) FROM schema_version`).Scan(&count, &version); err != nil || version != len(migrations) || count != 1 {
 		t.Fatal(version, count, err)
 	}
 	if _, err = s.db.Exec(`INSERT INTO keys(user_id,public,fingerprint) VALUES(999,'x','y')`); err == nil {

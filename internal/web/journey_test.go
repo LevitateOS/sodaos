@@ -47,7 +47,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	reject := false
 	server.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path == "/inspect" {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"ip":"10.89.0.2","running":true}`)), Header: make(http.Header)}, nil
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":"p0123456789abcdef01234567","ip":"10.89.0.2","running":true}`)), Header: make(http.Header)}, nil
 		}
 		nativeCalls++
 		var account host.Account

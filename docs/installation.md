@@ -61,6 +61,15 @@ sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP \
 
 Activation applies file ownership for the unprivileged dashboard, retains operator-only native access, binds Caddy and Forgejo Git SSH to the selected private IP, and starts the actual services. If Tailnet Git access is intended, enroll through operator Cockpit before activation and select that Tailnet private IP; later advertisement refresh refuses to substitute a Tailnet address while Git SSH only binds a LAN IP. Configured browser origins must resolve through the deployment's normal browser/network setup; this is unrelated to project SSH, which uses project IPs directly. Native Forgejo Git SSH uses port 2222; project SSH uses each project IP's port 22.
 
+### Existing-state dashboard migration
+
+The new unbuilt source requires `grant_key_file` and schema-v3 encrypted session
+grants. Do not run first-install or OAuth bootstrap again on an existing target.
+Follow the [controlled credential migration and rollback procedure](dashboard-credentials.md),
+including a consistent SQLite backup, matching config/key/artifact set and
+separately approved rehearsal/deployment. A missing or wrong key fails closed;
+a prior binary is not assumed compatible with the new schema.
+
 ## 4. Establish real project reachability
 
 The implemented profile is a native routed Podman bridge (`soda0`) on the appliance. Host-to-project access is through that bridge; developer clients need a route for the chosen project subnet via the appliance. Set that route on the deployment's LAN router, or use a native Tailscale subnet route with the required Tailnet administrator approval. Respect existing firewall policy and authorize only the intended private ingress/forwarding. No project DNS, SSH gateway or extra identity authority is required.

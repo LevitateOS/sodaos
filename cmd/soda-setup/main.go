@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -69,7 +71,10 @@ func run() error {
 	}
 	secretPath := filepath.Join(dir, "oauth-secret")
 	adminPath := filepath.Join(dir, "admin-token")
-	for path, value := range map[string]string{secretPath: a.Secret, adminPath: token} {
+	keyPath := filepath.Join(dir, "grant-key")
+	key := make([]byte, 32)
+	rand.Read(key)
+	for path, value := range map[string]string{secretPath: a.Secret, adminPath: token, keyPath: base64.StdEncoding.EncodeToString(key)} {
 		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if e != nil {
 			return fmt.Errorf("OAuth application created, but credential write failed; inspect Forgejo applications before retrying: %w", e)
@@ -83,7 +88,7 @@ func run() error {
 			return ce
 		}
 	}
-	c := config.Config{Listen: "127.0.0.1:8080", PublicURL: strings.TrimRight(*public, "/"), ForgejoURL: strings.TrimRight(*external, "/"), ForgejoInternalURL: strings.TrimRight(*internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, AdminTokenFile: adminPath, OperatorID: u.ID}
+	c := config.Config{Listen: "127.0.0.1:8080", PublicURL: strings.TrimRight(*public, "/"), ForgejoURL: strings.TrimRight(*external, "/"), ForgejoInternalURL: strings.TrimRight(*internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, GrantKeyFile: keyPath, AdminTokenFile: adminPath, OperatorID: u.ID}
 	f, err := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err

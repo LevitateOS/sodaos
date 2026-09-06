@@ -41,6 +41,7 @@ func (s *Server) authRoutes() {
 	s.mux.HandleFunc("POST /people", s.protected(s.createPerson))
 }
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	returnPath := r.URL.Query().Get("return_to")
 	if returnPath == "" {
 		returnPath = "/projects"
@@ -56,10 +57,15 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	challenge := sha256.Sum256([]byte(verifier))
 	s.cookie(w, "soda_oauth", state, 600)
-	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.PublicURL + "/oauth/callback"}, "response_type": {"code"}, "scope": {"read:user"}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
+	scopes := "write:user write:repository"
+	if r.URL.Query().Get("administration") == "1" {
+		scopes += " write:admin"
+	}
+	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.PublicURL + "/oauth/callback"}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
 	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), 302)
 }
 func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	c, err := r.Cookie("soda_oauth")
 	state := r.URL.Query().Get("state")
 	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(c.Value)) != 1 {
@@ -82,14 +88,19 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "Sign-in is not configured.", 503)
 		return
 	}
-	access, err := s.Forgejo.Exchange(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.PublicURL+"/oauth/callback", oauth.Verifier)
+	grant, err := s.Forgejo.ExchangeGrant(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.PublicURL+"/oauth/callback", oauth.Verifier)
 	if err != nil {
 		s.fail(w, "Forgejo sign-in failed.", 502)
 		return
 	}
-	u, err := s.Forgejo.Current(r.Context(), access)
+	u, err := s.Forgejo.Current(r.Context(), grant.Access)
 	if err != nil || u.ID <= 0 {
 		s.fail(w, "Could not identify this Forgejo user.", 502)
+		return
+	}
+	scopes, err := s.Forgejo.GrantScopes(r.Context(), s.Config.OAuthClientID, secret, grant.Access, u.ID)
+	if err != nil {
+		s.fail(w, "Could not verify Forgejo consent.", 502)
 		return
 	}
 	if err = s.Store.UpsertUser(r.Context(), store.User{ID: u.ID, Login: u.Login, Name: u.Name}); err != nil {
@@ -103,7 +114,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	value, csrf := token(), token()
-	if err = s.Store.CreateSession(r.Context(), value, u.ID, csrf); err != nil {
+	if err = s.Store.CreateGrantedSession(r.Context(), value, u.ID, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: time.Now().Add(time.Duration(grant.ExpiresIn) * time.Second).Unix()}); err != nil {
 		s.fail(w, "Could not create session.", 500)
 		return
 	}

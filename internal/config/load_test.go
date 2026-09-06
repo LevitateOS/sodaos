@@ -8,7 +8,7 @@ import (
 )
 
 func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
-	c := Config{Listen: "127.0.0.1:8080", PublicURL: "https://soda.test/", ForgejoURL: "https://forgejo.test/", ForgejoInternalURL: "http://127.0.0.1:3000", Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: "app", OAuthSecretFile: "/etc/soda/oauth-secret", AdminTokenFile: "/etc/soda/admin-token", OperatorID: 1}
+	c := Config{Listen: "127.0.0.1:8080", PublicURL: "https://soda.test/", ForgejoURL: "https://forgejo.test/", ForgejoInternalURL: "http://127.0.0.1:3000", Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: "app", OAuthSecretFile: "/etc/soda/oauth-secret", GrantKeyFile: "/etc/soda/grant-key", AdminTokenFile: "/etc/soda/admin-token", OperatorID: 1}
 	path := filepath.Join(t.TempDir(), "config.json")
 	save := func(c Config) {
 		b, err := json.Marshal(c)

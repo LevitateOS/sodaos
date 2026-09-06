@@ -116,6 +116,11 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err = decode(&in); err == nil {
 			out, _, err = d.inspect(ctx, in.ID)
 		}
+	case "/connection":
+		var in Create
+		if err = decode(&in); err == nil {
+			out, err = d.connection(ctx, in.ID)
+		}
 	case "/account":
 		var in Account
 		if err = decode(&in); err == nil {
@@ -211,6 +216,31 @@ func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, er
 	}
 	return env, owner, nil
 }
+
+// Only the fixed public Ed25519 host key is readable. No caller path or full
+// container inspection crosses this boundary, and stopped containers stay stopped.
+func (d *Daemon) connection(ctx context.Context, id string) (Connection, error) {
+	env, _, err := d.inspect(ctx, id)
+	result := Connection{Environment: env}
+	if err != nil {
+		return result, err
+	}
+	if !env.Running {
+		return result, nil
+	}
+	data, err := d.podman(ctx, nil, "exec", "soda-"+id, "/usr/bin/head", "-c", "16385", "/etc/ssh/ssh_host_ed25519_key.pub")
+	if err != nil || len(data) > 16384 {
+		return result, errors.New("public host key unavailable")
+	}
+	key, _, options, rest, err := ssh.ParseAuthorizedKey(data)
+	if err != nil || key.Type() != ssh.KeyAlgoED25519 || len(options) != 0 || len(bytes.TrimSpace(rest)) != 0 {
+		return result, errors.New("invalid public host key")
+	}
+	result.HostKey = string(ssh.MarshalAuthorizedKey(key))
+	result.Fingerprint = ssh.FingerprintSHA256(key)
+	return result, nil
+}
+
 func (d *Daemon) account(ctx context.Context, in Account) error {
 	if !loginName.MatchString(in.Login) || in.Identity <= 0 || len(in.Keys) == 0 || len(in.Keys) > 32 {
 		return errors.New("invalid project account")

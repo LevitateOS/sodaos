@@ -20,12 +20,13 @@ import (
 var content embed.FS
 
 type Server struct {
-	Config    config.Config
-	Store     *store.Store
-	Forgejo   *forgejo.Client
-	Host      *host.Client
-	mux       *http.ServeMux
-	templates *template.Template
+	Config        config.Config
+	Store         *store.Store
+	Forgejo       *forgejo.Client
+	Host          *host.Client
+	mux           *http.ServeMux
+	templates     *template.Template
+	providerLocks providerLocks
 }
 
 func New(c config.Config, db *store.Store) *Server {

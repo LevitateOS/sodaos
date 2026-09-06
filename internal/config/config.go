@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ type Config struct {
 	HostSocket         string `json:"host_socket"`
 	OAuthClientID      string `json:"oauth_client_id"`
 	OAuthSecretFile    string `json:"oauth_secret_file"`
+	GrantKeyFile       string `json:"grant_key_file"`
 	AdminTokenFile     string `json:"admin_token_file"`
 	OperatorID         int64  `json:"operator_id"`
 }
@@ -58,7 +60,7 @@ func Load(path string) (Config, error) {
 	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
 	c.ForgejoURL = strings.TrimRight(c.ForgejoURL, "/")
 	c.ForgejoInternalURL = strings.TrimRight(c.ForgejoInternalURL, "/")
-	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "admin_token_file": c.AdminTokenFile} {
+	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "admin_token_file": c.AdminTokenFile, "grant_key_file": c.GrantKeyFile} {
 		if !filepath.IsAbs(value) {
 			return c, fmt.Errorf("%s must be an absolute path", name)
 		}
@@ -75,6 +77,24 @@ func BaseURL(value string) error {
 		return errors.New("must be an HTTP(S) origin without credentials, path, query or fragment")
 	}
 	return nil
+}
+
+// GrantKey reads a separately provisioned 32-byte base64 key. Never generate a
+// replacement at startup: that would strand the persisted encrypted grants.
+func GrantKey(path string) ([]byte, error) {
+	st, err := os.Lstat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0027 != 0 {
+		return nil, errors.New("grant key must be a restricted regular file (0600 or 0640)")
+	}
+	value, err := Secret(path)
+	if err != nil {
+		return nil, err
+	}
+	key, err := base64.StdEncoding.Strict().DecodeString(value)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("grant key must encode exactly 32 bytes")
+	}
+	return key, nil
 }
 
 func Secret(path string) (string, error) {

@@ -2,6 +2,8 @@ package web
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +46,13 @@ func TestProjectCreateUsesProviderOwner(t *testing.T) {
 		if r.URL.Path != "/create" {
 			t.Fatal(r.URL.Path)
 		}
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"ip":"10.89.0.2","running":true}`)), Header: make(http.Header)}, nil
+		var input struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Fatal(err)
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":%q,"ip":"10.89.0.2","running":true}`, input.ID))), Header: make(http.Header)}, nil
 	})}
 	form := url.Values{"csrf": {"csrf"}, "repository": {"alice/demo"}}
 	r := httptest.NewRequest("POST", "/projects", strings.NewReader(form.Encode()))

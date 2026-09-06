@@ -1,41 +1,100 @@
-# Dashboard JSON API — initial implemented contracts
+# Dashboard JSON API — implemented source contracts
 
-**Source implementation in progress, not built or installed.** This documents actual handlers in `internal/web/api.go`, not the complete future API. The [core plan](dashboard-implementation-plan.md) remains the roadmap. The existing HTMX routes continue to work.
+**Unbuilt, untested and not installed.** This describes connected source, not
+milestone completion. The [core plan](dashboard-implementation-plan.md) leads;
+legacy HTMX remains the default until the gated U18 cutover.
 
-## Security and responses
+## Shared boundary
 
-- Same-origin `soda_session` cookie, HttpOnly, Secure for configured HTTPS, SameSite=Lax. Sessions remain server-side and hashed in SQLite. No Forgejo credential is returned.
-- Every API response is `Cache-Control: no-store`. Errors are JSON `{ "error": { "code": "...", "message": "..." } }`; no login HTML, HTMX redirects or raw native/provider diagnostics.
-- Unsafe methods require one exact configured `Origin`, one `X-CSRF-Token` matching the session, and UTF-8 `application/json`. Cross-site Fetch Metadata is rejected when supplied. Missing Origin is rejected for JSON writes, unlike the retained legacy form contract.
-- JSON writes accept one object, reject unknown fields/trailing values, and have a 64-KiB body limit. User IDs are resolved from the session, not accepted in request bodies. Decimal-string IDs preserve int64 precision.
-- Unknown/malformed API paths return JSON 404; unsupported methods return JSON 405 with `Allow`. API expiration is 401; storage failure is 503, not an authentication failure. The browser never automatically retries writes.
-- Status/error cases include `unauthenticated` (401), `invalid_csrf` (403), `not_found` (404), `method_not_allowed` (405), `body_too_large` (413), `unsupported_media_type` (415), `invalid_json`/field validation (400), and `store_unavailable` (503).
+Same-origin secure HttpOnly Soda sessions are hashed in SQLite. JSON responses
+are no-store; failures carry `{error:{code,message}}`, not redirects or raw
+provider/native bodies. Every unsafe method requires the configured Origin,
+header CSRF, JSON content type and one bounded object with explicit fields.
+Bodies are limited to 64 KiB. Provider IDs are decimal strings in browser DTOs.
 
-## Implemented endpoints
+Provider HTTP status failures are typed and sanitized. Successful JSON must fit
+the whole-response bound and contain exactly one non-null value. API reads use
+a 2-MiB provider bound; OAuth responses use 64 KiB. Credentials never appear in
+DTOs. No operation retries a write or substitutes an operator credential.
 
-| Route | Input / response | Authority |
-| --- | --- | --- |
-| `GET /api/session` | `{user:{id,login,soda_display_name},csrf_token,soda_operator,forgejo_url}` | Current Soda session; `soda_operator` is not Forgejo administrator or host-root authority |
-| `POST /api/session/logout` | `{}`; 204 and expired Soda cookie after actual session deletion | Acting session only; no Forgejo/SSH logout promise |
-| `GET /api/me/preferences` | `{display_name}` | Existing Soda-local name, not upstream account data |
-| `PATCH /api/me/preferences` | `{display_name:string}`; trimmed name, at most 200 bytes; returns saved object | Acting user's Soda record only |
-| `GET /api/me/development-keys` | `{items:[{id,public_key,fingerprint}]}`; empty list is `[]` | Acting user's development public keys only |
-| `POST /api/me/development-keys` | `{public_key:string}`; returns canonical registered list; duplicate fingerprint is a no-op | Shared legacy/API parser; one public key without authorized_keys options; no native account/key propagation |
+## Soda endpoints
 
-These local session/preferences/key handlers do not call Forgejo with the operator token. `/api/forgejo/...` is deliberately not registered until U04's retained per-user grants and supported authorization/scopes are implemented. The API does not expose the local Soda users table as Forgejo's People inventory.
+| Route | Contract / authority |
+| --- | --- |
+| `GET /api/session` | User `{id,login,soda_display_name}`, CSRF, separate Soda-operator hint and public Forgejo origin |
+| `POST /api/session/logout` | `{}`; delete session and encrypted grant together through foreign-key cascade, then expire cookie |
+| `GET/PATCH /api/me/preferences` | Soda-only `display_name`, at most 200 bytes; no upstream synchronization |
+| `GET/POST /api/me/development-keys` | List canonical keys; POST `public_key`; own user only, duplicate fingerprint no-op, no private keys/options or later native propagation |
+| `GET /api/environments` | Trusted-team environment reservations, including incomplete ones; not upstream repository visibility |
+| `POST /api/environments` | `{owner,repository}`; resolve upstream identity/owner using acting-user grant, reserve once, call real native create; creator is **not** joined |
+| `GET /api/environments/{id}` | Reservation/provisioning result, nullable live observation, own login and narrow environment-administrator hint; inspect incomplete reservations too |
+| `POST /api/environments/{id}/join` | `{}`; session-derived Linux identity, own public keys, fixed native account operation; membership follows native success |
+| `GET /api/environments/{id}/members` | Owner/Soda operator sees permitted members; others see only their own membership |
+| `GET /api/environments/{id}/connection` | Requires own membership; current IP/running state and fixed public Ed25519 host key/fingerprint; `routing_verified:false` |
 
-## Browser migration and OAuth return path
+Create failures return the retained environment ID and `Location` with a truthful
+502/503 error. A unique repository reservation is never deleted/recreated after
+failure. Normal starts/stops are not added. Cached DB IPs are not connection
+proof. The helper's new fixed `/connection` operation reads only the public
+Ed25519 key after verifying native project labels; it never starts a container,
+reads a private key or accepts a caller-selected path.
 
-The initial React preview lives at `/app/`, `/app/profile` and `/app/help`; Projects and operator People explicitly link to the existing dashboard. Public assets are compiled by Vite+ and served by Go; there is no production Node service.
+## Acting-user Forgejo endpoints
 
-`GET /login` keeps `/projects` as its legacy destination. `GET /login?return_to=%2Fapp%2F` requests the preview. Only `/projects` and `/app/` are accepted, stored with the hashed single-use OAuth state. The callback uses the stored destination, never a callback-supplied URL. The installed Forgejo callback remains `/oauth/callback`, state/S256 behavior remains, and current scopes are still `read:user`. This routing change is not U04 credential retention/refresh completion.
+All are individually registered and use the current session's encrypted grant.
+Native permission checks remain authoritative on each call.
 
-## Schema v2 and deployment boundary
+| Route | Input / upstream operation |
+| --- | --- |
+| `GET /api/forgejo/me` | Current native user, including current upstream admin hint; identity must match Soda session |
+| `GET/PATCH /api/forgejo/me/settings` | `full_name,description,location,pronouns`; native user settings, not Soda profile |
+| `GET/POST /api/forgejo/me/git-keys` | Native keys; POST `{title,key}`; never installs keys into projects |
+| `GET/POST /api/forgejo/admin/users` | Native People inventory; POST `{login,email,password}` with required native first-password change; no Linux naming policy, no local user/session seeded |
+| `GET/POST /api/forgejo/repositories` | Native `/user/repos` visible inventory; POST `{name,description,private,auto_init}` without environment side effects |
+| `GET /api/forgejo/repos/{owner}/{repo}` | Typed repository metadata and actual clone URLs |
+| `GET /api/forgejo/repos/{owner}/{repo}/contents?ref=...&path=...` | Slash/Unicode refs in query; path components encoded independently; files shown only as bounded UTF-8 text, never active HTML |
 
-`internal/store/migrations.go` replaces unconditional startup schema creation with append-only, transactional migrations. Clean databases get v1 then v2; known v1 databases gain `oauth.return_path` with `/projects` as the default, preserving pending legacy sign-ins and user/key/project/membership/session data. Unknown/unversioned nonempty databases, invalid version records and newer schemas are refused. Migration failures roll back rather than repair/recreate missing tables.
+List routes accept page 1–1000000 and return `{items,next_page}`. The current
+continuation contract advances until an empty native page rather than assuming
+a requested page-size equals the provider's cap. `next_page` is a continuation,
+not a claim that another nonempty page exists. Header-based totals and final-page
+navigation refinement remain source work.
 
-The v1 SQL fixture is frozen separately in `internal/store/testdata/v1.sql`. Authored tests cover existing ready/incomplete projects, profiles/keys/memberships/sessions, single-use OAuth state, foreign keys, repeat opening and refusal paths. They have not run in this source-only phase.
+Files above 256 KiB, binary, symlink/submodule and unavailable encodings are not
+rendered as text. Provider transfer errors remain errors. Rich Markdown, bounded
+binary download and complete ref/file navigation acceptance remain U06 work;
+plain text is not claimed as Markdown parity.
 
-**An older binary is not assumed compatible with v2:** its positional OAuth inserts have only three values. Before an approved deployment, retain a consistent database/config snapshot and matching previous artifact; do not roll back by starting an old binary against v2 or rerun first-install over a live appliance. The new command validates its frontend bundle before opening/migrating the database. This work does not alter the existing test VM.
+## OAuth, credentials and migration
 
-Pending: protected session-bound provider credentials/refresh, broader API DTOs/errors/pagination, native account/admin flows, repository/environment APIs and installed proof. This is the first connected slice, not U03/U04/U05 completion.
+`/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy
+return is `/projects`. Other return values are rejected. The callback remains
+`/oauth/callback`. Default requested consent is `write:user write:repository`;
+`administration=1` additionally requests `write:admin`, without conferring native
+administrator status. Reads accept corresponding read scopes.
+
+The selected Forgejo token response omits scopes. Soda introspects the returned
+token with its confidential client, verifies active subject/audience, and stores
+**actual** scopes. Existing native confidential-client consent can be reused
+without expansion; the UI explains native grant revocation and fresh consent.
+
+Schema v3 adds encrypted session grants and a key-check ciphertext, preserving
+all v1/v2 product records. AES-256-GCM binds each grant to its hashed session and
+provider user ID. Access/refresh/scopes/expiry are encrypted. The separately
+provisioned `grant_key_file` is mandatory in production and is validated before
+DB migration; a wrong existing key fails closed. Refreshes are serialized per
+native user within the single dashboard process. Grant replacement is update-only
+and checks a still-live session; logout wins over in-flight refresh. Ambiguous
+refresh failures discard the local grant using bounded independent cleanup;
+provider writes are not replayed.
+
+Forgejo has one native grant per user/application, not per Soda session. With
+native refresh-token invalidation enabled, another login/session may invalidate
+an older session's refresh token. That session must reauthenticate; Soda neither
+copies grants between sessions nor changes the native setting. Local logout does
+not revoke Forgejo consent or existing SSH sessions.
+
+Legacy Soda sessions remain valid for their existing Soda-local records but have
+no provider grant and receive JSON reauthentication errors on provider operations.
+See [credential migration and rollback](dashboard-credentials.md). These changes
+have not touched the VM or established U04/U08 installed evidence.

@@ -29,7 +29,12 @@ func main() {
 		slog.Error("frontend startup failed; database not opened", "error", err)
 		os.Exit(1)
 	}
-	db, err := store.Open(c.Database)
+	key, err := config.GrantKey(c.GrantKeyFile)
+	if err != nil {
+		slog.Error("grant key startup failed; database not opened")
+		os.Exit(1)
+	}
+	db, err := store.OpenEncrypted(c.Database, key)
 	if err != nil {
 		slog.Error("database startup failed")
 		os.Exit(1)

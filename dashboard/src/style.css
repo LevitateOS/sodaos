@@ -10,5 +10,8 @@
 .soda-preview form { max-width: 48rem; margin-bottom: 1rem; }
 .soda-preview .feedback { margin: 1rem 0; }
 .soda-preview .key-list { margin: 1rem 0; overflow-wrap: anywhere; }
+.soda-preview pre { max-height: 36rem; max-width: 100%; overflow: auto; padding: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.soda-preview li { margin-block: 0.75rem; }
+.soda-preview section { min-width: 0; }
 .soda-preview a { color: var(--soda-light-link); }
 .soda-preview :focus-visible { outline: 3px solid var(--soda-light-focus); outline-offset: 3px; }

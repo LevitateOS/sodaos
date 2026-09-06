@@ -1,15 +1,19 @@
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes, useLocation } from "react-router-dom";
 import { Alert, Button, Page, PageSection, Spinner } from "@patternfly/react-core";
 import "@patternfly/react-core/dist/styles/base.css";
 import "./style.css";
 import logo from "../../assets/branding/source/soda-logo-horizontal.svg";
 import { useSession } from "./session";
 import { Profile } from "./profile";
+import { RepositoryList, CreateRepository, RepositoryDetail } from "./repositories";
+import { EnvironmentList, EnvironmentDetail } from "./environments";
+import { ForgejoAccount, People } from "./accounts";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
+  const location = useLocation();
   useEffect(() => { void load(); }, [load]);
   return <Page sidebar={null} mainAriaLabel="Soda" className="soda-preview">
     <PageSection>
@@ -20,15 +24,21 @@ export function App() {
       {phase === "authenticated" && session && <>
         <nav aria-label="Soda navigation">
           <Link to="/">Overview</Link><Link to="/profile">Profile and development keys</Link><Link to="/help">Help</Link>
-          <a href="/projects">Projects (existing dashboard)</a>
-          {session.soda_operator && <a href="/people">People (existing dashboard)</a>}
+          <Link to="/repositories">Repositories</Link><Link to="/environments">Environments</Link><Link to="/account">Forgejo account</Link>
           <a href={session.forgejo_url}>Open Forgejo</a>
           <Button variant="link" onClick={() => void logout()}>Sign out of Soda</Button>
         </nav>
-        <Routes>
-          <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>This preview uses your real Soda session. Profile preferences and development-key registration are connected; repository and administrator migration is still in progress.</p><p><a href="/projects">Continue to your existing projects</a></p></>} />
+        <Routes key={`${session.user.id}:${location.pathname}`}>
+          <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>Discover or create a Forgejo repository, create its persistent environment, then explicitly join using your public development-access key.</p><p><Link to="/repositories">Browse repositories</Link> · <Link to="/environments">Discover environments</Link></p><Alert isInline variant="warning" title="This preview has not been built or installed-verified. Direct project routing and native workload/persistence proof remain pending." /></>} />
+          <Route path="/repositories" element={<RepositoryList session={session} />} />
+          <Route path="/repositories/new" element={<CreateRepository session={session} />} />
+          <Route path="/repositories/:owner/:repo" element={<RepositoryDetail session={session} />} />
+          <Route path="/environments" element={<EnvironmentList session={session} />} />
+          <Route path="/environments/:id" element={<EnvironmentDetail session={session} />} />
+          <Route path="/account" element={<ForgejoAccount session={session} />} />
+          <Route path="/administration/people" element={<People session={session} />} />
           <Route path="/profile" element={<Profile key={session.user.id} session={session} />} />
-          <Route path="/help" element={<><h1>Development access</h1><p>Register only public SSH keys. Adding a key does not rotate keys already installed in environments. Explicitly join through Projects, then use the displayed project IP with SSH, SCP or SFTP.</p><p>Forgejo Git keys are separate. Signing out of Soda does not sign out of Forgejo or terminate SSH sessions.</p><p><a href="/app/LICENSES.txt">Frontend licenses</a></p></>} />
+          <Route path="/help" element={<><h1>Development access</h1><p>Register only public SSH keys. Adding a key does not rotate keys already installed in environments. Explicitly join through Environments, then use the displayed project IP with SSH, SCP or SFTP.</p><p>Forgejo Git keys are separate. Signing out of Soda does not sign out of Forgejo or terminate SSH sessions.</p><p><a href="/app/LICENSES.txt">Frontend licenses</a></p></>} />
           <Route path="*" element={<><h1>Page not found</h1><Link to="/">Return to overview</Link></>} />
         </Routes>
       </>}

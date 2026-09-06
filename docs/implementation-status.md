@@ -51,7 +51,63 @@ Added a staging regression for the root-only gate and ordered SELinux session ru
 
 At the operator's request, hide only Cockpit's stock Accounts menu entry through the native `/etc/cockpit/users.override.json` merge patch. The source config is staged for future installations and applied to `soda-test`; no packages, host accounts or native account tools were removed, and no services restarted. Native `cockpit-bridge --packages` before/after output confirms that `users` loses only its Accounts label and every other menu entry is unchanged (`cockpit-packages-before.log` / `cockpit-packages-after.log`). Added a packaging regression; all six packaging checks, Go tests, TypeScript checks and 60 Cockpit tests pass. Browser sessions may need logout/login to discard cached manifests. This navigation change is committed in `95a194d`.
 
-## Core implementation started
+## Core implementation continued — protected grants and first workflow
+
+Resumed from clean `13bd49a`. U03/U04 now have AES-256-GCM session-bound grants,
+actual-scope introspection, bounded code/refresh exchange, serialized local
+refresh and logout-safe update-only persistence. Production validates the
+restricted external key before migrations; schema v3 preserves existing product
+records and refuses wrong existing encryption keys. Setup/activation source
+provides the new key only for first installs; existing-state migration and
+rollback are documented separately, not executed.
+
+U05–U07 now have individually registered acting-user account/settings/Git-key,
+Forgejo People/create-person, repository list/create/detail/content and Soda
+environment list/create/detail/join/member/connection APIs, with connected React
+routes/forms. New APIs never read the bootstrap token. Forgejo People uses actual
+native admin authority, not Soda operator ID. Creation reserves once, does not
+join the creator, and reports retained incomplete native results. Join calls the
+real fixed account helper before saving membership. The new core-owned helper
+`/connection` reads only a fixed public Ed25519 host key and observed address;
+stopped containers stay stopped, and routing is explicitly unverified.
+
+U01 inspected matching upstream v15.0.7 OAuth, route middleware and repository
+search source. Important limits: confidential-client consent can remain at old
+scopes; token responses omit scope, so the new flow introspects actual consent.
+Native refresh counters are per user/application: another session may invalidate
+older refresh material, which requires reauthentication rather than credential
+sharing or changing upstream settings. See [API coverage](forgejo-api-coverage.md).
+
+Authored Go encrypted-storage/binding/legacy-session/key-restart tests, acting-user
+admin denial/nonoperator-admin tests, refresh/logout race, JSON environment
+create/explicit-join/failure tests and fixed-public-key helper tests. Authored DOM
+repository-create/inert-content/ref and failed-join tests. Go formatting and diff
+checks only have run. No dependency resolution, build, type check, product test,
+provider mutation, native service/network operation or deployment has run. The
+VM, builder infrastructure and backing image are unchanged.
+
+### Current milestone ledger
+
+| Milestones | Source | Built / tested / installed | Remaining |
+| --- | --- | --- | --- |
+| U01 | Partial first-workflow scope/token/visibility audit | No new execution | Full action inventory, dependency closure/licenses, remaining native capability research |
+| U02 | Partial preview/build packaging and new routes | None | Real lockfile/resolution, full error boundary/dev arrangement and frontend verification |
+| U03/U04 | Connected encrypted-grant/config/API source and focused tests | None | Executed migration/key/refresh/consent/permission suite, more callback/scope race cases, controlled upgrade rehearsal |
+| U05 | Native profile/Git SSH keys/People + Soda preferences/development keys | None | Native onboarding proof, remaining account/key coverage and focused UI cases |
+| U06 | Repository list/create/detail/ref-aware inert file text | None | Safe rich Markdown, bounded downloads, reliable final-page metadata, full visibility/ref/native-write proof |
+| U07 | Connected persistent create/join/inspect/member/connect paths | None | Additional partial-result/authorization/connection cases and native evidence |
+| U08 | Pending | None | Explicit build/deployment/fixture/lifecycle permissions, approved direct client route and two-project/workload/persistence proof |
+| U09–U20 | Pending | None | Mandatory functional expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
+
+No U milestone is complete. Plain-text files are not Markdown parity. Native
+account-security links and consent recovery are labeled upstream dependencies;
+no runtime fallback or conditional environment extension was implemented.
+[Credential migration/rollback](dashboard-credentials.md) remains an authored
+procedure, not installation evidence. Execution gates do not block continued
+independent source implementation.
+
+## Core implementation started (first batch, historical)
 
 The user explicitly requested implementation of the complete leading core plan. Began from clean `b7241b2`; the P plan remains outside support and E01–E03 remain conditional. This is the first connected source batch, **not completion of U01–U20 or new native evidence**.
 

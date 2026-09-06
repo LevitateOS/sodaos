@@ -61,9 +61,9 @@ The unified frontend includes three distinct administrative contexts: **Forgejo 
 
 ### Existing implementation versus required work
 
-`internal/web/auth.go` currently requests `read:user`, looks up the user and establishes the Soda session. `internal/forgejo/client.go` currently returns only the access token from the code exchange, and it is not retained for later user API calls. Repository listing/lookup currently uses the restricted operator credential with separate ownership filtering. That is not the general authorization model for the expanded frontend.
+The installed legacy baseline requests `read:user` and discards the identity token. The new unbuilt source now requests user/repository consent (administrator consent separately), verifies actual scopes through native introspection and encrypts per-session access/refresh grants. New repository/account/admin APIs use only acting-user grants. Retained legacy repository handlers still use the restricted operator credential; they are not a fallback for new APIs and remain U18 removal work.
 
-The first source batch now supplies JSON session/logout, Soda-local preference/key handlers, all-unsafe-method JSON CSRF/origin guards and React session state. It is unbuilt/unexecuted and does not retain provider credentials. The complete migration still needs:
+The source now supplies JSON session/logout, Soda-local preferences/keys, all-unsafe-method guards, protected grants and connected first-workflow React/API routes. It remains unbuilt/unexecuted. The full migration must implement and verify all of the following contracts; source progress is recorded in the handoff:
 
 - Scopes matched to the actual selected Forgejo operations, without asking every developer for administrative access.
 - Protected server-side access/refresh-token storage and expiry/refresh handling. Tokens must never be put in React props, Zustand, browser storage, URLs or diagnostic output.

@@ -64,8 +64,8 @@ func TestExchangeRejectsTrailingData(t *testing.T) {
 		fmt.Fprint(w, `{"access_token":"private-token"}{}`)
 	}))
 	defer server.Close()
-	token, err := New(server.URL).Exchange(context.Background(), "client", "secret", "code", "https://soda.example/oauth/callback", "verifier")
-	if token != "" || !errors.Is(err, ErrInvalidResponse) {
+	token, err := New(server.URL).ExchangeGrant(context.Background(), "client", "secret", "code", "https://soda.example/oauth/callback", "verifier")
+	if token.Access != "" || !errors.Is(err, ErrInvalidResponse) {
 		t.Fatal("malformed token response accepted")
 	}
 }

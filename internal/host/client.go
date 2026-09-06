@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"time"
 )
 
@@ -25,6 +26,11 @@ type Environment struct {
 	ID      string `json:"id"`
 	IP      string `json:"ip"`
 	Running bool   `json:"running"`
+}
+type Connection struct {
+	Environment Environment `json:"environment"`
+	HostKey     string      `json:"host_key"`
+	Fingerprint string      `json:"fingerprint"`
 }
 type Client struct{ HTTP *http.Client }
 
@@ -52,18 +58,51 @@ func (c *Client) call(ctx context.Context, path string, in, out any) error {
 		return fmt.Errorf("native project operation failed (HTTP %d); operator should inspect soda-host journal", res.StatusCode)
 	}
 	if out != nil {
-		return json.NewDecoder(io.LimitReader(res.Body, 65536)).Decode(out)
+		body, err := io.ReadAll(io.LimitReader(res.Body, 65537))
+		if err != nil || len(body) > 65536 || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+			return fmt.Errorf("invalid native response")
+		}
+		if err = json.Unmarshal(body, out); err != nil {
+			return fmt.Errorf("invalid native response")
+		}
 	}
 	return nil
 }
 func (c *Client) Create(ctx context.Context, in Create) (Environment, error) {
 	var out Environment
 	err := c.call(ctx, "/create", in, &out)
+	if err == nil && (out.ID != in.ID || !out.Running || !validAddress(out.IP)) {
+		err = fmt.Errorf("native creation did not return the expected running endpoint")
+	}
 	return out, err
 }
 func (c *Client) Inspect(ctx context.Context, id string) (Environment, error) {
 	var out Environment
 	err := c.call(ctx, "/inspect", Create{ID: id}, &out)
+	if err == nil && (out.ID != id || (out.IP != "" && !validAddress(out.IP))) {
+		err = fmt.Errorf("invalid native environment observation")
+	}
 	return out, err
 }
-func (c *Client) Join(ctx context.Context, in Account) error { return c.call(ctx, "/account", in, nil) }
+func (c *Client) Join(ctx context.Context, in Account) error {
+	var result struct {
+		OK bool `json:"ok"`
+	}
+	err := c.call(ctx, "/account", in, &result)
+	if err == nil && !result.OK {
+		err = fmt.Errorf("native account result was not confirmed")
+	}
+	return err
+}
+func (c *Client) Connection(ctx context.Context, id string) (Connection, error) {
+	var result Connection
+	err := c.call(ctx, "/connection", Create{ID: id}, &result)
+	if err == nil && (result.Environment.ID != id || (result.Environment.Running && (!validAddress(result.Environment.IP) || result.HostKey == "" || result.Fingerprint == ""))) {
+		err = fmt.Errorf("native connection result incomplete")
+	}
+	return result, err
+}
+func validAddress(value string) bool {
+	ip, err := netip.ParseAddr(value)
+	return err == nil && !ip.IsUnspecified() && !ip.IsMulticast() && !ip.IsLoopback()
+}

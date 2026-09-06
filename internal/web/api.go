@@ -49,6 +49,8 @@ func (s *Server) apiRoutes() {
 	s.mux.HandleFunc("/api/session/logout", s.apiProtected(s.apiLogout, http.MethodPost))
 	s.mux.HandleFunc("/api/me/preferences", s.apiProtected(s.apiPreferences, http.MethodGet, http.MethodPatch))
 	s.mux.HandleFunc("/api/me/development-keys", s.apiProtected(s.apiKeys, http.MethodGet, http.MethodPost))
+	s.forgejoRoutes()
+	s.environmentRoutes()
 	notFound := func(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}

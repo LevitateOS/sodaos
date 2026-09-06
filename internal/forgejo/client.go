@@ -22,10 +22,16 @@ type User struct {
 	Admin bool   `json:"is_admin"`
 }
 type Repository struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	FullName string `json:"full_name"`
-	Owner    User   `json:"owner"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	FullName      string `json:"full_name"`
+	Owner         User   `json:"owner"`
+	Description   string `json:"description"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"default_branch"`
+	CloneURL      string `json:"clone_url"`
+	SSHURL        string `json:"ssh_url"`
+	Empty         bool   `json:"empty"`
 }
 type Application struct {
 	ClientID string `json:"client_id"`
@@ -101,29 +107,42 @@ func (c *Client) Application(ctx context.Context, token, redirect string) (Appli
 	err := c.request(ctx, "POST", "/user/applications/oauth2", token, map[string]any{"name": "SodaOS dashboard", "redirect_uris": []string{redirect}, "confidential_client": true}, &a)
 	return a, err
 }
-func (c *Client) Exchange(ctx context.Context, clientID, secret, code, redirect, verifier string) (string, error) {
+func (c *Client) ExchangeGrant(ctx context.Context, clientID, secret, code, redirect, verifier string) (TokenResponse, error) {
 	form := url.Values{"grant_type": {"authorization_code"}, "client_id": {clientID}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
+	return c.tokenRequest(ctx, form)
+}
+
+func (c *Client) RefreshGrant(ctx context.Context, clientID, secret, refresh string) (TokenResponse, error) {
+	return c.tokenRequest(ctx, url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "client_secret": {secret}, "refresh_token": {refresh}})
+}
+
+type TokenResponse struct {
+	Access    string `json:"access_token"`
+	Refresh   string `json:"refresh_token"`
+	Type      string `json:"token_type"`
+	ExpiresIn int64  `json:"expires_in"`
+}
+
+func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenResponse, error) {
+	var token TokenResponse
 	req, err := http.NewRequestWithContext(ctx, "POST", c.Base+"/login/oauth/access_token", strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", err
+		return token, ErrUnavailable
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", transportError(ctx)
+		return token, transportError(ctx)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return "", &HTTPError{Status: res.StatusCode}
-	}
-	var token struct {
-		Access string `json:"access_token"`
+		return token, &HTTPError{Status: res.StatusCode}
 	}
 	if err = decodeResponse(res.Body, 65536, &token); err != nil {
-		return "", err
+		return TokenResponse{}, err
 	}
-	if token.Access == "" {
-		return "", ErrInvalidResponse
+	if token.Access == "" || token.Refresh == "" || !strings.EqualFold(token.Type, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 365*24*60*60 {
+		return TokenResponse{}, ErrInvalidResponse
 	}
-	return token.Access, nil
+	return token, nil
 }

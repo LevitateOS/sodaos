@@ -14,7 +14,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db     *sql.DB
+	grants *grantCipher
+}
 type User struct {
 	ID          int64
 	Login, Name string
@@ -34,7 +37,19 @@ type Session struct {
 	CSRF string
 }
 
-func Open(path string) (*Store, error) {
+func Open(path string) (*Store, error) { return open(path, nil) }
+
+// OpenEncrypted is the production entrypoint. The key is operator managed and
+// must be validated before migrations; tests without provider grants use Open.
+func OpenEncrypted(path string, key []byte) (*Store, error) {
+	cipher, err := newGrantCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return open(path, cipher)
+}
+
+func open(path string, cipher *grantCipher) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
@@ -48,9 +63,15 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	s := &Store{db: db}
+	s := &Store{db: db, grants: cipher}
 	if _, err = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;`); err == nil {
+		err = s.checkGrantKey(context.Background())
+	}
+	if err == nil {
 		err = migrate(context.Background(), db)
+	}
+	if err == nil && cipher != nil {
+		err = s.initializeGrantKey(context.Background())
 	}
 	if err == nil {
 		_, err = db.Exec(`PRAGMA journal_mode=WAL;`)
@@ -167,7 +188,7 @@ func hash(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions VALUES(?,?,?,?)`, hash(token), uid, csrf, time.Now().Add(12*time.Hour).Unix())
+	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires) VALUES(?,?,?,?)`, hash(token), uid, csrf, time.Now().Add(12*time.Hour).Unix())
 	return err
 }
 func (s *Store) Session(ctx context.Context, token string) (Session, error) {

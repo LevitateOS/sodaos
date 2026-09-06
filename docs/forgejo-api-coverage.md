@@ -6,7 +6,31 @@
 
 Inspected the saved schema `.artifacts/downloads/forgejo-swagger.json`, reporting **15.0.7+gitea-1.22.0**, SHA-256 `79bf16a6a3a3df4bbe6d8607ff7bdc482f71f10c1ec3e7ae8d2c68cb819f900c`. Its declared license is MIT for interoperability. Inspected existing provider/auth/store source at baseline `b7241b2`. The original operator OAuth journey established basic sign-in only; it does not prove the new operations below.
 
-The Swagger security definitions include header tokens, BasicAuth and Sudo mechanisms, but do **not** specify each route's OAuth scope or complete middleware authority. Do not infer admin authority from their presence. Soda must not use Sudo impersonation, borrowed cookies or operator-token fallback. Exact selected-version middleware, OAuth grant/refresh semantics and scopes still require upstream-source audit before U04/broader endpoints.
+The Swagger security definitions include header tokens, BasicAuth and Sudo mechanisms, but do **not** specify each route's OAuth scope or complete middleware authority. Do not infer admin authority from their presence. Soda must not use Sudo impersonation, borrowed cookies or operator-token fallback. The first-workflow OAuth/middleware audit below now supplies source evidence; broader endpoint-specific authorization and native verification remain pending.
+
+## Selected-version OAuth and first-workflow source audit
+
+Additional public source inspected at upstream tag **v15.0.7** (not live API
+execution):
+
+- [`routers/web/auth/oauth.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/auth/oauth.go), SHA-256 `d094082c8699f88ffb949b4b72c8be5fcfc5b3c53a76d772bb42f4c3a4cf699e`: code/refresh exchange, bearer token type, seconds-based expiry, client-secret checks, optional refresh-counter invalidation, omitted response scope, and confidential-client reuse of existing consent.
+- [`routers/web/web.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/web.go), SHA-256 `d4eb17ebf75822a26d958845058e8f4cfd6e74754cf17a5815768112cc9e357e`: supported `/login/oauth/introspect` POST registration. Introspection uses client Basic authentication and returns actual scope, active status, subject and audience; Soda verifies these rather than decoding an unverified JWT.
+- [`routers/api/v1/api.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/api.go), SHA-256 `f748544314a2329168071e6538113c74ae4b3eb0db1bce59d816993619dc74f1`: method-derived read/write scope levels, user/settings/key, repository/content and administrator route middleware. Native roles are checked separately from OAuth scopes.
+- [`routers/api/v1/user/repo.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/user/repo.go) and [`models/repo/repo_list.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/models/repo/repo_list.go): `ListMyRepos` sets actor/owner/private visibility and SearchRepository's default collaboration condition includes accessible collaborator repositories. This differs from the old owner-only picker. Link/total headers exist; the initial new adapter instead retains empty-page continuation without assuming a page-size cap.
+
+The implementation retains the small existing standard-library OAuth transport:
+its current concrete requirements are explicit code/refresh forms and the native
+introspection extension, so no additional OAuth dependency was selected. This is
+not a claim of general OAuth/OIDC compatibility. Native settings and browser
+consent/refresh behavior remain unverified.
+
+Connected **unbuilt/untested** source now covers per-session encrypted grants,
+actual-scope introspection, refresh/logout handling, native profile/settings/Git
+keys/People creation, repository discovery/create/content and Soda environment
+create/join/inspection/public-host-key connection views. See the actual
+[API contracts](dashboard-api.md) and [credential migration](dashboard-credentials.md).
+The inventory below is the original family allocation, not completion evidence;
+all later collaboration/admin families still require their detailed action audit.
 
 ## Feature map
 
