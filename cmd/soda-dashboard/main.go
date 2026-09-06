@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/web"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web"
 )
 
 func main() {
