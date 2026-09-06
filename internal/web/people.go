@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 	"golang.org/x/crypto/ssh"
 	"net/http"
@@ -10,14 +11,16 @@ import (
 )
 
 type Page struct {
-	Session    store.Session
-	Operator   bool
-	Keys       []store.Key
-	Users      []store.User
-	Projects   []store.Project
-	Project    store.Project
-	Member     string
-	ForgejoURL string
+	Environment host.Environment
+	NativeError bool
+	Session     store.Session
+	Operator    bool
+	Keys        []store.Key
+	Users       []store.User
+	Projects    []store.Project
+	Project     store.Project
+	Member      string
+	ForgejoURL  string
 }
 
 func (s *Server) page(v store.Session) Page {

@@ -36,6 +36,7 @@ func New(c config.Config, db *store.Store) *Server {
 	})
 	s.mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) { s.render(w, "home", nil) })
 	s.authRoutes()
+	s.projectRoutes()
 	return s
 }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
