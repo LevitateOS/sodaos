@@ -103,6 +103,18 @@ and conservative token expiry measured before the exchange, not after later
 identity/introspection calls. All checks remain authored, unexecuted. Blame and
 full native diff/import capability coverage remain U09/U17 audit work.
 
+U10 source now adds issue list/filter/create/detail/edit, comments/edit,
+assignments/state/labels/milestones, reactions, own subscription and bounded issue
+attachment upload, with connected React views and sanitized lossless IDs. The
+selected native router requires `issue` scopes separately from `repository`;
+default consent now includes `write:issue`. Native permission checks remain on
+every operation, no issue data is stored in Soda, and these operations never call
+the environment helper. Authored native-denial, actor-binding, multipart-boundary
+and create-issue DOM tests; none executed. Structured native issue templates,
+comment-attachment/reaction details and full stale/permission/native journey
+coverage remain source work. Attachment downloads explicitly use configured
+native Forgejo links, not borrowed cookies or a fabricated custom binary proxy.
+
 ### Current milestone ledger
 
 | Milestones | Source | Built / tested / installed | Remaining |
@@ -115,7 +127,8 @@ full native diff/import capability coverage remain U09/U17 audit work.
 | U07 | Connected persistent create/join/inspect/member/connect paths | None | Additional partial-result/authorization/connection cases and native evidence |
 | U08 | Pending | None | Explicit build/deployment/fixture/lifecycle permissions, approved direct client route and two-project/workload/persistence proof |
 | U09 | Connected history/ref/compare/file-write/fork/basic-import source | None | Expanded focused tests, blame/native diff/import capability audit and real native Git verification |
-| U10–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
+| U10 | Connected issue/comment/label/milestone/reaction/subscription/issue-upload source | None | Native templates/comment-asset detail, expanded focused cases and two-user native proof |
+| U11–U20 | Pending | None | Mandatory collaboration/admin expansion, coverage decisions, gated cutover, polish and final native architectures/fresh-install/upgrade proof |
 | E01–E03 | Unselected | None | Explicit selection required; no dormant controls added |
 
 No U milestone is complete. GFM rendering is not parity with all Forgejo Markdown extensions. Native

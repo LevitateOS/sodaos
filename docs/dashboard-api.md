@@ -92,11 +92,37 @@ text diff is the current bounded presentation, not inline-review position suppor
 Blame and the full native import/diff detail audit remain pending. No source or
 installed tests for these new views/adapters have executed.
 
+## Issue collaboration (U10 source)
+
+Explicit repository routes include `GET/POST /issues`, `GET/PATCH /issues/{index}`,
+`GET/POST /issues/{index}/comments`, `PATCH /issue-comments/{comment}`,
+`PUT /issues/{index}/labels`, `GET/POST /labels` and `/milestones`, and
+label/milestone-specific PATCH routes. Native issue scope, visibility, authorship
+and edit rules apply; no issue/comment/label data is stored in Soda.
+
+IDs and issue numbers are decimal strings. Issue/comment text is bounded to
+32 KiB and rendered with safe GFM. PATCH changes only explicit fields;
+`milestone:"0"` removes assignment. Native issue edits are not advertised as
+SHA/timestamp-preconditioned writes. Labels replace a supplied bounded ID array;
+metadata forms do not acquire environment or host authority.
+
+`/issues/{index}/reactions` supports GET/POST/DELETE for the acting user's reaction.
+`/subscription` supports GET/PUT/DELETE for the session-derived username only.
+`/attachments` lists native metadata and accepts a simple filename/base64 payload
+up to 32 KiB, converted to the supported native multipart attachment form.
+Downloads use validated-UUID links on the configured public Forgejo origin and
+its own browser authentication; this is a labeled native dependency. No arbitrary
+provider download URL or cookie is forwarded.
+
+Structured templates, full comment-attachment/reaction detail and complete native
+journey/permission coverage remain pending. Connected source and authored tests
+are not U10 completion.
+
 ## OAuth, credentials and migration
 
 `/login?return_to=%2Fapp%2F` binds `/app/` to single-use OAuth state; the legacy
 return is `/projects`. Other return values are rejected. The callback remains
-`/oauth/callback`. Default requested consent is `write:user write:repository`;
+`/oauth/callback`. Default requested consent is `write:user write:repository write:issue`;
 `administration=1` additionally requests `write:admin`, without conferring native
 administrator status. Reads accept corresponding read scopes.
 

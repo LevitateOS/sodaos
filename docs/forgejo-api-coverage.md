@@ -65,6 +65,28 @@ Paths below are upstream paths under `/api/v1`, **not** registered Soda proxy ro
 
 Confirmed option distinctions: `CreateRepoOption` includes name/description/private/initialization/default branch/template/trust settings; `CreateUserOption` includes username/email/password/native onboarding options; `EditUserOption` includes sensitive admin/active/prohibit_login/permission fields; `CreateKeyOption` contains key/title/read_only. Do not reuse an administrator-edit payload for ordinary profile updates, or impose Linux join naming restrictions on upstream account creation.
 
+## U09/U10 source follow-up
+
+The same pinned router and schema now back explicit history/ref/file-write/fork/
+basic-import and issue/comment/label/milestone/reaction/subscription/issue-asset
+adapters. `routers/api/v1/repo/file.go` confirms stale file SHA/commit mismatches
+produce 409 and protected writes produce 403; no Soda-side Git engine or unsafe
+retry is added. The initial diff view is bounded native unified text, not an
+inline-review position model. Blame and full import/diff coverage remain pending.
+
+Router lines 1087–1199 put issues/labels/milestones under the distinct `issue`
+scope with native repository/author/writer gates. Inspected matching
+`routers/api/v1/repo/issue_subscription.go`: `/subscriptions/check` returns typed
+WatchInfo (including subscribed/ignored), not a guessed 404-as-unsubscribed
+contract. The fixed self-subscription adapter derives the username from the
+session. Native issue upload uses multipart `attachment`; downloads currently
+leave for the configured native `/attachments/{uuid}` route, confirmed in
+`routers/web/web.go`, with no forwarded Soda grant or borrowed cookie.
+
+The schema supplies `/issue_templates` and structured field metadata. Its faithful
+custom rendering/validation and comment-asset/reaction detail remain unfinished
+source work, **not** a claimed upstream gap. All new tests remain unexecuted.
+
 ## Authority register
 
 - Forgejo: identity/password/MFA, account fields, repositories, organizations/teams, collaboration, Git keys, CI and upstream administration.

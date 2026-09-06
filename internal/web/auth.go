@@ -57,7 +57,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	challenge := sha256.Sum256([]byte(verifier))
 	s.cookie(w, "soda_oauth", state, 600)
-	scopes := "write:user write:repository"
+	scopes := "write:user write:repository write:issue"
 	if r.URL.Query().Get("administration") == "1" {
 		scopes += " write:admin"
 	}

@@ -23,6 +23,7 @@ func (s *Server) forgejoRoutes() {
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/contents", s.apiProvider(s.apiContents, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/download", s.apiProvider(s.apiDownload, "read:repository", "GET"))
 	s.historyRoutes()
+	s.issueRoutes()
 }
 
 type providerUserView struct {

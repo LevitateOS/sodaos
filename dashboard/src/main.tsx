@@ -14,6 +14,8 @@ import { ErrorBoundary } from "./error-boundary";
 import { History, CommitDetail, Refs, Compare } from "./history";
 import { FileEditor } from "./file-editor";
 import { ForkRepository, ImportRepository } from "./repository-copy";
+import { Issues, NewIssue, IssueDetail } from "./issues";
+import { Labels, Milestones } from "./issue-metadata";
 
 export function App() {
   const { phase, session, error, load, logout } = useSession();
@@ -43,6 +45,11 @@ export function App() {
           <Route path="/repositories/:owner/:repo/compare" element={<Compare session={session} />} />
           <Route path="/repositories/:owner/:repo/edit" element={<FileEditor session={session} />} />
           <Route path="/repositories/:owner/:repo/fork" element={<ForkRepository session={session} />} />
+          <Route path="/repositories/:owner/:repo/issues" element={<Issues session={session} />} />
+          <Route path="/repositories/:owner/:repo/issues/new" element={<NewIssue session={session} />} />
+          <Route path="/repositories/:owner/:repo/issues/:index" element={<IssueDetail session={session} />} />
+          <Route path="/repositories/:owner/:repo/labels" element={<Labels session={session} />} />
+          <Route path="/repositories/:owner/:repo/milestones" element={<Milestones session={session} />} />
           <Route path="/repositories/:owner/:repo" element={<RepositoryDetail session={session} />} />
           <Route path="/environments" element={<EnvironmentList session={session} />} />
           <Route path="/environments/:id" element={<EnvironmentDetail session={session} />} />
