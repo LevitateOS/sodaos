@@ -1,0 +1,28 @@
+[Unit]
+Description=Soda dashboard
+After=forgejo.service soda-host.socket
+Requires=soda-host.socket
+ConditionPathExists=/etc/soda/activated
+
+[Container]
+Image=localhost/soda-dashboard:dev
+ContainerName=soda-dashboard
+Pull=never
+Network=host
+User=2000:2000
+DropCapability=all
+ReadOnly=true
+NoNewPrivileges=true
+SecurityLabelDisable=true
+Volume=/etc/soda:/etc/soda:ro
+Volume=/run/soda:/run/soda:ro
+Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw
+Tmpfs=/tmp:rw,nosuid,nodev,size=64m
+
+[Service]
+Restart=on-failure
+UMask=0077
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

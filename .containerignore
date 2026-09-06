@@ -1,0 +1,5 @@
+.git
+.local
+cockpit/node_modules
+cockpit/dist
+# Keep .artifacts/native: the dashboard image consumes the selected native binary.

@@ -1,0 +1,2 @@
+# Dedicated appliance service identity, never a developer account.
+u soda 2000 "Soda dashboard" /var/lib/soda/dashboard /usr/sbin/nologin

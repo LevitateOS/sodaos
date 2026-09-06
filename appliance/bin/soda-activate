@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+"""Operator-only activation AFTER native Forgejo setup and real TLS provisioning."""
+import argparse, ipaddress, json, os, pwd, shutil, subprocess
+from pathlib import Path
+from urllib.parse import urlsplit
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--bind-ip', required=True, help='explicit private appliance address')
+parser.add_argument('--certificate', required=True, help='PEM certificate covering both browser origins')
+parser.add_argument('--private-key', required=True, help='PEM private key; never committed')
+args = parser.parse_args()
+if os.geteuid() != 0:
+    parser.error('native host operator/root required')
+address = ipaddress.ip_address(args.bind_ip)
+if address.is_unspecified or address.is_multicast or address.is_global:
+    parser.error('select an explicit private/loopback address, not a public administration exposure')
+root = Path('/etc/soda')
+if (root / 'activated').exists():
+    parser.error('already activated; use explicit native configuration maintenance instead of blind reactivation')
+cfg = json.loads((root / 'dashboard.json').read_text())
+for key in ('public_url', 'forgejo_url'):
+    u = urlsplit(cfg[key])
+    if u.scheme != 'https' or not u.hostname or u.username or u.password or u.query or u.fragment or u.path not in ('', '/') or any(c in cfg[key] for c in '\r\n'):
+        parser.error('invalid HTTPS browser origin')
+if cfg['public_url'] == cfg['forgejo_url']:
+    parser.error('dashboard and Forgejo need distinct browser origins')
+if cfg['forgejo_internal_url'] != 'http://127.0.0.1:3000' or cfg['listen'] != '127.0.0.1:8080':
+    parser.error('bundled service recipes require the documented internal listeners')
+account = pwd.getpwnam('soda')
+if account.pw_uid != 2000 or account.pw_gid != 2000:
+    parser.error('unexpected native soda service identity')
+root.chmod(0o750)
+os.chown(root, 0, account.pw_gid)
+for p in [root / 'dashboard.json', Path(cfg['oauth_secret_file']), Path(cfg['admin_token_file'])]:
+    if p.parent != root or p.is_symlink():
+        parser.error('credentials must be regular operator-created files under /etc/soda')
+    os.chown(p, 0, account.pw_gid)
+    p.chmod(0o640)
+tls = root / 'tls'
+tls.mkdir(mode=0o700, exist_ok=True)
+for source, dest in [(args.certificate, 'cert.pem'), (args.private_key, 'key.pem')]:
+    shutil.copyfile(source, tls / dest)
+    (tls / dest).chmod(0o600)
+(root / 'proxy.env').write_text(f'SODA_ORIGIN={cfg["public_url"]}\nFORGEJO_ORIGIN={cfg["forgejo_url"]}\nSODA_BIND={address}\n')
+(root / 'proxy.env').chmod(0o600)
+envpath = root / 'forgejo.env'
+values = dict(line.split('=', 1) for line in envpath.read_text().splitlines() if line and not line.startswith('#') and '=' in line)
+values.update({'FORGEJO__server__ROOT_URL': cfg['forgejo_url'].rstrip('/') + '/', 'FORGEJO__server__DOMAIN': urlsplit(cfg['forgejo_url']).hostname, 'FORGEJO__server__SSH_PORT': '2222', 'FORGEJO__security__INSTALL_LOCK': 'true'})
+values.setdefault('FORGEJO__server__SSH_DOMAIN', str(address))
+envpath.write_text(''.join(f'{k}={v}\n' for k, v in values.items()))
+envpath.chmod(0o600)
+network = Path('/etc/containers/systemd/forgejo.container.d')
+network.mkdir(parents=True, exist_ok=True)
+bind = f'[{address}]' if address.version == 6 else str(address)
+(network / '10-private-network.conf').write_text(f'[Container]\nPublishPort=\nPublishPort=127.0.0.1:3000:3000\nPublishPort={bind}:2222:22\n')
+(root / 'activated').touch(mode=0o600)
+subprocess.run(['systemctl', 'daemon-reload'], check=True)
+subprocess.run(['systemctl', 'restart', 'forgejo.service'], check=True)
+subprocess.run(['systemctl', 'start', 'soda-dashboard.service', 'soda-proxy.service'], check=True)
+print('Activation requested. Inspect native service state and perform the later login/SSH validation; this is not a validation result.')

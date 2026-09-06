@@ -7,7 +7,7 @@ Wants=network-online.target
 Image=codeberg.org/forgejo/forgejo:15.0.7
 ContainerName=soda-forgejo
 PublishPort=127.0.0.1:3000:3000
-PublishPort=2222:22
+PublishPort=127.0.0.1:2222:22
 Volume=/var/lib/soda/forgejo:/data:Z
 Environment=USER_UID=1000
 Environment=USER_GID=1000

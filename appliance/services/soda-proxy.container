@@ -1,0 +1,20 @@
+[Unit]
+Description=Private Soda browser HTTPS endpoints
+After=soda-dashboard.service forgejo.service
+ConditionPathExists=/etc/soda/activated
+
+[Container]
+Image=docker.io/library/caddy:2.10.2
+ContainerName=soda-proxy
+Network=host
+Volume=/etc/soda/proxy.Caddyfile:/etc/caddy/Caddyfile:ro,Z
+Volume=/etc/soda/tls:/etc/soda/tls:ro,Z
+Volume=/var/lib/soda/proxy:/data:Z
+EnvironmentFile=/etc/soda/proxy.env
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
