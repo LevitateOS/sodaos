@@ -1,5 +1,19 @@
 # Implementation handoff
 
+## Temporary worktree cleanup
+
+At the user's request, removed all six clean detached U08 worktrees after
+checking for uncommitted/untracked source and active users, then pruned Git's
+worktree metadata. Only the main checkout remains. Before removal, moved each
+worktree's `.artifacts/` and compiled dashboard/Cockpit `dist/` directories
+unchanged to `.artifacts/retained-worktree-builds/<former-worktree-name>/`.
+Each retained directory has `retention.json` recording its original path, source
+commit and retained paths. Historical logs/manifests still refer to the original
+checkout locations; use this mapping rather than rewriting evidence. Dependency
+directories and disposable Python caches were removed with the worktrees.
+Main-checkout artifacts/logs, VM/backing image, live tunnel and project fixtures
+were not changed. No builds or tests ran during cleanup.
+
 ## Approved private routing and direct developer access
 
 The user explicitly approved the private SSH tunnel after the `6a1f129` plan
