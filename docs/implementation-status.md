@@ -2,7 +2,7 @@
 
 ## Current execution — 2026-09-06
 
-**M15 x86_64 build/source checks pass; the local dashboard is activated and its operator browser journey is verified.** The isolated `soda-test` CoreOS KVM host runs Forgejo, the Soda dashboard, Caddy and native operator services. See [local testing](local-testing.md) for URLs, private credential locations, exact scope and logs. Initial native startup fixes and resolved Go metadata are in `88be176`; subsequent navigation and dashboard-access changes remain in the working tree. No artifact publication was performed.
+**Recorded M15 x86_64 build/source checks passed; the local dashboard is activated and its operator browser journey is verified.** The isolated `soda-test` CoreOS KVM host runs Forgejo, the Soda dashboard, Caddy and native operator services. See [local testing](local-testing.md) for URLs, private credential locations, exact scope and logs. Initial native startup fixes and resolved Go metadata are in `88be176`; navigation changes are in `95a194d`, and dashboard-access/repository-picker changes are in `c96530c`. The combined tree with branding, console and project-CLI follow-ups has not been rebuilt or retested. No artifact publication was performed.
 
 The full M16–M17 developer/project/workload journeys remain pending. AArch64 M18 remains unverified. A first install recovered from the discovered copy/label defects is not a fresh-disk proof of the final installer. Nested Podman and direct client routing remain the highest native risks. Additional installations, network changes and provider/lifecycle operations still require named targets and explicit permission.
 
@@ -20,7 +20,7 @@ Replaced manual `owner/repository` entry on Projects with an accessible native s
 
 Added native Forgejo creation/refresh links and distinct empty/provider-error states that retain the existing Projects table. Go tests cover pagination (including server page-size caps), malformed/failed responses, cancellation, ownership/privacy filtering, existing reservations, empty states and forged selection rejection. All source/staging checks pass. Rebuilt and loaded only the dashboard image, updated its staged/native binary, and restarted only `soda-dashboard.service`; application data and the other services were preserved. The old image archive was retained after Podman's refusal to overwrite it directly.
 
-The real browser check now verifies the picker or its empty state, native create/refresh links, and the existing OAuth/navigation/logout journey. The test operator currently owns zero repositories, so the live run verified the empty state; populated/filtering cases are covered by Go tests, not claimed as an installed populated-repository journey. No repository or project fixture was created. Evidence: `repository-picker-tests.log`, `repository-picker-build.log`, `repository-picker-deploy.log`, and `dashboard-browser-check.log`. Changes remain uncommitted.
+The real browser check now verifies the picker or its empty state, native create/refresh links, and the existing OAuth/navigation/logout journey. The test operator currently owns zero repositories, so the live run verified the empty state; populated/filtering cases are covered by Go tests, not claimed as an installed populated-repository journey. No repository or project fixture was created. Evidence: `repository-picker-tests.log`, `repository-picker-build.log`, `repository-picker-deploy.log`, and `dashboard-browser-check.log`. Changes are committed in `c96530c`.
 
 ### Cockpit/Tailnet native correction
 
@@ -30,7 +30,19 @@ Added a staging regression for the root-only gate and ordered SELinux session ru
 
 ### Accounts navigation
 
-At the operator's request, hide only Cockpit's stock Accounts menu entry through the native `/etc/cockpit/users.override.json` merge patch. The source config is staged for future installations and applied to `soda-test`; no packages, host accounts or native account tools were removed, and no services restarted. Native `cockpit-bridge --packages` before/after output confirms that `users` loses only its Accounts label and every other menu entry is unchanged (`cockpit-packages-before.log` / `cockpit-packages-after.log`). Added a packaging regression; all six packaging checks, Go tests, TypeScript checks and 60 Cockpit tests pass. Browser sessions may need logout/login to discard cached manifests. This navigation change is uncommitted.
+At the operator's request, hide only Cockpit's stock Accounts menu entry through the native `/etc/cockpit/users.override.json` merge patch. The source config is staged for future installations and applied to `soda-test`; no packages, host accounts or native account tools were removed, and no services restarted. Native `cockpit-bridge --packages` before/after output confirms that `users` loses only its Accounts label and every other menu entry is unchanged (`cockpit-packages-before.log` / `cockpit-packages-after.log`). Added a packaging regression; all six packaging checks, Go tests, TypeScript checks and 60 Cockpit tests pass. Browser sessions may need logout/login to discard cached manifests. This navigation change is committed in `95a194d`.
+
+## Source merge — 2026-09-06
+
+Merged the local predecessor follow-ups (`0f25570`, `4e751ac`, `f2523ac`) with remote history through `95a194d`. Resolved conflicts in agent guidance, README navigation/status, operator setup and the project image. The image retains native `curl-minimal` and mise checksum fixes alongside Tea/GitHub CLI inputs; combined staging tests retain both the PAM regression and the branding/console checks. The real Go metadata and native installation fixes are preserved.
+
+The earlier native evidence does **not** validate this merged tree or its additional checks. This merge performs source/diff, conflict-marker, whitespace and local documentation-link review only. No dependency resolution, builds, product tests, VM/service operations or provider actions were run. The current request authorizes Git merge/commit/push, not additional native execution.
+
+### Dashboard follow-up merge
+
+Merged `origin/main` through `f4fe066` into `c96530c`, preserving both histories. Resolved five documentation conflicts by retaining the newer dashboard activation/browser and repository-picker evidence alongside the predecessor follow-ups and their unvalidated status. Reviewed the automatic staging/configuration merge; Accounts navigation, PAM checks and branding/console checks are retained. Updated stale uncommitted-change references.
+
+Only source/diff, conflict-marker and whitespace checks were performed for this merge. No builds, tests, dependency resolution, VM/service operations or provider actions were run; the combined tree remains unvalidated.
 
 ## Original source handoff (historical)
 
@@ -110,3 +122,11 @@ Authored explicit matching-native source/staging check entrypoint and the full l
 Customized `AGENTS.md` from the predecessor's engineering guidance: requirement-versus-choice classification, human-maintainable design, coherent refactoring/reuse, source ownership, actual script side effects, scoped commit authorization and separate evidence reporting. Retained SodaOS's execution hold, project-local authority, private networking and persistent-container boundaries; excluded obsolete predecessor test/release commands and UI assumptions.
 
 Documentation-only change. Reviewed the predecessor/current guidance, owning documentation, script source and full diff; local documentation links and whitespace checked. No product behavior changed and no builds, tests, dependency resolution or deployment operations ran.
+
+## Compatible predecessor follow-up ports
+
+Source reference remains `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`; that repository is unchanged.
+
+- **Branding/configuration:** ported Forgejo browser checks, PNG renderer/pixel comparator and focused test source. Added fresh-evidence and explicit native-review boundaries; actual renderer verification is opt-in with the `branding` test tag. Adapted app metadata, native/accessibility theme choices and cache revalidation into a staged Forgejo environment source file, using the selected upstream environment-to-INI encoding. The disposable component sheet is not an appliance payload. No artwork regeneration, browser checks, tests, builds or native configuration changes ran.
+- **Console/handbook:** adapted the native operator welcome, main-table and connected-uplink discovery, interactive-only hook and CLI delivery. It reads configured public origins without printing secrets or inventing reachable ports. Added command-double/staging test source. Reworked developer instructions for project-IP SSH, editors, separate Git credentials, real shared mise installations and project-local service ports; adapted the screenshot brief without adding fabricated captures. No native console, tests, account operations or screenshots were executed.
+- **Project CLIs:** retained Tea 0.15.1 source lock/license/fetch behavior and adapted its native Makefile build into project-image inputs, with fetch/build-boundary test source. Added the predecessor's GitHub CLI 2.97.0 baseline through GitHub's signed RPM repository inside Rocky rather than copying a Fedora host package. Developer auth remains native and personal. Source/release metadata was inspected; no archives, binaries, RPMs, dependencies, builds or logins were fetched/executed. The reuse inventory and later validation guide separate these ports from the excluded workspace/release/Updates systems. Source review also tightened console origin parsing and removed stale predecessor RPM/page/renderer instructions and a broken link from the Cockpit asset guide. Formatting, diff/whitespace inspection and local documentation path checks are the only checks executed.

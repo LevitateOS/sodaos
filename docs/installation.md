@@ -4,7 +4,7 @@ Native execution has begun on the local x86_64 builder and an isolated CoreOS VM
 
 ## 1. Prepare the native builder
 
-Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12 and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
+Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
 
 Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. Cockpit's predecessor dependency lockfile is retained. Then invoke:
 
@@ -12,7 +12,7 @@ Real Go dependency metadata was resolved during the first native x86_64 build an
 scripts/build-native.sh x86_64
 ```
 
-This builds native Go commands, bundles the two Cockpit pages, builds/saves the Rocky project and dashboard images, fetches/verifies the locked native GitHub runner client and stages configuration under `.artifacts/native/x86_64/rootfs`. It does not publish or install. Inspect generated outputs before use. Repeat builds require explicitly removing only generated staging/provider directories after inspection; no automatic source/state deletion is hidden in the script.
+This builds native Go commands, bundles the two Cockpit pages, fetches/builds the pinned Tea source with its native version check, builds/saves the Rocky project and dashboard images (including GitHub CLI from its signed native RPM repository), fetches/verifies the locked native GitHub runner client and stages configuration under `.artifacts/native/x86_64/rootfs`. It does not publish or install. Inspect generated outputs before use. Repeat builds require explicitly removing only generated staging/provider/project-tools directories after inspection; no automatic source/state deletion is hidden in the script.
 
 ## 2. Provision the upstream host
 

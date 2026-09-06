@@ -13,7 +13,7 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 ## Current execution boundary
 
-The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user's request to begin testing/start the host initiated native execution on `linux-infra.dimensionlab.net` (x86_64 builder) and a new isolated `soda-test` CoreOS KVM VM. M15 source/build checks pass; the local dashboard is activated and its operator OAuth/browser journey is verified, while full developer/project/workload journeys remain pending. See `docs/local-testing.md` and `docs/implementation-status.md` for actual evidence and limits.
+The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user's request to begin testing/start the host initiated native execution on `linux-infra.dimensionlab.net` (x86_64 builder) and a new isolated `soda-test` CoreOS KVM VM. Recorded M15 source/build checks passed; the local dashboard is activated and its operator OAuth/browser journey is verified, while full developer/project/workload journeys remain pending. The merged tree, including the branding, console and project-CLI follow-ups, has not been rebuilt or retested. See `docs/local-testing.md` and `docs/implementation-status.md` for actual evidence and limits.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
@@ -156,6 +156,24 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 Preserve both Cockpit pages **and their backing logic/tests**, not just their appearance. Providers own CI workflows, scheduling, registration authority and results; Soda manages local capacity.
 
 The predecessor repository is separate. Do not modify it, close its issues or import its separately reserved Updates platform as part of this work. Preserve attribution and licenses. Canonical branding in `assets/` must not be casually regenerated or removed; adapt installation paths in staging source where necessary.
+
+## Entrypoint effects — execution requires the applicable authorization
+
+| Entrypoint | Effects to account for |
+| --- | --- |
+| `scripts/build-native.sh ARCH` | Resolves Go/frontend dependencies, builds native commands/project CLIs/images (including Tea's version execution), fetches locked inputs and stages artifacts; does not install or publish the appliance |
+| `scripts/check-native.sh ARCH` | Runs Go tests, TypeScript/UI checks, Python build-fixture and staging tests; needs prepared dependencies and the native stage |
+| `scripts/stage.py --arch ARCH` | Writes a deployment tree from existing outputs; does not install it |
+| `scripts/render-provisioning.py` | Writes private Butane input containing an operator password hash; not a harmless documentation preview |
+| `scripts/install-native.sh`, `appliance/bin/soda-activate` | Change the real host/configuration, load images and start/restart services; require explicit target/action authorization |
+| `scripts/test-vm.sh` | Starts the prepared KVM guest, opens SSH/tunnels or reads status/console; SSH commands may mutate the guest, so inspect the subcommand and target first |
+| `tests/installed/` | Opt-in installed journeys; some read state, others build/start real workloads. Inspect each before execution |
+
+Dependency baselines belong in `go.mod`, Cockpit manifests/lockfile, image recipes
+and the lockfiles under `appliance/` and `project-os/`, not duplicated version
+rules here. Do not incidentally upgrade them or fabricate `go.sum`, checksums, artifacts or PASS records.
+Generated build outputs belong in ignored `.artifacts/`, not hand-authored
+replacements for missing production source.
 
 ## Handoff and commits
 

@@ -15,7 +15,8 @@ for command in cmd/*; do
   CGO_ENABLED=0 go build -mod=readonly -trimpath -o "$out/bin/$(basename "$command")" "./$command"
 done
 (cd cockpit && pnpm install --frozen-lockfile && pnpm exec vp build)
-podman build -t localhost/soda-project-os:dev -f project-os/Containerfile project-os
+python3 scripts/build-project-tools.py --arch "$arch"
+podman build --build-arg "ARTIFACT_DIR=$out" -t localhost/soda-project-os:dev -f project-os/Containerfile .
 podman build --build-arg "ARTIFACT_DIR=$out" -t localhost/soda-dashboard:dev -f appliance/dashboard.Containerfile .
 podman save -o "$out/images/project-os.oci" localhost/soda-project-os:dev
 podman save -o "$out/images/dashboard.oci" localhost/soda-dashboard:dev

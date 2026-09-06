@@ -2,7 +2,7 @@
 
 Persistent, shared development environments on an immutable appliance host. Developers use a browser, ordinary SSH, Git, mise and container tools—not individual Linux accounts on the host.
 
-**The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Native x86_64 build/source checks pass; full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
+**The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Recorded native x86_64 build/source checks passed, but the merged tree, including branding, console and project-CLI follow-ups, has not been rebuilt or retested. Full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
 
 ## How it fits together
 
@@ -66,7 +66,9 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 - [Architecture](docs/architecture.md) and [deferred scope](docs/deferred.md)
 - [Implementation plan](docs/implementation-plan.md) and [current handoff](docs/implementation-status.md)
 - [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
-- [Development environment](docs/development-environment.md) and [project services](docs/project-services.md)
+- [Development environment](docs/development-environment.md), [project services](docs/project-services.md) and [provider CLIs](docs/project-clis.md)
+- [Operator welcome](docs/console-welcome.md), [branding review](docs/branding-review.md) and [screenshot guidance](docs/screenshot-capture.md)
+- [Predecessor reuse inventory](docs/predecessor-reuse.md)
 - [Local test host access](docs/local-testing.md) and [native validation](docs/native-validation.md)
 - [Coding-agent instructions](AGENTS.md)
 

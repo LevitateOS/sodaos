@@ -5,7 +5,7 @@ cockpit/dist
 # Never send VM disks, private provisioning, keys, or downloads to a build.
 .artifacts/*
 !.artifacts/native
-# Only the native binaries are needed by the dashboard image.
+# Keep native command binaries and project-tool binaries/licenses for the images.
 .artifacts/native/*/images
 .artifacts/native/*/rootfs
 .artifacts/native/*/github-actions-runner

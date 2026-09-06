@@ -86,7 +86,7 @@ No Soda installation, physical-disk installation, host firewall/routing change, 
 
 ## Repeat the checks
 
-Source/staging checks (Go, TypeScript, 10 Cockpit test files / 60 tests, and 6 packaging tests):
+Source/staging checks (Go, TypeScript, Cockpit and packaging tests; the merged tree adds checks not yet executed):
 
 ```sh
 export PATH="$PWD/.artifacts/tools/node_modules/.bin:$PATH"
@@ -113,7 +113,7 @@ For another builder, prepare a private isolated browser home with the selected t
 
 ## Evidence and remaining work
 
-The initial native build/startup fixes are in commit `88be176`; subsequent Accounts-navigation and dashboard-access/test changes are in the working tree. No artifact publication was performed. Logs are under `.artifacts/logs/`, including:
+The initial native run used `3a12d135bc4362273c209d78a40b7458993cb373` plus then-uncommitted startup fixes, subsequently committed in `88be176`. Accounts-navigation changes are in `95a194d`; subsequent dashboard-access/test and repository-picker changes are in `c96530c`. These recorded results do not validate the combined tree with the branding, console and project-CLI follow-ups, which has not been rebuilt or retested. No artifact publication was performed. Logs are under `.artifacts/logs/`, including:
 
 - `build-native.log`, `check-native.log`, `vm-first-boot.log`, `vm-install.log`, `vm-host-check.log`;
 - `cockpit-tailnet-before.log` / `cockpit-tailnet-after.log` and `cockpit-packages-before.log` / `cockpit-packages-after.log`;

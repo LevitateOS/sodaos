@@ -1,0 +1,66 @@
+#!/bin/sh
+# Adapted from soda-os bc1d3e0's native console welcome. Read-only, operator-only.
+# Optional config path supports inspection; the installed login hook uses default.
+if [ "$#" -gt 1 ]; then
+    echo "usage: $0 [DASHBOARD_CONFIG]" >&2
+    exit 2
+fi
+[ "$(id -u)" = 0 ] || exit 0
+config=${1:-/etc/soda/dashboard.json}
+printf '\nWelcome to Soda OS — host operator console\n'
+host=$(hostnamectl --static 2>/dev/null)
+[ -n "$host" ] || host=$(uname -n)
+printf 'Hostname: %s\n' "$host"
+
+# Preserve the predecessor's main-table lookup: an exit node may install routes
+# in a separate table. Include connected Ethernet/Wi-Fi without a default route.
+devices=$({
+    ip -o -4 route show default table main 2>/dev/null | awk '{ for (i=1; i<NF; i++) if ($i == "dev") print $(i+1) }'
+    LC_ALL=C nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '$3 == "connected" && ($2 == "ethernet" || $2 == "wifi") {print $1}'
+} | awk '!seen[$0]++')
+found=false
+for device in $devices; do
+    case "$device" in lo|tailscale*) continue ;; esac
+    addresses=$(ip -o -4 addr show dev "$device" scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); print $4}')
+    for address in $addresses; do
+        found=true
+        printf 'Observed local IPv4 (%s): %s\n' "$device" "$address"
+    done
+done
+[ "$found" = true ] || printf 'No local uplink IPv4 address is currently available.\n'
+printf '\nCockpit is loopback-first: https://127.0.0.1:9090\n'
+printf 'From your client, select a reachable host address and tunnel:\n  ssh -N -L 9090:127.0.0.1:9090 root@HOST\n'
+printf 'Then open https://127.0.0.1:9090 in that client browser.\n'
+
+# Read only public origins, never print credentials or the whole JSON document.
+python3 - "$config" <<'PY'
+import json, sys
+from pathlib import Path
+from urllib.parse import urlsplit
+try:
+    config = json.loads(Path(sys.argv[1]).read_text())
+    if not isinstance(config, dict): raise ValueError('configuration object required')
+    origins = []
+    for field, label in [('public_url', 'Soda dashboard'), ('forgejo_url', 'Forgejo')]:
+        value = config[field]
+        if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value):
+            raise ValueError('invalid origin')
+        url = urlsplit(value)
+        if url.scheme != 'https' or not url.hostname or url.username is not None or url.password is not None or url.query or url.fragment or url.path not in ('', '/'):
+            raise ValueError('invalid origin')
+        _ = url.port  # Reject malformed/out-of-range ports without printing the value.
+        origins.append((label, value.rstrip('/')))
+except (OSError, ValueError, KeyError):
+    print('\nBrowser origins are not configured or cannot be read; complete operator setup.')
+else:
+    print('\nConfigured browser origins (not a listener or reachability check):')
+    for label, value in origins: print(f'  {label}: {value}')
+PY
+if command -v soda-tailnet >/dev/null 2>&1; then
+    soda-tailnet
+else
+    printf '\nTailnet status helper is unavailable; inspect native tailscaled.service.\n'
+fi
+printf '\nProject developers use their project IPs, not host Linux accounts.\n'
+printf 'Host Tailnet enrollment does not establish project-subnet routing.\n'
+printf 'No firewall, listener, enrollment or service configuration was changed.\n'

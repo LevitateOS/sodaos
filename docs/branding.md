@@ -19,4 +19,4 @@ SVGs in `assets/branding/source/` are canonical. PNGs and the ICO are derivative
 
 Static login backgrounds are in `assets/branding/cockpit/`; the animated wave demo is in `assets/animated-wave-background/`. The application-specific themes are reference assets until explicitly integrated and tested against their host application versions.
 
-See the [asset inventory](../assets/README.md) for previews, source locations, dependencies, and regeneration notes.
+See the [asset inventory](../assets/README.md) for previews, source locations, dependencies, and regeneration notes. The adapted [Forgejo branding review](branding-review.md) describes installed configuration, optional renderer/browser checks and their held execution requirements.
