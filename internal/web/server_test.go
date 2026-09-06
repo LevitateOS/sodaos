@@ -7,7 +7,7 @@ import (
 )
 
 func TestHome(t *testing.T) {
-	s := New(config.Config{})
+	s := New(config.Config{}, nil)
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 	if w.Code != 200 {

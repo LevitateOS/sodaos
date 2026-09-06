@@ -14,3 +14,7 @@ Source-only: no builds, tests, type checks, installed validation or artifact pub
 Go server/configuration, embedded canonical branding, HTMX source, initial templates, narrow process runner reused from predecessor, and authored configuration/server/process tests. Application features follow in subsequent milestones; this foundation is not a completed product.
 
 Build: not run. Validation: not run.
+
+## M02 — source implemented
+
+SQLite via modernc.org/sqlite v1.58.0 (upstream module metadata), schema and concrete store, hashed session tokens and single-use OAuth state storage. Startup opens the persistent database. Tests authored, not run; go.sum/dependency resolution remains a later build input step.

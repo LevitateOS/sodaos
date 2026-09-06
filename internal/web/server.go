@@ -4,6 +4,7 @@ import (
 	"embed"
 	"github.com/levitateos/sodaos/assets"
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -14,12 +15,13 @@ var content embed.FS
 
 type Server struct {
 	Config    config.Config
+	Store     *store.Store
 	mux       *http.ServeMux
 	templates *template.Template
 }
 
-func New(c config.Config) *Server {
-	s := &Server{Config: c, mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
+func New(c config.Config, db *store.Store) *Server {
+	s := &Server{Config: c, Store: db, mux: http.NewServeMux(), templates: template.Must(template.ParseFS(content, "templates/*.html"))}
 	static, _ := fs.Sub(content, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files))))

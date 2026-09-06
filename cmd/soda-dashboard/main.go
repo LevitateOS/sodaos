@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web"
 	"log/slog"
 	"net/http"
@@ -21,7 +22,13 @@ func main() {
 		slog.Error("configuration", "error", err)
 		os.Exit(1)
 	}
-	server := &http.Server{Addr: c.Listen, Handler: web.New(c), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
+	db, err := store.Open(c.Database)
+	if err != nil {
+		slog.Error("database startup failed")
+		os.Exit(1)
+	}
+	defer db.Close()
+	server := &http.Server{Addr: c.Listen, Handler: web.New(c, db), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go func() {
