@@ -42,7 +42,7 @@ export function App() {
           <Button variant="link" onClick={() => void logout()}>Sign out of Soda</Button>
         </nav>
         <Routes key={`${session.user.id}:${location.pathname}`}>
-          <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>Discover or create a Forgejo repository, create its persistent environment, then explicitly join using your public development-access key.</p><p><Link to="/repositories">Browse repositories</Link> · <Link to="/environments">Discover environments</Link></p><Alert isInline variant="warning" title="This preview has not been built or installed-verified. Direct project routing and native workload/persistence proof remain pending." /></>} />
+          <Route path="/" element={<><h1>Welcome, {session.user.soda_display_name || session.user.login}</h1><p>Discover or create a Forgejo repository, create its persistent environment, then explicitly join using your public development-access key.</p><p><Link to="/repositories">Browse repositories</Link> · <Link to="/environments">Discover environments</Link></p><Alert isInline variant="warning" title="Preview: installed developer verification, direct project routing and native workload/persistence proof remain pending." /></>} />
           <Route path="/repositories" element={<RepositoryList session={session} />} />
           <Route path="/repositories/new" element={<CreateRepository session={session} />} />
           <Route path="/repositories/import" element={<ImportRepository session={session} />} />

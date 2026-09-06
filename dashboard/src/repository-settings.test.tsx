@@ -12,5 +12,5 @@ it("submits only explicitly changed settings, not a copied repository object", a
   const writes: RequestInit[] = []; vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => { if (init?.method === "PATCH") writes.push(init); return new Response(JSON.stringify({ ...settings, description: init?.method === "PATCH" ? "Updated" : "Old" }), { headers: { "Content-Type": "application/json" } }); })); useSession.setState({ session, phase: "authenticated" });
   render(<MemoryRouter initialEntries={["/repositories/alice/demo/settings"]}><Routes><Route path="/repositories/:owner/:repo/settings" element={<RepositorySettings session={session} />} /></Routes></MemoryRouter>);
   const field = await screen.findByLabelText("Repository description"); const user = userEvent.setup(); await user.clear(field); await user.type(field, "Updated"); await user.click(screen.getByRole("button", { name: "Save changed native settings" }));
-  expect(writes).toHaveLength(1); expect(JSON.parse(String(writes[0].body))).toEqual({ description: "Updated" }); expect(screen.getByLabelText("Private repository")).toBeChecked();
+  expect(writes).toHaveLength(1); expect(JSON.parse(String(writes[0].body))).toEqual({ description: "Updated" }); expect((screen.getByLabelText("Private repository") as HTMLInputElement).checked).toBe(true);
 });

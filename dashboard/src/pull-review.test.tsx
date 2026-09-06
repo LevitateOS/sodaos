@@ -17,6 +17,6 @@ it("keeps the draft on a stale native review and never retries or reloads it as 
   })); useSession.setState({ session, phase: "authenticated" });
   render(<MemoryRouter><PullReview session={session} owner="alice" repo="demo" pull={pull} onChanged={changed} /></MemoryRouter>);
   const user = userEvent.setup(); await user.type(screen.getByLabelText("Review body"), "Please explain this change"); await user.click(screen.getByRole("button", { name: "Submit native review" }));
-  await screen.findByText("Pull request revisions changed."); expect(screen.getByLabelText("Review body")).toHaveValue("Please explain this change"); expect(changed).not.toHaveBeenCalled(); expect(writes).toHaveLength(1);
+  await screen.findByText("Pull request revisions changed."); expect((screen.getByLabelText("Review body") as HTMLTextAreaElement).value).toBe("Please explain this change"); expect(changed).not.toHaveBeenCalled(); expect(writes).toHaveLength(1);
   expect(JSON.parse(String(writes[0].body))).toMatchObject({ head: pull.head.sha, base: pull.base.sha, merge_base: pull.merge_base, event: "COMMENT" });
 });

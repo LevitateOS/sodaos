@@ -1,5 +1,23 @@
 # Implementation handoff
 
+## Current local verification after execution approval
+
+The user's “go until finished”, following the listed execution gates, authorized
+local build/test work. On the x86_64 workstation (Go 1.27.0, Node 24.20.0,
+pnpm 11.25.0), executed `go test ./...`, dashboard `vp run check`, `vp test --run`
+and `vp build`: all passed. The dashboard suite ran 16 tests across 10 files.
+The first UI run exposed two unavailable Jest-style assertions; these now inspect
+native DOM properties. Restored the already-selected Markdown dependencies missing
+from the manifest and resolved the real lockfile with lifecycle scripts disabled.
+Logs are in ignored `.artifacts/logs/{all-go-tests,dashboard-typecheck,
+dashboard-ui-tests,dashboard-build,dashboard-install}.log`.
+
+This supersedes earlier **local** unbuilt/unexecuted statements below for the
+checked source. It is not a full native artifact build, installed verification,
+Go 1.26 baseline run, aarch64 proof or U milestone completion. No VM, service,
+provider resource, project state or networking was changed. Deployment/migration,
+developer routing and installed workload/persistence acceptance remain pending.
+
 ## Core/support rebase integration — source only
 
 Resolved the build/context/installation-guide overlap in favor of U02's real React payload and missing-lockfile guard. The full native build skips the dashboard in its generic command loop and calls the core `build-dashboard.sh` with `--payload-only`; support then builds/exports the dashboard image exactly once with native identity metadata. The standalone dashboard entrypoint retains its existing image build and does not depend on support tooling. Container context rules admit the generated dashboard assets while retaining dashboard dependency/dist exclusions and denying other artifact trees by default. Staging and the core Containerfile continue to consume that same payload. This is source integration, not executed build or runtime evidence; builds/tests and dependency resolution remain held.
