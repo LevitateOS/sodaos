@@ -127,6 +127,15 @@ func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
 		t.Fatal("accepted missing core-owned page")
 	}
 }
+func TestRunnerInstalledUtilityIsNotAnApplianceStateMarker(t *testing.T) {
+	if !allowedPayload("rootfs/usr/local/lib/soda/github-actions-runner/externals/node20/lib/node_modules/npm/lib/utils/installed-deep.js") {
+		t.Fatal("vendor npm utility mistaken for appliance runtime state")
+	}
+	if allowedPayload("rootfs/etc/soda/installed") || allowedPayload("rootfs/etc/soda/install-started") {
+		t.Fatal("appliance installation state admitted to payload")
+	}
+}
+
 func TestLinkAndPathBoundaries(t *testing.T) {
 	if !validLink("rootfs/usr/local/bin/soda-tailnet", "/usr/local/libexec/soda/soda-tailnet") {
 		t.Fatal("lost delivered CLI link")

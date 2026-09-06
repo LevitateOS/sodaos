@@ -31,7 +31,10 @@ func allowedPayload(p string) bool {
 	if p == "rootfs" || strings.HasPrefix(p, "rootfs/") {
 		// The core owns the stage. Reject known runtime/private content rather than
 		// interpreting application config or inventing a React payload.
-		for _, bad := range []string{"/dashboard.json", "/host.json", "/installed", "/install-started", "/shadow", "/gshadow", "/machine-id", "/tailscale/", "/browser-home/", "/soda-artifacts", "/soda-acceptance", "/ssh_host_", "/authorized_keys"} {
+		if p == "rootfs/etc/soda/installed" {
+			return false
+		}
+		for _, bad := range []string{"/dashboard.json", "/host.json", "/install-started", "/shadow", "/gshadow", "/machine-id", "/tailscale/", "/browser-home/", "/soda-artifacts", "/soda-acceptance", "/ssh_host_", "/authorized_keys"} {
 			if strings.Contains(p, bad) {
 				return false
 			}
