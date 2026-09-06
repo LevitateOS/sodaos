@@ -10,7 +10,6 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
-	"golang.org/x/crypto/ssh"
 )
 
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
@@ -51,12 +50,12 @@ func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request, v store.S
 	http.Redirect(w, r, "/profile", 303)
 }
 func (s *Server) addKey(w http.ResponseWriter, r *http.Request, v store.Session) {
-	key, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(r.FormValue("public_key")))
-	if err != nil || len(options) > 0 || len(strings.TrimSpace(string(rest))) > 0 {
+	public, fingerprint, err := normalizeDevelopmentKey(r.FormValue("public_key"))
+	if err != nil {
 		s.fail(w, "Provide one public SSH key without authorized_keys options. Never submit a private key.", 400)
 		return
 	}
-	if err = s.Store.AddKey(r.Context(), v.User.ID, string(ssh.MarshalAuthorizedKey(key)), ssh.FingerprintSHA256(key)); err != nil {
+	if err = s.Store.AddKey(r.Context(), v.User.ID, public, fingerprint); err != nil {
 		s.fail(w, "Could not register key.", 500)
 		return
 	}

@@ -2,7 +2,7 @@
 
 ## Status and decisions
 
-Planning inventory following the user's React/dashboard direction. This is not an implemented migration, a frozen dependency lockfile or authorization to change the running appliance. The current dashboard remains Go + HTMX; the earlier architecture/milestone descriptions of that frontend describe the existing implementation. The page scope below is proposed for review. The [multi-milestone implementation plan](dashboard-implementation-plan.md) assigns the work, API/data/build boundaries, tests and acceptance criteria; it also separates conditional environment extensions from the core migration.
+Planning inventory following the user's React/dashboard direction. This inventory is not completion evidence or a frozen dependency lockfile. Implementation has started with the [preview/API foundation](implementation-status.md#core-implementation-started); the full migration is not built, validated or deployed. The current dashboard remains Go + HTMX; the earlier architecture/milestone descriptions of that frontend describe the existing implementation. The page scope below is proposed for review. The [multi-milestone implementation plan](dashboard-implementation-plan.md) assigns the work, API/data/build boundaries, tests and acceptance criteria; it also separates conditional environment extensions from the core migration.
 
 **Coordination:** the [implementation plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) leads core frontend/backend, production environments and U08/U20 product acceptance. The [native support plan](native-porting-plan.md) is subordinate and covers outside tooling/operator integrations, not a parallel product roadmap. This inventory defines page families, not another execution sequence.
 
@@ -63,7 +63,7 @@ The unified frontend includes three distinct administrative contexts: **Forgejo 
 
 `internal/web/auth.go` currently requests `read:user`, looks up the user and establishes the Soda session. `internal/forgejo/client.go` currently returns only the access token from the code exchange, and it is not retained for later user API calls. Repository listing/lookup currently uses the restricted operator credential with separate ownership filtering. That is not the general authorization model for the expanded frontend.
 
-The migration needs:
+The first source batch now supplies JSON session/logout, Soda-local preference/key handlers, all-unsafe-method JSON CSRF/origin guards and React session state. It is unbuilt/unexecuted and does not retain provider credentials. The complete migration still needs:
 
 - Scopes matched to the actual selected Forgejo operations, without asking every developer for administrative access.
 - Protected server-side access/refresh-token storage and expiry/refresh handling. Tokens must never be put in React props, Zustand, browser storage, URLs or diagnostic output.
@@ -212,7 +212,7 @@ The schema contains repository/content/commit/branch, issues/PR/review, release/
 
 ## Direct dependency inventory
 
-This is the proposed **direct** dependency list for the dashboard work, not an invented list of every transitive package or OS RPM. The real frontend lockfile and Go module metadata must record the resolved closure. New package versions are not yet selected or installed; verify compatibility/licensing and pin them before implementation builds.
+This is the proposed **direct** dependency list for the dashboard work, not an invented list of every transitive package or OS RPM. The real frontend lockfile and Go module metadata must record the resolved closure. React Router 7.18.3 is now selected from public metadata; other proposed additions remain unselected and the dashboard dependency closure is not installed/resolved. Verify compatibility/licensing and review real lockfiles before builds.
 
 Most of the requested stack already appears in `cockpit/package.json`. Reuse that baseline where appropriate without coupling dashboard code to Cockpit privileges or incidentally upgrading the existing operator pages.
 
@@ -222,7 +222,7 @@ Most of the requested stack already appears in `cockpit/package.json`. Reuse tha
 | --- | --- | --- |
 | `react` | UI | 18.3.1 |
 | `react-dom` | Browser rendering | 18.3.1 |
-| `react-router-dom` | Client-only URL routing, not SSR/framework mode | New pin to verify |
+| `react-router-dom` | Client-only URL routing, not SSR/framework mode | 7.18.3 selected from public metadata; resolution/build verification pending |
 | `zustand` | Feature stores, request status and UI state | 5.0.15 |
 | `@patternfly/react-core` | Forms, layout, navigation, feedback and other UI components | 6.6.1 |
 | `@patternfly/react-icons` | Icons | 6.6.1 |
@@ -275,7 +275,7 @@ The immutable host, project OS, Git/OpenSSH/mise/Tea/GitHub CLI and native workl
 
 ## Implementation order and working criteria
 
-This is a summary; follow [U01–U20 and conditional E01–E03](dashboard-implementation-plan.md) for the detailed sequence. All milestones remain unstarted until implemented; the plan itself is not runtime evidence.
+This is a summary; follow [U01–U20 and conditional E01–E03](dashboard-implementation-plan.md) for the detailed sequence. Partial implementation is recorded in the handoff; no milestone is complete merely because its foundation or test source exists.
 
 1. **Foundation:** new React source/build entry, PatternFly shell, browser router, same-origin JSON contract and Go asset delivery. Preserve canonical branding. Do not remove the working HTMX routes before their replacements are connected.
 2. **Authentication:** reuse Forgejo login, add the required per-user API credential lifecycle and test secure sessions, expired/denied access and CSRF on every write method. Preserve the separate operator/host boundary.

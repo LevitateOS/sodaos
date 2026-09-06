@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/levitateos/sodaos/assets"
 	"github.com/levitateos/sodaos/internal/config"
@@ -46,13 +48,20 @@ func New(c config.Config, db *store.Store) *Server {
 		s.render(w, "home", nil)
 	})
 	s.authRoutes()
+	s.apiRoutes()
 	s.projectRoutes()
 	return s
 }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+	// Refuse malformed API paths as JSON instead of ServeMux's HTML canonical
+	// redirect. API callers must never follow a redirect into a page response.
+	if (r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/")) && path.Clean(r.URL.Path) != r.URL.Path {
+		jsonError(w, http.StatusNotFound, "not_found", "API route not found.")
+		return
+	}
 	s.mux.ServeHTTP(w, r)
 }
 func (s *Server) render(w http.ResponseWriter, name string, data any) {

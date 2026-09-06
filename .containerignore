@@ -2,6 +2,8 @@
 .local
 cockpit/node_modules
 cockpit/dist
+dashboard/node_modules
+dashboard/dist
 # Never send VM disks, private provisioning, keys, or downloads to a build.
 .artifacts/*
 !.artifacts/native

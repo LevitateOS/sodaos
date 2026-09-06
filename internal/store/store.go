@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	_ "modernc.org/sqlite"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 type Store struct{ db *sql.DB }
@@ -48,27 +49,19 @@ func Open(path string) (*Store, error) {
 	}
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
-	if _, err = db.Exec(schema); err != nil {
+	if _, err = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;`); err == nil {
+		err = migrate(context.Background(), db)
+	}
+	if err == nil {
+		_, err = db.Exec(`PRAGMA journal_mode=WAL;`)
+	}
+	if err != nil {
 		db.Close()
 		return nil, err
 	}
 	return s, nil
 }
 func (s *Store) Close() error { return s.db.Close() }
-
-const schema = `
-PRAGMA foreign_keys=ON;
-PRAGMA journal_mode=WAL;
-PRAGMA busy_timeout=5000;
-CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY);
-INSERT OR IGNORE INTO schema_version VALUES(1);
-CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '');
-CREATE TABLE IF NOT EXISTS keys(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint));
-CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready INTEGER NOT NULL DEFAULT 0 CHECK(ready IN(0,1)));
-CREATE TABLE IF NOT EXISTS memberships(project_id TEXT NOT NULL REFERENCES projects(id), user_id INTEGER NOT NULL REFERENCES users(id), login TEXT NOT NULL, PRIMARY KEY(project_id,user_id), UNIQUE(project_id,login));
-CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), csrf TEXT NOT NULL, expires INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS oauth(state TEXT PRIMARY KEY, verifier TEXT NOT NULL, expires INTEGER NOT NULL);
-`
 
 func (s *Store) UpsertUser(ctx context.Context, u User) error {
 	if u.ID <= 0 || strings.TrimSpace(u.Login) == "" {
@@ -186,12 +179,20 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE token=?`, hash(token))
 	return err
 }
-func (s *Store) BeginOAuth(ctx context.Context, state, verifier string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth VALUES(?,?,?)`, hash(state), verifier, time.Now().Add(10*time.Minute).Unix())
+
+type OAuthRequest struct {
+	Verifier, ReturnPath string
+}
+
+func (s *Store) BeginOAuth(ctx context.Context, state, verifier, returnPath string) error {
+	if returnPath != "/projects" && returnPath != "/app/" {
+		return errors.New("unsupported OAuth return path")
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,return_path) VALUES(?,?,?,?)`, hash(state), verifier, time.Now().Add(10*time.Minute).Unix(), returnPath)
 	return err
 }
-func (s *Store) ConsumeOAuth(ctx context.Context, state string) (string, error) {
-	var v string
-	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier`, hash(state), time.Now().Unix()).Scan(&v)
+func (s *Store) ConsumeOAuth(ctx context.Context, state string) (OAuthRequest, error) {
+	var v OAuthRequest
+	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier,return_path`, hash(state), time.Now().Unix()).Scan(&v.Verifier, &v.ReturnPath)
 	return v, err
 }

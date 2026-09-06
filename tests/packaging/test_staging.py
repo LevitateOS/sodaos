@@ -24,6 +24,21 @@ class NativeStage(unittest.TestCase):
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-updates').exists())
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-projects').exists())
 
+    def test_dashboard_frontend_payload(self):
+        folder = self.root / 'usr/local/share/soda/dashboard'
+        self.assertTrue((folder / 'index.html').is_file())
+        self.assertTrue((folder / 'LICENSES.txt').is_file())
+        manifest = json.loads((folder / '.vite/manifest.json').read_text())
+        self.assertTrue(any(chunk.get('isEntry') for chunk in manifest.values()))
+        for chunk in manifest.values():
+            for name in [chunk['file'], *chunk.get('css', []), *chunk.get('assets', [])]:
+                self.assertTrue(name.startswith('assets/'))
+                self.assertNotIn('..', Path(name).parts)
+                asset = folder / name
+                self.assertTrue(asset.is_file(), name)
+                self.assertTrue(asset.stat().st_mode & 0o004, name)
+        self.assertFalse((folder / 'node_modules').exists())
+
     def test_persistence_and_privilege_wiring(self):
         service = (self.root / 'etc/systemd/system/soda-project@.service').read_text()
         self.assertIn('podman start --attach', service)

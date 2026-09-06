@@ -1,6 +1,6 @@
 # Unified Soda frontend and backend implementation plan
 
-**Status: planning only. All U01–U20 and conditional E01–E03 milestones below are not started.** Writing this plan does not implement the React migration, change dependencies or authorize builds, provider operations, installation, network changes or lifecycle tests.
+**Status: implementation started at the user's request; no U milestone is complete or newly runtime-verified.** The first source batch adds a React preview and asset delivery, JSON session/preferences/development-key APIs and transactional schema-v2 migration. U01/U02/U03 and the Soda-only portion of U05 are in progress; U04 per-user provider grants and subsequent full workflows remain pending. Conditional E01–E03 remain unselected. Builds, dependency resolution, product tests, installation and native actions retain their applicable authorization gates. See [actual progress](implementation-status.md#core-implementation-started) and [implemented API contracts](dashboard-api.md).
 
 **Goal:** one usable React frontend for upstream Forgejo and Soda's development-environment extension, including developer and administrator workflows. First make real workflows work; then make them good. Security, accessibility basics, truthful failures and preservation of work are part of “works.”
 
@@ -209,7 +209,7 @@ For environment creation, accept a repository selection and resolve its canonica
 
 ## 6. Milestone map and execution order
 
-All statuses begin **not started**. Dependencies below are source/integration dependencies unless a milestone explicitly requires installed evidence. Tests described are acceptance work to author and execute only under the applicable authorization.
+The map specifies the full target sequence, not completed work. Current partial source work is recorded in the status above and implementation handoff; no milestone inherits PASS from an authored test. Dependencies below are source/integration dependencies unless a milestone explicitly requires installed evidence. Execute tests only under the applicable authorization.
 
 | ID | Milestone | Depends on | Main outcome |
 | --- | --- | --- | --- |
@@ -596,4 +596,4 @@ Each milestone handoff records changed paths, authority/data effects, upstream c
 
 Only run the applicable checks when authorized. This planning request does not authorize dependency installation, compilation, product tests, live account/repository changes, provider runner jobs, routing/firewall changes, deployment, removal or reboot. Keep secrets and private inputs in restricted channels and ignored private locations; never include them in commits, argv, logs or screenshots. Preserve the existing VM backing image and all unrelated builder infrastructure.
 
-**Next implementation assignment, once requested: U01.** Then build the first complete U02–U08 workflow rather than scaffolding every inventory page at once.
+**Current implementation:** finish U01's scope/token/peer audit and U02/U03 foundations, then U04 protected per-user provider access and the complete U05–U08 workflow. Initial source is connected for session, Soda preferences and development keys; it is not a completed migration. Continue the full U01–U20 sequence rather than scaffolding fake inventory pages. See the handoff for unfinished work and execution gates.

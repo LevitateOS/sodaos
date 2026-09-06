@@ -4,7 +4,7 @@ Persistent, shared development environments on an immutable appliance host. Deve
 
 **The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Recorded native x86_64 build/source checks passed, but the merged tree, including branding, console and project-CLI follow-ups, has not been rebuilt or retested. Full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
 
-**Next dashboard direction:** a client-rendered React/PatternFly frontend over upstream Forgejo and Soda's Go environment/access extension. See the [full milestone plan](docs/dashboard-implementation-plan.md) and [page/dependency inventory](docs/dashboard-plan.md). This migration is planned, not implemented; the topology below describes the existing system.
+**Next dashboard direction:** a client-rendered React/PatternFly frontend over upstream Forgejo and Soda's Go environment/access extension. See the [full milestone plan](docs/dashboard-implementation-plan.md) and [page/dependency inventory](docs/dashboard-plan.md). Implementation has started with a React preview, JSON session/profile/key APIs and migration source; it has not been built or deployed. See [current progress](docs/implementation-status.md#core-implementation-started). The topology below describes the existing installed system.
 
 **Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite.
 
@@ -57,6 +57,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 | Path | Purpose |
 | --- | --- |
 | `cmd/`, `internal/` | Go dashboard, database, provider clients and native helpers |
+| `dashboard/` | New client-rendered React preview and tests; source in progress, not deployed |
 | `cockpit/` | Retained TypeScript/React Tailnet and Runners pages and tests |
 | `project-os/` | Rocky project image, accounts, SSH, shared tools and workload configuration |
 | `appliance/` | Native services, Quadlets, configuration and activation source |

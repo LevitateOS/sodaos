@@ -8,13 +8,15 @@ The [leading core plan](dashboard-implementation-plan.md#coordination-with-nativ
 
 Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, pnpm 11.25.0, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence.
 
+The new React preview requires a real reviewed `dashboard/pnpm-lock.yaml`, which has not yet been resolved in the source-only phase. Both build entrypoints refuse to proceed without it; do not fabricate it or silently reuse Cockpit's lockfile. See [dashboard build/migration notes](../dashboard/README.md). Dependency resolution, compilation and deployment still need their applicable authorization.
+
 Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. Cockpit's predecessor dependency lockfile is retained. Then invoke:
 
 ```sh
 scripts/build-native.sh x86_64
 ```
 
-This builds native Go commands, bundles the two Cockpit pages, fetches/builds the pinned Tea source with its native version check, builds/saves the Rocky project and dashboard images (including GitHub CLI from its signed native RPM repository), fetches/verifies the locked native GitHub runner client and stages configuration under `.artifacts/native/x86_64/rootfs`. It does not publish or install. Inspect generated outputs before use. Repeat builds require explicitly removing only generated staging/provider/project-tools directories after inspection; no automatic source/state deletion is hidden in the script.
+This builds native Go commands, invokes the dashboard-only build for the React assets/binary/image, bundles the two Cockpit pages, fetches/builds the pinned Tea source with its native version check, builds/saves the Rocky project and dashboard images (including GitHub CLI from its signed native RPM repository), fetches/verifies the locked native GitHub runner client and stages configuration under `.artifacts/native/x86_64/rootfs`. It does not publish or install. Inspect generated outputs before use. Repeat builds require explicitly removing only generated staging/provider/project-tools directories after inspection; no automatic source/state deletion is hidden in the script.
 
 ## 2. Provision the upstream host
 

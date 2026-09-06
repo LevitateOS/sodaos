@@ -41,8 +41,16 @@ func (s *Server) authRoutes() {
 	s.mux.HandleFunc("POST /people", s.protected(s.createPerson))
 }
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	returnPath := r.URL.Query().Get("return_to")
+	if returnPath == "" {
+		returnPath = "/projects"
+	}
+	if returnPath != "/projects" && returnPath != "/app/" {
+		s.fail(w, "Unsupported sign-in destination.", http.StatusBadRequest)
+		return
+	}
 	state, verifier := token(), token()
-	if err := s.Store.BeginOAuth(r.Context(), state, verifier); err != nil {
+	if err := s.Store.BeginOAuth(r.Context(), state, verifier, returnPath); err != nil {
 		s.fail(w, "Cannot begin sign-in.", 500)
 		return
 	}
@@ -59,7 +67,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.cookie(w, "soda_oauth", "", -1)
-	verifier, err := s.Store.ConsumeOAuth(r.Context(), state)
+	oauth, err := s.Store.ConsumeOAuth(r.Context(), state)
 	if err != nil {
 		s.fail(w, "Sign-in expired or was already used.", 400)
 		return
@@ -74,7 +82,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "Sign-in is not configured.", 503)
 		return
 	}
-	access, err := s.Forgejo.Exchange(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.PublicURL+"/oauth/callback", verifier)
+	access, err := s.Forgejo.Exchange(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.PublicURL+"/oauth/callback", oauth.Verifier)
 	if err != nil {
 		s.fail(w, "Forgejo sign-in failed.", 502)
 		return
@@ -100,7 +108,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.cookie(w, "soda_session", value, int((12 * time.Hour).Seconds()))
-	http.Redirect(w, r, "/projects", 303)
+	http.Redirect(w, r, oauth.ReturnPath, 303)
 }
 func (s *Server) protected(next func(http.ResponseWriter, *http.Request, store.Session)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
