@@ -8,6 +8,7 @@ Read these before substantial changes:
 - `docs/dashboard-plan.md` — selected frontend/ownership constraints and page/dependency inventory
 - `docs/dashboard-implementation-plan.md` — leading core U01–U20 plan, including production native integration and product acceptance; conditional E01–E03 extensions
 - `docs/native-porting-plan.md` — subordinate outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations
+- `docs/native-support.md` — authored support-tool contracts, private inputs, phase effects and retention; not execution permission or native proof
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence
 - `docs/implementation-plan.md` — historical initial M01–M18 plan; not the new dashboard implementation sequence

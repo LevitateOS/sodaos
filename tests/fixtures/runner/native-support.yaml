@@ -1,0 +1,28 @@
+# P11 opt-in trusted-job fixture. NOT under .github/.forgejo: never automatic CI.
+# An operator must explicitly approve copying/scheduling this in a trusted repo,
+# select its actual runner label, and retain the real provider run URL/attempt.
+name: Native runner support observation
+on:
+  workflow_dispatch:
+    inputs:
+      observation:
+        description: Non-secret unique observation label
+        required: true
+        type: string
+jobs:
+  native:
+    runs-on: soda-native
+    timeout-minutes: 5
+    steps:
+      - name: Observe the actual native runner without credentials or checkout
+        env:
+          OBSERVATION: ${{ inputs.observation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$OBSERVATION" =~ ^[a-zA-Z0-9_-]{1,80}$ ]]
+          printf 'observation=%s\n' "$OBSERVATION"
+          uname -s
+          uname -m
+          id -un
+          printf 'Native provider-scheduled process reached this runner. No application/project acceptance is implied.\n'

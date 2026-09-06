@@ -1,0 +1,18 @@
+{
+  "MetadataURL": "https://builds.coreos.fedoraproject.org/streams/stable.json",
+  "Release": "44.20260817.3.2",
+  "Architectures": {
+    "x86_64": {
+      "URL": "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/44.20260817.3.2/x86_64/fedora-coreos-44.20260817.3.2-qemu.x86_64.qcow2.xz",
+      "SignatureURL": "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/44.20260817.3.2/x86_64/fedora-coreos-44.20260817.3.2-qemu.x86_64.qcow2.xz.sig",
+      "SHA256": "9b1e29c039de5eabeba610196fc53c77d5dfeba27f4261b26d5d4142706bb19f",
+      "UncompressedSHA256": "e306379535a1a77fa68c17c8e08908291314318f7f666d1851fbde1e1b1bc1fe"
+    },
+    "aarch64": {
+      "URL": "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/44.20260817.3.2/aarch64/fedora-coreos-44.20260817.3.2-qemu.aarch64.qcow2.xz",
+      "SignatureURL": "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/44.20260817.3.2/aarch64/fedora-coreos-44.20260817.3.2-qemu.aarch64.qcow2.xz.sig",
+      "SHA256": "671c9b42835ff810156882acd007762111bce5ce300fa3bf4081f9f778821605",
+      "UncompressedSHA256": "28f2ca2aae30f27f959fe761c45b6c213063094915af4fb6e647343a80e2e0f3"
+    }
+  }
+}

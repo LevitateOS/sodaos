@@ -22,6 +22,8 @@ def copy(src, dest, mode=None):
     return target
 for command in (source / 'cmd').iterdir():
     if command.is_dir():
+        if command.name in {'soda-artifacts', 'soda-acceptance'}:
+            p.error('outside support tools must not be staged on the appliance')
         copy(build / 'bin' / command.name, f'/usr/local/libexec/soda/{command.name}', 0o755)
 for unit in (source / 'appliance/services').iterdir():
     folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'

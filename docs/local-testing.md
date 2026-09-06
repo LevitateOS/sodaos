@@ -1,5 +1,9 @@
 # Local Soda dashboard and test host
 
+## New support source versus this persistent guest
+
+The [native support tools](native-support.md) are source-only additions, not a replacement for this existing guest or new evidence about it. `scripts/test-vm.sh`, `.artifacts/test-vm/` and the overlay's backing image are preserved. New tool fixtures require fresh paths/ports/identities and separate permission; never point their work/cache outputs at these persistent files.
+
 ## Open the dashboard
 
 **The dashboard, Forgejo and HTTPS proxy are now running in `soda-test`.** Native Forgejo login, OAuth consent/callback, the authenticated Projects/Profile/People pages and Soda sign-out have been exercised in Chromium with certificate verification enabled.

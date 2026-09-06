@@ -1,4 +1,5 @@
-FROM quay.io/rockylinux/rockylinux:9.6
+ARG BASE_IMAGE=quay.io/rockylinux/rockylinux:9.6
+FROM ${BASE_IMAGE}
 ARG ARTIFACT_DIR
 ARG MISE_VERSION=2026.9.1
 ARG GH_VERSION=2.97.0

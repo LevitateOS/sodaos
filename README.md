@@ -6,7 +6,7 @@ Persistent, shared development environments on an immutable appliance host. Deve
 
 **Next dashboard direction:** a client-rendered React/PatternFly frontend over upstream Forgejo and Soda's Go environment/access extension. See the [full milestone plan](docs/dashboard-implementation-plan.md) and [page/dependency inventory](docs/dashboard-plan.md). Implementation has started with a React preview, JSON session/profile/key APIs and migration source; it has not been built or deployed. See [current progress](docs/implementation-status.md#core-implementation-started). The topology below describes the existing installed system.
 
-**Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite.
+**Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite. The active [support tool source and recipes](docs/native-support.md) are now authored, with tests not yet executed; no new native readiness is claimed.
 
 ## How it fits together
 
@@ -62,6 +62,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 | `project-os/` | Rocky project image, accounts, SSH, shared tools and workload configuration |
 | `appliance/` | Native services, Quadlets, configuration and activation source |
 | `scripts/` | Explicit build, staging, provisioning, installation, check and local test-VM entrypoints |
+| `tools/soda-{artifacts,acceptance}/` | Outside artifact/VM/transport/evidence tools, never installed as appliance commands |
 | `tests/` | Authored staging checks and opt-in installed journeys/fixtures |
 | `assets/` | Canonical branding and attribution |
 | `docs/` | Architecture, scope, implementation handoff and operator guides |

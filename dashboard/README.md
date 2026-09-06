@@ -12,7 +12,7 @@ Later, with native build permission:
 bash scripts/build-dashboard.sh x86_64
 ```
 
-This builds only the dashboard frontend/binary/image into the established native artifact tree. It does not rebuild the project image, deploy, restart services or change VM state. Existing dashboard artifact outputs are refused; preserve the previous candidate and explicitly clear only approved generated outputs before another build. The full native build invokes the same entrypoint and stages its assets.
+This builds only the dashboard frontend/binary/image into the established native artifact tree. It does not rebuild the project image, deploy, restart services or change VM state. Existing dashboard artifact outputs are refused; preserve the previous candidate and explicitly clear only approved generated outputs before another build. The full native build invokes the same entrypoint with `--payload-only`: this still builds the React assets and Go binary, but leaves image creation/export to the full build's native artifact packaging. That caller builds the dashboard image once and stages the same assets. Without the flag, the standalone dashboard-only build still produces its binary, assets and image without requiring the support pipeline.
 
 The Go command's `--frontend-dir` defaults to `/usr/local/share/soda/dashboard`. A nonempty index, license payload, safe files and complete Vite manifest are validated **before** database opening/migration. Packaged frontend/backend bytes must be deployed together. See [API and migration notes](../docs/dashboard-api.md).
 

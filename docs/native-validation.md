@@ -4,6 +4,8 @@
 
 **Ownership:** U08/U20 in the [leading core plan](dashboard-implementation-plan.md#core-owned-native-proof-detail) own the browser/developer/workload/persistence journeys and overall product acceptance; individual features own their focused tests. The subordinate [native support plan](native-porting-plan.md) supplies VM/SSH/evidence/artifact/provisioning helpers, P06 host observations and P11 retained operator integrations. P07/P08 redirect to the core rather than create a second suite. Optional media and unfinished support ports do not block using the existing authorized entrypoints.
 
+The active [support tools and check entrypoints](native-support.md) are now authored. Their Go/Python/installed checks have **not** run; P12/P13 report interfaces do not establish native evidence. Fresh build/check outputs, first-install behavior, QEMU/firmware/Ignition behavior, retained operator journeys and both architectures still need separately authorized execution.
+
 This guide records operational checks, not another implementation roadmap. The M15–M18 labels below identify the historical proof stages and existing commands; current ownership follows U/P above. Record reused evidence by exact revision/bytes/target, never as a second independent PASS. No new execution is authorized by these plans.
 
 ## M15: native source/build evidence

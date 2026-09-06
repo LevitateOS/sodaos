@@ -1,6 +1,6 @@
 # Native support and artifact porting plan
 
-**Status: coordinated plan only; no port implementation or new execution evidence.** Active P milestones remain not started. P07/P08 are retained as redirects to core milestones, not separate work queues. P09/P10 media work is conditional on an explicit delivery decision. This Git merge/planning request does not authorize running the proposed tools.
+**Status: active support source implemented; source checks and native observations remain unexecuted.** P01–P06/P11 tools, callers and authored tests, plus P12/P13 reporting interfaces, are described in the [support guide](native-support.md). No native milestone exit or current-candidate product readiness is claimed. P07/P08 remain core redirects; P09/P10 remain conditional/unselected. Source implementation does not authorize builds, tests, installation, VM/provider operations or publication.
 
 **Precedence:** [dashboard-implementation-plan.md](dashboard-implementation-plan.md) is the leading plan for the **core product**, including its production native environment integration—not just React screens. This plan owns only the surrounding support tools and retained host-operator integrations. If the plans conflict, the dashboard implementation plan wins; change this plan instead of forking the core's behavior, contracts or acceptance criteria.
 
@@ -110,14 +110,14 @@ Existing soda-test + its backing image → preserved, not an export/test templat
 
 This names a proposed reuse of the recorded builder, not a new liveness/access check. Do not install Soda services on the builder. Client CPU architecture does not determine the tested appliance architecture.
 
-Proposed new source paths, only with concrete callers:
+Implemented source paths with outside callers (media remains conditional):
 
 ```text
-tools/soda-artifacts/       inspect/bundle/approved CoreOS media commands
-internal/nativebuild/      artifact identity, input verification, media adapters
+tools/soda-artifacts/       inspect/seal/bundle and verified CoreOS input commands
+internal/nativebuild/      artifact identity and input verification; no media adapters
 tools/soda-acceptance/      explicit VM/transport/evidence phases; invoke owned checks
 internal/acceptance/        VM/QMP/process/SSH/evidence helpers, not core scenarios
-scripts/native-remote.sh    thin exact-revision SSH entrypoint
+internal/acceptance/remote_executor.py  embedded exact-revision native phases
 appliance/locks/            approved CoreOS/tool/image inputs where needed
 tests/installed/            existing owners: core product; P06 host; P11 operator
 ```
@@ -363,14 +363,14 @@ Before changing shared configuration/build/staging/test paths, name the U/P owne
 
 ## 12. Completion checklist
 
-- [ ] Core precedence, shared-file interfaces and active/conditional/moved P dispositions are explicit.
-- [ ] Selected helpers/tests have actual outside callers; no copied core scenario/release/account/Updates framework.
-- [ ] Infrastructure binaries/private inputs stay out of appliance payloads; existing VM/base remain intact.
+- [x] Core precedence, shared-file interfaces and active/conditional/moved P dispositions are explicit.
+- [x] Selected helpers/tests have actual outside callers; no copied core scenario/release/account/Updates framework.
+- [x] Source build/staging guards exclude infrastructure binaries/private inputs from appliance payloads; existing VM/base remain untouched. Actual packaging/native verification is pending.
 - [ ] Exact native artifacts and selected OS/operator observations have revision/byte/target-specific evidence.
 - [ ] Media paths have independent proof only if approved; no media or sibling-architecture gate blocks core work.
-- [ ] U08/U20 own developer/workload/persistence assertions and overall product readiness; support reports link, not duplicate them.
-- [ ] Failed/blocked/unselected work, privacy/cleanup failures and current limitations remain visible.
-- [ ] Installation/validation/reuse guidance and shared build contracts agree with the leading core plan.
+- [x] U08/U20 own developer/workload/persistence assertions and overall product readiness; support reports link, not duplicate them.
+- [x] Source reports preserve failed/missing/unselected work and privacy/cleanup failures; native limitations remain visible.
+- [x] Installation/validation/reuse guidance and shared build contracts follow the leading core plan. See the source-only handoff; no execution is implied.
 
 ## References
 

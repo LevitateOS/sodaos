@@ -2,7 +2,7 @@
 
 Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
-The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The commands below remain the existing installation path; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
+The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The active [support source and recipes](native-support.md) are now authored but unbuilt/untested. The commands below retain the existing installation path with sealed bundles and private provisioning; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
 
 ## 1. Prepare the native builder
 
@@ -16,7 +16,9 @@ Real Go dependency metadata was resolved during the first native x86_64 build an
 scripts/build-native.sh x86_64
 ```
 
-This builds native Go commands, invokes the dashboard-only build for the React assets/binary/image, bundles the two Cockpit pages, fetches/builds the pinned Tea source with its native version check, builds/saves the Rocky project and dashboard images (including GitHub CLI from its signed native RPM repository), fetches/verifies the locked native GitHub runner client and stages configuration under `.artifacts/native/x86_64/rootfs`. It does not publish or install. Inspect generated outputs before use. Repeat builds require explicitly removing only generated staging/provider/project-tools directories after inspection; no automatic source/state deletion is hidden in the script.
+Use a clean exact-revision checkout with fresh `.artifacts/native/x86_64` output; another attempt requires a fresh checkout, not global artifact removal. The build serializes that checkout, forces matching-native Go/local Podman, builds application commands and separate support tools, invokes the core-owned `scripts/build-dashboard.sh ARCH --payload-only` for React assets and the dashboard binary, bundles the existing Cockpit payload, builds Tea, and builds the Rocky project/dashboard images once from those outputs. React assets are staged with their Go binary; there is no second frontend build or missing-asset substitute. It resolves the unchanged Forgejo/Caddy references for the selected platform, saves all four archives explicitly as OCI, records public native dependency/package/CLI metadata, stages the core configuration, inspects ELF/OCI identity and seals the payload. Read-only, network-disabled image-inspection containers are part of this build recipe, not project lifecycles. No publication, install, VM or product test follows automatically.
+
+Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist with the built `tools/soda-artifacts bundle` command as shown in [support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
 
 ## 2. Provision the upstream host
 
@@ -28,8 +30,11 @@ Produce private provisioning input using operator-selected files:
 umask 077
 scripts/render-provisioning.py --operator-key-file /secure/operator.pub \
   --root-password-hash-file /secure/root.hash --out /secure/soda.bu
-butane --strict /secure/soda.bu --output /secure/soda.ign
+/path/to/soda-artifacts convert-butane --arch x86_64 \
+  --source /secure/soda.bu --out /secure/soda.ign
 ```
+
+Use a real mode-0700 parent and new absolute output paths; private inputs/outputs are restricted regular files. The public bootstrap is `appliance/provisioning/base.json`. For fresh QEMU fixtures, the [support guide](native-support.md#fresh-vm-contract) adds a unique hostname and a pre-pinned per-instance SSH host key, verified against one complete `fw_cfg` Ignition input; do not assume automatic disk/fragment merging.
 
 The root password hash is a native crypt(3) hash supplied by the operator, not plaintext or a Forgejo password. Treat both generated provisioning files as secrets. The input configures only operator host access and a one-time native extension install; it never creates developer host accounts.
 
@@ -39,13 +44,13 @@ The Tailscale repository is the upstream Fedora stable repository. Native packag
 
 ## 3. Install the built components
 
-Transfer the matching `.artifacts/native/ARCH` directory and the installation script to the selected target without publishing anything. Choose a **non-overlapping private IPv4 subnet** for project IPs, for example `10.89.0.0/24` only if suitable for that deployment.
+Transfer only the sealed matching deployment bundle through the pinned `soda-acceptance transfer` path or another explicitly approved trusted transfer. Establish its `SHA256SUMS` identity over that trusted channel before executing any bundled program. The inventory identifies each delivered file; it is not a signed release. No publication is needed. Choose a **non-overlapping private IPv4 subnet** for project IPs, for example `10.89.0.0/24` only if suitable for that deployment.
 
 ```sh
-sudo scripts/install-native.sh /path/to/native/x86_64 10.89.0.0/24
+sudo /path/to/bundle/x86_64/install-native.sh /path/to/bundle/x86_64 10.89.0.0/24
 ```
 
-This is an explicit first-install operation, not an updater. It stages native files, establishes the dedicated service identity and non-conflicting Podman subordinate range, loads the two images, and starts loopback-only Forgejo/Cockpit plus the root:soda helper socket and native Tailscale daemon. It does not enroll in a Tailnet, create provider runners or activate public browser endpoints. It refuses blind reinstall over existing Soda configuration.
+This is an explicit first-install operation, not an updater. It stages native files, establishes the dedicated service identity and non-conflicting Podman subordinate range, loads the four verified image archives and restores the existing core service references, and starts loopback-only Forgejo/Cockpit plus the root:soda helper socket and native Tailscale daemon. It does not enroll in a Tailnet, create provider runners or activate public browser endpoints. It refuses blind reinstall over existing Soda configuration or a retained `/etc/soda/install-started` marker. Bundle/platform/package/subnet/identity preflight precedes payload writes; partial installation still requires an operator recovery decision, not deleting the marker and retrying as if clean.
 
 Follow [operator setup](operator-setup.md). The native Forgejo installer is initially accessible only over an operator SSH tunnel to port 3000. `soda-setup` uses the resulting operator API token to create its actual OAuth application/configuration. Supply valid, browser-trusted TLS material covering the distinct Soda and Forgejo origins, then:
 

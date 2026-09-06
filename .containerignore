@@ -4,10 +4,19 @@ cockpit/node_modules
 cockpit/dist
 dashboard/node_modules
 dashboard/dist
-# Never send VM disks, private provisioning, keys, or downloads to a build.
-.artifacts/*
+# Deny artifacts by default. Only the core's image build inputs are admitted.
+.artifacts/**
 !.artifacts/native
-# Keep native command binaries and project-tool binaries/licenses for the images.
-.artifacts/native/*/images
-.artifacts/native/*/rootfs
-.artifacts/native/*/github-actions-runner
+!.artifacts/native/*
+.artifacts/native/*/**
+!.artifacts/native/*/bin
+!.artifacts/native/*/bin/**
+!.artifacts/native/*/dashboard
+!.artifacts/native/*/dashboard/**
+!.artifacts/native/*/project-tools
+.artifacts/native/*/project-tools/**
+!.artifacts/native/*/project-tools/bin
+!.artifacts/native/*/project-tools/bin/**
+!.artifacts/native/*/project-tools/licenses
+!.artifacts/native/*/project-tools/licenses/**
+# No tools/, images/, rootfs/, runner archive, private fixture or cache exception.
