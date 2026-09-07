@@ -1,0 +1,25 @@
+{{/* SPDX-License-Identifier: Apache-2.0 */}}
+{{if .Repository}}{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
+<div id="sodaspaces-root" hidden data-sub-url="{{AppSubUrl}}" data-repository-id="{{.Repository.ID}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" data-user-id="{{if .IsSigned}}{{.SignedUserID}}{{end}}">
+	<button id="sodaspaces-button" type="button" class="ui compact small basic button" aria-haspopup="dialog" aria-controls="sodaspaces-drawer">Sodaspaces</button>
+	<dialog id="sodaspaces-drawer" aria-labelledby="sodaspaces-title">
+		<div class="sodaspaces-panel">
+			<header><h2 id="sodaspaces-title">Sodaspaces</h2><button id="sodaspaces-close" type="button" class="ui small basic button" autofocus>Close</button></header>
+			<div class="content">
+				<p id="sodaspaces-status" role="status" aria-live="polite"></p>
+				<div id="sodaspaces-loading" class="is-loading loading-icon-2px" hidden aria-hidden="true"></div>
+				<div id="sodaspaces-data" aria-busy="false">
+					<p id="sodaspaces-actor"></p><p id="sodaspaces-repository"></p>
+					<p id="sodaspaces-environment"></p><p id="sodaspaces-login"></p>
+					<p id="sodaspaces-warning"></p>
+				</div>
+				<p>Persistent shared development environment. No environment changes are made by this drawer.</p>
+				<p><a id="sodaspaces-sign-in" class="ui basic button" hidden>Sign in to Soda</a></p>
+				<p><button id="sodaspaces-sign-out" type="button" class="ui basic button" hidden>Sign out of Soda</button></p>
+			</div>
+			<footer class="actions"><button id="sodaspaces-refresh" type="button" class="ui basic button">Refresh status</button><button id="sodaspaces-reload" type="button" class="ui basic button" hidden>Reload repository page</button></footer>
+		</div>
+	</dialog>
+</div>
+<script src="{{AppSubUrl}}/assets/sodaspaces.js" defer></script>
+{{end}}{{end}}

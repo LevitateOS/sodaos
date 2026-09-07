@@ -53,10 +53,11 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
-  Cockpit React/PatternFly pages. The drawer remains unimplemented. Source now has
+  Cockpit React/PatternFly pages. A read-only hook/drawer/context caller is authored;
+  native browser proof and mutation controls remain pending. Source now has
   same-origin `/-/soda/` routing/scoped cookies, expected-actor API guards and
-  schema-v5 login cancellation plus OAuth repository/expected-user context. Native-page wiring and browser
-  proof remain pending; the actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
+  schema-v5 login cancellation plus OAuth repository/expected-user context. Native-page wiring is authored but browser
+  proof remains pending; the actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and
   asset compatibility still need review/tests; preserve working login and native
   protocols. Retained operator Cockpit remains a separate selected boundary.

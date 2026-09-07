@@ -1,0 +1,29 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+#sodaspaces-root [hidden] { display: none !important; }
+#sodaspaces-drawer:not([open]) { display: none; }
+#sodaspaces-drawer {
+  inset: 0 0 0 auto;
+  margin: 0;
+  width: min(28rem, 100vw);
+  min-width: 0;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0;
+  border-radius: 0;
+  color: var(--color-text);
+  background: var(--color-body);
+}
+#sodaspaces-drawer .sodaspaces-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+#sodaspaces-drawer header { flex-shrink: 0; justify-content: space-between; }
+#sodaspaces-title { margin: 0; font-size: 1.25rem; }
+#sodaspaces-drawer .content { flex: 1; overflow: auto; overflow-wrap: anywhere; }
+#sodaspaces-drawer .actions { flex-shrink: 0; flex-wrap: wrap; }
+#sodaspaces-loading { min-height: 3rem; }
+#sodaspaces-drawer :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

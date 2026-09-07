@@ -3,8 +3,9 @@
 The root React `dashboard/` and its duplicate Forgejo workflow adapters have been
 removed. This guide describes the **retained Go source**, not an installed rollout
 or a completed Sodaspaces button/drawer. Native Forgejo owns collaboration/account/
-administration pages. The old Go/HTMX frontend is also removed; no Soda browser UI
-remains in source while supported Sodaspaces integration is still pending.
+administration pages. The old Go/HTMX frontend is also removed. A native read-only
+hook/drawer caller is now authored; real browser/proxy proof and mutation controls
+remain pending.
 
 ## Browser namespace
 
@@ -16,7 +17,7 @@ paths are not aliases. Caddy forwards only the Soda prefix unchanged and leaves
 native Forgejo routes upstream-owned. This foundation is source-tested, not
 installed or a completed authenticated drawer. Actor-context guards and
 repository-bound OAuth return handling now exist in the backend; native-page
-context capture and the real browser/proxy round trip remain unimplemented/unproven.
+context capture is authored, while the real browser/proxy round trip remains unproven.
 
 ## Expected actor
 
@@ -77,7 +78,7 @@ login without reinstallation or a new provider check. This does not continuously
 synchronize access or revoke existing Linux accounts after native permission changes.
 
 Repository-scoped reads and new-join authorization are implemented; the native
-button/drawer caller and stable-ID creation remain pending. No shared native cookie
+button/drawer caller is authored and stable-ID creation remains pending. No shared native cookie
 or completed authenticated embedding is implied.
 
 ## Browser/session/security contracts
@@ -144,16 +145,16 @@ implemented and locally source-tested, not deployed or browser/proxy validated.
 The backend sees a Soda session and a declared page actor, **not Forgejo's live
 browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
-is unchanged. The pending drawer must discard stale reads and reload native page
+is unchanged. The authored drawer discards stale reads and requires reloading native page
 context on resume/BFCache restoration before exposing actions, then compare the
 page/session/provider IDs. The [read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
-will invalidate on hidden/blurred/pagehide/restored documents and require an explicit
+invalidates on hidden/blurred/pagehide/restored documents and requires an explicit
 full native-page reload before further environment reads. It must not auto-reload
 away unsaved native form edits; another Soda fetch is not refreshed native context.
 An anonymous or mismatched page offers explicit sign-in,
 not automatic account switching or mutation replay. Native logout is not global
 Soda logout; do not claim atomic cross-system session revocation. Browser behavior
-and this caller wiring still require implementation and real verification.
+still requires real verification; source DOM doubles do not establish it.
 
 ## Retained callers, tests and packaging
 

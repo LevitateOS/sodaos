@@ -3,11 +3,12 @@
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**. No new tab or standalone page.
 Both old Soda frontends and duplicate forge adapters are removed; the drawer and
-its complete authenticated integration are **not implemented**. Step 1 is underway:
+its complete authenticated native proof remain **incomplete**. The read-only
+hook/assets and context caller are now in source. Step 1 is underway:
 routing/configuration/scoped cookies and backend actor/return context are in source.
-Native-page wiring and real browser/proxy proof remain pending. Step 2's backend
-repository reads/new-join checks are implemented; native-page context and steps 3–6
-remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+Native-page wiring is authored; real browser/proxy proof remains pending. Step 2's
+backend repository reads/new-join checks are implemented. Step 3 source delivery
+is underway; native completion and steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
 locally tested. Neither is deployed; browser/proxy proof remains pending.
@@ -225,8 +226,9 @@ existing Linux accounts, keys, SSH sessions or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
-**Next milestone, not implemented:** complete the pending native-page identity/read
-caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
+**Source underway, not native-accepted:** the hook/assets, identity/read caller and
+focused source tests are implemented. Packaging and the opt-in journey follow;
+complete native proof for the caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
 source tests first, packaging with fixtures next, then the opt-in native journey.
 Run native proof only with its separate approval. Read-only UI source may proceed
 before that proof; do not mark the milestone complete or enable step-4 controls

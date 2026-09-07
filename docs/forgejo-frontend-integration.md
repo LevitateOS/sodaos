@@ -2,9 +2,10 @@
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
-and [handoff](implementation-status.md). The UI and complete authenticated native-page
-→ Soda connection remain pending. Go/proxy/config/scoped-cookie and backend actor/return handling now exist
-in source; the upstream UI findings below remain inspection, not browser proof.
+and [handoff](implementation-status.md). The read-only hook/drawer/context caller
+is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
+Complete authenticated native-page → Soda browser proof remains pending; source
+findings and DOM doubles are not that proof.
 
 ## Verified source surface
 
@@ -55,7 +56,20 @@ ordering/repeated opens, Escape/backdrop/Close/focus return, narrow screens, nat
 navigation and upgrades. Keep the content wrapper filling the dialog so native
 backdrop-click handling does not treat an empty internal area as an outside click.
 
+### Source checks
+
+With the existing pinned Go/Node tools and prepared Cockpit dependencies, local
+checks are `go test -mod=readonly ./scripts` and
+`node --test tests/frontend/sodaspaces.test.mjs`. The latter uses actual Soda markup
+and script with jsdom/API/dialog doubles. No new frontend dependency or build is
+needed. The full `scripts/check-native.sh ARCH` still requires a clean revision and
+actual native stage. Browser focus, styling, cookies and stock hook rendering need
+the separately approved native journey.
+
 ### Controls and states
+
+The current source implements the read-only states and explicit authentication;
+create/key/join/SSH controls in the eventual table below are not implemented.
 
 Always show repository/environment context, the actual Soda acting identity and Close.
 
@@ -102,8 +116,8 @@ grant `RepositoryByID` lookup and a locally constructed native URL, never a supp
 redirect URL. Inspected 15.0.7 `repo.GetByID` checks acting-user repository access.
 
 The header is a consistency guard, not proof of the live native browser session.
-Native-page context capture, stale-tab handling and the real browser round trip
-remain pending; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
+Native-page context capture and stale-tab handling are authored; the real browser
+round trip remains pending; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
 The Caddy recipe has not been exercised or deployed; source HTTP tests do not prove
 native route matching or cookie behavior. The installed guest retains historical
 separate origins/configuration and schema v3.

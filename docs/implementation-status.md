@@ -5,15 +5,15 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | None: React/duplicate forge adapters removed in `752079e`; original Go/HTMX pages/forms/assets and exclusive clients removed in `9f3baa7` |
+| Soda UI source | Four native hook/assets now implement the read-only context/drawer candidate; both standalone frontends remain removed. Native browser proof and mutation controls pending |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
 | Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
 
 Source removal is **not deployment**. No native image/stage build or installed
-retest of the removal commits occurred. The current source has no usable Soda
-browser controls until Sodaspaces is connected. Root returns to configured Forgejo
+retest of the removal commits occurred. The read-only Sodaspaces source caller is
+now authored, not installed or native-browser-proven. Root returns to configured Forgejo
 home; OAuth can return to a freshly resolved repository under that origin using
 single-use stored context and the acting grant, never a caller-supplied URL.
 Schema v5 adds internal login cancellation contexts after v4's repository/expected-
@@ -305,6 +305,24 @@ checks ran; no product tests, builds, dependency resolution, browser/proxy execu
 provider or retained-state actions. Planning source hashes and check logs:
 `.artifacts/research/read-only-plan-ddb2d4f/`.
 The drawer remains absent; only historical bounded U08 is accepted.
+
+## Read-only caller source
+
+After `05217f7`, added two original custom hooks and scoped CSS/vanilla JavaScript
+under `appliance/forgejo/`. Only our button moves into the native action row; browser
+`<dialog>` owns the overlay. String IDs bind session/provider/repository reads;
+explicit contextual OAuth and Soda-only logout remain distinct. Reads are bounded,
+time-limited and generation-guarded. Hidden/blurred/restored pages clear data and
+require explicit reload, without discarding native form edits automatically. No
+create/key/join/connection/lifecycle/terminal controls or backend/schema changes.
+
+Soda template tests and Node/jsdom tests exercise actual markup/script with fake
+provider responses/dialog methods, not native rendering or account provisioning.
+Focused Go script tests and DOM checks passed locally using cached tools; logs are
+in `.artifacts/research/read-only-05217f7/`. The aggregate source-check entrypoint
+now invokes the DOM test; its actual-stage requirement is unchanged. Packaging,
+opt-in native journey and real browser/proxy proof still follow. No dependencies,
+images, stage, services, provider credentials or retained state changed.
 
 ## Remaining work and permission boundary
 
