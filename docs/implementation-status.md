@@ -354,3 +354,12 @@ native APIs within alice/activity-workbench. Browser confirmed 8 open/2 closed,
 review summaries and conflict indicator; API confirmed a native draft and
 non-mergeable conflicting PR. Added a new generated collaboration image selected
 only for Pull requests. No deployment or non-fixture repository changes.
+
+Milestone artwork/fixture follow-up (2026-09-08): dedicated generated steps/flag
+illustration now replaces the reused checklist image. Prompt and provenance:
+`assets/branding/forgejo/milestones-art-prompt.md`. User-authorized native API writes
+added ten milestones and thirty linked issues within the existing three local
+fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50/75/100%
+progress examples, overdue/upcoming/no-deadline states and empty milestone content.
+The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
+do not blindly rerun it. No non-fixture repository writes or deployment.

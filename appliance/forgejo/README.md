@@ -238,3 +238,12 @@ copy is English. Local template reload and Chrome checks covered the populated
 8% fixture, closed empty state, keyword no-match and 390px layout without horizontal
 overflow. Due/overdue dates, tracked time, organization context, light appearance
 and pagination were not newly exercised. No new fixtures or appliance deployment.
+
+Milestone artwork/fixture follow-up (2026-09-08): dedicated generated steps/flag
+illustration now replaces the reused checklist image. Prompt and provenance:
+`assets/branding/forgejo/milestones-art-prompt.md`. User-authorized native API writes
+added ten milestones and thirty linked issues within the existing three local
+fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50/75/100%
+progress examples, overdue/upcoming/no-deadline states and empty milestone content.
+The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
+do not blindly rerun it. No non-fixture repository writes or deployment.
