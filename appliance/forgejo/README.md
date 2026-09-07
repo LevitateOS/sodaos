@@ -84,3 +84,9 @@ two paper robots, each with a laptop, connected to one shared computer on a curv
 cobalt workbench. Prompt direction: Friendly Workbench, folded matte cardstock,
 cream/navy/mint palette, isolated composition, transparent background, no text.
 The login illustration is unchanged.
+
+## Translation scaffold
+
+[i18n/](i18n/README.md) reserves Soda-only locale additions. It is not mounted or
+staged: complete native catalogs must be preserved when preparing Forgejo's
+replacement locale files. Translation of the custom pages remains future work.
