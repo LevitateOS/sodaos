@@ -5,7 +5,7 @@
           <div><p class="soda-explore-eyebrow">Your inbox</p><h1>{{ctx.Locale.Tr "notifications"}}</h1><p class="soda-dashboard-lede">Stay in the loop. At your own pace.</p></div>
           <img src="{{AssetUrlPrefix}}/soda/forgejo/notifications-papercraft.png" alt="" width="1536" height="1024">
         </div>
-		<div class="soda-notifications-toolbar">
+		<div class="soda-notifications-toolbar soda-subscriptions-toolbar">
 			<div class="switch">
 				<a href="{{AppSubUrl}}/notifications/subscriptions" class="{{if eq .Status 1}}active {{end}}item">
 					{{ctx.Locale.Tr "notification.subscriptions"}}
@@ -14,13 +14,7 @@
 					{{ctx.Locale.Tr "notification.watching"}}
 				</a>
 			</div>
-			<a class="secondary button" href="{{AppSubUrl}}/notifications">
-				{{ctx.Locale.Tr "notifications"}}
-			</a>
-		</div>
-		<div class="ui bottom active tab segment">
 			{{if eq .Status 1}}
-				<div class="tw-flex tw-justify-between tw-flex-wrap tw-gap-y-4 tw-gap-x-2">
 					<div class="switch">
 						<a class="{{if eq .State "all"}}active {{end}}item" href="?sort={{$.SortType}}&state=all&issueType={{$.IssueType}}&labels={{$.Labels}}">
 							{{ctx.Locale.Tr "all"}}
@@ -34,7 +28,6 @@
 							{{ctx.Locale.Tr "repo.issues.closed_title"}}
 						</a>
 					</div>
-					<div class="tw-flex">
 						<div class="ui right aligned secondary filter menu">
 							<!-- Type -->
 								<div class="ui dropdown type jump item">
@@ -67,9 +60,13 @@
 								</div>
 							</div>
 						</div>
-					</div>
-				</div>
-				<div class="divider"></div>
+			{{end}}
+			<a class="secondary button" href="{{AppSubUrl}}/notifications">
+				{{ctx.Locale.Tr "notifications"}}
+			</a>
+		</div>
+		<div class="ui bottom active tab segment">
+			{{if eq .Status 1}}
 				{{if not .Issues}}
 					{{ctx.Locale.Tr "notification.no_subscriptions"}}
 				{{else}}
