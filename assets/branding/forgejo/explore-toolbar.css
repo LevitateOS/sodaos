@@ -1,9 +1,9 @@
 /* Explore uses the same 44px controls as the Issues/Pull requests toolbar. */
 .soda-explore-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px 22px; margin-bottom: 22px; background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
 .soda-explore-toolbar > .divider { display: none; }
-.soda-explore .soda-explore-toolbar > .secondary-nav { flex: 0 0 auto; width: 440px !important; min-width: 0 !important; max-width: 100%; margin: 0; padding: 3px; height: 44px; border: 1px solid var(--explore-edge) !important; border-radius: 10px; background: var(--explore-canvas) !important; }
-.soda-explore .soda-explore-toolbar .secondary-nav .overflow-menu-items { gap: 2px; }
-.soda-explore .soda-explore-toolbar .secondary-nav .item { display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 7px; color: var(--explore-muted) !important; font: 600 14px/1 Barlow,sans-serif; }
+.soda-explore .soda-explore-toolbar > .secondary-nav { flex: 0 0 auto; width: auto !important; min-width: 0 !important; max-width: 100%; margin: 0; padding: 3px; height: 44px; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--explore-edge) !important; border-radius: 10px; background: var(--explore-canvas) !important; }
+.soda-explore .soda-explore-toolbar .secondary-nav .soda-explore-tabs { display: flex; flex-wrap: nowrap; width: max-content; height: 100%; gap: 2px; }
+.soda-explore .soda-explore-toolbar .secondary-nav .item { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; margin: 0; padding: 0 10px; border: 0 !important; border-radius: 7px; color: var(--explore-muted) !important; font: 600 14px/1 Barlow,sans-serif; }
 .soda-explore .soda-explore-toolbar .secondary-nav .active.item { background: light-dark(var(--soda-light-selected),var(--soda-dark-selected)) !important; color: var(--explore-link) !important; }
 .soda-explore .soda-explore-toolbar > :is(.filter.menu,.list-header) { display: flex; flex: 1; min-width: 280px; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; }
 .soda-explore .soda-explore-toolbar :is(#repo-search-form,.list-header-search) { margin: 0; min-width: 0; gap: 12px; }
