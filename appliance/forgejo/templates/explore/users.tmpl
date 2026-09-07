@@ -14,8 +14,10 @@
       </div>
       <img class="soda-explore-art" src="{{AssetUrlPrefix}}/soda/forgejo/{{if .PageIsExploreOrganizations}}orgs-papercraft.png{{else}}users-papercraft.png{{end}}" width="1536" height="1024" alt="">
     </section>
+    <div class="soda-explore-toolbar">
     {{template "explore/navbar" .}}
     {{template "explore/search" .}}
+    </div>
     {{if .Users}}
       {{template "explore/user_list" .}}
     {{else}}
