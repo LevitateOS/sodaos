@@ -30,6 +30,8 @@ def collect(root, arch, revision):
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
         ('cockpit/package.json', 'cockpit-package.json'),
         ('cockpit/pnpm-lock.yaml', 'cockpit-pnpm-lock.yaml'),
+        ('dashboard/package.json', 'dashboard-package.json'),
+        ('dashboard/pnpm-lock.yaml', 'dashboard-pnpm-lock.yaml'),
     ):
         shutil.copyfile(root / source, inputs / name)
     shutil.copyfile(root / 'scripts/install-native.sh', stage / 'install-native.sh')

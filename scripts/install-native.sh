@@ -12,7 +12,7 @@ for state in /etc/soda/installed /etc/soda/install-started /etc/soda/dashboard.j
 done
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]] || { echo 'Upstream Fedora CoreOS target required, not the builder' >&2; exit 1; }
-for command in python3 restorecon matchpathcon rpm-ostree podman systemd-sysusers systemd-tmpfiles sysctl; do command -v "$command" >/dev/null; done
+for command in python3 restorecon matchpathcon rpm-ostree podman ip systemd-sysusers systemd-tmpfiles sysctl; do command -v "$command" >/dev/null; done
 rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git nodejs python3 libicu openssl-libs krb5-libs zlib tar gzip >/dev/null
 [[ $(getenforce) == Enforcing ]] || { echo 'Host SELinux must remain enforcing' >&2; exit 1; }
 # Verify using the bundle's matching-native support tool; it is not installed.
@@ -40,7 +40,7 @@ if grep -Eq '^(soda-forgejo|soda-dashboard|soda-proxy|p[0-9a-f]{24})$' <<<"$cont
 fi
 configure_network() {
 python3 - "$subnet" "$1" <<'PY'
-import ipaddress, json, sys
+import ipaddress, json, subprocess, sys
 from pathlib import Path
 network = ipaddress.ip_network(sys.argv[1], strict=True)
 private = [ipaddress.ip_network(x) for x in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')]
@@ -63,7 +63,26 @@ for name in ('/etc/subuid', '/etc/subgid'):
         elif first < start + count and start < first + size:
             sys.exit(f'operator must resolve overlapping subordinate IDs in {name}')
     if not existing: updates.append(p)
-if sys.argv[2] == 'check': sys.exit(0)
+if sys.argv[2] == 'check':
+    routes = json.loads(subprocess.check_output(['ip', '-json', '-4', 'route', 'show', 'table', 'all']))
+    for route in routes:
+        dst = route.get('dst', 'default')
+        if dst == 'default': continue
+        other = ipaddress.ip_network(dst, strict=False)
+        if other.prefixlen and network.overlaps(other):
+            sys.exit('project subnet overlaps an existing host route')
+    links = json.loads(subprocess.check_output(['ip', '-json', 'link', 'show']))
+    if any(link.get('ifname') == 'soda0' for link in links):
+        sys.exit('existing soda0 requires an operator decision')
+    names = subprocess.check_output(['podman', '--remote=false', 'network', 'ls', '--format', '{{.Name}}'], text=True).splitlines()
+    if 'soda-projects' in names: sys.exit('existing soda-projects network refused')
+    if names:
+        networks = json.loads(subprocess.check_output(['podman', '--remote=false', 'network', 'inspect', *names]))
+        for item in networks:
+            for entry in item.get('subnets') or []:
+                other = ipaddress.ip_network(entry['subnet'])
+                if other.version == 4 and network.overlaps(other): sys.exit('project subnet overlaps an existing container network')
+    sys.exit(0)
 for p in updates:
     with p.open('a') as f: f.write(f'containers:{start}:{count}\n')
 root = Path('/etc/soda')
@@ -77,6 +96,25 @@ PY
 }
 # All read-only platform/bundle/network/identity preflight precedes host writes.
 configure_network check
+# Inspect existing destination ancestors before the first installation write.
+# The one supported CoreOS link is /usr/local -> /var/usrlocal.
+python3 - "$bundle/build-info.json" <<'PY'
+import json, stat, sys
+from pathlib import Path
+for name in json.loads(Path(sys.argv[1]).read_text())['Files']:
+    if not name.startswith('rootfs/'): continue
+    target = Path('/') / name.removeprefix('rootfs/')
+    for path in [*reversed(target.parents), target]:
+        if path.is_symlink():
+            if path == Path('/usr/local') and path.resolve() == Path('/var/usrlocal'):
+                continue
+            raise SystemExit('unexpected symlink in installation destination')
+        if path.exists() and path != target:
+            info = path.stat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                raise SystemExit('unsafe installation destination ancestor')
+PY
+rpm-ostree status --json | python3 -c 'import json,sys; deployments=json.load(sys.stdin)["deployments"]; assert sum(d.get("booted") is True for d in deployments)==1, "one observed booted deployment required"'
 umask 077
 install -d -m 0700 /etc/soda
 (set -o noclobber; printf '%s\n' "$revision" > /etc/soda/install-started)

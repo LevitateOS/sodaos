@@ -1,5 +1,14 @@
 # Implementation handoff
 
+## Requested core/support integration
+
+Merged the native support branch through `3d7ca2e` with the local U08 lifecycle
+record and different-UID exec preparation through `c96c108`. Preserved both
+handoffs below; their evidence applies only to their named candidates. This
+integration performed conflict/whitespace review, not builds, product tests or
+native operations. The combined candidate remains unvalidated. The pre-existing
+uncommitted `tests/installed/workloads.sh` edit is retained separately.
+
 ## Approved U08 different-UID exec follow-up — preparation
 
 The user approved project-namespace-scoped SYS_PTRACE and **one further fresh
@@ -12,6 +21,46 @@ against a PostgreSQL PID 1 actually running as UID 999, plus Bob's engine denial
 This section records preparation, not native success. Build/check, backed-up
 matching deployment and fresh-fixture evidence follow. No additional VM reboot,
 old-project lifecycle, provider CI or destructive cleanup is inferred.
+
+## Core/support merge — source only
+
+Merged native support remediation `41fb6d3`/`9acbda5` with core follow-ups through
+`f233a4a`, preserving both handoffs and all core runtime/lifecycle corrections.
+The incoming `952f3b3` and `935dbdf` aggregate build/check passes below supersede
+older blanket aggregate-pending statements **for those candidates only**. Neither
+includes the support remediation, so the merged candidate still requires its own
+build/check. The socket-ordering correction and remaining U08/runtime gaps retain
+their recorded limits. This merge ran no builds, tests or native operations and
+changed no installed state.
+
+## Native support audit remediation — source only
+
+Implemented the next active support-source pass from clean baseline `15e49b1`.
+No current native milestone exit is claimed. The [audit follow-up](native-porting-audit.md#source-remediation-follow-up) maps the changes and remaining work; the original audit remains a historical snapshot.
+
+- **P02/P03:** structured JSON is sanitized before encoding; observations publish under their final name only after write/close/leak checks, with the pending file retained. Evidence scanning/hashing and report reads use open-directory capabilities; reports hash the exact decoded metadata and expose cleanup/exit/invocation/artifact context. Transfers retain the actual manifest digest and detect changed streamed bytes. Failed VM launches retain cleanup facts separately. Linux child groups use non-reaping `waitid(WNOWAIT)` before group cleanup, preventing leader exit/PID reuse from dropping or misdirecting cleanup. Non-Linux owned execution now fails closed; portable metadata/report/direct-key-probe operations remain available. This is not a sandbox for processes that deliberately leave their group or change privileges.
+- **U02/P04 shared contract:** moved the existing core frontend validation unchanged into `internal/frontend`; web startup retains its entrypoint and P04 now consumes the same validator. No second frontend build or manifest policy was added. Record the real dashboard package/lock inputs and cross-check public build revision/platform/image IDs. `/etc` export admits only the current public staging paths, excluding actual OAuth/admin/grant credentials and unknown files. Directory-relative bundle copies verify copied hashes; OCI checks now include schema/media types, local descriptors and rootfs/diff-ID structure. Compressed layer contents still require native import proof.
+- **P05/P06/P11:** preflight SSH availability, record qemu-img version, bound signature/decompression phases and tighten public download URLs. Build parents are checked before descendant creation. First-install preflight checks existing host/container networks, destination ancestors and one booted deployment before writes; the existing installer/setup/activation ownership is unchanged. Installed checks assert configured credential/TLS modes and native bindings, accounting for rootful DNAT publication rather than assuming every published port appears in `ss`. Cockpit browser observations require SELinux enforcing. Installed-byte verification has explicit filesystem/command test inputs and preserves CoreOS's writable-prefix mapping.
+
+Authored focused tests for escaped/structured redaction, finalization failures,
+renamed evidence roots, Linux leader-first/TERM-resistant group cleanup, CLI
+cancellation, changed transfer inputs, credential contamination, missing/stale
+React payloads, metadata/OCI failures, bounded trusted-CA HTTP downloads, installed
+identity/mode/image failures and explicit remote phase ordering/refusal. These
+new tests have **not run**. Formatting, shell syntax, Python AST inspection and
+whitespace review are source checks only, not compilation or behavioral proof.
+
+The tightened verifier requires a freshly built bundle with the new public
+inputs. Preserve old stages/bundles and use their matching historical verifier;
+never edit/reseal retained metadata to satisfy new checks. Current installed
+component revisions and the existing VM/projects/tunnels/data are untouched.
+Remaining work includes executing/fixing the new and aggregate suites on an
+explicitly authorized exact native candidate; additional external-tool/VM and
+installer failure fixtures; selecting actual trusted native inputs; fresh
+fixture/install/operator and independent aarch64 evidence. P07/P08 still belong
+to U08/U20, and P09/P10 media remain unselected. No build, dependency resolution,
+test execution, native target/provider action, publication or cleanup occurred
+in this pass.
 
 ## U08 completion execution — candidate and remaining runtime correction
 

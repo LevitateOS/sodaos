@@ -22,7 +22,8 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
 		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
-		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "tools/soda-artifacts", "install-native.sh",
+		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml", "notices/README.md", "notices/tea-LICENSE", "tools/soda-artifacts", "install-native.sh",
+		"rootfs/usr/local/share/soda/dashboard/index.html", "rootfs/usr/local/share/soda/dashboard/LICENSES.txt", "rootfs/usr/local/share/soda/dashboard/.vite/manifest.json", "rootfs/usr/local/share/soda/dashboard/assets/test.js",
 	}
 	for _, name := range paths {
 		p := filepath.Join(root, name)
@@ -63,6 +64,27 @@ func fixtureBundle(t *testing.T) string {
 		if err := os.Chmod(p, 0755); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// Synthetic browser fixture for the core validator, never production output.
+	for name, content := range map[string]string{
+		"index.html":          `<script src="/app/assets/test.js"></script>`,
+		".vite/manifest.json": `{"index.html":{"file":"assets/test.js","isEntry":true}}`,
+	} {
+		if err := os.WriteFile(filepath.Join(root, "rootfs/usr/local/share/soda/dashboard", name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tools := map[string]string{}
+	for _, name := range []string{"go", "node", "pnpm", "podman", "python", "kernel"} {
+		tools[name] = "synthetic fixture; not executed"
+	}
+	ids := map[string]any{}
+	for name, image := range images {
+		ids[name] = map[string]string{"ID": image.Config}
+	}
+	metadata, _ := json.Marshal(map[string]any{"Revision": fixtureRevision, "Architecture": "x86_64", "Tools": tools, "Images": ids})
+	if err := os.WriteFile(filepath.Join(root, "inputs/native-build.json"), metadata, 0644); err != nil {
+		t.Fatal(err)
 	}
 	files, err := tree(root)
 	if err != nil {
@@ -106,7 +128,7 @@ func TestBundleAllowlistIntegrityAndNoOverwrite(t *testing.T) {
 	}
 }
 func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
-	for _, name := range []string{"rootfs/etc/soda/operator.key", "rootfs/usr/local/libexec/soda/soda-artifacts"} {
+	for _, name := range []string{"rootfs/etc/soda/operator.key", "rootfs/usr/local/libexec/soda/soda-artifacts", "rootfs/etc/soda/oauth-secret", "rootfs/etc/soda/admin-token", "rootfs/etc/soda/grant-key", "rootfs/etc/soda/dashboard.json", "rootfs/etc/private/credentials", "rootfs/etc/soda/unknown-input"} {
 		root := fixtureBundle(t)
 		p := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {

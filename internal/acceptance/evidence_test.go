@@ -88,6 +88,9 @@ func TestRedactedErrorRetainsIdentity(t *testing.T) {
 	}
 }
 func TestCommandAndEvidenceFailuresAreSeparate(t *testing.T) {
+	if err := ownedGroupsSupported(); err != nil {
+		t.Skip(err)
+	}
 	e := fixtureEvidence(t, []byte("synthetic-password"))
 	result, err := Execute(context.Background(), e, "denied", Command{Name: "/bin/sh", Args: []string{"-c", `read -r value; printf '%s\n' "$value"; printf 'expected denial\n' >&2; exit 23`}, Stdin: strings.NewReader("synthetic-password\n")})
 	var exit *exec.ExitError

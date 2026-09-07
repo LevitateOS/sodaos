@@ -3,6 +3,8 @@ package acceptance
 import (
 	"archive/tar"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -51,6 +53,7 @@ subprocess.run([str(p/'tools/soda-artifacts'),'verify','--source',str(p),'--arch
 	finished := make(chan error, 1)
 	go func() { err := streamBundle(writer, source, inv); _ = writer.CloseWithError(err); finished <- err }()
 	result, evidenceErr := Execute(ctx, e, "transfer", c)
+	result.Artifacts = map[string]string{"bundle/build-info.json": manifestHash}
 	_ = reader.Close()
 	result.Err = errors.Join(result.Err, <-finished)
 	return result, evidenceErr
@@ -107,7 +110,11 @@ func streamBundle(w io.Writer, source string, inv nativebuild.Inventory) error {
 			if err != nil {
 				return err
 			}
-			_, err = io.Copy(tw, f)
+			hash := sha256.New()
+			_, err = io.Copy(io.MultiWriter(tw, hash), f)
+			if entry, ok := inv.Files[name]; ok && hex.EncodeToString(hash.Sum(nil)) != entry.SHA256 {
+				err = errors.Join(err, errors.New("payload changed during transfer"))
+			}
 			err = errors.Join(err, f.Close())
 			if err != nil {
 				return err

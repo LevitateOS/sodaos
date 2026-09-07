@@ -73,15 +73,17 @@ try {
     const uid = (await c.spawn(['id', '-u'], { err: 'message' })).trim();
     const host = (await c.spawn(['hostname'], { err: 'message' })).trim();
     const domain = (await c.spawn(['id', '-Z'], { err: 'message' })).trim();
+    const enforcing = (await c.spawn(['getenforce'], { err: 'message' })).trim();
     const status = JSON.parse(await c.spawn(['/usr/bin/tailscale', 'status', '--json'], { err: 'message' }));
     const http = c.http('/var/run/tailscale/tailscaled.sock', { superuser: 'require', headers: { Host: 'local-tailscaled.sock' } });
     try {
       const prefs = JSON.parse(await http.get('/localapi/v0/prefs'));
-      return { uid, host, domain, backend: status.BackendState, wantRunning: prefs.WantRunning };
+      return { uid, host, domain, enforcing, backend: status.BackendState, wantRunning: prefs.WantRunning };
     } finally { http.close(); }
   });
   assert.equal(native.uid, '0');
   assert.equal(native.host, hostname);
+  assert.equal(native.enforcing, 'Enforcing');
   assert(native.domain.includes(':') && !native.domain.includes(':cockpit_session_t:'), 'root stayed in the restricted preauthentication SELinux domain');
   assert.equal(typeof native.backend, 'string');
   assert.equal(typeof native.wantRunning, 'boolean');

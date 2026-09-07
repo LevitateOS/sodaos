@@ -18,8 +18,10 @@ import (
 
 type Image struct{ Manifest, Config, Architecture, Revision, Source, BaseName, BaseDigest string }
 type descriptor struct {
-	Digest string `json:"digest"`
-	Size   int64  `json:"size"`
+	Digest    string   `json:"digest"`
+	Size      int64    `json:"size"`
+	MediaType string   `json:"mediaType"`
+	URLs      []string `json:"urls,omitempty"`
 }
 type blob struct {
 	hash string
@@ -49,6 +51,7 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 	defer f.Close()
 	tr := tar.NewReader(f)
 	entries := map[string]blob{}
+	seen := map[string]bool{}
 	jsonBytes := 0
 	for {
 		h, err := tr.Next()
@@ -65,7 +68,17 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		if path.IsAbs(n) || n == ".." || strings.HasPrefix(n, "../") {
 			return Image{}, errors.New("unsafe OCI path")
 		}
+		if seen[n] {
+			return Image{}, errors.New("duplicate OCI entry")
+		}
+		seen[n] = true
+		if len(seen) > 100000 {
+			return Image{}, errors.New("too many OCI entries")
+		}
 		if h.Typeflag == tar.TypeDir {
+			if n != "blobs" && n != "blobs/sha256" {
+				return Image{}, errors.New("unexpected OCI directory")
+			}
 			continue
 		}
 		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
@@ -111,12 +124,17 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		return Image{}, errors.New("missing OCI layout")
 	}
 	var index struct {
-		Manifests []descriptor `json:"manifests"`
+		SchemaVersion int          `json:"schemaVersion"`
+		MediaType     string       `json:"mediaType"`
+		Manifests     []descriptor `json:"manifests"`
 	}
-	if json.Unmarshal(entries["index.json"].data, &index) != nil || len(index.Manifests) != 1 {
+	if json.Unmarshal(entries["index.json"].data, &index) != nil || index.SchemaVersion != 2 || (index.MediaType != "" && index.MediaType != "application/vnd.oci.image.index.v1+json") || len(index.Manifests) != 1 || index.Manifests[0].MediaType != "application/vnd.oci.image.manifest.v1+json" {
 		return Image{}, errors.New("single-platform OCI index required")
 	}
 	get := func(d descriptor) (blob, error) {
+		if d.Size < 0 || len(d.URLs) != 0 {
+			return blob{}, errors.New("local bounded OCI descriptor required")
+		}
 		if !strings.HasPrefix(d.Digest, "sha256:") || !Digest(strings.TrimPrefix(d.Digest, "sha256:")) {
 			return blob{}, errors.New("invalid OCI digest")
 		}
@@ -131,13 +149,23 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		return Image{}, err
 	}
 	var manifest struct {
-		Config descriptor   `json:"config"`
-		Layers []descriptor `json:"layers"`
+		SchemaVersion int          `json:"schemaVersion"`
+		MediaType     string       `json:"mediaType"`
+		Config        descriptor   `json:"config"`
+		Layers        []descriptor `json:"layers"`
 	}
 	if err = json.Unmarshal(m.data, &manifest); err != nil {
 		return Image{}, err
 	}
+	if manifest.SchemaVersion != 2 || (manifest.MediaType != "" && manifest.MediaType != "application/vnd.oci.image.manifest.v1+json") || manifest.Config.MediaType != "application/vnd.oci.image.config.v1+json" {
+		return Image{}, errors.New("invalid OCI image manifest")
+	}
 	for _, layer := range manifest.Layers {
+		switch layer.MediaType {
+		case "application/vnd.oci.image.layer.v1.tar", "application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.oci.image.layer.v1.tar+zstd":
+		default:
+			return Image{}, errors.New("unsupported OCI layer media type")
+		}
 		if _, err = get(layer); err != nil {
 			return Image{}, err
 		}
@@ -149,6 +177,10 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 	var cfg struct {
 		OS     string `json:"os"`
 		Arch   string `json:"architecture"`
+		RootFS struct {
+			Type    string   `json:"type"`
+			DiffIDs []string `json:"diff_ids"`
+		} `json:"rootfs"`
 		Config struct {
 			Labels map[string]string `json:"Labels"`
 		} `json:"config"`
@@ -156,6 +188,19 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 	if err = json.Unmarshal(config.data, &cfg); err != nil {
 		return Image{}, err
 	}
+	if cfg.RootFS.Type != "layers" || len(cfg.RootFS.DiffIDs) != len(manifest.Layers) {
+		return Image{}, errors.New("OCI rootfs/layer count mismatch")
+	}
+	for i, id := range cfg.RootFS.DiffIDs {
+		if !strings.HasPrefix(id, "sha256:") || !Digest(strings.TrimPrefix(id, "sha256:")) {
+			return Image{}, errors.New("invalid OCI diff ID")
+		}
+		if manifest.Layers[i].MediaType == "application/vnd.oci.image.layer.v1.tar" && id != manifest.Layers[i].Digest {
+			return Image{}, errors.New("uncompressed OCI layer identity mismatch")
+		}
+	}
+	// Compressed layer contents are not extracted here. Their blob identities
+	// are checked; native import remains the proof of decompression/rootfs use.
 	if cfg.OS != "linux" || cfg.Arch != want {
 		return Image{}, fmt.Errorf("OCI must be linux/%s", want)
 	}

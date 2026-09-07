@@ -3,15 +3,18 @@ package acceptance
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 // Evidence holds an open directory capability. It never follows a path outside
@@ -43,6 +46,11 @@ func CreateEvidence(path string, secrets [][]byte) (*Evidence, error) {
 	for _, secret := range secrets {
 		if len(secret) > 0 {
 			e.secrets = append(e.secrets, bytes.Clone(secret))
+			// Logs may contain JSON-escaped credentials rather than raw values.
+			encoded, _ := json.Marshal(string(secret))
+			if !bytes.Equal(encoded[1:len(encoded)-1], secret) {
+				e.secrets = append(e.secrets, bytes.Clone(encoded[1:len(encoded)-1]))
+			}
 		}
 	}
 	sort.Slice(e.secrets, func(i, j int) bool { return len(e.secrets[i]) > len(e.secrets[j]) })
@@ -51,6 +59,14 @@ func CreateEvidence(path string, secrets [][]byte) (*Evidence, error) {
 func (e *Evidence) Close() error { return e.root.Close() }
 func (e *Evidence) Path() string { return e.root.Name() }
 func (e *Evidence) Writer(name string) (io.WriteCloser, error) {
+	f, err := e.open(name)
+	if err != nil {
+		return nil, err
+	}
+	return &redactingWriter{out: f, secrets: e.secrets}, nil
+}
+
+func (e *Evidence) open(name string) (*os.File, error) {
 	if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
 		return nil, errors.New("invalid evidence name")
 	}
@@ -75,7 +91,7 @@ func (e *Evidence) Writer(name string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &redactingWriter{out: f, secrets: e.secrets}, nil
+	return f, nil
 }
 func (e *Evidence) Write(name string, data []byte) error {
 	w, err := e.Writer(name)
@@ -86,9 +102,90 @@ func (e *Evidence) Write(name string, data []byte) error {
 	return errors.Join(err, w.Close())
 }
 
+// WriteJSON sanitizes string values before encoding. Raw log redaction must
+// never rewrite encoded JSON (URL escaping can otherwise destroy its syntax).
+func (e *Evidence) WriteJSON(name string, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	if len(data) > evidenceLimit {
+		return errors.New("structured evidence limit exceeded")
+	}
+	var decoded any
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	if err = d.Decode(&decoded); err != nil {
+		return err
+	}
+	var scrub func(any) (any, error)
+	scrub = func(v any) (any, error) {
+		switch v := v.(type) {
+		case string:
+			return e.RedactString(v), nil
+		case []any:
+			for i := range v {
+				v[i], err = scrub(v[i])
+				if err != nil {
+					return nil, err
+				}
+			}
+		case map[string]any:
+			out := make(map[string]any, len(v))
+			for k, item := range v {
+				key := e.RedactString(k)
+				if _, exists := out[key]; exists {
+					return nil, errors.New("redacted JSON key collision")
+				}
+				out[key], err = scrub(item)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return out, nil
+		}
+		return v, nil
+	}
+	decoded, err = scrub(decoded)
+	if err != nil {
+		return err
+	}
+	data, err = json.MarshalIndent(decoded, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if len(data) > evidenceLimit {
+		return errors.New("structured evidence limit exceeded")
+	}
+	for _, secret := range e.secrets {
+		if bytes.Contains(data, secret) {
+			return errors.New("secret reached structured evidence")
+		}
+	}
+	f, err := e.open(name)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	return errors.Join(err, f.Sync(), f.Close())
+}
+
+// PublishObservation leaves incomplete attempts private and unpublishable. The
+// final name is linked exclusively only after write/close/leak checks succeed.
+func (e *Evidence) PublishObservation(o Observation) error {
+	if err := e.WriteJSON("observation.pending.json", o); err != nil {
+		return err
+	}
+	if err := e.CheckSecrets(); err != nil {
+		return err
+	}
+	return e.root.Link("observation.pending.json", "observation.json")
+}
+
 // CheckSecrets is defense in depth, not a claim that unknown secrets are absent.
 func (e *Evidence) CheckSecrets() error {
-	return filepath.WalkDir(e.Path(), func(path string, d os.DirEntry, err error) error {
+	return fs.WalkDir(e.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -98,11 +195,18 @@ func (e *Evidence) CheckSecrets() error {
 		if !d.Type().IsRegular() {
 			return errors.New("unexpected non-regular evidence entry")
 		}
-		f, err := os.Open(path)
+		f, err := e.root.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
+		st, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		if !st.Mode().IsRegular() {
+			return errors.New("evidence entry changed to a special file")
+		}
 		max := 1
 		for _, s := range e.secrets {
 			if len(s) > max {
@@ -148,7 +252,7 @@ func (e *Evidence) RedactString(s string) string {
 	return redactURLs(s)
 }
 
-var urlPattern = regexp.MustCompile(`https?://[^\s"<>]+`)
+var urlPattern = regexp.MustCompile(`https?://[^\s"'<>\\]+`)
 
 func redactURLs(s string) string {
 	return urlPattern.ReplaceAllStringFunc(s, func(raw string) string {
