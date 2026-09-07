@@ -29,11 +29,17 @@ no setup-token, stale-creator or copied-permission fallback was restored.
 
 The official 15.0.7 dashboard Issues template now has Soda styling and new
 checklist artwork. Native query/filter/count/context and shared issue-list logic
-remain; Pull requests stays outside the Issues design. Local reload succeeded.
+remain; Pull requests now shares the same layout with its own heading and icons. Local reload succeeded.
 Chrome exercised six populated issues, type switching, closed/no-match empty
 states, oldest sorting and 390px layout without horizontal overflow. Pull requests
-still renders its native list. Light appearance, org context and pagination were
+retains its native list partial. Light appearance, org context and pagination were
 not newly exercised. No appliance deployment; custom intro copy remains English.
+
+The Pull requests list now shares the Soda list layout and existing checklist
+artwork. Local Chrome checks covered reviewed-by filtering, open/closed/merged
+fixture rows and review summaries, no-match search and 390px layout without
+horizontal overflow. Native review filters, query state and permissions are
+unchanged. No new fixtures or deployment; light mode/pagination not newly checked.
 
 ## Local signed-in dashboard preview
 

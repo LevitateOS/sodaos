@@ -1,28 +1,25 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues{{if not .PageIsPulls}} soda-issues soda-dashboard{{end}}" data-signed="true">
-	{{if .PageIsPulls}}{{template "user/dashboard/navbar" .}}{{end}}
+<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues soda-issues soda-dashboard{{if .PageIsPulls}} soda-pulls{{end}}" data-signed="true">
 	<div class="ui container">
-        {{if not .PageIsPulls}}
         <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Your workbench</p><h1>{{ctx.Locale.Tr "issues"}}</h1><p class="soda-dashboard-lede">Small fixes. Good ideas. Forward motion.</p></div>
+          <div><p class="soda-explore-eyebrow">Your workbench</p><h1>{{if .PageIsPulls}}{{ctx.Locale.Tr "pull_requests"}}{{else}}{{ctx.Locale.Tr "issues"}}{{end}}</h1><p class="soda-dashboard-lede">{{if .PageIsPulls}}Good changes start with a conversation.{{else}}Small fixes. Good ideas. Forward motion.{{end}}</p></div>
           <img src="{{AssetUrlPrefix}}/soda/forgejo/issues-papercraft.png" alt="" width="1536" height="1024">
         </div>
-        {{end}}
         {{template "base/alert" .}}
-        {{if not .PageIsPulls}}<div class="soda-issues-panel">{{end}}
+        <div class="soda-issues-panel">
 		<div class="list-header">
 			<div class="switch list-header-toggle">
 				{{$keyword := StringUtils.RemoveAll $.Keyword "is:open" "-is:open" "is:closed" "-is:closed" "is:all"}}
 				<a class="item{{if not .IsShowClosed}} active{{end}}" href="?type={{$.ViewType}}&sort={{$.SortType}}&state=open&labels={{.SelectLabels}}&q={{$keyword}}">
-					{{svg "octicon-issue-opened" 16}}
+					{{if .PageIsPulls}}{{svg "octicon-git-pull-request" 16}}{{else}}{{svg "octicon-issue-opened" 16}}{{end}}
 					{{ctx.Locale.PrettyNumber .IssueStats.OpenCount}}&nbsp;{{ctx.Locale.Tr "repo.issues.open_title"}}
 				</a>
 				<a class="item{{if .IsShowClosed}} active{{end}}" href="?type={{$.ViewType}}&sort={{$.SortType}}&state=closed&labels={{.SelectLabels}}&q={{$keyword}}">
-					{{svg "octicon-issue-closed" 16}}
+					{{if .PageIsPulls}}{{svg "octicon-git-pull-request-closed" 16}}{{else}}{{svg "octicon-issue-closed" 16}}{{end}}
 					{{ctx.Locale.PrettyNumber .IssueStats.ClosedCount}}&nbsp;{{ctx.Locale.Tr "repo.issues.closed_title"}}
 				</a>
 			</div>
-			{{if not .PageIsPulls}}{{template "user/dashboard/navbar" .}}{{end}}
+			{{template "user/dashboard/navbar" .}}
 			<form class="list-header-search ui form ignore-dirty">
 				<div class="ui search fluid action input">
 					<input type="hidden" name="type" value="{{$.ViewType}}">
@@ -100,7 +97,7 @@
 			</div>
 		</div>
 		{{template "shared/issuelist" dict "." . "listType" "dashboard"}}
-        {{if not .PageIsPulls}}</div>{{end}}
+        </div>
 	</div>
 </div>
 {{template "base/footer" .}}

@@ -195,7 +195,8 @@ retained by composition but not newly exercised. No appliance deployment occurre
 `user/dashboard/issues.tmpl` adapts the stock 15.0.7 template with a Soda intro,
 new checklist artwork, and unified issue panel. Native search syntax, type/sort
 links, open/closed counts, account/org navigation and shared issue list remain
-upstream-owned. The shared template keeps Pull requests outside the new styles.
+upstream-owned. The shared template now also applies the design to Pull requests, with its own
+heading, introduction and status icons.
 `issues.css` reuses the dashboard shell and context switcher; account theme state
 remains native. The two custom intro strings remain English. Artwork provenance
 and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
@@ -203,6 +204,15 @@ and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
 Local template reload and Chrome checks covered populated dark-mode rows,
 created-by/in-your-repositories switching (2/6 open issues), closed empty results,
 keyword no-match, oldest sorting, and 390px populated/empty layouts without
-horizontal overflow. Pull requests still renders its native list without the
-Issues styling. Light-mode visual inspection, organization context and pagination
+horizontal overflow. Pull requests was subsequently brought into the same styling. Light-mode visual inspection, organization context and pagination
 were not newly exercised; this fixture list has fewer than one page of issues.
+
+### Global Pull requests overview
+
+Pull requests uses the same list layout and checklist illustration as Issues.
+Its native review-requested/reviewed-by filters, branch information, review counts,
+merged/closed icons, query state and shared list remain intact. New introduction
+copy remains English. Local reload and Chrome checks covered reviewed-by filtering,
+one open request, two closed requests (including one merged), review summaries,
+no-match search and 390px layout with no horizontal overflow. No new fixture data
+or deployment. Light appearance and pagination were not newly exercised.
