@@ -1,6 +1,6 @@
 # Headless Forgejo implementation plan
 
-**Status: H01 source audit recorded; native implementation remains unstarted.**
+**Status: H01 source audit recorded; H02 source preparation implemented at `c9a9be0`; native image/extensions remain unimplemented.**
 The [single workflow register](forgejo-api-coverage.md) now records the v15.0.7
 surface audit and targeted v16.0.3 comparison. Baseline, concrete contracts,
 authentication feasibility and maintenance review remain open; no patch/build/
@@ -12,7 +12,10 @@ plan's [post-H01 execution order](dashboard-implementation-plan.md#6-milestone-m
 and [action ownership](dashboard-implementation-plan.md#9-inventory-coverage-cross-reference)
 now govern sequencing: early authentication/admin review, feature-owned gaps,
 candidate verification before retained-installation cutover. Only U08 is accepted
-(1/20); this refinement implements no native code.
+(1/20). The [source preparer](../appliance/forgejo/README.md) locks 16.0.3 only as a
+development candidate, not an approved deployment baseline. The
+[authentication design](forgejo-authentication-design.md) and
+[first read contracts](forgejo-read-contracts.md) are review drafts, not endpoints.
 
 **Goal:** make missing or changing upstream interfaces a supported engineering
 path, not a recurring reason to expose Forgejo's frontend or abandon a feature.
@@ -27,23 +30,25 @@ privileged sidecar or second password authority.
 
 ## 1. Concrete source and delivery arrangement
 
-Proposed tracked layout to establish in the first implementation commits:
+Tracked layout and remaining build work (the source preparer exists; most native paths remain proposed):
 
 | Path | Responsibility / caller |
 | --- | --- |
 | `docs/forgejo-api-coverage.md` | The single action/workflow coverage register; expanded by owning U milestones, reconciled in U17 |
-| `appliance/forgejo/README.md` | Patch ownership, upstream provenance, exact build procedure and upgrade/removal instructions |
-| `appliance/forgejo/source.lock.json` | Exact upstream commit/archive integrity, ordered patch filenames/digests and required build input identities; sole authoritative new source lock |
+| `appliance/forgejo/README.md` | Implemented source-preparation procedure, development baseline review and remaining native build/license/maintenance work; extend with patch provenance and real upgrade/removal instructions |
+| `appliance/forgejo/source.lock.json` | Implemented exact development commit/archive integrity and ordered patch digests (currently empty); required build-image identities still pending; sole authoritative new source lock |
+| `tools/soda-forgejo-source/`, `internal/forgejobuild/` | Implemented core-owned Go source retrieval/verification/extraction/patch preparation and integrity receipt; called by a build-only command, not installed |
 | `appliance/forgejo/patches/` | Reviewable upstream-compatible patches, including native tests and API specification changes; no copied full Forgejo tree |
 | `appliance/forgejo/Containerfile` | Build/package the selected patched Forgejo, preserving required upstream entrypoint/runtime behavior and notices |
 | `scripts/build-forgejo.sh` | Narrow Forgejo build entrypoint called by `scripts/build-native.sh`; verified source and fresh run-owned outputs only |
-| `tests/build/test_forgejo_source.py` | Source/patch/identity and build-boundary negative tests, using the existing Python build-test owner |
+| `internal/forgejobuild/*_test.go` | Implemented focused source/patch/identity failures through the existing Go aggregate; extend with real native build-boundary checks rather than duplicate a Python source preparer |
 | `internal/forgejo/` | Existing explicit stock clients plus feature-owned extension clients and compatibility checks |
 | `internal/web/`, `dashboard/src/` | Existing Soda API and React features; no second adapter/router/frontend stack |
 | `tests/installed/` | Core-owned real Forgejo/Soda workflow tests, including new interface and preservation proof |
 
-These are planned paths, not files or interfaces that already exist. Full upstream
-checkout, generated patches/build products and test repositories belong under a
+Only the entries marked implemented and the existing Soda owners exist. Native
+patches, Containerfile/build caller and extension/compatibility routes do not.
+Full upstream checkout, generated patches/build products and test repositories belong under a
 fresh ignored `.artifacts/` attempt directory. Preserve attribution and required
 corresponding source; do not fabricate hashes or upstream contribution references.
 
@@ -324,5 +329,7 @@ Suggested coherent commit sequence:
 Already authorized local builds/tests do not need another generic permission
 request. New patch implementation follows contract review; deployment, real
 repository/account/provider mutations, new fixtures, upstream submission and
-publication retain separate scopes. H01 ran source/research/document checks only;
-H02–H08 implementation and native validation remain pending.
+publication retain separate scopes. H01 ran source/research/document checks only.
+H02 now has tested source preparation and a development input lock, not the native
+build/packaging spine. H03–H08 product implementation and native validation remain
+pending; drafts above expose decisions to resolve, not a missing-API waiver.

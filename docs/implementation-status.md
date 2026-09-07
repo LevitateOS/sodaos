@@ -1,5 +1,48 @@
 # Implementation handoff
 
+## Early auth/read contract review drafts — native endpoints not implemented
+
+After source-preparation commit `c9a9be0`, recorded the requested parallel U01/
+U04/U05/U16 review in [the authentication design](forgejo-authentication-design.md)
+and [first read-contract draft](forgejo-read-contracts.md). Updated the leading U
+plan/headless work package to distinguish implemented source preparation from the
+still-missing image/native API/compatibility spine. Go owns the source preparer and
+its tests through the existing aggregate; no duplicate Python preparer is planned.
+
+The draft native-owned pre-auth transaction covers credential verification,
+forced password change, MFA/enrollment/recovery, consent, exchange, expiry/replay,
+refresh and explicit logout/revocation ownership. It is **not an implemented or
+approved wire protocol**, second password authority or grant for gated accounts.
+Concrete decisions remain: production Soda origin and preservation of enrolled
+WebAuthn RP-ID, external IdP browser interaction, local logout versus explicit
+native-grant revocation, and a named native-auth/security/update maintainer.
+Retained identity/project association consequences require the U owners' review;
+no Linux remapping/offboarding was selected. Working OAuth/ingress is untouched.
+
+For blame/net comparison, recorded required immutable identities, attribution/
+original paths/lines, direct/merge-base and net-file semantics, content/limits and
+native authority/cancellation tests. Exact schemas, numeric work/output/concurrency
+budgets and broader fork comparisons remain unfinished. Source inspection found
+that `BlameReader.NextPart` discards long-line continuation fragments and original
+porcelain line/path positions; stopping early also requires careful native command/
+pipe cancellation, and ignore-revs copying needs a bound. These are **source
+findings, not reproduced native runtime evidence or authored upstream fixes**.
+Do not expose a new API by wrapping the current reader or advertise fake extension
+compatibility. H03/H04/H05 implementations remain pending the relevant review.
+
+Release/support research, bounded source download and Soda Go tests are the
+executed work below. Full release/migration qualification is not complete: the
+retained `release-16.txt` response is 8,192 bytes and ends mid-entry, and must not
+be cited as a complete v16 release-note review. No second H01 inventory, production
+Forgejo compilation, native patch/deployment/provider fixture or frontend change
+occurred. Local document link/anchor/179-group checks and `git diff --check` were
+run for these drafts; they establish consistency, not protocol feasibility.
+
+Next implementation after review: finish pinned native build/runtime/license/
+source-delivery inputs and existing image consumers; write shared native fixes/
+contracts/tests, minimal real compatibility and the Go→React U09 slice. The
+requested batch is **partially implemented**, not complete; only U08 is accepted.
+
 ## H02 source preparation started — development candidate only
 
 The user authorized implementation of the next-work plan after `2ff9e44`, including
@@ -52,9 +95,9 @@ Those identify this source preparation, not installed bytes.
 
 Installed affected components remain last recorded at `8b823db`; Forgejo service
 source remains 15.0.7. All four environments, logins, private credentials, keys,
-checkouts, workloads and failed native evidence were untouched. No provider,
-fixture/account/repository, network/origin, service, reboot, cleanup or publication
-action occurred. H01 remains complete source discovery; **only bounded U08 is
+checkouts, workloads and failed native evidence were untouched. No installed
+provider/fixture/account/repository action, live network/origin/service change,
+reboot, retained-resource cleanup or publication occurred. H01 remains complete source discovery; **only bounded U08 is
 accepted (1/20)**. H02 is partial; H03–H08 product implementation remains pending.
 
 ## Dashboard implementation plan revised after H01
