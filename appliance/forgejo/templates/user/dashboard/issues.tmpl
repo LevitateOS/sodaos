@@ -3,7 +3,7 @@
 	<div class="ui container">
         <div class="soda-issues-intro">
           <div><p class="soda-explore-eyebrow">Your workbench</p><h1>{{if .PageIsPulls}}{{ctx.Locale.Tr "pull_requests"}}{{else}}{{ctx.Locale.Tr "issues"}}{{end}}</h1><p class="soda-dashboard-lede">{{if .PageIsPulls}}Good changes start with a conversation.{{else}}Small fixes. Good ideas. Forward motion.{{end}}</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/{{if .PageIsPulls}}pulls{{else}}issues{{end}}-papercraft.png" alt="" width="1536" height="1024">
+          <img src="{{AssetUrlPrefix}}/soda/forgejo/{{if .PageIsPulls}}pulls{{else}}issues{{end}}-papercraft.png{{if not .PageIsPulls}}?v=2{{end}}" alt="" width="1536" height="1024">
         </div>
         {{template "base/alert" .}}
         <div class="soda-issues-panel">

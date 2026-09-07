@@ -75,6 +75,17 @@ verified the open menu, ArrowDown expansion and personal-context navigation;
 organization switching was not newly exercised. CSS-only change and local
 template reload; no deployment.
 
+## Forgejo illustration consistency
+
+Reviewed all nine page illustrations together and regenerated the repository
+explorer, Users and Issues assets using Home/Dashboard as style references.
+The replacements align robot proportions, paper materials and scene balance;
+canonical logos remain unchanged. PNG alpha and the cream contact sheet were
+inspected, then all three pages were visually checked in local Chrome dark mode
+after template reload. Asset query versions refresh cached images. No appliance
+deployment or backend changes. Prompts and decisions are recorded in
+`assets/branding/forgejo/art-consistency-review.md`.
+
 ## Local repository explorer preview
 
 The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer
