@@ -69,6 +69,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 
 ## Read next
 
+- [Release-day public handbook](docs/public/10-Start-here/10-index.md), [authoring/website sync](docs/public/README.md) and [internal editorial review](docs/public-docs-review.md)
 - [Architecture](docs/architecture.md) and [deferred scope](docs/deferred.md)
 - [Current frontend/backend milestone plan](docs/dashboard-implementation-plan.md), [page/dependency inventory](docs/dashboard-plan.md) and [current handoff](docs/implementation-status.md)
 - [Historical initial M01–M18 plan](docs/implementation-plan.md)

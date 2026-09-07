@@ -1,5 +1,36 @@
 # Implementation handoff
 
+## Release-day public handbook authored
+
+Added `docs/public/`: five sections, 22 published pages plus the unpublished
+structure/ingestion README. Studied the predecessor handbook and the website's
+actual discovery, Markdown validation, snapshot/provenance, asset and rendering
+contracts. All 17 former page slugs remain, with new dashboard, operator setup,
+collaboration, shared-tool/file and project-service guides. The old checkout's
+unrelated dirty/unmerged work was not modified.
+
+The handbook describes the release-day Forgejo identity/unified dashboard,
+explicit project-local joining, direct-IP SSH, shared installations and native
+workload model, with root-only Cockpit/Tailnet/Runners. It includes the requested
+existing-workspace browser terminal as product intent, not implemented evidence.
+It does not restore predecessor host developer accounts, managed clones,
+Anaconda/cloud-init/bootc recipes, deletion workflows or reserved Updates work.
+
+Retained ISO/QCOW2/Scaleway and equal-architecture release-day deployment paths
+without claiming current media or inventing signing identities. Exact media,
+platform Ignition delivery, verification trust and real-interface capture work
+are recorded only in `docs/public-docs-review.md`. This is editorial guidance,
+not authorization or proof of installation, release delivery, terminal execution,
+new U/E/P acceptance or a backup/update platform. Broader website marketing
+alignment remains separate; no product concept was removed as a readiness caveat.
+
+Validation: the website's real `snapshotFromDirectory` parsed the draft in memory
+(5 sections, 22 pages), validating Markdown shape and all relative page/heading
+links without writing a fictitious revision-bound snapshot. `git diff --check`
+passed. The next handoff is clean-source commit → website CLI sync → source
+freshness/integrity and website tests. No native build/test, VM/service/network,
+provider, image-generation, publication or destructive operation ran for this work.
+
 ## New requirement recorded — browser workspace terminal
 
 The user requested browser terminal access after selecting a project, when their

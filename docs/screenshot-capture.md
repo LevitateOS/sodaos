@@ -26,6 +26,18 @@ Use a fresh private evidence directory under `.artifacts/`; publish selected ima
 | Forgejo repository | Native repository view and actual clone control |
 | Forgejo keys | Native public-key registration interface, separate from Soda project-access keys |
 
+## Public handbook placement
+
+The release-day handbook source is `docs/public/`; its
+[authoring contract](public/README.md) defines ingestion and image syntax.
+Promote only reviewed real captures into `assets/dashboard/`, `assets/cockpit/`
+or `assets/forgejo/` under that directory. Reference them beside the relevant
+instruction, after the page's description. Keep incomplete capture work and
+release-interface review in [the internal editorial checklist](public-docs-review.md),
+not in published pages. Do not reuse predecessor Cockpit Projects/People/Updates
+captures for the new dashboard or stage a terminal screenshot before its real
+own-user/project-boundary behavior is verified.
+
 ## Review
 
 Compare each caption and alt text with the actual image. Use only images that clarify an instruction; inspect narrow/wide layouts and relevant light/dark modes before publishing. Keep required warnings and distinguish observed state from unverified actions. The [branding component review](branding-review.md) is a separate visual/style check, not a screenshot source for claiming the full appliance works.
