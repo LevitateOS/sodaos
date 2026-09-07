@@ -52,6 +52,13 @@ The v16 authentication implementation has changed (`services/auth/method/oauth2.
 and `auth_result_oauth.go`); do not transplant the v15 route-gate explanation as
 proof of v16 behavior. A wider upgrade/authentication audit remains necessary.
 
+## Architecture revision plan
+
+The [first-class headless integration revision plan](forgejo-architecture-revision-plan.md)
+turns this research into a proposed ownership/contract/build/acceptance model,
+including authentication and the existing U milestone assignments. It is not
+approval to implement a particular patch or change the running appliance.
+
 ## Proposed direction — not yet selected or implemented
 
 Prefer small **Forgejo-owned API additions over its existing engines**, with Soda

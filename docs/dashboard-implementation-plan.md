@@ -63,9 +63,20 @@ The user authorized the complete U08 run, then the namespaced SYS_PTRACE correct
 
 **Not selected:** E01–E03 (image profiles, lifecycle controls, resource limits) remain conditional. ISO/QCOW2 delivery is separate optional support work; **no installable SodaOS ISO has been built**, and ISO delivery is not a prerequisite for completing this dashboard plan.
 
+## Architecture revision under review — first-class headless integration
+
+The [architecture revision plan](forgejo-architecture-revision-plan.md) replaces
+the assumption that stock Forgejo REST coverage is sufficient with a proposed
+first-class integration boundary: suitable stock APIs plus reviewed Forgejo-side
+API additions sharing native application functionality. It defines workflow audit,
+authentication/security design, interface contracts, patch/build maintenance,
+preservation and acceptance, assigned to the existing U owners—not a new milestone
+sequence. No patch, version upgrade, authentication mechanism or deployment is
+selected by this planning work. U08 evidence and current data remain unchanged.
+
 ## 1. Governing decisions
 
-1. **Forgejo is upstream.** Its users, account fields, organizations, teams, permissions, repositories, collaboration, CI and administration remain upstream-owned. Use supported interfaces; do not fork its backend, access its database directly or build a competing forge/permissions database.
+1. **Forgejo is upstream.** Its users, account fields, organizations, teams, permissions, repositories, collaboration, CI and administration remain upstream-owned. Use supported interfaces; do not replace its business rules, access its database directly or build a competing forge/permissions database. Bounded Forgejo-side API additions are subject to the architecture revision's contract/maintenance review before implementation; they must share native functionality, not duplicate it.
 2. **Soda is an extension.** Its backend owns the integration that makes persistent development environments, project-local accounts, public development-access keys, memberships and connection information usable. Linux/OpenSSH/Podman remain the native mechanisms.
 3. **Frontend:** TypeScript, client-rendered React, PatternFly, Vite+, Zustand and ordinary `fetch`. React Router is a browser routing library only. No SSR, JavaScript production server, Tailwind or TanStack.
 4. **Backend:** retain Go, `net/http`, SQLite and the fixed-operation Unix-socket host helper. The browser-facing process stays unprivileged. A page in Soda does not move that page's business rules out of Forgejo.

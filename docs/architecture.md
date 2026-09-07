@@ -21,6 +21,14 @@ OAuth redirects and legacy pages are implementation gaps to replace, not an
 exception. Do not weaken authentication or change live ingress to conceal them.
 Separate operator Cockpit and ordinary Git/SSH/package protocols remain selected.
 
+**Integration revision under review:** the
+[headless Forgejo architecture revision plan](forgejo-architecture-revision-plan.md)
+proposes stock APIs plus bounded Forgejo-side API additions as a first-class
+product integration. It retains the frontend/backend/native topology and all
+provider authority boundaries, while assigning workflow audit, authentication,
+contracts and patch/build maintenance to existing core owners. This is a revision
+plan, not a VM/codebase reset or approval of a concrete patch/upgrade/deployment.
+
 ## 1. Purpose
 
 SodaOS gives a team persistent, shared development environments on a centrally operated machine. People use lightweight clients, a browser and ordinary SSH; the project environment runs their development tools, builds, agents, databases and services.

@@ -1,5 +1,31 @@
 # Implementation handoff
 
+## Headless Forgejo architecture revision plan authored
+
+At the user's request, added `docs/forgejo-architecture-revision-plan.md` and linked
+it from architecture, the leading dashboard plan, inventory and prior integration
+research. Clarified AGENTS/core guidance: preserve Forgejo business-rule ownership;
+review bounded Forgejo-side API additions rather than assuming the stock REST API
+can supply complete UI parity. This is a proposed architectural revision, not an
+implemented patch, approved upstream version change or new authentication design.
+
+The plan defines concrete ownership, a single workflow/action audit, shared native
+functionality behind web/API handlers, endpoint contracts and work limits, a
+separate full authentication/security gate, first U09 blame/aggregate-diff slice,
+patch/build/security-update responsibilities, preservation and Soda-only ingress
+acceptance. It assigns work to existing U01–U20 owners; no parallel milestone count,
+P product suite, new release framework or codebase/VM reset. Stock APIs and working
+Soda source remain reusable. No missing-feature/native-page waiver is introduced.
+
+Documentation only: source inspection and `git diff --check`; no builds/tests,
+dependency changes, deployment, provider operations or infrastructure mutations in
+this turn. Existing local build/test authorization remains in force; previous
+passing checks are not new execution evidence. Installed `8b823db` and all four
+U08 environments/evidence remain untouched. Next: review the proposed boundary,
+complete the workflow audit and select concrete contracts/maintenance ownership
+before implementing a patch; design authentication in parallel, not as a later
+surprise.
+
 ## Complete Soda frontend — requirement enforced and newer APIs investigated
 
 The user rejected **all Forgejo frontend fallbacks**, including temporary ones.

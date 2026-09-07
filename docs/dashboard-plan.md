@@ -28,6 +28,11 @@ Browser: React + PatternFly + Zustand
 
 Go serves the production frontend assets behind the existing Caddy proxy. Node and pnpm are build/development tools, not new appliance services. Keep Cockpit as a separate operator application; do not import its privileged native bridge into the dashboard.
 
+The [headless architecture revision plan](forgejo-architecture-revision-plan.md)
+now defines the proposed workflow-first integration and maintenance model for
+these requirements. Keep this inventory authoritative for page/action coverage;
+do not create a parallel inventory or restart the U milestones.
+
 ## Upstream ownership and extension boundary
 
 **Soda extends Forgejo; it does not absorb Forgejo's backend responsibilities. Owning a frontend screen does not transfer ownership of the underlying feature.**

@@ -58,7 +58,12 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   not exceptions. Retained host-operator Cockpit is a separate selected boundary.
 
 - Forgejo is upstream. Do not take over its business rules, data, permissions or
-  administration, fork its backend for UI parity, or access its database directly.
+  administration, or access its database directly. The proposed first-class
+  headless integration revision is in
+  `docs/forgejo-architecture-revision-plan.md`: bounded Forgejo-side API additions
+  may be designed over shared native functionality, but concrete patch contracts
+  and maintenance responsibility need review before implementation. Do not fork
+  its business rules or build a competing backend for UI parity.
   The unified frontend includes Forgejo developer **and administrator** views;
   those views delegate through supported upstream interfaces, not a replacement
   Soda forge/administration backend.
