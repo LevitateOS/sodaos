@@ -1,9 +1,9 @@
 # Forgejo customization contract
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
-tab/environment drawer. See the [short plan](sodaspaces-plan.md) for pending work and
-the [handoff](implementation-status.md) for source versus installed evidence. No tab,
-drawer or authenticated native-page → Soda connection is implemented yet.
+**button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
+and [handoff](implementation-status.md). Neither the UI nor authenticated native-page
+→ Soda connection is implemented; the findings below are source inspection only.
 
 ## Verified source surface
 
@@ -28,12 +28,67 @@ Preserve native markup, scripts, form behavior and branding. The source referenc
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact
 selected version/configuration when changing an override.
 
+## Minimal button, drawer and loading candidate
+
+Inspected 15.0.7 provides these concrete primitives:
+
+| Need | Existing source / bounded addition |
+| --- | --- |
+| Header action | `repo/header.tmpl` has `.repo-header .repo-buttons` and native `ui compact small basic button` styling, but no dedicated hook in that row. Render Soda's hidden button through `custom/footer`, then move only that button into the row. If the row is absent (for example broken/creating repositories), do not mount. No tab or full header override is needed for this candidate. The selector/layout is version-sensitive and needs browser tests. |
+| Drawer | Native `<dialog>` styling in `web_src/css/modules/dialog.css` and usage in `templates/repo/branch/list.tmpl`. Use browser `showModal()`/`close()` with scoped right-edge/full-height CSS and a scrolling content region. This is an overlay drawer, not a page-layout rewrite. Fomantic's selected component list does **not** include `sidebar`. |
+| Loading | `web_src/css/modules/animations.css` defines `is-loading` and `loading-icon-2px`. Apply to the content/spinner or pending action, not the dialog: it disables pointer events and forces relative positioning. Add actual disabled controls, `aria-busy` and a text status; keep Close usable. No full-page loading screen or fabricated percentage. |
+| Forms/status | Native button/form styles and theme variables. Soda controls only its own elements and uses text/value assignment for returned data, not injected provider HTML. |
+| Copy SSH | `web_src/js/features/clipboard.js` delegates `[data-clipboard-target]` clicks and reads the input value, so a readonly SSH-command input can use the existing copy/feedback behavior. Display the current host-key fingerprint too. |
+
+`custom/header` can load the scoped CSS; `custom/footer` can emit repository-ID
+context/button/dialog plus an external script. Custom files are served by native
+`/assets/*` (`modules/public/public.go`, `routers/web/web.go`). Proposed UI payload:
+two small custom hook templates plus `sodaspaces.css`/`sodaspaces.js`; no Node build,
+new library or upstream source edit. Asset paths must respect `AppSubUrl` and real
+staging/configuration. Preserve any operator customizations rather than overwrite them.
+
+Use the browser dialog API, not an assumed exported Forgejo JS API. Native
+`modules/modal.ts` and the legacy `.show-modal`/Fomantic handler are different paths;
+the latter's initializer binds existing elements. Clipboard is delegated. Test mount
+ordering/repeated opens, Escape/backdrop/Close/focus return, narrow screens, native
+navigation and upgrades. Keep the content wrapper filling the dialog so native
+backdrop-click handling does not treat an empty internal area as an outside click.
+
+### Controls and states
+
+Always show repository/environment context, the actual Soda acting identity and Close.
+
+| State | Minimal content / control |
+| --- | --- |
+| Checking | Native spinner and “Checking environment…”; no mutation until state is known |
+| Authentication needed or identity mismatch | Explicit Soda sign-in/re-authentication; never silently act as another identity |
+| No environment | Human owner gets **Create shared environment**; others see why unavailable. Backend enforces ownership; no org-owned creation claim |
+| Existing environment, not joined | Registered development-key summary; when none exist, a public-key textarea and **Save public key**, then **Add me**. No private-key upload or Git-key selector |
+| Member, usable observation | Project login, current IP, readonly SSH command + **Copy**, public host-key fingerprint; no claim that a displayed address proves client routing |
+| Pending action | “Creating…” / “Saving key…” / “Adding you…” with duplicate submits disabled, not an invented progress/job system |
+| Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
+
+Closing aborts/discards stale reads, not a promise to undo an in-flight native
+mutation. Reopen by reading actual state. Existing join is not later key propagation.
+Start/stop/restart/delete, resource charts, member administration and a browser IDE
+are not needed here. The separately requested existing-account terminal remains a
+follow-up, not a prerequisite for SSH access.
+
 ## Integration limits
 
 A template cannot directly call Soda's database/backend. An OAuth grant is not a
 native web session, and different ports do not isolate cookies. Preserve actual
 actor/repository identity, origin/CSRF and native WebAuthn/session boundaries; the
 [existing API](dashboard-api.md) is not proof of authenticated embedding.
+
+Concrete current constraint: `internal/web/api.go` requires a Soda session cookie,
+Soda CSRF token, exact `PublicURL` Origin and same-origin fetch metadata for writes;
+`proxy.Caddyfile` exposes Soda and Forgejo on separate origins. Native Forgejo CSRF
+or `fetch('/api/...')` is not a substitute. A fixed same-origin Soda API/OAuth namespace
+through existing Caddy is a candidate to verify, not an implemented route: callback,
+cookie/path, configured-origin and native-route collision contracts need review.
+`config.BaseURL` currently permits origins only, so simply putting a subpath into
+`public_url` is not valid. Do not weaken checks or add permissive CORS to hide this.
 
 If supported configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,

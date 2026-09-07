@@ -5,7 +5,7 @@ appliance. Developers use native Forgejo, SSH, Git, mise and container tools—n
 individual Linux accounts on the host.
 
 **Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
-tab/environment drawer. Both standalone Soda frontends (React and Go/HTMX) are
+button/environment drawer, without adding a new tab. Both standalone Soda frontends (React and Go/HTMX) are
 removed. The protected Go environment/access API, OAuth, native provisioning and
 separate Cockpit Tailnet/Runners pages remain. **Sodaspaces is not implemented yet.**
 

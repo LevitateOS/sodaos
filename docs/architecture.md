@@ -5,7 +5,7 @@ appliance. Developers use native Forgejo pages, ordinary SSH, Git, mise and cont
 tools. Soda supplies the integration; developers should not have to assemble missing
 account, key or runtime wiring themselves.
 
-[Current work](sodaspaces-plan.md) is a **Sodaspaces** repository tab/environment drawer
+[Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. The new UI is not implemented.
 See the [handoff](implementation-status.md) for source versus installed evidence.

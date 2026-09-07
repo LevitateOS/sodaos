@@ -2,7 +2,7 @@
 
 The root React `dashboard/` and its duplicate Forgejo workflow adapters have been
 removed. This guide describes the **retained Go source**, not an installed rollout
-or a completed Sodaspaces tab/drawer. Native Forgejo owns collaboration/account/
+or a completed Sodaspaces button/drawer. Native Forgejo owns collaboration/account/
 administration pages. The old Go/HTMX frontend is also removed; no Soda browser UI
 remains in source while supported Sodaspaces integration is still pending.
 
@@ -30,7 +30,7 @@ native ownership by stored repository ID and native organization `is_owner`, not
 access. Organization-owned **creation** remains unsupported; do not infer otherwise
 from the current-owner visibility check on transferred repositories.
 
-The future repository-context tab/drawer endpoint has **not** been implemented.
+The future repository-context button/drawer endpoint has **not** been implemented.
 Do not invent an endpoint, authenticated embedding mechanism or shared cookie from
 this retained API. The leading plan owns that next source slice.
 

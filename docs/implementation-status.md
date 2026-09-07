@@ -4,7 +4,7 @@
 
 | Area | Current state |
 | --- | --- |
-| Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository tab/right environment drawer |
+| Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | None: React/duplicate forge adapters removed in `752079e`; original Go/HTMX pages/forms/assets and exclusive clients removed in `9f3baa7` |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v3 SQLite/encrypted grants, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
@@ -93,9 +93,27 @@ these removals. HTTP join/failure coverage was adapted to the retained JSON API,
 not discarded with the HTML forms. Retired browser scripts remain in Git at their
 matching revision and must not be run against the new API-only source.
 
+## Minimal UI source inspection
+
+After `c65aa37`, inspected retained Forgejo 15.0.7 header/footer hooks, native
+`<dialog>` styles/browser usage, loading CSS, clipboard delegation and selected
+Fomantic components. Recorded the [bounded candidate and control states](forgejo-frontend-integration.md#minimal-button-drawer-and-loading-candidate):
+footer-hook markup plus moving our own button into the existing repository action
+row, scoped right-aligned dialog CSS, content-only native spinner and native copy
+controls. No full header override, new tab or library is needed for this candidate.
+The row selector/initialization, browser layout/accessibility and authenticated
+connection remain untested. Current Soda Origin/CSRF checks and two-origin proxy
+prevent simply wiring native-page fetches; a same-origin namespace remains a
+candidate requiring actual callback/cookie/config/route review, not a selected API.
+
+Only source inspection/documentation/link/whitespace checks ran in this slice.
+No production source, payload, dependency, browser/native test or installed state
+changed. This is not a working drawer or a claim that the whole integration is
+four static files. The existing-account terminal remains a separate follow-up.
+
 ## Remaining work and permission boundary
 
-- Implement/prove the supported native tab/drawer/authenticated Soda connection,
+- Implement/prove the supported native button/drawer/authenticated Soda connection,
   then explicit create/join/key/connection controls and existing-account terminal.
   The verified template hook alone is not this integration. Stop if it needs a fork.
 - Rehearse exact candidate/config/grants/populated-state preservation before a

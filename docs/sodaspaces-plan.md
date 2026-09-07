@@ -1,8 +1,8 @@
 # Sodaspaces: current work
 
-Use **Forgejo's native frontend**, with a repository **Sodaspaces** tab and a
-right-side shared-environment drawer. Both standalone Soda frontends and duplicate
-forge adapters are removed. The tab/drawer and authenticated connection to the
+Use **Forgejo's native frontend**, with one repository **Sodaspaces button** opening
+a right-side shared-environment drawer—**no new tab or standalone page**. Both standalone Soda frontends and duplicate
+forge adapters are removed. The button/drawer and authenticated connection to the
 retained Go backend are **not implemented**. See the [handoff](implementation-status.md).
 
 ## Ownership
@@ -26,7 +26,7 @@ retained Go backend are **not implemented**. See the [handoff](implementation-st
    mismatch, CSRF, expiry/logout and return navigation. A hook or OAuth grant alone
    does not solve embedding or native-session transfer. Stop and explain a concrete
    unsupported requirement; do not fork Forgejo, borrow cookies or build an HTML proxy.
-2. **Deliver the smallest read-only tab/drawer.** Show real existing, incomplete or
+2. **Deliver the smallest read-only button/drawer.** Show real existing, incomplete or
    absent environment state under current actor authority. Use native markup/styles
    and focused JavaScript; preserve native DOM/scripts, keyboard/focus behavior and
    navigation. Opening it must not create, join, start or repair anything. Stage only
@@ -35,7 +35,7 @@ retained Go backend are **not implemented**. See the [handoff](implementation-st
 3. **Connect explicit actions.** Wire create/join, own development keys and connection
    details to the existing Go/helper operations. Preserve incomplete reservations,
    stable memberships and Linux data; report actual failure without mutation replay.
-   Then add the requested terminal into the user's **existing** project-local
+   As a separate follow-up, add the requested terminal into the user's **existing** project-local
    account/home, with bounded PTY/transport and session lifetime. No implicit join,
    startup, host shell or private-key upload.
 4. **Prove and deploy separately.** Author focused authorization/failure/browser tests

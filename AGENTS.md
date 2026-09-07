@@ -49,7 +49,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
   superseded. See `docs/sodaspaces-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
-  tab/right-drawer addition. No new component library or Bootstrap UI is selected.
+  button/right-drawer addition, not a new tab. No new component library or Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
