@@ -25,6 +25,17 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local New Repository preview
+
+Official `repo/create.tmpl` now has the Soda shell, existing repository-folder
+artwork and scoped form cards/styles. All native create-helper/basic/template/
+initialization/advanced partials, permission gates and form action remain intact.
+Local template reload and Chrome inspection verified expanded initialization and
+advanced controls, required name/length constraints, asset loading and a 390px
+layout without horizontal overflow. No repository was created; submission,
+server-side error paths, template selection and light appearance were not newly
+exercised. Custom intro is English. No appliance deployment.
+
 ## Local Notifications preview
 
 Official stock 15.0.7 notification partial and subscriptions wrapper now use the

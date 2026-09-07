@@ -1,0 +1,33 @@
+/* The creation form retains upstream partials, constraints and conditional options. */
+.soda-create .soda-create-form { max-width:840px; margin:0 auto; }
+.soda-create .ui.form { width:100%; max-width:none; margin:0; color:var(--explore-text); }
+.soda-create .ui.form fieldset { min-width:0; margin:0 0 24px; padding:28px; border:1px solid var(--explore-edge); border-radius:14px; background:var(--explore-surface); }
+.soda-create .ui.form legend { padding:0 10px; color:var(--explore-text); font:600 23px/1.4 "Fraunces Variable",Georgia,serif; }
+.soda-create .ui.form legend .help { display:block; margin:4px 0 0; font:400 14px/1.5 Barlow,sans-serif; }
+.soda-create .ui.form label { color:var(--explore-text); font:600 15px/1.5 Barlow,sans-serif; }
+.soda-create .ui.form .help { color:var(--explore-muted); font:400 14px/1.6 Barlow,sans-serif; }
+.soda-create .ui.form input:not([type="checkbox"]):not([type="hidden"]):not(.search),
+.soda-create .ui.form textarea,
+.soda-create .ui.form .selection.dropdown { border:1px solid var(--explore-edge); border-radius:10px; background:var(--explore-canvas); color:var(--explore-text); min-height:46px; font:400 16px/1.5 Barlow,sans-serif; box-shadow:none; }
+.soda-create .ui.form textarea { resize:vertical; min-height:100px; }
+.soda-create .ui.form input[type="checkbox"] { accent-color:var(--soda-light-action); }
+.soda-create .ui.form .selection.dropdown > .text { color:var(--explore-text); }
+.soda-create .ui.form .selection.dropdown > .default.text { color:var(--explore-muted); }
+.soda-create .ui.form .dropdown .menu { background:var(--explore-surface); border-color:var(--explore-edge); border-radius:10px; }
+.soda-create .ui.form .dropdown .menu > .item { color:var(--explore-text); font-family:Barlow,sans-serif; }
+.soda-create .ui.form .dropdown .menu > .item:hover { background:var(--explore-canvas); }
+.soda-create .ui.form input:focus,.soda-create .ui.form textarea:focus { border-color:var(--explore-link); }
+.soda-create .ui.form :is(input,textarea,summary,button,.dropdown):focus-visible { outline:2px solid var(--explore-link); outline-offset:3px; }
+.soda-create .ui.form details > summary { padding:12px 0; color:var(--explore-link); cursor:pointer; font:600 15px/1.5 Barlow,sans-serif; }
+.soda-create .ui.form details[open] > summary { margin-bottom:16px; }
+.soda-create .ui.form #template_units { margin:24px 0 0; background:var(--explore-canvas); }
+.soda-create .ui.form .primary.button { min-height:48px; padding:12px 24px; border:0; border-radius:10px; background:var(--soda-light-action); color:white; font:600 16px/1.5 Barlow,sans-serif; box-shadow:none; }
+.soda-create .ui.form .primary.button:hover { filter:brightness(1.08); }
+.soda-create .ui.form .field.error input { border-color:var(--color-error-border); }
+@media (max-width:700px) {
+ .soda-create .ui.form fieldset { padding:20px 16px; }
+ .soda-create .ui.form legend { font-size:21px; }
+ .soda-create .ui.form .primary.button { width:100%; }
+}
+.soda-create .ui.form legend { border:0; }
+.soda-create .soda-create-fields > p { color:var(--explore-muted); text-align:left; line-height:1.6; }

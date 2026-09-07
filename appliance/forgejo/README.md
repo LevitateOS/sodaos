@@ -257,3 +257,11 @@ and native forms intact: Forgejo refreshes the notification partial after action
 rows and translated empty-state presentation. Dedicated artwork provenance lives
 in `assets/branding/forgejo/notifications-art-prompt.md`. Existing local fixtures
 were used for read/unread and empty-state checks; original states were restored.
+
+### New Repository
+
+`repo/create.tmpl` adapts the native 15.0.7 wrapper and composes the unchanged
+creation partials and permission gates. `create.css` styles fieldsets, inputs,
+dropdowns, advanced disclosure and submit action. Reuses the repository-folder
+artwork. Local UI checks exercised expanded options and narrow layout; no
+repository creation or appliance deployment was performed.
