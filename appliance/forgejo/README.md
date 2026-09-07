@@ -247,3 +247,13 @@ fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50
 progress examples, overdue/upcoming/no-deadline states and empty milestone content.
 The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
 do not blindly rerun it. No non-fixture repository writes or deployment.
+
+### Notifications
+
+`user/notification/notification_div.tmpl` and `notification_subscriptions.tmpl`
+customize the stock 15.0.7 wrappers. Keep notification IDs, sequence/data hooks
+and native forms intact: Forgejo refreshes the notification partial after actions.
+`notifications.css` supplies the separate toolbar, visible row actions, responsive
+rows and translated empty-state presentation. Dedicated artwork provenance lives
+in `assets/branding/forgejo/notifications-art-prompt.md`. Existing local fixtures
+were used for read/unread and empty-state checks; original states were restored.

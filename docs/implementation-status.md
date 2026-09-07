@@ -25,6 +25,19 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local Notifications preview
+
+Official stock 15.0.7 notification partial and subscriptions wrapper now use the
+Soda shell, dedicated generated inbox artwork, separate consistent toolbar and
+rounded list/empty state. Native notification IDs, sequence hooks, forms, data
+attributes, status conditions and pagination remain unchanged. Existing fixtures
+supply 40 unread notifications; no new data was seeded. Local Chrome verified
+populated/read/empty views, mark-read then unread restoration, subscriptions shell,
+and a 390px layout without horizontal overflow. Two fixture status checks were
+restored to their original states. PNG alpha and template reload were verified;
+`git diff --check` passed. Light appearance, pin/bulk actions and watching filters
+were not newly exercised. Custom intro remains English; no appliance deployment.
+
 ## Local Milestones preview
 
 The official dashboard milestones override now uses Soda's separate toolbar,
