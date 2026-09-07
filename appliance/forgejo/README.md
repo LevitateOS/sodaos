@@ -95,4 +95,20 @@ replacement locale files. Translation of the custom pages remains future work.
 created with the built-in image generator. Prompt direction: three layered mint,
 navy and cobalt cardstock repository folders, cream code braces, and a small cream
 paper robot peeking around the edge; matte papercraft, isolated transparent
-background. Saved for the explorer design; not yet referenced by a template.
+background. Used by the repository explorer intro.
+
+## Repository explorer
+
+`templates/explore/repos.tmpl` adds the Soda intro and artwork around the unchanged
+15.0.7 explore navigation, repository search/list and pagination partials.
+`explore.css` scopes presentation to this wrapper. Native main navigation,
+authentication links, permission-dependent controls and repository data remain
+upstream-owned. The custom extra-links hook adds a guest theme button only here.
+Guests share the homepage/login theme state; signed-in users use native Forgejo
+colors and their native logo. New introductory copy remains English for now.
+
+Local browser checks covered matching/empty search, alphabetical sorting, the
+not-archived filter, guest light/dark switching, and a narrow 480 CSS-pixel viewport
+without horizontal overflow. The preview has one repository, so multi-page
+pagination and populated language/topic variants were not exercised. Signed-in
+navigation was preserved by source inspection, not a new authenticated journey.

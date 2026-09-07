@@ -25,6 +25,18 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local repository explorer preview
+
+The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer
+wrapper and scoped CSS with the approved folder artwork. Native search, list,
+filters, sorting, pagination and main navigation remain upstream partials. Guests
+share the login/home theme preference; signed-in pages retain native theme colors.
+Local browser checks exercised matching and empty searches, alphabetical sorting,
+not-archived filtering, light/dark switching and a 480 CSS-pixel narrow layout
+without horizontal overflow. One public repository is present; multiple pages,
+language/topics and a fresh signed-in journey were not exercised. This is local
+preview evidence only; appliance staging/deployment remains unchanged.
+
 ## Accepted native evidence
 
 U08 covers the named infra client → isolated `soda-test` journey, **not** a fresh

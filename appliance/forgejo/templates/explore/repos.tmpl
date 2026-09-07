@@ -1,0 +1,18 @@
+{{/* Stock Forgejo 15.0.7 owns the search, visibility, list and pagination. */}}
+{{template "base/head" .}}
+<main aria-label="{{.Title}}" class="page-content explore repositories soda-explore" data-signed="{{.IsSigned}}">
+  <div class="ui container soda-explore-container">
+    <section class="soda-explore-intro" aria-labelledby="soda-explore-title">
+      <div><p class="soda-explore-eyebrow">Discover &amp; collaborate</p>
+        <h1 id="soda-explore-title">Find your next project.</h1>
+        <p class="soda-explore-lede">Explore the code your team is building.</p>
+      </div>
+      <img class="soda-explore-art" src="{{AssetUrlPrefix}}/soda/forgejo/explore-papercraft.png" width="1536" height="1024" alt="">
+    </section>
+    {{template "explore/navbar" .}}
+    {{template "shared/repo_search" .}}
+    {{template "explore/repo_list" .}}
+    {{template "base/paginate" .}}
+  </div>
+</main>
+{{template "base/footer" .}}
