@@ -197,12 +197,26 @@ The existing scoped operator bootstrap remains the first-install path. Adding ad
 | Environment overview | Actual native state, environment identity, associated repository and connection readiness | F/S | First |
 | Members / join | Existing membership, explicit Add me, missing-key guidance and real account provisioning | S | First |
 | Connect | Observed project IP, own login, SSH/SCP/SFTP/editor guidance and route/host-key caveats; may be a detail tab | S | First |
+| Workspace terminal | After choosing a project to work in, open a browser terminal into the signed-in user's existing project-local workspace, as that user | S | Newly requested; design/implementation pending |
 | Incomplete/unavailable environment | Honest native failure and operator guidance; not a destructive recreate button | S | First |
 | Environment/access administration | Soda-specific environment status, association, membership and development-access views/actions, with the existing project/operator boundaries | S | First |
 | Operator tools entry | Role-appropriate administration navigation and native fallback links; links do not grant access | F/S | First |
 | Host administration | Stock Cockpit services/logs/network/storage and retained Tailnet/Runners pages | Native host | Keep native |
 
-No first-version web terminal, IDE, tool/service catalog, managed toolchain branches, environment deletion/rebuild, updater, backup platform or generalized recovery UI is added by this inventory. Normal native development tools remain the workflow inside projects. Native operator setup remains the installer/bootstrap path, not a new publicly exposed setup wizard.
+**New requirement — browser workspace terminal:** after selecting a project to
+work in, a user whose workspace already exists there can access its terminal in
+the browser. “Workspace” means their existing project-local Linux account/home
+inside the persistent shared environment, not a new per-user container or a host
+account. Enforce access to the selected project and the user's own account on the
+server; do not grant a host-root or shared administrator shell. Selecting a
+project/opening its terminal must not silently create a workspace or join the
+project. Missing membership/workspace keeps the existing explicit join flow.
+Terminal transport/authentication, session lifetime and stopped-project behavior
+remain design work; no mechanism or automatic start is selected by this request.
+Ordinary SSH/SCP/SFTP remain supported. This is a recorded requirement, not an
+implemented feature or authorization to execute commands.
+
+No browser IDE, tool/service catalog, managed toolchain branches, environment deletion/rebuild, updater, backup platform or generalized recovery UI is added by this inventory. Normal native development tools remain the workflow inside projects. Native operator setup remains the installer/bootstrap path, not a new publicly exposed setup wizard.
 
 ### API coverage evidence and limits
 

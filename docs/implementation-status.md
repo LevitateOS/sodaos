@@ -1,5 +1,16 @@
 # Implementation handoff
 
+## New requirement recorded — browser workspace terminal
+
+The user requested browser terminal access after selecting a project, when their
+workspace already exists there. Recorded in the dashboard page inventory and
+leading plan, replacing the prior terminal exclusion. The terminal targets the
+user's existing project-local account/home, not a new environment or host shell;
+server-side access checks and explicit joining remain required. Mechanism,
+session/security design, stopped-project behavior and milestone placement are
+undecided. No implementation, dependency change, test, build or native operation
+was performed. Existing U08 acceptance does not cover this new requirement.
+
 ## U08 accepted — bounded native x86_64 first product proof
 
 **U08 is complete for the recorded infra → `soda-test` first-product scope.** This

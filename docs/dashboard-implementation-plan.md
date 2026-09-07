@@ -127,7 +127,21 @@ Important current limitations:
 
 Choosing to plan an extension is not choosing to ship it. Approval must update this register and the relevant [deferred boundary](deferred.md) before its implementation. Native Forgejo quota/admin features are not authorization to introduce Soda environment quotas or Linux account-remapping machinery.
 
-Not included: host UI replacement, a new forge/CI engine, a web IDE/terminal, a tool/service marketplace, private toolchain/service branches, project DNS or an SSH gateway, unrestricted Podman access, an ISO/bootc/updater platform, or a generic reconciliation/backup system. Existing native development tools and host Cockpit remain usable.
+**Newly requested scope — browser workspace terminal:** after choosing a project,
+a signed-in user with an existing workspace there must be able to open its
+terminal in the dashboard as their project-local Linux user. See the
+[environment page inventory](dashboard-plan.md#soda-environments-and-operator-pages).
+This narrowly supersedes the earlier web-terminal exclusion, not the browser IDE
+or host-access exclusions. It must use the existing workspace and server-side
+project/account authorization, without implicit provisioning/join or a shared
+root shell. Transport, session/security design, stopped-project behavior, tests
+and milestone placement remain to be planned before implementation. Include the
+requirement in U17 coverage and U20 acceptance when implemented; the recorded U08
+acceptance remains evidence for its earlier scope, not terminal proof. This
+request records the requirement only and authorizes no implementation or native
+execution.
+
+Not included: host UI replacement, a new forge/CI engine, a web IDE, a tool/service marketplace, private toolchain/service branches, project DNS or an SSH gateway, unrestricted Podman access, an ISO/bootc/updater platform, or a generic reconciliation/backup system. Existing native development tools and host Cockpit remain usable.
 
 ## 4. Architecture, source ownership and dependencies
 
