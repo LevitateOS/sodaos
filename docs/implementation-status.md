@@ -42,6 +42,13 @@ restored to `forgejo-auto`. Existing Alice authenticated HTTP rendering returned
 not visually checked. Organization/team contexts, heatmap and feed pagination
 were not newly exercised. No new fixture data or appliance deployment.
 
+The dashboard context switcher now uses a compact Soda trigger and rounded
+menu with palette colors, monospace caption, active state and keyboard focus.
+Its stock markup and context links are unchanged. Local Chrome inspection
+verified the open menu, ArrowDown expansion and personal-context navigation;
+organization switching was not newly exercised. CSS-only change and local
+template reload; no deployment.
+
 ## Local repository explorer preview
 
 The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer

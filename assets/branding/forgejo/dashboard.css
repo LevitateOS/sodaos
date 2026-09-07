@@ -6,8 +6,30 @@
 .soda-dashboard h1 { margin: 0 0 14px; font: 600 clamp(32px, 3.8vw, 48px)/1.15 "Fraunces Variable", Georgia, serif; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .soda-dashboard-lede { color: var(--explore-muted); font-size: 18px; margin: 0; }
 .soda-dashboard-art { width: 330px; max-width: 34%; height: auto; }
-.soda-dashboard .secondary-nav { background: transparent; border-color: var(--explore-edge) !important; margin-bottom: 28px; }
-.soda-dashboard .secondary-nav > .menu { width: 100%; margin: 0; }
+/* The native context menu keeps its switching and keyboard behavior. */
+.soda-dashboard .secondary-nav { background: transparent !important; border: 0 !important; margin-bottom: 28px; }
+.soda-dashboard .secondary-nav > .ui.menu { width: 100%; margin: 0; gap: 10px; background: transparent; }
+.soda-dashboard .secondary-nav > .ui.menu > .item { padding: 0; margin: 0; }
+.soda-dashboard .secondary-nav .ui.dropdown.jump { padding: 11px 14px; max-width: 100%; border: 1px solid var(--explore-edge); border-radius: 12px; background: var(--explore-surface); color: var(--explore-text); font: 600 15px/1.4 Barlow, sans-serif; }
+.soda-dashboard .secondary-nav .ui.dropdown.jump:hover,
+.soda-dashboard .secondary-nav .ui.dropdown.jump.active { border-color: var(--explore-link); }
+.soda-dashboard .secondary-nav .jump > .text { gap: 10px; }
+.soda-dashboard .secondary-nav .jump .avatar { border-radius: 8px; }
+.soda-dashboard .secondary-nav .jump > .text > .dropdown.icon { margin-left: 12px; color: var(--explore-muted); }
+.soda-dashboard .secondary-nav .ui.dropdown.jump > .menu { min-width: 270px; max-width: min(360px, calc(100vw - 32px)); margin-top: 8px !important; padding: 8px; border: 1px solid var(--explore-edge); border-radius: 14px !important; background: var(--explore-surface); box-shadow: 0 12px 32px #0002; }
+.soda-dashboard .secondary-nav .ui.dropdown.jump > .menu > .ui.header { margin: 0; padding: 12px 10px 16px; color: var(--explore-muted); font: 500 10px/1.5 "IBM Plex Mono", monospace; font-size: 10px !important; text-transform: uppercase !important; letter-spacing: .08em; }
+.soda-dashboard .secondary-nav .jump .scrolling.menu { background: transparent; border: 0; margin: 0; padding: 0; }
+.soda-dashboard .secondary-nav .ui.dropdown.jump .menu > .item { border: 0; border-radius: 8px; padding: 12px 10px !important; color: var(--explore-text); font: 600 15px/1.4 Barlow, sans-serif; font-weight: 600 !important; gap: 10px; }
+.soda-dashboard .secondary-nav .jump .menu .item:hover { background: var(--explore-canvas); }
+.soda-dashboard .secondary-nav .ui.dropdown.jump .menu > .active.item { background: var(--explore-canvas) !important; color: var(--explore-link) !important; }
+.soda-dashboard .secondary-nav .jump:focus-visible { outline: 2px solid var(--explore-link); outline-offset: 3px; }
+.soda-dashboard .secondary-nav .right.menu { gap: 4px; flex-wrap: wrap; }
+.soda-dashboard .secondary-nav .right.menu > .item { border-radius: 8px; color: var(--explore-muted); }
+.soda-dashboard .secondary-nav .right.menu > .active.item { background: var(--explore-surface); color: var(--explore-link); }
+@media (max-width: 700px) {
+  .soda-dashboard .secondary-nav > .ui.menu > .item { align-self: flex-start; max-width: 100%; }
+  .soda-dashboard .secondary-nav .ui.dropdown.jump > .menu { min-width: min(270px, calc(100vw - 32px)); }
+}
 .soda-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
 .soda-dashboard-feed, .soda-dashboard-sidebar { min-width: 0; }
 .soda-dashboard h2 { color: var(--explore-text); font: 600 26px/1.25 "Fraunces Variable", Georgia, serif; letter-spacing: -.025em; margin: 0 0 8px; }
