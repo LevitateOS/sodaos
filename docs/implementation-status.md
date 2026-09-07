@@ -35,7 +35,7 @@ states, oldest sorting and 390px layout without horizontal overflow. Pull reques
 retains its native list partial. Light appearance, org context and pagination were
 not newly exercised. No appliance deployment; custom intro copy remains English.
 
-The Pull requests list now shares the Soda list layout and existing checklist
+The Pull requests list now shares the Soda list layout and dedicated collaboration
 artwork. Local Chrome checks covered reviewed-by filtering, open/closed/merged
 fixture rows and review summaries, no-match search and 390px layout without
 horizontal overflow. Native review filters, query state and permissions are
@@ -338,3 +338,9 @@ resolution, generated provisioning, service/provider/network action or data clea
 Checks covered 55 Markdown files, 218 local relative links and 17 Markdown anchors
 with no errors; six retired documents have no active references. Logs:
 `.artifacts/research/docs-cleanup-9f3baa7/`.
+
+Local PR fixture follow-up (2026-09-08): added seven user-requested PRs through
+native APIs within alice/activity-workbench. Browser confirmed 8 open/2 closed,
+review summaries and conflict indicator; API confirmed a native draft and
+non-mergeable conflicting PR. Added a new generated collaboration image selected
+only for Pull requests. No deployment or non-fixture repository changes.

@@ -209,10 +209,20 @@ were not newly exercised; this fixture list has fewer than one page of issues.
 
 ### Global Pull requests overview
 
-Pull requests uses the same list layout and checklist illustration as Issues.
+Pull requests uses the same list layout as Issues, with a dedicated collaboration
+illustration (`pulls-papercraft.png`; exact prompt in `pulls-art-prompt.md`).
 Its native review-requested/reviewed-by filters, branch information, review counts,
 merged/closed icons, query state and shared list remain intact. New introduction
 copy remains English. Local reload and Chrome checks covered reviewed-by filtering,
 one open request, two closed requests (including one merged), review summaries,
 no-match search and 390px layout with no horizontal overflow. No new fixture data
 or deployment. Light appearance and pagination were not newly exercised.
+
+Additional user-authorized local PR fixtures #9–15 in alice/activity-workbench
+include a native draft, review requested from Vince, approved and changes-requested
+reviews, assignments, labels, milestone/task progress, multilingual/long titles and
+a real one-file merge conflict. Local browser confirmed 8 open / 2 closed requests
+and the native waiting-review/approval/change-request/conflict summaries. Native API
+confirmed draft=true for #9 and mergeable=false for #14. No application rules or
+existing non-fixture repositories changed. The ignored one-shot execution record is
+`.artifacts/local-forgejo/seed-pull-fixtures.py` (not safe to blindly rerun).
