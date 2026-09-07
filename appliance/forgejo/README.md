@@ -226,3 +226,15 @@ and the native waiting-review/approval/change-request/conflict summaries. Native
 confirmed draft=true for #9 and mergeable=false for #14. No application rules or
 existing non-fixture repositories changed. The ignored one-shot execution record is
 `.artifacts/local-forgejo/seed-pull-fixtures.py` (not safe to blindly rerun).
+
+### Global Milestones overview
+
+`user/dashboard/milestones.tmpl` adapts stock Forgejo 15.0.7 with the shared Soda
+intro/toolbar and existing checklist artwork, a repository filter panel and separate
+milestone cards. Native repository selection, count/state/search/sort links,
+progress, deadlines, tracked time, rendered descriptions and pagination are retained.
+Empty results now show the existing translated no-results guidance. Custom intro
+copy is English. Local template reload and Chrome checks covered the populated
+8% fixture, closed empty state, keyword no-match and 390px layout without horizontal
+overflow. Due/overdue dates, tracked time, organization context, light appearance
+and pagination were not newly exercised. No new fixtures or appliance deployment.

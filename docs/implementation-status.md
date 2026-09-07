@@ -25,6 +25,16 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local Milestones preview
+
+The official dashboard milestones override now uses Soda's separate toolbar,
+repository filter panel and progress cards, reusing the checklist illustration.
+Native milestone data, filtering, rendered content, dates and pagination remain
+upstream-owned. Local reload and browser checks covered the populated 8% fixture,
+closed empty state, keyword no-match and 390px layout without horizontal overflow.
+Deadline/overdue, tracked time, org context, light appearance and pagination were
+not newly exercised. No new fixtures or deployment; custom intro is English.
+
 ## Local global Issues preview
 
 The official 15.0.7 dashboard Issues template now has Soda styling and new
