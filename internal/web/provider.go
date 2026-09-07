@@ -119,6 +119,14 @@ func (s *Server) apiProvider(next func(http.ResponseWriter, *http.Request, store
 	}, methods...)
 }
 func providerError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errRepositoryConsent) {
+		jsonError(w, 403, "consent_required", "Forgejo user and repository consent is required.")
+		return
+	}
+	if errors.Is(err, errProviderIdentity) {
+		jsonError(w, 401, "provider_identity_mismatch", "Sign in again.")
+		return
+	}
 	if errors.Is(err, forgejo.ErrResponseTooLarge) {
 		jsonError(w, 413, "provider_response_too_large", "This object exceeds the dashboard's supported size. Use native Git or Forgejo for larger files.")
 		return

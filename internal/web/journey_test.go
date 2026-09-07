@@ -5,14 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -25,19 +24,22 @@ func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f
 // This does not establish Linux accounts, networking or SSH success.
 func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	ctx := context.Background()
-	db, err := store.Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	for _, u := range []store.User{{ID: 1, Login: "alice"}, {ID: 2, Login: "bob"}} {
-		if err = db.UpsertUser(ctx, u); err != nil {
-			t.Fatal(err)
+	server := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/user":
+			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
+			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
+		case "/api/v1/repositories/7":
+			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+		case "/api/v1/users/bob/orgs/alice/permissions":
+			fmt.Fprint(w, `{"is_owner":false}`)
+		default:
+			t.Error("unexpected provider path", r.URL.Path)
+			w.WriteHeader(500)
 		}
-		if err = db.CreateSession(ctx, u.Login, u.ID, "csrf"); err != nil {
-			t.Fatal(err)
-		}
-	}
+	})
+	db := server.Store
+	var err error
 	id := "p0123456789abcdef01234567"
 	if err = db.CreateProject(ctx, store.Project{ID: id, RepositoryID: 7, OwnerID: 1, Name: "demo", Repository: "alice/demo"}); err != nil {
 		t.Fatal(err)
@@ -45,7 +47,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	if err = db.MarkReady(ctx, id, "10.89.0.2"); err != nil {
 		t.Fatal(err)
 	}
-	server := New(config.Config{ForgejoURL: "https://forgejo.test", OperatorID: 99}, db)
+	server.Config.OperatorID = 99
 	nativeCalls := 0
 	reject := false
 	server.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
@@ -70,9 +72,9 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		r := httptest.NewRequest("POST", "/-/soda/api/environments/"+id+"/join", strings.NewReader(`{}`))
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Origin", server.Config.ForgejoURL)
-		r.Header.Set("X-CSRF-Token", "csrf")
+		r.Header.Set("X-CSRF-Token", "csrf-"+login)
 		r.Header.Set(expectedUserHeader, map[string]string{"alice": "1", "bob": "2"}[login])
-		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: login})
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-" + login})
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, r)
 		return w
@@ -104,7 +106,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		}
 	}
 	r := httptest.NewRequest("GET", "/-/soda/api/environments/"+id, nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "bob"})
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
 	r.Header.Set(expectedUserHeader, "2")
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)

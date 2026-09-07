@@ -1,7 +1,6 @@
 package web
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -157,6 +156,6 @@ func TestLoginRejectsStaleAndAmbiguousCookiesWithoutAnonymousFallback(t *testing
 		}
 	}
 	if _, err := s.Store.Session(t.Context(), "session-alice"); err != nil {
-		t.Fatal(errors.New("cookie rejection deleted session"))
+		t.Fatal("cookie rejection deleted session", err)
 	}
 }

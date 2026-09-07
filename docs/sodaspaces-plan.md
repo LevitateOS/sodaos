@@ -5,11 +5,12 @@ Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 Both old Soda frontends and duplicate forge adapters are removed; the drawer and
 its complete authenticated integration are **not implemented**. Step 1 is underway:
 routing/configuration/scoped cookies and backend actor/return context are in source.
-Native-page wiring and real browser/proxy proof remain pending. Steps 2–6 are not
-completed. The [security review](implementation-status.md#security-review-and-fix-plan)
-confirmed two existing gaps: callbacks can outlive Soda logout, and new joins do
-not check repository access. The callback/logout fix below is now source-implemented;
-repository authorization remains next. Neither is deployed.
+Native-page wiring and real browser/proxy proof remain pending. Step 2's backend
+repository reads/new-join checks are implemented; native-page context and steps 3–6
+remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
+did not check repository access. Both fixes below are now source-implemented and
+locally tested. Neither is deployed; browser/proxy proof remains pending.
 
 ## Selected approach
 
@@ -88,7 +89,7 @@ this contract, stop and explain the precise gap—no fork or substitute frontend
 race/migration tests. Browser/proxy and installed rehearsal remain pending. The
 steps below record the selected contract, not permission for native execution.
 
-**Files:** `internal/web/{auth,api}.go`, `internal/store/{store,grants,migrations}.go`
+**Files:** `internal/web/{auth,api}.go`, `internal/store/{store,login,grants,migrations}.go`
 and their focused tests. Preserve the existing PKCE/state/cookie/actor/consent and
 safe-return checks; no provider changes or global logout mechanism.
 
@@ -164,6 +165,11 @@ rename/transfer, human/org-owner versus administrator boundaries, provider failu
 and no cross-project disclosure through alternate routes.
 
 #### Repository authorization fix
+
+**Source-implemented:** required repository lookup, direct-ID read boundaries and
+fresh new-join checks; focused denial/concurrency/degraded-access tests. Native UI,
+stable-ID creation and installed verification remain pending. The following steps
+record the implemented contract, not further execution permission.
 
 **Files:** the step-2 owners above plus `internal/web/provider.go` where its existing
 acting-grant handling is reused. No helper protocol, Linux account or permission

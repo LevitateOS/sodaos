@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,15 +61,20 @@ func open(path string, cipher *grantCipher) (*Store, error) {
 		return nil, err
 	}
 	f.Close()
-	db, err := sql.Open("sqlite", path)
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	// database/sql can replace connections after cancellation. Configure every
+	// connection, not just startup, so logout cascades cannot leave live grants.
+	dsn := url.URL{Scheme: "file", Path: absolute, RawQuery: url.Values{"_pragma": {"foreign_keys(1)", "busy_timeout(5000)"}}.Encode()}
+	db, err := sql.Open("sqlite", dsn.String())
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db, grants: cipher}
-	if _, err = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;`); err == nil {
-		err = s.checkGrantKey(context.Background())
-	}
+	err = s.checkGrantKey(context.Background())
 	if err == nil {
 		err = migrate(context.Background(), db)
 	}
@@ -144,21 +150,8 @@ const projectColumns = `id,name,repository_id,owner_id,repository,ip,ready`
 func (s *Store) Project(ctx context.Context, id string) (Project, error) {
 	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE id=?`, id))
 }
-func (s *Store) Projects(ctx context.Context) ([]Project, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT `+projectColumns+` FROM projects ORDER BY name`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Project{}
-	for rows.Next() {
-		p, err := scanProject(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
+func (s *Store) ProjectByRepository(ctx context.Context, id int64) (Project, error) {
+	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE repository_id=?`, id))
 }
 func (s *Store) Join(ctx context.Context, pid string, uid int64, login string) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO memberships(project_id,user_id,login) VALUES(?,?,?)`, pid, uid, login)

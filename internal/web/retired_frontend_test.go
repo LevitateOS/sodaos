@@ -42,7 +42,11 @@ func TestSodaAPIsRemainWithoutEitherFrontend(t *testing.T) {
 	for _, path := range []string{"/api/session", "/api/environments", "/api/me/development-keys"} {
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, apiTestRequest("GET", path, "", "alice"))
-		if w.Code != 200 {
+		want := 200
+		if path == "/api/environments" {
+			want = 400
+		} // repository context is now required
+		if w.Code != want || !strings.HasPrefix(w.Header().Get("Content-Type"), "application/json") {
 			t.Fatal(path, w.Code, w.Body.String())
 		}
 	}

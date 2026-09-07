@@ -90,6 +90,11 @@ same-origin fetch metadata. Native Forgejo cookies/CSRF are not substitutes, and
 `fetch('/api/...')` still targets Forgejo rather than Soda. `public_url` and its
 setup flag are removed; URL configuration remains origin-only. No permissive CORS.
 
+Repository-scoped reads and new-join authorization now check the acting grant's
+fresh subject, consent and native visibility. Schema v5 also binds OAuth finalization
+and Soda logout to one cancellable login context. These backend fixes are locally
+tested, not a native-page integration or installed migration.
+
 Backend guards now require `X-Soda-Expected-User-ID` except for session bootstrap;
 OAuth state binds optional repository/expected-user IDs and callback checks the
 fresh subject before saving Soda state. Repository return uses the existing acting-

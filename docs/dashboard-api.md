@@ -44,13 +44,22 @@ supplied fixture username against bootstrap before using the actor ID.
 | `GET/PATCH /api/me/preferences` | Soda-only display name; PATCH `{display_name}` |
 | `GET/POST /api/me/development-keys` | Own development-access public keys; POST `{public_key}`; not native Git key management |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
-| `GET /api/environments` | Existing trusted-team Soda reservations; not private Git authorization |
+| `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
 | `POST /api/environments` | `{owner,repository}`; acting-grant native human-owner check, reservation, actual native create; no implicit join |
 | `GET /api/environments/{id}` | Provisioning record, nullable live observation, own login and current-authority hint; incomplete reservations remain inspectable |
-| `POST /api/environments/{id}/join` | `{}`; own identity/public keys, real fixed native account operation, membership only after confirmed success |
+| `POST /api/environments/{id}/join` | `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
 | `GET /api/environments/{id}/members` | Current native human/org owner or explicit Soda operator sees permitted members; otherwise own membership only |
 | `GET /api/environments/{id}/connection` | Own membership required; current IP/running state and fixed public Ed25519 host key/fingerprint; `routing_verified:false` |
 
+Collection lookup requires current visibility even for operators/members; provider
+failure is not an absent environment. It returns `items` (zero or one), `repository`
+(`id`, `owner_id`, `owner`, `name`) and `can_create` (absent and current human owner).
+Missing/duplicate/malformed/unknown query fields or queries over 8 KiB return 400.
+Creation still takes `{owner,repository}`; the advisory read is never authorization.
+
+Direct-ID detail/member reads require current repository visibility for ordinary
+nonmembers, before native inspection or metadata disclosure. Existing members retain
+own degraded reads and the explicit Soda operator retains inspection authority.
 Environment detail/members report `authority_unavailable` when ownership cannot be
 verified. Failure withholds elevated visibility without discarding own membership/
 connection access. Cached `owner_id` is historical, not authorization. Resolve current
@@ -59,15 +68,22 @@ native ownership by stored repository ID and native organization `is_owner`, not
 access. Organization-owned **creation** remains unsupported; do not infer otherwise
 from the current-owner visibility check on transferred repositories.
 
-The future repository-context button/drawer endpoint has **not** been implemented.
-Do not invent an endpoint, authenticated embedding mechanism or shared cookie from
-this retained API. The leading plan owns that next source slice.
+New-join requests independently check the acting grant's `read:user` and
+`read:repository` consent, fresh subject and `RepositoryByID` visibility; neither
+operator nor generic administrator status bypasses that check. Use the fresh login
+for a new account. Denial/missing grant/consent/provider failure never calls the
+account helper or records membership. Existing-member joins return their original
+login without reinstallation or a new provider check. This does not continuously
+synchronize access or revoke existing Linux accounts after native permission changes.
+
+Repository-scoped reads and new-join authorization are implemented; the native
+button/drawer caller and stable-ID creation remain pending. No shared native cookie
+or completed authenticated embedding is implied.
 
 ## Browser/session/security contracts
 
-**Known source gap:** new joins still lack repository authorization; the
-[repository authorization fix](sodaspaces-plan.md#repository-authorization-fix) is next.
-Callback/logout cancellation is now implemented in source, not deployed.
+Both reviewed fixes—repository authorization and callback/logout cancellation—are
+implemented and locally source-tested, not deployed or browser/proxy validated.
 
 - `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
   `repository_id` and `expected_user_id` with the same positive-ID representation;
@@ -88,7 +104,9 @@ Callback/logout cancellation is now implemented in source, not deployed.
   and rotates the session/grant. Logout invalidates the same context, including a
   replacement committed after logout authenticated. Late cookies cannot revive it;
   superseded callbacks do not write cookies or profiles. Other browser contexts are
-  untouched. Contexts expire with the login/session; no global native logout.
+  untouched. Contexts expire with the login/session; later login initiation removes
+  expired contexts and their credential rows, not projects/profiles/keys. No global
+  native logout.
   Existing sessions receive independent contexts without changing their credentials;
   pre-v5 pending OAuth requires restarting sign-in, not anonymous completion.
   A stale cookie at explicit login returns 409 and expires Soda cookies so the user

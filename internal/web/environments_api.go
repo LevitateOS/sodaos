@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -37,6 +38,13 @@ type environmentView struct {
 	Provisioned  bool   `json:"provisioned"`
 }
 
+type repositoryContextView struct {
+	ID      string `json:"id"`
+	OwnerID string `json:"owner_id"`
+	Owner   string `json:"owner"`
+	Name    string `json:"name"`
+}
+
 func environmentDTO(p store.Project) environmentView {
 	return environmentView{p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
 }
@@ -45,18 +53,36 @@ func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store
 		s.apiCreateEnvironment(w, r, v)
 		return
 	}
-	projects, err := s.Store.Projects(r.Context())
-	if err != nil {
-		jsonError(w, 503, "store_unavailable", "Could not list environments.")
+	if len(r.URL.RawQuery) > 8192 {
+		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
 		return
 	}
-	items := make([]environmentView, 0, len(projects))
-	for _, p := range projects {
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	id, valid := positiveID(query.Get("repository_id"))
+	if err != nil || len(query) != 1 || len(query["repository_id"]) != 1 || !valid {
+		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+		return
+	}
+	access, err := s.visibleRepository(r, v, id)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	p, err := s.Store.ProjectByRepository(r.Context(), id)
+	absent := errors.Is(err, sql.ErrNoRows)
+	if err != nil && !absent {
+		jsonError(w, 503, "store_unavailable", "Could not read environment.")
+		return
+	}
+	items := []environmentView{}
+	if !absent {
 		items = append(items, environmentDTO(p))
 	}
 	jsonResponse(w, 200, struct {
-		Items []environmentView `json:"items"`
-	}{items})
+		Items      []environmentView     `json:"items"`
+		Repository repositoryContextView `json:"repository"`
+		CanCreate  bool                  `json:"can_create"`
+	}{Items: items, Repository: repositoryContextView{strconv.FormatInt(id, 10), strconv.FormatInt(access.repository.Owner.ID, 10), access.repository.Owner.Login, access.repository.Name}, CanCreate: absent && access.repository.Owner.ID == v.User.ID})
 }
 func validRepositoryPart(value string) bool {
 	return value != "" && value != "." && value != ".." && len(value) <= 255 && !strings.ContainsAny(value, "/\\\x00\r\n")
@@ -95,7 +121,7 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 	rand.Read(bytes)
 	p := store.Project{ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
 	if err = s.Store.CreateProject(r.Context(), p); err != nil {
-		jsonError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Inspect the environment list before retrying.")
+		jsonError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")
 		return
 	}
 	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
@@ -134,9 +160,8 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	if !ok {
 		return
 	}
-	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		jsonError(w, 503, "store_unavailable", "Could not read membership.")
+	reader, allowed := s.authorizeEnvironmentRead(w, r, v, p)
+	if !allowed {
 		return
 	}
 	// Even an incomplete reservation has read-only inspection; ready is a
@@ -146,7 +171,6 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	if nativeErr == nil {
 		observed = &env
 	}
-	administrator, authorityErr := s.environmentAdministrator(r, v, p)
 	jsonResponse(w, 200, struct {
 		AuthorityUnavailable bool              `json:"authority_unavailable"`
 		Environment          environmentView   `json:"environment"`
@@ -154,7 +178,7 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 		NativeUnavailable    bool              `json:"native_unavailable"`
 		Login                string            `json:"login"`
 		Administrator        bool              `json:"environment_administrator"`
-	}{authorityErr != nil, environmentDTO(p), observed, nativeErr != nil, login, administrator})
+	}{reader.authorityUnavailable, environmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !decodeAPIObject(w, r, &struct{}{}) {
@@ -162,10 +186,6 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 	}
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
-		return
-	}
-	if !p.Ready {
-		jsonError(w, 409, "not_provisioned", "Environment provisioning is incomplete.")
 		return
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
@@ -179,7 +199,17 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 		jsonError(w, 503, "store_unavailable", "Could not inspect membership.")
 		return
 	}
-	if !projectLogin.MatchString(v.User.Login) || v.User.Login == "root" {
+	access, err := s.visibleRepository(r, v, p.RepositoryID)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	if !p.Ready {
+		jsonError(w, 409, "not_provisioned", "Environment provisioning is incomplete.")
+		return
+	}
+	login = access.actor.Login
+	if !projectLogin.MatchString(login) || login == "root" {
 		jsonError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
 		return
 	}
@@ -200,17 +230,17 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 	for _, key := range keys {
 		public = append(public, key.Public)
 	}
-	if err = s.Host.Join(r.Context(), host.Account{Project: p.ID, Login: v.User.Login, Identity: v.User.ID, Keys: public}); err != nil {
+	if err = s.Host.Join(r.Context(), host.Account{Project: p.ID, Login: login, Identity: v.User.ID, Keys: public}); err != nil {
 		jsonError(w, 502, "account_incomplete", "Native account provisioning was not confirmed. Membership was not recorded; ask the operator to inspect the account.")
 		return
 	}
-	if err = s.Store.Join(r.Context(), p.ID, v.User.ID, v.User.Login); err != nil {
+	if err = s.Store.Join(r.Context(), p.ID, v.User.ID, login); err != nil {
 		jsonError(w, 503, "membership_not_saved", "Native account provisioning returned but membership could not be saved. Ask the operator to inspect the retained account.")
 		return
 	}
 	jsonResponse(w, 200, struct {
 		Login string `json:"login"`
-	}{v.User.Login})
+	}{login})
 }
 func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
@@ -222,8 +252,11 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 		Login  string `json:"login"`
 	}
 	items := []memberView{}
-	administrator, authorityErr := s.environmentAdministrator(r, v, p)
-	if administrator {
+	reader, allowed := s.authorizeEnvironmentRead(w, r, v, p)
+	if !allowed {
+		return
+	}
+	if reader.administrator {
 		members, err := s.Store.Members(r.Context(), p.ID)
 		if err != nil {
 			jsonError(w, 503, "store_unavailable", "Could not list members.")
@@ -232,20 +265,13 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 		for _, member := range members {
 			items = append(items, memberView{strconv.FormatInt(member.UserID, 10), member.Login})
 		}
-	} else {
-		login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			jsonError(w, 503, "store_unavailable", "Could not read membership.")
-			return
-		}
-		if err == nil {
-			items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), login})
-		}
+	} else if reader.login != "" {
+		items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), reader.login})
 	}
 	jsonResponse(w, 200, struct {
 		Items                []memberView `json:"items"`
 		AuthorityUnavailable bool         `json:"authority_unavailable"`
-	}{items, authorityErr != nil})
+	}{items, reader.authorityUnavailable})
 }
 func (s *Server) apiConnection(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)

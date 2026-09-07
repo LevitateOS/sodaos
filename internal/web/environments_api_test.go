@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/host"
@@ -17,10 +18,16 @@ import (
 // Real JSON handlers/store, fake host only: not installed account/SSH evidence.
 func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/repos/alice/demo" {
-			t.Error("unexpected provider path")
+		switch r.URL.Path {
+		case "/api/v1/user":
+			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
+			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
+		case "/api/v1/repos/alice/demo", "/api/v1/repositories/7":
+			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+		default:
+			t.Error("unexpected provider path", r.URL.Path)
+			w.WriteHeader(500)
 		}
-		fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
 	})
 	accountCalls := 0
 	rejectAccount := false

@@ -206,7 +206,8 @@ must capture native page identity, compare page/session/fresh-provider IDs and r
 stale native context on resume/BFCache restoration before exposing actions. Native-
 only login/logout while Soda's session is unchanged is not detectable by this header;
 no atomic cross-system logout is claimed. See the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
-The drawer, repository-scoped reads and mutation controls are not implemented.
+At that revision the drawer, repository-scoped reads and mutation controls were
+not implemented. Subsequent backend repairs are recorded below.
 
 ## Security review and fix plan
 
@@ -227,8 +228,8 @@ The user then requested a fix plan. The existing [step-1 callback/logout plan](s
 selects a bounded persisted login context and atomic cancellation/finalization;
 the [step-2 repository plan](sodaspaces-plan.md#repository-authorization-fix) moves new-join
 authorization ahead of drawer wiring while preserving legitimate existing-member
-access. Both remain **planned, unimplemented**. No schema change, session invalidation
-or Linux revocation has occurred. This planning change edits documentation only;
+access. At that planning revision both were **unimplemented**. No schema change,
+session invalidation or Linux revocation occurred then. That change edited documentation only;
 relative-link/anchor and whitespace checks ran, not additional product tests or builds.
 Native browser/proxy proof, migration rehearsal and rollout remain separately scoped.
 
@@ -251,10 +252,41 @@ Logs: `.artifacts/research/security-fixes-1b3e355/auth-race.log`; initial focuse
 also retained. Repository authorization remains next. No deployment, native/browser,
 provider or retained-data changes; only local source checks ran.
 
+### Repository authorization repair in source
+
+Replaced the catalog with required `repository_id` lookup through the acting grant:
+fresh subject, actual read user/repository consent, current visibility and the unique
+Soda association. Response includes current repository context and advisory owner
+creation availability, never all projects. Direct-ID detail/member reads authorize
+ordinary nonmembers before metadata/native inspection; existing members' own degraded
+reads and explicit Soda operator inspection remain. Full member-list elevation still
+requires current human/org ownership or the configured operator, not visibility alone.
+
+New joins independently repeat current identity/repository checks against the stored
+repository ID before readiness disclosure or fixed account calls. No operator/admin
+bypass or setup-token fallback. New accounts use the fresh provider login; existing
+joins retain the original login with no reinstallation or provider dependency.
+Membership remains contingent on helper success. Stable-ID creation is still pending;
+this changes neither existing Linux access nor native Git permissions.
+
+Full uncached Go suite passed. Focused race coverage includes denial/no-grant/consent,
+subject mismatch, malformed/oversized/timeout responses, direct-ID disclosure, rename/
+transfer, access lost between read/join, native failure, concurrent joins, unsaved
+results and own connection during provider failure. The initial repository suite
+failure exposed the obsolete catalog assertion; the corrected test now requires a
+400 JSON response without repository context. Failure and final logs are retained at
+`.artifacts/research/security-fixes-1b3e355/`. A further pool-replacement regression
+reproduced lost SQLite FK cascades after connection recycling. Foreign-key and
+busy-timeout pragmas now apply to every connection through an escaped file URI;
+logout removes session/grant rows even after replacement. The failing reproduction
+and subsequent full Go/race passes are retained. All 31 Python build fixtures also
+passed. No native/browser/proxy execution or retained-project/provider/deployment changes. Both fixes are source-implemented;
+real browser proof and v5 preserved-state rehearsal remain required before rollout.
+
 ## Remaining work and permission boundary
 
-- Implement the two planned security fixes and their regression tests before
-  mutation controls or rollout; no current API protection is inferred from the plan.
+- Preserve the two implemented security fixes and regression coverage while wiring
+  native-page context; no installed acceptance is inferred from local test results.
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
   then explicit create/join/key/connection controls and existing-account terminal.
   The verified template hook alone is not this integration. Stop if it needs a fork.
