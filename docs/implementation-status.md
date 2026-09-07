@@ -25,6 +25,16 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local global Issues preview
+
+The official 15.0.7 dashboard Issues template now has Soda styling and new
+checklist artwork. Native query/filter/count/context and shared issue-list logic
+remain; Pull requests stays outside the Issues design. Local reload succeeded.
+Chrome exercised six populated issues, type switching, closed/no-match empty
+states, oldest sorting and 390px layout without horizontal overflow. Pull requests
+still renders its native list. Light appearance, org context and pagination were
+not newly exercised. No appliance deployment; custom intro copy remains English.
+
 ## Local signed-in dashboard preview
 
 The personal home feed now has an official Soda dashboard template override,

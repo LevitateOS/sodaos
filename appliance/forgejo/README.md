@@ -189,3 +189,20 @@ Alice fixture returned the populated native activity feed and repository sidebar
 with the new wrapper (200); populated activity was not visually checked. No new
 records were created. Organization/team contexts, heatmap and feed pagination were
 retained by composition but not newly exercised. No appliance deployment occurred.
+
+### Global Issues overview
+
+`user/dashboard/issues.tmpl` adapts the stock 15.0.7 template with a Soda intro,
+new checklist artwork, and unified issue panel. Native search syntax, type/sort
+links, open/closed counts, account/org navigation and shared issue list remain
+upstream-owned. The shared template keeps Pull requests outside the new styles.
+`issues.css` reuses the dashboard shell and context switcher; account theme state
+remains native. The two custom intro strings remain English. Artwork provenance
+and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
+
+Local template reload and Chrome checks covered populated dark-mode rows,
+created-by/in-your-repositories switching (2/6 open issues), closed empty results,
+keyword no-match, oldest sorting, and 390px populated/empty layouts without
+horizontal overflow. Pull requests still renders its native list without the
+Issues styling. Light-mode visual inspection, organization context and pagination
+were not newly exercised; this fixture list has fewer than one page of issues.
