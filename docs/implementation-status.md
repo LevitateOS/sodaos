@@ -25,6 +25,17 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local New Organization preview
+
+Official `org/create.tmpl` now uses the Soda shell and existing organization
+workshop artwork. Native fields, defaults, visibility values, permission checkbox,
+error flags and POST action are retained. Desktop cards match the repository form
+with 24px padding/gaps and aligned labels. Local reload and Chrome checks covered
+desktop, 390px layout without overflow, visibility selection and required name/
+40-character constraint. The form was reset afterward; no organization was created.
+Submission, server errors and light appearance were not newly exercised. Custom
+intro remains English; no appliance deployment.
+
 ## Local New Repository preview
 
 Official `repo/create.tmpl` now has the Soda shell, existing repository-folder
