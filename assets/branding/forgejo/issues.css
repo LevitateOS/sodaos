@@ -3,8 +3,8 @@
 .soda-issues-intro { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-top: 24px; margin-bottom: 24px; }
 .soda-issues-intro > div { padding-top: 13px; }
 .soda-issues-intro img { width: 280px; max-width: 30%; height: auto; }
-.soda-issues-panel { background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
-.soda-issues-panel > .list-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 20px 22px; margin: 0; border-bottom: 1px solid var(--explore-edge); }
+.soda-issues-panel { background: transparent; }
+.soda-issues-panel > .list-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 20px 22px; margin: 0 0 22px; background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
 .soda-issues .list-header > .secondary-nav { margin: 0; justify-self: end; }
 .soda-issues .secondary-nav .ui.dropdown.jump > .menu { left: auto; right: 0; }
 .soda-issues .list-header-search { flex: 1; min-width: 180px; max-width: none; width: auto; }
@@ -12,7 +12,7 @@
 .soda-issues .dropdown .menu { background: var(--explore-surface); border-color: var(--explore-edge); border-radius: 10px; }
 .soda-issues .dropdown .menu .item { color: var(--explore-text); }
 .soda-issues .dropdown .menu .active.item { color: var(--explore-link); }
-.soda-issues #issue-list { margin: 0; padding: 0 22px; }
+.soda-issues #issue-list { margin: 0; padding: 0 22px; background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
 .soda-issues #issue-list .flex-item { padding: 22px 0 !important; border-color: var(--explore-edge); gap: 16px; }
 .soda-issues #issue-list .flex-item-title { font: 600 18px/1.5 Barlow,sans-serif; overflow-wrap: anywhere; }
 .soda-issues #issue-list .flex-item-title > a { color: var(--explore-text); }
