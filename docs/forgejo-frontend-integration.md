@@ -90,6 +90,23 @@ cookie/path, configured-origin and native-route collision contracts need review.
 `config.BaseURL` currently permits origins only, so simply putting a subpath into
 `public_url` is not valid. Do not weaken checks or add permissive CORS to hide this.
 
+Further source facts informing the [implementation sequence](sodaspaces-plan.md):
+
+- The inspected router tree has no `/-/soda/` route. Forgejo does own
+  `/-/fetch-redirect` (`routers/init.go`) and development-only `/-/demo` routes
+  (`routers/web/web.go`); do not proxy the whole `/-/` namespace. This inspection
+  is not Caddy path-normalization or native routing proof.
+- `routers/api/v1/user/app.go::UpdateOauth2Application` calls
+  `GenerateClientSecret` after updating the application. Native
+  `routers/web/user/setting/oauth2_common.go::EditSave` updates callbacks without
+  that call; regeneration is a separate handler. `models/auth/oauth2.go` preserves
+  the application's identity during that update. Use the application's actual
+  owner/native settings for the planned callback transition, not a blind API PATCH.
+  No OAuth application or credential was changed during inspection.
+- `internal/nativebuild/bundle.go` currently admits Forgejo public assets, not
+  custom template directories. The planned hooks need a narrow staging/verifier
+  change with tests, not a blanket allowance for Forgejo's writable data.
+
 If supported configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,
 ship a custom executable, scrape/relay HTML, borrow credentials or introduce a

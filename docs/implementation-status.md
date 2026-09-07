@@ -111,6 +111,24 @@ No production source, payload, dependency, browser/native test or installed stat
 changed. This is not a working drawer or a claim that the whole integration is
 four static files. The existing-account terminal remains a separate follow-up.
 
+## Implementation planning
+
+After `64aad1f`, expanded the existing [Sodaspaces plan](sodaspaces-plan.md), not a
+parallel roadmap: same-origin API/OAuth contract, repository-scoped reads, small
+read-only hook/drawer delivery, explicit access actions, native-browser validation
+and separately approved rehearsal/cutover. The candidate uses Go/JSON plus vanilla
+JavaScript and native `<dialog>`, with no added HTMX or frontend build. Fixed
+`/-/soda/` routing, single-origin configuration, scoped cookies, repository return
+context and stable-ID API changes are **planned only**; current source is unchanged.
+
+Inspected actual Go/config/setup/staging callers and retained Forgejo 15.0.7 routing
+and OAuth application handlers. Native callback editing need not rotate the secret;
+the upstream API PATCH does. Recorded that distinction and the template allowlist
+gap in the integration guide. Source hashes and documentation checks are retained
+in `.artifacts/research/sodaspaces-plan-64aad1f/`. Only source inspection and
+Markdown/link/whitespace checks ran; no product tests, build, browser, dependency,
+provider, native or private-state actions occurred. The terminal stays separate.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
