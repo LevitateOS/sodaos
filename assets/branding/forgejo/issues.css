@@ -52,3 +52,7 @@
  .soda-issues-panel > .list-header > .list-header-search { grid-row: 3; }
  .soda-issues-panel > .list-header > .ui.secondary.menu { grid-row: 4; }
 }
+/* Pull requests: title, origin/event, then branch and review metadata. */
+.soda-pulls #issue-list .issue-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.soda-pulls #issue-list .issue-meta > span:first-child { flex: 0 0 100%; min-width: 0; overflow-wrap: anywhere; }
+.soda-pulls #issue-list .flex-item-main { gap: 8px; }
