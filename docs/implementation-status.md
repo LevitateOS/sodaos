@@ -6,16 +6,18 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | None: React/duplicate forge adapters removed in `752079e`; original Go/HTMX pages/forms/assets and exclusive clients removed in `9f3baa7` |
-| Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v3 SQLite/encrypted grants, real create/join/access integration and restricted helper/project OS |
+| Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v4 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
 | Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
 
 Source removal is **not deployment**. No native image/stage build or installed
 retest of the removal commits occurred. The current source has no usable Soda
-browser controls until Sodaspaces is connected. Root and completed OAuth redirect
-only to configured Forgejo, not to caller-selected or historical stored paths.
-The old OAuth return-path column/default remains unused without a schema migration.
+browser controls until Sodaspaces is connected. Root returns to configured Forgejo
+home; OAuth can return to a freshly resolved repository under that origin using
+single-use stored context and the acting grant, never a caller-supplied URL.
+Schema v4 adds only OAuth repository/expected-user IDs. The historical return-path
+column remains unused; installed data was not migrated.
 New consent requests read user/repository/organization scopes, not administrator
 expansion; actual existing grants remain intact. Redirecting is not native-session
 transfer or cross-origin authorization.
@@ -158,8 +160,8 @@ path. Legacy/native cookies are ignored; duplicate/empty/oversized Soda cookies
 fail closed. Callback/session rotation and mutations retain PKCE/state, encrypted
 grants, exact-origin/CSRF and refresh/logout checks. Go rejects unprefixed API/auth
 aliases and encoded/unclean mounted paths without redirects; creation Location
-headers include the prefix. Direct backend root/health remain. Schema v3 and keys
-are unchanged; completed OAuth still returns only to configured Forgejo home.
+headers include the prefix. Direct backend root/health remain. In that slice,
+schema v3 and keys were unchanged and OAuth still returned only to Forgejo home.
 
 Passed full Go suite, web/config/store/Forgejo races, 31 Python build fixtures,
 Python/JavaScript/shell syntax and documentation/whitespace checks. Go used cached 1.26.7,
@@ -169,10 +171,41 @@ staged-payload execution, Caddy/browser execution, Cockpit retest, deployment,
 restart, provider action or retained-state change. The new staging assertion is
 authored, not an executed staged-payload result.
 
-**Milestone 1 is not complete:** next implement actor-mismatch guards and bounded
-repository/expected-user OAuth state/return context, then prove the actual native
-browser/proxy round trip under applicable permission. No UI/mutation controls
-were added; the drawer and repository-scoped read changes remain pending.
+No UI/mutation controls were added in `6deaf9a`. Actor/return handling followed in
+the next slice below; the drawer and repository-scoped reads remain pending.
+
+## Actor guards and OAuth context
+
+After `6deaf9a`, protected APIs require `X-Soda-Expected-User-ID`, except optional
+bootstrap on `GET /api/session`. Malformed/missing context is 400; mismatch with the
+Soda session is 403 before handlers. Session/CSRF/provider/operation authorization
+remains separate. The header cannot authenticate a native browser session or select
+another actor. The retained connection probe now declares its checked fixture actor.
+
+Login accepts bounded optional repository/expected-user IDs. Schema v4 appends two
+default-zero fields to the existing OAuth table; atomic consume returns them with
+the verifier. Callback checks the fresh provider subject before changing profiles/
+sessions/grants, then uses actual consent and acting-grant repository-by-ID lookup
+to reconstruct the native return path plus `#sodaspaces`, or home on unavailable
+context. Caller callback IDs/URLs and provider URLs are ignored. Query limits,
+duplicate/encoding rejection and no-referrer headers protect the authentication
+boundary. Existing encrypted grants and project records are not rewritten.
+
+Passed focused/full Go suites, web/store/Forgejo/config races, 31 Python build
+fixtures, JavaScript syntax and documentation/whitespace checks. Go used cached
+1.26.7, readonly modules and disabled resolution; some results were cached. The
+migration test uses a genuine v3-schema local fixture: missing/wrong keys do not
+migrate it; a correct key preserves product rows and encrypted bytes. This is not
+copied-private-state rehearsal. Logs/source hashes:
+`.artifacts/research/sodaspaces-context-6deaf9a/`. No Caddy/browser/native stage or
+image execution, Cockpit retest, deployment, provider mutation or retained-data change.
+
+**Milestone 1 still needs real native-page/proxy/browser proof.** The pending caller
+must capture native page identity, compare page/session/fresh-provider IDs and reload
+stale native context on resume/BFCache restoration before exposing actions. Native-
+only login/logout while Soda's session is unchanged is not detectable by this header;
+no atomic cross-system logout is claimed. See the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
+The drawer, repository-scoped reads and mutation controls are not implemented.
 
 ## Remaining work and permission boundary
 

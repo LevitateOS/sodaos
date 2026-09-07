@@ -20,6 +20,8 @@ CREATE TABLE oauth(state TEXT PRIMARY KEY, verifier TEXT NOT NULL, expires INTEG
 	`ALTER TABLE oauth ADD COLUMN return_path TEXT NOT NULL DEFAULT '/projects' CHECK(return_path IN ('/projects','/app/'));`,
 	`CREATE TABLE grant_key_check(id INTEGER PRIMARY KEY CHECK(id=1), ciphertext BLOB NOT NULL);
 CREATE TABLE session_grants(session_token TEXT PRIMARY KEY REFERENCES sessions(token) ON DELETE CASCADE, ciphertext BLOB NOT NULL);`,
+	`ALTER TABLE oauth ADD COLUMN repository_id INTEGER NOT NULL DEFAULT 0 CHECK(repository_id>=0);
+ALTER TABLE oauth ADD COLUMN expected_user_id INTEGER NOT NULL DEFAULT 0 CHECK(expected_user_id>=0);`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
@@ -75,7 +77,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready FROM projects LIMIT 0`,
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT token,user_id,csrf,expires FROM sessions LIMIT 0`,
-		`SELECT state,verifier,expires,return_path FROM oauth LIMIT 0`,
+		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id FROM oauth LIMIT 0`,
 		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
 		`SELECT session_token,ciphertext FROM session_grants LIMIT 0`,
 	} {

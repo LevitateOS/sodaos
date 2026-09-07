@@ -15,7 +15,25 @@ backend still answers `/healthz` and redirects `/`; unprefixed API/login/callbac
 paths are not aliases. Caddy forwards only the Soda prefix unchanged and leaves
 native Forgejo routes upstream-owned. This foundation is source-tested, not
 installed or a completed authenticated drawer. Actor-context guards and
-repository-bound OAuth return handling are still pending.
+repository-bound OAuth return handling now exist in the backend; native-page
+context capture and the real browser/proxy round trip remain unimplemented/unproven.
+
+## Expected actor
+
+Protected calls require **`X-Soda-Expected-User-ID`**, a canonical positive decimal
+Forgejo user ID (signed 64-bit range). Missing, duplicate or malformed values return
+`400 invalid_actor_context`; disagreement with the authenticated Soda session
+returns `403 identity_mismatch` before the handler runs. This header does **not**
+authenticate a native browser session, choose the acting account or grant authority.
+Normal session, CSRF, grant and operation-specific authorization checks still apply.
+
+`GET /api/session` alone may omit the header to inspect the current Soda identity
+and CSRF token. If supplied there, the header is still checked. The native-page
+caller must compare its signed-in stable ID with that session and the fresh
+`GET /api/forgejo/me` result, not silently substitute the bootstrap identity when
+they differ. Explicit Soda logout also uses the expected **Soda** actor and CSRF;
+it does not sign out Forgejo or Linux. The retained connection probe checks its
+supplied fixture username against bootstrap before using the actor ID.
 
 ## Retained operations
 
@@ -47,11 +65,24 @@ this retained API. The leading plan owns that next source slice.
 
 ## Browser/session/security contracts
 
-- `GET /` and successful OAuth completion redirect only to configured `ForgejoURL`.
-  `GET /login` refuses nonempty `return_to`; neither callback queries nor historical
-  stored destinations select the redirect. Errors are plain text, not templates.
-  The historical OAuth `return_path` column/default stays unchanged but unused;
-  no schema migration or existing-state rewrite accompanies removal.
+- `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
+  `repository_id` and `expected_user_id` with the same positive-ID representation;
+  omit unavailable context, never send zero. IDs are stored with the single-use
+  PKCE transaction, not forwarded as provider authorization parameters. Nonempty
+  or repeated `return_to` remains refused. Errors are plain text, not templates.
+- Callback checks the fresh provider subject against the stored expected user
+  before changing profiles/sessions/grants. Mismatch returns 403, consumes the
+  transaction and preserves existing Soda state; sign in again explicitly.
+  With actual repository consent, the callback resolves the stored repository ID
+  through the acting grant, then builds its current native path plus `#sodaspaces`
+  under the configured HTTPS origin. Missing/inaccessible/invalid context falls
+  back to Forgejo home. Callback-supplied IDs/URLs, provider URLs and the historical
+  `return_path` column never select the destination.
+- Schema v4 adds only two default-zero OAuth context ID columns; migrated pending
+  transactions have no context and return home. Grant encryption/keys and project
+  records are unchanged. Auth queries are limited to 8 KiB; malformed encoding,
+  duplicate state/code and oversized code/state fail closed. Login/callback use
+  `Referrer-Policy: no-referrer` to keep query data out of subsequent referrers.
 - New login requests only `read:user read:repository read:organization` for current
   callers; `administration=1` no longer requests extra consent. Existing grants are
   not silently revoked or rewritten; scopes come from upstream introspection.
@@ -63,7 +94,7 @@ this retained API. The leading plan owns that next source slice.
   Soda login; old pending browser flows restart rather than gain a callback alias.
   Cookie paths do not isolate mutually untrusted applications on the same origin.
 - Keep single-use state, PKCE, callback binding, cookie protections, session rotation,
-  encrypted schema-v3 provider/session-bound grants, serialized refresh and
+  the existing provider/session-bound grant encryption, serialized refresh and
   logout-winning persistence. No second password or provider-role authority.
 - API IDs are decimal strings. Unsafe methods require the exact configured `ForgejoURL` Origin,
   same-origin fetch metadata when present, a matching `X-CSRF-Token` and UTF-8 JSON.
@@ -76,6 +107,18 @@ this retained API. The leading plan owns that next source slice.
   state. Do not recreate, prune, replace or claim a failed join succeeded.
 - New public keys are installed at explicit join; no automatic later propagation,
   Linux offboarding, Git authorization or client-routing proof is promised.
+
+## Native-page and stale-tab boundary
+
+The backend sees a Soda session and a declared page actor, **not Forgejo's live
+browser session**. It catches a changed Soda cookie versus the old page actor;
+it cannot detect native-only login/logout in another tab while the Soda session
+is unchanged. The pending drawer must discard stale reads and reload native page
+context on resume/BFCache restoration before exposing actions, then compare the
+page/session/provider IDs. An anonymous or mismatched page offers explicit sign-in,
+not automatic account switching or mutation replay. Native logout is not global
+Soda logout; do not claim atomic cross-system session revocation. Browser behavior
+and this caller wiring still require implementation and real verification.
 
 ## Retained callers, tests and packaging
 

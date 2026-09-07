@@ -185,14 +185,23 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *Store) BeginOAuth(ctx context.Context, state, verifier string) error {
-	// The historical return_path column/default is retained for schema compatibility
-	// only. Browser destinations are no longer stored or consumed by Soda.
-	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires) VALUES(?,?,?)`, hash(state), verifier, time.Now().Add(10*time.Minute).Unix())
+// OAuthLogin binds navigation intent to a single-use PKCE transaction, not
+// authority. IDs may be absent (zero), including on migrated pending logins.
+// They refer to native Forgejo records, not necessarily existing Soda rows.
+type OAuthLogin struct {
+	Verifier       string
+	RepositoryID   int64
+	ExpectedUserID int64
+}
+
+func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin) error {
+	// The historical return_path column remains unused. Store only native IDs;
+	// callbacks must resolve visibility and construct their own destination.
+	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,repository_id,expected_user_id) VALUES(?,?,?,?,?)`, hash(state), login.Verifier, time.Now().Add(10*time.Minute).Unix(), login.RepositoryID, login.ExpectedUserID)
 	return err
 }
-func (s *Store) ConsumeOAuth(ctx context.Context, state string) (string, error) {
-	var verifier string
-	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier`, hash(state), time.Now().Unix()).Scan(&verifier)
-	return verifier, err
+func (s *Store) ConsumeOAuth(ctx context.Context, state string) (OAuthLogin, error) {
+	var login OAuthLogin
+	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier,repository_id,expected_user_id`, hash(state), time.Now().Unix()).Scan(&login.Verifier, &login.RepositoryID, &login.ExpectedUserID)
+	return login, err
 }

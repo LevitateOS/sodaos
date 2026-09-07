@@ -65,9 +65,11 @@ the steps above do not establish deployment proof for other revisions/targets.
 The current source removes `public_url` / `--public-url` and uses the unchanged
 `forgejo_url` origin with `/-/soda/` API/login/callback routes. The strict loader
 rejects old configuration; this is not an automatic migration or permission to
-edit the retained VM. Schema v3, encrypted grant binding and the existing grant key
-are unchanged in this routing slice. Actor/return context and browser proof remain
-pending; this source is not a completed drawer cutover candidate.
+edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged. The next
+source slice adds schema v4's OAuth context fields as described below; encrypted
+grant binding and the existing key remain unchanged. Backend actor/return handling
+is implemented, but the drawer and browser proof remain pending; this source is
+not a completed drawer cutover candidate.
 
 For a later approved transition, include the matching backend and strict-config
 consumers (notably `soda-runners`), copied configuration without `public_url`, Caddy
@@ -89,6 +91,27 @@ expired across ports; users explicitly sign in again. Old pending browser flows
 restart, with no unprefixed callback alias or rewriting of stored destinations.
 Soda-only logout remains distinct from native Forgejo/SSH logout. These rules still
 need real browser/proxy and populated-state rehearsal before rollout.
+
+## Schema v4 OAuth context — source-tested only
+
+Version 4 appends `oauth.repository_id` and `oauth.expected_user_id`, each a
+nonnegative integer defaulting to zero (absent). These are short-lived navigation/
+identity-consistency hints, not foreign keys to Soda users/projects or a permission
+inventory. The same atomic consume returns them with the PKCE verifier. Legacy
+pending states retain their verifier/expiry and get no repository/expected-user
+context; the old `return_path` column stays unused. Callback query parameters cannot
+supply missing historical context or override stored IDs.
+
+The existing grant key is checked **before** migration. Local tests exercise a
+real v3-schema fixture containing profiles, keys, project/membership/session rows,
+pending OAuth and encrypted grants. Wrong/missing keys leave version/columns
+unchanged; the correct key preserves grant/key-check ciphertext and product records
+while migrating. This is not a rehearsal on copied private installation data.
+
+A pre-v4 binary rejects the newer schema version. Do not downgrade the marker or
+assume the extra columns make mixed binaries safe. Rehearse a matching candidate
+on authorized fresh/copied state, including context expiry/replay and rollback
+preservation, before any live configuration/database change.
 
 ## Compatibility and rollback
 

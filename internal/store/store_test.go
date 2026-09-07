@@ -43,11 +43,11 @@ func TestOAuthSingleUse(t *testing.T) {
 	}
 	defer s.Close()
 	ctx := context.Background()
-	if err = s.BeginOAuth(ctx, "state", "verifier"); err != nil {
+	if err = s.BeginOAuth(ctx, "state", OAuthLogin{Verifier: "verifier", RepositoryID: 42, ExpectedUserID: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.ConsumeOAuth(ctx, "state"); err != nil {
-		t.Fatal(err)
+	if login, err := s.ConsumeOAuth(ctx, "state"); err != nil || login != (OAuthLogin{Verifier: "verifier", RepositoryID: 42, ExpectedUserID: 1}) {
+		t.Fatal(login, err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "state"); err == nil {
 		t.Fatal("state reused")

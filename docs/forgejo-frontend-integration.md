@@ -3,7 +3,7 @@
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
 and [handoff](implementation-status.md). The UI and complete authenticated native-page
-→ Soda connection remain pending. Go/proxy/config/scoped-cookie foundations now exist
+→ Soda connection remain pending. Go/proxy/config/scoped-cookie and backend actor/return handling now exist
 in source; the upstream UI findings below remain inspection, not browser proof.
 
 ## Verified source surface
@@ -90,10 +90,18 @@ same-origin fetch metadata. Native Forgejo cookies/CSRF are not substitutes, and
 `fetch('/api/...')` still targets Forgejo rather than Soda. `public_url` and its
 setup flag are removed; URL configuration remains origin-only. No permissive CORS.
 
-Actor-context mismatch guards, repository-bound OAuth return context and the native
-browser round trip remain pending. The new Caddy recipe has not been exercised or
-deployed; source HTTP tests do not prove native route matching or cookie behavior.
-The installed guest retains its historical separate origins/configuration.
+Backend guards now require `X-Soda-Expected-User-ID` except for session bootstrap;
+OAuth state binds optional repository/expected-user IDs and callback checks the
+fresh subject before saving Soda state. Repository return uses the existing acting-
+grant `RepositoryByID` lookup and a locally constructed native URL, never a supplied
+redirect URL. Inspected 15.0.7 `repo.GetByID` checks acting-user repository access.
+
+The header is a consistency guard, not proof of the live native browser session.
+Native-page context capture, stale-tab handling and the real browser round trip
+remain pending; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
+The Caddy recipe has not been exercised or deployed; source HTTP tests do not prove
+native route matching or cookie behavior. The installed guest retains historical
+separate origins/configuration and schema v3.
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 

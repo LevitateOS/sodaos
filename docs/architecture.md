@@ -70,9 +70,11 @@ iframe or weakened native security. No replacement component library is selected
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized
 refresh, logout-winning persistence, request/response bounds and CSRF/origin checks.
 Native OAuth tokens are not native web sessions. Different ports do not isolate
-cookies. Root and successful Soda OAuth completion currently redirect only to
-configured native Forgejo; that is not a completed authenticated drawer connection.
-Native WebAuthn origins/RP-ID, session revocation and Git protocols remain upstream-owned.
+cookies. Root redirects to configured native Forgejo home; OAuth can return to a
+repository resolved by stored ID through the acting grant, never a supplied URL.
+Soda's expected-user header guards page/session consistency, not native browser
+session authenticity. Native-page wiring and browser proof remain pending; native
+WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
 
 ## Projects and explicit joining
 

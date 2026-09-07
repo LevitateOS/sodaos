@@ -54,8 +54,9 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The drawer remains unimplemented. Source now has
-  same-origin `/-/soda/` routing/scoped-cookie foundations; actor/return context and
-  native-browser proof are still pending. No backend fork/rebuild, iframe, scraping, borrowed
+  same-origin `/-/soda/` routing/scoped cookies, expected-actor API guards and
+  schema-v4 OAuth repository/expected-user context. Native-page wiring and browser
+  proof remain pending; the actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and
   asset compatibility still need review/tests; preserve working login and native
   protocols. Retained operator Cockpit remains a separate selected boundary.

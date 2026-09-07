@@ -74,7 +74,7 @@ func TestMigrationPreservesLegacyProductState(t *testing.T) {
 		t.Fatal(login, err)
 	}
 	oauth, err := s.ConsumeOAuth(ctx, "legacy-state")
-	if err != nil || oauth != "fixture-verifier" {
+	if err != nil || oauth != (OAuthLogin{Verifier: "fixture-verifier"}) {
 		t.Fatal(oauth, err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "legacy-state"); err == nil {
@@ -184,7 +184,7 @@ func TestLegacyOAuthDestinationIsIgnoredAndStateIsSingleUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	v, err := s.ConsumeOAuth(ctx, "state")
-	if err != nil || v != "verifier" {
+	if err != nil || v != (OAuthLogin{Verifier: "verifier"}) {
 		t.Fatal(v, err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "state"); err == nil {

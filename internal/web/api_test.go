@@ -40,6 +40,9 @@ func apiTestRequest(method, path, body, login string) *http.Request {
 	if login != "" {
 		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-" + login})
 	}
+	if id := map[string]string{"alice": "1", "bob": "2"}[login]; id != "" {
+		r.Header.Set(expectedUserHeader, id)
+	}
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Origin", "https://forgejo.example.test")
 	r.Header.Set("X-CSRF-Token", "csrf-"+login)

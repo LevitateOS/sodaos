@@ -88,6 +88,24 @@ func (s *Server) apiProtected(next func(http.ResponseWriter, *http.Request, stor
 			jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Soda session storage is unavailable.")
 			return
 		}
+		// A page must declare its expected actor, but this hint never selects a
+		// session or grants permission. Only session bootstrap may omit it.
+		expected := r.Header.Values(expectedUserHeader)
+		if len(expected) != 0 || r.URL.Path != "/api/session" || r.Method != http.MethodGet {
+			if len(expected) != 1 {
+				jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
+				return
+			}
+			id, ok := positiveID(expected[0])
+			if !ok {
+				jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
+				return
+			}
+			if id != session.User.ID {
+				jsonError(w, 403, "identity_mismatch", "Soda is signed in as a different user. Reload the repository and sign in again.")
+				return
+			}
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			if !s.validAPIMutation(r, session.CSRF) {
 				jsonError(w, http.StatusForbidden, "invalid_csrf", "Request origin or CSRF token is invalid.")

@@ -71,6 +71,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Origin", server.Config.ForgejoURL)
 		r.Header.Set("X-CSRF-Token", "csrf")
+		r.Header.Set(expectedUserHeader, map[string]string{"alice": "1", "bob": "2"}[login])
 		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: login})
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, r)
@@ -104,6 +105,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	}
 	r := httptest.NewRequest("GET", "/-/soda/api/environments/"+id, nil)
 	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "bob"})
+	r.Header.Set(expectedUserHeader, "2")
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"login":"bob"`) {

@@ -8,7 +8,7 @@ import (
 )
 
 func TestRootOnlyRedirectsToConfiguredForgejo(t *testing.T) {
-	for _, base := range []string{"https://forgejo.example.test", "https://forgejo.example.test/native/"} {
+	for _, base := range []string{"https://forgejo.example.test", "https://forgejo.example.test/"} {
 		s := New(config.Config{ForgejoURL: base}, nil)
 		for _, target := range []string{"/", "/?return_to=https://evil.example"} {
 			w := httptest.NewRecorder()
@@ -27,7 +27,7 @@ func TestRootOnlyRedirectsToConfiguredForgejo(t *testing.T) {
 	}
 }
 func TestNoNativeDestinationDoesNotLoopOrRender(t *testing.T) {
-	for _, base := range []string{"", "//evil.example", "javascript:alert(1)", "https://user:password@example.test", "https://forgejo.example.test?redirect=evil"} {
+	for _, base := range []string{"", "//evil.example", "javascript:alert(1)", "https://user:password@example.test", "https://forgejo.example.test?redirect=evil", "https://forgejo.example.test/native/", "http://forgejo.example.test"} {
 		s := New(config.Config{ForgejoURL: base}, nil)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))

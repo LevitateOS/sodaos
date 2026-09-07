@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestSodaNamespaceDoesNotAliasNativeOrLegacyPaths(t *testing.T) {
@@ -113,7 +114,7 @@ func TestOAuthRejectsLegacyAndDuplicateCookiesBeforeExchange(t *testing.T) {
 			t.Error("invalid cookies reached provider")
 			w.WriteHeader(500)
 		})
-		if err := s.Store.BeginOAuth(t.Context(), "pending", "verifier"); err != nil {
+		if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}); err != nil {
 			t.Fatal(err)
 		}
 		r := httptest.NewRequest("GET", config.SodaPath+"/oauth/callback?state=pending&code=test", nil)

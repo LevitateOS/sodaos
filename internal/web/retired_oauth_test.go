@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
@@ -21,7 +23,7 @@ func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
 			w.WriteHeader(500)
 		}
 	})
-	if err := s.Store.BeginOAuth(t.Context(), "pending", "verifier"); err != nil {
+	if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}); err != nil {
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest("GET", "/-/soda/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)

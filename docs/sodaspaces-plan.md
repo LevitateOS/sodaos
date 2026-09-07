@@ -4,8 +4,9 @@ Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**. No new tab or standalone page.
 Both old Soda frontends and duplicate forge adapters are removed; the drawer and
 its complete authenticated integration are **not implemented**. Step 1 is underway:
-routing/configuration/scoped-cookie foundations are in source; actor/return context
-and native-browser proof remain pending. Steps 2–6 are not completed.
+routing/configuration/scoped cookies and backend actor/return context are in source.
+Native-page wiring and real browser/proxy proof remain pending. Steps 2–6 are not
+completed.
 
 ## Selected approach
 

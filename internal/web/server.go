@@ -33,17 +33,26 @@ func New(c config.Config, db *store.Store) *Server {
 	return s
 }
 
-// No standalone Soda UI remains. Only the configured native frontend is a
-// browser destination; caller parameters and historical OAuth return paths are
-// never redirect authority. This does not create or transfer a native session.
 func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
+	s.forgejoReturn(w, r, nil)
+}
+
+// Only a freshly resolved repository can select a path under the configured
+// native origin. Neither provider URLs nor caller return paths are accepted.
+// A redirect does not create or transfer a native Forgejo session.
+func (s *Server) forgejoReturn(w http.ResponseWriter, r *http.Request, repo *forgejo.Repository) {
 	w.Header().Set("Cache-Control", "no-store")
-	u, err := url.Parse(s.Config.ForgejoURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if config.BaseURL(s.Config.ForgejoURL) != nil || !strings.HasPrefix(s.Config.ForgejoURL, "https://") {
 		http.Error(w, "Native frontend is not configured.", http.StatusServiceUnavailable)
 		return
 	}
-	http.Redirect(w, r, strings.TrimRight(u.String(), "/")+"/", http.StatusSeeOther)
+	u, _ := url.Parse(s.Config.ForgejoURL)
+	u.Path, u.RawPath = "/", ""
+	if repo != nil && validRepositoryPart(repo.Owner.Login) && validRepositoryPart(repo.Name) {
+		u.Path += repo.Owner.Login + "/" + repo.Name
+		u.Fragment = "sodaspaces"
+	}
+	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -18,7 +18,7 @@ func TestOAuthHasNoCallerSelectedReturnOrAdministrationConsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	verifier, err := s.Store.ConsumeOAuth(t.Context(), location.Query().Get("state"))
-	if err != nil || verifier == "" {
+	if err != nil || verifier.Verifier == "" || verifier.RepositoryID != 0 || verifier.ExpectedUserID != 0 {
 		t.Fatal(err)
 	}
 	q := location.Query()

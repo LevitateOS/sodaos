@@ -14,10 +14,20 @@ export async function observeProjectConnections({ page, username, fixtureDirecto
  const st = await lstat(fixtureDirectory); assert(st.isDirectory() && st.uid === process.getuid() && !(st.mode & 0o077));
  const bindings = JSON.parse(await readFile(path.join(fixtureDirectory, 'observed-bindings.json'), 'utf8'));
  const vm = fileURLToPath(new URL('../../scripts/test-vm.sh', import.meta.url));
+ const actor = await page.evaluate(async () => {
+  const response = await fetch('/-/soda/api/session');
+  const body = await response.json();
+  return { status: response.status, id: body.user?.id, login: body.user?.login };
+ });
+ assert.equal(actor.status, 200); assert.equal(actor.login, username);
+ assert.equal(typeof actor.id, 'string'); assert(/^[1-9][0-9]{0,18}$/.test(actor.id));
  const keys = [], connections = [];
  for (const binding of bindings) {
   assert(/^p[0-9a-f]{24}$/.test(binding.environmentID));
-  const result = await page.evaluate(async id => { const response = await fetch('/-/soda/api/environments/' + id + '/connection'); return { status: response.status, body: await response.json() }; }, binding.environmentID);
+  const result = await page.evaluate(async ({ id, actorID }) => {
+  const response = await fetch('/-/soda/api/environments/' + id + '/connection', { headers: { 'X-Soda-Expected-User-ID': actorID } });
+  return { status: response.status, body: await response.json() };
+ }, { id: binding.environmentID, actorID: actor.id });
   if (binding.login !== username && !username.includes('-bob-')) { assert.equal(result.status, 403, 'Connection disclosed before project join'); continue; }
   assert.equal(result.status, 200); assert.equal(result.body.login, username); assert.equal(result.body.routing_verified, false);
   const connection = result.body.connection; assert.equal(connection.environment.id, binding.environmentID); assert.equal(connection.environment.running, true);
