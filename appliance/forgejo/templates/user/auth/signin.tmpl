@@ -1,0 +1,26 @@
+{{/* Soda login presentation for stock Forgejo 15.0.7. Native authentication is rendered unchanged by signin_inner. */}}
+{{template "base/head" .}}
+<main aria-label="{{.Title}}" class="page-content user signin soda-login{{if .LinkAccountMode}} icon{{end}}">
+	<section class="soda-login-story" aria-label="Soda OS">
+		<a class="soda-login-brand" href="{{AppSubUrl}}/" aria-label="Soda OS home">
+			<img src="{{AssetUrlPrefix}}/soda/source/soda-logo-horizontal.svg" width="156" height="42" alt="Soda OS">
+		</a>
+		<div class="soda-login-art">
+			<h1>Development goes<br>better with Soda.</h1>
+			<img src="{{AssetUrlPrefix}}/soda/forgejo/login-papercraft.png" width="1536" height="1024" alt="A friendly papercraft robot welcomes you beside a mint development computer, laptop and glass of soda.">
+		</div>
+		<p class="soda-login-tagline">Your projects. Your tools. Your Soda.</p>
+	</section>
+	<section class="soda-login-panel" aria-label="{{ctx.Locale.Tr "sign_in"}}">
+		<div class="soda-login-form">
+			{{if not .LinkAccountMode}}
+			<p class="soda-login-eyebrow">Your development cloud</p>
+			<h2>Welcome back.</h2>
+			<p class="soda-login-intro">Sign in to your Soda workspace.</p>
+			{{end}}
+			{{template "user/auth/signin_inner" .}}
+			{{if not .ShowRegistrationButton}}<p class="soda-login-account">Need an account? Contact your administrator.</p>{{end}}
+		</div>
+	</section>
+</main>
+{{template "base/footer" .}}

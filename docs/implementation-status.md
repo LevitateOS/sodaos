@@ -154,6 +154,31 @@ Forgejo template, running preview, native staging or deployment was changed.
 Verified published archive SHA-512 integrity, font signatures, local CSS paths and
 file SHA-256 values. No build, font-rendering/browser test or native validation ran.
 
+## Local branded login preview
+
+With user authorization, added `appliance/forgejo/templates/user/auth/signin.tmpl`
+and the custom header CSS hook, plus `assets/branding/forgejo/login.css` and the
+approved original papercraft PNG. The login shell uses the website's local fonts,
+canonical logo and unchanged shared palette. Native `signin_inner`, head/footer
+and scripts remain upstream-owned. This is the light login design; responsive CSS
+hides the illustration below 900px. The Sodaspaces drawer remains unimplemented.
+
+Recreated only `sodaos-local-forgejo` on Docker Desktop to bind source directories
+read-only, retaining `sodaos-local-forgejo_data` and port 3300. An initial mount failed
+because nested mountpoint directories were absent beneath a read-only parent;
+created those empty local mountpoints and startup succeeded. The existing other
+preview and appliance VM were untouched. No appliance stage/install changes.
+
+Checks: login HTML and all sampled CSS/font/palette/logo/image URLs returned 200;
+Alice's native form sign-in succeeded; wrong-password submission rendered the
+native error inside the new shell. Image alpha data was verified. An exploratory
+foreign-Origin rejection assertion failed (HTTP 200, also with cross-site fetch
+metadata), so these probes do not establish CSRF protection; no native middleware
+was changed. Browser automation was blocked by the user's password-manager panel;
+the user inspected the preview and reported it looked good. Automated mobile,
+keyboard, provider/passkey, account-link and CAPTCHA browser checks remain unrun.
+Source whitespace checks passed. No full build, test suite or native acceptance.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
