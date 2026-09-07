@@ -32,7 +32,7 @@ docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
 The stylesheet uses `AssetUrlPrefix` through the template and relative CSS imports.
-Login presentation is the approved **light** concept; other pages retain their native
+Login uses the shared light/dark palette; other pages retain their native
 theme. Below 900px the illustration is hidden to prioritize signing in. The English
 brand copy is authored here; native form labels retain Forgejo localization.
 No password-manager replacement, fake theme switch or unsupported sign-in option
@@ -48,3 +48,20 @@ Only the isolated local preview was updated. Appliance staging does **not** yet
 ship these overrides/assets; template allowlisting, conflict refusal, full notice
 packaging and separately authorized deployment remain required before rollout.
 See the implementation handoff for actual checks and remaining validation.
+
+## Guest theme preference
+
+The top-right icon button changes login appearance only. Initially follow the
+system color preference. An explicit light/dark choice is stored under
+`soda.login.theme:<AppSubUrl or />` in this origin's localStorage. Other tabs sync
+through storage events. Clearing the value restores system following; invalid
+values are ignored. Blocked storage still permits toggling for the current page.
+The head script applies the choice before login content paints. Without JavaScript,
+the light layout remains usable and the inactive toggle stays hidden.
+
+Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme CSS,
+and authenticated account setting remain authoritative for native pages. The
+button never submits an account preference or changes authentication cookies.
+Its accessible label describes the next action; a focus ring appears for keyboard
+use although the resting button has no border. Tests: `node --test
+tests/forgejo/login-theme.test.mjs` from the repository root.

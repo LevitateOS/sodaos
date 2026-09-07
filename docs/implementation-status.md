@@ -192,6 +192,21 @@ height at 1654×970, 1366×768 and 390×844; mobile width was also exactly 390px
 Restored the browser viewport afterward. Initial measurements used cached CSS;
 the versioned stylesheet loaded the correction. Whitespace checks passed.
 
+## Login theme toggle
+
+Added a single borderless sun/moon button at the top right, shared-palette dark
+colors and the canonical dark logo. The guest preference follows system appearance
+until explicitly selected, persists in origin/subpath-scoped localStorage, syncs
+across tabs and tolerates blocked storage. A head script initializes appearance;
+Forgejo's native theme attribute and authenticated account preference are unchanged.
+No authentication/provider or appliance deployment changes.
+
+Six Node state tests passed (system changes, explicit choice, toggle/persistence,
+blocked storage, storage events and invalid/subpath values). Browser checks confirmed
+system dark initial appearance, switching to light, correct next-action labels,
+persistence after reload and no desktop vertical overflow in dark mode. The user's
+existing “Soda dashboard” wording edit was preserved separately from this commit.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,

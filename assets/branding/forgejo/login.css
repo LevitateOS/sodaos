@@ -1,23 +1,59 @@
 @import "../fonts/fonts.css";
 @import "../theme/palette.css";
 
-/* Soda's light login concept; native authentication markup remains upstream-owned. */
+/* Native authentication markup remains upstream-owned. */
+body:has(.soda-login) {
+  --login-canvas: var(--soda-light-canvas);
+  --login-surface: var(--soda-light-surface);
+  --login-panel: var(--soda-light-panel);
+  --login-text: var(--soda-light-text);
+  --login-muted: var(--soda-light-muted);
+  --login-action-hover: var(--soda-light-action-hover);
+  --login-action-pressed: var(--soda-light-action-pressed);
+  --login-action: var(--soda-light-action);
+  --login-on-action: var(--soda-light-on-action);
+  --login-link: var(--soda-light-link);
+  --login-focus: var(--soda-light-focus);
+  --login-neutral-300: var(--soda-light-neutral-300);
+  --login-neutral-200: var(--soda-light-neutral-200);
+  --login-link-ramp-down-1: var(--soda-light-link-ramp-down-1);
+  --login-glow: #fff0df88;
+}
+html[data-soda-login-theme="dark"] body:has(.soda-login) {
+  --login-canvas: var(--soda-dark-canvas);
+  --login-surface: var(--soda-dark-surface);
+  --login-panel: var(--soda-dark-panel);
+  --login-text: var(--soda-dark-text);
+  --login-muted: var(--soda-dark-muted);
+  --login-action-hover: var(--soda-dark-action-hover);
+  --login-action-pressed: var(--soda-dark-action-pressed);
+  --login-action: var(--soda-dark-action);
+  --login-on-action: var(--soda-dark-on-action);
+  --login-link: var(--soda-dark-link);
+  --login-focus: var(--soda-dark-focus);
+  --login-neutral-300: var(--soda-dark-border);
+  --login-neutral-200: var(--soda-dark-hover);
+  --login-link-ramp-down-1: var(--soda-dark-link-ramp-down-1);
+  --login-glow: #17255488;
+  color-scheme: dark;
+}
+
 body:has(.soda-login) {
   min-height: 100svh;
   height: auto;
-  background: var(--soda-light-canvas);
-  color: var(--soda-light-text);
+  background: var(--login-canvas);
+  color: var(--login-text);
   color-scheme: light;
-  --color-text: var(--soda-light-text);
-  --color-text-light: var(--soda-light-muted);
-  --color-body: var(--soda-light-canvas);
-  --color-input-background: var(--soda-light-surface);
-  --color-input-text: var(--soda-light-text);
-  --color-input-border: var(--soda-light-neutral-300);
-  --color-primary: var(--soda-light-action);
-  --color-primary-contrast: var(--soda-light-on-action);
-  --color-primary-hover: var(--soda-light-action-hover);
-  --color-primary-active: var(--soda-light-action-pressed);
+  --color-text: var(--login-text);
+  --color-text-light: var(--login-muted);
+  --color-body: var(--login-canvas);
+  --color-input-background: var(--login-surface);
+  --color-input-text: var(--login-text);
+  --color-input-border: var(--login-neutral-300);
+  --color-primary: var(--login-action);
+  --color-primary-contrast: var(--login-on-action);
+  --color-primary-hover: var(--login-action-hover);
+  --color-primary-active: var(--login-action-pressed);
   font-family: Barlow, Arial, sans-serif;
 }
 body:has(.soda-login) #navbar { display: none; }
@@ -25,7 +61,7 @@ body:has(.soda-login) .full.height {
   display: flex;
   flex-direction: column;
   padding-bottom: 0;
-  background: var(--soda-light-canvas);
+  background: var(--login-canvas);
 }
 .soda-login.page-content > :first-child { margin-top: 0; }
 .soda-login {
@@ -33,7 +69,7 @@ body:has(.soda-login) .full.height {
   flex: 1;
   margin: 0;
   font-family: Barlow, Arial, sans-serif;
-  color: var(--soda-light-text);
+  color: var(--login-text);
 }
 .soda-login-story { padding: 24px; }
 .soda-login-brand { display: inline-flex; border-radius: 8px; }
@@ -48,66 +84,66 @@ body:has(.soda-login) .full.height {
   line-height: 1.08;
   letter-spacing: -.04em;
   margin: 0 0 16px;
-  color: var(--soda-light-text);
+  color: var(--login-text);
 }
 .soda-login-eyebrow {
   font: 500 11px/1.5 "IBM Plex Mono", monospace;
   text-transform: uppercase;
   letter-spacing: .15em;
-  color: var(--soda-light-link);
+  color: var(--login-link);
   margin: 0 0 24px;
 }
-.soda-login-intro { font-size: 19px; line-height: 1.5; color: var(--soda-light-muted); margin: 0 0 42px; }
+.soda-login-intro { font-size: 19px; line-height: 1.5; color: var(--login-muted); margin: 0 0 42px; }
 .soda-login .ui.container.fluid { width: 100% !important; margin: 0 !important; }
 .soda-login .ui.attached.segment,
 .soda-login .ui.attached.header { background: transparent; border: 0; box-shadow: none; padding: 0; width: 100%; margin: 0; }
 .soda-login:not(.icon) .ui.top.attached.header.center { display: none; }
 .soda-login .ui.form { font-size: 16px; }
 .soda-login .ui.form .field { margin-bottom: 24px; }
-.soda-login .ui.form .field > label { font-size: 16px; font-weight: 400; color: var(--soda-light-text); margin-bottom: 10px; }
+.soda-login .ui.form .field > label { font-size: 16px; font-weight: 400; color: var(--login-text); margin-bottom: 10px; }
 .soda-login .ui.form .required.field > label::after { display: none; }
 .soda-login .ui.form input:not([type=checkbox]):not([type=hidden]) {
   min-height: 54px;
-  border: 1px solid var(--soda-light-neutral-300);
+  border: 1px solid var(--login-neutral-300);
   border-radius: 12px;
   padding: 13px 16px;
-  background: var(--soda-light-surface);
-  color: var(--soda-light-text);
+  background: var(--login-surface);
+  color: var(--login-text);
   font: 400 17px/1.4 Barlow, Arial, sans-serif;
   box-shadow: none;
 }
 .soda-login .ui.form .field.error input { border-color: #b42318; }
-.soda-login :is(input, button, a):focus-visible { outline: 2px solid var(--soda-light-focus); outline-offset: 3px; }
-.soda-login .ui.checkbox label { color: var(--soda-light-muted); font-size: 15px; }
+.soda-login :is(input, button, a):focus-visible { outline: 2px solid var(--login-focus); outline-offset: 3px; }
+.soda-login .ui.checkbox label { color: var(--login-muted); font-size: 15px; }
 .soda-login .ui.form .primary.button {
   display: block;
   width: 100%;
   min-height: 56px;
   margin: 32px 0 0;
-  border: 1px solid var(--soda-light-action);
+  border: 1px solid var(--login-action);
   border-radius: 999px;
-  color: var(--soda-light-on-action);
-  background: linear-gradient(180deg, var(--soda-light-link-ramp-down-1), var(--soda-light-action));
+  color: var(--login-on-action);
+  background: linear-gradient(180deg, var(--login-link-ramp-down-1), var(--login-action));
   box-shadow: inset 0 1px 0 #ffffff66, 0 5px 14px #155eef33;
   font: 600 18px/1.4 Barlow, Arial, sans-serif;
   transition: background 180ms, box-shadow 180ms;
 }
 .soda-login .ui.form .primary.button::after { content: "→"; margin-left: 20px; font-size: 23px; line-height: 0; }
-.soda-login .ui.form .primary.button:hover { background: var(--soda-light-action-hover); box-shadow: inset 0 1px 0 #ffffff66, 0 6px 18px #155eef44; }
-.soda-login .ui.form .primary.button:active { background: var(--soda-light-action-pressed); }
-.soda-login a { color: var(--soda-light-link); }
-.soda-login .soda-login-account { font-size: 15px; color: var(--soda-light-muted); margin: 28px 0 0; text-align: center; }
+.soda-login .ui.form .primary.button:hover { background: var(--login-action-hover); box-shadow: inset 0 1px 0 #ffffff66, 0 6px 18px #155eef44; }
+.soda-login .ui.form .primary.button:active { background: var(--login-action-pressed); }
+.soda-login a { color: var(--login-link); }
+.soda-login .soda-login-account { font-size: 15px; color: var(--login-muted); margin: 28px 0 0; text-align: center; }
 .soda-login .ui.message { margin: 0 0 24px; }
-body:has(.soda-login) .page-footer { flex-shrink: 0; background: var(--soda-light-canvas); color: var(--soda-light-muted); border-top: 1px solid var(--soda-light-neutral-200); padding: 16px 24px; font: 400 12px/1.5 Barlow, Arial, sans-serif; }
-body:has(.soda-login) .page-footer a { color: var(--soda-light-muted); }
+body:has(.soda-login) .page-footer { flex-shrink: 0; background: var(--login-canvas); color: var(--login-muted); border-top: 1px solid var(--login-neutral-200); padding: 16px 24px; font: 400 12px/1.5 Barlow, Arial, sans-serif; }
+body:has(.soda-login) .page-footer a { color: var(--login-muted); }
 @media (min-width: 900px) {
   .soda-login { grid-template-columns: 54% 46%; }
-  .soda-login-story { display: flex; flex-direction: column; padding: 24px 36px; border-right: 1px solid var(--soda-light-neutral-200); background: radial-gradient(ellipse at 40% 46%, #fff0df88, transparent 65%); }
+  .soda-login-story { display: flex; flex-direction: column; padding: 24px 36px; border-right: 1px solid var(--login-neutral-200); background: radial-gradient(ellipse at 40% 46%, var(--login-glow), transparent 65%); }
   .soda-login-brand img { width: 156px; }
   .soda-login-art { display: flex; flex: 1; flex-direction: column; justify-content: center; padding-top: 16px; }
-  .soda-login-art h1 { margin: 0 5% 20px; font: 600 clamp(42px, 4.4vw, 72px)/1.07 "Fraunces Variable", Georgia, serif; letter-spacing: -.045em; color: var(--soda-light-text); }
+  .soda-login-art h1 { margin: 0 5% 20px; font: 600 clamp(42px, 4.4vw, 72px)/1.07 "Fraunces Variable", Georgia, serif; letter-spacing: -.045em; color: var(--login-text); }
   .soda-login-art > img { display: block; width: 100%; height: auto; max-height: min(520px, max(180px, calc(100svh - 420px))); object-fit: contain; }
-  .soda-login-tagline { display: block; margin: 16px 0 0; font-size: 14px; color: var(--soda-light-muted); }
+  .soda-login-tagline { display: block; margin: 16px 0 0; font-size: 14px; color: var(--login-muted); }
   .soda-login-panel { padding: 32px clamp(36px, 5vw, 90px); }
 }
 @media (max-height: 850px) {
@@ -119,3 +155,29 @@ body:has(.soda-login) .page-footer a { color: var(--soda-light-muted); }
   .soda-login .soda-login-account { margin-top: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .soda-login *, .soda-login *::after { transition: none !important; } }
+
+.soda-theme-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 24px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--login-muted);
+  cursor: pointer;
+  border-radius: 50%;
+}
+.soda-theme-toggle[hidden] { display: none; }
+.soda-theme-toggle:hover { color: var(--login-link); }
+.soda-theme-toggle:focus-visible { outline: 2px solid var(--login-focus); outline-offset: 2px; }
+.soda-theme-sun, .soda-login-logo-dark { display: none; }
+html[data-soda-login-theme="dark"] .soda-theme-moon,
+html[data-soda-login-theme="dark"] .soda-login-logo-light { display: none; }
+html[data-soda-login-theme="dark"] .soda-theme-sun,
+html[data-soda-login-theme="dark"] .soda-login-logo-dark { display: block; }
