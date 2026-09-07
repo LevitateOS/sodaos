@@ -1,6 +1,20 @@
 #!/bin/sh
 set -eu
 umask 077
+# The outer OCI profile keeps /proc/sys read-only. Nested netavark needs
+# per-interface sysctls in this project's owned network namespace. Bind only
+# that subtree from a fresh proc mount; leave kernel/fs/vm controls protected.
+if [ ! -w /proc/sys/net/ipv4/ip_forward ]; then
+    mkdir -m 0700 /run/soda-net-proc
+    mount -t proc -o nosuid,nodev,noexec proc /run/soda-net-proc
+    if ! mount --bind /run/soda-net-proc/sys/net /proc/sys/net; then
+        umount /run/soda-net-proc
+        rmdir /run/soda-net-proc
+        exit 1
+    fi
+    umount /run/soda-net-proc
+    rmdir /run/soda-net-proc
+fi
 getent group soda-project >/dev/null || groupadd soda-project
 install -d -m 2775 -o root -g soda-project /srv/project/shared
 install -d -m 0750 -o root -g wheel /run/soda-podman

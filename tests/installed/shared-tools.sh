@@ -5,7 +5,8 @@
 set -euo pipefail
 : "${SODA_NATIVE_VALIDATE:?Explicit native validation authorization required}"
 : "${PROJECT_IP:?}" "${ALICE:?}" "${BOB:?}" "${SSH_CONFIG:?Pinned private client configuration required}"
-[[ "$SODA_NATIVE_VALIDATE" == soda-test && "$PROJECT_IP" == 10.89.0.2 ]]
+[[ "$SODA_NATIVE_VALIDATE" == soda-test ]]
+python3 -c 'import ipaddress,sys; assert ipaddress.ip_address(sys.argv[1]) in ipaddress.ip_network("10.89.0.0/24")' "$PROJECT_IP"
 [[ "$ALICE" == u08-alice-8417 && "$BOB" == u08-bob-8417 ]]
 remote() { local user=$1; shift; ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ForwardAgent=no "$user@$PROJECT_IP" "$@"; }
 a=$(remote "$ALICE" 'mise where node')

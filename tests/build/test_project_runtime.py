@@ -16,6 +16,8 @@ class ProjectRuntimeContracts(unittest.TestCase):
         unit = self.unit('soda-podman.service')
         service = unit['Service']
         self.assertEqual(service['UnsetEnvironment'], 'CONTAINER_HOST')
+        self.assertEqual(service['User'], 'root')
+        self.assertEqual(service['Group'], 'root')
         self.assertNotIn('Environment', service)
         self.assertEqual(service['ExecStart'], '/usr/bin/podman system service --time=0')
         self.assertIn('soda-podman.socket', unit['Unit']['Requires'].split())
@@ -29,12 +31,23 @@ class ProjectRuntimeContracts(unittest.TestCase):
         self.assertEqual(socket['SocketUser'], 'root')
         self.assertEqual(socket['SocketGroup'], 'wheel')
         self.assertEqual(socket['SocketMode'], '0660')
+        self.assertNotIn('soda-project-init.service', unit['Unit'].get('After', ''))
+        self.assertNotIn('soda-project-init.service', unit['Unit'].get('Requires', ''))
+        service = self.unit('soda-podman.service')['Unit']
+        self.assertIn('soda-project-init.service', service['Requires'].split())
+        self.assertIn('soda-project-init.service', service['After'].split())
         self.assertEqual(socket['DirectoryMode'], '0750')
-        self.assertIn('soda-project-init.service', unit['Unit']['After'].split())
         init = (ROOT / 'project-os/rootfs/usr/libexec/soda/project-init').read_text()
         self.assertIn('install -d -m 0750 -o root -g wheel /run/soda-podman', init)
         recipe = (ROOT / 'project-os/Containerfile').read_text()
         self.assertIn('systemctl enable sshd.service soda-project-init.service soda-podman.socket', recipe)
+
+    def test_only_network_sysctl_subtree_is_rebound(self):
+        init = (ROOT / 'project-os/rootfs/usr/libexec/soda/project-init').read_text()
+        self.assertIn('mount -t proc -o nosuid,nodev,noexec proc /run/soda-net-proc', init)
+        self.assertIn('mount --bind /run/soda-net-proc/sys/net /proc/sys/net', init)
+        self.assertNotIn('remount,rw /proc/sys', init)
+        self.assertLess(init.index('mount --bind'), init.index('touch /run/soda-project-ready'))
 
     def test_compose_uses_native_secret_not_password_argv(self):
         compose = (ROOT / 'tests/fixtures/workload/compose.yaml').read_text()

@@ -13,7 +13,9 @@ mode even when empty in Podman 5.8.2, and a directly created API socket was mode
 0600 despite the service umask. Current source unsets that variable and uses
 native systemd socket activation with root:wheel mode 0660. Project initialization
 creates the socket directory root:wheel 0750; the image enables the socket unit.
-The service uses the activation FD, not a second listener. These source units were
+The service uses the activation FD, not a second listener. It keeps its native
+root:root process identity; only the socket is root:wheel. Using wheel as the
+engine's primary GID caused process-namespace access failures during exec. These source units were
 applied to Alice's retained project with a private backup: owner API access works,
 and Bob's direct engine access is denied. This is not a rebuilt project image or
 an automatic update of other existing projects.
@@ -29,11 +31,16 @@ workload cgroups remain disabled.
 The first real Compose image pull/build succeeded, but its default nested bridge
 failed at startup with `netavark: Netlink error: Operation not permitted`. Native
 inspection confirmed the project owns its network namespace but lacks NET_ADMIN.
-Current helper **source** adds that bounded capability alongside SYS_ADMIN/MKNOD
-for future project creation. It is locally tested but not installed/native-proven;
-Podman 5.8.4 cannot update that capability in place. Existing projects were not
-replaced, exported or recreated to apply it. A fresh approved fixture is needed to
-verify the corrected default bridge candidate.
+Candidate `952f3b3` adds that bounded capability alongside SYS_ADMIN/MKNOD and was
+built, installed and used for a fresh fixture. Podman 5.8.4 cannot update that
+capability in place. Existing projects were not
+replaced, exported or recreated to apply it. The fresh fixture then exposed read-only network sysctls. Current initialization
+binds only `/proc/sys/net` from a private temporary proc mount, retaining read-only
+kernel/fs/vm controls. After this project-local correction, ordinary bridge HTTP
+and PostgreSQL operations passed from both users and infra; startup/persistence
+of the correction still needs lifecycle evidence. Different-UID workload exec
+remains blocked by process-namespace permission checks; it must not be reported
+as passing merely because TCP database access works.
 
 As a diagnostic, two real workloads now run through the same nested engine with
 native `--network host`: here **host means the project's network namespace**, not

@@ -1,5 +1,16 @@
 # Implementation handoff
 
+## Core/support merge — source only
+
+Merged native support remediation `41fb6d3`/`9acbda5` with core follow-ups through
+`f233a4a`, preserving both handoffs and all core runtime/lifecycle corrections.
+The incoming `952f3b3` and `935dbdf` aggregate build/check passes below supersede
+older blanket aggregate-pending statements **for those candidates only**. Neither
+includes the support remediation, so the merged candidate still requires its own
+build/check. The socket-ordering correction and remaining U08/runtime gaps retain
+their recorded limits. This merge ran no builds, tests or native operations and
+changed no installed state.
+
 ## Native support audit remediation — source only
 
 Implemented the next active support-source pass from clean baseline `15e49b1`.
@@ -28,6 +39,83 @@ fixture/install/operator and independent aarch64 evidence. P07/P08 still belong
 to U08/U20, and P09/P10 media remain unselected. No build, dependency resolution,
 test execution, native target/provider action, publication or cleanup occurred
 in this pass.
+
+## U08 completion execution — candidate and remaining runtime correction
+
+Candidate `952f3b3` completed the entire native x86_64 build/seal and aggregate
+`check-native.sh`: full Go, 60 Cockpit tests, 21 dashboard tests, 18 build tests
+and 9 staging tests passed. A private populated-v3 backup/rehearsal preserved
+users, keys, projects, memberships, sessions and encrypted grants. Matching
+preview/helper/new-project image deployed on `soda-test`; the existing two project,
+Forgejo and proxy container identities were preserved. A first preflight template
+error occurred before backup/service mutation and is retained in the logs.
+
+The approved private `u08-completion-952f3b3` repository/environment now exists:
+`ped30b9d6932974b14feb2278`, observed at `10.89.0.4`, with explicit Alice/Bob joins.
+Its exact image, project-owned user/network namespaces, NET_ADMIN, default seccomp
+and lack of privileged-parent/host accounts were verified. Direct SSH/PTY/SCP/SFTP,
+personal native Git and shared Node/files passed. New Git passphrases are retained
+only in restricted client files for post-reboot agent unlock. Browser fixture and
+transport test issues were corrected without recreating users/projects: an access
+test variable shadowed its scenario, and SSH control socket paths needed shortening.
+
+Default bridge startup exposed read-only per-interface network sysctls. A narrow
+project-local proc bind makes only `/proc/sys/net` writable, leaving the rest of
+`/proc/sys` read-only. The same failed workload containers/volumes were retained
+and started after the correction; an intermediate stale DNS/interface failure is
+also retained. HTTP source edits and committed PostgreSQL operations now passed
+from the real client and both users using the ordinary bridge, not host mode.
+The source initializer now performs that narrow setup before publishing readiness;
+it is applied to the fresh project's writable root with prior source retained
+inside `/var/lib/u08-proc-net-fix/`. A new full build/check is required for it.
+
+A separate native exec failure was traced through restricted process diagnostics
+to OCI `openat /proc/<pid>/ns/mnt: Permission denied`. The API service's wheel GID
+prevented same-UID access; keeping its native root GID while retaining the socket's
+root:wheel 0660 permissions fixes same-UID exec. Different-UID PostgreSQL exec
+still fails without namespaced ptrace authority. No SYS_PTRACE/privileged-parent
+shortcut has been applied. This remains a runtime coverage gap, not a passing
+Compose-exec case. State snapshots use the real native PostgreSQL TCP client and
+private pgpass input, not a fabricated or empty exec result. A complete preflight
+snapshot of all three projects and Soda associations succeeded.
+
+Current logs are `.artifacts/logs/u08-completion-*`; private candidate payload,
+backup and rehearsal are `/var/lib/soda/u08-completion-952f3b3/` on the VM. New
+fixture inputs/state/transports are `.artifacts/test-vm/u08-completion-952f3b3/`.
+Corrected candidate `935dbdf` also completed full native build/check and a second
+populated backup/rehearsal/matching rollout. Its initializer and service changes
+are installed in the fresh fixture's retained writable root (the original outer
+container/image identity remains `952f3b3`). The first approved project stop/start
+preserved all declared stable data except the subsequent deliberate socket-unit
+correction: comparison identified exactly that file's SHA256, no other changes.
+
+Cold startup exposed an ordering cycle: socket -> sockets.target -> basic.target
+-> init -> socket. The enabled init/socket jobs were not started; readiness was
+absent. Remove the socket's init dependency; the activated service still requires
+init, and init still precedes SSH. A corrected repeat cold start is pending.
+The project's IP changed to `10.89.0.5`; the exact transport utility now rediscovers
+native addresses and verifies every prior public host-key pin before refreshing
+only private connection/pgpass inputs. It does not reset data or accept new keys.
+
+Read-only regression attempts also retained preexisting fixture limits: `host.sh`
+stops at RPM name assumptions (`nodejs`, `zlib` absent under those names), and
+`operator.sh` cannot list runners without its integration configuration. Neither
+is a passing full host/operator regression. Native Cockpit PAM root admission /
+existing non-root denial and configured-origin TLS did pass. No VM reboot has
+run yet. U08 is not accepted; remaining execution and exec/coverage gaps stay
+explicit.
+
+## U08 completion execution authorized — preparation
+
+The user requested execution of the entire recorded U08 completion plan, including
+the exact `soda-test` rollout, one additional fixture, its stop/start and the VM
+reboot. This does not authorize unrelated targets or destructive cleanup.
+Prepared fresh-fixture browser coverage, parameterized existing Git/access/shared-
+tool/workload cases, retained private passphrase inputs for new Git agents, and
+bounded all-project lifecycle snapshots/comparisons. Exact private transport
+restoration is authored under `.artifacts/tools/u08-completion-transports.py`.
+Preparation is not a new native PASS; the following build/rollout/runtime stages
+must record their actual outcomes before acceptance.
 
 ## U08 completion plan recorded
 

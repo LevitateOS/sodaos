@@ -9,19 +9,21 @@ export async function registerPersonalGit({ page, soda, username, directory }) {
  assert(/^u08-(alice|bob)-8417$/.test(username));
  const key = (await readFile(path.join(directory, username + '.pub'), 'utf8')).trim();
  assert(/^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( .*)?$/.test(key));
+ const target = JSON.parse(await readFile(path.join(directory, '../target.json'), 'utf8').catch(error => { if (error.code === 'ENOENT') return '{"repository":"shared-alice"}'; throw error; }));
+ assert(/^[a-z0-9][a-z0-9-]{0,99}$/.test(target.repository));
  await page.goto(soda + '/app/account');
- await page.locator('#git-key-title').fill('U08 personal project Git ' + username);
+ await page.locator('#git-key-title').fill('U08 Git ' + target.repository + ' ' + username);
  await page.locator('#git-key').fill(key);
  const pending = page.waitForResponse(r => new URL(r.url()).pathname === '/api/forgejo/me/git-keys' && r.request().method() === 'POST');
  await page.getByRole('button', { name: 'Register Forgejo Git key', exact: true }).click();
  const response = await pending; assert.equal(response.status(), 201, 'Git key registration not confirmed; do not retry blindly');
  await page.getByText('Forgejo Git key registered. No project account was changed.', { exact: false }).waitFor();
- const repo = await page.evaluate(async () => {
-  const response = await fetch('/api/forgejo/repos/u08-alice-8417/shared-alice');
+ const repo = await page.evaluate(async repository => {
+  const response = await fetch('/api/forgejo/repos/u08-alice-8417/' + repository);
   if (response.status !== 200) return null;
   const body = await response.json(); return { id: body.id, ssh_url: body.ssh_url, owner: body.owner.login, name: body.name };
- });
- assert(repo && repo.owner === 'u08-alice-8417' && repo.name === 'shared-alice');
+ }, target.repository);
+ assert(repo && repo.owner === 'u08-alice-8417' && repo.name === target.repository);
  await writeFile(path.join(directory, username + '-repository.json'), JSON.stringify(repo, null, 2), { mode: 0o600, flag: 'wx' });
  console.log('Acting-user personal Forgejo Git public key registered; native repository clone URL retained.');
 }
