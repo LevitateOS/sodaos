@@ -47,19 +47,19 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
 
 ## Product and security boundaries
 
-- **Soda-only frontend is mandatory for all Forgejo workflows**, developer and
-  administrator, including login/password change/MFA/consent/account security.
-  No native Forgejo page links, embedded upstream HTML or temporary UI fallback.
-  Missing APIs require integration work, not silent omission or reduced parity.
-  Investigate newer supported APIs and propose concrete backend changes/costs
-  before implementing a patch or new integration. Preserve Forgejo's authority;
-  no second password store, scraping, borrowed cookies or unrestricted proxy.
-  Existing OAuth redirects/legacy pages are transitional implementation gaps,
-  not exceptions. Retained host-operator Cockpit is a separate selected boundary.
+- **Use Forgejo's official template overrides for Forgejo-owned workflows.**
+  Native server-rendered pages/handlers/authentication are selected, with custom
+  shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
+  superseded. See the decision at the top of `docs/dashboard-implementation-plan.md`.
+  Preserve Soda's existing React/Go environment integration while reviewing how
+  the interfaces connect. No backend fork/rebuild, iframe, scraping, borrowed
+  cookies or replacement password/permission authority is implied. Template and
+  asset compatibility still need review/tests; preserve working login and native
+  protocols. Retained operator Cockpit remains a separate selected boundary.
 
 - Forgejo is upstream. Do not take over its business rules, data, permissions or
-  administration, or access its database directly. The proposed first-class
-  headless integration revision is in
+  administration, or access its database directly. The superseded headless
+  integration proposal is retained for research in
   `docs/forgejo-architecture-revision-plan.md`, with its concrete work package in
   `docs/forgejo-headless-implementation-plan.md`. The source-backed H01 action
   register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
@@ -181,7 +181,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- The current dashboard is Go + HTMX. The user selected a client-rendered TypeScript/React + PatternFly + Vite+ + Zustand dashboard with a Go API next, without SSR, Tailwind or TanStack. See `docs/dashboard-plan.md` for the inventory and `docs/dashboard-implementation-plan.md` for the implementation sequence. The React preview/JSON adapters and schema-v3 encrypted grants are installed on `soda-test` at candidate `8b823db`, with operator/developer browser and bounded native lifecycle evidence; default browser routes remain HTMX, and full product/cutover acceptance remains pending. Follow the handoff rather than treating partial source as completed milestones. Retain the separate Cockpit Tailnet/Runners frontend and native boundaries.
+- The installed/default Soda dashboard remains Go + HTMX, with a React preview. Retain the existing TypeScript/React + PatternFly + Vite+ + Zustand/Go environment frontend. Forgejo-owned workflows now use official template overrides and native SSR; the former all-React/no-SSR requirement is superseded. No React SSR, production Node service, Tailwind or TanStack is selected. See `docs/dashboard-plan.md` for the inventory and `docs/dashboard-implementation-plan.md` for the implementation sequence. The React preview/JSON adapters and schema-v3 encrypted grants are installed on `soda-test` at candidate `8b823db`, with operator/developer browser and bounded native lifecycle evidence; default browser routes remain HTMX, and full product/cutover acceptance remains pending. Follow the handoff rather than treating partial source as completed milestones. Retain the separate Cockpit Tailnet/Runners frontend and native boundaries.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

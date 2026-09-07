@@ -1,5 +1,13 @@
 # Headless Forgejo implementation plan
 
+**Superseded implementation direction — retained research, not execution instructions.**
+The user selected [official template overrides](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
+and native Forgejo rendering. U01's overall acceptance is withdrawn (only bounded
+U08 accepted, 1/20). Mandatory headless API/auth patches and the source-build
+sequence below are no longer the selected route. Retain findings and preparer
+source; do not implement this work package merely because its historical text
+says reviewed/accepted. The leading plan must be reconciled for template overrides.
+
 **Status: H01 source audit recorded; H02 source preparation implemented at `c9a9be0`; native image/extensions remain unimplemented.**
 The [single workflow register](forgejo-api-coverage.md) now records the v15.0.7
 surface audit and targeted v16.0.3 comparison. U01's subsequent baseline/first-read/

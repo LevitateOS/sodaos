@@ -1,8 +1,62 @@
 # Unified Soda frontend and backend implementation plan
 
-**Status: implementation in progress; U01 is accepted for planning/contract readiness and U08 for bounded native x86_64 first-product proof (2/20 core milestones).** This revision incorporates the **179-action-group H01 source audit** committed at `c832901`. It changes remaining work, dependencies and acceptance criteria—not installed bytes, prior evidence or execution permissions. U09 remains incomplete. H01 source coverage is recorded. H02 source preparation is implemented at `c9a9be0`, with 16.0.3 locked only as a development candidate; the first read contract and native-auth/build integration designs have completed U01 source review. Native image/extensions, executed authentication feasibility, full artifact/license closure and deployment acceptance remain open.
+**Status: official Forgejo template overrides selected; U01 partly invalidated and its acceptance withdrawn as described below. Only bounded U08 is accepted (1/20 core milestones).** This revision incorporates the **179-action-group H01 source audit** committed at `c832901`. It changes remaining work, dependencies and acceptance criteria—not installed bytes, prior evidence or execution permissions. U09 remains incomplete. H01 source coverage is recorded. H02 source preparation is implemented at `c9a9be0`, with 16.0.3 locked only as a development candidate; the first read contract and native-auth/build integration designs have completed U01 source review. Native image/extensions, executed authentication feasibility, full artifact/license closure and deployment acceptance remain open.
 
-**Goal:** one complete client-rendered Soda frontend for Forgejo's developer, administrator, authentication and account-security workflows, plus Soda's persistent development-environment extension. No Forgejo frontend links, embedded upstream HTML, scraping or temporary native-page fallback. Missing interfaces require integration, not omitted features. First make complete workflows work; then make them good. Security, accessible basic interaction, honest failures and preservation are part of “works.”
+## Selected direction — official template overrides; partial U01 invalidation
+
+**The user selected Forgejo's official template-override method.** Retain upstream
+Forgejo's server-rendered pages, handlers, authentication and business rules;
+customize the shell/navigation/presentation through supported template overrides
+and assets. This replaces the requirement to recreate every Forgejo workflow in
+client-rendered React using JSON APIs. Native-rendered Forgejo pages are now the
+selected integration, not a forbidden fallback. No iframe, HTML scraping/fragment
+injection, backend fork or source rebuild is selected by this decision.
+
+Forgejo's inspected `modules/templates/base.go::AssetFS` layers
+`<CustomPath>/templates/` ahead of built-in templates. The mechanism is upstream
+provided; the exact shared templates, asset/script dependencies, configured paths,
+reload/restart requirements and upgrade compatibility still need implementation
+review. Supported overrides do not mean arbitrary template changes are safe or
+that maintenance disappears. No live template/configuration change is authorized
+or claimed here, and the installed Forgejo version is not changed.
+
+**U01 is partially invalidated and its overall acceptance at `542de21` is
+withdrawn.** The invalidated part is the selected frontend/integration architecture
+and its conclusion that missing JSON interfaces require a source-built, patched
+Forgejo. The derived mandatory headless-auth transport, read API patches and
+U02 native Forgejo build sequence are superseded as the default implementation
+path. Do not continue them merely because their drafts say “reviewed/accepted.”
+
+**Retain:** the H01 source/API findings and workflow inventory, authority/security
+findings (including the three unfixed Soda defects), licensing work and original
+Apache-2.0 grant, source-preparer code and honestly scoped evidence. These do not
+become false or need deleting; the preparer may simply be unnecessary for the
+selected deployment. Missing JSON endpoints no longer automatically block features
+that the native rendered interface already supplies. Read/parser findings remain
+source findings, not a requirement to implement new APIs for this approach.
+
+Soda still owns its persistent development-environment/access integration. Keep
+its existing React/Go source while reviewing how that UI and native Forgejo pages
+share branding/navigation and secure session/origin boundaries; no wholesale
+rewrite or assumed shared authentication cookie is selected. Preserve native Git,
+SSH/LFS/package protocols, CSRF/authorization, separate Cockpit operator authority,
+working login and all four environments. Native rendering is allowed for Forgejo;
+this is not a choice to add React SSR or a production Node service.
+
+**Next:** reopen only U01's affected architecture/dependency/acceptance sections
+around the selected override mechanism, then reconcile the U02–U20 implementation
+assignments. Do not repeat H01, reopen the user's choice between templates and a
+separate frontend, or silently replace the milestones with a new roadmap.
+
+**Precedence:** the remaining detailed plan below records the previous headless/
+React implementation sequence and retained evidence. Where it requires all-React,
+no Forgejo HTML/SSR, new native auth/read APIs or a mandatory source-built Forgejo,
+it is **superseded and not an execution instruction**. Those sections still need
+coherent replanning; this decision record does not claim that work is complete.
+
+**Goal:** a coherent Soda-branded product using native Forgejo rendering through
+official template overrides, plus Soda's persistent development environments.
+Preserve complete workflows, native authority, security, accessibility and data.
 
 **Read with:** [page/dependency inventory](dashboard-plan.md), [single workflow register](forgejo-api-coverage.md), [architecture](architecture.md), [headless architecture review](forgejo-architecture-revision-plan.md), [headless implementation details](forgejo-headless-implementation-plan.md), [deferred scope](deferred.md), [actual evidence](implementation-status.md), [installation](installation.md) and [native validation](native-validation.md).
 
@@ -27,7 +81,7 @@ See the [U08 acceptance handoff](implementation-status.md#u08-accepted--bounded-
 
 | Milestone | Reusable progress | Remaining acceptance responsibility |
 | --- | --- | --- |
-| **U01** | **Accepted: H01 register, stable engineering baseline, first read contract, native auth/ownership/build review and original-code license** | Implementation/native conformance and exact artifact compliance remain with their named U owners; no repeated broad inventory or policy-selection gate |
+| **U01** | Retained H01 findings, authority/license work and source preparation | **Acceptance withdrawn:** revise affected architecture/dependencies for the selected official template overrides; prior headless/build requirements are not current execution instructions |
 | U02 | Built React shell, real lockfile, static packaging and installed preview; verified Forgejo development source preparer | Complete assets/dependency notices/dev-route coverage; integrate and verify the reviewed native Forgejo source/patch build |
 | U03 | Protected JSON, typed bounded provider errors, encrypted schema-v3 grants; migration/preservation subsets | Minimal extension compatibility, complete populated upgrade/refusal tests and coordinated config/asset/schema consumers |
 | U04 | Real redirect OAuth and session-bound grants; refresh/security source | Native-backed Soda login/challenges/consent/logout; threat model, expiry/replay/concurrency/revocation and installed security proof |
@@ -298,7 +352,7 @@ below supersede then-open questions and absent-license observations.
 
 **User clarification now governs:** Forgejo owns its policies and upstream fixes; Soda extends/delegates and maintains its own code/patches. Preserve native external-IdP/logout/transfer behavior rather than asking the user to redesign it. The user selected **Apache-2.0 for original SodaOS code**; retain all third-party licenses, including Forgejo's terms. The original-code license/notice boundary is now authored; complete per-artifact dependency/inherited-rights compliance remains U02 delivery work, not an unanswered license-selection question.
 
-**U01 disposition: accepted for its planning/contract-readiness exit after `8727233`.** The checklist above and the closing reviews in the source guide, H05 and read contract record the actual dispositions. This is not native-auth/parser conformance, a security certification, full license clearance, U02 image completion or installation approval. U01 and bounded U08 are now accepted (2/20). Native tests and source corrections remain mandatory under their named owners.
+**Historical U01 disposition — acceptance withdrawn by the template-override decision above:** the following records the earlier review, not current acceptance. The checklist above and the closing reviews in the source guide, H05 and read contract record the actual dispositions. This is not native-auth/parser conformance, a security certification, full license clearance, U02 image completion or installation approval. U01 and bounded U08 are now accepted (2/20). Native tests and source corrections remain mandatory under their named owners.
 
 **Continue from this review:** implement/review the conforming interfaces and the specific corrections below. Technical gap-filling can proceed in parallel; do not spend another research pass on facts awaiting a decision. Before any new investigation, name the unresolved question, the existing evidence it cannot answer and the smallest expected result. Reopen settled research only for changed source/configuration, stale decision-critical information or contradictory evidence, and record that reason. Preserve earlier evidence and failures.
 
@@ -677,4 +731,4 @@ Each coherent commit/handoff names changed paths and owners, native contract/aut
 
 **Execution:** already authorized local builds/automated tests need no renewed generic permission request. Concrete new native patch/dependency scope follows its review; deployment, real provider/account/repository/import/runner mutations, installed fixtures, origins/networks, publication/submission, lifecycle and cleanup retain exact separate scopes. Never expose credentials in source/argv/tracing/logs/screenshots, overwrite private inputs/evidence or infer permission to reset the VM. This plan revision runs none of those actions.
 
-**Next work:** U01 is accepted at its stated review boundary. Extend H02's existing source preparer into U02's native build spine and implement U03/H03 with the reviewed first U09/H04 slice and U04 native-authentication path. Continue independent stock-adapter/UI corrections. Keep U08 accepted, every other unfinished U owner accountable, and U17/U18/U20 gated on complete delivered behavior—not another audit, a version bump or successful bundling alone.
+**Next work:** reconcile U01 and the affected U02–U20 assignments with the selected official template-override direction at the top of this plan. Do not proceed with the former mandatory native build/headless API sequence. Preserve useful source/evidence and bounded U08 acceptance (1/20).

@@ -1,5 +1,12 @@
 # Forgejo workflow and interface audit
 
+**Current interpretation:** the user selected [official template overrides](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
+and native Forgejo rendering. The source/API findings and workflow inventory below
+remain useful, but the earlier requirement to supply every screen through JSON
+is superseded. Class-3 missing APIs do not automatically block native-rendered
+workflows or mandate patches. Implementation assignments need reconciliation;
+U01's architecture acceptance is withdrawn, while bounded U08 remains accepted.
+
 **H01 source audit, Soda baseline `0f43b9f`.** This is the single action register
 for the [headless implementation plan](forgejo-headless-implementation-plan.md),
 owned by the existing U01–U20 milestones. It supersedes the earlier family-only

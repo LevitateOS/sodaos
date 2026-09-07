@@ -1,6 +1,17 @@
 # Unified Soda dashboard plan
 
-## Status and decisions
+## Current decision — official template overrides
+
+The user selected native Forgejo rendering through its **official template
+extensions/overrides**, not a complete React/JSON replacement. See the
+[leading decision record](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation).
+U01's architecture acceptance is withdrawn; only bounded U08 is accepted (1/20).
+Retain the inventory and useful source/license work. The prior all-React/no-SSR/
+no-native-HTML constraints and mandatory headless patches below are superseded;
+page ownership and implementation assignments still need reconciliation. This
+records the choice, not implemented overrides or deployment.
+
+## Historical status and decisions
 
 This is the selected page-family/dependency inventory, not completion evidence or a frozen dependency lockfile. The React/API/schema-v3 preview is installed at `8b823db` on retained `soda-test`; default routes remain HTMX. U01 is accepted for planning/contract readiness and U08 for bounded native x86_64 first-product proof (2/20), not complete frontend/cutover acceptance. The [implementation plan](dashboard-implementation-plan.md) now incorporates H01's **179 action groups**, revising dependencies and feature ownership without restarting the milestones. The [single action register](forgejo-api-coverage.md) owns concrete interface/authority findings; the [handoff](implementation-status.md) owns actual source/build/installed evidence. Conditional environment extensions remain unselected.
 

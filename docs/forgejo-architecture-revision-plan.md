@@ -1,5 +1,11 @@
 # Architecture revision plan: first-class headless Forgejo integration
 
+**Superseded by the user's selection of official template overrides.** See the
+[leading decision record](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation).
+Native Forgejo rendering is now selected; this headless replacement proposal is
+historical research, not the current architecture or permission to build a fork.
+U01's architecture acceptance is withdrawn, not its useful factual research.
+
 **Status: proposed revision plan, not implementation or deployment approval.**
 The user requested an architectural revision to support complete Forgejo frontend
 replacement coherently. This plan replaces the assumption that stock REST

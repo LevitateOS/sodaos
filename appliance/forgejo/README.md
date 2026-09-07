@@ -1,5 +1,13 @@
 # Forgejo source preparation — U02/H02
 
+**Current decision:** use Forgejo's official template overrides and native
+rendering; see the [leading decision record](../../docs/dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation).
+The mandatory source-built/patched Forgejo direction below is superseded. Retain
+this preparer, provenance and licensing research, but do not treat extending it
+into a native image build as the next required task. U01's architecture acceptance
+is withdrawn; no installed version, image or template was changed. Template
+overrides do not inherently require rebuilding the Forgejo executable.
+
 **Implemented: verified source preparation only.** The user authorized the next
 implementation batch after `2ff9e44`. This directory locks **v16.0.3 as a development
 candidate**, not the installed/release baseline. No native extension is present;

@@ -1,5 +1,14 @@
 # SodaOS architecture
 
+**Current frontend decision:** use Forgejo's official template overrides and its
+native server-rendered workflows, with Soda-branded presentation/navigation.
+The earlier mandatory all-React/no-Forgejo-HTML/headless direction below is
+superseded by the [leading decision record](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation).
+U01's architecture acceptance is withdrawn; useful research/license/source work
+and bounded U08 acceptance remain. Soda's environment integration and all native
+security/data/authority boundaries stay intact. Exact override/session/navigation
+integration and the affected plan still need review; no runtime change is claimed.
+
 **Repository:** [`levitateos/sodaos`](https://github.com/levitateos/sodaos) (new repo: I remove the dash)
 
 **Supersedes:** [`levitateos/soda-os`](https://github.com/levitateos/soda-os)

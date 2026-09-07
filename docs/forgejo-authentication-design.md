@@ -1,5 +1,12 @@
 # Native-backed Soda authentication — H05 delegation contract
 
+**The headless transport design below is superseded as a required implementation.**
+The user selected [official template overrides](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
+with native Forgejo authentication/rendering. Preserve the native findings and
+security boundaries; do not implement the proposed native session-handle APIs
+merely to replace pages that will now use native templates. U01 acceptance is
+withdrawn; secure integration with Soda's environment sessions still needs review.
+
 **Corrected after the user's authority-boundary clarification.** Extend Forgejo's
 interfaces; do not replace its authentication, account, consent or revocation
 rules. This replaces the policy-prescriptive draft at `1275c88`, retained in Git

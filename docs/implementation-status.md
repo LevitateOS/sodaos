@@ -1,6 +1,48 @@
 # Implementation handoff
 
+## Official template overrides selected — U01 acceptance withdrawn
+
+The user selected **Forgejo's official template-override mechanism**, retaining
+native server-rendered workflows/handlers/authentication and adapting their
+shell/navigation/presentation. This is the selected approach, not another option
+to ask the user to choose. The [leading decision record](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
+now takes precedence over the previous headless/React-only plans and contracts.
+
+**U01 is partially invalidated; its overall acceptance at `542de21` is withdrawn.**
+The architecture review failed to adequately evaluate this supported alternative,
+following incorrect advice that Forgejo did not use SSR and exposed all frontend
+functionality as JSON. Neither claim is true. The requirement for all-React/no
+native HTML, the resulting mandatory API/auth patches and the source-built Forgejo
+sequence are no longer the selected path. Only bounded U08 remains accepted
+(**1/20**); that native evidence is unchanged.
+
+Retain the valid source/API/workflow inventory, authority/security findings, three
+unfixed Soda defects, licensing work/Apache-2.0 grant, source preparer and actual
+evidence. They are not erased or reclassified as failed runtime work. The preparer
+may be unnecessary for the selected deployment. Native template compatibility,
+asset/script preservation and secure integration with Soda's existing React/Go
+environment UI remain work, not implemented features. Missing JSON endpoints do
+not by themselves block workflows rendered by Forgejo's native interface.
+
+Updated agent guidance and marked the former architecture/headless/auth/read/build
+plans as superseded where they conflict. This records the decision and withdrawal;
+**the detailed U01–U20 assignments still need coherent reconciliation**, not a new
+roadmap or repeat of H01. No template implementation, Forgejo rebuild/upgrade,
+service restart, deployment, origin/session change or retained-environment mutation
+occurred. Working login, all four environments, source/licenses and prior evidence
+remain intact. No iframe, HTML scraping/fragment injection or backend fork is
+selected.
+
+Executed the existing read-only document checker: 20 ordered U milestones, three
+conditional E tracks, 179 groups assigned once, 39 local new/plan links and 46
+incoming plan links/anchors passed. `git diff --check` passed. Log:
+`.artifacts/research/template-decision-542de21/document-check.log`. No builds,
+product/native tests or template execution ran; these checks establish document
+consistency, not a completed template integration.
+
 ## U01 accepted — planning and first-contract readiness
+
+**Historical acceptance; withdrawn by the template-override decision above.**
 
 Completed the remaining U01 review from clean `8727233`, using the existing H01
 register, verified v16.0.3 source preparation and previous release/license/Git

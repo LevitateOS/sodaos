@@ -1,5 +1,12 @@
 # First native read contracts — U09/H03/H04 review
 
+**Retained proposed contracts, no longer mandatory for frontend parity.** The user
+selected [official template overrides](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
+and native rendering. U01's architecture acceptance is withdrawn. Preserve the
+source/parser/resource findings, but missing JSON blame/diff endpoints do not
+imply missing native pages or require these patches under the new approach.
+No endpoint or native fix is implemented by this document.
+
 **U01 reviewed implementation contract, not implemented or advertised.** The
 source review below resolves the first-contract gate; native implementation,
 packaged-runtime checks and conformance remain U02/U03/U09 work. Source input: the
