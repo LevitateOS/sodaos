@@ -39,7 +39,9 @@ variants and a fresh signed-in journey were not exercised. This is local
 preview evidence only; appliance staging/deployment remains unchanged.
 
 The Users and Organizations directories now share the Soda shell with distinct
-headings and the existing collaboration artwork. Native user-list privacy/email
+headings and separate newly generated papercraft artwork for individual contributors
+and a shared organization workshop. Browser inspection confirmed the page-specific
+asset references after local template reload. Native user-list privacy/email
 conditions, search, sorting and pagination remain upstream-owned. Local browser
 checks covered people search, organization sorting/empty state, light/dark
 appearance and 480 CSS-pixel layouts without horizontal overflow. No sample

@@ -116,8 +116,8 @@ navigation was preserved by source inspection, not a new authenticated journey.
 ### People and organizations
 
 Forgejo 15.0.7 renders both directories with `explore/users.tmpl`. The override
-selects introductory copy using `PageIsExploreOrganizations`, reuses the existing
-collaboration artwork, and retains native search, user list and pagination.
+selects introductory copy using `PageIsExploreOrganizations`, uses separate generated Users and Organizations
+papercraft artwork, and retains native search, user list and pagination.
 Avatar/profile links and email/visibility conditions remain upstream-owned.
 The guest theme hook now covers all three designed explorer pages.
 
@@ -127,3 +127,9 @@ search, organization sort navigation and its empty state, and no horizontal
 overflow on the people/organization pages at 480 CSS pixels. No sample
 organizations were created; populated organization rows and authenticated
 visibility behavior were not newly exercised.
+
+`users-papercraft.png` depicts three distinct robot contributors; `orgs-papercraft.png`
+depicts a shared workshop and project handoff. Both were newly generated with the
+built-in image tool, retaining PNG alpha. Exact prompts are recorded in
+`assets/branding/forgejo/directory-art-prompts.md`. Local template reload and browser
+inspection confirmed each directory references its own asset.
