@@ -109,6 +109,21 @@ colors and their native logo. New introductory copy remains English for now.
 
 Local browser checks covered matching/empty search, alphabetical sorting, the
 not-archived filter, guest light/dark switching, and a narrow 480 CSS-pixel viewport
-without horizontal overflow. The preview has one repository, so multi-page
-pagination and populated language/topic variants were not exercised. Signed-in
+without horizontal overflow. At the initial implementation, the preview had one repository; later pagination
+evidence is recorded below. Populated language variants remain unexercised. Signed-in
 navigation was preserved by source inspection, not a new authenticated journey.
+
+### People and organizations
+
+Forgejo 15.0.7 renders both directories with `explore/users.tmpl`. The override
+selects introductory copy using `PageIsExploreOrganizations`, reuses the existing
+collaboration artwork, and retains native search, user list and pagination.
+Avatar/profile links and email/visibility conditions remain upstream-owned.
+The guest theme hook now covers all three designed explorer pages.
+
+The local preview now contains 21 public repositories owned by Alice. Browser
+verification observed 20 rows on page one and one on page two, working people
+search, organization sort navigation and its empty state, and no horizontal
+overflow on the people/organization pages at 480 CSS pixels. No sample
+organizations were created; populated organization rows and authenticated
+visibility behavior were not newly exercised.

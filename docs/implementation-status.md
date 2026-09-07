@@ -33,9 +33,17 @@ filters, sorting, pagination and main navigation remain upstream partials. Guest
 share the login/home theme preference; signed-in pages retain native theme colors.
 Local browser checks exercised matching and empty searches, alphabetical sorting,
 not-archived filtering, light/dark switching and a 480 CSS-pixel narrow layout
-without horizontal overflow. One public repository is present; multiple pages,
-language/topics and a fresh signed-in journey were not exercised. This is local
+without horizontal overflow. The preview now contains 21 public repositories with sample descriptions/topics;
+browser checks confirmed 20 rows on page one and one on page two. Language
+variants and a fresh signed-in journey were not exercised. This is local
 preview evidence only; appliance staging/deployment remains unchanged.
+
+The Users and Organizations directories now share the Soda shell with distinct
+headings and the existing collaboration artwork. Native user-list privacy/email
+conditions, search, sorting and pagination remain upstream-owned. Local browser
+checks covered people search, organization sorting/empty state, light/dark
+appearance and 480 CSS-pixel layouts without horizontal overflow. No sample
+organizations were added, so populated organization rows remain unexercised.
 
 ## Accepted native evidence
 

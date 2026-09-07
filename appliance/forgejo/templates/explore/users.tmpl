@@ -1,0 +1,23 @@
+{{/* Forgejo 15.0.7 uses this template for both people and organizations. */}}
+{{template "base/head" .}}
+<main aria-label="{{.Title}}" class="page-content explore users soda-explore soda-explore-people" data-signed="{{.IsSigned}}">
+  <div class="ui container soda-explore-container">
+    <section class="soda-explore-intro" aria-labelledby="soda-explore-title">
+      <div><p class="soda-explore-eyebrow">Discover &amp; collaborate</p>
+        {{if .PageIsExploreOrganizations}}
+          <h1 id="soda-explore-title">Good work happens together.</h1>
+          <p class="soda-explore-lede">Find the teams bringing projects to life.</p>
+        {{else}}
+          <h1 id="soda-explore-title">Meet the people behind the code.</h1>
+          <p class="soda-explore-lede">Find collaborators and discover what they’re building.</p>
+        {{end}}
+      </div>
+      <img class="soda-explore-art" src="{{AssetUrlPrefix}}/soda/forgejo/home-papercraft.png" width="1536" height="1024" alt="">
+    </section>
+    {{template "explore/navbar" .}}
+    {{template "explore/search" .}}
+    {{template "explore/user_list" .}}
+    {{template "base/paginate" .}}
+  </div>
+</main>
+{{template "base/footer" .}}

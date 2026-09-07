@@ -50,8 +50,8 @@ html[data-soda-login-theme="dark"] body:has(.soda-explore[data-signed="false"]) 
 .soda-explore .secondary-nav .item { color: var(--explore-muted); padding: 16px 22px; font: 600 16px Barlow, sans-serif; }
 .soda-explore .secondary-nav .active.item { color: var(--explore-link); border-color: var(--explore-link); }
 .soda-explore #repo-search-form { gap: 12px; }
-.soda-explore #repo-search-form input[type="search"] { background: var(--explore-surface); color: var(--explore-text); border: 1px solid var(--explore-edge); border-radius: 10px 0 0 10px; min-height: 46px; font: 400 16px Barlow, sans-serif; }
-.soda-explore #repo-search-form .button { background: var(--soda-light-action); color: white; border-radius: 0 10px 10px 0; min-width: 90px; font-family: Barlow, sans-serif; }
+.soda-explore :is(#repo-search-form, .list-header-search) input[type="search"] { background: var(--explore-surface); color: var(--explore-text); border: 1px solid var(--explore-edge); border-radius: 10px 0 0 10px; min-height: 46px; font: 400 16px Barlow, sans-serif; }
+.soda-explore :is(#repo-search-form, .list-header-search) .button { background: var(--soda-light-action); color: white; border-radius: 0 10px 10px 0; min-width: 90px; font-family: Barlow, sans-serif; }
 .soda-explore #repo-search-form div.dropdown { border: 1px solid var(--explore-edge); border-radius: 10px; background: var(--explore-surface); color: var(--explore-text); min-height: 46px; }
 .soda-explore #repo-search-form .dropdown .menu { background: var(--explore-surface); color: var(--explore-text); border-color: var(--explore-edge); }
 .soda-explore #repo-search-form .dropdown .menu .item { color: var(--explore-text); }
@@ -98,5 +98,29 @@ body:has(.soda-explore[data-signed="true"]) #navbar-logo img { opacity: 1; }
 .soda-explore .ui.secondary-nav .active.item { color: var(--explore-link) !important; }
 .soda-explore .ui.secondary-nav { border-bottom-color: var(--explore-edge) !important; }
 .soda-explore .flex-list .flex-item { padding-top: 24px !important; }
-.soda-explore #repo-search-form input::placeholder { color: var(--explore-muted); opacity: 1; }
+.soda-explore :is(#repo-search-form, .list-header-search) input::placeholder { color: var(--explore-muted); opacity: 1; }
 body:has(.soda-explore) #navbar .active.item { color: var(--explore-link); background: transparent; }
+
+/* People and organizations share Forgejo's native directory and search form. */
+.soda-explore-people .soda-explore-intro > div { max-width: 710px; }
+.soda-explore-people .list-header { gap: 12px; margin-bottom: 22px; }
+.soda-explore-people .list-header-search { flex: 1; max-width: none; }
+.soda-explore-people .list-header-search .input { width: 100%; }
+.soda-explore-people .list-header summary.options { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 12px 18px; background: var(--explore-surface); color: var(--explore-text); border: 1px solid var(--explore-edge); border-radius: 10px; }
+.soda-explore-people .list-header .dropdown .content { background: var(--explore-surface); color: var(--explore-text); border-color: var(--explore-edge); }
+.soda-explore-people .list-header .dropdown .content a { color: var(--explore-text); }
+.soda-explore-people .flex-item-title a { color: var(--explore-link); }
+.soda-explore-people .flex-item-body:last-child { font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.soda-explore-people .flex-item-leading img { border-radius: 14px; }
+.soda-explore .ui.pagination.menu { background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 10px; box-shadow: none; }
+.soda-explore .ui.pagination.menu .item { color: var(--explore-muted); border-color: var(--explore-edge); }
+.soda-explore .ui.pagination.menu .active.item { color: white; background: var(--soda-light-action); }
+@media (max-width: 700px) {
+  .soda-explore-people .soda-explore-intro { min-height: 260px; }
+  .soda-explore-people h1 { font-size: 34px; }
+  .soda-explore-people .list-header { flex-wrap: wrap; }
+  .soda-explore-people .list-header-search { min-width: 0; }
+}
+.soda-explore-people .list-header { margin-top: 26px; }
+.soda-explore .flex-list > .flex-item { border-color: var(--explore-edge); }
+.soda-explore :is(#repo-search-form, .list-header-search) input::placeholder { color: var(--explore-muted) !important; }
