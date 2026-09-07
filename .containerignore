@@ -2,8 +2,6 @@
 .local
 cockpit/node_modules
 cockpit/dist
-dashboard/node_modules
-dashboard/dist
 # Deny artifacts by default. Only the core's image build inputs are admitted.
 .artifacts/**
 !.artifacts/native
@@ -11,8 +9,6 @@ dashboard/dist
 .artifacts/native/*/**
 !.artifacts/native/*/bin
 !.artifacts/native/*/bin/**
-!.artifacts/native/*/dashboard
-!.artifacts/native/*/dashboard/**
 !.artifacts/native/*/project-tools
 .artifacts/native/*/project-tools/**
 !.artifacts/native/*/project-tools/bin

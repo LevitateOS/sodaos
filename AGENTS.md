@@ -51,11 +51,12 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   Native server-rendered pages/handlers/authentication are selected, with custom
   shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
   superseded. See the decision at the top of `docs/dashboard-implementation-plan.md`.
-  The user now selected replacing Soda's React/PatternFly dashboard with Go
-  templates and HTMX; an HTML-native component library is still to be selected.
-  Preserve working functionality until its replacement is verified, then remove
-  dashboard-only React dependencies/callers coherently. Keep the Go environment,
-  OAuth/security/native integration and separate Cockpit React/PatternFly pages. No backend fork/rebuild, iframe, scraping, borrowed
+  Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
+  tab/right-drawer addition. No new component library or Bootstrap UI is selected.
+  Root `dashboard/` and duplicate forge adapters are removed; retain the Go/HTMX
+  environment/access backend, OAuth/security/native integration and separate
+  Cockpit React/PatternFly pages. The drawer/authenticated integration is still
+  unimplemented. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and
   asset compatibility still need review/tests; preserve working login and native
   protocols. Retained operator Cockpit remains a separate selected boundary.
@@ -189,7 +190,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- The installed/default Soda dashboard remains Go + HTMX, with a React preview. The user selected retiring the Soda TypeScript/React + PatternFly + Vite+ + Zustand frontend in favor of Go templates/HTMX and an HTML-native component library (not yet selected). Replace its actual functionality before removing dashboard-only callers/dependencies; do not remove shared Go/security/native code or Cockpit's React/PatternFly tooling. Forgejo-owned workflows now use official template overrides and native SSR; the former all-React/no-SSR requirement is superseded. No React SSR, production Node service, Tailwind or TanStack is selected. See `docs/dashboard-plan.md` for the inventory and `docs/dashboard-implementation-plan.md` for the implementation sequence. The React preview/JSON adapters and schema-v3 encrypted grants are installed on `soda-test` at candidate `8b823db`, with operator/developer browser and bounded native lifecycle evidence; default browser routes remain HTMX, and full product/cutover acceptance remains pending. Follow the handoff rather than treating partial source as completed milestones. Retain the separate Cockpit Tailnet/Runners frontend and native boundaries.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The Go command still embeds existing HTML/HTMX pages and retains legitimate Soda APIs, encrypted grants and native integration. No SPA bundle is required or served by new source; no new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` still has historical `8b823db` React preview/HTMX defaults and schema-v3 grants: source removal is not deployment or completed Sodaspaces integration. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

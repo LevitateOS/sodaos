@@ -16,15 +16,10 @@ rollback now. See [current evidence](implementation-status.md#u08-accepted--boun
 The installed React operator OAuth/native-read/navigation/logout check passed
 with certificate verification enabled. Older native Soda consent was explicitly
 replaced through the operator's own Applications UI; no bootstrap-token fallback
-was used. Repeat without revoking consent:
-
-```sh
-SODA_NATIVE_VALIDATE=soda-test SODA_ADMIN_CONSENT=1 \
-node tests/installed/dashboard-react.mjs \
-  https://localhost:24443 https://localhost:24444 operator \
-  "$PWD/.artifacts/test-vm/forgejo-operator-password" \
-  "$PWD/.artifacts/test-vm/browser-home"
-```
+was used. The React browser harness has now been removed from current source;
+its scripts and instructions remain in Git at `88fc21f`, with their original private
+evidence. Do not run a retired journey against a new candidate or infer Sodaspaces
+acceptance from its results. Native tab/drawer browser coverage still needs writing.
 
 `SODA_RECONSENT_APPLICATION='SodaOS dashboard'` is a separate explicit mutation:
 it revokes only this user's uniquely named native Soda grant before reconsenting.

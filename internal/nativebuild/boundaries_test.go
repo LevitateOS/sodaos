@@ -26,24 +26,21 @@ func TestBundleRejectsLinkedVerifierParent(t *testing.T) {
 	}
 }
 
-func TestBundleConsumesCoreFrontendValidation(t *testing.T) {
-	for _, name := range []string{"index.html", "LICENSES.txt", ".vite/manifest.json", "assets/test.js"} {
+func TestBundleRejectsRetiredReactPayload(t *testing.T) {
+	for _, name := range []string{"rootfs/usr/local/share/soda/dashboard/index.html", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml"} {
 		t.Run(name, func(t *testing.T) {
 			root := fixtureBundle(t)
-			if err := os.Remove(filepath.Join(root, "rootfs/usr/local/share/soda/dashboard", name)); err != nil {
+			file := filepath.Join(root, name)
+			if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, []byte("retired React payload"), 0644); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := tree(root); err == nil {
-				t.Fatal("accepted incomplete core browser payload")
+				t.Fatal("accepted retired React payload")
 			}
 		})
-	}
-	root := fixtureBundle(t)
-	if err := os.WriteFile(filepath.Join(root, "rootfs/usr/local/share/soda/dashboard/index.html"), []byte("stale entry"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tree(root); err == nil {
-		t.Fatal("accepted index/manifest mismatch")
 	}
 }
 

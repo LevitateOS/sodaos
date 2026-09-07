@@ -14,7 +14,6 @@ revision=$(git rev-parse HEAD)
 ".artifacts/native/$arch/tools/soda-artifacts" verify --source "$PWD/.artifacts/native/$arch" --arch "$arch" --revision "$revision"
 go test -mod=readonly ./...
 (cd cockpit && pnpm exec tsc --noEmit && pnpm exec vp test --run)
-(cd dashboard && pnpm exec tsc --noEmit && pnpm exec vp test --run)
 python3 -m unittest discover -s tests/build
 SODA_STAGE="$PWD/.artifacts/native/$arch/rootfs" python3 -m unittest discover -s tests/packaging
 [[ $(git rev-parse HEAD) == "$revision" && -z $(git status --porcelain --untracked-files=normal) ]]

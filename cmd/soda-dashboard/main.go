@@ -17,16 +17,10 @@ import (
 
 func main() {
 	path := flag.String("config", "/etc/soda/dashboard.json", "configuration file")
-	frontendPath := flag.String("frontend-dir", "/usr/local/share/soda/dashboard", "compiled frontend directory")
 	flag.Parse()
 	c, err := config.Load(*path)
 	if err != nil {
 		slog.Error("configuration", "error", err)
-		os.Exit(1)
-	}
-	frontend, err := web.LoadFrontend(os.DirFS(*frontendPath))
-	if err != nil {
-		slog.Error("frontend startup failed; database not opened", "error", err)
 		os.Exit(1)
 	}
 	key, err := config.GrantKey(c.GrantKeyFile)
@@ -41,7 +35,6 @@ func main() {
 	}
 	defer db.Close()
 	app := web.New(c, db)
-	app.MountFrontend(frontend)
 	server := &http.Server{Addr: c.Listen, Handler: app, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -1,5 +1,68 @@
 # Implementation handoff
 
+## Standalone React and duplicate forge backend removed
+
+From clean `88fc21f`, executed the user's explicit source-removal request. Root
+`dashboard/` is gone, along with SPA serving/validation, the dashboard-only build,
+asset/lock/input staging and duplicate Forgejo collaboration API handlers/clients.
+No React/PatternFly/Bootstrap replacement was introduced: the selected frontend
+is native Forgejo with a planned **Sodaspaces** repository tab/environment drawer.
+The leading plan/inventory/integration/API guides now describe that target and the
+actual reduced source instead of the superseded React/HTML-library assignments.
+
+Retained `cmd/soda-dashboard` and its container/service/config/database names: these
+are the Go backend, not the removed directory. Existing embedded Go/HTMX projects,
+profile/development keys and native-authorized People still work in source. Retained
+Soda session/preferences/key/environment APIs, acting identity inspection, native
+OAuth/setup/advertisement/repository-selection/ownership clients, encrypted grants,
+SQLite, real create/join/helper/project OS and native security/persistence tests.
+The `fed66cb` authority corrections remain; no stale-owner or setup-token fallback
+was restored. Cockpit React/PatternFly/build/lock/native logic/tests remain untouched.
+
+Removed duplicate code/history/diff/copy/issues/PRs/hooks/settings/protection/org/
+work/Actions/releases/account-edit/Git-key adapters and their dedicated tests.
+Native Forgejo owns these workflows; future customization still needs real native
+browser coverage. Preserved applicable authority/refresh/logout/pagination tests
+against retained callers. Removed the React-specific installed browser orchestration
+and its personal-Git registration module; retained SSH/Git/workload/lifecycle/operator
+checks and all original evidence. Historical scripts remain in Git at `88fc21f`;
+never reclassify their passes as current Sodaspaces evidence.
+
+The build compiles the Go dashboard in its ordinary command loop; HTML/static assets
+are embedded, with no external SPA directory/flag. New bundles reject stale React
+asset trees and dashboard npm inputs while retaining actual Go/Cockpit/image checks.
+Packaging tests now assert no retired SPA payload. Existing bundles require their
+original verifier; no resealing or installed upgrade is implied. Unknown retired
+APIs return JSON 404 and `/app/` no longer serves an application. New OAuth requests
+use current read user/repository/organization scopes plus optional explicit admin
+scope. Actual introspected scopes and old grants stay intact; a pre-removal pending
+OAuth return to `/app/` finishes at `/projects`, without unsafe redirect selection.
+
+Ignored generated React outputs/dependency cache were moved out of the removed root
+tree to `.artifacts/retired-dashboard-88fc21f/`, not erased as evidence. No Go module,
+Cockpit dependency, canonical asset, license grant, credential, VM state, retained
+project root/workload/dirty checkout or backup was removed. The user's clean-state
+statement was not interpreted as permission for host/data deletion or deployment.
+
+Executed checks: full remaining Go suite (some cached); race tests for web, Forgejo
+and nativebuild (including the final pending-OAuth regression); 31 Python build-
+fixture tests; Cockpit TypeScript and 60 tests across 10 files; build/check shell
+syntax; document consistency and diff whitespace. Go used installed 1.26.7 with
+readonly modules/cached dependencies and resolution disabled; frontend checks used
+existing Cockpit dependencies. Logs: `.artifacts/research/react-removal-88fc21f/`.
+No image/native stage build, actual staging suite, installed browser test, provider
+operation, restart, network change or deployment ran. Installed `8b823db` and all
+four environments remain unchanged; only bounded U08 is accepted. Document checks
+passed 20 U tracks, three E tracks, all 179 groups, 17 local new/plan links and 36
+incoming plan links. Whitespace and source-caller checks passed; root `dashboard/`
+and the removed frontend package/builder have no remaining production callers.
+
+**Next:** implement/prove the supported native Sodaspaces tab/drawer and secure
+Soda request/session connection, followed by explicit create/join/key/connection
+controls and own-account terminal. Neither deletion nor retained backend tests
+complete that integration. Fresh/populated and independent native aarch64 proof,
+console/Tailnet/runner gaps and separately approved U17/U18/U20 work remain.
+
 ## React/PatternFly retirement selected — HTML library choice still open
 
 The user explicitly selected removing Soda's React dashboard, PatternFly and its
@@ -1801,7 +1864,7 @@ The user explicitly requested implementation of the complete leading core plan. 
 
 **Remaining immediate work:** U01 exact selected-version OAuth scope/middleware/refresh audit; U02 dependency resolution/real lockfile, full frontend verification, error boundaries and trusted HTTPS development arrangement; U03/U04 protected session-bound grants/configuration/refresh/logout concurrency; full Forgejo account/People/repository/environment APIs and subsequent collaboration/admin milestones. The current OAuth still requests `read:user` and discards the identity access token; the preview exposes only Soda-owned operations and preserves native/legacy links. Do not mistake it for expanded Forgejo authorization or U05 completion.
 
-**Execution:** source/metadata inspection, source edits, formatting and diff/documentation review only. No dependency installation/resolution, compilation/build, product tests, generated frontend assets, provider mutations, VM/network/service actions or deployment. The new dashboard lockfile is deliberately absent rather than fabricated; frozen build scripts fail with an explicit preflight message until authorized resolution/review. Go formatting completed. Frontend formatter attempts failed at the wrapper/workspace/config boundary because the new dashboard dependencies are not installed; no successful frontend format/type/test result is claimed, and no dependency installation was used to bypass the gate. The running test VM remains unchanged. See [dashboard source instructions](../dashboard/README.md) and [API/migration contracts](dashboard-api.md).
+**Execution:** source/metadata inspection, source edits, formatting and diff/documentation review only. No dependency installation/resolution, compilation/build, product tests, generated frontend assets, provider mutations, VM/network/service actions or deployment. The new dashboard lockfile is deliberately absent rather than fabricated; frozen build scripts fail with an explicit preflight message until authorized resolution/review. Go formatting completed. Frontend formatter attempts failed at the wrapper/workspace/config boundary because the new dashboard dependencies are not installed; no successful frontend format/type/test result is claimed, and no dependency installation was used to bypass the gate. The running test VM remains unchanged. See the historical `dashboard/README.md` in Git at `88fc21f` and [API/migration contracts](dashboard-api.md).
 
 ### Provider response boundary follow-up
 

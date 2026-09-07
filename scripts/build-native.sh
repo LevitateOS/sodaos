@@ -13,7 +13,6 @@ case "$arch" in x86_64) export GOARCH=amd64;; aarch64) export GOARCH=arm64;; *) 
 export GOOS=linux
 export GOFLAGS=-mod=readonly
 cd "$(dirname "$0")/.."
-[[ -f dashboard/pnpm-lock.yaml ]] || { echo 'Resolve/review/commit the dashboard lockfile in an authorized dependency phase before building.' >&2; exit 1; }
 [[ -f go.sum ]] || { echo 'First resolve dependencies with go mod tidy on the native builder; inspect and commit the resulting go.mod/go.sum before building.' >&2; exit 1; }
 [[ $(go env GOVERSION) == go1.26.7 ]] || { echo 'Go 1.26.7 required' >&2; exit 1; }
 [[ $(node --version) == v24.20.0 && $(pnpm --version) == 11.25.0 ]] || { echo 'Use the pinned Cockpit Node/pnpm baseline' >&2; exit 1; }
@@ -47,13 +46,12 @@ for tool in soda-artifacts soda-acceptance; do
   CGO_ENABLED=0 go build -mod=readonly -buildvcs=true -trimpath -o "$out/tools/$tool" "./tools/$tool"
 done
 for command in cmd/*; do
-  [[ -d "$command" && "$command" != cmd/soda-dashboard ]] || continue
+  [[ -d "$command" ]] || continue
   case "${command##*/}" in soda-artifacts|soda-acceptance) echo 'Support tools must remain outside cmd/' >&2; exit 1;; esac
   CGO_ENABLED=0 go build -mod=readonly -buildvcs=true -trimpath -o "$out/bin/$(basename "$command")" "./$command"
 done
 go mod verify
-# U02 owns frontend assets and the dashboard binary; package its output once below.
-bash scripts/build-dashboard.sh "$arch" --payload-only
+# Soda HTML/static assets are embedded in its Go binary; Cockpit keeps its build.
 (cd cockpit && pnpm install --frozen-lockfile && pnpm exec vp build)
 python3 scripts/build-project-tools.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac

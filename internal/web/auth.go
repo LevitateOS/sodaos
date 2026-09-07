@@ -46,7 +46,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if returnPath == "" {
 		returnPath = "/projects"
 	}
-	if returnPath != "/projects" && returnPath != "/app/" {
+	if returnPath != "/projects" {
 		s.fail(w, "Unsupported sign-in destination.", http.StatusBadRequest)
 		return
 	}
@@ -57,7 +57,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	challenge := sha256.Sum256([]byte(verifier))
 	s.cookie(w, "soda_oauth", state, 600)
-	scopes := "write:user write:repository write:issue write:organization write:notification"
+	scopes := "read:user read:repository read:organization"
 	if r.URL.Query().Get("administration") == "1" {
 		scopes += " write:admin"
 	}
@@ -119,6 +119,10 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.cookie(w, "soda_session", value, int((12 * time.Hour).Seconds()))
+	// Finish a pre-removal sign-in without returning to the retired SPA.
+	if oauth.ReturnPath == "/app/" {
+		oauth.ReturnPath = "/projects"
+	}
 	http.Redirect(w, r, oauth.ReturnPath, 303)
 }
 func (s *Server) protected(next func(http.ResponseWriter, *http.Request, store.Session)) http.HandlerFunc {

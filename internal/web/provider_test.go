@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -57,7 +59,7 @@ func TestActingUserDenialNeverUsesBootstrap(t *testing.T) {
 		fmt.Fprint(w, `{"message":"private-native-details"}`)
 	})
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/admin/users", "", "bob"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/people", "", "bob"))
 	if w.Code != 403 || calls.Load() != 1 || bytes.Contains(w.Body.Bytes(), []byte("private-native")) {
 		t.Fatalf("unexpected denial %d %s", w.Code, w.Body.String())
 	}
@@ -77,8 +79,11 @@ func TestNonOperatorForgejoAdministratorCanCreatePerson(t *testing.T) {
 		fmt.Fprint(w, `{"id":9007199254740993,"login":"Native.Name"}`)
 	})
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("POST", "/api/forgejo/admin/users", `{"login":"Native.Name","email":"person@example.test","password":"test-initial-password"}`, "bob"))
-	if w.Code != 201 || !bytes.Contains(w.Body.Bytes(), []byte(`"id":"9007199254740993"`)) {
+	r := httptest.NewRequest("POST", "/people", strings.NewReader(url.Values{"csrf": {"csrf-bob"}, "login": {"Native.Name"}, "email": {"person@example.test"}, "password": {"test-initial-password"}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session-bob"})
+	s.ServeHTTP(w, r)
+	if w.Code != 303 || w.Header().Get("Location") != "/people" {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	if _, err := s.Store.User(context.Background(), 9007199254740993); err == nil {
@@ -145,7 +150,7 @@ func TestLegacyAPIRequiresReauthentication(t *testing.T) {
 	s := apiTestServer(t)
 	s.Forgejo = forgejo.New("http://127.0.0.1:1")
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/repositories", "", "alice"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/me", "", "alice"))
 	if w.Code != 401 {
 		t.Fatalf("legacy session got provider authority: %d", w.Code)
 	}

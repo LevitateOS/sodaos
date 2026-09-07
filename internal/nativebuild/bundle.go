@@ -11,8 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/levitateos/sodaos/internal/frontend"
 )
 
 // Inventory identifies bytes, not product acceptance or a signed release.
@@ -32,6 +30,10 @@ type Inventory struct {
 const inventoryName = "build-info.json"
 
 func allowedPayload(p string) bool {
+	// Retired React output is not a valid payload for new Soda bundles.
+	if p == "rootfs/usr/local/share/soda/dashboard" || strings.HasPrefix(p, "rootfs/usr/local/share/soda/dashboard/") {
+		return false
+	}
 	if p == "rootfs" || strings.HasPrefix(p, "rootfs/") {
 		if p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") {
 			return publicEtcPath(p)
@@ -50,7 +52,7 @@ func allowedPayload(p string) bool {
 		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
 	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE":
+	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE":
 		return true
 	}
 	return false
@@ -133,20 +135,11 @@ func tree(root string) (map[string]File, error) {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "rootfs/usr/local/share/soda/dashboard/index.html", "rootfs/usr/local/share/soda/dashboard/LICENSES.txt", "rootfs/usr/local/share/soda/dashboard/.vite/manifest.json", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE"} {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE"} {
 		entry, ok := result[required]
 		if !ok || entry.SHA256 == "" {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)
 		}
-	}
-	assets, err := cap.OpenRoot("rootfs/usr/local/share/soda/dashboard")
-	if err != nil {
-		return nil, err
-	}
-	_, err = frontend.Load(assets.FS())
-	err = errors.Join(err, assets.Close())
-	if err != nil {
-		return nil, err
 	}
 	return result, nil
 }

@@ -3,7 +3,8 @@
 
 Prepare generates encrypted Git keys inside each user's project home and loads
 local (not forwarded) SSH agents. Only public keys are returned. Register those
-through dashboard-react.mjs / SODA_U08_GIT_DIR before exercise. The operator must
+through the acting user's native Forgejo SSH-key settings before exercise; the
+old React registration harness is retired. The operator must
 first establish the explicitly verified loopback Git transport and host key.
 Existing keys/checkouts are never replaced or automatically retried.
 """

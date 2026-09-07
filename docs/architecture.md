@@ -19,9 +19,10 @@ integration and the affected plan still need review; no runtime change is claime
 
 **Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. It leads the core product, including production native environment/access integration and U08/U20 acceptance. The [native support porting plan](native-porting-plan.md) is subordinate: outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations only. Shared contracts follow the core plan; optional media and helper ports are not a second core gate. The [initial M01–M18 plan](implementation-plan.md) describes historical Go + HTMX/native source work and proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
 
-**Frontend implementation:** preserve Soda's existing React/TypeScript + PatternFly
-+ Vite+ + Zustand/Go environment integration and stock Forgejo's server-rendered
-workflows through official template overrides. No React SSR, production Node,
+**Frontend implementation:** use native Forgejo pages and supported customization
+for the planned Sodaspaces tab/environment drawer. Root React `dashboard/` and
+duplicate forge adapters are removed; existing embedded Go/HTMX environment/access
+pages and protected Go/native integration remain. No replacement UI library is selected. No React SSR, production Node,
 Tailwind or TanStack is selected. [Dashboard planning](dashboard-plan.md) records
 page ownership. The Go + HTMX descriptions below are the historical installed
 baseline; the handoff owns current evidence, not these initial assumptions.
@@ -55,7 +56,7 @@ Soda supplies the usable environment and its appliance integration. Developers r
 | Project base | Rocky Linux + mise. |
 | Project lifetime | Persistent and mutable; users develop inside the environment rather than routinely discard and reconstruct it. |
 | Human identity | Forgejo is the identity provider. Developers do not need individual Linux accounts on the host. |
-| Developer interface | Selected client-rendered React/PatternFly dashboard over the Go API; the existing implementation is still Go + HTMX. |
+| Developer interface | Native Forgejo frontend with planned Sodaspaces addition; retained Go/HTMX pages currently provide Soda access. Standalone React source is removed, not deployed. |
 | Host administration | Stock Cockpit plus the predecessor's Tailnet and Runners pages and backing logic, accessible only to the root/operator identity. No custom Cockpit developer workspace UI. |
 | Project administration | Working rule: the owner of the associated Forgejo project/repository administers the project pod, not the host. |
 | Soda data | A dashboard database for Soda-specific profiles, public SSH keys, projects and memberships. |
@@ -180,7 +181,7 @@ Soda must not request a user's private SSH key for onboarding. Public-key regist
 
 ## 6. The Soda dashboard
 
-The existing developer interface is a dedicated Go + HTMX application, with the selected React/Go migration governed by the leading core plan. It is not a set of custom Cockpit packages. The unified frontend includes upstream-authorized Forgejo administration and Soda environment/access administration; neither grants host-root authority.
+The existing Soda-specific interface is a dedicated Go + HTMX application; the selected native Forgejo/Sodaspaces integration follows the leading core plan. It is not a set of custom Cockpit packages. The unified frontend includes upstream-authorized Forgejo administration and Soda environment/access administration; neither grants host-root authority.
 
 Its initial purpose is to make these outcomes coherent:
 

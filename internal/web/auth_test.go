@@ -28,7 +28,7 @@ func TestCSRFAndOrigin(t *testing.T) {
 func TestOAuthReturnPathIsStoredRatherThanTakenFromCallback(t *testing.T) {
 	s := apiTestServer(t)
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, httptest.NewRequest("GET", "/login?return_to=%2Fapp%2F", nil))
+	s.ServeHTTP(w, httptest.NewRequest("GET", "/login?return_to=%2Fprojects", nil))
 	if w.Code != 302 {
 		t.Fatal(w.Code)
 	}
@@ -37,13 +37,13 @@ func TestOAuthReturnPathIsStoredRatherThanTakenFromCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	oauth, err := s.Store.ConsumeOAuth(context.Background(), location.Query().Get("state"))
-	if err != nil || oauth.ReturnPath != "/app/" || oauth.Verifier == "" {
+	if err != nil || oauth.ReturnPath != "/projects" || oauth.Verifier == "" {
 		t.Fatal(oauth.ReturnPath, err)
 	}
 	if location.Query().Get("redirect_uri") != s.Config.PublicURL+"/oauth/callback" {
 		t.Fatal("upstream callback changed")
 	}
-	for _, target := range []string{"//evil.example/", "https://evil.example/", "/people", "/app/../people"} {
+	for _, target := range []string{"//evil.example/", "https://evil.example/", "/people", "/app/", "/app/../people"} {
 		w = httptest.NewRecorder()
 		s.ServeHTTP(w, httptest.NewRequest("GET", "/login?"+url.Values{"return_to": {target}}.Encode(), nil))
 		if w.Code != 400 || w.Header().Get("Set-Cookie") != "" {

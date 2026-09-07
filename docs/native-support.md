@@ -10,7 +10,7 @@ The [dashboard implementation plan](dashboard-implementation-plan.md) owns the c
 
 | Interface | Owner / implementation boundary |
 | --- | --- |
-| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Core build/stage remain authoritative. P04 adds fresh-output locking, explicit OCI archives, resolved image IDs, public input metadata and sealing. U02 still owns React/assets/dashboard-only builds. |
+| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Core build/stage remain authoritative. P04 adds fresh-output locking, explicit OCI archives, resolved image IDs, public input metadata and sealing. U02 owns native customization and embedded Go HTML; standalone React build/output has been removed. |
 | Containerfile `BASE_IMAGE` argument | P04 pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
 | `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. P04/P05 add verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
@@ -47,7 +47,7 @@ bash scripts/check-native.sh x86_64
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, four actual OCI archives, the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. It does not invent or certify React output. Core packaging tests still own their detailed payload assertions.
+The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, four actual OCI archives, the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. New bundles reject retired standalone React assets/inputs; Soda HTML is embedded in the Go command. Core packaging tests still own their detailed payload assertions.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 

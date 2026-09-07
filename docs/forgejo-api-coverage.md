@@ -1,5 +1,11 @@
 # Forgejo workflow and interface audit
 
+**Source-retirement note:** the standalone React dashboard and duplicate Soda forge
+adapters/tests have been removed. Source-status columns and file references below
+record the historical H01/subsequent audit, not present implementations. The 179
+native workflow requirements and exact upstream evidence remain; new native-page/
+Sodaspaces browser coverage is pending under the leading plan.
+
 **Current interpretation:** the user selected [official template overrides](dashboard-implementation-plan.md#selected-direction--official-template-overrides-partial-u01-invalidation)
 and native Forgejo rendering. The source/API findings and workflow inventory below
 remain useful, but the earlier requirement to supply every screen through JSON
