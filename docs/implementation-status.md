@@ -142,6 +142,18 @@ smoke checks; do not recreate upstream business-logic/conformance suites.
 This change is documentation-only: source/test inventory inspection and Markdown
 link/whitespace checks, no product test execution or installed-state changes.
 
+## Login design font assets
+
+Downloaded the website's exact Fontsource 5.3.0 Latin WOFF2 selection into
+`assets/branding/fonts/`: Fraunces variable 100–900, Barlow 400/600 and IBM Plex
+Mono 400/500, all normal style. Added relative-URL font-face CSS, original family
+OFL licenses and package/file provenance. Existing `assets/branding/theme/palette.css`
+remains the shared color source, unchanged. These are source assets only; no
+Forgejo template, running preview, native staging or deployment was changed.
+
+Verified published archive SHA-512 integrity, font signatures, local CSS paths and
+file SHA-256 values. No build, font-rendering/browser test or native validation ran.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
