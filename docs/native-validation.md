@@ -44,7 +44,7 @@ are not reusable permission. Extend/invoke product-owned installed tests. Keep s
 installation identity, precise denial results and failure-safe bounded snapshots;
 a failed inspection is not evidence of absent state or forbidden access.
 
-1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Both old Soda frontends are removed from current source; native Sodaspaces browser coverage remains pending. Verify actual native Forgejo administrator authority, not the retired Soda People form. Ordinary non-admin developers cannot use administrator APIs; Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority.
+1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Both old Soda frontends are removed from current source; native Sodaspaces browser coverage remains pending. Use native Forgejo operator setup, not the retired Soda People form. Test Soda's authority boundary: Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority. Do not duplicate upstream administrator-API permission tests.
 2. Provision the approved Alice/Bob identities through native Forgejo; each completes native password/security requirements and authenticates independently. Exercise native-page/Sodaspaces identity matching and development-key controls once implemented. Private keys stay on their clients; no database-seeded browser success.
 3. Alice creates an ordinary Forgejo repository with native Git credentials and then creates its Soda environment. Only its human owner may create that environment. Both explicitly select **Add me to this project**. No creator auto-enrollment is assumed.
 4. From the real developer client, verify the SSH host key through native operator access and connect to the displayed project IP as Alice and Bob. Exercise interactive SSH, a noninteractive command, SCP and SFTP. Do not disable host-key checking to manufacture a pass.
@@ -55,12 +55,16 @@ a failed inspection is not evidence of absent state or forbidden access.
 9. With separate permission, stop/start the existing `soda-project@ID.service`; then authorize a host reboot independently. Verify the same project container, accounts/homes/SSH host keys, shared installs/files, service configuration and database data survive. Do not remove/replace the project container to make it start.
 10. Once implemented, verify the browser terminal is the user's existing project-local account/home, with explicit session lifetime, origin/CSRF, bounded transport and cross-project denials. Opening it must not create/join/start anything or expose host root.
 
-For supported customization, test the affected native login/MFA/consent, developer
-and administrator workflows, scripts/forms, enabled/disabled states and ordinary
-Git/LFS/package protocols. Keep current native authorization after rename/transfer,
-without automatic Linux remapping. Cover stale/denied/error states, keyboard/focus,
-narrow/wide display and upgrade compatibility. Native workflows stay upstream-owned;
-there is no requirement to rebuild them against the retired 179-group JSON register.
+Test Soda's customization and integration, not upstream Forgejo business logic:
+OAuth/session/CSRF handling, actor matching, environment authorization after native
+rename/transfer, template/asset delivery and Caddy route boundaries. Cover the
+Sodaspaces drawer's stale/denied/error states, keyboard/focus, narrow/wide display
+and exact-version hook compatibility, without automatic Linux remapping. Native
+account/repository operations above supply fixtures and exercise Soda's project
+integration; they are not independent tests of Forgejo's implementation. Keep only
+focused native smoke checks where Soda changes could cause a regression. Do not
+add general upstream login/MFA, administration, collaboration or Git/LFS/package
+conformance suites, or rebuild the retired 179-group JSON register.
 
 The highest-risk profile is nested Podman with private cgroups, user-namespace allocation, fuse and the selected capabilities/seccomp/SELinux arrangement. If a real blocker appears, correct the concrete mechanism. Only then investigate the project-scoped host fallback; do not expose an unrestricted host socket, enable a privileged parent or introduce a VM substitute without revisiting the design.
 

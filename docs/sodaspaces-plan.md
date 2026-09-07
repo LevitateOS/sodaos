@@ -156,10 +156,13 @@ mutation. Safely reread after completion or uncertainty; no jobs/recovery subsys
   create, two users' key/join/own-connection paths and actual SSH access. Cover native
   account switching, expiry/re-consent/logout, denied access and interrupted requests.
   Keep fixture-based failures distinct from actual native provisioning evidence.
-- Regress the affected native repository actions/navigation and configured login/
-  MFA/WebAuthn paths. Preserve Git/LFS/package routing, native administration and
-  separate Cockpit Tailnet/Runners logic/tests. Review the selector/hooks against
-  the exact stock Forgejo version before accepting an upgrade.
+- Test Soda's additions, not upstream Forgejo business logic. Check button placement,
+  drawer behavior, OAuth integration and that our proxy leaves native routes with
+  Forgejo. Use only focused smoke checks for native behavior directly affected by
+  our hooks/styles/routing; do not add suites for upstream repository actions,
+  administration, MFA/WebAuthn implementation or Git/LFS/package semantics.
+  Preserve separate Cockpit Tailnet/Runners logic/tests. Review our selector/hooks
+  against the exact stock Forgejo version before accepting an upgrade.
 - Run authorized Go/race, JavaScript/browser, Cockpit, build-fixture and staged-
   payload checks through their actual callers. Record revision, scope and failures
   in the [handoff](implementation-status.md); source passes are not installed proof.

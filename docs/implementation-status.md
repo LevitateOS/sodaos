@@ -129,6 +129,19 @@ in `.artifacts/research/sodaspaces-plan-64aad1f/`. Only source inspection and
 Markdown/link/whitespace checks ran; no product tests, build, browser, dependency,
 provider, native or private-state actions occurred. The terminal stays separate.
 
+## Test ownership clarification
+
+Following `81bacca`, removed broad upstream-regression requirements from the
+Sodaspaces plan and native-validation guide. Tests for removed standalone frontends
+and duplicate forge adapters were already deleted in `752079e`/`9f3baa7`; no further
+upstream-only test files were identified in the current tracked inventory. Retained
+Forgejo client/credential/branding tests exercise Soda-owned code, as do native
+project Git/access and Cockpit checks. Keep those and narrowly targeted integration
+smoke checks; do not recreate upstream business-logic/conformance suites.
+
+This change is documentation-only: source/test inventory inspection and Markdown
+link/whitespace checks, no product test execution or installed-state changes.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
