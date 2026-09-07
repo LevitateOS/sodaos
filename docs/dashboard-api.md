@@ -98,14 +98,14 @@ Individually registered repository subroutes now include:
 
 React history/ref/compare/editor/fork/import views call these operations. Unified
 text diff is the current bounded presentation, not inline-review position support.
-History offers explicitly native, full-SHA blame links; comparison offers a
-configured-origin native aggregate view. These are pending U17 dispositions, not
-custom-screen parity or accepted U09. Native blame is HTML, and its web route is
+Blame and aggregate diff remain required Soda views, not native-page fallbacks.
+The previously added Forgejo frontend links are removed. Newer-version findings
+and the proposed backend work are in `forgejo-frontend-integration.md`. Native blame is HTML, and its web route is
 not admitted by OAuth token authentication. The API comparison cannot supply a
 net aggregate patch through the single-commit diff endpoint. No cookies are
-borrowed and no HTML is scraped. Latest comparison/copy/route-race corrections
-and focused tests are source-only, unbuilt/unexecuted; installed U09 proof remains
-pending. See the exact contract notes in `forgejo-api-coverage.md`.
+borrowed and no HTML is scraped. Local Go/TypeScript/DOM checks and dashboard builds now pass for the
+follow-up source; installed U09 proof and the missing Soda views remain pending.
+See `implementation-status.md` for exact execution and limits. See the exact contract notes in `forgejo-api-coverage.md`.
 
 ## Issue collaboration (U10 source)
 

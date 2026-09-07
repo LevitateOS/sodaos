@@ -8,7 +8,7 @@ Planning inventory following the user's React/dashboard direction. This inventor
 
 Selected constraints:
 
-- One Soda dashboard is the custom frontend for upstream Forgejo plus Soda's development-environment extension, including both developer and administrator views.
+- One Soda dashboard is the complete user-facing frontend for upstream Forgejo plus Soda's development-environment extension, including every developer and administrator workflow. **No Forgejo frontend escape hatch, even temporarily:** no native-page links, embedded/re-skinned upstream HTML, or missing-API scope waiver. Missing interfaces require integration work, not missing features.
 - TypeScript + client-rendered React, built with Vite+; no SSR or React server.
 - PatternFly components, layout and design tokens, with small Soda CSS overrides. No Tailwind.
 - Zustand for application state and request state; ordinary browser `fetch`. No TanStack packages.
@@ -45,13 +45,13 @@ Do not add a shadow Forgejo user/repository inventory, copied permission hierarc
 
 Forgejo Git SSH keys remain Forgejo-owned. Soda manages keys for development-environment access and their native installation; that does not imply replacing Forgejo's key registry or automatically synchronizing later key changes across environments.
 
-Use supported upstream interfaces and preserve upstream authorization and operation results. If an interface is missing, investigate the upstream capability, retain a native fallback or propose an upstream improvement; do not silently implement a competing subsystem or fork the Forgejo backend to manufacture frontend parity.
+Use supported upstream interfaces and preserve upstream authorization and operation results. If an interface is missing, investigate supported interfaces in newer releases and propose the concrete upstream API work required. A bounded Forgejo patch or other backend integration needs an explicit design/maintenance decision before implementation; it is not selected automatically. Do not implement a competing subsystem or expose Forgejo's frontend as a substitute.
 
-The unified frontend includes three distinct administrative contexts: **Forgejo administration**, **Soda environment/access administration**, and links to **native host administration in Cockpit**. They are not a new shared superuser role. Keeping advanced Forgejo screens native while APIs are investigated is an interim coverage decision, not a decision to exclude administration from the Soda frontend.
+The unified frontend includes three distinct administrative contexts: **Forgejo administration**, **Soda environment/access administration**, and links to **native host administration in Cockpit**. They are not a new shared superuser role. All Forgejo administrative screens belong in Soda. Only the separately selected host-operator Cockpit application remains native; that exception does not apply to Forgejo.
 
 ## Authentication and authorization
 
-**One Forgejo login can authenticate both Forgejo and Soda.** Reuse OAuth authorization code + S256 PKCE, not shared browser cookies or a new Soda password form.
+**Required experience:** sign-in, first-password change, MFA/recovery, consent and account security must also stay in Soda's interface, with Forgejo retaining identity/password authority. No second password store, borrowed cookies or weakened MFA is authorized. The existing redirect-based flow below is a working baseline, **not an exception** to the Soda-only requirement. U04/U16/U17 must design the necessary upstream authentication/challenge interfaces before replacing it; do not break working login or merely hide the provider behind a proxy.
 
 1. The browser enters Soda's Go-owned login route and is redirected to Forgejo.
 2. Forgejo owns password entry, first-login password changes, MFA and consent. If its browser session and consent are still valid, another password prompt normally is not needed; this is not a promise of a redirect-free login.
@@ -83,7 +83,7 @@ Cockpit still uses native operator authentication, and project SSH still uses Op
 
 This inventories intended page families and their tabs/forms, not one bespoke React component or route for every action. Reuse detail pages for create/edit modes and use dialogs where appropriate.
 
-**Delivery:** **First** = first complete repository-to-environment workflow; **Next** = subsequent functional coverage; **Native/check** = link to native Forgejo/Cockpit until the specific interface and scope are established. Later functional coverage is not merely visual polish.
+**Delivery:** **First** = first complete repository-to-environment workflow; **Next** = subsequent functional coverage; **Integration required** = a required Soda workflow whose upstream interface needs investigation/implementation. It is not deferred or satisfied by a Forgejo link. Later functional coverage is not merely visual polish.
 
 **Authority:** **F** = Forgejo; **S** = Soda; **F/S** = composed view that preserves both authorities.
 
@@ -100,7 +100,7 @@ This inventories intended page families and their tabs/forms, not one bespoke Re
 | My profile / preferences | Forgejo identity, existing Soda profile fields, appearance/preferences | F/S | First |
 | Development-access keys | Register/list public SSH keys used at Soda join time; explain installation scope | S | First |
 | Git keys | Forgejo SSH keys; GPG-key management as the next extension | F | First / Next |
-| Account security | Password, email/security verification, MFA/passkeys, recovery, authorized applications and personal API tokens | F | Native/check |
+| Account security | Password, email/security verification, MFA/passkeys, recovery, authorized applications and personal API tokens | F | Integration required |
 | About / help | Version information, connection/key guidance and native-tool links | S | First |
 | Error states | Forbidden, not found, upstream unavailable, expired session, field validation, empty/loading/pending states | F/S | First |
 
@@ -135,7 +135,7 @@ Repository identifiers remain Forgejo-owned. Do not mirror the repository invent
 | New pull request | Base/head comparison and submission | F | Next |
 | Pull request detail | Conversation, commits, changed files and checks tabs | F | Next |
 | Review and merge | Inline comments, approve/request changes, merge controls and native rejection/conflict results; part of PR detail | F | Next |
-| Issue boards | Forgejo's issue-project/board UI, distinctly named from Soda environments | F | Native/check |
+| Issue boards | Forgejo's issue-project/board functionality, distinctly named from Soda environments | F | Integration required |
 
 Start with standard Markdown and safe rendering; do not silently claim exact parity with every native template, mention, attachment or Markdown extension. Inventory those details against the pinned provider when implementing each feature.
 
@@ -145,12 +145,12 @@ Start with standard Markdown and safe rendering; do not silently claim exact par
 | --- | --- | --- | --- |
 | Actions overview | Workflow/run lists and status | F | Next |
 | Run detail | Run/jobs/check information exposed by supported interfaces | F | Next |
-| Job logs / artifacts / run controls | Log streaming, downloads, cancellation and reruns require separate capability verification; native links meanwhile | F | Native/check |
+| Job logs / artifacts / run controls | Log streaming, downloads, cancellation and reruns require complete Soda integration | F | Integration required |
 | Releases | List and release detail/downloads | F | Next |
 | Create/edit release | Tags, notes and release assets | F | Next |
 | Wiki | Index, page, editor and revision history | F | Next |
 | Packages | Owner/package list, version detail and files/install guidance | F | Next |
-| Advanced activity/graphs | Native views not covered by the initial code/commit screens | F | Native/check |
+| Advanced activity/graphs | Activity and graphs beyond the initial code/commit screens | F | Integration required |
 
 Forgejo still owns CI scheduling and results. These are provider views, not a Soda CI engine. Host runner registration/capacity remains in Cockpit.
 
@@ -167,7 +167,7 @@ Forgejo still owns CI scheduling and results. These are provider views, not a So
 | Organization directory/create/profile | Native organization discovery, creation and overview | F | Next |
 | Organization members / teams | Lists, team detail, membership and native repository access | F | Next |
 | Organization settings | Profile, native hooks and Actions settings | F | Next |
-| Destructive/ownership settings | Repository or organization deletion, transfer, rename and archive workflows with linked environments need an explicit scope decision | F/S | Native/check |
+| Destructive/ownership settings | Repository or organization deletion, transfer, rename and archive workflows with linked environments need an explicit scope decision | F/S | Integration required |
 
 Displaying native organization/team functionality does not implement an organization-to-Linux-project-administrator mapping. The existing ordinary human-owner environment rule remains the first-version rule. Do not introduce copied roles, membership synchronization or automatic environment deletion.
 
@@ -184,8 +184,8 @@ Administrator functionality is part of the unified frontend, not just developer 
 | Instance webhooks | Native hook configuration and supported inspection/test operations | F | Next |
 | Provider runner administration | Forgejo registration/runner/job views; local service execution/capacity stays in Cockpit | F | Next |
 | Native quota administration | Forgejo's own quota rules/groups where supported; not a new Soda environment quota system | F | Next |
-| Authentication/configuration/maintenance | Upstream settings, authentication configuration and supported maintenance tasks; API gaps use native views meanwhile | F | Native/check |
-| Destructive/account-remapping actions | Upstream deletion/rename operations with Soda associations need an explicit lifecycle decision; no implicit environment deprovisioning | F/S | Native/check |
+| Authentication/configuration/maintenance | Upstream settings, authentication configuration and supported maintenance tasks; API gaps require backend integration | F | Integration required |
+| Destructive/account-remapping actions | Upstream deletion/rename operations with Soda associations need an explicit lifecycle decision; no implicit environment deprovisioning | F/S | Integration required |
 
 The existing scoped operator bootstrap remains the first-install path. Adding administrator screens neither exposes an unfinished installer nor grants arbitrary host commands. Source/schema coverage alone does not authorize executing live account, runner or maintenance operations.
 
@@ -200,7 +200,7 @@ The existing scoped operator bootstrap remains the first-install path. Adding ad
 | Workspace terminal | After choosing a project to work in, open a browser terminal into the signed-in user's existing project-local workspace, as that user | S | Newly requested; design/implementation pending |
 | Incomplete/unavailable environment | Honest native failure and operator guidance; not a destructive recreate button | S | First |
 | Environment/access administration | Soda-specific environment status, association, membership and development-access views/actions, with the existing project/operator boundaries | S | First |
-| Operator tools entry | Role-appropriate administration navigation and native fallback links; links do not grant access | F/S | First |
+| Operator tools entry | Soda administration navigation and the separately retained host-operator Cockpit entry; links do not grant access | F/S | First |
 | Host administration | Stock Cockpit services/logs/network/storage and retained Tailnet/Runners pages | Native host | Keep native |
 
 **New requirement — browser workspace terminal:** after selecting a project to
@@ -294,7 +294,7 @@ This is a summary; follow [U01–U20 and conditional E01–E03](dashboard-implem
 1. **Foundation:** new React source/build entry, PatternFly shell, browser router, same-origin JSON contract and Go asset delivery. Preserve canonical branding. Do not remove the working HTMX routes before their replacements are connected.
 2. **Authentication:** reuse Forgejo login, add the required per-user API credential lifecycle and test secure sessions, expired/denied access and CSRF on every write method. Preserve the separate operator/host boundary.
 3. **First end-to-end slice:** sign in, create/list a real Forgejo repository, open its README/files, register the needed public keys, create its Soda environment, explicitly join and connect by ordinary SSH. Include operator People/onboarding. No fake success from seeded JSON or a database row alone.
-4. **Functional expansion:** finish code history/comparison, issues and PRs, then the remaining mapped repository/organization/collaboration and Forgejo administrator pages in small complete workflows. Build views and supported API integration, not replacement upstream business logic. Keep native links wherever coverage is not yet verified.
+4. **Functional expansion:** finish code history/comparison, issues and PRs, then the remaining mapped repository/organization/collaboration and Forgejo administrator pages in small complete workflows. Build views and supported API integration, not replacement upstream business logic. Resolve missing backend interfaces and implement complete Soda views; do not offer native Forgejo links.
 5. **Make it good:** improve layout, responsiveness, keyboard efficiency, syntax/diff presentation, performance and request caching based on observed problems. Do not defer security, preservation of work or basic usable error/empty states to this stage.
 
 Existing native gaps still matter: project subnet routing, actual two-user SSH/shared-tools/workload use, nested Podman and persistence have not been fully proved. A React rewrite does not close those gaps. Builds, browser/native testing and VM changes require the applicable explicit scope; this planning work runs none of them.

@@ -39,7 +39,7 @@ export function ForgejoAccount({ session }: { session: Session }) {
     } finally { setBusy(false); }
   }
   return <section aria-busy={busy}><h1>Forgejo account</h1><p>Forgejo owns these account fields and Git keys. <Link to="/profile">Soda preferences and development-access keys</Link> are separate.</p>
-    <p><a href={`${session.forgejo_url}/user/settings/security`}>Native account security</a> · <a href={`${session.forgejo_url}/user/settings/applications`}>Native applications and consent</a></p>
+    <p>Account security, applications and consent management are not yet available in Soda. These required workflows are still being integrated.</p>
     {error && <Alert isInline variant="danger" title={error} />}{notice && <Alert isInline variant="success" title={notice} />}
     {!user && !error && <Spinner aria-label="Loading Forgejo account" />}
     {user?.is_admin && <p><Link to="/administration/people">Forgejo People administration</Link> — uses your current upstream administrator authority, not Soda operator or host-root rights.</p>}
@@ -86,7 +86,7 @@ export function People({ session }: { session: Session }) {
     } finally { body.password = ""; data.delete("password"); setBusy(false); }
   }
   return <section aria-busy={busy}><h1>Forgejo People</h1><p>This is the upstream user inventory. Only Forgejo administrators with explicit admin consent can use these operations.</p>
-    <p><a href="/login?return_to=%2Fapp%2F&administration=1">Sign in requesting administrator consent</a>. If Forgejo reuses older consent, revoke the Soda grant in <a href={`${session.forgejo_url}/user/settings/applications`}>native Applications</a> first. This does not revoke existing Linux access.</p>
+    <p><a href="/login?return_to=%2Fapp%2F&administration=1">Sign in requesting administrator consent</a>. Updating previously granted consent is not yet supported in Soda. This does not revoke existing Linux access.</p>
     {error && <Alert isInline variant="danger" title={error} />}{notice && <Alert isInline variant="success" title={notice} />}
     {!items && !error && <Spinner aria-label="Loading upstream People" />}
     <ul>{items?.map(person => <li key={person.id}>{person.login} — {person.full_name} {person.is_admin && "(Forgejo administrator)"}</li>)}</ul>

@@ -1,5 +1,58 @@
 # Implementation handoff
 
+## Complete Soda frontend — requirement enforced and newer APIs investigated
+
+The user rejected **all Forgejo frontend fallbacks**, including temporary ones.
+Every Forgejo-backed developer/admin workflow must remain in Soda; this includes
+login/password changes, MFA, consent and account security. Missing APIs require
+integration work, not omitted features. Updated `AGENTS.md`, architecture, the
+page inventory, leading plan and coverage/API contracts. The earlier `1d74a08`
+native-link proposal below is superseded, not an outstanding product choice.
+
+Removed explicit Forgejo-page links from React history/comparison, shell,
+account/consent, Actions, hooks, PRs and releases. Retained truthful unavailable
+states where integration is missing; these are **not implemented replacements**.
+Added Soda-only history/compare DOM assertions and a production-component source
+regression guard. Existing OAuth redirects, legacy HTMX, provider/content URLs
+and direct browser ingress still need closure; removing links alone does not
+fulfil the no-Forgejo-frontend requirement. No live authentication or ingress
+configuration was changed, and no password/permission authority moved into Soda.
+
+Inspected newest returned stable **Forgejo v16.0.3** and development commit
+`bdc33af0c11568873c336137d404fc327ce0a40e`: API router/schema and comparison/commit
+handlers still do not supply blame data or aggregate comparison patches. Audited
+v16 web blame/compare engines as candidates for upstream API exposure. Its auth
+implementation has changed and needs its own full review, not assumed v15 gates.
+No upgrade selected. `docs/forgejo-frontend-integration.md` records public source
+provenance, proposed Forgejo-owned bounded read interfaces, maintenance/build
+costs and remaining authentication/security/Actions/admin coverage. No upstream
+issue, patch, contribution or replacement Git backend was implemented/published.
+
+**Local builds/tests are now explicitly authorized** on this development
+machine. Performed on the working source based on `1d74a08` plus this follow-up:
+
+- Go 1.26.7 `go test -mod=readonly ./...`: passed, including prior U09 cases.
+- Dashboard TypeScript `tsc --noEmit`: passed.
+- Dashboard Vite+ tests: **31 passed across 15 files**. First attempt had 30 pass
+  and one source-guard failure because jsdom rewrote `import.meta.url` to HTTP;
+  selected Node environment for that filesystem test and reran successfully.
+  Both failed and final logs remain; no application guard was weakened.
+- Dashboard production bundle and `soda-dashboard` Go compilation: passed.
+  Fresh local outputs under `.artifacts/checks/soda-only-1d74a08/`, preserving
+  prior `dashboard/dist` and native deployment stage. These are local build
+  outputs, not a sealed/staged appliance or deployed candidate. Vite retained
+  its >500 kB chunk warning and outside-project output-directory warning.
+- `git diff --check`: passed. Logs under `.artifacts/logs/soda-only-*`.
+  Existing pinned Node 24.20.0/pnpm 11.25.0/dependency cache used; no upgrades or
+  dependency manifest/lock changes.
+
+No full native image/staging pipeline, installed browser verification, deployment,
+repository/provider mutation, project/lifecycle/network change, cleanup or push.
+Installed affected components remain `8b823db`; all four U08 roots/evidence remain
+unchanged. U09 and complete-frontend acceptance remain open. Next: review the
+concrete API integration proposal, continue feature/test work and design the
+headless authentication/security boundary; no native-page waiver is available.
+
 ## U09 implementation started — upstream contracts and source corrections
 
 Implemented a first source/test batch from clean `5d9dfe6`, following the user's

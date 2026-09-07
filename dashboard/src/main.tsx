@@ -44,7 +44,6 @@ export function App() {
         <nav aria-label="Soda navigation">
           <Link to="/">My work</Link><Link to="/search">Search</Link><Link to="/notifications">Notifications</Link><Link to={`/users/${encodeURIComponent(session.user.login)}`}>Native profile</Link><Link to="/profile">Profile and development keys</Link><Link to="/help">Help</Link>
           <Link to="/repositories">Repositories</Link><Link to="/organizations">Organizations</Link><Link to="/environments">Environments</Link><Link to="/account">Forgejo account</Link>
-          <a href={session.forgejo_url}>Open Forgejo</a>
           <Button variant="link" onClick={() => void logout()}>Sign out of Soda</Button>
         </nav>
         <Routes key={`${session.user.id}:${location.pathname}`}>

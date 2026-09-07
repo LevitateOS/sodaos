@@ -1,5 +1,12 @@
 # Forgejo API coverage audit
 
+**Mandatory closure rule:** every Forgejo workflow stays in Soda's interface,
+including authentication/security and administration. Native frontend fallbacks
+are rejected, not a disposition available for U17 acceptance. See the
+[newer-version investigation and proposed integration work](forgejo-frontend-integration.md).
+Missing APIs remain implementation requirements; no patch or upgrade is selected
+by recording a gap.
+
 **U01 in progress.** Schema presence is source evidence, not proven scope/authority or installed behavior. No new live provider operations have run. The [core plan](dashboard-implementation-plan.md) owns the implementation; [current JSON contracts](dashboard-api.md) distinguish shipped source handlers from this inventory.
 
 ## Evidence
@@ -61,7 +68,7 @@ Paths below are upstream paths under `/api/v1`, **not** registered Soda proxy ro
 | Instance hooks | `/admin/hooks`, `/admin/hooks/{id}` | Actual Forgejo administrator | U16 |
 | Provider runners/jobs | `/admin/actions/runners`, runner ID/jobs/registration-token subresources | Actual Forgejo administrator | U16; local services stay P11/Cockpit |
 | Native quotas/maintenance | `/admin/quota/groups`, `/admin/quota/rules`, `/admin/cron` | Actual Forgejo administrator | U16; not Soda environment quotas or permission to run live maintenance |
-| Account security, auth sources/site configuration, boards, advanced graphs and missing Actions interactions | Complete custom coverage not established | Native supported mechanism/reauthentication required | U16/U17; native fallback while researched, not silently completed parity |
+| Account security, auth sources/site configuration, boards, advanced graphs and missing Actions interactions | Complete custom coverage not established | Native supported mechanism/reauthentication required | U16/U17; required Soda integration, no native frontend fallback |
 
 Confirmed option distinctions: `CreateRepoOption` includes name/description/private/initialization/default branch/template/trust settings; `CreateUserOption` includes username/email/password/native onboarding options; `EditUserOption` includes sensitive admin/active/prohibit_login/permission fields; `CreateKeyOption` contains key/title/read_only. Do not reuse an administrator-edit payload for ordinary profile updates, or impose Linux join naming restrictions on upstream account creation.
 
@@ -85,21 +92,23 @@ This is upstream research, not a native operation or test pass.
 | Fork | Native POST `/forks` returns 202 after synchronous `ForkRepositoryAndUpdates`/bare clone. This is not a task API. Personal ownership is implicit when organization is omitted. Soda verifies positive ID, acting owner, valid identity and native fork/non-mirror flags before its 201. Failed/ambiguous responses are never replayed. |
 | Import | Native POST `/repos/migrate` parses remote credentials and calls its migration allowlist before creating the destination; quota, migration settings and native ownership remain enforced. Migration runs synchronously (HammerContext); success returns a repository after completion. Native deferred error handling attempts deletion of its own failed destination—Soda does not take over cleanup or assume a timeout canceled work. UI clears credential fields, retains non-secret source/name and never retries automatically. |
 
-**U17-BLAME / U17-COMPARE-DIFF — disposition required:** the inspected API router
+**U17-BLAME / U17-COMPARE-DIFF — backend integration required:** the inspected API router
 has no blame data endpoint, and its comparison endpoint has no aggregate patch.
 Blame is native HTML at `/blame/commit/{sha}/{path}`; aggregate comparison is a
 native web view. OAuth2.Verify admits API/specific raw/archive/attachment paths,
-not these ordinary web views. The dashboard now offers explicitly native,
-configured-origin links (blame from file history, comparison pinned to both SHAs),
-using the user's own native Forgejo login. No scraping, cookie borrowing or
-Soda-side Git implementation was added. These links are interim coverage, **not
-accepted custom blame/diff parity or U09 completion**. A decision to accept native
-views for this version, wait for an upstream API or revise scope remains needed.
+not these ordinary web views in the inspected v15 implementation. The user has
+rejected native frontend fallbacks; the links added in `1d74a08` are removed.
+No scraping, cookie borrowing or Soda-side Git implementation was added. Newer
+v16.0.3 and a pinned development snapshot still lack these two data contracts;
+see the linked investigation. Required Soda views remain incomplete. Propose
+concrete Forgejo API additions and their maintenance cost before implementing a
+backend patch; do not ask again to waive coverage through a native link.
 
 Focused Go/DOM tests are authored for pinned/invalid/denied comparisons, read-only
-ref grants, copy identity validation, sanitized import failure, native links,
-file/ref drafts and stale route responses. No new tests, build or installed U09
-journey has run. Existing U08 native acceptance is unchanged.
+ref grants, copy identity validation, sanitized import failure, Soda-only navigation,
+file/ref drafts and stale route responses. Local Go/TypeScript checks, 31 dashboard
+tests and dashboard builds passed in the Soda-only follow-up (see handoff).
+Installed U09 proof remains pending. Existing U08 native acceptance is unchanged.
 
 ## U09/U10 source follow-up
 
@@ -174,18 +183,19 @@ creation uses POST, replacement PUT. Connected source and focused local tests
 cover actor/route binding, large IDs, native cap, denial without retry, secret
 redaction and explicit replacement fields. No native mutation was executed.
 
-**U17-ACTIONS-WEB — disposition required:** `routers/web/web.go` registers run
+**U17-ACTIONS-WEB — backend integration required:** `routers/web/web.go` registers run
 jobs, logs, artifacts, cancel and rerun under native web routes. Inspected
 [`services/auth/method/oauth2.go`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/services/auth/method/oauth2.go):
 `OAuth2.Verify` accepts only API, attachment, OAuth userinfo/introspection,
 raw/attach and archive paths; ordinary Actions web routes are excluded. Therefore
 these web handlers cannot be called with the retained human OAuth grant. No
 runner-token protocol, native password or borrowed session is substituted.
-Fallback is the configured Forgejo origin's `/{owner}/{repo}/actions/runs/{number}`
-under the user's own native login. Proposed upstream work: human-scoped supported
-job/step/log/artifact and run-control endpoints with native repository gates.
-No upstream issue has been filed or acceptance of this dependency obtained.
-U17/U18 acceptance must choose native dependency, upstream wait or changed scope.
+The former native run-page fallback is rejected and removed from React source.
+Required work: verify or provide human-scoped supported job/step/log/artifact
+and run-control interfaces with native repository gates, then full Soda views.
+Any newer-version candidate needs its own authorization audit.
+No upstream issue has been filed or patch selected. U17/U18 requires integration
+and verified Soda-only workflows, not native-page access or scope omission.
 
 ## Authority register
 

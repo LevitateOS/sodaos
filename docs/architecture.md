@@ -12,6 +12,15 @@
 
 **Dashboard direction update:** the user has selected client-rendered TypeScript/React + PatternFly + Vite+ + Zustand, backed by Go and Forgejo, with no SSR, Tailwind or TanStack. [Dashboard planning](dashboard-plan.md) inventories the proposed pages, dependencies and authentication work. The Go + HTMX descriptions below describe the existing installed/default implementation. React preview/JSON foundation source has started, but the full migration is unbuilt and unvalidated; see the current handoff. The unified frontend includes developer and administrator views, but Forgejo remains upstream owner of its data, rules, permissions and administration. Soda's backend is a development-environment/access extension and bounded API adapter, not a replacement forge backend. Other native, identity and authority boundaries remain in force.
 
+**Complete-frontend requirement:** every Forgejo-backed user workflow must be
+presented entirely by Soda, including developer/admin screens and authentication,
+password change, MFA and consent. No upstream frontend link or embedded HTML is an
+acceptable fallback. Forgejo still owns authentication, data and business rules;
+missing interfaces require reviewed upstream API/integration work. The existing
+OAuth redirects and legacy pages are implementation gaps to replace, not an
+exception. Do not weaken authentication or change live ingress to conceal them.
+Separate operator Cockpit and ordinary Git/SSH/package protocols remain selected.
+
 ## 1. Purpose
 
 SodaOS gives a team persistent, shared development environments on a centrally operated machine. People use lightweight clients, a browser and ordinary SSH; the project environment runs their development tools, builds, agents, databases and services.

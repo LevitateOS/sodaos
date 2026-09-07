@@ -10,21 +10,25 @@ const alice: Session = { user: { id: "1", login: "alice", soda_display_name: "Al
 const sha = "a".repeat(40), head = "b".repeat(40);
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); useSession.setState({ session: null, phase: "anonymous" }); });
 
-it("labels native per-commit files honestly and links the pinned aggregate view", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ total_commits: "1", base_sha: sha, head_sha: head, commits: [], files: [{ filename: "same.txt", status: "modified" }, { filename: "same.txt", status: "modified" }] })));
+it("labels per-commit files honestly without a Forgejo frontend escape", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ total_commits: "1", base_sha: sha, head_sha: head, commits: [{ sha: head, commit: { message: "Change" } }], files: [{ filename: "same.txt", status: "modified" }, { filename: "same.txt", status: "modified" }] })));
   render(<MemoryRouter initialEntries={["/repositories/alice/demo/compare?base=main&head=feature%2Fone"]}><Routes><Route path="/repositories/:owner/:repo/compare" element={<Compare session={alice} />} /></Routes></MemoryRouter>);
   await screen.findByRole("heading", { name: "Files touched by the reported commits" });
   expect(screen.getAllByText("same.txt — modified")).toHaveLength(2);
   expect(screen.queryByRole("heading", { name: "Changed files" })).toBeNull();
-  expect(screen.getByRole("link", { name: "Aggregate comparison in Forgejo" }).getAttribute("href")).toBe(`https://forgejo.example/alice/demo/compare/${sha}...${head}`);
+  expect(screen.getByText(/The combined diff is not yet available in Soda/)).toBeTruthy();
+  expect(screen.getByText(sha)).toBeTruthy(); expect(screen.getByText(head)).toBeTruthy();
+  for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).toMatch(/^\/repositories\//);
 });
 
-it("retains encoded ref/path pagination and provides explicitly native pinned blame", async () => {
+it("retains encoded ref/path pagination and pinned Soda commit navigation", async () => {
   const fetcher = vi.fn(async (_path: string) => Response.json({ items: [{ sha, created: "", commit: { message: "Change", author: { name: "Alice", date: "today" } } }], next_page: 2 }));
   vi.stubGlobal("fetch", fetcher);
   render(<MemoryRouter initialEntries={["/repositories/alice/demo/history?ref=feature%2Fone&path=docs%2Fhello+world.txt"]}><Routes><Route path="/repositories/:owner/:repo/history" element={<History session={alice} />} /></Routes></MemoryRouter>);
-  const link = await screen.findByRole("link", { name: "Blame at this commit in Forgejo" });
-  expect(link.getAttribute("href")).toBe(`https://forgejo.example/alice/demo/blame/commit/${sha}/docs/hello%20world.txt`);
+  const link = await screen.findByRole("link", { name: "Change" });
+  expect(link.getAttribute("href")).toBe(`/repositories/alice/demo/commits/${sha}`);
+  expect(screen.getByText(/Line attribution is not yet available in Soda/)).toBeTruthy();
+  for (const anchor of screen.getAllByRole("link")) expect(anchor.getAttribute("href")).toMatch(/^\/repositories\//);
   await userEvent.setup().click(screen.getByRole("button", { name: "Next page" }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
   const query = new URL(String(fetcher.mock.calls[1]?.[0]), "https://soda.example").searchParams;

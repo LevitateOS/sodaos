@@ -58,7 +58,7 @@ export function PullDetail({ session }: { session: Session }) {
       {tab === "conversation" && <Conversation session={session} owner={owner} repo={repo} index={index} />}
       {(tab === "commits" || tab === "files" || tab === "checks") && <PullInspection key={`${tab}:${pull.head.sha}:${pull.base.sha}`} session={session} owner={owner} repo={repo} pull={pull} tab={tab} />}
       {tab === "reviews" && <PullReview key={`${pull.head.sha}:${pull.base.sha}`} session={session} owner={owner} repo={repo} pull={pull} onChanged={() => setAttempt(value => value + 1)} />}
-      <p><a href={`${session.forgejo_url}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(index)}`}>Native Forgejo pull request</a> remains available for unsupported review details; no borrowed browser credentials.</p>
+      <p>Additional review details are still being integrated into Soda; incomplete coverage is not a completed review workflow.</p>
     </>}
   </section>;
 }

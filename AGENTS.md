@@ -19,6 +19,11 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; default routes remain HTMX. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not U20/release acceptance. The missing console hook remains an explicit P11/U20 delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
 
+The user subsequently authorized local builds and automated tests for the U09
+source work on this development machine. This does not authorize deployment,
+repository/provider mutations or changes to retained projects. See the handoff
+for the exact checks actually run.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
@@ -41,6 +46,16 @@ Later authorization is action-specific: permission to build is not permission to
 Use the actual files in `appliance/services/` and `project-os/` as implementation references. Keep documentation consistent when changing deployment structure.
 
 ## Product and security boundaries
+
+- **Soda-only frontend is mandatory for all Forgejo workflows**, developer and
+  administrator, including login/password change/MFA/consent/account security.
+  No native Forgejo page links, embedded upstream HTML or temporary UI fallback.
+  Missing APIs require integration work, not silent omission or reduced parity.
+  Investigate newer supported APIs and propose concrete backend changes/costs
+  before implementing a patch or new integration. Preserve Forgejo's authority;
+  no second password store, scraping, borrowed cookies or unrestricted proxy.
+  Existing OAuth redirects/legacy pages are transitional implementation gaps,
+  not exceptions. Retained host-operator Cockpit is a separate selected boundary.
 
 - Forgejo is upstream. Do not take over its business rules, data, permissions or
   administration, fork its backend for UI parity, or access its database directly.
