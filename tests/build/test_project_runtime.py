@@ -49,6 +49,12 @@ class ProjectRuntimeContracts(unittest.TestCase):
         self.assertNotIn('remount,rw /proc/sys', init)
         self.assertLess(init.index('mount --bind'), init.index('touch /run/soda-project-ready'))
 
+    def test_shared_tools_uses_live_isolation_address(self):
+        probe = (ROOT / 'tests/installed/shared-tools.sh').read_text()
+        self.assertIn('${ISOLATION_IP:?Live second-project address required}', probe)
+        self.assertIn('"$BOB@$ISOLATION_IP"', probe)
+        self.assertNotIn('$BOB@10.89.0.3', probe)
+
     def test_compose_uses_native_secret_not_password_argv(self):
         compose = (ROOT / 'tests/fixtures/workload/compose.yaml').read_text()
         self.assertIn('POSTGRES_PASSWORD_FILE: /run/secrets/soda-example-db', compose)

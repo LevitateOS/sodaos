@@ -2,16 +2,20 @@
 
 ## U08 completion execution — candidate and remaining runtime correction
 
-Candidate `952f3b3` completed the entire native x86_64 build/seal and aggregate
-`check-native.sh`: full Go, 60 Cockpit tests, 21 dashboard tests, 18 build tests
-and 9 staging tests passed. A private populated-v3 backup/rehearsal preserved
-users, keys, projects, memberships, sessions and encrypted grants. Matching
-preview/helper/new-project image deployed on `soda-test`; the existing two project,
-Forgejo and proxy container identities were preserved. A first preflight template
-error occurred before backup/service mutation and is retained in the logs.
+**Current installed preview/helper/default new-project image: `f233a4a`.** Its
+entire native x86_64 build/seal and aggregate `check-native.sh` passed: full Go,
+60 Cockpit tests, 21 dashboard tests, 19 build tests and 9 staging tests. Earlier
+`952f3b3` and `935dbdf` candidates were also built/checked and rolled out during
+diagnosis. Before each matching rollout, a private populated-v3 backup and
+isolated startup rehearsal preserved users, keys, projects, memberships, sessions
+and encrypted grants. No whole-core reinstall or U18 cutover occurred; `/app/`
+remains the preview. This is populated v3 preservation, not a populated
+version-changing migration or a live rollback.
 
 The approved private `u08-completion-952f3b3` repository/environment now exists:
-`ped30b9d6932974b14feb2278`, observed at `10.89.0.4`, with explicit Alice/Bob joins.
+`ped30b9d6932974b14feb2278`, initially at `10.89.0.4`, with explicit Alice/Bob joins.
+Addresses changed during lifecycle checks; current verified values are in private
+`target.json` and per-user connection observations, not assumed from old ports/IPs.
 Its exact image, project-owned user/network namespaces, NET_ADMIN, default seccomp
 and lack of privileged-parent/host accounts were verified. Direct SSH/PTY/SCP/SFTP,
 personal native Git and shared Node/files passed. New Git passphrases are retained
@@ -25,45 +29,88 @@ project-local proc bind makes only `/proc/sys/net` writable, leaving the rest of
 and started after the correction; an intermediate stale DNS/interface failure is
 also retained. HTTP source edits and committed PostgreSQL operations now passed
 from the real client and both users using the ordinary bridge, not host mode.
-The source initializer now performs that narrow setup before publishing readiness;
-it is applied to the fresh project's writable root with prior source retained
-inside `/var/lib/u08-proc-net-fix/`. A new full build/check is required for it.
+The initializer performs that narrow setup before publishing readiness. The
+initializer and engine service/socket corrections are now packaged in `f233a4a`
+and applied to the fresh fixture's retained writable root, with prior source
+inside `/var/lib/u08-proc-net-fix/`. Its outer container/base-image identity remains
+`952f3b3`; final-image fresh creation is not proven by this in-place source update.
 
 A separate native exec failure was traced through restricted process diagnostics
 to OCI `openat /proc/<pid>/ns/mnt: Permission denied`. The API service's wheel GID
 prevented same-UID access; keeping its native root GID while retaining the socket's
 root:wheel 0660 permissions fixes same-UID exec. Different-UID PostgreSQL exec
-still fails without namespaced ptrace authority. No SYS_PTRACE/privileged-parent
-shortcut has been applied. This remains a runtime coverage gap, not a passing
-Compose-exec case. State snapshots use the real native PostgreSQL TCP client and
+still fails: the engine is root, PostgreSQL uses UID/GID 999 in host-mode userns
+(the project's namespace), and the project lacks SYS_PTRACE. This is consistent
+with Linux process-namespace access checks; a fixed namespaced-capability
+correction still needs native validation. No SYS_PTRACE, privileged parent,
+host-engine mount or Podman-state edit has been applied. This remains a runtime
+coverage gap, not a passing Compose-exec case. Review/approve one further fresh
+fixture for the corrected profile; the approved one additional project was used. State snapshots use the real native PostgreSQL TCP client and
 private pgpass input, not a fabricated or empty exec result. A complete preflight
 snapshot of all three projects and Soda associations succeeded.
 
-Current logs are `.artifacts/logs/u08-completion-*`; private candidate payload,
-backup and rehearsal are `/var/lib/soda/u08-completion-952f3b3/` on the VM. New
-fixture inputs/state/transports are `.artifacts/test-vm/u08-completion-952f3b3/`.
-Corrected candidate `935dbdf` also completed full native build/check and a second
-populated backup/rehearsal/matching rollout. Its initializer and service changes
-are installed in the fresh fixture's retained writable root (the original outer
-container/image identity remains `952f3b3`). The first approved project stop/start
+**Persistence passed after correction.** The first approved project stop/start
 preserved all declared stable data except the subsequent deliberate socket-unit
 correction: comparison identified exactly that file's SHA256, no other changes.
+The corrected repeat started init/socket/SSH automatically, retained only the
+network sysctl subtree writable, and matched the entire three-project snapshot.
+Both users unlocked their own retained encrypted Git keys in new project-local
+agents and matched actual native remote refs.
 
 Cold startup exposed an ordering cycle: socket -> sockets.target -> basic.target
 -> init -> socket. The enabled init/socket jobs were not started; readiness was
-absent. Remove the socket's init dependency; the activated service still requires
-init, and init still precedes SSH. A corrected repeat cold start is pending.
-The project's IP changed to `10.89.0.5`; the exact transport utility now rediscovers
-native addresses and verifies every prior public host-key pin before refreshing
-only private connection/pgpass inputs. It does not reset data or accept new keys.
+absent. The correction removes the socket's init dependency; the activated service
+still requires init, and init still precedes SSH. The native repeat verified this
+startup, not just a static unit assertion.
+
+**Only `soda-test` then rebooted.** Pinned SSH returned with a different boot ID;
+all three stable snapshots matched before/after, including accounts, groups,
+permissions, public host keys, roots, dirty/untracked Git work/refs, shared tools,
+workload/volume identities and committed PostgreSQL rows. Existing workloads
+required explicit native starts; no recreation, reseeding or automatic workload
+resurrection is claimed. The exact private route/firewall/browser/Cockpit/both Git
+transports were restored. Rediscovery checked prior public host-key pins before
+updating only private connection/pgpass inputs. No LAN/Tailnet exposure changed.
+Post-reboot direct SSH/PTY/SCP/SFTP, sudo/engine denials, personal Git unlock/native
+ref readback, shared Node/files and real bridge HTTP/PostgreSQL passed again.
+Native Compose `up --no-recreate --no-build` also passed with unchanged workloads.
+Operator and both developer OAuth/read/navigation/logout passed; real connection
+APIs returned new addresses, matching public keys and appropriate access denials.
 
 Read-only regression attempts also retained preexisting fixture limits: `host.sh`
 stops at RPM name assumptions (`nodejs`, `zlib` absent under those names), and
 `operator.sh` cannot list runners without its integration configuration. Neither
 is a passing full host/operator regression. Native Cockpit PAM root admission /
-existing non-root denial and configured-origin TLS did pass. No VM reboot has
-run yet. U08 is not accepted; remaining execution and exec/coverage gaps stay
-explicit.
+existing non-root denial and configured-origin TLS did pass after reboot. A real
+root Cockpit login/target/navigation/logout also passed without opening the
+Tailnet page and invoking advertisement refresh. Full runner/provider jobs and
+complete host/operator integration are not implied.
+
+**Evidence and limits:** logs are `.artifacts/logs/u08-completion-*`; the final
+`build-f233a4a` and `check-f233a4a` logs have recorded exit 0. Candidate payloads,
+backups and rehearsals are `/var/lib/soda/u08-completion-{952f3b3,935dbdf,f233a4a}/`
+on the VM. Private fixture inputs, before/after JSON, and restored transports are
+`.artifacts/test-vm/u08-completion-952f3b3/`; earlier roots/evidence remain intact.
+Key result logs include `corrected-project-persistence`, `vm-persistence`,
+`vm-developer-access`, `vm-workload-client-members`, `vm-git-tools`,
+`vm-*-browser-connections`, `vm-dashboard-browser-operator` and `vm-cockpit-browser`.
+A failed source-test driver accidentally overwrote the earlier `935dbdf` build
+log with a clean-tree refusal; that refusal is retained as `935dbdf-dirty-restart`.
+Its aggregate log/sealed bytes remain, and the final `f233a4a` full logs are intact;
+no missing PASS record was reconstructed. Other diagnosis/argument/selector and
+transport failures remain recorded rather than erased.
+
+The latest post-reboot shared-tools check now takes the rediscovered isolation
+address explicitly; that harness-only correction follows the built `f233a4a`
+revision. Its focused source contract and all 20 current Python build tests
+passed; shell/Python syntax and `git diff --check` passed. Final post-reboot byte
+checks matched `f233a4a` dashboard/helper/default-image hashes and preserved the
+unprivileged dashboard, restricted helper socket/credential modes and enforcing
+host SELinux (`final-bytes-and-boundary.log`). **U08 remains unaccepted** pending different-UID exec/final-profile proof
+and host/operator regression reconciliation. Earlier fixture Git passphrases
+were not retained: those old agents died at reboot; their encrypted keys remain,
+but only the new fixture proves durable unlock. No extra fixture, infrastructure
+reboot, data reset, provider job, CI publication or media delivery was performed.
 
 ## U08 completion execution authorized — preparation
 

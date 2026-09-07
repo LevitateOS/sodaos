@@ -6,11 +6,12 @@ The [native support tools](native-support.md) are source-only additions, not a r
 
 ## Current React preview candidate
 
-The existing guest now runs dashboard candidate `35df189` with a built React
-preview at <https://localhost:24443/app/>. The default routes remain HTMX; this is
-not U18 cutover. A consistent private backup, isolated schema-1→3/key-failure and
-rollback-copy rehearsals preceded the dashboard-only migration. Forgejo, proxy
-and project state were not replaced. See [exact evidence](implementation-status.md#native-react-preview-migration-and-operator-browser-proof).
+The existing guest runs matching dashboard/helper/default new-project image
+`f233a4a`, with React preview at <https://localhost:24443/app/>. Default routes
+remain HTMX; this is not U18 cutover. Full native build/check and populated-v3
+backup/startup rehearsals passed before rollout. Earlier schema-1→3/key-failure
+and rollback-copy rehearsals remain historical evidence, not a lossless live
+rollback now. See [current evidence](implementation-status.md#u08-completion-execution--candidate-and-remaining-runtime-correction).
 
 The installed React operator OAuth/native-read/navigation/logout check passed
 with certificate verification enabled. Older native Soda consent was explicitly
@@ -28,14 +29,22 @@ node tests/installed/dashboard-react.mjs \
 `SODA_RECONSENT_APPLICATION='SodaOS dashboard'` is a separate explicit mutation:
 it revokes only this user's uniquely named native Soda grant before reconsenting.
 Do not enable it as an automatic retry or for unrelated applications/users.
-Two developer fixtures now exist: `u08-alice-8417` and `u08-bob-8417`, each owning
-a private repository and persistent environment. Both explicitly joined; Bob also
-joined Alice's environment without project-administrator rights. Native
-collaboration and admin/owner denials were verified separately from Linux access.
-Inputs and observed bindings are private under `.artifacts/test-vm/u08-8417a90/`.
-Do not recreate these users/projects, discard their writable roots or restore the
-old pre-migration DB over them. Direct developer routing/SSH, personal project Git,
-shared tools, nested workloads and persistence remain pending.
+The same two users, `u08-alice-8417` and `u08-bob-8417`, now use three retained
+environments: the original two and Alice's approved `u08-completion-952f3b3`
+repository/environment. Explicit joins and native collaboration remain separate.
+Original inputs are `.artifacts/test-vm/u08-8417a90/`; new inputs, current verified
+addresses and state comparisons are `.artifacts/test-vm/u08-completion-952f3b3/`.
+Do not infer addresses from old examples: stop/start and reboot changed them.
+
+From infra, direct SSH/SCP/SFTP, personal Git/shared tools and ordinary bridge
+HTTP/PostgreSQL passed, as did corrected project stop/start and `soda-test` reboot
+preservation. Both new personal Git keys were unlocked after reboot; older Git
+agents died and their original passphrases were not retained. Runtime routes and
+browser/Cockpit/Git transports were restored. This does not route a laptop or
+prove automatic workload startup. Different-UID workload exec and final-profile
+fresh creation remain unverified/blocked; U08 is not accepted. Another fixture or
+capability change needs new scoped approval. Never replace roots or restore an
+outdated DB to repair these limits.
 
 `SODA_U08_FIXTURES_DIR` enables real fixture creation through the core-owned
 `tests/installed/developer-first-workflow.mjs`. It requires a private fixture

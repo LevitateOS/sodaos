@@ -4,9 +4,9 @@
 # installs separate per-user copies. Retains a new exact run-owned shared probe.
 set -euo pipefail
 : "${SODA_NATIVE_VALIDATE:?Explicit native validation authorization required}"
-: "${PROJECT_IP:?}" "${ALICE:?}" "${BOB:?}" "${SSH_CONFIG:?Pinned private client configuration required}"
+: "${PROJECT_IP:?}" "${ISOLATION_IP:?Live second-project address required}" "${ALICE:?}" "${BOB:?}" "${SSH_CONFIG:?Pinned private client configuration required}"
 [[ "$SODA_NATIVE_VALIDATE" == soda-test ]]
-python3 -c 'import ipaddress,sys; assert ipaddress.ip_address(sys.argv[1]) in ipaddress.ip_network("10.89.0.0/24")' "$PROJECT_IP"
+python3 -c 'import ipaddress,sys; assert all(ipaddress.ip_address(ip) in ipaddress.ip_network("10.89.0.0/24") for ip in sys.argv[1:])' "$PROJECT_IP" "$ISOLATION_IP"
 [[ "$ALICE" == u08-alice-8417 && "$BOB" == u08-bob-8417 ]]
 remote() { local user=$1; shift; ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ForwardAgent=no "$user@$PROJECT_IP" "$@"; }
 a=$(remote "$ALICE" 'mise where node')
@@ -39,5 +39,5 @@ expected=$'alice\nbob'
 [[ $(remote "$ALICE" "head -n 2 ~/shared/$run/members") == "$expected" ]]
 [[ $(remote "$ALICE" "stat -c '%d:%i' ~/shared/$run/members") == $(remote "$BOB" "stat -c '%d:%i' ~/shared/$run/members") ]]
 # The second project's independently verified host key is in the client config.
-ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ForwardAgent=no "$BOB@10.89.0.3" "test ! -e /srv/project/shared/$run"
+ssh -F "$SSH_CONFIG" -o BatchMode=yes -o ForwardAgent=no "$BOB@$ISOLATION_IP" "test ! -e /srv/project/shared/$run"
 printf 'Shared root-owned Node executable/inode and member write denial verified.\nShared file updates/inode verified for both users; absent in second project.\nRetained probe: /srv/project/shared/%s\n' "$run"

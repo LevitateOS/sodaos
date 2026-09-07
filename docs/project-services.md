@@ -37,8 +37,11 @@ capability in place. Existing projects were not
 replaced, exported or recreated to apply it. The fresh fixture then exposed read-only network sysctls. Current initialization
 binds only `/proc/sys/net` from a private temporary proc mount, retaining read-only
 kernel/fs/vm controls. After this project-local correction, ordinary bridge HTTP
-and PostgreSQL operations passed from both users and infra; startup/persistence
-of the correction still needs lifecycle evidence. Different-UID workload exec
+and PostgreSQL operations passed from both users and infra. Corrected cold project
+startup and the approved VM reboot now have full declared-state preservation
+comparisons. The socket must not depend on init before sockets.target/basic.target;
+the activated service retains that dependency. Existing workloads were explicitly
+started after lifecycle operations, not recreated or automatically resurrected. Different-UID workload exec
 remains blocked by process-namespace permission checks; it must not be reported
 as passing merely because TCP database access works.
 
