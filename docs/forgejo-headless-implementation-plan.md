@@ -314,11 +314,16 @@ maintenance owners, runtime/build compatibility and authentication threat model
 at the relevant stage. The architecture and this implementation plan identify
 those decisions; they do not fabricate their outcomes.
 
-Suggested coherent commit sequence:
+Remaining coherent commit sequence — follow the leading plan's
+[U01 delta-only closure checklist](dashboard-implementation-plan.md#u01--capability-authority-and-baseline-audit), not a fresh R&D pass:
 
-1. H01 source register now exists with blockers/U owners; review its baseline,
-   native authority discrepancies, lifecycle choices and H05 security gates.
-2. Add reviewed source lock/patch provenance and build/identity negative tests.
+1. Resolve the unanswered baseline/maintenance/auth/read/lifecycle decisions in
+   the existing source guide and drafts. Reuse H01 authority findings. Investigate
+   only an identified missing or contradictory fact; do not repeat the inventory,
+   v16 API comparison or authentication proposal.
+2. Retain the implemented source lock/preparer/tests at `c9a9be0`. Extend them with
+   the reviewed real build inputs, patch provenance and build-boundary tests;
+   do not recreate source preparation as a milestone gate.
 3. Wire the native Forgejo build into existing packaging consumers.
 4. Add reviewed compatibility and first native read contracts with upstream tests.
 5. Connect and test Soda blame/comparison end to end.

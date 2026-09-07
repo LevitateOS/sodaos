@@ -1,5 +1,32 @@
 # Implementation handoff
 
+## U01 plan corrected to avoid duplicate R&D
+
+At the user's request, replaced the leading plan's broad U01 research tasks with
+an explicit completed-input / remaining-delta closure checklist. Reuse H01 at
+`c832901`, source preparation at `c9a9be0`, and auth/read drafts at `2cf9127`.
+Do not repeat the 179-group inventory, v16 API comparison, source lock/preparer or
+authentication proposal. The headless work package now follows that same checklist.
+
+Remaining work is decision closure and narrowly identified missing evidence:
+complete the truncated release-note/migration material; close uncovered dependency/
+license/build-design obligations; assign human maintenance/security ownership;
+resolve the existing authentication and linked-identity questions; finish the first
+wire/authority/budget/compatibility contracts. Present human decisions together,
+and distinguish questions awaiting a decision from questions requiring research.
+Any new investigation must name the evidence gap and smallest useful result;
+reopening settled findings requires changed inputs, stale decision-critical facts
+or contradictory evidence. Actual image assembly/pins, native patches, full
+conformance and installed journeys remain with their implementation owners.
+
+This is a plan correction, not U01 acceptance or new product evidence. Only bounded
+U08 remains accepted (1/20). No product source, dependencies, runtime state or
+retained resources changed. Read-only documentation checks passed: 20 ordered U
+milestones, three conditional E tracks, all 179 groups assigned once, 31 local
+new/plan links and 37 incoming plan links/anchors; `git diff --check` passed.
+No build, test suite, deployment, provider action or cleanup was needed. Earlier handoff sections describe their historical stages; the new
+U01 checklist controls next work rather than restarting their research steps.
+
 ## Early auth/read contract review drafts — native endpoints not implemented
 
 After source-preparation commit `c9a9be0`, recorded the requested parallel U01/
