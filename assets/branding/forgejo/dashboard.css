@@ -76,3 +76,4 @@
 
 /* Omit the native heatmap separator within the dashboard feed. */
 .soda-dashboard-feed > .divider { display: none; }
+.soda-dashboard-feed > .divider + #activity-feed { margin-top: 24px; }
