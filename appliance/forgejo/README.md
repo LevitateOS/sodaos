@@ -90,3 +90,9 @@ The login illustration is unchanged.
 [i18n/](i18n/README.md) reserves Soda-only locale additions. It is not mounted or
 staged: complete native catalogs must be preserved when preparing Forgejo's
 replacement locale files. Translation of the custom pages remains future work.
+
+`explore-papercraft.png` is a new standalone repository-explorer illustration,
+created with the built-in image generator. Prompt direction: three layered mint,
+navy and cobalt cardstock repository folders, cream code braces, and a small cream
+paper robot peeking around the edge; matte papercraft, isolated transparent
+background. Saved for the explorer design; not yet referenced by a template.
