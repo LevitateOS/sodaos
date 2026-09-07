@@ -8,26 +8,24 @@ workflows or mandate patches. Implementation assignments need reconciliation;
 U01's architecture acceptance is withdrawn, while bounded U08 remains accepted.
 
 **H01 source audit, Soda baseline `0f43b9f`.** This is the single action register
-for the [headless implementation plan](forgejo-headless-implementation-plan.md),
+for the [core implementation plan](dashboard-implementation-plan.md),
 owned by the existing U01–U20 milestones. It supersedes the earlier family-only
 inventory in this file. It is **not** installed validation, acceptance of U09/U17,
 or approval of a Forgejo patch, version upgrade or authentication protocol.
 
-Every Forgejo-backed developer, administrator, authentication and security
-workflow must stay in Soda. Missing interfaces are integration work, not permission
-to link to Forgejo pages, embed HTML screens, scrape, borrow cookies, impersonate
-users, use a site token or maintain another forge/password/permission database.
+Preserve every Forgejo-backed workflow through supported native rendering and
+customization. Missing JSON interfaces are not a patch mandate. Do not scrape,
+borrow cookies, impersonate users, substitute a site token or maintain another
+forge/password/permission database.
 Ordinary Git, SSH, package protocols and operator Cockpit remain distinct selected
 boundaries. Unavailable placeholders do not complete a workflow.
 
 ## Findings and decisions needed
 
-1. **This is substantially larger than two missing Git endpoints.** Login and
-   security, boards, review state, advanced activity/search, portions of Actions,
-   wiki history, package settings and site administration need native interfaces
-   or extensions to existing ones. Many native handlers combine decisions with
-   rendering; exposing their entire context as JSON would leak HTML, secrets or
-   authority assumptions.
+1. **The JSON API is not the native frontend's complete interface.** Native web
+   handlers often combine decisions and rendering. Preserve these native workflows
+   through supported templates; exposing their contexts as JSON is neither needed
+   nor safe. The inventory records API limitations, not absent native functionality.
 2. **Do not duplicate the substantial usable API.** Repository/file/ref writes,
    issue metadata/assets/timers/dependencies, reviews and merge commands,
    organizations/teams/protection, releases, package inventory and quotas already
@@ -42,27 +40,24 @@ boundaries. Unavailable placeholders do not complete a workflow.
 4. **16.0.3 changes the Actions assessment.** Its human repository APIs add jobs,
    logs, artifacts and cancellation. They do not add blame, net comparison diff,
    a complete headless login, rerun, workflow enable/disable or full step/attempt
-   presentation. Consider an appropriate supported 16-series baseline before
-   deciding to backport all those Actions interfaces to 15. No upgrade is selected.
+   presentation. This is a version-specific API finding, not a reason to backport
+   interfaces or upgrade solely to replace native pages. No upgrade is selected.
 5. **Permissions need more precision than “admin API.”** Repository Actions
    configuration/runner routes in 15.0.7 use `reqOwner(TypeActions)`, while their
    native settings pages use repository-admin gates. That is an authority parity
    gap for admin collaborators, not permission for Soda to elevate them. Repository deletion uses the *owner's user/organization scope*, not
    repository scope. PAT listing and PAT creation/deletion have different auth
    requirements. Package scope is not in Soda's current default consent.
-6. **Current Soda-only navigation is not closed.** Issue attachments still expose
-   `native_url`; account onboarding still directs people to a native password
-   change; OAuth, legacy HTMX, content links and direct Forgejo ingress remain.
-   The TSX `forgejo_url` source guard does not detect all of these.
+6. **Native pages are now selected.** Native login, password change and content
+   navigation are not forbidden escapes. Existing URL guards and duplicate React
+   routes need review against actual supported integration, not new backend APIs.
 7. **Source configuration is not live configuration.** The appliance pins 15.0.7
    but does not select every registration, mail, federation, quota or authentication
    option. Conditional rows below remain required when enabled; disabling features
    is not an approved way to reduce the requested frontend.
-8. The subsequent U01 closing review now records the concrete baseline, first
-   [read contract](forgejo-read-contracts.md), [native auth/ownership delegation](forgejo-authentication-design.md)
-   and build/license responsibilities. Follow those dispositions under the leading
-   plan. Neither this audit nor that source review proves native headless behavior;
-   real patches, compatibility, security tests and delivered outcomes remain due.
+8. U01's architecture acceptance was withdrawn. Its fork-dependent contracts and
+   preparer have been removed. Continue the focused supported-template integration
+   review under the leading plan; retain factual evidence and licensing notes.
 
 ## Evidence and audit boundary
 
@@ -110,7 +105,7 @@ All paths below are relative to the pinned upstream tree, unless prefixed `Soda`
 | --- | --- |
 | **1** | Existing native API is sufficient for the stated action. Ordinary typed Soda clients/screens may still be missing; no native addition established. |
 | **2** | An existing interface needs a bounded Soda adapter: protocol/byte handling, native option/result translation or a multi-step composition. Not a new Forgejo business rule. |
-| **3** | Native interface/semantics/authority is missing for the stated outcome. A reviewed Forgejo addition or extension is required; not necessarily a new route. |
+| **3** | The API-only approach lacked a suitable native interface/semantics/authority. This historical API classification does not mean the native rendered workflow is absent or require a patch under the selected template approach. |
 | **4** | The required Soda backend fields already exist; only the specified custom UI control is missing. This narrower claim needs a concrete Soda caller. |
 
 `S` means connected Soda **source subset**, `M` means missing Soda coverage,
@@ -134,8 +129,9 @@ not a missing-scope response. `reqOwner`, `reqAdmin`, `reqSiteAdmin`, organizati
 ownership and the Soda operator are not synonyms. Native site-admin exceptions
 in those predicates stay native; Soda must neither invent nor extend them.
 
-Every row requires **N** native contract/permission tests, **A** Soda adapter tests
-and **B** browser/DOM tests before acceptance. The per-section tests below add
+Verify **N** native outcomes/permissions and **B** customized browser behavior;
+**A** adapter tests apply only where a real Soda adapter participates. No new
+native API/test implementation is required merely because a row has class 3. The per-section tests below add
 specific cases to this common matrix:
 
 - N: anonymous/private denial, least read versus write scope, wrong user/resource,
@@ -146,7 +142,7 @@ specific cases to this common matrix:
   IDs as strings; real pagination; sanitized errors; no browser-selected origin,
   Sudo, operator-token fallback, storage access or uncertain write replay; CSRF,
   actor/session binding, cancellation and declared old/new contract behavior.
-- B: the entire workflow and object navigation stay in Soda; loading/empty/denied/
+- B: the workflow/navigation use the integrated native/Soda interface; loading/empty/denied/
   expired/partial/error states; forms preserve same-target drafts but not secrets
   or other users' drafts; stale route/account responses cannot win; keyboard,
   focus and accessible validation. Direct-ingress/network assertions supplement
@@ -156,7 +152,7 @@ specific cases to this common matrix:
 
 ### Authentication, consent and account security
 
-**Owners U04/U05/U16; H05 starts before broad UI expansion.** Native owners are
+**Owners U04/U05/U16; preserve native authentication through supported templates.** Native owners are
 `services/auth/method/`, `models/auth/`, `services/user/` and
 `modules/auth/webauthn/`. Tests additionally cover login CSRF/session fixation,
 challenge binding/replay/expiry, attempt limits, enumeration, required enrollment,
@@ -194,10 +190,9 @@ login is an existing-user two-factor flow, not proof of discoverable/passwordles
 passkey login. Preserve enrolled credentials; review origin/RP-ID compatibility
 and any explicitly required passwordless addition rather than promise migration.
 Mail-generated recovery/activation links also use native origins; route rewriting
-must not accidentally change Git/package advertisement. No source-only audit can
-prove an unselected new challenge protocol secure. H05 must specify the native
-attempt/rate/captcha policy, session/grant issuance and invalidation and credential
-handling; existing protections cannot simply be removed to gain JSON access.
+must not accidentally change Git/package advertisement. Preserve the existing
+native attempt/rate/CAPTCHA, session/grant and credential mechanisms; no new
+challenge protocol or independently chosen Soda account policy is selected.
 
 ### Identity, preferences, profiles and discovery
 
@@ -493,50 +488,13 @@ maintenance effects and preservation of unrelated users/repos/Soda associations.
 | UI04 | Close Forgejo browser ingress only after replacement workflows pass | `appliance/config/proxy.Caddyfile` still reverse-proxies full Forgejo on its separate origin; `/` still serves HTMX, React `/app/` is preview. OAuth/content/mail links and native protocols need deliberate split. | 3 native-origin-dependent auth + 2 deployment adapter / D; do not close now |
 | UI05 | Preserve Soda environments, join/access, terminal and operator boundaries | Existing `internal/host/`/`project-os/`/Soda APIs own real project creation/join/access. Browser terminal still needs an existing-user workspace transport/security design, not a Forgejo API. Cockpit/Tailnet/Runners remain separate operator UI. | Outside Forgejo-gap classification; U07/U08 plus terminal owner decision; U08 acceptance unchanged |
 
-## Native changes implied by the class-3 rows
+## Class-3 rows are not a patch backlog
 
-These are **contract review boundaries**, not an approved patch list or another
-feature inventory. Keep the smallest shared implementation with its existing web
-caller; do not serialize `ctx.Data`, expose an arbitrary internal method, or copy
-services into Soda. Native APIs must reapply resource/unit/actor/security gates.
-
-- **AU rows:** a Forgejo-owned pre-authentication/challenge/security and consent
-  boundary. Model native allowed next steps, opaque expiring single-use challenges,
-  completion/revocation and typed failure without account enumeration. Share
-  password/MFA/WebAuthn/activation/linking decisions. H05 threat-model review is
-  required before selecting wire routes, trust between Soda and Forgejo, or token
-  issuance. Presentation of credentials in Soda is not a second password authority;
-  their verification/storage must remain native and transient forwarding must be
-  narrowly designed. External IdP and RP-ID conflicts need explicit resolution.
-- **CO05/CO07/CO09, CO17/CO18, WK05/WK06, WI03/WI04:** bounded native Git/indexer/wiki
-  results before rendering. Commit/ref/path identities, binary/rename/truncation
-  semantics, work/output/time/concurrency/cancellation limits must be explicit.
-  Paginating lines does not bound blame/graph/search computation. Do not create a
-  temporary PR, clone/cache or alternate engine to supply these operations.
-- **IS13/IS14, PR02/PR06/PR07/PR10–PR12, BD rows:** expose native conversation/review,
-  merge-panel and issue-project operations with original ownership checks. Keep
-  hidden cards/history, pending reviews and viewed-at-SHA state native. Share native
-  merge eligibility calculations rather than deriving copied rules in Soda.
-- **RS03/RS12–RS16, HK03–HK06, OR06/OR08, WI05:** extend exact configuration/invitation/LFS/hook
-  operations. Hook changes should share native registered handlers and event
-  conversion; distinguish keep/replace/clear for secret fields. Delivery replay
-  is an explicit network mutation, not a read. No unrestricted configuration proxy.
-- **CI03–CI10, CI12–CI15:** reuse v16 stock interfaces where selected; expose only
-  still-missing native workflow metadata, step/attempt/diagnostic/control, trust,
-  runner edit/reset and secret-metadata functions. Review owner-versus-admin
-  route differences natively; do not silently broaden an API gate or use an owner
-  token for a collaborator. Existing web JSON contains
-  rendered HTML and is not a ready-to-export stable API. Native run/job IDs are not
-  web indices; deleted/expired/not-started objects need explicit semantics.
-- **RE03, PK03/PK05/PK06, AD rows:** extend release field presence semantics and
-  native package/admin results/commands. Redact at the native boundary, especially
-  configuration, auth sources, hook deliveries, diagnostics and one-time secrets.
-  Do not generalize fixed upstream administration into a privileged host shell.
-
-Each concrete addition needs request/result/error/pagination contracts, native
-permission/resource-limit tests, Soda adapter/DOM tests, source/patch provenance,
-update owner and retirement condition. A small shared extraction may suffice for
-one action; this list does **not** claim all work is small or already feasible.
+Use their native web references to preserve rendered workflows through official
+customization. Do not turn this source inventory into new authentication, Git,
+review, board, settings, Actions, package or administration API contracts. If
+supported integration cannot meet a requirement, stop and revisit the architecture
+with the user. No downstream patch/rebase/descriptor/build work package remains.
 
 ## V16 comparison and alternatives checked
 
@@ -627,22 +585,13 @@ limits and authentication origins. Disabled must be distinguishable from denied,
 missing interface and temporary service failure. No audit request authorizes
 changing these settings, enabling reverse-proxy identity or enrolling providers.
 
-**Baseline/build decision:** review supported security baseline and migration notes,
-not simply latest version or fewer missing endpoints. Full Forgejo source includes
-GPL-3.0-or-later files and a GPL root license; Swagger's MIT declaration is not the
-whole distribution license. Preserve corresponding source/attribution/patch notices.
-The upstream Dockerfile builds Go with SQLite/bindata/timezone tags and frontend
-assets; a Go-only binary is not proven equivalent packaging. H02 must feed the
-existing native `forgejo.iid`/OCI/staging/seal/install consumers, preserve native
-UID/data/entrypoint/Git behavior and avoid a second build/release platform.
-
-**Compatibility decision:** H03's proposed small feature-contract revisions do not
-already exist. Do not infer compatibility from `/version`, advertised paths or a
-successful patch apply. H07 must test native authority/semantics as well as DTOs,
-review clean rebases and retire equivalent patches deliberately. New features must
-be audited in this register before implementing their screens. Missing metadata
-must not globally break unrelated stock/environment access, but final selected
-coverage cannot accept a placeholder.
+**Stock baseline and compatibility:** review actual supported release/security,
+configuration/migration and template/script compatibility, not just API counts.
+Use the stock image through existing IID/OCI/stage/install consumers, preserving
+UID/data/entrypoint/Git behavior. No new descriptor or source-build pipeline.
+See [licensing](licensing.md) for retained rights/source obligations. Prove actual
+customized native workflows and Soda integration; a version string alone is not
+compatibility evidence.
 
 **Lifecycle decisions:** AU22, AC02, RS10, OR09 and AD03/AD20 may change upstream
 identities/ownership without changing retained project accounts or sessions. Native
@@ -661,13 +610,13 @@ Keep focused existing tests and extend their concrete owners:
 
 | Area | Existing Soda source/test owner | Native regression starting points to inspect/extend |
 | --- | --- | --- |
-| Auth/account | `oauth*.go`, `accounts.go`, `provider*.go`, `auth.go`, `oauth_grant_test.go`, store grant tests; `accounts.tsx` | `routers/api/v1/permissions/tests/`, `tests/integration/api_oauth2_apps_test.go`, `tests/e2e/webauthn.test.e2e.ts`, native auth/security tests; new headless challenge tests required |
-| Code/copy | `history*.go`, `file_writes.go`, `repository_copy_test.go`; history/file-editor/repository-copy DOM tests | Native `api_repo_compare_test.go`, file/branch/tag/fork/migrate tests, Git/blame tests; new blame/net-diff native contracts required |
-| Issues/reviews/boards | `issues*`, `issue_activity*`, `pulls*`; issue/review DOM tests | Native `api_issue_*`, `api_pull_review_test.go`, `api_pull_test.go`, `routers/web/repo/{projects,pull_review}_test.go`; board/resolve/view-state native API tests required |
+| Auth/account | `oauth*.go`, `accounts.go`, `provider*.go`, `auth.go`, `oauth_grant_test.go`, store grant tests; `accounts.tsx` | `routers/api/v1/permissions/tests/`, `tests/integration/api_oauth2_apps_test.go`, `tests/e2e/webauthn.test.e2e.ts`, native auth/security tests; native-form/override/session integration tests required |
+| Code/copy | `history*.go`, `file_writes.go`, `repository_copy_test.go`; history/file-editor/repository-copy DOM tests | Native `api_repo_compare_test.go`, file/branch/tag/fork/migrate tests, Git/blame tests; native blame/diff page compatibility required |
+| Issues/reviews/boards | `issues*`, `issue_activity*`, `pulls*`; issue/review DOM tests | Native `api_issue_*`, `api_pull_review_test.go`, `api_pull_test.go`, `routers/web/repo/{projects,pull_review}_test.go`; native board/resolve/view-state page compatibility required |
 | Settings/org/hooks | `repository_settings*`, `protections*`, `hooks*`, `organizations*`; settings/org/team screens | Native API collaborator/branch/org/team/hook tests plus native webhook handlers; keep omitted/clear/event/authority cases |
 | Work/Actions | `work*`, `actions*`; work/actions DOM tests | `api_repo_activities_test.go`, `api_repo_actions_test.go`, native Actions service/web tests; v16 added human interfaces need OAuth/unit/range/expiry tests, not runner-token fixture reuse |
-| Releases/wiki/packages/admin | `releases*`, future feature-owned clients/views | Native release/wiki/package-format/quota/admin tests; new descriptor/security/maintenance contracts need native negative tests |
-| Delivery/boundary | navigation guard, `tests/installed/`, existing native build/stage checks | H02/H07 source/patch/build identity and update tests still to implement; H08 browser network/ingress/preserved populated state proof still required |
+| Releases/wiki/packages/admin | `releases*`, future feature-owned clients/views | Native release/wiki/package-format/quota/admin tests; customized native security/maintenance pages need actual negative tests |
+| Delivery/boundary | navigation guard, `tests/installed/`, existing native build/stage checks | Stock-image/custom-template identity and upgrade compatibility; real browser/session/ingress and populated-state preservation proof |
 
 Names above identify source test owners and starting points, **not tests run in this
 audit**. Existing local Go tests, TypeScript, 31 dashboard tests and dashboard/Go
@@ -683,9 +632,7 @@ plugin/Go/Node/frontend dependency or Forgejo image change belongs to this audit
 
 **H01 result:** workflow-level coverage and source gap classification are now
 recorded across the selected frontend and discovered native web surfaces, including
-auth/admin risks. Concrete field-complete wire schemas, exact resource budgets,
-reviewed authentication feasibility, baseline/maintainer selection, lifecycle
-choices and installed conformance remain open implementation/design gates. U01/U17
-are not accepted; U08 remains the only accepted, bounded milestone. Continue with
-baseline/contract/H05 review, not another broad screen-writing batch or a request
-to waive missing workflows through native frontend links.
+auth/admin risks. U01's focused supported-template/session integration review
+and final installed conformance remain open. U01/U17 are not accepted; only bounded
+U08 is accepted. Native rendered workflows are selected, not a scope waiver or a
+reason to implement the abandoned API-only contracts.

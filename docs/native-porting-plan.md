@@ -21,7 +21,7 @@
 | Responsibility | Leading owner | Native support contribution |
 | --- | --- | --- |
 | React routes, Go API/DTOs, native-backed auth/session/CSRF, upstream developer/admin adapters, Soda schema | U01–U19 as assigned in the core plan | Supply build/transport/fixture inputs; no alternative handlers, account model, browser runner or database writes |
-| Forgejo baseline, reviewed source/patch build, native interfaces and contract/update tests | U01/U02/U03 and owning U04–U16 features; U17/U20 integration | P04 consumes specified source/patch/image identities; no P-owned fork, authentication design, build platform or conformance verdict |
+| Stock Forgejo image, official template overrides and supported-interface/upgrade tests | U01/U02/U03 and owning features; U17/U20 integration | P04 consumes selected image/customization identities; no fork, custom authentication or source-build platform |
 | Production `internal/host`, project account/SSH setup, own-workspace terminal, shared tools, nested workloads, persistence, image/lifecycle/resource policy | U07; retained U08 proof/U20 final integration and approved E01–E03 | Run-owned VM/client transport and bounded observation utilities only; report runtime defects to the core owner |
 | Product browser/People/repository/join/Git/SSH/workload/persistence tests and fixture meanings | Owning U feature; integrated U08/U20 | Invoke the existing core-owned entrypoints once on exact inputs; retain their results, without copying scenarios into a Go harness |
 | Dashboard/Forgejo payload, application config/secret/migration semantics and cutover | U02/U03/U04/U18 | P04 packages the specified payload; P05 transports/invokes approved install/migration steps, not first-install replay; neither redesigns them |
@@ -139,7 +139,7 @@ Each phase has explicit inputs and native results. Evidence is human-readable ou
 | --- | --- |
 | Native deployment bundle | Core-defined staged rootfs/assets/native/provider payloads and image archives, matching installer and notices; correct modes/symlinks; no provisioning/runtime state |
 | Soda image archives | Actual explicitly selected OCI format, platform and source; a `.oci` suffix does not establish format, and current saves need inspection |
-| Upstream application inputs | Core-selected Forgejo/Caddy platform digests and matching bytes; for a reviewed source-built Forgejo, also core-owned upstream/patch/build identities. No incidental version change, second lock or silent tag drift |
+| Upstream application inputs | Core-selected stock Forgejo/Caddy platform digests and matching bytes, with separately identified supported custom templates/assets. No source-built fork, incidental version change, second lock or silent tag drift |
 | Build information | Source/native tool/input references, image manifest/config identities, observed package inventories and `SHA256SUMS`; not a PASS/signature/qualification schema |
 | Optional installer ISO | Selected CoreOS media/bootstrap/payload arrangement, checksums, companions and network requirements; private derivative separately identified |
 | Optional QCOW2 delivery | Approved kit versus preinstalled-image meaning, standalone disk and any selected fixed compression/checksums; all required companions named |
@@ -218,7 +218,7 @@ The core follows its [post-H01 execution order](dashboard-implementation-plan.md
 
 - Extend existing build/check/stage entrypoints only for concrete format/identity/bundle needs; compile infrastructure tools separately. U02 owns adding the React build/asset payload and dashboard-only build path.
 - Select/inspect actual OCI archive format/platform, add source/base attribution and bind binaries/rootfs/assets to one checkout. Retain real tool/dependency metadata.
-- Consume core-selected Forgejo/Caddy platform identities without upgrading them. If U02 adopts a reviewed source-built Forgejo, inspect its supplied upstream/patch/image identity through the same artifact contract; do not build a second source/patch mechanism. Coordinate service-image/identity changes with core build/installer/config owners; no separate tag policy hidden in the wrapper.
+- Consume core-selected Forgejo/Caddy platform identities without upgrading them. Inspect the core's stock-image and supported template/asset payload identities; no downstream source/patch mechanism is selected. Coordinate service-image/identity changes with core build/installer/config owners; no separate tag policy hidden in the wrapper.
 - Assemble the allowlisted bundle, matching installer/notices and checksums with modes/symlinks intact. Validate hash/platform/source/content and extraction safety before host writes; retain `/usr/local` mapping, parent ownership and delivered-path SELinux behavior.
 - Refuse stale/mismatched/missing outputs. Route actual core build/config/runtime defects to the owning U/E milestone; do not bypass checks, fabricate frontend output or recreate project state.
 

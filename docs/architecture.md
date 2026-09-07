@@ -19,24 +19,24 @@ integration and the affected plan still need review; no runtime change is claime
 
 **Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. It leads the core product, including production native environment/access integration and U08/U20 acceptance. The [native support porting plan](native-porting-plan.md) is subordinate: outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations only. Shared contracts follow the core plan; optional media and helper ports are not a second core gate. The [initial M01–M18 plan](implementation-plan.md) describes historical Go + HTMX/native source work and proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
 
-**Dashboard direction update:** the user has selected client-rendered TypeScript/React + PatternFly + Vite+ + Zustand, backed by Go and Forgejo, with no SSR, Tailwind or TanStack. [Dashboard planning](dashboard-plan.md) inventories the proposed pages, dependencies and authentication work. The Go + HTMX descriptions below describe the existing installed/default implementation. React preview/JSON foundation source has started, but the full migration is unbuilt and unvalidated; see the current handoff. The unified frontend includes developer and administrator views, but Forgejo remains upstream owner of its data, rules, permissions and administration. Soda's backend is a development-environment/access extension and bounded API adapter, not a replacement forge backend. Other native, identity and authority boundaries remain in force.
+**Frontend implementation:** preserve Soda's existing React/TypeScript + PatternFly
++ Vite+ + Zustand/Go environment integration and stock Forgejo's server-rendered
+workflows through official template overrides. No React SSR, production Node,
+Tailwind or TanStack is selected. [Dashboard planning](dashboard-plan.md) records
+page ownership. The Go + HTMX descriptions below are the historical installed
+baseline; the handoff owns current evidence, not these initial assumptions.
 
-**Complete-frontend requirement:** every Forgejo-backed user workflow must be
-presented entirely by Soda, including developer/admin screens and authentication,
-password change, MFA and consent. No upstream frontend link or embedded HTML is an
-acceptable fallback. Forgejo still owns authentication, data and business rules;
-missing interfaces require reviewed upstream API/integration work. The existing
-OAuth redirects and legacy pages are implementation gaps to replace, not an
-exception. Do not weaken authentication or change live ingress to conceal them.
-Separate operator Cockpit and ordinary Git/SSH/package protocols remain selected.
+**Complete workflows, not API-only presentation:** native login/password/MFA/
+consent/developer/admin pages remain Forgejo-owned and render through supported
+customization. Integrate Soda navigation/sessions without borrowed cookies or
+weakened security. Keep ordinary Git/SSH/LFS/package protocols and separate Cockpit.
+A missing JSON endpoint is not a missing native workflow.
 
-**Integration revision under review:** the
-[headless Forgejo architecture revision plan](forgejo-architecture-revision-plan.md)
-proposes stock APIs plus bounded Forgejo-side API additions as a first-class
-product integration. It retains the frontend/backend/native topology and all
-provider authority boundaries, while assigning workflow audit, authentication,
-contracts and patch/build maintenance to existing core owners. This is a revision
-plan, not a VM/codebase reset or approval of a concrete patch/upgrade/deployment.
+**No downstream fork:** supported lanes are described in
+[frontend integration](forgejo-frontend-integration.md). If those cannot meet a
+requirement, stop and revisit the architecture with the user. The source/patch
+preparer and headless build/auth/read proposals have been removed; no dormant
+alternate backend or permission to compile a custom Forgejo is retained.
 
 ## 1. Purpose
 

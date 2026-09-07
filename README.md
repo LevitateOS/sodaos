@@ -99,5 +99,5 @@ absence of a license on an inherited file is not an Apache grant.
 Forgejo modifications retain Forgejo's applicable licenses. The appliance also
 contains separately licensed libraries, fonts, tools and runtime packages. Its
 exact corresponding-source/notice delivery and inherited-rights checks remain
-required under [U02's build contract](appliance/forgejo/README.md), not satisfied
+required under [the licensing/delivery contract](docs/licensing.md), not satisfied
 by adding this original-code license.

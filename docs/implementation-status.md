@@ -1,5 +1,52 @@
 # Implementation handoff
 
+## Fork-specific machinery removed
+
+At the user's request, removed the dedicated downstream Forgejo source/patch
+machinery rather than retaining it as a dormant option. Baseline `9a4e370` was clean.
+The inventory found **491 lines of production/tool code, 476 lines of dedicated
+tests, a seven-line lock and 1,456 lines in five supporting documents**: ten files,
+2,430 lines removed. This count excludes additional fork instructions removed from
+broader plans; it is not a count of all Soda's Forgejo integration.
+
+Deleted `internal/forgejobuild/`, `tools/soda-forgejo-source/`, `appliance/forgejo/`
+and the four standalone architecture/headless/auth/read-contract proposals. The
+preparer's only production caller was its build-only CLI. It used standard-library
+Go and native Git, so no dependency removal or go.sum change was needed. No native
+Forgejo patch, new auth/read endpoint, descriptor producer/client, Containerfile or
+aggregate source-build integration had been implemented; there was nothing of
+those kinds to uninstall.
+
+Removed the fork-dependent build/auth/API/rebase assignments from the leading plan,
+page inventory, integration guide and support-plan interfaces. Retained U01–U20,
+the 179 workflow groups and U08 proof/link anchors; owners now preserve/test native
+rendered workflows and legitimate Soda integration rather than create missing APIs.
+The focused template/session integration review is still unfinished, not accepted
+by this cleanup. Only bounded U08 remains accepted (1/20).
+
+Preserved useful source/license findings in `docs/licensing.md` and the H01 register;
+updated root NOTICE/README links without changing the original Apache grant or
+third-party terms. Existing stock-image IID/OCI/stage/install paths, ordinary
+Forgejo API clients/React screens, OAuth/session security, Soda environment code,
+Cockpit/native support and their tests remain. Their active authority defects and
+later coherent replacement/removal are still real work, not fixed by this deletion.
+
+Git history and ignored research/build/failure evidence are retained as history,
+not executable roadmap instructions. Historical handoff entries below describe
+removed source at their original commits. No installed image/service/origin,
+credential, account, project root/workload, retained backup or evidence was removed.
+No template implementation, provider action, deployment, lifecycle or cleanup of
+retained resources is claimed.
+
+Checks: the remaining local Go suite passed with cached dependencies and pinned
+Go 1.26.7 (`GOTOOLCHAIN=local`, `GOWORK=off`, readonly modules, network resolution
+disabled; some package results cached). Document checks passed 20 ordered U tracks,
+three conditional E tracks, all 179 groups assigned once, 21 new/rewritten links
+and 35 incoming plan links/anchors. `git diff HEAD --check` passed. No remaining
+non-historical tracked caller/link to the deleted machinery was found. Logs are in
+`.artifacts/research/fork-removal-9a4e370/`. No frontend/artifact/native-installed
+suite or deployment ran; these are deletion/source checks, not product acceptance.
+
 ## Forking Forgejo is a failure path — hard boundary
 
 The user explicitly ruled out treating a Forgejo fork as a normal implementation
@@ -275,8 +322,8 @@ U01 checklist controls next work rather than restarting their research steps.
 ## Early auth/read contract review drafts — native endpoints not implemented
 
 After source-preparation commit `c9a9be0`, recorded the requested parallel U01/
-U04/U05/U16 review in [the authentication design](forgejo-authentication-design.md)
-and [first read-contract draft](forgejo-read-contracts.md). Updated the leading U
+U04/U05/U16 review in the then-present `docs/forgejo-authentication-design.md`
+and `docs/forgejo-read-contracts.md` (both retained in Git at `542de21`, now removed). Updated the leading U
 plan/headless work package to distinguish implemented source preparation from the
 still-missing image/native API/compatibility spine. Go owns the source preparer and
 its tests through the existing aggregate; no duplicate Python preparer is planned.

@@ -13,9 +13,9 @@ inherited license grants are not supplied by the Apache license for original
 SodaOS work.
 
 Forgejo, Cockpit, HTMX, Tea, frontend dependencies, fonts, runtime packages and
-container inputs retain their respective licenses. A modified Forgejo build
-retains its applicable GPL-3.0-or-later and per-file terms, not an Apache-only
-license. See appliance/forgejo/README.md for source/notices delivery requirements.
+container inputs retain their respective licenses. Forgejo and customized native
+templates retain their applicable GPL-3.0-or-later/per-file terms, not an
+Apache-only license. See docs/licensing.md for source/notices requirements.
 
 This notice records attribution and scope. It is not a complete third-party
 notice bundle or evidence that an appliance distribution has passed its license

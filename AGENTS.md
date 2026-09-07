@@ -58,11 +58,10 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   protocols. Retained operator Cockpit remains a separate selected boundary.
 
 - Forgejo is upstream. Do not take over its business rules, data, permissions or
-  administration, or access its database directly. The superseded headless
-  integration proposal is retained for research in
-  `docs/forgejo-architecture-revision-plan.md`, with its concrete work package in
-  `docs/forgejo-headless-implementation-plan.md`. The source-backed H01 action
-  register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
+  administration, or access its database directly. Supported customization is
+  described in `docs/forgejo-frontend-integration.md`. The fork-specific preparer
+  and proposals have been removed; Git history retains them. The source-backed
+  H01 action register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
   findings before implementing a feature or assuming an API gap.
   **Forking Forgejo is an architectural failure path, not an implementation
   option.** A downstream source patch set/custom executable counts as a fork

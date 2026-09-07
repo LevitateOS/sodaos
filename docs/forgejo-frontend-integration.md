@@ -1,136 +1,60 @@
-# Complete Soda frontend: required integration work
+# Forgejo frontend integration
 
-## Decision and current limits
+Use **official template overrides and native Forgejo rendering**, not a separate
+frontend that requires exposing every workflow as JSON. The
+[leading plan](dashboard-implementation-plan.md) owns implementation and acceptance;
+[H01](forgejo-api-coverage.md) retains source/API/workflow findings, not a patch backlog.
+Only bounded U08 is accepted; U01's architecture acceptance was withdrawn.
 
-The user requires **every Forgejo-backed workflow to stay in Soda's interface**.
-Native Forgejo pages, iframe/re-skinned HTML, external fallback links and silently
-omitted features are not acceptable, even temporarily. This includes developer,
-administrator and authentication/security workflows. Forgejo still owns identity,
-password verification, MFA, permissions, repositories and business rules. No new
-Soda password authority, copied permission inventory or unrestricted proxy follows
-from this decision. Separate operator Cockpit and ordinary Git/SSH/package
-protocols remain selected.
+## Supported lanes before architectural escalation
 
-Removing links is not implementing their replacements. The current OAuth login,
-first-password change and consent still visit Forgejo; legacy HTMX and the current
-browser origin still expose it. These are **open integration/cutover blockers**,
-not exceptions to the requirement. Do not disable working authentication or alter
-live origins/listeners before a replacement is implemented and verified.
+1. Existing native workflows and configuration for the desired behavior.
+2. Custom themes/CSS/assets for presentation.
+3. Dedicated template extension points for small additions.
+4. Whole-template overrides only where extension points are insufficient.
+5. Existing REST/OAuth/webhook integrations for concrete Soda-owned callers.
+6. Native Git/SSH/HTTPS/LFS/package protocols and Actions for their intended uses.
 
-## Full workflow audit follow-up
+These are version-specific interfaces, not a claim that every arbitrary change is
+supported. A missing JSON endpoint does not imply that the native page is missing.
+Forgejo's web handlers call internal services and render templates independently
+of its public API. Do not extract/scrape complete HTML documents into React, borrow
+native cookies or use a privileged token to bypass a missing interface.
 
-The [H01 action register](forgejo-api-coverage.md) now supersedes the earlier
-family-level unknowns with a full v15.0.7 source-surface pass and targeted v16.0.3
-comparison. It finds broader authentication/account/admin/board/review/wiki/package
-gaps, existing APIs needing Soda adapters, and specific UI-only omissions. V16
-adds human Actions job/log/artifact/cancel interfaces; its web auth/mixed-route
-boundary was also traced afresh. It still does not solve the two U09 read APIs or
-complete headless authentication. Baseline/security/contract review remains open;
-no upgrade, patch or deployment followed from the audit.
+## Actual template mechanism and limits
 
-## Newer upstream investigation
+In inspected source, `modules/templates/base.go::AssetFS` layers custom templates
+from `<CustomPath>/templates/` before built-in templates. Shared native templates
+call extension points such as `custom/header.tmpl`, `custom/footer.tmpl`,
+`custom/extra_links.tmpl`, `custom/extra_links_footer.tmpl` and `custom/extra_tabs.tmpl`.
+Preserve native template context, form fields/actions, scripts/assets and security
+checks. This supported customization does not require compiling Forgejo.
 
-Public metadata from
-`https://codeberg.org/api/v1/repos/forgejo/forgejo/releases?limit=20` returned
-**v16.0.3** as the newest stable release (published 2026-08-20), alongside the
-selected v15.0.7. Also inspected the development branch at immutable commit
-`bdc33af0c11568873c336137d404fc327ce0a40e`.
+U01 must inspect the selected stock version/configuration, exact shared shell and
+extension points, custom-path delivery, reload/restart behavior and browser/Soda
+integration before changes. Do not assume a template can arbitrarily call Soda's
+backend or that matching branding establishes a shared authenticated session.
+Prove native form/script compatibility and enrolled-key/origin preservation.
 
-Research, not dependency resolution or an upgrade: public source/metadata copies
-are retained under `.artifacts/research/soda-only-forgejo/`. Source was fetched
-through the repository contents API with explicit tag/commit refs. No release,
-image lock, appliance configuration or installed bytes changed.
+Keep ordinary native pages—including login/password/MFA/consent/admin—working.
+Soda's environment UI and legitimate stock API clients remain separate integration
+responsibilities. Preserve complete user workflows and all conditional-enabled
+features, not necessarily the old duplicate React screens. Retire those callers
+only after verified replacements.
 
-| Inspected surface | v16.0.3 and development snapshot findings |
-| --- | --- |
-| `routers/api/v1/api.go` and `templates/swagger/v1_json.tmpl` | No blame route/schema found. Comparison remains `/repos/{owner}/{repo}/compare/{basehead}`. Diff routes cover a single commit or existing PR; `/diffpatch` is a write operation, not an aggregate read API. |
-| `routers/api/v1/repo/compare.go` | Still appends `apiCommit.Files` from every commit to the result. The `files` option controls inclusion, not aggregate-patch generation. It cannot supply a net changed-file/diff view. |
-| `routers/api/v1/repo/commits.go` | Download still calls `git.GetRawDiff` for a single SHA. |
-| v16.0.3 `modules/git/diff.go` | `GetRawDiff` supplies an empty start commit; `GetRepoRawDiffForFile` first resolves the end as one commit. Passing a revision range to that endpoint does not turn it into a supported aggregate diff. |
-| v16.0.3 `routers/web/repo/blame.go` | HTML view uses native `git.CreateBlameReader`, handles ignore-revs behavior and groups attribution. This is reusable upstream implementation, not a headless response contract. |
-| v16.0.3 `routers/web/repo/compare.go` | `PrepareCompareDiff` uses `gitdiff.GetDiffFull`, before/after SHAs, native limits and explicit direct versus merge-base comparison. The engine exists; its data contract needs exposing without the HTML view. |
+## Hard stopping point
 
-Provenance examples (upstream Git blob IDs, not deployment checksums): v16.0.3
-API router `ec516e79f160d67c46b9ffdbbbc0e0574c3e356a`, comparison handler
-`5ddf158a727b64e9afaa1a0045c3cbf31ce2b931`, schema
-`d2347b6311cfe4b6aa139db7ccdf5e61fe6a3222`; development comparison handler
-`43ee3286cba5db6d4b4ab98b960c1b57938639ed`.
+A downstream Forgejo source patch/custom executable is a **failure path**. Stop
+and explain the exact limitation; revisit the architecture with the user rather
+than invent an API, actor/grant engine, patch series or build pipeline. Separately
+scoped upstream contributions are not permission to depend on an unmerged fork.
+Do not weaken native security or silently remove a required workflow to avoid
+raising the conflict.
 
-**Conclusion:** upgrading to the newest release inspected does not provide the
-two missing U09 data interfaces. No upgrade is recommended merely to solve them.
-This is not a claim about all possible future releases or all Forgejo interfaces.
-The v16 authentication implementation has changed (`services/auth/method/oauth2.go`
-and `auth_result_oauth.go`); do not transplant the v15 route-gate explanation as
-proof of v16 behavior. The H01 follow-up above supplies the fresh route-group
-trace; complete security/baseline qualification and authentication design remain
-necessary.
+The fork-specific source preparer, development lock and native auth/read/build
+proposals have been removed. Git and ignored evidence retain their history; there
+is no dormant alternate backend. See [licensing](licensing.md) for retained notice/
+source obligations, which apply to stock-image/template distribution too.
 
-## Architecture revision plan
-
-The [first-class headless integration revision plan](forgejo-architecture-revision-plan.md)
-turns this research into a proposed ownership/contract/build/acceptance model,
-including authentication and the existing U milestone assignments. It is not
-approval to implement a particular patch or change the running appliance.
-
-## Proposed direction — not yet selected or implemented
-
-Prefer small **Forgejo-owned API additions over its existing engines**, with Soda
-rendering their results. Seek upstream acceptance; if immediate delivery requires
-a maintained downstream patch, obtain approval for that concrete patch/build
-responsibility first. Do not create a Soda repository clone/index or parse Forgejo
-HTML to avoid that decision.
-
-### U09: two bounded read contracts
-
-- **Blame data:** authenticated repository-code read, stable repository and full
-  commit SHA, validated file path and bounded line ranges. Return attribution
-  spans, original paths/line numbers, native commit identities and explicit
-  ignore-revs/binary/encoding/size states. Reuse native blame behavior and expose
-  real truncation; pagination must not imply unlimited native computation.
-- **Aggregate comparison:** authenticated reads for both native targets, resolved
-  base/head/merge-base SHAs and explicit direct versus merge-base semantics.
-  Return net changed files, rename/binary status and bounded diff hunks, with
-  continuation/omission semantics. Reuse Forgejo's comparison/diff engine and
-  permission checks. Do not synthesize a temporary PR or concatenate commit
-  patches to imitate an aggregate diff.
-- Keep handlers inside Forgejo's normal API authentication/scope/repository
-  middleware; narrow Soda adapters return bounded DTOs using acting-user grants.
-  No operator credential, host helper or direct provider filesystem/database
-  access is needed. Endpoint names/DTO details remain proposal work, not invented
-  existing upstream calls.
-- Tests must cover private/read-denied repositories, stale/moving refs, empty and
-  renamed/deleted/binary files, malformed paths, huge history/output, cancellation,
-  ignore-revs, divergent histories, limits and native Git readback. Then build
-  Soda line attribution and aggregate-diff navigation entirely in React.
-
-### Maintenance and delivery cost
-
-A downstream patch means maintaining a Forgejo source/build input instead of
-only consuming its stock image: exact upstream revision plus reviewed patch,
-licenses/source availability, native x86_64/aarch64 builds, packaging identity,
-upstream security-update rebases and regression tests. Coordinate that with the
-core build/config owners; no independent release/update platform is proposed.
-Upstreaming reduces this ongoing cost but does not guarantee acceptance or a
-release date. No contribution, issue, image publication or patched build has
-been performed by this investigation.
-
-These two read contracts do **not** solve the complete frontend on their own.
-Authentication/security may need substantially more upstream work; its scope and
-risk must not be hidden inside a “small two-endpoint patch.”
-
-## Complete-frontend coverage tasks
-
-| Area | Required work / owner |
-| --- | --- |
-| Blame and aggregate diffs | Above contracts plus Soda views and native proof; U09/U17. |
-| Login, initial password change, MFA/passkeys/recovery and consent | Audit headless authentication/challenge capabilities, keeping Forgejo as verifier and enforcing all native checks, replay binding, rate limits and CSRF/session protections. Propose a complete design before replacing current OAuth redirects; U04/U05/U16/U17. No password-store or cookie-borrowing workaround. |
-| Applications/tokens, email/security and site/auth settings | Map every action to verified native authority and interface, then implement required Soda forms; U05/U16/U17. |
-| Actions jobs/steps/logs/artifacts and run controls | Human-authorized endpoints and bounded data/streaming; never runner impersonation. U14/U17. |
-| Hooks, reviews and releases | Finish missing secret/event edits, review details and asset/empty-field semantics instead of provider page links; U11/U12/U15/U17. |
-| Boards, graphs, wiki/packages and remaining administration | Complete the inventory at action level; missing API coverage remains required integration, not a waiver. U10/U13/U15/U16/U17. |
-| Navigation and deployment closure | React explicit provider-page links removed in this source follow-up. Still audit provider-returned URLs, Markdown links, legacy pages, authentication redirects and direct browser ingress. Route owned objects to Soda and deliver files through authorized protocols. Before U18/U20, prove browsers cannot reach Forgejo's frontend while API/Git/package transports and Cockpit remain correctly separated. |
-
-The source-only unavailable messages are truthful development states, **not
-implemented substitutes or acceptable release completion**. U17 cannot close an
-item by recording “native fallback”; U18/U20 cannot claim a complete frontend
-while a required interaction still exposes Forgejo.
+No template override, native upgrade, ingress change or deployment is claimed by
+this guide. Working login and all four persistent environments remain untouched.
