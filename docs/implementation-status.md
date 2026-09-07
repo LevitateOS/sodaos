@@ -179,6 +179,19 @@ the user inspected the preview and reported it looked good. Automated mobile,
 keyboard, provider/passkey, account-link and CAPTCHA browser checks remain unrun.
 Source whitespace checks passed. No full build, test suite or native acceptance.
 
+## Login viewport correction
+
+Removed Forgejo's inherited 80px wrapper bottom padding and first-section margin
+on the login page. The flex layout now reserves the footer's actual height instead
+of assuming a fixed footer size; artwork height and compact spacing adapt to shorter
+viewports. Content may still scroll when genuinely taller than the available space.
+Bumped the login CSS URL and reloaded templates only in the local preview.
+
+Browser measurements confirmed document height and footer bottom equal viewport
+height at 1654×970, 1366×768 and 390×844; mobile width was also exactly 390px.
+Restored the browser viewport afterward. Initial measurements used cached CSS;
+the versioned stylesheet loaded the correction. Whitespace checks passed.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
