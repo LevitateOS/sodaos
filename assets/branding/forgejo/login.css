@@ -123,14 +123,18 @@ body:has(.soda-login) .full.height {
   border: 1px solid var(--login-action);
   border-radius: 999px;
   color: var(--login-on-action);
-  background: linear-gradient(180deg, var(--login-link-ramp-down-1), var(--login-action));
+  /* Tile the grain below native button text; no overlay intercepts clicks. */
+  background-color: var(--login-action);
+  background-image: url("./paper-grain.svg"), linear-gradient(180deg, var(--login-link-ramp-down-1), var(--login-action));
+  background-size: 180px 180px, 100% 100%;
+  background-repeat: repeat, no-repeat;
   box-shadow: inset 0 1px 0 #ffffff66, 0 5px 14px #155eef33;
   font: 600 18px/1.4 Barlow, Arial, sans-serif;
   transition: background 180ms, box-shadow 180ms;
 }
 .soda-login .ui.form .primary.button::after { content: "→"; margin-left: 20px; font-size: 23px; line-height: 0; }
-.soda-login .ui.form .primary.button:hover { background: var(--login-action-hover); box-shadow: inset 0 1px 0 #ffffff66, 0 6px 18px #155eef44; }
-.soda-login .ui.form .primary.button:active { background: var(--login-action-pressed); }
+.soda-login .ui.form .primary.button:hover { background-color: var(--login-action-hover); background-image: url("./paper-grain.svg"); box-shadow: inset 0 1px 0 #ffffff66, 0 6px 18px #155eef44; }
+.soda-login .ui.form .primary.button:active { background-color: var(--login-action-pressed); background-image: url("./paper-grain.svg"); }
 .soda-login a { color: var(--login-link); }
 .soda-login .soda-login-account { font-size: 15px; color: var(--login-muted); margin: 28px 0 0; text-align: center; }
 .soda-login .ui.message { margin: 0 0 24px; }
