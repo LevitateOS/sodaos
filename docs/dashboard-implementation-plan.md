@@ -572,6 +572,101 @@ These concrete techniques were retained from the incoming P07/P08 proposal and a
 
 **Tests/acceptance:** history/ref correctness, stale file edit, protected branch denial, unsafe content/downloads, failed import and permitted fork. Confirm results in native Forgejo and ordinary Git, not only the React state. Unsupported blame/import details remain explicit U17 coverage items.
 
+#### U09 completion plan — existing source to installed acceptance
+
+**Status:** planned, not executed. U08 remains accepted for its recorded scope.
+The browser workspace terminal is a separate requirement, not U09 work. Planning
+does not authorize builds, deployment, new repositories, native Git writes,
+network-policy changes or provider jobs.
+
+**Inspected starting point:** `internal/forgejo/{history,file_writes}.go`,
+`internal/web/history_api{,_test}.go` and
+`dashboard/src/{history,file-editor,repository-copy}.tsx` already connect history,
+commit detail/bounded unified diff, branch/tag listing/creation, comparison,
+SHA-preconditioned file create/update/upload, personal fork and one-time HTTPS Git
+import. Existing focused tests cover stale file conflict, protection denial,
+import owner binding and editor draft retention. This is reusable implementation,
+not full U09 acceptance. Blame is absent; comparison currently shows commit/file
+lists rather than an aggregate diff and has no explicit pagination. History,
+refs, compare and repository-copy surfaces lack dedicated DOM suites.
+
+**Boundaries:** Forgejo owns repository data, visibility, protection, commits,
+forks and imports. Use acting-user grants only, never an operator fallback,
+server-side clone/Git engine, provider database access or HTML scraping. Preserve
+existing bounds (32 KiB writes, 1 MiB diff) unless a concrete reviewed need changes
+them. No repository deletion/transfer/archive, mirroring, PR merge/review engine,
+workspace provisioning, terminal, shared-resource promotion or new scheduler.
+
+| Stage | Implementation and checks | Exit |
+| --- | --- | --- |
+| **A — Close upstream contracts** | Audit selected Forgejo 15.0.7 source/schema/config for commit/file-history/ref/compare/diff/blame, create/update/upload, fork and migration interfaces. Record exact verb/path/scope, ref/path encoding, pagination/truncation, returned SHAs and native failure semantics in `docs/forgejo-api-coverage.md`. Check branch/tag reads currently requiring write scope. Verify whether blame has a supported acting-user interface; absence in Swagger alone is not proof. Inspect import permission/network policy, credential handling, synchronous/task completion and partial-failure behavior. | Every U09 sub-action has a source-backed contract or a precise unresolved capability question. Do not invent an endpoint or silently downgrade scope. |
+| **B — Finish read workflows** | Complete repository/file history, full-SHA commit links, changed files and usable bounded commit/compare diffs. Resolve mutable refs to native SHAs where multiple responses must describe the same revision. Preserve slash/Unicode/space paths and ref names; handle paging, native truncation, empty/binary/large/invalid-encoding results explicitly rather than displaying a partial list as complete. Implement blame with native line attribution and pinned navigation if the supported interface exists. Reuse safe diff presentation with U11 where appropriate, without introducing review semantics or a new rendering dependency by default. | A user can follow file → history/blame → commit/diff and compare two refs without mixed revisions, misleading completeness or unsafe rendering. Unsupported details remain visible. |
+| **C — Harden native writes** | Complete branch/tag creation and file create/edit/upload on explicit writable branches, preserving the native file SHA precondition. Verify returned commit/content identities; do not count unconfirmed/malformed mutation responses as success or replay them. Handle duplicate refs/files, protected branches, invalid refs/paths, empty files, binary replacement and UTF-8 byte limits. Preserve drafts on ordinary failure; prevent pending uploads or late responses from affecting another route/account. Expiry must clear private account state, not persist drafts across users. | Successful operations map to native commit/ref results; stale/denied/uncertain operations cannot overwrite newer work, switch targets or silently retry. |
+| **D — Finish fork/import workflows** | Keep personal destination ownership server-derived and native source visibility enforced. Verify native fork relationship and imported repository identity/readiness before presenting completion. Support the selected one-time HTTPS Git import, not provider-wide issue migration or mirroring. Keep source credentials request-local and absent from logs/storage/errors. Preserve non-secret form inputs where useful; ambiguous failures offer authoritative inspection, not automatic mutation retry. Do not widen Forgejo network policy to get an import test through. | Permitted fork/import works; denial, duplicate name, invalid source, native failure and partial/unconfirmed result are honest. Neither operation calls the environment helper or creates memberships. |
+| **E — Focused regression coverage** | Extend existing provider/web/editor tests; add feature-owned history/ref/compare/blame and fork/import DOM tests. Reuse the real router/session test setup and native HTTP doubles. Cover the matrix below, including negative assertions that repository operations never invoke project provisioning. Add installed U09 coverage under `tests/installed/`, reusing independent OAuth and personal Git mechanisms rather than duplicating a product runner. | Behavior changes have positive/failure/authority tests; authored versus executed results are distinct. |
+| **F — Freeze and validate candidate** | On approval, run focused Go/UI tests, full Go and both dashboard/Cockpit frontend checks, and applicable build/staging/asset tests with pinned tools. Build one clean matching backend/frontend candidate through existing core entrypoints. Preserve prior artifacts. Rehearse against a consistent restricted copy of current populated state, then perform an explicitly approved dashboard rollout on `soda-test`; preserve config consumers, origins, grants, keys and native services. No project image/runtime changes are planned. | Exact candidate checks, backed-up deployment, trusted TLS, asset/API routing, acting-user login and retained service/access smoke checks pass. No U18 cutover or first-install replay. |
+| **G — Native two-user proof** | With separately approved U09 repository fixtures, use actual React actions and Alice/Bob identities. Read native commits/refs/files/fork/import outcomes through supported Forgejo interfaces and ordinary personal Git from existing projects. Exercise stale writes, protected/unauthorized operations and import failure as described below. Compare original Soda environment/membership records and retained project identities; keep intentional test checkouts/results, never reset U08 data. | Native results agree with the UI/API; failures retain their expected class and unchanged target content. No mock, screenshot or mere repository row substitutes for Git/readiness proof. |
+| **H — Close U09** | Reconcile every stage/sub-action with exact revision, tests, installed evidence and limitations. Fix defects and rerun affected checks. Update the coverage register, U09 ledger and implementation handoff; commit coherent source/test/evidence-reference changes. | Mark U09 accepted only when required implemented workflows have native proof and every unavoidable API gap has an explicit disposition. U10 is next; U17/U20 still own broader coverage/final product acceptance. |
+
+**Test matrix — feature-owned, not another framework:**
+
+- **Read correctness:** non-default and slash-containing refs, Unicode/spaces and
+  reserved URL characters in paths, missing/empty repositories, native page caps,
+  history filtered by file, tag targets, changed/renamed/deleted/binary files,
+  bounded/truncated diffs, ref movement during multi-read comparisons and pinned
+  blame line/commit attribution where supported. Show unavailable information,
+  not fabricated zero changes.
+- **Mutation correctness:** exact method/payload/acting token, create versus update
+  SHA requirements, stale 409, native protection denial, duplicate creation,
+  empty/binary content, 32 KiB UTF-8 boundaries, invalid base64 and malformed
+  success responses. Assert a single native mutation on ambiguous failure.
+- **Authority/security:** private source visibility, reader versus writer versus
+  owner, insufficient scope/expired grant, forged destination/owner/URL/path,
+  CSRF/method/body checks, no bootstrap fallback or helper calls, sanitized errors
+  and no import credential persistence/redirect forwarding by Soda.
+- **Browser state:** loading/empty/error states, reliable paging/back navigation,
+  route changes during fetch/upload/save, late responses after logout/account
+  switch, duplicate clicks, preserved same-user drafts on conflict and accessible
+  keyboard/form feedback. Test fork/import failures and unconfirmed outcomes,
+  not only navigation after success.
+
+**Proposed installed fixture scope — requires approval before mutations:**
+
+1. Keep the existing `soda-test`, Alice/Bob accounts, four environments, keys,
+   workloads and U08 repositories intact. No new workspace/project environment,
+   fixture reset, stop/start or reboot is needed for U09.
+2. Request one new private Alice-owned **repository-only** fixture
+   `u09-code-<candidate>`, one Bob-owned fork, one Alice-owned successful import
+   and, if native failure semantics require it, one distinct failed-import target
+   whose partial repository is retained. Names are proposals; trust actual native
+   IDs. Do not touch protection or permissions on U08 repositories.
+3. Begin with Bob denied the private source, then grant native read and write
+   collaboration in explicit phases. Use fixture-only protected branches to
+   demonstrate writer denial without relying on an administrator bypass. Preserve
+   the original ref/file after each rejected write.
+4. Exercise UI-created refs and text/binary files; verify byte-equal contents and
+   commit/ref SHAs through each person's existing independent personal Git
+   credentials, in new U09 checkout directories rather than altering U08 work.
+   Have Alice/Bob load the same file revision, commit one edit and verify the
+   other's stale update fails without losing the draft or newer content.
+5. Check comparison/history/blame against the known commits, then native fork
+   ancestry and import contents. Select an explicitly approved small HTTPS Git
+   source reachable from Forgejo under its **existing** network/TLS policy. A
+   browser-accessible loopback origin is not automatically a valid import source.
+   Credentials, if needed, use restricted per-user inputs; no weakening policy,
+   public publication, borrowed cookies or enabling Actions jobs. Missing approved
+   import access leaves that case unverified.
+6. Keep all successful and partial repository resources, checkouts, snapshots and
+   failure logs. A run-owned fixture is not permission to delete it. Record any
+   later cleanup as a separate exact-resource decision.
+
+**Upstream-gap rule:** if the selected Forgejo cannot supply required blame,
+comparison or import behavior through supported acting-user interfaces, document
+its exact limitation and native fallback in U17 and ask for a scope/disposition
+before declaring U09 complete. Do not replace upstream with a Soda Git backend or
+call the current basic form full parity. A source-only phase can finish useful
+implementation/tests while installed permissions or such decisions are pending.
+
 ### U10 — Issues, labels and milestones
 
 **Primary files:** issues feature, reusable Markdown/form components, native issue/comment/label/milestone adapters and web handlers.

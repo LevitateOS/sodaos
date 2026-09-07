@@ -1,5 +1,23 @@
 # Implementation handoff
 
+## U09 completion plan recorded
+
+Added a source-backed completion sequence under U09 in the leading dashboard
+plan: exact upstream capability audit; history/blame/commit/compare read coverage;
+SHA-bound writes and route/account-safe forms; personal fork/one-time import;
+focused Go/DOM/installed tests; gated matching build/backed-up dashboard rollout;
+real two-user native Git verification; explicit final acceptance/dispositions.
+Inspected current history/file-write web/provider code and editor/fork/import UI
+plus focused tests. Blame, aggregate comparison/paging and dedicated read/copy
+DOM coverage remain gaps, not newly implemented features.
+
+The proposed native run needs separately approved repository-only fixtures and
+an allowed HTTPS import source. It preserves all U08 projects/data and requires
+no new project environment, lifecycle operation, provider job or cleanup. The
+browser workspace terminal stays outside U09. This was documentation/source
+inspection only: no builds, tests, dependency changes, deployment or native/provider
+operations ran. U08 remains accepted; U09 remains incomplete.
+
 ## Release-day public handbook authored
 
 Added `docs/public/`: five sections, 22 published pages plus the unpublished
