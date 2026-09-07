@@ -19,7 +19,6 @@
 					{{ctx.Locale.PrettyNumber .IssueStats.ClosedCount}}&nbsp;{{ctx.Locale.Tr "repo.issues.closed_title"}}
 				</a>
 			</div>
-			{{template "user/dashboard/navbar" .}}
 			<form class="list-header-search ui form ignore-dirty">
 				<div class="ui search fluid action input">
 					<input type="hidden" name="type" value="{{$.ViewType}}">
@@ -95,6 +94,7 @@
 					</div>
 				</div>
 			</div>
+			{{template "user/dashboard/navbar" .}}
 		</div>
 		{{template "shared/issuelist" dict "." . "listType" "dashboard"}}
         </div>

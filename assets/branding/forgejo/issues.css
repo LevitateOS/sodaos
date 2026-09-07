@@ -4,13 +4,13 @@
 .soda-issues-intro > div { padding-top: 13px; }
 .soda-issues-intro img { width: 280px; max-width: 30%; height: auto; }
 .soda-issues-panel { background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
-.soda-issues-panel > .list-header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; padding: 20px 22px; margin: 0; border-bottom: 1px solid var(--explore-edge); }
+.soda-issues-panel > .list-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 20px 22px; margin: 0; border-bottom: 1px solid var(--explore-edge); }
 .soda-issues .list-header-toggle { align-self: center; }
 .soda-issues .list-header-toggle .item { color: var(--explore-muted); padding: 10px 12px; font: 600 16px Barlow,sans-serif; }
 .soda-issues .list-header-toggle .active.item { color: light-dark(#087c65,#5ef3d2); background: transparent; border-color: light-dark(#087c65,#5ef3d2); }
 .soda-issues .list-header > .secondary-nav { margin: 0; justify-self: end; }
 .soda-issues .secondary-nav .ui.dropdown.jump > .menu { left: auto; right: 0; }
-.soda-issues .list-header-search { min-width: 0; max-width: none; width: 100%; }
+.soda-issues .list-header-search { flex: 1; min-width: 180px; max-width: none; width: auto; }
 .soda-issues .list-header-search input { min-height: 46px; background: var(--explore-canvas); color: var(--explore-text); border-color: var(--explore-edge); font-family: Barlow,sans-serif; }
 .soda-issues .list-header-search .button { background: var(--soda-light-action); color: white; }
 .soda-issues .list-header > .ui.secondary.menu { margin: 0; gap: 10px; align-items: center; }
@@ -32,8 +32,7 @@
  .soda-issues > .ui.container { width: calc(100% - 32px) !important; }
  .soda-issues-intro { gap: 12px; }
  .soda-issues-intro img { max-width: 25%; }
- .soda-issues-panel > .list-header { padding: 16px; grid-template-columns: minmax(0,1fr); gap: 14px; }
- .soda-issues .list-header > .secondary-nav { grid-row: 2; justify-self: start; }
+ .soda-issues-panel > .list-header { padding: 16px; gap: 14px; }
  .soda-issues .secondary-nav .ui.dropdown.jump > .menu { left: 0; right: auto; }
  .soda-issues .list-header > .ui.secondary.menu { flex-wrap: wrap; }
  .soda-issues #issue-list { padding-inline: 16px; }
@@ -48,9 +47,7 @@
 .soda-issues #issue-list > .tw-text-center p { color: var(--explore-muted) !important; font: 400 16px/1.6 Barlow,sans-serif; }
 .soda-issues-panel > .list-header > * { order: 0; }
 @media (max-width: 700px) {
- .soda-issues-panel > .list-header > .list-header-toggle { grid-row: 1; }
- .soda-issues-panel > .list-header > .list-header-search { grid-row: 3; }
- .soda-issues-panel > .list-header > .ui.secondary.menu { grid-row: 4; }
+ .soda-issues-panel > .list-header > .list-header-search { flex-basis: 100%; }
 }
 /* Pull requests: title, origin/event, then branch and review metadata. */
 .soda-pulls #issue-list .issue-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
