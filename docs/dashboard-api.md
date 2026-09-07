@@ -65,6 +65,12 @@ this retained API. The leading plan owns that next source slice.
 
 ## Browser/session/security contracts
 
+**Known source gaps:** new joins still lack repository authorization, and in-flight
+OAuth callbacks can issue a new session after Soda logout. The
+[logout fix](sodaspaces-plan.md#oauth-callback-and-logout-fix) and
+[repository authorization fix](sodaspaces-plan.md#repository-authorization-fix)
+are not implemented; refresh/logout tests do not establish callback cancellation safety.
+
 - `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
   `repository_id` and `expected_user_id` with the same positive-ID representation;
   omit unavailable context, never send zero. IDs are stored with the single-use
@@ -95,7 +101,8 @@ this retained API. The leading plan owns that next source slice.
   Cookie paths do not isolate mutually untrusted applications on the same origin.
 - Keep single-use state, PKCE, callback binding, cookie protections, session rotation,
   the existing provider/session-bound grant encryption, serialized refresh and
-  logout-winning persistence. No second password or provider-role authority.
+  logout-winning grant refresh. Callback/logout finalization still needs the fix
+  above. No second password or provider-role authority.
 - API IDs are decimal strings. Unsafe methods require the exact configured `ForgejoURL` Origin,
   same-origin fetch metadata when present, a matching `X-CSRF-Token` and UTF-8 JSON.
   Bodies are bounded to 64 KiB; unknown/trailing fields/data fail. Outputs/errors

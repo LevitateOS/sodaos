@@ -6,7 +6,9 @@ Both old Soda frontends and duplicate forge adapters are removed; the drawer and
 its complete authenticated integration are **not implemented**. Step 1 is underway:
 routing/configuration/scoped cookies and backend actor/return context are in source.
 Native-page wiring and real browser/proxy proof remain pending. Steps 2–6 are not
-completed.
+completed. The [security review](implementation-status.md#security-review-and-fix-plan)
+confirmed two existing gaps: callbacks can outlive Soda logout, and new joins do
+not check repository access. Their fix plans below are **not implemented**.
 
 ## Selected approach
 
@@ -30,7 +32,10 @@ completed.
 
 Keep each slice coherent, with its focused tests and affected guide updates in the
 same change. The [API guide](dashboard-api.md) describes today's retained endpoints;
-planned changes here do not claim those contracts already exist.
+planned changes here do not claim those contracts already exist. Deliver the two
+security fixes as separate backend/test commits in steps 1 and 2, without waiting
+for the drawer. Move new-join authorization out of the later UI slice. Both fixes
+must land before mutation controls or rollout; hiding buttons does not protect APIs.
 
 ### 1. Establish the browser-to-backend contract
 
@@ -76,6 +81,60 @@ Forgejo OAuth/proxy browser round trip under approved fixture scope before enabl
 mutation controls; mocks are not that proof. If supported mechanisms cannot meet
 this contract, stop and explain the precise gap—no fork or substitute frontend.
 
+#### OAuth callback and logout fix
+
+**Files:** `internal/web/{auth,api}.go`, `internal/store/{store,grants,migrations}.go`
+and their focused tests. Preserve the existing PKCE/state/cookie/actor/consent and
+safe-return checks; no provider changes or global logout mechanism.
+
+1. Promote the review's paused-callback/logout reproduction into a normal Go
+   regression test. The invariant is **no usable session/grant can survive a
+   successful Soda logout of the same login context**, even if callback response
+   headers arrive later. Checking the old session before network I/O or merely
+   clearing the OAuth cookie is insufficient.
+2. Add one small persisted, opaque browser-login context, referenced by Soda sessions
+   and OAuth transactions, never a new identity authority or public API field. Its
+   current OAuth state hash is the pending-attempt marker; no extra generation
+   counter or new browser cookie is needed. `/login` reuses the authenticated
+   session's context, or a valid pending OAuth cookie's context
+   for an anonymous flow, and atomically replaces that marker with the new attempt.
+   A genuinely fresh anonymous start creates a context. A cancelled/expired bound
+   attempt must never fall back to anonymous completion.
+3. Keep OAuth state single-use before provider exchange. Retain the context marker
+   while that exchange/identity/consent/repository lookup is in flight. Afterwards,
+   one short store transaction must check the live context and matching marker,
+   consume the marker, save the profile, rotate the session and insert its encrypted
+   grant together. A missing/superseded marker fails closed with an explicit restart
+   message and no profile/session/grant write or session-cookie replacement. Do not
+   hold a database transaction or introduce a login-context lock across provider
+   HTTP calls; keep the existing serialized grant refresh.
+4. After the existing actor/CSRF checks, logout atomically invalidates that context,
+   its pending attempt and attached session/grant. Carry the context from the
+   authenticated request so an already-authorized logout still removes a replacement
+   if callback commits first; do not rely solely on deleting the old cookie's row.
+   If logout commits first, callback finalization fails. A late cookie for a deleted
+   session is unusable. A stale, unauthenticated logout must not falsely report 204.
+   Do not cancel another browser context or all sessions belonging to the user.
+5. Preserve normal first sign-in and explicit later re-authentication. Superseded
+   callbacks must not expire a newer flow's cookies. Keep context/attempt expiry
+   bounded to the associated session/login lifetime; restarting the process cannot
+   restore a cancelled attempt. Native Forgejo logout and Linux access stay separate.
+6. Use an append-only migration for the bounded context records/references. Give
+   existing Soda sessions independent contexts without changing token hashes,
+   identities, expiry or grant ciphertext/key. Old pending OAuth rows lacking the
+   cancellation binding must require a new sign-in, not gain an anonymous fallback.
+   Update API/credential guides with that compatibility rule and rehearse before
+   deployment; do not rewrite v4, downgrade markers or touch retained private state.
+
+**Tests/exit:** deterministic barriers cover logout while exchange/return lookup is
+paused, callback commit before an already-authorized logout, delayed Set-Cookie,
+pending and claimed attempts, superseding sign-in, anonymous success, explicit
+sign-in after logout, expiry/replay/restart and transaction failure. Verify no
+resurrection, no stale profile changes, and unrelated sessions/grants preserved.
+Retain refresh/logout tests. Genuine v3/v4 migration fixtures must preserve product
+records/encrypted bytes and reject wrong/missing keys before schema changes. These
+are Soda handler/store tests, not new upstream authentication conformance tests.
+
 ### 2. Make environment reads repository-scoped
 
 **Files:** `internal/web/{environments_api,environment_authority}.go`,
@@ -98,6 +157,56 @@ this contract, stop and explain the precise gap—no fork or substitute frontend
 **Exit:** tests cover absent/existing/incomplete state, inaccessible and invalid IDs,
 rename/transfer, human/org-owner versus administrator boundaries, provider failure
 and no cross-project disclosure through alternate routes.
+
+#### Repository authorization fix
+
+**Files:** the step-2 owners above plus `internal/web/provider.go` where its existing
+acting-grant handling is reused. No helper protocol, Linux account or permission
+inventory redesign. Implement the new-join guard here, not when UI buttons arrive.
+
+1. Promote the review's catalog → unauthorized new join reproduction into focused
+   handler tests. Require bounded, canonical, single `repository_id` input for the
+   collection read and use the unique stored association directly. Resolve native
+   visibility first; denial/unavailability is never an empty successful lookup.
+2. For a **new** join, load the retained association server-side and use its stable
+   `RepositoryID`, never caller-supplied owner/repository/privilege fields. Require
+   the actor's grant and actual `read:user` / `read:repository` consent; verify the
+   fresh provider subject matches the Soda session and call `RepositoryByID` with
+   that same grant. Use the verified current login for new Linux-name validation.
+   Neither Soda operator nor generic site/org administrator status bypasses this
+   new-join check. Native
+   repository visibility suffices; do not invent an owner-only/write-role rule.
+3. Complete authorization before disclosing provisioning state or invoking the
+   helper. Missing/revoked grants, missing consent, subject mismatch, 403/404,
+   malformed/oversized responses and provider failure must produce the existing
+   sanitized authentication/denial/unavailable errors with **zero native account
+   calls and no membership write**. Do not fall back to setup credentials, cached
+   ownership or a prior drawer read. Recheck on each new-join request; permission
+   can still change upstream afterwards, so promise no distributed atomicity.
+4. Apply the read boundary to direct-ID detail/member callers too: an ordinary
+   nonmember needs current repository visibility before metadata/native inspection.
+   Keep explicit Soda operator inspection and existing members' legitimate degraded
+   own-account/connection reads. Full member lists still require current human/org
+   ownership or the configured Soda operator; visibility alone is not elevation.
+   Connection remains own-membership-only. Reuse verified request-local context
+   rather than duplicating provider calls or persisting copied permissions.
+5. Existing-member joins stay non-mutating/idempotent and retain their original
+   Linux login; do not reinstall keys or revoke access on provider failure. For
+   authorized new members retain readiness/key/Linux-name checks, the fixed account
+   helper, and membership only after confirmed success. Preserve honest native/
+   persistence failures and no automatic retry. Adapt callers/errors to the removed
+   catalog; stable-ID creation and drawer controls remain the separate step-4 work.
+
+**Tests/exit:** cover valid own/collaborator joins; no grant/consent; denial, timeout,
+invalid response and subject mismatch; rename/transfer; operator/admin non-bypass;
+direct-ID disclosure; and provider access lost between a drawer read and join.
+Assert helper-call and membership-write absence on every new-join denial. Preserve
+original-login/idempotent/degraded own-member and explicit operator-read tests,
+CSRF/actor checks, concurrent joins, native failure and result-persistence failure.
+Run the full Go suite and focused web/store/Forgejo/config races for both fixes,
+plus affected documentation checks. Real browser/proxy/access proof still requires
+its separately approved scope; neither mocked helper success nor these fixes revoke
+existing Linux accounts, keys, SSH sessions or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
@@ -137,10 +246,11 @@ controls are enabled yet; native rendering is not inferred from fixture markup.
 2. **Save public key:** show registered development-key summaries; when needed,
    accept one public key through the retained key API. No private-key upload,
    native Git-key changes, key selector or automatic later propagation.
-3. **Add me:** check the current actor's repository access for a new join, then use
-   the real account/key helper and record membership only after confirmed success.
-   Existing members retain their original login. Surface unsupported Linux names,
-   native-account failure and result-persistence failure without automatic repair.
+3. **Add me:** wire the already-protected join from the
+   [step-2 authorization fix](#repository-authorization-fix), using the real account/
+   key helper and recording membership only after confirmed success. Existing
+   members retain their original login. Surface unsupported Linux names, native-
+   account failure and result-persistence failure without automatic repair.
 4. **Connect:** display the member's current project login/IP, readonly SSH command,
    native Copy control and public host-key fingerprint. Stopped/unavailable state
    must not advertise a usable connection; an IP is not proof of client routing.

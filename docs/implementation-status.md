@@ -207,8 +207,34 @@ only login/logout while Soda's session is unchanged is not detectable by this he
 no atomic cross-system logout is claimed. See the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
 The drawer, repository-scoped reads and mutation controls are not implemented.
 
+## Security review and fix plan
+
+Additional review at `a9fef51` confirmed two pre-existing gaps, **not fixes or new
+regressions in that commit**: an in-flight OAuth callback can create a live Soda
+session/grant after Soda logout succeeds; and the trusted-team catalog/new-join
+handlers do not enforce repository visibility. The latter is the already-planned
+repository-scoping boundary, now explicitly required before UI work enables joins.
+
+Review checks actually run: uncached web/store/config/Forgejo Go race suites passed;
+two review-only negative assertions failed, reproducing the gaps through real Soda
+handlers/temporary SQLite with fake provider/helper responses. Retained source,
+overlay, logs and exit records: `.artifacts/research/sodaspaces-security-a9fef51/`.
+No tracked source, installed state, provider or native operation changed in review.
+The existing logout-winning persistence evidence covers grant refresh, not callbacks.
+
+The user then requested a fix plan. The existing [step-1 callback/logout plan](sodaspaces-plan.md#oauth-callback-and-logout-fix)
+selects a bounded persisted login context and atomic cancellation/finalization;
+the [step-2 repository plan](sodaspaces-plan.md#repository-authorization-fix) moves new-join
+authorization ahead of drawer wiring while preserving legitimate existing-member
+access. Both remain **planned, unimplemented**. No schema change, session invalidation
+or Linux revocation has occurred. This planning change edits documentation only;
+relative-link/anchor and whitespace checks ran, not additional product tests or builds.
+Native browser/proxy proof, migration rehearsal and rollout remain separately scoped.
+
 ## Remaining work and permission boundary
 
+- Implement the two planned security fixes and their regression tests before
+  mutation controls or rollout; no current API protection is inferred from the plan.
 - Implement/prove the supported native button/drawer/authenticated Soda connection,
   then explicit create/join/key/connection controls and existing-account terminal.
   The verified template hook alone is not this integration. Stop if it needs a fork.
