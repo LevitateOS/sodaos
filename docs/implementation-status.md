@@ -1,5 +1,62 @@
 # Implementation handoff
 
+## H02 source preparation started — development candidate only
+
+The user authorized implementation of the next-work plan after `2ff9e44`, including
+local builds/tests but **not deployment, retained-project changes, lifecycle or
+cleanup**. Started from that clean tree. The first implementation is core-owned
+Forgejo source preparation, not completion of the planned batch or of H02.
+
+- Added `appliance/forgejo/source.lock.json`, its README, the Go build-only
+  `tools/soda-forgejo-source` entrypoint and `internal/forgejobuild/` with focused
+  tests. No new Go module/frontend dependency, provider API, application service,
+  patch, native image recipe or aggregate-build/staging change.
+- Locked **16.0.3 as a development candidate only**. A fresh commit-addressed
+  Codeberg archive download matched H01's SHA-256 and Git PAX commit metadata.
+  Public support metadata inspected on 2026-09-07 reports stable support through
+  **29 October 2026**, versus installed 15.0.7 LTS through **15 July 2027**. The
+  useful v16 human Actions APIs favor avoiding backports, but release adoption
+  needs a named supported-release/security owner, complete dependency/license/
+  migration review and installed proof. This is not approval of an upgrade.
+- The preparer verifies bounded lock/archive/patch snapshots, extracts only safe
+  source entries, applies a contiguous reviewed patch series with native Git in
+  an isolated fresh output, and writes a content/type/mode/link/lock receipt only
+  after success. HTTP is public locked-commit-only, finite and no-redirect/no-retry;
+  malformed inputs and partial failures cannot become prepared output. Failed
+  attempts are preserved. The empty patch list advertises no native extension.
+- Existing `forgejo.iid`/OCI/staging/sealing/install paths are not rewired yet.
+  Native build-image input pins, complete upstream frontend/Go/runtime build,
+  corresponding source/notices payload and downstream tree/identity verification
+  remain H02 work. A prepared source receipt is not a native binary, image,
+  bit-for-bit reproducibility claim or provider conformance result.
+
+**Executed local evidence:** Go **1.26.7** focused tests (15 top-level tests), focused
+race checks and `go test -mod=readonly ./...` passed. The aggregate reused cached
+unchanged-package results; the new source tests ran. The real v16 commit archive
+passed both the local-file and public-HTTPS preparer paths; their source/lock
+receipts match. These `go run` invocations compiled/executed the build-only Soda
+preparer, not Forgejo. No frontend or full native build/check pipeline was run.
+
+The first real preparation failed with `unexpected archive root`: Go's tar reader
+exposes Git's global PAX header. Kept that output/log, then explicitly validated
+its commit metadata and reran into fresh outputs successfully. No evidence was
+replaced or removed. Logs, the archive/provenance and failed/successful preparations
+are in ignored `.artifacts/research/headless-2ff9e44/` (`source-tests-first.log`,
+`source-tests-pax.log`, `source-tests-complete.log`, `source-race.log`,
+`prepare-local.log`, `prepare-local-pax.log`, `prepare-download.log`, `all-go.log`,
+`source-tests-final.log`, `source-race-final.log`, `all-go-final.log`).
+Source hash for matching successful preparations:
+`373a15421f722aede9e9399cb135be169bbd71e2facedeed342f62c9a4d4dd3f`;
+lock hash `1639438adc2de03edc7545e023b7b62c97f6ed93c93a17ae05b0174cf77ec259`.
+Those identify this source preparation, not installed bytes.
+
+Installed affected components remain last recorded at `8b823db`; Forgejo service
+source remains 15.0.7. All four environments, logins, private credentials, keys,
+checkouts, workloads and failed native evidence were untouched. No provider,
+fixture/account/repository, network/origin, service, reboot, cleanup or publication
+action occurred. H01 remains complete source discovery; **only bounded U08 is
+accepted (1/20)**. H02 is partial; H03–H08 product implementation remains pending.
+
 ## Dashboard implementation plan revised after H01
 
 At the user's request, revised `docs/dashboard-implementation-plan.md` against the
