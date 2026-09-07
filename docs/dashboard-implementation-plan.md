@@ -71,8 +71,12 @@ first-class integration boundary: suitable stock APIs plus reviewed Forgejo-side
 API additions sharing native application functionality. It defines workflow audit,
 authentication/security design, interface contracts, patch/build maintenance,
 preservation and acceptance, assigned to the existing U owners—not a new milestone
-sequence. No patch, version upgrade, authentication mechanism or deployment is
-selected by this planning work. U08 evidence and current data remain unchanged.
+sequence. The [headless implementation work package](forgejo-headless-implementation-plan.md)
+now defines concrete paths/tasks, native patch-build integration, compatibility
+contracts, first U09 implementation and recurring upstream-update verification.
+H01–H08 are tasks assigned to existing U owners, not additional product milestones.
+No patch, version upgrade, authentication mechanism or deployment is selected by
+this planning work. U08 evidence and current data remain unchanged.
 
 ## 1. Governing decisions
 

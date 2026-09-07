@@ -60,7 +60,8 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
 - Forgejo is upstream. Do not take over its business rules, data, permissions or
   administration, or access its database directly. The proposed first-class
   headless integration revision is in
-  `docs/forgejo-architecture-revision-plan.md`: bounded Forgejo-side API additions
+  `docs/forgejo-architecture-revision-plan.md`, with its concrete work package in
+  `docs/forgejo-headless-implementation-plan.md`: bounded Forgejo-side API additions
   may be designed over shared native functionality, but concrete patch contracts
   and maintenance responsibility need review before implementation. Do not fork
   its business rules or build a competing backend for UI parity.

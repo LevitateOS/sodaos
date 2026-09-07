@@ -13,6 +13,12 @@ to those owners, not another milestone counter or qualification pipeline.
 [coverage register](forgejo-api-coverage.md), [architecture](architecture.md),
 [deferred scope](deferred.md) and [handoff](implementation-status.md) apply.
 
+**Implementation work breakdown:**
+[`forgejo-headless-implementation-plan.md`](forgejo-headless-implementation-plan.md)
+assigns concrete source paths, H01–H08 tasks within existing U owners, contract
+compatibility, native build integration, upgrade/rebase checks and delivery gates.
+It is authored work, not evidence that patches or interfaces already exist.
+
 ## 1. Architectural commitment
 
 **Soda is the complete presentation layer. Forgejo is the application authority.

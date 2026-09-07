@@ -1,5 +1,36 @@
 # Implementation handoff
 
+## Headless implementation and upstream-change resilience plan authored
+
+Added `docs/forgejo-headless-implementation-plan.md` at the user's request, linked
+from the architecture revision, leading core plan, coverage register and AGENTS.
+It turns the proposed boundary into H01–H08 work packages assigned to existing
+U owners: workflow audit, verified source/patch build, minimal explicit interface
+compatibility, first blame/aggregate-diff slice, parallel authentication/security
+design, remaining coverage, recurring upstream-update tests and preserved rollout.
+These are tasks, not a second milestone count or P-owned readiness gate.
+
+Inspected the actual Forgejo service reference and native build caller: Forgejo
+is currently pulled alongside Caddy. The plan specifies a reviewed source/patch
+build feeding the existing image/IID/staging contracts, without changing Caddy or
+adding a permanent stock/patched selector. Proposed tracked lock/patch/build/test
+paths do not yet exist. No hashes, API endpoints, maintainers, version selection
+or successful compatibility evidence were fabricated.
+
+“Future-proofing” is bounded: detect missing interfaces before screens, explicit
+contract revisions with safe failures, shared native authority/implementation,
+real contract tests on every proposed update and patch retirement when upstream
+supplies an equivalent interface. No plugin framework, discovery platform, clone
+cache, role mirror or automatic CI/update mechanism. Authentication remains its
+own design gate rather than being inferred from the two read APIs.
+
+Documentation only: source inspection and `git diff --check`; no tests/builds,
+dependency resolution, patch implementation, deployment, provider mutations or
+infrastructure changes ran in this turn. Prior local build/test authorization
+remains valid. Current installation, four projects and U08 evidence are unchanged.
+Next: H01 workflow audit, concrete contract/baseline/maintenance review, then the
+specified implementation commits; no renewed native-frontend fallback decision.
+
 ## Headless Forgejo architecture revision plan authored
 
 At the user's request, added `docs/forgejo-architecture-revision-plan.md` and linked

@@ -5,7 +5,10 @@ including authentication/security and administration. Native frontend fallbacks
 are rejected, not a disposition available for U17 acceptance. See the
 [newer-version investigation and proposed integration work](forgejo-frontend-integration.md).
 Missing APIs remain implementation requirements; no patch or upgrade is selected
-by recording a gap.
+by recording a gap. The [headless implementation plan](forgejo-headless-implementation-plan.md)
+uses this register as its single H01 action audit and adds compatibility/update
+tests, not a parallel inventory. For each new workflow, distinguish missing native
+interfaces from existing interfaces needing adapters or unfinished Soda screens.
 
 **U01 in progress.** Schema presence is source evidence, not proven scope/authority or installed behavior. No new live provider operations have run. The [core plan](dashboard-implementation-plan.md) owns the implementation; [current JSON contracts](dashboard-api.md) distinguish shipped source handlers from this inventory.
 
