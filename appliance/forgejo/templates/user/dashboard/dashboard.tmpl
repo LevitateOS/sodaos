@@ -9,11 +9,13 @@
       </div>
       <img class="soda-dashboard-art" src="{{AssetUrlPrefix}}/soda/forgejo/dashboard-papercraft.png" alt="" width="1536" height="1024">
     </section>
-    {{template "user/dashboard/navbar" .}}
     <div class="soda-dashboard-grid">
       <section class="soda-dashboard-feed" aria-labelledby="soda-activity-title">
         {{template "base/alert" .}}
-        <div class="soda-dashboard-heading"><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
+        <div class="soda-dashboard-heading">
+          <div><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
+          {{template "user/dashboard/navbar" .}}
+        </div>
         {{template "user/heatmap" .}}
         {{if .Feeds}}{{template "user/dashboard/feeds" .}}{{else}}{{template "user/dashboard/guide" .}}{{end}}
       </section>
