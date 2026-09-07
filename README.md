@@ -4,7 +4,7 @@ Persistent, shared development environments on an immutable appliance host. Deve
 
 **The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Recorded native x86_64 build/source checks passed, but the merged tree, including branding, console and project-CLI follow-ups, has not been rebuilt or retested. Full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
 
-**Frontend direction:** native Forgejo pages with supported customization and the planned **Sodaspaces** repository tab/environment drawer. The standalone React dashboard and duplicate forge adapters have been removed from source; the Go/HTMX environment/access service, OAuth/security/native integration and separate Cockpit pages remain. The drawer is not implemented or deployed. See the [leading plan](docs/dashboard-implementation-plan.md) and [current handoff](docs/implementation-status.md).
+**Frontend direction:** native Forgejo pages with supported customization and the planned **Sodaspaces** repository tab/environment drawer. The standalone React dashboard and duplicate forge adapters have been removed from source; the old Go/HTMX frontend is now removed too. The Go environment/access API, OAuth/security/native integration and separate Cockpit pages remain. The drawer is not implemented or deployed. See the [leading plan](docs/dashboard-implementation-plan.md) and [current handoff](docs/implementation-status.md).
 
 **Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite. The active [support tool source and recipes](docs/native-support.md) are now authored, with tests not yet executed; no new native readiness is claimed.
 
@@ -18,7 +18,7 @@ CoreOS host — operator administration only
 │   ├── Restricted Soda project helper
 │   └── Local CI runners
 └── Podman
-    ├── Soda dashboard — Go + HTMX, persistent SQLite database
+    ├── Soda service — Go API/OAuth, persistent SQLite database
     ├── Forgejo — identity and Git, persistent data and its own SQLite database
     ├── Caddy — private HTTPS endpoints
     └── Persistent project environments — Rocky Linux + mise
@@ -35,9 +35,13 @@ Native package layering and initial services have been exercised on the isolated
 
 ## Developer workflow
 
-1. The operator establishes Forgejo and Soda administration, then creates people through Soda.
-2. Developers sign in through Forgejo and register public SSH keys in their Soda profiles. Private keys stay on their clients.
-3. A repository's human owner selects it from the Projects repository picker and creates its environment. Repositories with an existing environment are excluded. That owner administers the project, not the host.
+**Target workflow:** native Forgejo pages plus the planned Sodaspaces integration.
+Both old Soda frontends are removed from source; new browser controls are not yet
+implemented. Existing protected APIs and native provisioning remain.
+
+1. The operator establishes Forgejo/Soda access; native Forgejo handles account administration.
+2. Developers sign in through Forgejo and register development-access public keys through the planned Sodaspaces controls. Private keys stay on their clients.
+3. A repository's human owner explicitly creates its shared environment through Sodaspaces. That owner administers the project, not the host.
 4. Each person explicitly selects **Add me to this project**, including the creator.
 5. Developers connect directly to the project's IP, for example `ssh alice@192.168.1.101`, and use ordinary SSH commands, SCP and SFTP.
 6. Personal checkouts coexist with shared files, actual shared mise installations and project services. Git credentials remain separately managed by Forgejo.
@@ -57,7 +61,7 @@ Project IPs use a separate routed bridge subnet. Developer clients need a LAN ro
 | Path | Purpose |
 | --- | --- |
 | `cmd/`, `internal/` | Go dashboard, database, provider clients and native helpers |
-| `internal/web/` | Embedded Go/HTMX pages and retained Soda environment/access APIs; no standalone React dashboard |
+| `internal/web/` | Soda environment/access APIs and OAuth; no standalone React or Go/HTMX frontend |
 | `cockpit/` | Retained TypeScript/React Tailnet and Runners pages and tests |
 | `project-os/` | Rocky project image, accounts, SSH, shared tools and workload configuration |
 | `appliance/` | Native services, Quadlets, configuration and activation source |
@@ -86,7 +90,7 @@ Native execution has started on the x86_64 builder and its isolated `soda-test` 
 
 The implementation targets native x86_64 and aarch64 independently. Evidence on one is not evidence on the other, and an unavailable sibling does not block useful authorized work.
 
-Selected native/Cockpit code is reused from the predecessor repository, with attribution in the handoff and retained license files. Vendored HTMX and its license are under `internal/web/static/`.
+Selected native/Cockpit code is reused from the predecessor repository, with attribution in the handoff and retained license files. The old vendored HTMX payload/license and embedding code were removed with that frontend; their historical attribution remains in Git.
 
 ## License
 

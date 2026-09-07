@@ -30,17 +30,3 @@ func (s *Server) apiForgejoMe(w http.ResponseWriter, r *http.Request, v store.Se
 		Admin bool   `json:"is_admin"`
 	}{strconv.FormatInt(user.ID, 10), user.Login, user.Name, user.Admin})
 }
-
-// Both retained HTML pickers use bounded, explicit native pages.
-func apiPage(w http.ResponseWriter, r *http.Request) (int, bool) {
-	value := r.URL.Query().Get("page")
-	if value == "" {
-		return 1, true
-	}
-	page, err := strconv.Atoi(value)
-	if err != nil || page < 1 || page > 1000000 {
-		jsonError(w, 400, "invalid_page", "Page must be between 1 and 1000000.")
-		return 0, false
-	}
-	return page, true
-}

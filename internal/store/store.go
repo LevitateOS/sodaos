@@ -103,22 +103,6 @@ func (s *Store) RenameProfile(ctx context.Context, id int64, name string) error 
 	_, err := s.db.ExecContext(ctx, `UPDATE users SET name=? WHERE id=?`, name, id)
 	return err
 }
-func (s *Store) Users(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,login,name FROM users ORDER BY login`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []User{}
-	for rows.Next() {
-		var u User
-		if err = rows.Scan(&u.ID, &u.Login, &u.Name); err != nil {
-			return nil, err
-		}
-		out = append(out, u)
-	}
-	return out, rows.Err()
-}
 func (s *Store) AddKey(ctx context.Context, uid int64, public, fingerprint string) error {
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO keys(user_id,public,fingerprint) VALUES(?,?,?)`, uid, public, fingerprint)
 	return err
@@ -201,19 +185,14 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return err
 }
 
-type OAuthRequest struct {
-	Verifier, ReturnPath string
-}
-
-func (s *Store) BeginOAuth(ctx context.Context, state, verifier, returnPath string) error {
-	if returnPath != "/projects" && returnPath != "/app/" {
-		return errors.New("unsupported OAuth return path")
-	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,return_path) VALUES(?,?,?,?)`, hash(state), verifier, time.Now().Add(10*time.Minute).Unix(), returnPath)
+func (s *Store) BeginOAuth(ctx context.Context, state, verifier string) error {
+	// The historical return_path column/default is retained for schema compatibility
+	// only. Browser destinations are no longer stored or consumed by Soda.
+	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires) VALUES(?,?,?)`, hash(state), verifier, time.Now().Add(10*time.Minute).Unix())
 	return err
 }
-func (s *Store) ConsumeOAuth(ctx context.Context, state string) (OAuthRequest, error) {
-	var v OAuthRequest
-	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier,return_path`, hash(state), time.Now().Unix()).Scan(&v.Verifier, &v.ReturnPath)
-	return v, err
+func (s *Store) ConsumeOAuth(ctx context.Context, state string) (string, error) {
+	var verifier string
+	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier`, hash(state), time.Now().Unix()).Scan(&verifier)
+	return verifier, err
 }

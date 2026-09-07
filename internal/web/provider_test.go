@@ -3,14 +3,11 @@ package web
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,42 +49,16 @@ func TestActingUserDenialNeverUsesBootstrap(t *testing.T) {
 	var calls atomic.Int32
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		if r.Header.Get("Authorization") != "token acting-bob" || r.URL.Path != "/api/v1/admin/users" {
+		if r.Header.Get("Authorization") != "token acting-bob" || r.URL.Path != "/api/v1/user" {
 			t.Error("wrong acting request")
 		}
 		w.WriteHeader(403)
 		fmt.Fprint(w, `{"message":"private-native-details"}`)
 	})
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/people", "", "bob"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/me", "", "bob"))
 	if w.Code != 403 || calls.Load() != 1 || bytes.Contains(w.Body.Bytes(), []byte("private-native")) {
 		t.Fatalf("unexpected denial %d %s", w.Code, w.Body.String())
-	}
-}
-func TestNonOperatorForgejoAdministratorCanCreatePerson(t *testing.T) {
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "token acting-bob" {
-			t.Error("wrong authority")
-		}
-		var input map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			t.Error(err)
-		}
-		if input["username"] != "Native.Name" || input["must_change_password"] != true {
-			t.Error("native onboarding altered")
-		}
-		fmt.Fprint(w, `{"id":9007199254740993,"login":"Native.Name"}`)
-	})
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/people", strings.NewReader(url.Values{"csrf": {"csrf-bob"}, "login": {"Native.Name"}, "email": {"person@example.test"}, "password": {"test-initial-password"}}.Encode()))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session-bob"})
-	s.ServeHTTP(w, r)
-	if w.Code != 303 || w.Header().Get("Location") != "/people" {
-		t.Fatalf("%d %s", w.Code, w.Body.String())
-	}
-	if _, err := s.Store.User(context.Background(), 9007199254740993); err == nil {
-		t.Fatal("shadow user created before sign-in")
 	}
 }
 func TestConcurrentRefreshAndLogout(t *testing.T) {

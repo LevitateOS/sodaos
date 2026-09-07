@@ -31,17 +31,19 @@ ordinary Git/mise/workloads and direct-IP SSH/SCP/SFTP remain the product.
 - Root `dashboard/`, React/router/Zustand/PatternFly dashboard support, SPA serving/
   validation, duplicate Forgejo workflow handlers/clients and their exclusive tests
   are removed. No Bootstrap or replacement component library is selected.
-- `internal/web/` retains embedded Go/HTMX pages and [Soda APIs](dashboard-api.md)
-  for real existing login/profile/keys/People/projects/environments. Those pages
-  remain available until native Sodaspaces takes over their actual entrypoints.
+- Old Go/HTMX templates, static assets, forms and dedicated clients/tests are also
+  removed. `internal/web/` retains OAuth and [Soda APIs](dashboard-api.md) for real
+  preferences/keys/environments. There is no standalone Soda browser UI. Root and
+  OAuth completion return to configured native Forgejo, not removed pages.
 - Go config/store/grants/native helper, stock Forgejo API/OAuth/setup/advertisement
-  and native-authorized onboarding/repository selection/ownership remain. No
+  and native repository lookup/ownership remain. Native account administration
+  stays wholly in Forgejo; its former Soda People/picker clients are removed. No
   provider-role inventory, replacement Git engine or generalized recovery subsystem.
 - `cockpit/` retains React/PatternFly/Vite+, its own lock and license collector;
   shared native/branding dependencies remain. Node is still a Cockpit build tool,
   not a new production service. Go dependency metadata is unchanged by removal.
-- Existing stock image/IID/OCI/build/stage/install consumers remain. Soda's HTML/
-  static assets are embedded in Go. New bundles reject stale standalone SPA payloads.
+- Existing stock image/IID/OCI/build/stage/install consumers remain. Soda is an
+  API/OAuth command without HTML/static payload. New bundles reject stale SPA output.
 - Canonical assets, existing notices and [licensing obligations](licensing.md) stay.
   Old source/artifact evidence retains its original license/version attribution.
 
@@ -53,8 +55,9 @@ a working drawer, shared session or hot-reload guarantee. Keep native forms/scri
 CSRF, cookie/origin/RP-ID and Git/protocol endpoints intact. A missing JSON route is
 not a reason to patch Forgejo or recreate a native workflow in Soda.
 
-Source authority fixes in `fed66cb` remain: acting grants, native account validation
-and current-owner environment visibility. No Linux remapping/offboarding is promised.
+The retained `fed66cb` authority boundary remains: acting grants and current-owner
+environment visibility. The old account forms are removed, not replaced with an
+operator-token or local-validation fallback. No Linux remapping/offboarding is promised.
 Terminal remains U07; optional lifecycle/profiles/limits remain unselected E tracks.
 
 Installed components still `8b823db` with stock 15.0.7 and the historical React preview;

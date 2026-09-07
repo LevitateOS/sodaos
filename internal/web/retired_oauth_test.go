@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestPreviouslyPendingReactLoginFinishesAtRetainedPage(t *testing.T) {
+func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/login/oauth/access_token":
@@ -21,15 +21,14 @@ func TestPreviouslyPendingReactLoginFinishesAtRetainedPage(t *testing.T) {
 			w.WriteHeader(500)
 		}
 	})
-	// A state record issued by the old binary, not a new allowed return target.
-	if err := s.Store.BeginOAuth(t.Context(), "pending-react", "verifier", "/app/"); err != nil {
+	if err := s.Store.BeginOAuth(t.Context(), "pending", "verifier"); err != nil {
 		t.Fatal(err)
 	}
-	r := httptest.NewRequest("GET", "/oauth/callback?state=pending-react&code=test-code", nil)
-	r.AddCookie(&http.Cookie{Name: "soda_oauth", Value: "pending-react"})
+	r := httptest.NewRequest("GET", "/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)
+	r.AddCookie(&http.Cookie{Name: "soda_oauth", Value: "pending"})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	if w.Code != 303 || w.Header().Get("Location") != "/projects" {
+	if w.Code != 303 || w.Header().Get("Location") != s.Config.ForgejoURL+"/" {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }

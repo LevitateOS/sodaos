@@ -51,7 +51,7 @@ for command in cmd/*; do
   CGO_ENABLED=0 go build -mod=readonly -buildvcs=true -trimpath -o "$out/bin/$(basename "$command")" "./$command"
 done
 go mod verify
-# Soda HTML/static assets are embedded in its Go binary; Cockpit keeps its build.
+# Soda is a Go API/OAuth service; Cockpit keeps its separate frontend build.
 (cd cockpit && pnpm install --frozen-lockfile && pnpm exec vp build)
 python3 scripts/build-project-tools.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac

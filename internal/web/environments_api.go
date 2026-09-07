@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,10 @@ import (
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+// Project-local Linux names are a native provisioning constraint, not a
+// restriction on Forgejo's own account names.
+var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 func (s *Server) environmentRoutes() {
 	s.mux.HandleFunc("/api/environments", s.apiProtected(s.apiEnvironments, "GET", "POST"))

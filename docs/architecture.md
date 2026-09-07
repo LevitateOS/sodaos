@@ -17,12 +17,12 @@ integration and the affected plan still need review; no runtime change is claime
 
 **Scope boundary:** [Deferred and excluded work](deferred.md) records ideas and edge-case work that must stay outside the first version. Those items are not prerequisites for the first end-to-end proof and must not be silently restored as requirements.
 
-**Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected React/Forgejo-extension direction. It leads the core product, including production native environment/access integration and U08/U20 acceptance. The [native support porting plan](native-porting-plan.md) is subordinate: outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations only. Shared contracts follow the core plan; optional media and helper ports are not a second core gate. The [initial M01–M18 plan](implementation-plan.md) describes historical Go + HTMX/native source work and proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
+**Implementation order:** Follow the [unified frontend/backend implementation plan](dashboard-implementation-plan.md) for the selected native Forgejo/Sodaspaces direction. It leads the core product, including production native environment/access integration and U08/U20 acceptance. The [native support porting plan](native-porting-plan.md) is subordinate: outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations only. Shared contracts follow the core plan; optional media and helper ports are not a second core gate. The [initial M01–M18 plan](implementation-plan.md) describes historical Go + HTMX/native source work and proof stages. Planning does not authorize implementation or native execution; apply the current action/target boundary. Native evidence below remains required for readiness, not a blanket gate on unrelated source work.
 
 **Frontend implementation:** use native Forgejo pages and supported customization
 for the planned Sodaspaces tab/environment drawer. Root React `dashboard/` and
-duplicate forge adapters are removed; existing embedded Go/HTMX environment/access
-pages and protected Go/native integration remain. No replacement UI library is selected. No React SSR, production Node,
+duplicate forge adapters are removed. Original Go/HTMX pages/forms/assets are also
+removed; protected Go API/OAuth/native integration remains without a standalone UI. No replacement UI library is selected. No React SSR, production Node,
 Tailwind or TanStack is selected. [Dashboard planning](dashboard-plan.md) records
 page ownership. The Go + HTMX descriptions below are the historical installed
 baseline; the handoff owns current evidence, not these initial assumptions.
@@ -56,7 +56,7 @@ Soda supplies the usable environment and its appliance integration. Developers r
 | Project base | Rocky Linux + mise. |
 | Project lifetime | Persistent and mutable; users develop inside the environment rather than routinely discard and reconstruct it. |
 | Human identity | Forgejo is the identity provider. Developers do not need individual Linux accounts on the host. |
-| Developer interface | Native Forgejo frontend with planned Sodaspaces addition; retained Go/HTMX pages currently provide Soda access. Standalone React source is removed, not deployed. |
+| Developer interface | Native Forgejo frontend with planned Sodaspaces addition; both standalone React and old Go/HTMX pages are removed from source. Protected Go APIs remain; source cleanup is not deployment. |
 | Host administration | Stock Cockpit plus the predecessor's Tailnet and Runners pages and backing logic, accessible only to the root/operator identity. No custom Cockpit developer workspace UI. |
 | Project administration | Working rule: the owner of the associated Forgejo project/repository administers the project pod, not the host. |
 | Soda data | A dashboard database for Soda-specific profiles, public SSH keys, projects and memberships. |
@@ -181,7 +181,7 @@ Soda must not request a user's private SSH key for onboarding. Public-key regist
 
 ## 6. The Soda dashboard
 
-The existing Soda-specific interface is a dedicated Go + HTMX application; the selected native Forgejo/Sodaspaces integration follows the leading core plan. It is not a set of custom Cockpit packages. The unified frontend includes upstream-authorized Forgejo administration and Soda environment/access administration; neither grants host-root authority.
+Soda's Go service now exposes its protected environment/access API and OAuth, without the removed standalone frontends. Selected native Forgejo/Sodaspaces browser integration follows the leading core plan and remains unimplemented. It is not a set of custom Cockpit packages. The unified frontend includes upstream-authorized Forgejo administration and Soda environment/access administration; neither grants host-root authority.
 
 Its initial purpose is to make these outcomes coherent:
 

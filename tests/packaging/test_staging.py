@@ -25,7 +25,7 @@ class NativeStage(unittest.TestCase):
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-projects').exists())
 
     def test_no_retired_react_payload(self):
-        # Soda templates/static files are embedded in the Go command.
+        # Soda is an API/OAuth command with no standalone frontend payload.
         self.assertFalse((self.root / 'usr/local/share/soda/dashboard').exists())
 
     def test_persistence_and_privilege_wiring(self):

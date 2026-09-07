@@ -53,8 +53,9 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   superseded. See the decision at the top of `docs/dashboard-implementation-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
   tab/right-drawer addition. No new component library or Bootstrap UI is selected.
-  Root `dashboard/` and duplicate forge adapters are removed; retain the Go/HTMX
-  environment/access backend, OAuth/security/native integration and separate
+  Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
+  adapters are removed; retain the Go API environment/access backend,
+  OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The drawer/authenticated integration is still
   unimplemented. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and
@@ -108,7 +109,7 @@ The current **source implementation**, not an immutable deployment prescription:
 | Host | Fedora CoreOS candidate with rpm-ostree layering; native Cockpit, `tailscaled`, project helper and CI runner services |
 | Appliance applications | Separate Podman containers for Forgejo, the dashboard and Caddy; Forgejo is **not currently a Podman pod** |
 | Projects | Persistent Rocky + mise containers with project-local accounts and writable roots; nested Podman is the unvalidated workload candidate |
-| Application code | Go backend/setup/native integration; Go + HTMX dashboard; TypeScript/React Cockpit pages |
+| Application code | Go API/OAuth/setup/native integration; native Forgejo frontend; TypeScript/React Cockpit pages |
 
 Use actual service/image/configuration source to establish details. A pod groups
 containers; it is not itself a Linux user database, init system or filesystem.
@@ -190,7 +191,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The Go command still embeds existing HTML/HTMX pages and retains legitimate Soda APIs, encrypted grants and native integration. No SPA bundle is required or served by new source; no new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` still has historical `8b823db` React preview/HTMX defaults and schema-v3 grants: source removal is not deployment or completed Sodaspaces integration. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is served. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` still has historical `8b823db` React preview/HTMX defaults and schema-v3 grants: source removal is not deployment or completed Sodaspaces integration. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

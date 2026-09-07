@@ -74,7 +74,7 @@ func TestMigrationPreservesLegacyProductState(t *testing.T) {
 		t.Fatal(login, err)
 	}
 	oauth, err := s.ConsumeOAuth(ctx, "legacy-state")
-	if err != nil || oauth.Verifier != "fixture-verifier" || oauth.ReturnPath != "/projects" {
+	if err != nil || oauth != "fixture-verifier" {
 		t.Fatal(oauth, err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "legacy-state"); err == nil {
@@ -172,23 +172,19 @@ func TestIncompleteLegacySchemaDoesNotCommitMigration(t *testing.T) {
 	}
 }
 
-func TestOAuthReturnPathIsBoundAndSingleUse(t *testing.T) {
+func TestLegacyOAuthDestinationIsIgnoredAndStateIsSingleUse(t *testing.T) {
 	s, err := Open(filepath.Join(t.TempDir(), "db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.Close()
 	ctx := context.Background()
-	for _, path := range []string{"https://evil.example/", "//evil.example/", "/app/../people", "/people", ""} {
-		if err = s.BeginOAuth(ctx, "state", "verifier", path); err == nil {
-			t.Fatal("unsafe path accepted", path)
-		}
-	}
-	if err = s.BeginOAuth(ctx, "state", "verifier", "/app/"); err != nil {
+	// Exact pre-removal state shape, not a newly supported redirect choice.
+	if _, err = s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,return_path) VALUES(?,?,?,?)`, hash("state"), "verifier", time.Now().Add(time.Minute).Unix(), "/app/"); err != nil {
 		t.Fatal(err)
 	}
 	v, err := s.ConsumeOAuth(ctx, "state")
-	if err != nil || v.ReturnPath != "/app/" || v.Verifier != "verifier" {
+	if err != nil || v != "verifier" {
 		t.Fatal(v, err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "state"); err == nil {

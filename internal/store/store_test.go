@@ -43,7 +43,7 @@ func TestOAuthSingleUse(t *testing.T) {
 	}
 	defer s.Close()
 	ctx := context.Background()
-	if err = s.BeginOAuth(ctx, "state", "verifier", "/projects"); err != nil {
+	if err = s.BeginOAuth(ctx, "state", "verifier"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.ConsumeOAuth(ctx, "state"); err != nil {

@@ -22,8 +22,9 @@ projects, service commands, container identities or database paths.
 
 Root `dashboard/`, SPA loading, duplicate forge feature routes/clients and their
 exclusive build/tests are removed. Cockpit's separate React/PatternFly pages remain.
-The existing Go/HTMX pages remain functional until replaced by Sodaspaces. Deletion
-is not proof of the new tab/drawer or its authenticated backend connection.
+The user also selected removal of the original Go/HTMX pages/forms/static assets.
+There is no standalone Soda browser UI in source. Deletion is not proof of the new
+tab/drawer or its authenticated backend connection.
 
 ## Selected direction — official template overrides; partial U01 invalidation
 
@@ -82,16 +83,16 @@ Git access. Opening a tab/drawer must not create, join, start or repair anything
 
 ## 2. Supported integration and existing source
 
-- `internal/web/` embeds the working Go/HTMX pages/static assets and retains bounded
-  Soda session/preferences/development-key/environment APIs. `cmd/soda-dashboard`
+- `internal/web/` retains OAuth and bounded Soda session/preferences/development-key/
+  environment APIs, without either retired frontend. `cmd/soda-dashboard`
   is still the backend command, not the deleted React directory.
-- `internal/forgejo/` retains only actual identity/OAuth/setup/advertisement,
-  native-authorized People, repository-selection and ownership callers. No local
+- `internal/forgejo/` retains actual identity/OAuth/setup/advertisement and native
+  repository lookup/ownership callers. People/picker clients are removed. No local
   Git engine, copied permissions, replacement boards/CI or forge administration API.
 - `internal/store/`, `internal/host/` and `project-os/` remain production integration.
   Preserve grant encryption, memberships, helper restrictions and persistent roots.
 - Stock Forgejo image/IID/OCI/stage/install paths and canonical assets remain.
-  Soda HTML is embedded in Go; new bundles refuse the retired SPA asset/input tree.
+  Soda is an API/OAuth command; new bundles refuse the retired SPA asset/input tree.
   Cockpit retains its own frontend build, dependencies and focused tests.
 
 ## 3. Outstanding integration review
@@ -122,7 +123,7 @@ not another frontend, schema, auth design or product readiness gate.
 
 | Shared responsibility | Core owner | Support boundary |
 | --- | --- | --- |
-| Stock Forgejo, custom templates/assets and Go HTML payload | U01/U02 | P04 inspects specified image/payload; no custom Forgejo build |
+| Stock Forgejo, custom templates/assets and Go API command | U01/U02 | P04 inspects specified image/payload; no custom Forgejo build |
 | Soda API/session/CSRF/config/schema | U03/U04/U18 | P05 transports approved inputs; no copied bootstrap/database writes |
 | Accounts/helper/runtime/terminal | U07; U08 retained/U20 final | P02/P03 transport only; core owns product scenarios |
 | Cockpit/Tailnet/runners/console/branding/CLIs | U02/U18 preserve, U20 accepts | P11 retains native logic/dependencies/tests |
@@ -140,8 +141,11 @@ verifier and history, not silent resealing or blind first-install replay.
 Keep typed, bounded operations and sanitized failures, stable IDs, current native
 resource/actor checks, unsafe-method CSRF/origin protection and no mutation replay.
 Retained source contracts are in [dashboard-api.md](dashboard-api.md). New consent
-requests only current read scopes plus explicit admin scope for retained People;
-old grants remain intact and actual introspected scopes stay authoritative.
+requests only current read user/repository/organization scopes, with no admin
+expansion. Old grants stay intact and introspected scopes remain authoritative.
+Root and successful OAuth completion return only to configured native Forgejo;
+caller return parameters are refused. The old DB return-path column/default stays
+unused without a schema migration. Redirecting does not transfer native sessions.
 
 Keep schema-v3 session/provider-bound encrypted grants, restricted external keys,
 serialized refresh, logout-winning writes and strict configuration loading. No
@@ -164,9 +168,9 @@ approved U18 cutover and U19/U20. No React migration or new component-library pl
 1. Close the bounded native hooks, drawer markup/behavior and authenticated request
    contract described above. Preserve working login; explain constraints before
    implementing a cost-changing alternative.
-2. Retain `fed66cb`'s active authority fixes: acting-user legacy projects/People,
-   native account validation, current-owner environment visibility and honest
-   ownership-unavailable state. They are locally checked source, not deployed proof.
+2. Retain `fed66cb`'s boundary in remaining APIs: acting grants, current-owner
+   environment visibility and honest ownership-unavailable state. Legacy projects/
+   People forms are now removed, not reverted to privileged-token authority.
 3. Implement repository-context entry using stable native ID and current actor grant,
    a concrete reservation lookup and protected read-only drawer state. Reuse the
    existing Soda API where it fits; do not add a second representation just to name
@@ -210,8 +214,9 @@ entry/return, cookie/CSRF and actual expiry/logout behavior without borrowed ses
 ### U05 — Profiles, account security, keys and onboarding
 
 Native account/security/Git keys remain Forgejo-owned; Soda owns additional profile/
-development public keys. Linux eligibility is provisioning-only. Preserve the fixed
-acting-admin legacy People path until a verified native replacement takes over.
+development public keys. Linux eligibility is provisioning-only. The legacy People
+forms/client are removed; native Forgejo owns all account administration. Soda key/
+profile controls must be wired into the new authenticated integration.
 
 ### U06 — Repository discovery, creation and basic browsing
 
@@ -307,8 +312,8 @@ upgrade. Complete exact candidate/ingress/preserved-state rehearsal before U18.
 ### U18 — Preserved cutover and coherent legacy removal
 
 After proof and exact approval, deliver matching stock/customization/Go/config assets
-with consistent backup and enrolled-key/data preservation. Source React removal is
-not installed cutover. Retire replaced HTMX/adapters with actual callers/tests;
+with consistent backup and enrolled-key/data preservation. Source React and HTMX
+removal is not installed cutover. Both old frontends/callers are now removed;
 no blind first-install/OAuth replay, redirected POST replay or stranded login.
 
 ### U19 — Measured usability and performance

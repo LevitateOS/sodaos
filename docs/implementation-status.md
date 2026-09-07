@@ -1,5 +1,60 @@
 # Implementation handoff
 
+## Original Go/HTMX frontend also removed
+
+Following the user's additional removal request from clean `752079e`, removed the
+original `internal/web/templates/`, `static/`, projects/profile/People/key form
+handlers, template renderer, HTMX/form-session middleware and form logout. Removed
+unused People/repository picker/pagination clients, native user-creation adapter,
+local user-list query, their dedicated tests and `tests/installed/dashboard.mjs`.
+Removed only the obsolete Go artwork embedding wrapper, not canonical branding.
+HTMX's vendored code/license leave together; historical artifacts keep their own
+notices, source and evidence. Cockpit and its dependencies/assets/tests are untouched.
+
+There is now **no standalone Soda browser UI in source**, either React or Go/HTMX.
+Sodaspaces tab/drawer and its authenticated native-page integration remain pending.
+The `cmd/soda-dashboard` command/container/config/database names remain deliberately:
+it is the protected Go API/OAuth service. Retained session/preferences/development-
+key/environment/create/join/member/connection operations, live native ownership,
+acting grants, encrypted grant storage/refresh/logout races, strict input/CSRF/origin
+checks, native helpers and persistent project OS. Moved Linux-login validation to
+its remaining environment API caller, not to Forgejo account administration.
+
+Root GET and successful OAuth completion redirect only to configured native
+Forgejo; no caller query, old stored return path or session cookie supplies that
+destination. Nonempty login `return_to` is refused. OAuth errors use plain text;
+`/healthz` does not require a frontend. New consent requests only existing read
+user/repository/organization scopes; the removed People form's admin expansion is
+gone. Existing introspected grants stay intact. A redirect is not native-session
+transfer, cross-origin authorization or proof of an integrated browser experience.
+
+The old OAuth `return_path` column/default remains for schema compatibility, but
+Begin/Consume no longer accept/return destinations. No schema migration, stored
+row rewrite or live database action was needed. Initial tests caught that column's
+old CHECK constraint and retired scope assertions; fixed by removing the unused
+source-level return-path representation instead of changing the schema or restoring
+old routes. Added existing-state consumption/replay and configured-destination/
+callback-query regression coverage. Old paths/assets/form POSTs return 404 without
+provider/helper calls; protected JSON logout remains. Adapted the two-user explicit
+join/native-failure/no-false-membership journey to JSON rather than deleting its
+security/provisioning coverage. Acting-user denial still tests no setup-token
+fallback through a retained native identity caller.
+
+Executed: full Go suite (some cached), race suites for web/store/Forgejo, 31 Python
+build-fixture tests, shell syntax and document/whitespace checks. Go used cached
+1.26.7 with readonly modules and dependency resolution disabled. Logs, including
+the initial failing run and final passes: `.artifacts/research/htmx-removal-752079e/`.
+No dependency changes, images/native-stage build, actual staging suite, installed
+browser journey, service restart, provider operation, network or data cleanup ran.
+Cockpit was not retested in this slice; its prior checks retain their own revision.
+Installed `8b823db`, all four environments/identities/keys/roots/workloads/backups and
+failed evidence are unchanged. Only bounded U08 remains accepted (1/20).
+
+Leading plan, API/inventory/integration/installation guidance and active browser
+recipes now distinguish removed source UI from historical installed HTMX. Next is
+the bounded supported native Sodaspaces implementation/proof, not another standalone
+frontend. U17/U18/U20, own-account terminal and retained native acceptance gaps remain.
+
 ## Standalone React and duplicate forge backend removed
 
 From clean `88fc21f`, executed the user's explicit source-removal request. Root

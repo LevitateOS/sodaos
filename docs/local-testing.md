@@ -185,16 +185,11 @@ Read-only native first-install checks:
 scripts/test-vm.sh ssh 'SODA_NATIVE_VALIDATE=soda-test bash -s' < tests/installed/host.sh
 ```
 
-The opt-in browser check creates authentication/consent/session state for the explicitly selected operator, then signs out of Soda. It does not create people, repositories, project environments, keys or workloads. This workspace's isolated browser home already trusts the test CA and Playwright's Chromium is installed:
-
-```sh
-node tests/installed/dashboard.mjs \
-  https://localhost:24443 https://localhost:24444 operator \
-  "$PWD/.artifacts/test-vm/forgejo-operator-password" \
-  "$PWD/.artifacts/test-vm/browser-home"
-```
-
-For another builder, prepare a private isolated browser home with the selected target's CA trusted; do not bypass certificate verification or use a personal browser profile containing unrelated credentials.
+The original Go/HTMX browser journey (`tests/installed/dashboard.mjs`) is retired
+with those pages; its source remains in Git at `752079e` and its evidence below is
+historical. Do not run that old journey against API-only source. New Sodaspaces
+browser coverage remains pending. Preserve the private isolated browser home/CA;
+never bypass certificate verification or reuse a personal browser profile.
 
 ## Evidence and remaining work
 

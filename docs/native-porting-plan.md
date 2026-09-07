@@ -20,7 +20,7 @@
 
 | Responsibility | Leading owner | Native support contribution |
 | --- | --- | --- |
-| Native Forgejo customization/Sodaspaces, Go API/HTML, protected sessions/CSRF and Soda schema | U01–U19 as assigned in the core plan | Supply build/transport/fixture inputs; no alternative handlers, account model, browser runner or database writes |
+| Native Forgejo customization/Sodaspaces, Go API/OAuth, protected sessions/CSRF and Soda schema | U01–U19 as assigned in the core plan | Supply build/transport/fixture inputs; no alternative handlers, account model, browser runner or database writes |
 | Stock Forgejo image, official template overrides and supported-interface/upgrade tests | U01/U02/U03 and owning features; U17/U20 integration | P04 consumes selected image/customization identities; no fork, custom authentication or source-build platform |
 | Production `internal/host`, project account/SSH setup, own-workspace terminal, shared tools, nested workloads, persistence, image/lifecycle/resource policy | U07; retained U08 proof/U20 final integration and approved E01–E03 | Run-owned VM/client transport and bounded observation utilities only; report runtime defects to the core owner |
 | Product browser/People/repository/join/Git/SSH/workload/persistence tests and fixture meanings | Owning U feature; integrated U08/U20 | Invoke the existing core-owned entrypoints once on exact inputs; retain their results, without copying scenarios into a Go harness |
@@ -125,7 +125,7 @@ tests/installed/            existing owners: core product; P06 host; P11 operato
 
 Keep infrastructure commands outside `cmd/`: current build **and staging** loops include every `cmd/*` directory in appliance delivery. Add a separate tools build destination excluded from rootfs and container contexts. Do not install a QEMU harness on the appliance accidentally.
 
-Retain the existing `build-native.sh`, `check-native.sh`, `stage.py`, `render-provisioning.py` and `install-native.sh` entrypoints. P04 adds format/identity/bundle handling; U02 defines native customization/embedded Go HTML packaging and U03/U04/U18 define application configuration/migrations. No competing builder/installer or copied application bootstrap. Keep shell for narrow entrypoints, existing Python staging, and Go for substantial support logic.
+Retain the existing `build-native.sh`, `check-native.sh`, `stage.py`, `render-provisioning.py` and `install-native.sh` entrypoints. P04 adds format/identity/bundle handling; U02 defines native customization/Go API packaging and U03/U04/U18 define application configuration/migrations. No competing builder/installer or copied application bootstrap. Keep shell for narrow entrypoints, existing Python staging, and Go for substantial support logic.
 
 Reuse `internal/process/` only where its non-sensitive command API fits. Its traces/error formatting are not a secret-safe transport; do not force credentials/provider output through it or change unrelated production callers to suit the harness.
 
@@ -216,7 +216,7 @@ The core follows its [post-H01 execution order](dashboard-implementation-plan.md
 
 ### P04 — Inspect and bundle the core's native artifacts
 
-- Extend existing build/check/stage entrypoints only for concrete format/identity/bundle needs; compile infrastructure tools separately. U02 owns native customization/Go HTML payload; root React/dashboard-only build and asset validation have been removed.
+- Extend existing build/check/stage entrypoints only for concrete format/identity/bundle needs; compile infrastructure tools separately. U02 owns native customization/Go API payload; root React/dashboard-only build and asset validation have been removed.
 - Select/inspect actual OCI archive format/platform, add source/base attribution and bind binaries/rootfs/assets to one checkout. Retain real tool/dependency metadata.
 - Consume core-selected Forgejo/Caddy platform identities without upgrading them. Inspect the core's stock-image and supported template/asset payload identities; no downstream source/patch mechanism is selected. Coordinate service-image/identity changes with core build/installer/config owners; no separate tag policy hidden in the wrapper.
 - Assemble the allowlisted bundle, matching installer/notices and checksums with modes/symlinks intact. Validate hash/platform/source/content and extraction safety before host writes; retain `/usr/local` mapping, parent ownership and delivered-path SELinux behavior.
@@ -240,7 +240,7 @@ The core follows its [post-H01 execution order](dashboard-implementation-plan.md
 - Extend the existing host check and adapted service-ordering check for actual layered packages, generated Quadlets, helper socket, service UIDs/capabilities, ownership/labels, listeners and failed units.
 - Check root-only Cockpit PAM/SELinux behavior and Accounts navigation independently: hiding a link is not authorization. Detailed Tailnet/runner/browser behavior stays P11.
 - Observe core-defined configuration/permissions, not a parallel application's expected defaults. Record pre-activation loopback versus post-activation HTTPS distinctly; use only core-owned setup/activation steps if those are separately authorized.
-- Hand off exact origins/CA reference, target identity and observed host readiness to the core tests. Do not extend `dashboard.mjs`, create People/repository fixtures or implement OAuth/session assertions under P06.
+- Hand off exact origins/CA reference, target identity and observed host readiness to the core tests. The old `dashboard.mjs` is retired with HTMX. Do not create People/repository fixtures or implement replacement OAuth/session/browser assertions under P06.
 
 **Authored checks:** failed native inspection, service ordering/properties, restricted access, bad certificate/origin and missing inputs. **Native exit:** accurate fresh-host observations with host SELinux enforcing. A live listener or successful health response is not login, permission or project acceptance.
 

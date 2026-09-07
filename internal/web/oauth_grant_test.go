@@ -26,12 +26,12 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 		}
 	})
 	login := httptest.NewRecorder()
-	s.ServeHTTP(login, httptest.NewRequest("GET", "/login?return_to=%2Fprojects&administration=1", nil))
+	s.ServeHTTP(login, httptest.NewRequest("GET", "/login?administration=1", nil))
 	location, err := url.Parse(login.Header().Get("Location"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if location.Query().Get("scope") != "read:user read:repository read:organization write:admin" {
+	if location.Query().Get("scope") != "read:user read:repository read:organization" {
 		t.Fatal("incorrect requested consent")
 	}
 	state := location.Query().Get("state")
@@ -44,7 +44,7 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 		return w
 	}
 	result := callback()
-	if result.Code != 303 || result.Header().Get("Location") != "/projects" {
+	if result.Code != 303 || result.Header().Get("Location") != s.Config.ForgejoURL+"/" {
 		t.Fatal("callback destination invalid", result.Code)
 	}
 	var session *http.Cookie

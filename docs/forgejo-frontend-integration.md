@@ -56,16 +56,17 @@ mechanisms, explain the exact conflict and revisit it with the user. **A downstr
 Forgejo patch/custom executable is an architectural failure path**, not permission
 to recreate the removed build/API platform or weaken native security.
 
-## What remains after React removal
+## What remains after frontend removal
 
-The Go service still embeds its existing HTML/HTMX projects/profile/People pages and
-static assets, providing real login, key registration and create/join operations.
-They remain available until Sodaspaces replaces their entrypoints. The
+Both standalone React and original Go/HTMX pages/forms/static assets are removed.
+The Go service retains OAuth and the protected
 [environment/access API](dashboard-api.md), SQLite/grants, restricted helper,
 setup/advertisement clients and native tests remain. The root React directory,
 SPA serving/validation, duplicate collaboration clients/handlers and their dedicated
-build/browser support are removed. Current `/app/` and duplicate forge API routes
-are no longer application routes; old deployed bytes/evidence are historical.
+build/browser support are removed. `/app/`, old HTML/form paths and duplicate forge
+API routes are no longer application routes; deployed bytes/evidence are historical.
+Root and completed OAuth redirect only to configured native Forgejo. This is not
+native session transfer or a working Sodaspaces entry; no Soda browser UI remains.
 
 Template/source notices remain required; see [licensing](licensing.md). No template
 rollout, image upgrade, ingress change or service restart is authorized by this

@@ -3,8 +3,8 @@
 The root React `dashboard/` and its duplicate Forgejo workflow adapters have been
 removed. This guide describes the **retained Go source**, not an installed rollout
 or a completed Sodaspaces tab/drawer. Native Forgejo owns collaboration/account/
-administration pages. The existing embedded Go/HTMX pages remain usable while the
-supported Sodaspaces integration is implemented.
+administration pages. The old Go/HTMX frontend is also removed; no Soda browser UI
+remains in source while supported Sodaspaces integration is still pending.
 
 ## Retained operations
 
@@ -36,13 +36,15 @@ this retained API. The leading plan owns that next source slice.
 
 ## Browser/session/security contracts
 
-- `GET /login` supports the current `/projects` return target. Fresh requests for
-  `/app/` are refused; a previously pending OAuth return to that removed preview
-  finishes at `/projects`. Callback query parameters never select the destination.
-- New ordinary login requests `read:user read:repository read:organization` for
-  remaining callers. Explicit administration consent adds `write:admin` for the
-  retained native-authorized People form. Existing grants are not silently revoked
-  or rewritten; persisted scopes come from actual upstream introspection.
+- `GET /` and successful OAuth completion redirect only to configured `ForgejoURL`.
+  `GET /login` refuses nonempty `return_to`; neither callback queries nor historical
+  stored destinations select the redirect. Errors are plain text, not templates.
+  The historical OAuth `return_path` column/default stays unchanged but unused;
+  no schema migration or existing-state rewrite accompanies removal.
+- New login requests only `read:user read:repository read:organization` for current
+  callers; `administration=1` no longer requests extra consent. Existing grants are
+  not silently revoked or rewritten; scopes come from upstream introspection.
+  A redirect does not establish/transfer a native Forgejo session.
 - Keep single-use state, PKCE, callback binding, cookie protections, session rotation,
   encrypted schema-v3 provider/session-bound grants, serialized refresh and
   logout-winning persistence. No second password or provider-role authority.
@@ -62,10 +64,11 @@ this retained API. The leading plan owns that next source slice.
 
 `internal/web/{api,environments_api,environment_authority,provider,auth}.go` and
 `internal/{forgejo,store,host}/` retain the actual integration/security code.
-Embedded HTML pages in `internal/web/templates/` provide projects, profile/public
-keys and native-authorized People, with real native provisioning. The Go command
-and its container/service/database keep their existing names; they are not the
-removed React directory. No external compiled frontend directory is required.
+Templates, static assets, form handlers, repository/People pickers and their dedicated
+clients/tests are removed. `/profile`, `/people`, `/keys`, `/projects`, their form/
+join routes and `/logout` return 404; use the protected JSON logout operation.
+The Go command/container/service/database keep their names. There is no embedded
+or external Soda frontend; `/healthz` remains independent of browser rendering.
 
 Focused Go tests retain CSRF/input/error, provider/grant/race, native ownership,
 create/join/reservation, key and persistence coverage. Negative route tests ensure

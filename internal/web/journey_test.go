@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,7 +17,11 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-// Authored journey over real handlers/database and an explicit native test double.
+type roundTrip func(*http.Request) (*http.Response, error)
+
+func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// Journey over the retained JSON handlers/database and an explicit native test double.
 // This does not establish Linux accounts, networking or SSH success.
 func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	ctx := context.Background()
@@ -64,15 +67,16 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		return &http.Response{StatusCode: code, Body: io.NopCloser(strings.NewReader(`{"ok":true}`)), Header: make(http.Header)}, nil
 	})}
 	post := func(login string) *httptest.ResponseRecorder {
-		form := url.Values{"csrf": {"csrf"}}
-		r := httptest.NewRequest("POST", "/projects/"+id+"/join", strings.NewReader(form.Encode()))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r := httptest.NewRequest("POST", "/api/environments/"+id+"/join", strings.NewReader(`{}`))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Origin", server.Config.PublicURL)
+		r.Header.Set("X-CSRF-Token", "csrf")
 		r.AddCookie(&http.Cookie{Name: "soda_session", Value: login})
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, r)
 		return w
 	}
-	if w := post("bob"); w.Code != 400 || nativeCalls != 0 {
+	if w := post("bob"); w.Code != 422 || nativeCalls != 0 {
 		t.Fatal("missing-key join reached native setup", w.Code)
 	}
 	for _, uid := range []int64{1, 2} {
@@ -89,7 +93,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	}
 	reject = false
 	for _, login := range []string{"alice", "bob"} {
-		if w := post(login); w.Code != 303 {
+		if w := post(login); w.Code != 200 {
 			t.Fatal(login, w.Code, w.Body.String())
 		}
 	}
@@ -98,37 +102,11 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	r := httptest.NewRequest("GET", "/projects/"+id, nil)
+	r := httptest.NewRequest("GET", "/api/environments/"+id, nil)
 	r.AddCookie(&http.Cookie{Name: "soda_session", Value: "bob"})
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "ssh bob@10.89.0.2") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"login":"bob"`) {
 		t.Fatal(w.Code, w.Body.String())
-	}
-}
-
-func TestPeopleRequiresActingGrantOnServer(t *testing.T) {
-	db, err := store.Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	ctx := context.Background()
-	if err = db.UpsertUser(ctx, store.User{ID: 2, Login: "bob"}); err != nil {
-		t.Fatal(err)
-	}
-	if err = db.CreateSession(ctx, "session", 2, "csrf"); err != nil {
-		t.Fatal(err)
-	}
-	s := New(config.Config{PublicURL: "https://soda.test", OperatorID: 1}, db)
-	for _, method := range []string{"GET", "POST"} {
-		r := httptest.NewRequest(method, "/people", strings.NewReader("csrf=csrf"))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session"})
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		if w.Code != 401 {
-			t.Fatal(method, w.Code)
-		}
 	}
 }

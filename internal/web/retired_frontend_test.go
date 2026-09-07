@@ -15,6 +15,8 @@ func TestRetiredFrontendAndForgeAdaptersAreNotRoutes(t *testing.T) {
 	})}
 	for _, path := range []string{
 		"/app/", "/app/assets/stale.js", "/app/repositories/alice/demo",
+		"/profile", "/people", "/keys", "/projects", "/projects/p0123456789abcdef01234567", "/projects/p0123456789abcdef01234567/join", "/logout",
+		"/static/htmx.min.js", "/static/soda.css", "/assets/branding/source/logo.svg",
 		"/api/forgejo/repositories", "/api/forgejo/admin/users", "/api/forgejo/me/settings", "/api/forgejo/me/git-keys",
 		"/api/forgejo/repos/alice/demo", "/api/forgejo/repos/alice/demo/contents", "/api/forgejo/repos/alice/demo/download",
 		"/api/forgejo/repos/alice/demo/issues", "/api/forgejo/repos/alice/demo/pulls", "/api/forgejo/repos/alice/demo/actions/runs",
@@ -35,12 +37,12 @@ func TestRetiredFrontendAndForgeAdaptersAreNotRoutes(t *testing.T) {
 	}
 }
 
-func TestEmbeddedSodaPagesRemainWithoutReactBundle(t *testing.T) {
+func TestSodaAPIsRemainWithoutEitherFrontend(t *testing.T) {
 	s := apiTestServer(t)
-	for _, path := range []string{"/", "/profile", "/projects", "/api/session", "/api/environments", "/api/me/development-keys"} {
+	for _, path := range []string{"/api/session", "/api/environments", "/api/me/development-keys"} {
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, apiTestRequest("GET", path, "", "alice"))
-		if w.Code != 200 && !(path == "/" && w.Code == 303) {
+		if w.Code != 200 {
 			t.Fatal(path, w.Code, w.Body.String())
 		}
 	}

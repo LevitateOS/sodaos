@@ -58,8 +58,9 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
 - The researched upstream Go-license target tolerated collection errors, and its
   generator omitted NOTICE/README. Its 260 generated notices lacked version/build-
   tag binding. Do not present that metadata as complete actual-artifact compliance.
-- Retain existing Cockpit LGPL, HTMX and Tea license texts, runner payload notices
-  and canonical branding attribution; no asset/license removal is implied here.
+- Retain Cockpit LGPL and Tea license texts, runner payload notices and canonical
+  branding attribution. HTMX and its matching license are removed from current
+  source together; historical bundles/evidence still need their original notices.
 
 Research evidence remains in `.artifacts/research/u01-d5b5065/` and
 `.artifacts/research/u01-8727233/`, with provenance, license texts, hash comparisons
