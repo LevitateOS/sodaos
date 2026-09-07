@@ -65,3 +65,16 @@ button never submits an account preference or changes authentication cookies.
 Its accessible label describes the next action; a focus ring appears for keyboard
 use although the resting button has no border. Tests: `node --test
 tests/forgejo/login-theme.test.mjs` from the repository root.
+
+## Public homepage
+
+`templates/home.tmpl` replaces the stock public landing content with a Soda welcome
+page. `home.css` is scoped to `.soda-home` and reuses the original papercraft asset,
+fonts, logos and palette. Sign-in and repository exploration use native routes;
+the registration link follows the native `ShowRegistrationButton` context.
+The stock head/footer are retained; the public page has its own visible header.
+The authenticated dashboard template is not overridden.
+
+The homepage and login share the existing guest theme key and head script. Native
+signed-in account themes remain unchanged. The legacy login-oriented key/attribute
+names are retained to preserve already saved guest choices.

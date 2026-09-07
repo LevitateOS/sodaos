@@ -207,6 +207,22 @@ system dark initial appearance, switching to light, correct next-action labels,
 persistence after reload and no desktop vertical overflow in dark mode. The user's
 existing “Soda dashboard” wording edit was preserved separately from this commit.
 
+## Public homepage and texture removal
+
+Removed the experimental paper texture asset and CSS references, restoring the
+smooth login button. Added the native `home.tmpl` override and scoped `home.css`
+for the public homepage: Soda welcome copy, approved papercraft artwork, sign-in
+and repository exploration links, shared guest theme toggle and native footer.
+The authenticated dashboard is unchanged. No account/authentication handlers,
+provider configuration, appliance staging or deployed VM were changed.
+
+Browser checks covered light/dark desktop appearance, shared theme on navigation
+to login, native repository-explore and login destinations, and 390px mobile layout
+with no horizontal overflow. Desktop homepage height matched the 970px viewport.
+Verified login's computed background contains only its gradient, no texture.
+Native public HTML/assets served successfully; whitespace checks passed. No full
+build or native validation ran. Source is live-mounted only in the local preview.
+
 ## Remaining work and permission boundary
 
 - Implement/prove the supported native button/drawer/authenticated Soda connection,

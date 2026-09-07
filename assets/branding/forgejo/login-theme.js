@@ -1,4 +1,4 @@
-/* Guest login appearance only; Forgejo owns authenticated account themes. */
+/* Guest homepage/login appearance only; Forgejo owns authenticated account themes. */
 (() => {
   const root = document.documentElement;
   const script = document.currentScript;
