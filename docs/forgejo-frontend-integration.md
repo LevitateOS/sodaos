@@ -17,6 +17,17 @@ browser origin still expose it. These are **open integration/cutover blockers**,
 not exceptions to the requirement. Do not disable working authentication or alter
 live origins/listeners before a replacement is implemented and verified.
 
+## Full workflow audit follow-up
+
+The [H01 action register](forgejo-api-coverage.md) now supersedes the earlier
+family-level unknowns with a full v15.0.7 source-surface pass and targeted v16.0.3
+comparison. It finds broader authentication/account/admin/board/review/wiki/package
+gaps, existing APIs needing Soda adapters, and specific UI-only omissions. V16
+adds human Actions job/log/artifact/cancel interfaces; its web auth/mixed-route
+boundary was also traced afresh. It still does not solve the two U09 read APIs or
+complete headless authentication. Baseline/security/contract review remains open;
+no upgrade, patch or deployment followed from the audit.
+
 ## Newer upstream investigation
 
 Public metadata from
@@ -50,7 +61,9 @@ two missing U09 data interfaces. No upgrade is recommended merely to solve them.
 This is not a claim about all possible future releases or all Forgejo interfaces.
 The v16 authentication implementation has changed (`services/auth/method/oauth2.go`
 and `auth_result_oauth.go`); do not transplant the v15 route-gate explanation as
-proof of v16 behavior. A wider upgrade/authentication audit remains necessary.
+proof of v16 behavior. The H01 follow-up above supplies the fresh route-group
+trace; complete security/baseline qualification and authentication design remain
+necessary.
 
 ## Architecture revision plan
 

@@ -61,9 +61,12 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   administration, or access its database directly. The proposed first-class
   headless integration revision is in
   `docs/forgejo-architecture-revision-plan.md`, with its concrete work package in
-  `docs/forgejo-headless-implementation-plan.md`: bounded Forgejo-side API additions
-  may be designed over shared native functionality, but concrete patch contracts
-  and maintenance responsibility need review before implementation. Do not fork
+  `docs/forgejo-headless-implementation-plan.md`. The source-backed H01 action
+  register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
+  findings before implementing a feature or assuming an API gap. Bounded
+  Forgejo-side API additions may be designed over shared native functionality,
+  but concrete patch contracts and maintenance responsibility need review before
+  implementation. Do not fork
   its business rules or build a competing backend for UI parity.
   The unified frontend includes Forgejo developer **and administrator** views;
   those views delegate through supported upstream interfaces, not a replacement

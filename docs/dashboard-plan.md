@@ -66,9 +66,9 @@ The unified frontend includes three distinct administrative contexts: **Forgejo 
 
 ### Existing implementation versus required work
 
-The installed legacy baseline requests `read:user` and discards the identity token. The new unbuilt source now requests user/repository consent (administrator consent separately), verifies actual scopes through native introspection and encrypts per-session access/refresh grants. New repository/account/admin APIs use only acting-user grants. Retained legacy repository handlers still use the restricted operator credential; they are not a fallback for new APIs and remain U18 removal work.
+The pre-React baseline requested `read:user` and discarded the identity token. The current grant implementation requests user/repository consent (administrator consent separately), verifies actual scopes through native introspection and encrypts per-session access/refresh grants. Its installed subset at `8b823db` and later local source checks are recorded in the handoff; neither is complete headless authentication proof. New repository/account/admin APIs use only acting-user grants. Retained legacy repository handlers still use the restricted operator credential; they are not a fallback for new APIs and remain U18 removal work.
 
-The source now supplies JSON session/logout, Soda-local preferences/keys, all-unsafe-method guards, protected grants and connected first-workflow React/API routes. It remains unbuilt/unexecuted. The full migration must implement and verify all of the following contracts; source progress is recorded in the handoff:
+The source supplies JSON session/logout, Soda-local preferences/keys, all-unsafe-method guards, protected grants and connected first-workflow React/API routes. The [H01 workflow audit](forgejo-api-coverage.md) now identifies source-backed auth/security/admin gaps, including native password/MFA API gates and WebAuthn origins. Concrete challenge contracts remain a design gate. The full migration must implement and verify all of the following contracts; actual evidence is recorded in the handoff:
 
 - Scopes matched to the actual selected Forgejo operations, without asking every developer for administrative access.
 - Protected server-side access/refresh-token storage and expiry/refresh handling. Tokens must never be put in React props, Zustand, browser storage, URLs or diagnostic output.
@@ -96,7 +96,7 @@ This inventories intended page families and their tabs/forms, not one bespoke Re
 
 | Page or surface | Contents | Authority | Delivery |
 | --- | --- | --- | --- |
-| Sign-in entry / session expired | Begin Forgejo login, explain failure/expiry; no Soda password form | F/S | First |
+| Sign-in entry / session expired | Complete native-backed sign-in/challenges in Soda and explain failure/expiry; no independent Soda password verification/store | F/S | First; headless authentication integration required |
 | Projects | Repository discovery with environment status and authorized actions; filters/search/pagination | F/S | First |
 | My work / overview | My repositories/environments, assigned issues and requested reviews | F/S | Next |
 | Global search | Repositories, issues and pull requests within native visibility | F | Next |

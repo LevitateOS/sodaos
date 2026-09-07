@@ -1,5 +1,75 @@
 # Implementation handoff
 
+## H01 — full source workflow audit recorded
+
+At the user's request, replaced the family-only `docs/forgejo-api-coverage.md`
+inventory with **179 action groups**, including all selected frontend families
+and additional native web surfaces: authentication/consent/security, profiles and
+keys, code/copy/search, issues/reviews/boards, settings/hooks/organizations, work,
+Actions/runners, releases/wiki/packages, site administration and browser closure.
+Each group names interfaces/native owners, authority/configuration constraints,
+classification, owning U milestone and required native/adapter/browser coverage.
+This remains the single register, not another roadmap or readiness counter.
+
+Started from clean `0f43b9f`. Retrieved complete public sources at v15.0.7 commit
+`d4de9eb2a87c26b402fdd0259e079957f8cd2b4b` and v16.0.3 commit
+`eccddb2d17c93b42b2c8995725e03e549ac9ec0c`; exact archive hashes/source provenance
+are in the register, with research under `.artifacts/research/h01-0f43b9f/`.
+The v15 source-surface audit includes routers/middleware, native handlers/services,
+DTOs, configuration and alternate protocols; v16 is a targeted delta/authority
+comparison, not a second full qualification. Schema indexing found 314 paths/491
+operations versus 326/506, **not** that many proven workflows. No source archive
+hash was promoted to an image identity or a new dependency lock.
+
+Key findings that supersede earlier coarse gap descriptions:
+
+- Native API middleware blocks first-password-change and required-MFA enrollment;
+  WebAuthn JSON is native-session/origin-bound. Basic auth rejects security-key
+  users. Headless authentication needs reviewed native challenge/consent/security
+  contracts, not a password-to-token or administrator-token workaround.
+- V16 adds human Actions jobs/logs/artifacts/cancel APIs with native repository/
+  unit gates; it still lacks complete step/attempt/rerun/workflow/trust coverage
+  and the U09 blame/net-diff interfaces. No upgrade was selected.
+- PAT listing is usable without the creation/deletion Basic-auth gate. Repo
+  Actions configuration/runners are owner-gated in REST versus admin-gated web
+  settings; that actor mismatch needs native review, never Soda elevation.
+  Repository deletion uses owner user/organization scope; package scope needs its
+  own consent. Existing review replies and advanced Soda protection/team fields
+  must not be mislabeled as missing native APIs.
+- Native gaps also include boards, resolve/viewed review state, merge-panel data,
+  selected settings/invitations/hooks, historical wiki content/search, package
+  descriptor/settings and substantial admin/security operations. Wiki has no
+  native CAS in either web/API edit; release notes clearing is a definite PATCH
+  semantic gap, not permission to assume every empty field should be accepted.
+- Current issue `native_url` downloads, account onboarding instructions, OAuth,
+  legacy/content links and full Forgejo proxy ingress remain Soda-only closure
+  gaps. The TSX `forgejo_url` guard alone does not prove closure. No live login or
+  ingress was changed. Conditional settings/lifecycle questions were recorded,
+  not silently disabled, waived or implemented as identity remapping.
+
+Updated the linked architecture/headless/core plans, page inventory and AGENTS
+with the audit result and review-first next step. Corrected stale pre-React
+unbuilt/auth wording without relabeling historical native evidence.
+
+Checks: source/schema comparison, documentation row/unique-ID/local-link checks,
+182 explicitly prefixed upstream file references and 112 named native functions/
+types checked, and `git diff --check`. Early reference checking caught abbreviated
+paths and an incorrect blame symbol; corrected to exact paths/`RefBlame` before
+final checks. Research/check scripts and logs are ignored local artifacts, not a
+new production test suite. **No Go/frontend/native build or test suite, dependency
+resolution, upstream contribution, provider mutation, deployment, fixture,
+reboot, network change, cleanup or push** occurred. Existing local build/test
+authorization remains valid. Installed affected components remain last recorded
+at `8b823db`; the four retained environments and U08 evidence were not touched.
+
+H01 source coverage is now recorded, but field-complete contracts, measured work
+limits, authentication threat model/feasibility, baseline/security/support and
+maintenance ownership, linked-resource lifecycle decisions and installed
+conformance remain open. H02–H08 are unimplemented; U01/U09/U17 are not accepted.
+U08 remains accepted in its bounded scope (1/20). Next: review those concrete
+baseline/contracts/H05 gates before broad UI expansion; retain working stock
+adapters and no-Forgejo-frontend requirement, not a codebase/system rewrite.
+
 ## Headless implementation and upstream-change resilience plan authored
 
 Added `docs/forgejo-headless-implementation-plan.md` at the user's request, linked

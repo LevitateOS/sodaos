@@ -1,6 +1,10 @@
 # Headless Forgejo implementation plan
 
-**Status: authored, not executed.** Implements the proposed
+**Status: H01 source audit recorded; native implementation remains unstarted.**
+The [single workflow register](forgejo-api-coverage.md) now records the v15.0.7
+surface audit and targeted v16.0.3 comparison. Baseline, concrete contracts,
+authentication feasibility and maintenance review remain open; no patch/build/
+deployment or U milestone is accepted by that audit. Implements the proposed
 [architecture revision](forgejo-architecture-revision-plan.md) through the existing
 [U01–U20 owners](dashboard-implementation-plan.md). This is a detailed work package,
 not another product roadmap or a reset of accepted U08 evidence.
@@ -71,7 +75,11 @@ authorized local checks can continue; no new parallel P product suite.
 
 ## 3. H01 — Audit before writing more screens
 
-Expand the existing coverage register rather than maintaining a second matrix:
+The first full source-coverage pass is now in the existing
+[coverage register](forgejo-api-coverage.md), including authentication/admin,
+settings authority differences, boards/review/wiki/package sub-actions and v16's
+usable Actions additions. Continue that register rather than maintaining a second
+matrix. The following rules apply to contract review and every later feature:
 
 - Enumerate required workflows and every action, including defaults, pagination,
   attachments, validation, denied operations, expiry and reauthentication.
@@ -285,7 +293,8 @@ those decisions; they do not fabricate their outcomes.
 
 Suggested coherent commit sequence:
 
-1. Expand the one coverage register, with source-backed blockers and U owners.
+1. H01 source register now exists with blockers/U owners; review its baseline,
+   native authority discrepancies, lifecycle choices and H05 security gates.
 2. Add reviewed source lock/patch provenance and build/identity negative tests.
 3. Wire the native Forgejo build into existing packaging consumers.
 4. Add reviewed compatibility and first native read contracts with upstream tests.
@@ -297,4 +306,5 @@ Suggested coherent commit sequence:
 Already authorized local builds/tests do not need another generic permission
 request. New patch implementation follows contract review; deployment, real
 repository/account/provider mutations, new fixtures, upstream submission and
-publication retain separate scopes. The current task authors this plan only.
+publication retain separate scopes. H01 ran source/research/document checks only;
+H02–H08 implementation and native validation remain pending.

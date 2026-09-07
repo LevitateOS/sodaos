@@ -17,7 +17,10 @@ to those owners, not another milestone counter or qualification pipeline.
 [`forgejo-headless-implementation-plan.md`](forgejo-headless-implementation-plan.md)
 assigns concrete source paths, H01–H08 tasks within existing U owners, contract
 compatibility, native build integration, upgrade/rebase checks and delivery gates.
-It is authored work, not evidence that patches or interfaces already exist.
+The [H01 source audit](forgejo-api-coverage.md) is now recorded, including native
+API/web authority differences and v16 Actions additions. Concrete baseline,
+authentication and contract/maintenance review remain open. No patches or new
+interfaces exist yet; the audit does not select an upgrade or accept a milestone.
 
 ## 1. Architectural commitment
 
