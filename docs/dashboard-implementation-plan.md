@@ -7,12 +7,34 @@ The [workflow inventory](forgejo-api-coverage.md), [page/dependency inventory](d
 [architecture](architecture.md), [licensing notes](licensing.md), [deferred scope](deferred.md)
 and [handoff](implementation-status.md) remain the supporting references.
 
+## Frontend decision update — retire Soda React and PatternFly
+
+The user has now selected **Go templates + HTMX for Soda-owned pages**, retiring
+Soda's React dashboard and its PatternFly/router/Zustand/dashboard-only build
+support. The HTML-native component library is **not yet selected**. Bootstrap 5
+is a candidate, not an approved dependency. Preserve Forgejo's native templates/
+scripts and official overrides, plus Cockpit Tailnet/Runners and their existing
+React/PatternFly/dependencies/tests. Do not remove shared Go/native/OAuth machinery.
+
+The preparation sequence below predates this choice: **its React-specific entry,
+component and packaging instructions must be reconciled before execution**. Keep
+its stable repository identity, explicit provisioning, safe OAuth return and
+native-authority contracts. Do not replace React with a second implementation of
+Forgejo's workflows in Go/HTMX. Native forge pages already provide those workflows.
+
+Remove dashboard-specific source/dependencies in verified replacement slices with
+actual Go HTML/partial callers and updated stage/build/install/test consumers. Do
+not strand working pages, relax payload checks, delete shared Cockpit tools or
+fabricate assets to satisfy staging. This decision does not itself remove any code,
+select a library/version, deploy a replacement or accept another U milestone.
+
 ## Selected direction — official template overrides; partial U01 invalidation
 
 Use upstream Forgejo's **official template overrides and extension points**, native
 server-rendered pages, handlers, authentication and business rules. Customize
 presentation/navigation/assets instead of recreating every workflow over JSON.
-Soda retains its Go/React development-environment/access integration. No React SSR,
+Soda retains its Go development-environment/access integration; its React UI is
+now selected for replacement by Go templates/HTMX as described above. No React SSR,
 production Node service, iframe, scraped HTML fragments or borrowed cookies is
 selected. Exact navigation/session/origin integration still needs review and proof.
 

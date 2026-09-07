@@ -1,5 +1,31 @@
 # Implementation handoff
 
+## React/PatternFly retirement selected — HTML library choice still open
+
+The user explicitly selected removing Soda's React dashboard, PatternFly and its
+dashboard-only support, with an HTML-native component library to replace them.
+Recorded the Go-template/HTMX target in AGENTS and the leading plan; marked the
+previous React-specific preparation instructions for reconciliation before further
+implementation. Native Forgejo scripts/templates, shared Go/OAuth/native integration
+and the separate Cockpit React/PatternFly pages remain. Only U08 is accepted.
+
+Bounded source inspection confirmed Forgejo 15.0.7 uses a customized Fomantic UI
+2.8.7 subset, jQuery and native accessibility/initialization adaptations. It is not
+a stock component bundle we can assume portable to standalone Soda pages. Public
+npm metadata reports Bootstrap 5.3.8, MIT, with a Popper peer dependency. Bootstrap
+is an HTML/CSS/JavaScript candidate for Soda, **not a selected/installed dependency**
+or proof of Forgejo/HTMX compatibility. No component library was downloaded/installed.
+
+Only guidance/decision documentation changed. No React code, dependency, test,
+asset or installed service was removed; actual replacement and coherent caller/
+build/stage removal are pending. No build/product test, provider action, deployment,
+restart or retained-resource cleanup occurred. Preserve the four environments and
+all credentials/evidence. Next: select the HTML library and reconcile the existing
+preparation sequence, without another forge API audit or frontend framework project.
+Document checks passed 20 U tracks, three E tracks, all 179 groups, 12 local
+new/plan links and 38 incoming plan links; `git diff --check` passed. Log retained
+in `.artifacts/research/html-direction-fed66cb/document-check.log`.
+
 ## Template preparation — active authority fixes in source
 
 Started implementing the preparation plan from clean `66266a0`. This commit closes

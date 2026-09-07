@@ -1,5 +1,12 @@
 # Unified Soda dashboard inventory
 
+**Latest decision:** replace Soda's React/PatternFly dashboard with Go templates
+and HTMX, with an HTML-native component library still to be selected. Follow the
+[decision update](dashboard-implementation-plan.md#frontend-decision-update--retire-soda-react-and-patternfly).
+React-specific implementation instructions below describe retained source, not the
+new target. Preserve Go/OAuth/native functionality and separate Cockpit React/
+PatternFly pages; remove dashboard-only support after verified replacements.
+
 **Official Forgejo template overrides are selected. Only bounded U08 is accepted
 (1/20); U01's architecture acceptance is withdrawn.** Follow the
 [leading plan](dashboard-implementation-plan.md), [workflow inventory](forgejo-api-coverage.md)
