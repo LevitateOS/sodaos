@@ -73,3 +73,6 @@
   .soda-dashboard #activity-feed .flex-item { gap: 10px; }
   .soda-dashboard #empty-feed { padding: 32px 20px !important; }
 }
+
+/* Omit the native heatmap separator within the dashboard feed. */
+.soda-dashboard-feed > .divider { display: none; }
