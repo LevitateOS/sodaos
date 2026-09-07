@@ -44,6 +44,15 @@ func (c *Client) Commit(ctx context.Context, token, owner, repo, sha string) (Co
 	err := c.request(ctx, "GET", repoAPI(owner, repo)+"/git/commits/"+url.PathEscape(sha), token, nil, &result)
 	return result, err
 }
+
+// ResolveRef uses the native single-commit interface's ref support. Request only
+// identity metadata; dependent reads use the returned full SHA, not a moving ref.
+func (c *Client) ResolveRef(ctx context.Context, token, owner, repo, ref string) (string, error) {
+	var result Commit
+	err := c.request(ctx, "GET", repoAPI(owner, repo)+"/git/commits/"+url.PathEscape(ref)+"?stat=false&verification=false&files=false", token, nil, &result)
+	return result.SHA, err
+}
+
 func (c *Client) CommitDiff(ctx context.Context, token, owner, repo, sha string) ([]byte, error) {
 	return c.readBytes(ctx, repoAPI(owner, repo)+"/git/commits/"+url.PathEscape(sha)+".diff", token, 1<<20)
 }
@@ -107,7 +116,7 @@ type Comparison struct {
 
 func (c *Client) Compare(ctx context.Context, token, owner, repo, base, head string) (Comparison, error) {
 	var result Comparison
-	err := c.request(ctx, "GET", repoAPI(owner, repo)+"/compare/"+url.PathEscape(base+"..."+head), token, nil, &result)
+	err := c.request(ctx, "GET", repoAPI(owner, repo)+"/compare/"+url.PathEscape(base+"..."+head)+"?verification=false", token, nil, &result)
 	return result, err
 }
 func (c *Client) Fork(ctx context.Context, token, owner, repo, name string) (Repository, error) {

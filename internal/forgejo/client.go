@@ -32,6 +32,8 @@ type Repository struct {
 	CloneURL            string `json:"clone_url"`
 	SSHURL              string `json:"ssh_url"`
 	Empty               bool   `json:"empty"`
+	Fork                bool   `json:"fork"`
+	Mirror              bool   `json:"mirror"`
 	AllowMerge          bool   `json:"allow_merge_commits"`
 	AllowSquash         bool   `json:"allow_squash_merge"`
 	AllowRebase         bool   `json:"allow_rebase"`

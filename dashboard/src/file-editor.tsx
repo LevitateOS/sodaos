@@ -13,11 +13,11 @@ export function FileEditor({ session }: { session: Session }) {
   const [requiresUpload, setRequiresUpload] = useState(false);
   const [sha, setSHA] = useState(""); const [message, setMessage] = useState(""); const [loaded, setLoaded] = useState(creating);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const [reading, setReading] = useState(false);
-  const active = useRef(true); const uploadRevision = useRef(0);
+  const active = useRef(true); const uploadRevision = useRef(0); const targetRevision = useRef(0);
   const route = repositoryPath(owner, repo); const api = `/api/forgejo/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   useEffect(() => { active.current = true; return () => { active.current = false; uploadRevision.current++; }; }, []);
   useEffect(() => {
-    const controller = new AbortController(); uploadRevision.current++; setReading(false); setPath(originalPath); setText(""); setBinary(null); setRequiresUpload(false); setSHA(""); setLoaded(creating); setError("");
+    const controller = new AbortController(); targetRevision.current++; uploadRevision.current++; setBusy(false); setMessage(""); setReading(false); setPath(originalPath); setText(""); setBinary(null); setRequiresUpload(false); setSHA(""); setLoaded(creating); setError("");
     if (!creating) request<{ items: { sha: string; type: string; text: string | null }[] }>(`${api}/contents?${new URLSearchParams({ ref, path: originalPath })}`, { signal: controller.signal }).then(result => {
       if (controller.signal.aborted) return;
       const file = result.items[0]; if (result.items.length !== 1 || !file || file.type !== "file") { setError("Select one existing file."); return; }
@@ -26,7 +26,7 @@ export function FileEditor({ session }: { session: Session }) {
       if (controller.signal.aborted) return;
       if (failure instanceof APIError && failure.status === 401) useSession.getState().invalidate(session);
       else setError(failure instanceof Error ? failure.message : "File version could not be loaded.");
-    }); return () => controller.abort();
+    }); return () => { controller.abort(); targetRevision.current++; uploadRevision.current++; };
   }, [api, ref, originalPath, creating, session]);
   async function upload(file?: File) {
     const revision = ++uploadRevision.current; setReading(false);
@@ -43,15 +43,15 @@ export function FileEditor({ session }: { session: Session }) {
     if (busy || reading || requiresUpload || !loaded || !ref || !path || !message.trim()) return;
     const bytes = new TextEncoder().encode(text);
     if (binary === null && bytes.length > 32768) { setError("File content exceeds 32 KiB. Use native Git."); return; }
-    setBusy(true); setError("");
+    const revision = targetRevision.current; setBusy(true); setError("");
     try {
       await request(`${api}/files?${new URLSearchParams({ ref, path })}`, { method: creating ? "POST" : "PUT", csrf: session.csrf_token, body: { content: binary ?? encode(bytes), message, sha: creating ? "" : sha } });
-      if (active.current && useSession.getState().session === session) navigate(`${route}?${new URLSearchParams({ ref, path })}`);
+      if (active.current && revision === targetRevision.current && useSession.getState().session === session) navigate(`${route}?${new URLSearchParams({ ref, path })}`);
     } catch (failure) {
-      if (!active.current || useSession.getState().session !== session) return;
+      if (!active.current || revision !== targetRevision.current || useSession.getState().session !== session) return;
       if (failure instanceof APIError && failure.status === 401) useSession.getState().invalidate(session);
       else setError(failure instanceof Error ? failure.message : "Commit not confirmed. Inspect native history before retrying.");
-    } finally { setBusy(false); }
+    } finally { if (active.current && revision === targetRevision.current) setBusy(false); }
   }
   return <section aria-busy={busy || reading}><h1>{creating ? "Create/upload file" : "Edit/replace file"}</h1><Link to={`${route}?${new URLSearchParams({ ref, path: originalPath })}`}>Back to files</Link><p>Target branch: <strong>{ref || "Missing — return to files and select an explicit branch"}</strong></p>
     {error && <Alert isInline variant="danger" title={error} />}{!loaded && !error && <Spinner aria-label="Loading file precondition" />}

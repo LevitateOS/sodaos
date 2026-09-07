@@ -65,6 +65,42 @@ Paths below are upstream paths under `/api/v1`, **not** registered Soda proxy ro
 
 Confirmed option distinctions: `CreateRepoOption` includes name/description/private/initialization/default branch/template/trust settings; `CreateUserOption` includes username/email/password/native onboarding options; `EditUserOption` includes sensitive admin/active/prohibit_login/permission fields; `CreateKeyOption` contains key/title/read_only. Do not reuse an administrator-edit payload for ordinary profile updates, or impose Linux join naming restrictions on upstream account creation.
 
+## U09 completion audit and source corrections
+
+Inspected upstream **v15.0.7** `routers/api/v1/repo/{compare,commits,fork,migrate}.go`,
+`routers/web/repo/blame.go`, `modules/git/{repo_compare,diff}.go` and
+`services/repository/fork.go`, plus the pinned API/web/OAuth middleware already
+retained. Public source copies are under
+`.artifacts/research/u09-forgejo-15.0.7/`; `compare.go` was retrieved through the
+supported repository-contents API at `ref=v15.0.7` after its raw URL returned 404.
+This is upstream research, not a native operation or test pass.
+
+| Operation | Verified contract / correction |
+| --- | --- |
+| History | Native `/commits` accepts `sha`, optional `path`, page/limit and exposes Link/total metadata. Existing history adapter uses that metadata, not a guessed next page. |
+| Resolve selected ref | Native `/git/commits/{sha}` explicitly accepts a Git ref or SHA and supports disabling stat/verification/files. New comparison resolves both refs there, validates full returned SHAs and compares those immutable identities. Slash-ref encoding still needs installed verification. |
+| Compare | Native `/compare/{basehead}` resolves refs through `parseCompareInfo`, including native code/pull-read permission checks. `GetCompareInfo` returns its commit list without pagination; REST `total_commits` is its length. `files` is concatenated per-commit affected-file lists, **not an aggregate net diff**. Soda preserves duplicates, labels this honestly and rejects inconsistent/null bounded results. There is no invented native page parameter. |
+| Commit diff | `/git/commits/{sha}.diff` passes a single commit to `GetRawDiff`; `GetRepoRawDiffForFile` first resolves that commit and ordinarily diffs its first parent. A `base...head` string is not a supported substitute for a net aggregate patch. Keep 1 MiB/inert UTF-8 limits. |
+| Branch/tag reads and writes | Separate GET read scope from POST write scope; upstream still owns visibility, protection and ref syntax. Empty/malformed native creation results cannot be confirmed success. |
+| Fork | Native POST `/forks` returns 202 after synchronous `ForkRepositoryAndUpdates`/bare clone. This is not a task API. Personal ownership is implicit when organization is omitted. Soda verifies positive ID, acting owner, valid identity and native fork/non-mirror flags before its 201. Failed/ambiguous responses are never replayed. |
+| Import | Native POST `/repos/migrate` parses remote credentials and calls its migration allowlist before creating the destination; quota, migration settings and native ownership remain enforced. Migration runs synchronously (HammerContext); success returns a repository after completion. Native deferred error handling attempts deletion of its own failed destination—Soda does not take over cleanup or assume a timeout canceled work. UI clears credential fields, retains non-secret source/name and never retries automatically. |
+
+**U17-BLAME / U17-COMPARE-DIFF — disposition required:** the inspected API router
+has no blame data endpoint, and its comparison endpoint has no aggregate patch.
+Blame is native HTML at `/blame/commit/{sha}/{path}`; aggregate comparison is a
+native web view. OAuth2.Verify admits API/specific raw/archive/attachment paths,
+not these ordinary web views. The dashboard now offers explicitly native,
+configured-origin links (blame from file history, comparison pinned to both SHAs),
+using the user's own native Forgejo login. No scraping, cookie borrowing or
+Soda-side Git implementation was added. These links are interim coverage, **not
+accepted custom blame/diff parity or U09 completion**. A decision to accept native
+views for this version, wait for an upstream API or revise scope remains needed.
+
+Focused Go/DOM tests are authored for pinned/invalid/denied comparisons, read-only
+ref grants, copy identity validation, sanitized import failure, native links,
+file/ref drafts and stale route responses. No new tests, build or installed U09
+journey has run. Existing U08 native acceptance is unchanged.
+
 ## U09/U10 source follow-up
 
 The same pinned router and schema now back explicit history/ref/file-write/fork/

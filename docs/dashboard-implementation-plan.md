@@ -38,7 +38,7 @@ The user authorized the complete U08 run, then the namespaced SYS_PTRACE correct
 | **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
 | **U07 — Environments** | Actual four-environment creation, explicit account/key provisioning, memberships and post-reboot connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
 | **U08 — First product proof** | **Accepted:** real onboarding/access/Git/shared resources/bridge workloads/different-UID exec; recorded lifecycle preservation with explicit source/image delta reuse; merged 8b823db build/rollout/security/Cockpit regressions | No open U08 criterion in the bounded native x86_64 scope. U20 final-revision/fresh-install/aarch64/full operator acceptance remains separate; console delivery is P11/U20. |
-| **U09 — Code/history/writes** | Connected history/refs/compare/file-write/fork/basic-import source locally checked | Blame and fuller diff/import coverage; real Git readback, stale/protected writes, forks and import failure journeys. |
+| **U09 — Code/history/writes** | Earlier connected subsets checked; new source pins comparison SHAs, corrects file-list/scope semantics, validates copy results and protects route changes; focused Go/DOM tests authored, unexecuted | Finish remaining edge-case/installed fixture source, approve build/rollout/repository/import execution and obtain native proof. U17-BLAME/U17-COMPARE-DIFF native-view dispositions remain unresolved. |
 | **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked | Structured native templates, remaining comment attachment/reaction detail, expanded failure cases and real two-user collaboration proof. |
 | **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked | Existing inline threads, old-side positions, team reviewers and real reviewer/merger/conflict/check-failure/stale-head journeys. |
 | **U12 — Settings/orgs/teams** | Connected settings/access/protections/hooks/org/team subsets locally checked; native direct collaboration exercised | Advanced protection/team-policy forms and remaining sub-actions; full owner/collaborator/team/admin matrix; webhook API-gap disposition. |
@@ -574,7 +574,9 @@ These concrete techniques were retained from the incoming P07/P08 proposal and a
 
 #### U09 completion plan — existing source to installed acceptance
 
-**Status:** planned, not executed. U08 remains accepted for its recorded scope.
+**Status:** source implementation in progress; latest corrections/tests are
+unbuilt/unexecuted. See the [handoff](implementation-status.md#u09-implementation-started--upstream-contracts-and-source-corrections).
+U08 remains accepted for its recorded scope.
 The browser workspace terminal is a separate requirement, not U09 work. Planning
 does not authorize builds, deployment, new repositories, native Git writes,
 network-policy changes or provider jobs.

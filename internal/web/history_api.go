@@ -19,8 +19,10 @@ func (s *Server) historyRoutes() {
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/commits", s.apiProvider(s.apiCommits, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/commits/{sha}", s.apiProvider(s.apiCommit, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/commits/{sha}/diff", s.apiProvider(s.apiCommitDiff, "read:repository", "GET"))
-	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/branches", s.apiProvider(s.apiBranches, "write:repository", "GET", "POST"))
-	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/tags", s.apiProvider(s.apiTags, "write:repository", "GET", "POST"))
+	s.mux.HandleFunc("GET /api/forgejo/repos/{owner}/{repo}/branches", s.apiProvider(s.apiBranches, "read:repository", "GET"))
+	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/branches", s.apiProvider(s.apiBranches, "write:repository", "POST"))
+	s.mux.HandleFunc("GET /api/forgejo/repos/{owner}/{repo}/tags", s.apiProvider(s.apiTags, "read:repository", "GET"))
+	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/tags", s.apiProvider(s.apiTags, "write:repository", "POST"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/compare", s.apiProvider(s.apiCompare, "read:repository", "GET"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/files", s.apiProvider(s.apiWriteFile, "write:repository", "POST", "PUT"))
 	s.mux.HandleFunc("/api/forgejo/repos/{owner}/{repo}/fork", s.apiProvider(s.apiFork, "write:repository", "POST"))
@@ -63,6 +65,10 @@ func (s *Server) apiCommit(w http.ResponseWriter, r *http.Request, v store.Sessi
 	result, err := s.Forgejo.Commit(r.Context(), token, r.PathValue("owner"), r.PathValue("repo"), r.PathValue("sha"))
 	if err != nil {
 		providerError(w, err)
+		return
+	}
+	if !strings.EqualFold(result.SHA, r.PathValue("sha")) {
+		providerError(w, forgejo.ErrInvalidResponse)
 		return
 	}
 	jsonResponse(w, 200, result)
@@ -109,6 +115,10 @@ func (s *Server) apiBranches(w http.ResponseWriter, r *http.Request, v store.Ses
 			providerError(w, err)
 			return
 		}
+		if !validRef(result.Name) {
+			providerError(w, forgejo.ErrInvalidResponse)
+			return
+		}
 		jsonResponse(w, 201, result)
 		return
 	}
@@ -145,6 +155,10 @@ func (s *Server) apiTags(w http.ResponseWriter, r *http.Request, v store.Session
 			providerError(w, err)
 			return
 		}
+		if !validRef(result.Name) || !commitHash.MatchString(result.Commit.SHA) {
+			providerError(w, forgejo.ErrInvalidResponse)
+			return
+		}
 		jsonResponse(w, 201, result)
 		return
 	}
@@ -168,16 +182,52 @@ func (s *Server) apiCompare(w http.ResponseWriter, r *http.Request, v store.Sess
 		jsonError(w, 400, "invalid_ref", "Provide base and head refs.")
 		return
 	}
-	result, err := s.Forgejo.Compare(r.Context(), token, r.PathValue("owner"), r.PathValue("repo"), base, head)
+	owner, repo := r.PathValue("owner"), r.PathValue("repo")
+	baseSHA, err := s.Forgejo.ResolveRef(r.Context(), token, owner, repo, base)
 	if err != nil {
 		providerError(w, err)
 		return
+	}
+	if !commitHash.MatchString(baseSHA) {
+		providerError(w, forgejo.ErrInvalidResponse)
+		return
+	}
+	headSHA := baseSHA
+	if head != base {
+		headSHA, err = s.Forgejo.ResolveRef(r.Context(), token, owner, repo, head)
+		if err != nil {
+			providerError(w, err)
+			return
+		}
+	}
+	if !commitHash.MatchString(headSHA) {
+		providerError(w, forgejo.ErrInvalidResponse)
+		return
+	}
+	result, err := s.Forgejo.Compare(r.Context(), token, owner, repo, baseSHA, headSHA)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	// The selected native endpoint returns the whole commit list (no paging),
+	// and concatenates each commit's files. This is NOT a net changed-file diff.
+	if result.Commits == nil || result.Files == nil || result.Total != int64(len(result.Commits)) {
+		providerError(w, forgejo.ErrInvalidResponse)
+		return
+	}
+	for _, commit := range result.Commits {
+		if !commitHash.MatchString(commit.SHA) {
+			providerError(w, forgejo.ErrInvalidResponse)
+			return
+		}
 	}
 	jsonResponse(w, 200, struct {
 		Commits []forgejo.Commit     `json:"commits"`
 		Files   []forgejo.CommitFile `json:"files"`
 		Total   string               `json:"total_commits"`
-	}{result.Commits, result.Files, strconv.FormatInt(result.Total, 10)})
+		BaseSHA string               `json:"base_sha"`
+		HeadSHA string               `json:"head_sha"`
+	}{result.Commits, result.Files, strconv.FormatInt(result.Total, 10), baseSHA, headSHA})
 }
 func (s *Server) apiWriteFile(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
 	ref, file, ok := repositoryContentQuery(w, r)
@@ -239,6 +289,10 @@ func (s *Server) apiFork(w http.ResponseWriter, r *http.Request, v store.Session
 		providerError(w, err)
 		return
 	}
+	if result.ID <= 0 || result.Owner.ID != v.User.ID || !validRepositoryPart(result.Owner.Login) || !validRepositoryPart(result.Name) || !result.Fork || result.Mirror {
+		providerError(w, forgejo.ErrInvalidResponse)
+		return
+	}
 	jsonResponse(w, 201, repositoryDTO(result))
 }
 func (s *Server) apiImportRepository(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
@@ -263,6 +317,10 @@ func (s *Server) apiImportRepository(w http.ResponseWriter, r *http.Request, v s
 	input.Token = ""
 	if err != nil {
 		providerError(w, err)
+		return
+	}
+	if result.ID <= 0 || result.Owner.ID != v.User.ID || !validRepositoryPart(result.Owner.Login) || !validRepositoryPart(result.Name) || result.Mirror {
+		providerError(w, forgejo.ErrInvalidResponse)
 		return
 	}
 	jsonResponse(w, 201, repositoryDTO(result))

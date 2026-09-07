@@ -75,22 +75,37 @@ Individually registered repository subroutes now include:
 - `GET /commits?ref=&path=&page=`, `GET /commits/{sha}` and `/commits/{sha}/diff`:
   native history and pinned full SHA, with unified diff bounded to 1 MiB. No local
   Git index or arbitrary ref-to-command execution.
-- `GET/POST /branches`, `GET/POST /tags`: native pagination and create operations,
-  with branch/tag protection and permissions remaining upstream.
-- `GET /compare?base=&head=`: commits/changed files and lossless native total;
-  this does not execute a merge.
+- `GET/POST /branches`, `GET/POST /tags`: native pagination and create operations.
+  GET requires `read:repository`; POST requires `write:repository`. Native
+  protection/authority remains upstream; malformed mutation results are not success.
+- `GET /compare?base=&head=`: resolves both refs through the acting user's native
+  single-commit interface, then compares full SHAs. Returns `base_sha`, `head_sha`,
+  commits, lossless native total and **per-commit file entries**, not net changed
+  files. Native 15.0.7 has no paging here; the bounded complete response must agree
+  with its commit count. A too-large response fails, never becomes a partial page.
+  Duplicate paths/reverted changes are legitimate in this file list. No merge or
+  local aggregate-diff computation occurs.
 - `POST/PUT /files?ref=&path=`: explicit branch/path, base64 content up to 32 KiB,
   commit message and exact loaded file SHA for updates. Native stale SHA produces
   409; no retry overwrites newer work. Creation does not accept an update SHA.
-- `POST /fork`: optional personal fork name; no environment copy.
+- `POST /fork`: optional personal fork name; no environment copy. Native 15.0.7
+  completes its synchronous fork operation before returning 202; Soda returns
+  201 only for a valid personal fork identity. An unknown/wrong-owner/mirror
+  result is unconfirmed, not a reason to retry the mutation.
 - `POST /api/forgejo/repositories/import`: credential-free HTTPS Git URL, name,
   privacy and optional separate transient credentials; owner is the acting user,
   service is native `git`, no mirror or provider-specific issue migration.
 
 React history/ref/compare/editor/fork/import views call these operations. Unified
 text diff is the current bounded presentation, not inline-review position support.
-Blame and the full native import/diff detail audit remain pending. No source or
-installed tests for these new views/adapters have executed.
+History offers explicitly native, full-SHA blame links; comparison offers a
+configured-origin native aggregate view. These are pending U17 dispositions, not
+custom-screen parity or accepted U09. Native blame is HTML, and its web route is
+not admitted by OAuth token authentication. The API comparison cannot supply a
+net aggregate patch through the single-commit diff endpoint. No cookies are
+borrowed and no HTML is scraped. Latest comparison/copy/route-race corrections
+and focused tests are source-only, unbuilt/unexecuted; installed U09 proof remains
+pending. See the exact contract notes in `forgejo-api-coverage.md`.
 
 ## Issue collaboration (U10 source)
 

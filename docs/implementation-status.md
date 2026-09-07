@@ -1,5 +1,52 @@
 # Implementation handoff
 
+## U09 implementation started — upstream contracts and source corrections
+
+Implemented a first source/test batch from clean `5d9dfe6`, following the user's
+implementation request. Existing installed bytes remain `8b823db`; U08's recorded
+acceptance is unchanged. **No builds, compilation/type checks, tests, dependency
+installation, deployment or native/provider mutations ran in this batch.** Only
+upstream source/metadata retrieval, source inspection/edits, Go formatting and
+Git whitespace review occurred. The remaining native actions require their exact
+repository/import-source/build/rollout approval.
+
+- Audited selected Forgejo 15.0.7 comparison/commit/blame/fork/import code. Native
+  comparison returns the whole bounded commit list and concatenated per-commit
+  file entries, not net changed files or a paginated aggregate patch. Native fork
+  returns 202 after synchronous clone; migration also runs synchronously, applies
+  native allowlist/authority first and owns its failed-destination cleanup.
+- Comparison now resolves refs to validated full native SHAs (same ref resolved
+  once), compares only those snapshots, verifies total/list consistency and
+  rejects malformed identities without another request/retry. UI exposes pinned
+  identities and honestly labels duplicate/reverted per-commit file entries.
+  Branch/tag GETs use read scope while writes retain write scope and native gates.
+  Commit/ref mutation results are validated instead of trusting empty metadata.
+- Fork/import results must identify a valid personal destination; forks require
+  native fork/non-mirror flags. Wrong/unknown destination results remain
+  unconfirmed writes, not optimistic success or a mutation retry. Import failure
+  keeps non-secret form inputs while immediately clearing credential inputs.
+- File saves, forks and ref mutations track their target lifetime: late replies
+  cannot navigate/reset a different repository/file/account. History/ref paging
+  resets stale next-page state, and diff/ref-write expiry invalidates the session.
+- Added Go comparison/scope/result/copy/credential-error cases, dedicated
+  history/ref/compare/copy DOM suites and file-editor route-race/UTF-8-bound tests.
+  These tests are **authored, unexecuted**, not passing evidence.
+
+**Concrete upstream decisions:** `U17-BLAME` and `U17-COMPARE-DIFF` now record
+native HTML views without supported OAuth API equivalents in the inspected
+version. Full-SHA/configured-origin native links are present and explicitly
+labeled interim; no HTML scraping, cookie borrowing, local Git backend or API
+endpoint guess was added. Acceptance of native views for this version versus
+waiting for upstream capability/revising scope is unresolved. U09 is not complete.
+
+Remaining source work includes the rest of the planned mutation/read edge-case
+matrix and the installed two-user UI/Git/fork/import fixture entrypoints, followed
+by approved execution and real native ref/byte/permission/readiness evidence.
+The current work does not claim full custom blame/aggregate-diff parity or accept
+those gaps silently. Contract details and evidence provenance are in
+`docs/forgejo-api-coverage.md`; changed DTO/scope semantics in
+`docs/dashboard-api.md`. Browser terminal work remains separate.
+
 ## U09 completion plan recorded
 
 Added a source-backed completion sequence under U09 in the leading dashboard
