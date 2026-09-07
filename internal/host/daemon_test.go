@@ -20,7 +20,7 @@ func (c *captureCreate) Run(_ context.Context, _ []byte, executable string, args
 	return nil, errors.New("stop before native creation")
 }
 
-func TestCreateUsesFixedNamespacedNetworkCapability(t *testing.T) {
+func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	commands := &captureCreate{}
 	d := Daemon{Exec: commands, Config: Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"}}
 	id := "p123456789012345678901234"
@@ -29,7 +29,7 @@ func TestCreateUsesFixedNamespacedNetworkCapability(t *testing.T) {
 	}
 	want := []string{"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
 		"--label", "org.soda.owner=2", "--network", "soda-projects", "--userns=auto:size=262144",
-		"--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN",
+		"--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE",
 		"--device=/dev/fuse", "--security-opt=label=disable", "localhost/soda-project-os:dev"}
 	if !reflect.DeepEqual(commands.args, want) {
 		t.Fatalf("unexpected native creation contract: %q", commands.args)

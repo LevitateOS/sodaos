@@ -1,5 +1,18 @@
 # Implementation handoff
 
+## Approved U08 different-UID exec follow-up — preparation
+
+The user approved project-namespace-scoped SYS_PTRACE and **one further fresh
+fixture** on `soda-test`, preserving all three existing roots. The fixed creation
+profile now includes that capability; no caller-supplied capability parameter,
+privileged parent, host namespace/socket or existing-container retrofit is added.
+The exact-argv Go test retains all namespace/device/security constraints. Added
+`tests/installed/workload-exec.py` for default-root, explicit UID-999 and PTY exec
+against a PostgreSQL PID 1 actually running as UID 999, plus Bob's engine denial.
+This section records preparation, not native success. Build/check, backed-up
+matching deployment and fresh-fixture evidence follow. No additional VM reboot,
+old-project lifecycle, provider CI or destructive cleanup is inferred.
+
 ## U08 completion execution — candidate and remaining runtime correction
 
 **Current installed preview/helper/default new-project image: `f233a4a`.** Its
