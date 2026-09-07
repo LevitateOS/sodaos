@@ -12,6 +12,10 @@ confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
 locally tested. Neither is deployed; browser/proxy proof remains pending.
 
+**Next milestone:** finish the native-page caller from steps 1–2 and deliver the
+[read-only button/drawer in step 3](#3-deliver-the-read-only-button-and-drawer).
+Its implementation slices and completion checks are specified there; no new roadmap.
+
 ## Selected approach
 
 - **Backend:** existing Go API, SQLite, encrypted Forgejo OAuth grants and restricted
@@ -34,10 +38,10 @@ locally tested. Neither is deployed; browser/proxy proof remains pending.
 
 Keep each slice coherent, with its focused tests and affected guide updates in the
 same change. The [API guide](dashboard-api.md) describes today's retained endpoints;
-planned changes here do not claim those contracts already exist. Deliver the two
-security fixes as separate backend/test commits in steps 1 and 2, without waiting
-for the drawer. Move new-join authorization out of the later UI slice. Both fixes
-must land before mutation controls or rollout; hiding buttons does not protect APIs.
+planned changes here do not claim those contracts already exist. The two security
+fixes landed as separate backend/test commits, moving new-join authorization ahead
+of UI wiring. Preserve them while completing the native-page/read-only milestone;
+source tests and hidden buttons are not installed authentication or authorization proof.
 
 ### 1. Establish the browser-to-backend contract
 
@@ -221,30 +225,150 @@ existing Linux accounts, keys, SSH sessions or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
-**New source:** `appliance/forgejo/templates/custom/{header,footer}.tmpl` and
-`appliance/forgejo/public/assets/sodaspaces.{css,js}`—customization text only.
+**Next milestone, not implemented:** complete the pending native-page identity/read
+caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
+source tests first, packaging with fixtures next, then the opt-in native journey.
+Run native proof only with its separate approval. Read-only UI source may proceed
+before that proof; do not mark the milestone complete or enable step-4 controls
+on fixture results alone.
 
-- Use the [verified native primitives and state table](forgejo-frontend-integration.md#minimal-button-drawer-and-loading-candidate).
-  Render hidden Soda-owned markup from the footer hook; move only our button into
-  `.repo-header .repo-buttons`. Missing row/context means no mount. Do not copy
-  the repository header, add a tab or alter native buttons/listeners.
-- Open a right-aligned `<dialog>` with a scrolling content wrapper. Show actual
-  actor/repository context, checking/absent/existing/incomplete/unavailable states,
-  sign-in, Close and safe refresh. Use native theme/form/loading/copy primitives,
-  readable status, real disabled controls and `aria-busy`; keep Close usable.
-- Keep JavaScript local to these elements: text/value assignment, checked JSON
-  responses, bounded reads and stale-response rejection. Closing may abort reads,
-  not cancel or undo a native operation. Reopening reads actual state.
-- Stage the four files through `scripts/stage.py`; extend
-  `internal/nativebuild/bundle.go` only for the required template paths/ancestors.
-  Update build/packaging fixtures, inventory and notices together. Preserve existing
-  branding and reject retired SPA payloads. Refuse conflicting operator hooks/assets
-  before delivery rather than silently replacing them; no generic merge framework.
+**New product source:** `appliance/forgejo/templates/custom/{header,footer}.tmpl`
+and `appliance/forgejo/public/assets/sodaspaces.{css,js}`. No new backend endpoint,
+schema change, frontend build, component library or upstream executable is planned.
 
-**Exit:** focused DOM/browser coverage for missing rows, initialization/reopen,
-Escape/backdrop/Close/focus return, keyboard use, narrow/wide layouts, themes and
-native navigation. Staging/verifier checks exercise real file paths. No mutation
-controls are enabled yet; native rendering is not inferred from fixture markup.
+#### Native context and authenticated reads
+
+1. Use the exact stock 15.0.7 hooks: `custom/header` loads our local CSS;
+   `custom/footer` emits hidden Soda-owned markup and loads our script after the
+   native script tag. `routers/common/auth.go` supplies `.IsSigned`/`.SignedUserID`;
+   `services/context/repo.go` supplies `.Repository.ID`. Emit IDs in escaped HTML
+   data attributes, not inline executable JSON or parsed owner/name URLs. Guard
+   absent/broken/being-created repository context. Keep IDs as canonical decimal
+   strings through JavaScript, including values above its safe Number range.
+2. Respect native `AppSubUrl` for local asset URLs and verify the effective custom
+   asset configuration; never assume a CDN contains Soda's files. The supported
+   API deployment remains origin-only with fixed `/-/soda/`, not a new subpath mode.
+   Missing/invalid repository context, a malformed signed actor or unsupported
+   placement means no active mount, not guessed endpoints. Anonymous context remains
+   valid for explicit sign-in. Do not alter `base/head_script` or native `window.config`.
+3. On explicit open, bootstrap `GET /-/soda/api/session`. Compare its user ID to the
+   signed native-page ID, then check fresh `/-/soda/api/forgejo/me` with
+   `X-Soda-Expected-User-ID`. Only matching page/session/provider IDs unlock reads.
+   Anonymous/mismatched pages get explicit sign-in/re-authentication, never the
+   bootstrap actor silently substituted for the page actor. Login links carry only
+   the validated repository ID and, when signed in, expected native user ID.
+4. Keep explicit **Sign out of Soda** separate: use the displayed, bootstrapped
+   Soda actor and its in-memory CSRF token with the protected JSON logout endpoint.
+   This is not environment permission or native Forgejo/Linux logout. Neither OAuth
+   navigation nor logout runs merely from opening the drawer. Stale/409 login failures
+   require another explicit start rather than an automatic redirect/retry loop.
+5. After identity matching, call the required repository-scoped collection read.
+   Zero items means absent; one item selects the detail read. Validate IDs against
+   the requested repository and selected environment before rendering. Denial or
+   provider failure is never absence; do not fall back to a catalog or cached ID.
+   Preserve `authority_unavailable`, nullable observations and original own login.
+   Member-list, key and connection endpoints are not needed in this slice.
+6. Use a small GET/JSON reader with same-origin credentials, no-store, redirect
+   rejection, a 64-KiB response cap (including actual streamed bytes) and checks for
+   required field types. Build only fixed Soda paths; use text/value assignment,
+   never response HTML. Keep CSRF and results in memory, not browser storage/logs.
+   Abort/discard reads on Close; a request generation prevents late responses from
+   overwriting a reopened drawer. A new open/Refresh starts a fresh check sequence.
+7. On pagehide, loss of visibility/window focus, or BFCache restoration, invalidate
+   the sequence and clear Soda's displayed data. On resume, keep environment reads
+   disabled until a **full native-page reload** obtains fresh template context.
+   Offer an explicit Reload action; do not auto-reload away unsaved native form edits,
+   scrape a fetched page, or treat another Soda API read as fresh native identity.
+   Guard initial pageshow/focus so normal load is not a reload loop. Keep native
+   beforeunload behavior intact. This is snapshot consistency, not live native-session
+   authentication or atomic cross-system logout.
+
+#### Read-only drawer behavior
+
+- Mount once per document: move only our `type="button"` into
+  `.repo-header .repo-buttons`; leave native actions/forms/listeners intact. Missing
+  or ambiguous mounts fail closed, with no polling or general DOM-repair framework.
+- Use browser `showModal()`/`close()` and the [verified native styling](forgejo-frontend-integration.md#minimal-button-drawer-and-loading-candidate).
+  Provide a labelled, right-aligned `<dialog>`, filling scrolling content wrapper,
+  keyboard focus entry/return, Escape, backdrop and Close. Scope CSS to Soda-owned
+  elements; apply loading classes to content, never the positioned dialog. Keep
+  Close usable, status readable and `aria-busy` truthful at narrow/wide widths.
+- Render checking, explicit authentication/mismatch, absent, provisioned/running,
+  stopped, incomplete, denied and unavailable states. Distinguish the stored
+  provisioning result from a live observation; neither an IP nor running status
+  proves client reachability. Show actual actor/repository and any verified own
+  project login. No Create, key-save, Join, SSH/copy, lifecycle or terminal controls,
+  including dormant/hidden versions; those belong to step 4 or later.
+- Exact `#sodaspaces` may reopen the drawer after OAuth; it grants no authority and
+  still starts the full identity/read sequence. Other native fragments/navigation
+  remain untouched. Close/reopen/Refresh must issue no environment or key mutation.
+  OAuth/logout and provider-grant refresh can change authentication state: read-only
+  here describes environment behavior, not a claim that authentication has no effects.
+
+#### Packaging and conflict refusal
+
+- `scripts/stage.py` copies only the four files into
+  `/var/lib/soda/forgejo/gitea/{templates/custom/,public/assets/}`. Keep readable
+  0644 files/0755 new directories and existing canonical branding. Retain selected
+  `STATIC_CACHE_TIME=0` and verify asset revalidation; no new cache/build pipeline.
+- `internal/nativebuild/bundle.go` admits only the two template filenames and their
+  required ancestors, and requires all four files in the inventory. Do not whitelist
+  arbitrary templates or Forgejo data. Update bundle fixtures, staged-path assertions
+  in `tests/packaging/test_staging.py`, and applicable notices together.
+- Add exact hook/asset destination conflict refusal to `scripts/install-native.sh`
+  **before its first host write**; current ancestor checks alone do not prevent
+  overwriting an existing file. Refuse occupied destinations and symlinks rather than
+  merge/adopt operator hooks. Extend ownership/label handling narrowly for the new
+  readable template paths (current Forgejo UID/GID 1000), not recursive changes to
+  the mutable Forgejo tree. Author temporary-filesystem preflight tests.
+- First-install remains first-install only. Existing-target delivery belongs to the
+  reviewed rehearsal/cutover procedure: preserve custom files, require an explicit
+  decision for conflicts, back up exact prior bytes and verify effective CustomPath,
+  ownership/labels and template reload needs. Do not use install/setup/activation
+  scripts as an upgrade shortcut or restart Forgejo merely to try a hook.
+
+#### Tests, native proof and completion
+
+- Add `scripts/sodaspaces_templates_test.go` for the two Soda templates and
+  `tests/frontend/sodaspaces.test.mjs` for the actual script's DOM/fetch behavior.
+  Use Node's test runner and the already-pinned Cockpit `jsdom` dependency, not a
+  root frontend manifest. Wire the JS test into `scripts/check-native.sh` and
+  document its standalone source-check command; the aggregate still requires a
+  clean revision and actual stage. Fixture context/dialog doubles are not upstream
+  rendering, CSS, focus or native browser evidence.
+- Cover signed/anonymous/large/malformed IDs; missing rows/context; matching and
+  mismatched actors; contextual login and Soda-only logout; malformed/oversized/HTML
+  responses; 401/403/404/409/unavailable states; absent versus existing/incomplete
+  environments; close/reopen/late reads; stale/BFCache reload gating; exact fragment;
+  and no environment/key writes. Packaging fixtures exercise missing required files,
+  extra templates, modes and pre-write conflict refusal, not just recipe strings.
+- Add opt-in `tests/installed/sodaspaces.mjs` using existing pinned Playwright. Under
+  explicit fixture/target permission, exercise actual stock Forgejo → Caddy → Go
+  OAuth → safe repository return → drawer, anonymous and two-account transitions,
+  native-only and Soda-only account changes, logout, BFCache/focus, keyboard/backdrop/
+  Close, responsive themes and native form/navigation coexistence. Verify actual
+  Soda cookie host/path/security attributes without logging values, no native-cookie
+  borrowing, and protected logout's actor/CSRF behavior. Include actual proxy path/
+  encoding checks and only focused native route smoke checks. Do not seed an
+  authenticated session or call intercepted responses native proof.
+- Before that run, agree exact candidate/images, target and isolated private origin/
+  TLS trust, allowed users/repos/OAuth application/callback operations, database/key
+  copies, process starts/restarts and retention. Existing VM/fixture approvals are
+  exhausted. Use authorized existing tools, not a new support platform. New fixtures,
+  credential changes or retained-target deployment are not authorized by this plan.
+  The installed separate-origin/schema-v3 pairing cannot host this candidate through
+  casual live edits; follow [credential rehearsal](dashboard-credentials.md).
+- No environment creation/join/key save is needed for the first real OAuth proof.
+  Record which existing-state views were native observations versus local fixtures;
+  use existing environments only under explicit read scope. Preserve browser profiles
+  privately, accept password/credential files rather than argv values, and retain
+  sanitized outcomes without raw callback URLs, cookies, bodies, traces or credentials.
+- **Exit:** source/template/DOM and real staged-payload checks pass, and the approved
+  native run proves identity matching, safe OAuth return, stale-tab blocking and the
+  read-only dialog without native navigation regressions. Record exact revision and
+  failures in the handoff. No such tests ran by writing this plan. Only then proceed
+  to step-4 mutation controls; step-5 integrated access proof and step-6 cutover remain
+  separate, as do the existing-account terminal and independent aarch64 acceptance.
 
 ### 4. Wire the explicit access actions
 

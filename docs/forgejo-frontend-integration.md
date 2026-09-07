@@ -110,6 +110,17 @@ separate origins/configuration and schema v3.
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 
+- `routers/common/auth.go` supplies `.IsSigned` and `.SignedUserID`;
+  `services/context/repo.go` sets `.Repository`, including its stable `.ID`.
+  Use escaped template data attributes and keep IDs as strings in JavaScript.
+  `templates/base/footer.tmpl` calls the custom footer after the native `index.js`
+  tag; that ordering is source evidence, not proof of browser initialization.
+- Native templates expose `AppSubUrl`, `AssetUrlPrefix` and `AssetVersion`; an
+  operator asset prefix does not establish that a CDN serves Soda's files. The
+  selected `appliance/config/forgejo.env` already sets `STATIC_CACHE_TIME=0`;
+  upstream `modules/httpcache/httpcache.go` uses private max-age=0/must-revalidate.
+  Preserve local custom-asset delivery and test actual revalidation, rather than
+  introduce a new asset build/version pipeline just for this drawer.
 - The inspected router tree has no `/-/soda/` route. Forgejo does own
   `/-/fetch-redirect` (`routers/init.go`) and development-only `/-/demo` routes
   (`routers/web/web.go`); do not proxy the whole `/-/` namespace. This inspection
@@ -124,6 +135,10 @@ Further source facts informing the [implementation sequence](sodaspaces-plan.md)
 - `internal/nativebuild/bundle.go` currently admits Forgejo public assets, not
   custom template directories. The planned hooks need a narrow staging/verifier
   change with tests, not a blanket allowance for Forgejo's writable data.
+  First-install destination ancestor/symlink checks do not refuse an occupied
+  regular target file; the planned four hook/asset paths also need exact conflict
+  refusal before host writes. This is authored work in the [read-only milestone](sodaspaces-plan.md#packaging-and-conflict-refusal),
+  not an installer fix or permission to overwrite existing customizations.
 
 If supported configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,

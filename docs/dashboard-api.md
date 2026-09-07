@@ -146,7 +146,11 @@ browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
 is unchanged. The pending drawer must discard stale reads and reload native page
 context on resume/BFCache restoration before exposing actions, then compare the
-page/session/provider IDs. An anonymous or mismatched page offers explicit sign-in,
+page/session/provider IDs. The [read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
+will invalidate on hidden/blurred/pagehide/restored documents and require an explicit
+full native-page reload before further environment reads. It must not auto-reload
+away unsaved native form edits; another Soda fetch is not refreshed native context.
+An anonymous or mismatched page offers explicit sign-in,
 not automatic account switching or mutation replay. Native logout is not global
 Soda logout; do not claim atomic cross-system session revocation. Browser behavior
 and this caller wiring still require implementation and real verification.

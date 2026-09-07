@@ -283,6 +283,29 @@ and subsequent full Go/race passes are retained. All 31 Python build fixtures al
 passed. No native/browser/proxy execution or retained-project/provider/deployment changes. Both fixes are source-implemented;
 real browser proof and v5 preserved-state rehearsal remain required before rollout.
 
+## Next read-only milestone plan
+
+After `ddb2d4f`, expanded [step 3 of the existing plan](sodaspaces-plan.md#3-deliver-the-read-only-button-and-drawer)
+for native template IDs, explicit Soda authentication, repository-scoped reads and
+one read-only dialog. The two security fixes stay implemented; this does not redo
+them or add a roadmap. Selected stale-tab handling clears data and requires an
+explicit native-page reload, preserving unsaved native form edits. Hook/assets and
+source tests come first, bounded packaging/conflict fixtures next, then an opt-in
+native browser journey. No new endpoint/schema/frontend build is planned.
+
+Verified stock 15.0.7 identity fields/footer ordering and existing custom-asset
+cache configuration in source. Recorded the installer target-file conflict gap and
+narrow template allowlist/mode/ownership work; neither fix is implemented here.
+The real OAuth/Caddy return, cookies, stale tabs and accessible native rendering
+remain completion checks before mutation controls, with separately approved fixtures
+and no implied retained-target migration, restart or delivery.
+
+Changed documentation only. Source inspection and Markdown link/anchor/whitespace
+checks ran; no product tests, builds, dependency resolution, browser/proxy execution,
+provider or retained-state actions. Planning source hashes and check logs:
+`.artifacts/research/read-only-plan-ddb2d4f/`.
+The drawer remains absent; only historical bounded U08 is accepted.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring
