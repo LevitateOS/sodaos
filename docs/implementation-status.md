@@ -5,7 +5,7 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | None: React/duplicate forge adapters removed in `752079e`; original Go/HTMX pages/forms/assets and exclusive clients removed in `9f3baa7` |
+| Soda UI source | Native Forgejo template/asset overrides with a shared presentation system in the local preview; drawer pending. Standalone React/duplicate forge adapters removed in `752079e`; original Go/HTMX frontend removed in `9f3baa7` |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v3 SQLite/encrypted grants, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
@@ -24,6 +24,48 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 [architecture](architecture.md) and [current work](sodaspaces-plan.md) authoritative.
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
+
+## Shared Forgejo presentation components
+
+The local stock 15.0.7 preview now uses shared Go template partials for page intros,
+empty content and the guest theme button. Explicit page, toolbar/tab/action, form
+section and native-list CSS replaces inheritance from unrelated dashboard/issues
+page classes. Explore, dashboard, issues/pulls, milestones, notifications and both
+creation forms compose the same presentation rules; home/login share the guest
+control while retaining their separate layouts. Watching search joins its primary
+toolbar. The redundant Explore toolbar stylesheet and dead form wrappers are removed.
+[Composition contract](../appliance/forgejo/README.md#presentation-component-contract).
+
+Native partials, fields, permission gates, translations, asset prefixes and
+notification replacement hooks remain upstream-owned. No Lit dependency or frontend
+build was added; Lit is reserved for a new self-contained interactive feature when
+needed. The drawer/authenticated integration and production staging remain pending.
+
+Executed on this development machine:
+
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=readonly ./scripts -run 'TestForgejo'`
+  passed with Go 1.27.1 darwin/arm64. Includes real shared-partial rendering,
+  translation/contextual escaping, subpath assets and native composition boundaries;
+  this is not the locked native toolchain or a full Go/native build check.
+- `node --test tests/forgejo/login-theme.test.mjs`: all six tests passed.
+- Reloaded templates only in existing `sodaos-local-forgejo`. Chrome rendered all
+  twelve signed-in route variants at 1654px and 390px without horizontal overflow;
+  all shared intro artwork loaded. Final narrow checks covered the corrected tab
+  order, watching/subscriptions and both form cards. Native search/no-results and
+  advanced disclosure worked; shared toolbar control heights measured 44px.
+- Guest home/login and all three directories rendered at 780px light and 480px dark
+  without horizontal overflow. The shared theme button changed appearance/labels
+  and persisted across navigation. Browser viewport overrides were reset afterward.
+- All thirteen linked component/page CSS responses matched source bytes. Changed
+  guide links/component anchor and `git diff --check` passed.
+
+No fixture records, account preferences, providers, dependencies, appliance stage
+or deployed VM were changed. Notification POST/live replacement, creation POST/error
+journeys and signed-in light appearance were not newly exercised; their source
+boundaries were checked. One unavailable avatar inside native context-menu content
+was observed; no Soda intro artwork was missing. Existing native acceptance scope
+is unchanged. Custom introductory copy remains English pending the existing i18n
+work; native translated labels remain native.
 
 ## Local New Organization preview
 

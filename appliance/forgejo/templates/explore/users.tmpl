@@ -1,28 +1,27 @@
 {{/* Forgejo 15.0.7 uses this template for both people and organizations. */}}
 {{template "base/head" .}}
-<main aria-label="{{.Title}}" class="page-content explore users soda-explore soda-explore-people" data-signed="{{.IsSigned}}">
-  <div class="ui container soda-explore-container">
-    <section class="soda-explore-intro" aria-labelledby="soda-explore-title">
-      <div><p class="soda-explore-eyebrow">Discover &amp; collaborate</p>
-        {{if .PageIsExploreOrganizations}}
-          <h1 id="soda-explore-title">Good work happens together.</h1>
-          <p class="soda-explore-lede">Find the teams bringing projects to life.</p>
-        {{else}}
-          <h1 id="soda-explore-title">Meet the people behind the code.</h1>
-          <p class="soda-explore-lede">Find collaborators and discover what they’re building.</p>
-        {{end}}
-      </div>
-      <img class="soda-explore-art" src="{{AssetUrlPrefix}}/soda/forgejo/{{if .PageIsExploreOrganizations}}orgs-papercraft.png{{else}}users-papercraft.png?v=2{{end}}" width="1536" height="1024" alt="">
-    </section>
-    <div class="soda-explore-toolbar">
+<main aria-label="{{.Title}}" class="page-content explore users soda-page soda-explore soda-explore-people" data-signed="{{.IsSigned}}">
+  <div class="ui container soda-page-container">
+    {{$introTitle := "Meet the people behind the code."}}
+    {{$introDescription := "Find collaborators and discover what they’re building."}}
+    {{$introArtwork := "users-papercraft.png?v=2"}}
+    {{if .PageIsExploreOrganizations}}
+      {{$introTitle = "Good work happens together."}}
+      {{$introDescription = "Find the teams bringing projects to life."}}
+      {{$introArtwork = "orgs-papercraft.png"}}
+    {{end}}
+    {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Discover & collaborate" "Title" $introTitle "Description" $introDescription "Artwork" $introArtwork}}
+    <div class="soda-toolbar soda-explore-toolbar">
     {{template "custom/explore_navbar" .}}
     {{template "explore/search" .}}
     </div>
+    <div class="soda-list">
     {{if .Users}}
       {{template "explore/user_list" .}}
     {{else}}
       {{template "custom/explore_empty" .}}
     {{end}}
+    </div>
     {{template "base/paginate" .}}
   </div>
 </main>

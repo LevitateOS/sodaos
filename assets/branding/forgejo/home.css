@@ -44,12 +44,11 @@ body:has(.soda-home) .full.height { padding-bottom: 0; display: flex; flex-direc
 .soda-home-links > a:first-child { display: none; }
 .soda-home-links .soda-home-nav-signin { color: var(--home-text); white-space: nowrap; }
 .soda-home-nav-signin span { margin-left: 8px; }
-.soda-home-theme { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; background: transparent; color: var(--home-muted); cursor: pointer; border-radius: 50%; }
-.soda-home-theme:hover { color: var(--home-link); }
-.soda-home-theme[hidden], .soda-home-sun, .soda-home-brand .soda-home-logo-dark { display: none; }
-html[data-soda-login-theme="dark"] .soda-home-moon,
+.soda-home-theme { width: 40px; height: 40px; }
+.soda-home .soda-home-theme { color: var(--home-muted); }
+.soda-home .soda-home-theme:hover { color: var(--home-link); }
+.soda-home-brand .soda-home-logo-dark { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-light { display: none; }
-html[data-soda-login-theme="dark"] .soda-home-sun,
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { display: block; }
 .soda-home-hero { display: grid; gap: 32px; max-width: 1400px; margin: auto; padding: 52px 24px 36px; align-items: center; }
 .soda-home-eyebrow { display: flex; align-items: center; gap: 12px; color: var(--home-link); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .12em; margin: 0 0 24px; }

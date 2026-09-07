@@ -1,12 +1,9 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content user notification soda-dashboard soda-issues soda-notifications" data-signed="true">
-	<div class="ui container">
-        <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Your inbox</p><h1>{{ctx.Locale.Tr "notifications"}}</h1><p class="soda-dashboard-lede">Stay in the loop. At your own pace.</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/notifications-papercraft.png" alt="" width="1536" height="1024">
-        </div>
-		<div class="soda-notifications-toolbar soda-subscriptions-toolbar">
-			<div class="switch">
+<div role="main" aria-label="{{.Title}}" class="page-content user notification soda-page soda-notifications" data-signed="true">
+	<div class="ui container soda-page-container">
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" "notifications-papercraft.png"}}
+		<div class="soda-toolbar soda-notifications-toolbar soda-subscriptions-toolbar">
+			<div class="switch soda-tabs">
 				<a href="{{AppSubUrl}}/notifications/subscriptions" class="{{if eq .Status 1}}active {{end}}item">
 					{{ctx.Locale.Tr "notification.subscriptions"}}
 				</a>
@@ -15,7 +12,7 @@
 				</a>
 			</div>
 			{{if eq .Status 1}}
-					<div class="switch">
+					<div class="switch soda-tabs">
 						<a class="{{if eq .State "all"}}active {{end}}item" href="?sort={{$.SortType}}&state=all&issueType={{$.IssueType}}&labels={{$.Labels}}">
 							{{ctx.Locale.Tr "all"}}
 						</a>
@@ -60,20 +57,21 @@
 								</div>
 							</div>
 						</div>
+			{{else}}
+				{{template "shared/repo_search" .}}
 			{{end}}
-			<a class="secondary button" href="{{AppSubUrl}}/notifications">
+			<a class="secondary button soda-toolbar-action" href="{{AppSubUrl}}/notifications">
 				{{ctx.Locale.Tr "notifications"}}
 			</a>
 		</div>
-		<div class="ui bottom active tab segment">
+		<div class="ui bottom active tab segment soda-list">
 			{{if eq .Status 1}}
 				{{if not .Issues}}
-					{{ctx.Locale.Tr "notification.no_subscriptions"}}
+					<div class="soda-empty">{{template "custom/soda/empty_content" dict "Icon" "octicon-bell" "Title" (ctx.Locale.Tr "notification.no_subscriptions")}}</div>
 				{{else}}
 					{{template "shared/issuelist" dict "." . "listType" "dashboard"}}
 				{{end}}
 			{{else}}
-				{{template "shared/repo_search" .}}
 				{{template "explore/repo_list" .}}
 				{{template "base/paginate" .}}
 			{{end}}

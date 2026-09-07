@@ -1,8 +1,36 @@
-/* Only adapt native organization markup; visual rules live in create.css. */
-.soda-org-create .ui.form .soda-org-name > label { margin:0 0 8px; }
-.organization.new.org.soda-org-create .ui.form #org_name { display:block; width:100%; max-width:none; margin:0; }
-.organization.new.org.soda-org-create .ui.form .soda-org-name > .help { display:block; margin:6px 0 0 !important; padding:0; text-align:left; }
-.soda-org-create .ui.form .inline-grouped-list { display:flex; flex-direction:column; align-items:flex-start; gap:16px; margin:0; padding:0; }
-.soda-org-create .ui.form .ui.checkbox { margin:0; min-height:24px; }
-.soda-org-create .ui.form .ui.checkbox label { font:600 15px/1.5 Barlow,sans-serif; }
-.soda-org-create .soda-org-fields > .inline.field { margin:0; }
+/* Adapt the native organization fields without replacing their behavior. */
+.soda-org-create .soda-form .soda-org-name > label {
+	margin: 0 0 8px;
+}
+
+.organization.new.org.soda-org-create .soda-form #org_name {
+	display: block;
+	width: 100%;
+	max-width: none;
+	margin: 0;
+}
+
+.organization.new.org.soda-org-create .soda-form .soda-org-name > .help {
+	display: block;
+	margin: 6px 0 0 !important;
+	padding: 0;
+	text-align: left;
+}
+
+.soda-org-create .soda-form .inline-grouped-list {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 16px;
+	margin: 0;
+	padding: 0;
+}
+
+.soda-org-create .soda-form .ui.checkbox {
+	margin: 0;
+	min-height: 24px;
+}
+
+.soda-org-create .soda-form .ui.checkbox label {
+	font: 600 15px/1.5 Barlow, sans-serif;
+}

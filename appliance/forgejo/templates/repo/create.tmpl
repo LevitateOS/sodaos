@@ -1,58 +1,53 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content repository new repo soda-dashboard soda-issues soda-create" data-signed="true">
-	<div class="ui container">
-        <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Make room for your next idea</p><h1>{{ctx.Locale.Tr "new_repo.title"}}</h1><p class="soda-dashboard-lede">Every good project starts somewhere.</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/new-repo-papercraft.png" alt="" width="1536" height="1024">
-        </div>
-		<div class="soda-create-form">
-			<form class="ui form" action="{{.Link}}" method="post">
-				<div class="soda-create-fields">
-					{{if or .CanCreateRepo .Orgs}}
-						{{template "base/alert" .}}
-						{{template "repo/create_helper" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content repository new repo soda-page soda-create" data-signed="true">
+	<div class="ui container soda-page-container">
+		{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "Every good project starts somewhere." "Artwork" "new-repo-papercraft.png"}}
+		<form class="ui form soda-form" action="{{.Link}}" method="post">
+			<div class="soda-form-body">
+				{{if or .CanCreateRepo .Orgs}}
+					{{template "base/alert" .}}
+					{{template "repo/create_helper" .}}
 
-						{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}
-							<div class="ui negative message">
-								<p>{{ctx.Locale.TrN .MaxCreationLimit "repo.form.reach_limit_of_creation_1" "repo.form.reach_limit_of_creation_n" .MaxCreationLimit}}</p>
-							</div>
-						{{end}}
-						<fieldset>
-							{{template "repo/create_basic" .}}
-						</fieldset>
-
-						<fieldset>
-							<legend>
-								{{ctx.Locale.Tr "repo.new_from_template"}}
-								<span class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</span>
-							</legend>
-							{{template "repo/create_from_template" .}}
-						</fieldset>
-
-						<div id="non_template">
-							<fieldset>
-								<legend>{{ctx.Locale.Tr "repo.auto_init"}}</legend>
-								{{template "repo/create_init" .}}
-							</fieldset>
-
-							<fieldset>
-								<legend>{{ctx.Locale.Tr "repo.new_advanced"}}</legend>
-								<details><summary>{{ctx.Locale.Tr "repo.new_advanced_expand"}}</summary>
-									{{template "repo/create_advanced" .}}
-								</details>
-							</fieldset>
-						</div>
-						<button class="ui primary button">
-							{{ctx.Locale.Tr "repo.create_repo"}}
-						</button>
-					{{else}}
+					{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}
 						<div class="ui negative message">
-							{{ctx.Locale.Tr "repo.form.cannot_create"}}
+							<p>{{ctx.Locale.TrN .MaxCreationLimit "repo.form.reach_limit_of_creation_1" "repo.form.reach_limit_of_creation_n" .MaxCreationLimit}}</p>
 						</div>
 					{{end}}
-				</div>
-			</form>
-		</div>
+					<fieldset class="soda-form-section">
+						{{template "repo/create_basic" .}}
+					</fieldset>
+
+					<fieldset class="soda-form-section">
+						<legend>
+							{{ctx.Locale.Tr "repo.new_from_template"}}
+							<span class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</span>
+						</legend>
+						{{template "repo/create_from_template" .}}
+					</fieldset>
+
+					<div id="non_template">
+						<fieldset class="soda-form-section">
+							<legend>{{ctx.Locale.Tr "repo.auto_init"}}</legend>
+							{{template "repo/create_init" .}}
+						</fieldset>
+
+						<fieldset class="soda-form-section">
+							<legend>{{ctx.Locale.Tr "repo.new_advanced"}}</legend>
+							<details><summary>{{ctx.Locale.Tr "repo.new_advanced_expand"}}</summary>
+								{{template "repo/create_advanced" .}}
+							</details>
+						</fieldset>
+					</div>
+					<button class="ui primary button">
+						{{ctx.Locale.Tr "repo.create_repo"}}
+					</button>
+				{{else}}
+					<div class="ui negative message">
+						{{ctx.Locale.Tr "repo.form.cannot_create"}}
+					</div>
+				{{end}}
+			</div>
+		</form>
 	</div>
 </div>
 {{template "base/footer" .}}

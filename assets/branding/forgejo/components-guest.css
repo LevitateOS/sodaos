@@ -1,0 +1,27 @@
+.soda-guest-theme-toggle {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.soda-guest-theme-toggle[hidden], .soda-guest-theme-sun {
+  display: none;
+}
+
+.soda-guest-theme-icon {
+  width: 21px;
+  height: 21px;
+}
+
+html[data-soda-login-theme="dark"] .soda-guest-theme-moon {
+  display: none;
+}
+
+html[data-soda-login-theme="dark"] .soda-guest-theme-sun {
+  display: block;
+}

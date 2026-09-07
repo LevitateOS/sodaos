@@ -1,15 +1,13 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds soda-dashboard" data-signed="true">
-  <div class="soda-dashboard-container">
+<div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds soda-page soda-dashboard" data-signed="true">
+  <div class="soda-page-container">
     <div class="soda-dashboard-grid">
-      <section class="soda-dashboard-feed" aria-labelledby="soda-activity-title">
-      <div class="soda-dashboard-intro">
-        <p class="soda-explore-eyebrow">Your workbench</p>
-        <h1 id="soda-dashboard-title">{{if .ContextUser.IsOrganization}}{{.ContextUser.ShortName 40}}’s workbench.{{else}}Welcome back, {{.SignedUser.ShortName 40}}.{{end}}</h1>
-        <p class="soda-dashboard-lede">Pick up where you left off.</p>
-      </div>
+      <section class="soda-dashboard-feed soda-list" aria-labelledby="soda-activity-title">
+      {{$introTitle := printf "Welcome back, %s." (.SignedUser.ShortName 40)}}
+      {{if .ContextUser.IsOrganization}}{{$introTitle = printf "%s’s workbench." (.ContextUser.ShortName 40)}}{{end}}
+      {{template "custom/soda/page_intro" dict "TitleID" "soda-dashboard-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" "Pick up where you left off." "Class" "soda-page-intro--compact"}}
         {{template "base/alert" .}}
-        <div class="soda-dashboard-heading">
+        <div class="soda-dashboard-heading soda-toolbar soda-toolbar--plain">
           <div><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
           {{template "user/dashboard/navbar" .}}
         </div>

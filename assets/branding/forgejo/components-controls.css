@@ -1,0 +1,425 @@
+/* Native controls keep their names, IDs, classes and initialization. These adapters
+   apply only inside an explicit Soda toolbar or form. */
+.soda-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px var(--soda-panel-inset);
+  margin: 0 0 22px;
+  background: var(--soda-page-surface);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+}
+
+.soda-toolbar > * {
+  order: 0;
+}
+
+.soda-toolbar--plain {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.soda-toolbar > .divider {
+  display: none;
+}
+
+.soda-toolbar > .filter.menu {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.soda-toolbar #repo-search-form {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  gap: 12px;
+}
+
+.soda-toolbar > .explore-relevancy-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.soda-toolbar .list-header-search {
+  display: flex;
+  flex: 1;
+  min-width: 180px;
+  max-width: none;
+  width: auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.soda-toolbar > .ui.secondary.menu {
+  margin: 0;
+  gap: 10px;
+  align-items: center;
+}
+
+.soda-toolbar .secondary-nav {
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0;
+}
+
+.soda-toolbar .secondary-nav > .ui.menu {
+  margin: 0;
+  gap: 10px;
+  background: transparent;
+}
+
+.soda-toolbar .secondary-nav > .ui.menu > .item {
+  padding: 0;
+  margin: 0;
+}
+
+.soda-toolbar .secondary-nav .jump > .text {
+  gap: 8px;
+}
+
+.soda-toolbar .secondary-nav .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.soda-toolbar .secondary-nav .ui.dropdown.jump > .menu {
+  left: auto;
+  right: 0;
+  min-width: 270px;
+  max-width: min(360px, calc(100vw - 32px));
+  margin-top: 8px !important;
+  padding: 8px;
+  box-shadow: 0 12px 32px #0002;
+}
+
+.soda-toolbar .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
+  margin: 0;
+  padding: 12px 10px 16px;
+  color: var(--soda-page-muted);
+  font: 500 10px/1.5 "IBM Plex Mono", monospace;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em;
+}
+
+.soda-toolbar .secondary-nav .jump .scrolling.menu {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.soda-toolbar .secondary-nav .ui.dropdown.jump .menu > .item {
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 10px !important;
+  font: 600 15px/1.4 Barlow, sans-serif;
+  font-weight: 600 !important;
+  gap: 10px;
+}
+
+.soda-toolbar .secondary-nav .right.menu {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.soda-toolbar .secondary-nav .right.menu > .item {
+  border-radius: 8px;
+  color: var(--soda-page-muted);
+}
+
+.soda-toolbar .secondary-nav .right.menu > .active.item {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-link);
+}
+
+/* Explicit tabs also cover native .switch and Explore's scrolling nav. */
+.soda-toolbar .soda-tabs {
+  display: flex;
+  flex: none;
+  align-self: center;
+  box-sizing: border-box;
+  padding: 3px;
+  gap: 2px;
+  height: var(--soda-control-height);
+  max-width: 100%;
+  margin: 0;
+  border: 1px solid var(--soda-page-edge) !important;
+  border-radius: var(--soda-control-radius) !important;
+  background: var(--soda-page-canvas) !important;
+}
+
+.soda-toolbar .soda-tabs .item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  margin: 0;
+  padding: 0 10px;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: var(--soda-page-muted) !important;
+  font: 600 14px/1 Barlow,sans-serif;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.soda-toolbar .soda-tabs .active.item {
+  background: var(--soda-page-selected) !important;
+  color: var(--soda-page-link) !important;
+}
+
+.soda-toolbar :is(#repo-search-form,.list-header-search) input[type="search"] {
+  box-sizing: border-box;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  padding: 0 12px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius) 0 0 var(--soda-control-radius) !important;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: 400 14px/1.4 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-toolbar input::placeholder {
+  color: var(--soda-page-muted) !important;
+  opacity: 1;
+}
+
+.soda-toolbar :is(#repo-search-form,.list-header-search) .button {
+  display: grid;
+  place-items: center;
+  width: var(--soda-control-height);
+  min-width: var(--soda-control-height);
+  height: var(--soda-control-height);
+  padding: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-left: 0;
+  border-radius: 0 var(--soda-control-radius) var(--soda-control-radius) 0;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-link);
+  box-shadow: none;
+}
+
+.soda-toolbar .list-header-search > .show-modal {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--soda-control-height);
+  height: var(--soda-control-height);
+  padding: 0 !important;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-muted);
+}
+
+.soda-toolbar > .ui.menu > .dropdown, .soda-toolbar .secondary-nav .ui.dropdown.jump, .soda-toolbar #repo-search-form > .dropdown, .soda-toolbar .list-header summary.options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  padding: 0 12px;
+  margin: 0;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  font: 600 14px/1.4 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-toolbar .dropdown > .dropdown.icon, .soda-toolbar .jump > .text > .dropdown.icon {
+  margin: 0 0 0 4px;
+  color: var(--soda-page-muted);
+}
+
+.soda-toolbar .dropdown :is(.menu,.content) {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+}
+
+.soda-toolbar .dropdown :is(.menu,.content) :is(a,.item) {
+  color: var(--soda-page-text);
+}
+
+.soda-toolbar .dropdown .menu > .active.item {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-selected) !important;
+}
+
+.soda-toolbar .dropdown .menu > .item:hover {
+  background: var(--soda-page-hover);
+}
+
+.soda-toolbar .soda-toolbar-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--soda-control-height);
+  padding: 0 14px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: 600 14px/1.3 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-toolbar .soda-toolbar-action.primary {
+  color: var(--soda-page-link);
+}
+
+.soda-toolbar :is(.soda-tabs .item,.button,.show-modal,summary.options):hover {
+  color: var(--soda-page-link) !important;
+  background: var(--soda-page-hover) !important;
+}
+
+.soda-toolbar :is(.dropdown.jump,#repo-search-form > .dropdown,summary.options):hover {
+  border-color: var(--soda-page-link);
+}
+
+.soda-toolbar :is(a,button,input,summary,.dropdown):focus-visible {
+  outline: 2px solid var(--soda-page-link);
+  outline-offset: 3px;
+}
+
+.soda-form.ui.form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search),textarea,.selection.dropdown) {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: 400 16px/1.5 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-form.ui.form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search) {
+  padding: 10px 14px;
+}
+
+.soda-form.ui.form textarea {
+  padding: 12px 14px;
+  min-height: 100px;
+  resize: vertical;
+}
+
+.soda-form.ui.form input:is([type="checkbox"],[type="radio"]) {
+  accent-color: var(--soda-page-link);
+}
+
+.soda-form.ui.form :is(input,textarea):focus {
+  border-color: var(--soda-page-link);
+}
+
+.soda-form.ui.form :is(input,textarea,button,.dropdown):focus-visible {
+  outline: 2px solid var(--soda-page-link);
+  outline-offset: 3px;
+}
+
+.soda-form.ui.form .selection.dropdown > .text {
+  color: var(--soda-page-text);
+}
+
+.soda-form.ui.form .selection.dropdown > .default.text {
+  color: var(--soda-page-muted);
+}
+
+.soda-form.ui.form .dropdown .menu {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-form.ui.form .dropdown .menu > .item {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-text);
+}
+
+.soda-form.ui.form .dropdown .menu > .item:hover {
+  background: var(--soda-page-canvas);
+}
+
+.soda-form.ui.form .primary.button {
+  min-height: 48px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-light-action);
+  color: white;
+  font: 600 16px/1.5 Barlow,sans-serif;
+  box-shadow: none;
+}
+
+.soda-form.ui.form .primary.button:hover {
+  background: var(--soda-light-action-hover);
+}
+
+.soda-form.ui.form .primary.button:active {
+  background: var(--soda-light-action-pressed);
+}
+
+.soda-form.ui.form .field.error input {
+  border-color: var(--color-error-border);
+}
+
+@media (max-width: 700px) {
+  .soda-toolbar {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .soda-toolbar--plain {
+    padding: 0;
+  }
+
+  .soda-toolbar > :is(.list-header-search,.filter.menu) {
+    flex-basis: 100%;
+  }
+
+  .soda-toolbar #repo-search-form {
+    flex-wrap: wrap;
+  }
+
+  .soda-toolbar #repo-search-form > .input {
+    flex-basis: 100% !important;
+  }
+
+  .soda-toolbar > .ui.secondary.menu {
+    flex-wrap: wrap;
+  }
+
+  .soda-toolbar .secondary-nav > .ui.menu > .item {
+    align-self: flex-start;
+    max-width: 100%;
+  }
+
+  .soda-toolbar .secondary-nav .ui.dropdown.jump > .menu {
+    min-width: min(270px, calc(100vw - 32px));
+    left: 0;
+    right: auto;
+  }
+
+  .soda-form.ui.form .primary.button {
+    width: 100%;
+  }
+
+}

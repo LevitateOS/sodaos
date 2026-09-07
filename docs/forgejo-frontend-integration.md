@@ -2,8 +2,9 @@
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
-and [handoff](implementation-status.md). Neither the UI nor authenticated native-page
-→ Soda connection is implemented; the findings below are source inspection only.
+and [handoff](implementation-status.md). The drawer and authenticated native-page
+→ Soda connection remain unimplemented. Existing branded pages have a local preview;
+the drawer findings below remain source inspection only.
 
 ## Verified source surface
 
@@ -27,6 +28,30 @@ accessibility/initialization adaptations; it is not a standalone Soda component 
 Preserve native markup, scripts, form behavior and branding. The source reference
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact
 selected version/configuration when changing an override.
+
+## Shared presentation components
+
+The existing overrides use the [Soda component contract](../appliance/forgejo/README.md#presentation-component-contract):
+small Go template partials for intros, empty content and guest theme controls;
+explicit CSS classes for page shells, toolbars, form sections and native list rows.
+`custom/header.tmpl` loads component CSS before page-specific styles. Native partials
+receive their original context; caller templates retain permission decisions,
+translations, form fields and notification replacement hooks. Components accept
+plain presentation values, with normal template escaping and native asset prefixes.
+
+This extraction is live-mounted only in the existing local 15.0.7 preview.
+Production staging/verifier delivery is still pending. Shared presentation does
+not add handlers, authentication, permissions, a frontend build or a Lit dependency.
+Use Lit selectively when a new self-contained interaction warrants it; do not
+migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
+
+These are official customization mechanisms, with version-sensitive compatibility:
+[Forgejo's documentation](https://forgejo.org/docs/latest/admin/advanced/customization/)
+explicitly does not guarantee template/custom-resource compatibility across upgrades.
+Review the overridden templates, native partial/script boundaries, CSS adapters and
+local browser behavior against the exact candidate version before an upgrade.
+The [Lit shadow DOM documentation](https://lit.dev/docs/components/shadow-dom/)
+explains the CSS and DOM boundaries that any future Lit component must account for.
 
 ## Minimal button, drawer and loading candidate
 

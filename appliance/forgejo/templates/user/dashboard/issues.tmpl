@@ -1,14 +1,19 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues soda-issues soda-dashboard{{if .PageIsPulls}} soda-pulls{{end}}" data-signed="true">
-	<div class="ui container">
-        <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Your workbench</p><h1>{{if .PageIsPulls}}{{ctx.Locale.Tr "pull_requests"}}{{else}}{{ctx.Locale.Tr "issues"}}{{end}}</h1><p class="soda-dashboard-lede">{{if .PageIsPulls}}Good changes start with a conversation.{{else}}Small fixes. Good ideas. Forward motion.{{end}}</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/{{if .PageIsPulls}}pulls{{else}}issues{{end}}-papercraft.png{{if not .PageIsPulls}}?v=2{{end}}" alt="" width="1536" height="1024">
-        </div>
+<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues soda-page{{if .PageIsPulls}} soda-pulls{{end}}" data-signed="true">
+	<div class="ui container soda-page-container">
+        {{$introTitle := ctx.Locale.Tr "issues"}}
+        {{$introDescription := "Small fixes. Good ideas. Forward motion."}}
+        {{$introArtwork := "issues-papercraft.png?v=2"}}
+        {{if .PageIsPulls}}
+          {{$introTitle = ctx.Locale.Tr "pull_requests"}}
+          {{$introDescription = "Good changes start with a conversation."}}
+          {{$introArtwork = "pulls-papercraft.png"}}
+        {{end}}
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" $introDescription "Artwork" $introArtwork}}
         {{template "base/alert" .}}
-        <div class="soda-issues-panel">
-		<div class="list-header">
-			<div class="switch list-header-toggle">
+        <div class="soda-list">
+		<div class="list-header soda-toolbar">
+			<div class="switch list-header-toggle soda-tabs">
 				{{$keyword := StringUtils.RemoveAll $.Keyword "is:open" "-is:open" "is:closed" "-is:closed" "is:all"}}
 				<a class="item{{if not .IsShowClosed}} active{{end}}" href="?type={{$.ViewType}}&sort={{$.SortType}}&state=open&labels={{.SelectLabels}}&q={{$keyword}}">
 					{{if .PageIsPulls}}{{svg "octicon-git-pull-request" 16}}{{else}}{{svg "octicon-issue-opened" 16}}{{end}}

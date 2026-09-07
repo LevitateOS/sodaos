@@ -1,14 +1,10 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues repository milestones soda-dashboard soda-issues soda-milestones" data-signed="true">
-	<div class="ui container">
-        <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Your workbench</p><h1>{{ctx.Locale.Tr "milestones"}}</h1><p class="soda-dashboard-lede">Small steps. Shared progress.</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/milestones-papercraft.png" alt="" width="1536" height="1024">
-        </div>
+<div role="main" aria-label="{{.Title}}" class="page-content dashboard issues repository milestones soda-page soda-milestones" data-signed="true">
+	<div class="ui container soda-page-container">
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" (ctx.Locale.Tr "milestones") "Description" "Small steps. Shared progress." "Artwork" "milestones-papercraft.png"}}
         {{template "base/alert" .}}
-        <div class="soda-issues-panel">
-				<div class="list-header">
-					<div class="switch list-header-toggle">
+				<div class="list-header soda-toolbar">
+					<div class="switch list-header-toggle soda-tabs">
 						<a class="item{{if not .IsShowClosed}} active{{end}}" href="?repos=[{{range $.RepoIDs}}{{.}}%2C{{end}}]&sort={{$.SortType}}&state=open&q={{$.Keyword}}">
 							{{svg "octicon-milestone" 16}}
 							{{ctx.Locale.PrettyNumber .MilestoneStats.OpenCount}}&nbsp;{{ctx.Locale.Tr "repo.issues.open_title"}}
@@ -45,7 +41,6 @@
 					</div>
                     {{template "user/dashboard/navbar" .}}
 				</div>
-        </div>
 
 		<div class="flex-container">
 			<div class="flex-container-nav">
@@ -143,7 +138,7 @@
 							{{end}}
 						</li>
                     {{else}}
-                      <div class="soda-milestones-empty"><h3>{{ctx.Locale.Tr "repo.issues.filter_no_results"}}</h3><p>{{ctx.Locale.Tr "repo.issues.filter_no_results_placeholder"}}</p></div>
+                      <div class="soda-empty">{{template "custom/soda/empty_content" dict "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" (ctx.Locale.Tr "repo.issues.filter_no_results_placeholder")}}</div>
                     {{end}}
 
                     {{template "base/paginate" .}}

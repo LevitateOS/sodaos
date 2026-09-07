@@ -8,10 +8,7 @@
 		</a>
 		<nav aria-label="Main navigation" class="soda-home-links">
 			<a href="{{AppSubUrl}}/explore/repos">Explore repositories</a>
-			<button id="soda-theme-toggle" class="soda-home-theme" type="button" aria-label="Switch theme" hidden>
-				<svg class="soda-home-sun" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/></svg>
-				<svg class="soda-home-moon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.3A8.7 8.7 0 0 1 10.7 3.5 8.7 8.7 0 1 0 20.5 13.3Z"/></svg>
-			</button>
+			{{template "custom/soda/theme_toggle" (dict "Class" "soda-home-theme")}}
 			<a class="soda-home-nav-signin" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "sign_in"}} <span aria-hidden="true">→</span></a>
 		</nav>
 	</header>

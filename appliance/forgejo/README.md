@@ -1,4 +1,4 @@
-# Soda Forgejo login override
+# Soda Forgejo presentation overrides
 
 Targets stock Forgejo **15.0.7**. The login wrapper is adapted from the embedded
 `templates/user/auth/signin.tmpl`; upstream project: https://codeberg.org/forgejo/forgejo.
@@ -31,9 +31,10 @@ CSS and artwork changes need a browser refresh; template changes need:
 docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
-The stylesheet uses `AssetUrlPrefix` through the template and relative CSS imports.
-Login uses the shared light/dark palette; other pages retain their native
-theme. Below 900px the illustration is hidden to prioritize signing in. The English
+The stylesheets use `AssetUrlPrefix` through the template and relative CSS imports.
+Guest pages use the shared light/dark palette; signed-in pages derive their
+appearance from Forgejo's native account theme. Below 900px the login illustration
+is hidden to prioritize signing in. The English
 brand copy is authored here; native form labels retain Forgejo localization.
 No password-manager replacement, fake theme switch or unsupported sign-in option
 is added. Forgejo's native footer retains language/license access.
@@ -49,14 +50,45 @@ ship these overrides/assets; template allowlisting, conflict refusal, full notic
 packaging and separately authorized deployment remain required before rollout.
 See the implementation handoff for actual checks and remaining validation.
 
+## Presentation component contract
+
+Soda pages compose a small, opt-in presentation vocabulary around native Forgejo
+templates. `.soda-page` establishes the shared palette, typography, navigation and
+footer treatment; include `data-signed="true"` or `"false"` so account and guest
+theme selection remain distinct. `.soda-page-container` supplies the common content
+width. Page stylesheets should contain only layout or presentation specific to that
+page.
+
+The partials under `templates/custom/soda/` accept fixed presentation data:
+
+- `page_intro` requires `TitleID` and `Title`; `Eyebrow`, `Description`, `Artwork`
+  and `Class` are optional. `Artwork` is a filename below the Soda Forgejo asset
+  directory and is decorative.
+- `empty_content` requires `Title`; `Icon`, `Eyebrow`, `Description` and `TitleID`
+  are optional. The caller decides that the native result is empty, owns the
+  `.soda-empty` wrapper and renders any permitted actions.
+- `theme_toggle` accepts an optional `Class`. It preserves the single hidden
+  `#soda-theme-toggle` hook used by the guest-theme script.
+
+`.soda-toolbar` adapts native search, filter and context controls; `.soda-tabs`
+marks a native menu or switch as tabs, and `.soda-toolbar-action` marks an action.
+`.soda-list` adapts existing native result rows without replacing their rendering.
+Forms opt in with `.soda-form` on the native `.ui.form`; `.soda-form-section`
+groups a fieldset, heading, fields and help text.
+
+Callers retain native handlers, context, permission gates, translations, IDs,
+forms and scripts. The partials do not accept arbitrary template names, raw HTML or
+caller-provided HTML slots. The public marketing hero and branded login remain
+distinct layouts; they share only the guest theme control and its CSS primitives.
+
 ## Guest theme preference
 
-The top-right icon button changes login appearance only. Initially follow the
-system color preference. An explicit light/dark choice is stored under
+The guest icon button changes the home, login and public explorer appearance.
+It initially follows the system color preference. An explicit light/dark choice is stored under
 `soda.login.theme:<AppSubUrl or />` in this origin's localStorage. Other tabs sync
 through storage events. Clearing the value restores system following; invalid
 values are ignored. Blocked storage still permits toggling for the current page.
-The head script applies the choice before login content paints. Without JavaScript,
+The head script applies the choice before guest content paints. Without JavaScript,
 the light layout remains usable and the inactive toggle stays hidden.
 
 Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme CSS,
@@ -72,8 +104,8 @@ tests/forgejo/login-theme.test.mjs` from the repository root.
 page. `home.css` is scoped to `.soda-home` and uses a dedicated collaboration papercraft asset with the shared
 fonts, logos and palette. Sign-in and repository exploration use native routes;
 the registration link follows the native `ShowRegistrationButton` context.
-The stock head/footer are retained; the public page has its own visible header.
-The authenticated dashboard template is not overridden.
+The stock head/footer are retained; the public page has its own visible header and
+remains separate from the authenticated dashboard composition.
 
 The homepage and login share the existing guest theme key and head script. Native
 signed-in account themes remain unchanged. The legacy login-oriented key/attribute
@@ -172,9 +204,9 @@ dark desktop and light 480 CSS-pixel layout without horizontal overflow.
 
 `user/dashboard/dashboard.tmpl` wraps the native account/context navigation,
 alerts, heatmap, activity/guide and Vue repository list. The new workbench hero,
-feed card, sidebar and discovery link use `dashboard.css`; shared navbar/footer
-rules in `explore.css` also cover `.soda-dashboard`. Native account themes remain
-authoritative. The appearance shortcut uses the upstream `PageIsNews` flag.
+feed card, sidebar and discovery link use `dashboard.css`; the shared page system
+supplies the shell, navbar and footer. Native account themes remain authoritative.
+The appearance shortcut uses the upstream `PageIsNews` flag.
 Organization contexts retain stock navigation and receive an organization greeting.
 New custom copy is English pending the existing i18n follow-up.
 
@@ -197,8 +229,8 @@ new checklist artwork, and unified issue panel. Native search syntax, type/sort
 links, open/closed counts, account/org navigation and shared issue list remain
 upstream-owned. The shared template now also applies the design to Pull requests, with its own
 heading, introduction and status icons.
-`issues.css` reuses the dashboard shell and context switcher; account theme state
-remains native. The two custom intro strings remain English. Artwork provenance
+`issues.css` supplies issue-specific layout around the shared page, toolbar and list
+components; account theme state remains native. The two custom intro strings remain English. Artwork provenance
 and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
 
 Local template reload and Chrome checks covered populated dark-mode rows,

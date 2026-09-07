@@ -1,32 +1,29 @@
 /* Milestone counts, progress and dates remain native Forgejo values. */
 .soda-milestones .flex-container { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; align-items: start; }
-.soda-milestones .flex-container-nav { width: auto; min-width: 0; }
-.soda-milestones .flex-container-nav > .ui.menu { width: 100%; margin: 0; padding: 10px; border: 1px solid var(--explore-edge); border-radius: 14px; background: var(--explore-surface) !important; }
-.soda-milestones .flex-container-nav .item { padding: 12px 10px; color: var(--explore-muted); font: 600 14px/1.5 Barlow,sans-serif; border-radius: 8px; }
+.soda-milestones .flex-container-nav { width: 100%; min-width: 0; }
+.soda-milestones .flex-container-nav > .ui.menu { width: 100%; margin: 0; padding: 10px; border: 1px solid var(--soda-page-edge); border-radius: 14px; background: var(--soda-page-surface) !important; }
+.soda-milestones .flex-container-nav .item { padding: 12px 10px; color: var(--soda-page-muted); font: 600 14px/1.5 Barlow,sans-serif; border-radius: 8px; }
 .soda-milestones .flex-container-nav .repo.item { display: flex; align-items: center; gap: 10px; }
 .soda-milestones .flex-container-nav .repo.item .text { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
-.soda-milestones .flex-container-nav .active.item { background: var(--explore-canvas); color: var(--explore-link); }
-.soda-milestones .flex-container-nav .divider { border-color: var(--explore-edge); }
+.soda-milestones .flex-container-nav .active.item { background: var(--soda-page-canvas); color: var(--soda-page-link); }
+.soda-milestones .flex-container-nav .divider { border-color: var(--soda-page-edge); }
 .soda-milestones .milestone-list { margin: 0; }
-.soda-milestones .milestone-card { list-style: none; padding: 24px; margin: 0 0 18px; border: 1px solid var(--explore-edge); border-radius: 14px; background: var(--explore-surface); }
+.soda-milestones .milestone-card { list-style: none; padding: 24px; margin: 0 0 18px; border: 1px solid var(--soda-page-edge); border-radius: 14px; background: var(--soda-page-surface); }
 .soda-milestones .milestone-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
-.soda-milestones .milestone-header h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font: 600 23px/1.4 "Fraunces Variable",Georgia,serif; color: var(--explore-text); }
-.soda-milestones .milestone-header h3 > .label { flex-basis: 100%; width: fit-content; padding: 0; margin: 0 0 4px; background: transparent; color: var(--explore-muted); font: 400 12px/1.5 "IBM Plex Mono",monospace; overflow-wrap: anywhere; }
-.soda-milestones .milestone-header h3 a { color: var(--explore-text); }
-.soda-milestones .milestone-header progress { width: 120px; accent-color: var(--explore-link); }
-.soda-milestones .milestone-toolbar { margin-top: 18px; color: var(--explore-muted); font: 400 13px/1.7 Barlow,sans-serif; }
+.soda-milestones .milestone-header h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font: 600 23px/1.4 "Fraunces Variable",Georgia,serif; color: var(--soda-page-text); }
+.soda-milestones .milestone-header h3 > .label { flex-basis: 100%; width: fit-content; padding: 0; margin: 0 0 4px; background: transparent; color: var(--soda-page-muted); font: 400 12px/1.5 "IBM Plex Mono",monospace; overflow-wrap: anywhere; }
+.soda-milestones .milestone-header h3 a { color: var(--soda-page-text); }
+.soda-milestones .milestone-header progress { width: 120px; accent-color: var(--soda-page-link); }
+.soda-milestones .milestone-toolbar { margin-top: 18px; color: var(--soda-page-muted); font: 400 13px/1.7 Barlow,sans-serif; }
 .soda-milestones .milestone-toolbar .group { display: flex; flex-wrap: wrap; gap: 10px 18px; }
-.soda-milestones .milestone-card .markup { margin-top: 18px; color: var(--explore-muted); font: 400 15px/1.7 Barlow,sans-serif; }
-.soda-milestones-empty { padding: 40px 24px; text-align: center; background: var(--explore-surface); border: 1px solid var(--explore-edge); border-radius: 14px; }
-.soda-milestones-empty h3 { font: 600 28px/1.3 "Fraunces Variable",Georgia,serif; }
-.soda-milestones-empty p { color: var(--explore-muted); font-size: 16px; }
+.soda-milestones .milestone-card .markup { margin-top: 18px; color: var(--soda-page-muted); font: 400 15px/1.7 Barlow,sans-serif; }
 @media (max-width:700px) {
  .soda-milestones .flex-container { grid-template-columns: minmax(0,1fr); }
  .soda-milestones .milestone-card { padding: 20px; }
 }
 .soda-milestones .flex-container-nav > .ui.menu { border-radius: 14px !important; }
-.soda-milestones .flex-container-nav .active.item { background: var(--explore-canvas) !important; color: var(--explore-link) !important; }
-.soda-milestones progress { height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--explore-edge); }
-.soda-milestones progress::-webkit-progress-bar { background: var(--explore-edge); border-radius: 999px; }
-.soda-milestones progress::-webkit-progress-value { background: var(--explore-link); border-radius: 999px; }
-.soda-milestones progress::-moz-progress-bar { background: var(--explore-link); border-radius: 999px; }
+.soda-milestones .flex-container-nav .active.item { background: var(--soda-page-canvas) !important; color: var(--soda-page-link) !important; }
+.soda-milestones progress { height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--soda-page-edge); }
+.soda-milestones progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
+.soda-milestones progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
+.soda-milestones progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }

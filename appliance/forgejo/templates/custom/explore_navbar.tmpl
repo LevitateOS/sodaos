@@ -1,5 +1,5 @@
 {{/* Preserve native tab visibility and destinations; use CSS scrolling instead of overflow-menu measurement. */}}
-<nav aria-label="{{ctx.Locale.Tr "explore"}}" class="ui secondary pointing tabular top attached borderless menu secondary-nav">
+<nav aria-label="{{ctx.Locale.Tr "explore"}}" class="ui secondary pointing tabular top attached borderless menu secondary-nav soda-tabs">
 	<div class="soda-explore-tabs">
 		<a class="{{if .PageIsExploreRepositories}}active {{end}}item" href="{{AppSubUrl}}/explore/repos">
 			{{svg "octicon-repo"}} {{ctx.Locale.Tr "explore.repos"}}

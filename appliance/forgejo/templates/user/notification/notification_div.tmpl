@@ -1,12 +1,9 @@
-<div role="main" aria-label="{{.Title}}" class="page-content user notification soda-dashboard soda-issues soda-notifications" data-signed="true" id="notification_div" data-sequence-number="{{.SequenceNumber}}">
-	<div class="ui container">
-        <div class="soda-issues-intro">
-          <div><p class="soda-explore-eyebrow">Your inbox</p><h1>{{ctx.Locale.Tr "notifications"}}</h1><p class="soda-dashboard-lede">Stay in the loop. At your own pace.</p></div>
-          <img src="{{AssetUrlPrefix}}/soda/forgejo/notifications-papercraft.png" alt="" width="1536" height="1024">
-        </div>
+<div role="main" aria-label="{{.Title}}" class="page-content user notification soda-page soda-notifications" data-signed="true" id="notification_div" data-sequence-number="{{.SequenceNumber}}">
+	<div class="ui container soda-page-container">
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" "notifications-papercraft.png"}}
 		{{$notificationUnreadCount := call .NotificationUnreadCount}}
-		<div class="soda-notifications-toolbar">
-			<div class="switch">
+		<div class="soda-toolbar soda-notifications-toolbar">
+			<div class="switch soda-tabs">
 				<a class="{{if eq .Status 1}}active {{end}}item" href="{{AppSubUrl}}/notifications?q=unread">
 					{{ctx.Locale.Tr "notification.unread"}}
 					<div class="notifications-unread-count ui label{{if not $notificationUnreadCount}} tw-hidden{{end}}">{{$notificationUnreadCount}}</div>
@@ -16,13 +13,13 @@
 				</a>
 			</div>
 			<div class="button-row tw-flex">
-				<a class="secondary button" href="{{AppSubUrl}}/notifications/subscriptions">
+				<a class="secondary button soda-toolbar-action" href="{{AppSubUrl}}/notifications/subscriptions">
 					{{ctx.Locale.Tr "notification.subscriptions"}}
 				</a>
 				{{if and (eq .Status 1)}}
 					<form class="{{if not $notificationUnreadCount}}tw-hidden{{end}}" action="{{AppSubUrl}}/notifications/purge" method="post">
 						<div>
-							<button class="primary button" title="{{ctx.Locale.Tr "notification.mark_all_as_read"}}">
+							<button class="primary button soda-toolbar-action" title="{{ctx.Locale.Tr "notification.mark_all_as_read"}}">
 								{{svg "octicon-checklist"}}
 							</button>
 						</div>
@@ -31,16 +28,13 @@
 			</div>
 		</div>
 		<div class="tw-p-0">
-			<div id="notification_table">
+			<div id="notification_table" class="soda-list">
 				{{if not .Notifications}}
-					<div class="soda-notifications-empty">
-						{{svg "octicon-inbox" 56 "tw-mb-4"}}
-						{{if eq .Status 1}}
-							{{ctx.Locale.Tr "notification.no_unread"}}
-						{{else}}
-							{{ctx.Locale.Tr "notification.no_read"}}
-						{{end}}
-					</div>
+                    <div class="soda-empty soda-empty--inset">
+                      {{$emptyTitle := ctx.Locale.Tr "notification.no_read"}}
+                      {{if eq .Status 1}}{{$emptyTitle = ctx.Locale.Tr "notification.no_unread"}}{{end}}
+                      {{template "custom/soda/empty_content" dict "Icon" "octicon-inbox" "Title" $emptyTitle}}
+                    </div>
 				{{else}}
 					{{range $notification := .Notifications}}
 						<div class="notifications-item tw-flex tw-items-center tw-flex-wrap tw-gap-2 tw-p-2" id="notification_{{.ID}}" data-status="{{.Status}}">

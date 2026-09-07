@@ -11,8 +11,11 @@ its authenticated integration are **not implemented**. All steps below are pendi
   native helper. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo, two small custom-template hooks, browser `<dialog>`,
   scoped native styling and vanilla JavaScript using `fetch` with the JSON API.
-  **No added HTMX, React, component library or frontend build.** Forgejo's own
-  frontend and Cockpit's separate React/PatternFly stack remain intact.
+  Reuse Soda's [template partials and shared CSS](../appliance/forgejo/README.md#presentation-component-contract).
+  Lit is an option for a new self-contained interactive feature, including the
+  drawer, when that feature justifies it. No Lit dependency or frontend build is
+  added by the presentation extraction; vanilla JavaScript remains the current
+  drawer candidate. Keep native forms/lists/scripts and Cockpit's separate stack.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   This is a candidate to implement and verify, not an existing proxy/API contract.
@@ -22,6 +25,16 @@ its authenticated integration are **not implemented**. All steps below are pendi
 - **Environment model:** persistent and shared, with personal Linux accounts inside
   each project. Opening the drawer never creates, joins, starts or repairs anything.
   Sodaspaces is a UI name, not disposable Codespaces or a browser IDE.
+
+## Presentation foundation
+
+Standardize existing custom pages before adding new ones. The current local
+Forgejo preview composes shared page intros, empty content and guest theme controls,
+with explicit toolbar, form and native-list CSS adapters. Page styles own only
+page-specific layout. This is a presentation system inside Forgejo's customization
+surface; the authenticated drawer and appliance delivery below remain pending.
+Do not convert native forms/lists to web components. Review each override and its
+script-sensitive markup against the exact selected Forgejo version on upgrades.
 
 ## Delivery sequence
 
