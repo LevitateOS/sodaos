@@ -167,6 +167,216 @@ configuration integration → feature-owned native page compatibility and Soda
 integration → U17 complete rehearsal → separately approved U18 cutover → U19/U20.
 No new roadmap, native source-build gate or repeated broad audit is introduced.
 
+### Preparation sequence — native templates and Soda environment integration
+
+Requested after `effc501`. This is a concrete source work sequence **inside the
+existing milestones**, not another roadmap or acceptance counter. The files/routes
+below are proposed implementation, not already delivered scaffolding. Start with
+small working vertical slices and their tests, not empty packages or interfaces.
+
+#### Working baseline and first user journey
+
+Use the currently selected **stock 15.0.7** image for this preparation. No image
+upgrade, origin move, new shared cookie, cross-origin browser API or new runtime.
+The recorded native source confirms `custom/extra_links` in `base/head_navbar.tmpl`
+and `custom/extra_tabs` in `repo/header.tmpl`; the latter receives repository context.
+Both custom files are empty upstream. Use those hooks before copying a shared shell.
+
+First deliverable: native Soda-branded Forgejo navigation → **Environments** or a
+repository's **Development environment** tab → existing Soda OAuth when necessary →
+that repository's environment/create screen → explicit create/join and existing
+connection information → return to the native repository. A GET/link never creates,
+joins, starts or repairs an environment. Terminal implementation follows under U07;
+its absence must not be disguised by a button or mock shell in this first slice.
+
+Keep Forgejo's repository/account/admin/authentication screens native. Soda keeps
+its environment/profile/development-key screens and APIs. REST is used only for
+real integration callers: acting identity/grant handling, repository selection and
+stable identity, and current ownership/organization-owner checks. Webhooks are not
+needed for this slice: no permission mirror or background synchronization.
+
+#### Commit 1 — Close the concrete integration contract (U01, U02/U04/U07)
+
+- Inspect only the selected hooks and their callers, stock container wrapper,
+  template loader and relevant configuration; reuse H01 rather than repeat it.
+  Record source version/path references in the existing frontend integration guide.
+- Preserve distinct `PublicURL`, `ForgejoURL` and `ForgejoInternalURL` from
+  `internal/config/config.go`. Browser navigation uses the first two; server REST
+  uses the third. `proxy.Caddyfile` keeps its present two-origin routing candidate.
+  Native Git advertisement, mail/IdP callbacks and WebAuthn origin/RP-ID stay fixed.
+  Check actual cookie names/domain/path/SameSite and CSRF boundaries: different
+  ports on one hostname do not isolate cookies. Do not infer cookie safety merely
+  from distinct URL origins, and do not silently move enrolled origins to fix it.
+- Confirm the actual selected container uses `/data/gitea` as CustomPath. Source
+  currently mounts `/var/lib/soda/forgejo` there as `/data`; staging already delivers
+  `gitea/public/assets` branding. The candidate template destination is therefore
+  `/var/lib/soda/forgejo/gitea/templates/custom/`, not an invented image build path.
+  Verify restart/cache behavior; do not promise hot reload. No live restart here.
+- Trace current create/profile/environment/navigation callers and OAuth return
+  handling before changing them. `login` currently allows only `/projects` and
+  `/app/`; it cannot yet resume the proposed repository-context route.
+- Check how native disabled/broken/private repositories expose the hooks. A visible
+  tab is navigation, never permission. Native and Soda sessions can differ; show
+  Soda's actual acting identity and an explicit account-switch/sign-in path rather
+  than infer identity from the native page or an incoming URL.
+
+**Exit:** exact hook context, public-URL rendering/delivery, route/session behavior
+and test inputs are settled. Document unknown runtime facts as verification work.
+If a supported mechanism is insufficient, stop that approach and explain the gap;
+do not introduce an endpoint into Forgejo. This plan alone does not accept U01.
+
+#### Commit 2 — Fix active Soda authority paths (U04/U05/U06/U07/U12/U16)
+
+Do this before exposing new integration navigation; it can proceed alongside the
+hook review because the three defects are already identified.
+
+- `internal/web/projects.go`, `people.go`: replace shared-admin-token substitution
+  in ordinary user operations with the acting user's verified grant and native
+  permission checks. Do not turn the configured Soda operator into a Forgejo admin.
+  Preserve separately authorized bootstrap/native operator callers.
+- Remove Linux-login/`root`/independent minimum-password rules from Forgejo account
+  creation. Preserve request bounds/CSRF and upstream validation; keep Linux login
+  eligibility checks at actual project-account provisioning. The legacy handler
+  must be fixed while it is live, not merely hidden behind the new navigation.
+- `internal/forgejo/` and `internal/web/environments_api.go`: add only missing stock
+  repository-by-ID and native organization-owner lookup needed by real callers.
+  Resolve current authority from `Project.RepositoryID`, not cached `OwnerID` or
+  a mutable name. Do not equate org admin with org owner. Native failures must not
+  fall back to cached creator authority. Keep the explicit Soda operator boundary
+  distinct, and preserve legitimate member access and the trusted-team discovery
+  policy; this is not a new wholesale private-environment policy.
+- Deny stale-owner privileged operations after transfer, without changing Linux
+  users/groups/homes/keys or pretending old native access was revoked. Existing
+  organization-owned creation limitations must be explicit, not silently expanded
+  through an administrator flag or automatic UID/ownership migration.
+
+**Tests:** focused existing handler/provider tests cover operator/non-site-admin,
+site-admin/non-operator, ordinary actors, malformed input, native account rejection,
+transfer/rename, missing/deleted repository, provider outage, org owner versus admin,
+least scopes and no helper mutation on denial. Preserve all retained membership,
+key/provisioning and grant-refresh/logout-race tests.
+
+#### Commit 3 — Repository-context entry and safe OAuth return (U03/U04/U06/U07)
+
+- Add a concrete React route `/app/environments/repository/:repositoryID` in
+  `dashboard/src/main.tsx`, implemented with existing environment components (a
+  focused `environment-entry.tsx` is appropriate). Decimal stable IDs remain strings
+  in the browser. Do not carry owner privileges, usernames or host targets in links.
+- Add one bounded Soda read endpoint, proposed
+  `GET /api/environment-repositories/{repositoryID}`, in the owning web code.
+  With the actor's grant, resolve the current native repository and its associated
+  Soda reservation by stable ID. Return only the fields needed for this screen:
+  canonical repository identity/link, existing environment or absence, and current
+  create eligibility. No provider responses or permission inventory are persisted.
+- Add the concrete store lookup by `repository_id` to `internal/store/store.go`;
+  reuse existing uniqueness/schema rather than introduce a registry or new database.
+  Treat a retained incomplete reservation as existing, not permission to create again.
+- If an environment exists, enter its current detail/join/connection flow. If none
+  exists, show the native repository and an explicit authorized create action.
+  Migrate the existing create API and its React/test callers together to carry the
+  stable repository ID; re-resolve/authorize server-side on POST. Do not rely on the
+  earlier eligibility response or accidentally create against a renamed/reused name.
+  Retain honest partial-provisioning results, explicit join and no mutation replay.
+- Extend `internal/web/auth.go`'s allowlist to the exact required `/app/` entry/detail
+  paths. Parse/canonicalize IDs and reject absolute/protocol-relative URLs, traversal,
+  encoded separator tricks and unsupported query/fragment destinations. Store the
+  validated relative return path in the existing single-use OAuth state record.
+  Keep PKCE, callback binding, session rotation and encrypted grants unchanged.
+- Reuse `/api/session`'s configured `forgejo_url` for global native navigation; build
+  repository links only from trusted configuration and native identity. No generic
+  redirect endpoint or caller-supplied base URL. API calls remain same-origin to Soda.
+- Preserve independent native/Soda logout effects and show them truthfully. Test
+  different native and Soda signed-in accounts; do not claim that native logout
+  instantly clears Soda or that Soda logout offboards Linux users. Do not narrow
+  existing consent scopes until their still-live callers are traced and retired.
+
+**Tests:** Go handler/store/OAuth cases for tampered IDs, denied private repository
+lookup, retained reservation, grant expiry/revocation, replay, unsafe return paths
+and account changes; React tests for anonymous/resume, no-environment/existing/
+incomplete states, explicit mutation, stale route/actor responses and native links.
+Native denial at this repository entry must not silently revoke independent existing
+Soda membership/direct access. No new OAuth transaction table or cross-site CORS.
+
+#### Commit 4 — Real hooks and packaging, not a Forgejo build (U02/U03/U04)
+
+- Add source-owned hook inputs under `appliance/forgejo-custom/templates/custom/`:
+  `extra_links.tmpl` and `extra_tabs.tmpl` (use `.tmpl.in` for public-URL substitution
+  if needed). One links to Soda environments; one includes the native repository ID
+  in the entry route. No copied sign-in form, credential JavaScript or full navbar.
+- Reuse `assets/branding/forgejo/`, its canonical palette and existing native themes.
+  Add only CSS needed for these controls. No PatternFly global stylesheet/reset or
+  React runtime injected into Forgejo; visual coordination does not require a second
+  frontend bundle on every native page. Add `custom/header` only for a concrete asset
+  inclusion that cannot use the existing theme path.
+- Extend `scripts/stage.py` to ship the small hook inputs under
+  `/usr/local/share/soda/forgejo-custom/`. This is a static source payload next to
+  existing Soda assets, not a second Forgejo image or source lock.
+- Provide a small **render-only** path in the existing Go setup command (for example
+  `cmd/soda-setup/customization.go`), distinct from OAuth bootstrap. Its inputs are
+  the shipped hook sources and validated public Soda URL; its output is a fresh
+  directory containing only the named public templates. Preserve native Go-template
+  expressions while context-escaping the configured URL. Test invalid input, missing
+  placeholders, template injection, occupied output and partial failure. No secrets,
+  service commands, provider requests or database access in this render operation.
+- Wire first-activation source to render/validate before installing the exact hook
+  files with correct ownership/modes/SELinux access and the necessary scoped Forgejo
+  restart. Preserve unrelated custom files and refuse unexplained collisions; never
+  copy/replace the entire `gitea` tree. Existing-state delivery is a separately
+  approved U17/U18 procedure, **not** replay of setup/activation/first-install.
+- Update `internal/nativebuild/bundle.go` required-payload checks and focused tests
+  for the shipped inputs/notices. Keep rendered per-instance files out of the public
+  bundle; bind their expected content to the public URL and source during installed
+  checks. Retain stock image/IID/OCI identity and actual template/asset licensing.
+
+**Tests:** renderer unit tests; focused stage/bundle fixtures for exact destination,
+missing hooks/assets/notices, modes and secret exclusion; activation tests with
+command doubles proving preflight precedes writes/restart. Integrate these with
+existing check entrypoints, not a new runner or generic customization framework.
+Stock native template discovery/rendering still requires an actual browser proof;
+a fake Go function map is not Forgejo compatibility evidence.
+
+#### Commit 5 — Integrated shell and browser proof (U02/U04/U07/U17)
+
+- Update Soda navigation to make native repositories/account/admin workflows normal
+  destinations, while keeping environment/profile/help routes in React. Reconcile
+  `dashboard/src/navigation-boundary.test.ts`: forbid untrusted destinations and
+  credential-bearing URLs, not legitimate configured Forgejo links.
+- Author `tests/installed/forgejo-customization.mjs` as a focused core-owned browser
+  journey using existing test conventions and explicit private fixture inputs. Do
+  not build another harness or seed sessions/rows. Separate navigation/read probes
+  from login/consent and explicitly authorized mutation cases.
+- Prove actual stock hooks/assets on native login, repository, issue/PR/settings
+  and native admin pages; responsive navigation/keyboard behavior; native forms,
+  CSRF and scripts still functioning; real OAuth return, deny/expiry/account-change
+  behavior; explicit create/join and existing connection outcomes. Screenshots/logs
+  must not expose credentials, personal keys, tokens, cookies or one-time codes.
+- Exercise the whole first journey before expanding presentation across feature
+  families. Keep working default/preview routes until candidate proof and cutover
+  permission. Full native MFA/IdP/conditional workflow and upgrade coverage remains
+  with feature owners/U17, not claimed by one successful hook page.
+
+**Exit:** connected source and focused tests first, followed by separately scoped
+actual stock-image/browser evidence. No fifth environment, provider fixture, origin
+change or service restart is authorized by writing this test. Existing four roots,
+credentials, work and failed evidence stay intact. U08 acceptance is not reopened.
+
+#### After the first slice — terminal and coherent retirement
+
+U07 implements the own-account terminal with its already-required transport/native
+security review and tests, not a root-shell stub. Feature owners verify customized
+native replacements against the existing 179-group register. U18 then removes
+replaced React routes, HTMX handlers/templates and unused stock adapters/dependencies
+with their callers, updating—not simply discarding—behavioral regression coverage.
+Trace setup, Cockpit and project-CLI consumers before removing any client method.
+Do not retain two forge frontends permanently, and do not delete working workflows
+before replacements are proven. Narrow Soda's OAuth scopes after caller retirement.
+
+**Immediate next implementation:** commit 1's bounded contract closure and commit 2's
+known authority fixes, then commit 3's tested environment entry. Commit 4 can proceed
+once route/public-URL contracts are settled; commit 5 integrates them. Each commit
+records source tests separately from native evidence. No new runtime/dependency,
+Forgejo fork, release platform or broad audit is a prerequisite.
+
 ## 7. Detailed core milestones
 
 ### U01 — Capability, authority and baseline audit

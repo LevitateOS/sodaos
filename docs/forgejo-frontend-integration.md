@@ -21,6 +21,27 @@ Forgejo's web handlers call internal services and render templates independently
 of its public API. Do not extract/scrape complete HTML documents into React, borrow
 native cookies or use a privileged token to bypass a missing interface.
 
+## Preparation work and inspected baseline
+
+The [preparation sequence](dashboard-implementation-plan.md#preparation-sequence--native-templates-and-soda-environment-integration)
+assigns concrete code/scaffolding and tests to existing U owners. It is a plan,
+not delivered customization. No additional implementation roadmap is introduced.
+
+The bounded follow-up inspected the retained H01 **v15.0.7** source (not just the
+v16 research tree): `templates/base/head_navbar.tmpl` calls `custom/extra_links`;
+`templates/repo/header.tmpl` calls `custom/extra_tabs` with repository context.
+Both upstream hook files are empty. `Dockerfile` sets `GITEA_CUSTOM=/data/gitea`;
+the root container wrapper uses the same custom-path default. These are source
+facts, not an observation of the running image's effective configuration.
+
+Current Soda `scripts/stage.py` already ships native themes/logos under
+`/var/lib/soda/forgejo/gitea/public/assets`, reached through the service's `/data`
+mount. No template copy/render path currently exists. `internal/web/auth.go` only
+allows `/projects` and `/app/` as OAuth return destinations. `/api/session` already
+supplies configured `forgejo_url`; native navigation should use it safely rather
+than invent another endpoint/origin configuration store. The entry-route, renderer,
+packaging, permission fixes and browser assertions in the plan are still to write.
+
 ## Actual template mechanism and limits
 
 In inspected source, `modules/templates/base.go::AssetFS` layers custom templates

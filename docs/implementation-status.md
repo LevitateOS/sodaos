@@ -1,5 +1,38 @@
 # Implementation handoff
 
+## Native-template/API preparation plan — source work specified, not implemented
+
+After clean `effc501`, added the user's requested concrete preparation sequence to
+[the leading plan](dashboard-implementation-plan.md#preparation-sequence--native-templates-and-soda-environment-integration),
+inside existing U01/U02/U03/U04/U05/U06/U07/U12/U16/U17 ownership. No new roadmap,
+acceptance counter, fork preparer or source-build gate. Only bounded U08 is accepted.
+
+The sequence names five coherent source commits: bounded hook/config/session
+contract closure; the three known active Soda authority fixes; stable-repository
+React/Soda API entry and safe OAuth return; small native hooks plus render-only/
+stage/activation delivery; integrated navigation and focused browser proof. Terminal
+and caller-traced duplicate frontend retirement keep their U07/U18 responsibilities.
+The first journey is native repository → environment entry → real OAuth if needed
+→ explicit create/join/existing connection details → native repository, never a
+GET-triggered native mutation. APIs serve Soda integration, not Forgejo screen parity.
+
+Inspected the existing Go web/config/store, React routes/environments, stock service,
+asset staging/bundle consumers, setup/activation and retained **15.0.7** H01 source:
+navbar/repository hooks and the root container's `/data/gitea` CustomPath default.
+Updated the existing frontend integration guide with those facts and current gaps.
+No broad API audit, image upgrade, dependency retrieval or live configuration read.
+The concrete repository route/API names and renderer paths are planned, not source
+features. Cookie isolation across same-host ports and effective runtime template/
+restart behavior still require verification; native origins/login remain preserved.
+
+This change only authors the plan: no production scaffolding, authority fix or
+test source was implemented. Document consistency checks passed: 20 ordered U
+milestones, three conditional E tracks, all 179 groups assigned once, 12 local
+new/plan links and 37 incoming plan links/anchors; `git diff --check` passed.
+Log: `.artifacts/research/template-preparation-effc501/document-check.log`.
+No build, product test, native/provider action, restart, deployment or cleanup ran.
+All four environments, credentials and evidence are untouched.
+
 ## Fork-specific machinery removed
 
 At the user's request, removed the dedicated downstream Forgejo source/patch
