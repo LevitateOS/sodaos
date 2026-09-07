@@ -11,7 +11,11 @@
     </section>
     {{template "explore/navbar" .}}
     {{template "shared/repo_search" .}}
-    {{template "explore/repo_list" .}}
+    {{if .Repos}}
+      {{template "explore/repo_list" .}}
+    {{else}}
+      {{template "custom/explore_empty" .}}
+    {{end}}
     {{template "base/paginate" .}}
   </div>
 </main>

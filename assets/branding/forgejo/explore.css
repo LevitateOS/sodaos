@@ -147,3 +147,19 @@ body:has(.soda-explore) .soda-account-appearance:hover { color: var(--explore-li
 .soda-explore .explore-relevancy-note { background: var(--explore-surface); color: var(--explore-muted); border: 1px solid var(--explore-edge); box-shadow: none; border-radius: 10px; }
 .soda-explore .explore-relevancy-note a { color: var(--explore-link); }
 body:has(.soda-explore) :is(a,button,summary):focus-visible { outline: 2px solid var(--explore-link); outline-offset: 3px; }
+
+/* Empty results belong to the page, with native visibility decisions intact. */
+.soda-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 44px 24px; border: 1px solid var(--explore-edge); border-radius: 14px; background: var(--explore-surface); }
+.soda-empty-symbol { position: relative; display: grid; place-items: center; width: 76px; height: 76px; margin-bottom: 24px; border: 1px solid var(--explore-edge); border-radius: 24px 24px 24px 8px; background: var(--explore-canvas); color: var(--explore-link); transform: rotate(-5deg); }
+.soda-empty-symbol > svg { transform: rotate(5deg); }
+.soda-empty-spark { position: absolute; right: -5px; top: -5px; width: 18px; height: 18px; border-radius: 6px; background: #a6e3c8; border: 3px solid var(--explore-surface); transform: rotate(18deg); }
+.soda-empty .soda-empty-eyebrow { margin: 0 0 12px; color: var(--explore-link); font: 500 10px/1.6 "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
+.soda-empty h2 { margin: 0 0 14px; color: var(--explore-text); font: 600 clamp(26px, 3vw, 34px)/1.2 "Fraunces Variable", Georgia, serif; letter-spacing: -.025em; }
+.soda-empty p { max-width: 470px; margin: 0; color: var(--explore-muted); font: 400 16px/1.6 Barlow, sans-serif; overflow-wrap: anywhere; }
+.soda-empty p strong { color: var(--explore-text); }
+.soda-empty-actions { display: flex; align-items: center; justify-content: center; gap: 16px 24px; flex-wrap: wrap; margin-top: 26px; }
+.soda-empty-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; font: 600 15px/1.4 Barlow, sans-serif; }
+.soda-empty-actions .soda-empty-primary { border-radius: 999px; padding: 12px 22px; color: white; background: var(--soda-light-action); }
+.soda-empty-actions .soda-empty-primary:hover { background: var(--soda-light-action-hover); }
+.soda-empty-actions .soda-empty-secondary { color: var(--explore-link); }
+@media (max-width: 700px) { .soda-empty { padding: 32px 20px; } }

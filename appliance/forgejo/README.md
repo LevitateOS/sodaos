@@ -150,3 +150,20 @@ mobile menu at 390 CSS pixels without horizontal overflow, repository search and
 page-two navigation. The original `forgejo-auto` account preference was restored.
 No backend/authentication or permissions code was modified. Additional theme
 families and private-repository authorization were not newly tested.
+
+### Branded explorer empty states
+
+The explorer wrappers render `custom/explore_empty.tmpl` only when the native
+result collection is empty. Populated lists remain stock partials. A compact
+native icon, mint accent, Fraunces heading and Soda action style cover repository,
+people and organization directories. Search terms remain template-escaped.
+Wording distinguishes a keyword with no matches from records not visible in the
+current view, without asserting hidden records do not exist. Reset links clear
+search/filter/page state. Creation links follow stock navbar conditions (signed
+in for repositories; `CanCreateOrganization` for organizations); native handlers
+remain authoritative for creation permissions and limits. New copy remains English.
+
+Local browser checks covered signed-in repository no-match/reset (20 rows restored),
+empty organizations with the native creation link, guest people search/clear
+(3 users restored), guest organization empty state without creation controls,
+dark desktop and light 480 CSS-pixel layout without horizontal overflow.

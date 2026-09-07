@@ -56,6 +56,13 @@ Vince's original `forgejo-auto` preference was restored after verification. Nati
 navbar permission conditions are unchanged; private-repository authorization and
 additional theme families were not newly tested. No appliance deployment occurred.
 
+Branded empty states now cover the three explorer directories through a shared
+presentation partial, used only when native result collections are empty. Native
+populated lists and visibility/creation authorization are unchanged. Local browser
+checks verified repository reset, people search clearing, organization empty
+states for guests and the signed-in administrator, dark desktop and light narrow
+layout. Empty state copy remains English; no translations or deployments occurred.
+
 ## Accepted native evidence
 
 U08 covers the named infra client → isolated `soda-test` journey, **not** a fresh

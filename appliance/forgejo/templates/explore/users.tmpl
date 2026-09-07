@@ -16,7 +16,11 @@
     </section>
     {{template "explore/navbar" .}}
     {{template "explore/search" .}}
-    {{template "explore/user_list" .}}
+    {{if .Users}}
+      {{template "explore/user_list" .}}
+    {{else}}
+      {{template "custom/explore_empty" .}}
+    {{end}}
     {{template "base/paginate" .}}
   </div>
 </main>
