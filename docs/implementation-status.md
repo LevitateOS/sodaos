@@ -1,5 +1,77 @@
 # Implementation handoff
 
+## U01 delta execution — concrete dispositions, acceptance still held
+
+Implemented the revised closure work starting from clean `d5b5065`, reusing the
+existing H01 register, source lock/preparer and auth/read drafts. No repeat route
+inventory, archive preparation or replacement design document. Current results
+and the consolidated human questions are in the leading plan's **Closure results
+— execution after `d5b5065`** subsection; those supersede the blank research tasks
+in historical handoffs below.
+
+Completed/advanced:
+
+- Recovered and read complete 16.0.0–16.0.3 release notes through the contents API,
+  verifying decoded size and Git blob hash. The formerly truncated 16.0.3 note is
+  9,799 bytes, not 8,192. Preserved the old response; recorded migration, proxy,
+  import/mirror/CGNAT, hook, OAuth/session and security implications in the existing
+  source guide. Retained the single 16.0.3 implementation input/stable-track
+  direction; no live upgrade or human maintenance commitment was assumed.
+- Inspected actual native npm lock/direct Soda frontend metadata and upstream
+  license-generation behavior. Resolved all three absent native npm license fields
+  from exact SRI-verified tarballs (MIT). Recorded the 260 upstream Go notice records'
+  lack of version/build-tag binding and the generator's tolerated collection errors.
+  Selected corresponding-source/notices delivery through existing U02 staging.
+  This is not complete transitive Go/native/font license clearance. The absent
+  SodaOS top-level license is a concrete copyright-owner decision, not a guessed
+  grant or permission to relicense third-party code.
+- Complete release notes contradicted one part of the earlier v16 delta coverage:
+  verified `is_2fa_enabled` directly in v16 `admin/user.go::SearchUsers` and updated
+  AD22 in the same 179-group register. The remaining account/MFA/reset gaps and
+  native site-admin authority are unchanged; no full v16 re-audit was started.
+- Extended the existing read draft with exact initial routes/DTOs, byte-preserving
+  content/identity, native predicates/errors, safety ceilings, cancellation and
+  minimal pre-auth-readable compatibility/freshness behavior. Extended the existing
+  auth draft with concrete operation/state/binding/expiry/attempt-limit choices,
+  explicit native helper/atomicity requirements and review holds. No endpoint,
+  native patch, compatibility advertisement or adapter was fabricated.
+- Resolved origin handling as per-installation operator configuration with stable
+  RP-ID preservation, not a required global production hostname. Recorded stable-ID
+  rename/unavailable/invalidation/data-preservation consequences. Source confirms
+  project administration uses stored `Project.OwnerID`; transfer succession,
+  especially organization recipients, still needs an explicit product decision.
+
+**Executed evidence:** public source/license metadata retrieval and integrity checks;
+a bounded synthetic Git/worker experiment on local x86_64/Git 2.52.0. A 24-commit
+run-owned repository passed 65,536-byte-line blame, literal shell-metacharacter
+path and net diff under the candidate launcher limits. An over-limit allocation
+failed with `MemoryError`. A focused follow-up tested a one-second CPU limit
+(worker killed) and explicit ready/PID binding before SIGTERM (worker exited).
+This proves only the host primitive, not Forgejo parser/API correctness, packaged
+Alpine behavior, hostile/worst-case capacity or aarch64. The second probe closes
+missing observations without rerunning the first repository experiment.
+
+Original responses/provenance, exact tarballs/license texts, derived metadata,
+scripts/logs and both local fixture directories remain in ignored
+`.artifacts/research/u01-d5b5065/`. No cleanup was performed. No production source,
+manifest/lock pin, installed service, origin, credential or retained environment
+was changed; no installed provider/account/repository fixture was created. No full
+Go/frontend/native build or product test suite was rerun for these document changes.
+Read-only document checks passed: 20 ordered U milestones, three conditional E
+tracks, all 179 action groups assigned once, 30 local new/plan links and 37 incoming
+plan links/anchors; `git diff --check` passed. Script/log:
+`check-documents.py` / `document-check.log` in that same evidence directory. These
+checks are separate from the executed primitive experiment and do not validate
+native protocol semantics.
+
+**Not accepted:** U01 still needs named maintenance/security review, the original
+SodaOS license decision, external IdP/logout policy, project-admin transfer policy
+and concrete native-auth/license review dispositions. Exact artifact/native tests
+remain with U02/U03/U04/U09/U17/U20; their ownership is not a PASS. Only bounded U08
+is accepted (1/20). Continue from these concrete candidates/remaining questions,
+not another research or proposal pass. Working login and all four environments
+remain untouched.
+
 ## U01 plan corrected to avoid duplicate R&D
 
 At the user's request, replaced the leading plan's broad U01 research tasks with

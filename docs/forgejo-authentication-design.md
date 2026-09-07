@@ -34,7 +34,8 @@ be exposed safely by relabeling an existing web session as a bearer API.
 
 ## Proposed sequence and data ownership
 
-Exact routes/wire revisions and storage reuse require native review before coding.
+The revision-1 candidate below supplies the initial route/state/binding choices;
+implementation and native security review are still required before exposure.
 The following operations are distinct, not a generic `call native method` endpoint.
 
 | Operation | Inputs from Soda | Native result / invariant |
@@ -87,23 +88,129 @@ Native credential updates remain native even if the browser cancels afterward.
 | Recovery/activation mail | Native signed tokens and configured expiry/policy, but Soda presentation for owned actions; no new Soda mail token authority or hidden native-page redirect |
 | Sensitive self/admin operation confusion | Native self reauth and native site-admin MFA reset are different actions; resetting another user's factors never borrows self-security credentials or grants host/project privilege |
 
-Choose concrete transaction TTL/attempt budgets from the native mechanism and
-review them with measured tests, including distributed/concurrent requests. No
-numeric limit is claimed implemented or sufficient by this draft. Pre-auth
+Concrete candidate TTL/attempt ceilings are specified below. They are proposed
+security limits, not implemented controls or measured capacity. Targeted source
+inspection did not establish a general native password-attempt limiter in the
+selected login handlers; mail resend limits are not such a limiter. Therefore
+“reuse native rate limits” is not sufficient: H05 must supply and test the missing
+native-owned admission/attempt controls without weakening any existing policy. Pre-auth
 compatibility must be checkable without first obtaining the ordinary grant that
 this protocol is meant to establish; metadata still does not prove compatibility.
 
+## U01 revision-1 protocol disposition
+
+**Candidate for native implementation/security review, not an approved live auth
+boundary.** This first contract covers sign-in and its required security gates;
+registration, mail actions, authenticated self-security and admin commands remain
+explicit feature-owned contracts, not arbitrary operations on this transaction.
+
+Native prefix: `/api/forgejo/v1/soda/auth`. All requests require the configured
+confidential OAuth client's authentication through a restricted secret channel
+and validated registered context. Client authentication is not user HTTP Basic:
+no user Basic/PAT creation, admin token or subject selection is permitted. The
+native transaction handle is a separate random 256-bit capability carried only
+in a redacted server-to-server header, never a URL or browser-readable value.
+
+| Endpoint | Exact operation-specific input | Result |
+| --- | --- | --- |
+| `POST /transactions` | `client_id`, exact registered `redirect_uri`, canonical requested `scope`, random browser `binding` digest, S256 `code_challenge`, `nonce`, native configured `method_id` | Native opaque handle to Soda only; public state envelope below. Reject unregistered method/return or invalid native scopes; do not accept a UID or override the resolved user's native login-source binding. |
+| `GET /transaction` | Handle + client/binding; no target query | Current state envelope for this transaction only; cannot reveal another account or replay a completed authorization code |
+| `POST /credential` | Handle + client/binding, `expected_version`, native `username`, transient `password` | Native verifier/account policy chooses the next step; use the native sign-in form validation, including its 254/255 size limits, rather than changing Unicode/password rules |
+| `POST /required-password` | Same binding/version; native `password`, `retype` fields and native required authentication context | Native password command with policy/session effects; cannot write a “password requirement passed” flag |
+| `POST /totp` | Same binding/version; issued `challenge_id`, `code` | Native second-factor validation and one-use state change |
+| `POST /recovery` | Same binding/version; `challenge_id`, `recovery_code` | Native scratch-code consumption; not an alternate bypass of account policy |
+| `POST /webauthn` | Same binding/version; `challenge_id`, standard native assertion JSON | Native challenge/RP-ID/origin/credential/user-verification/counter checks |
+| `POST /enrollment/begin` | Same binding/version; factor from the native allowed factor set | Native challenge/options or one-time enrollment display; no ordinary user grant yet |
+| `POST /enrollment/finish` | Same binding/version; `challenge_id`, factor-specific native confirmation/attestation JSON | Native credential persistence and required-enrollment validation |
+| `POST /consent` | Same binding/version; `approve` boolean; no client-selected subject or extra scopes | Native grant decision. On approval, one-use native authorization code to Soda only, bound to existing code/PKCE exchange; denial terminates the transaction |
+| `DELETE /transaction` | Handle + client/binding | Cancel future progression; never undo a password, scratch-code or security change already committed |
+
+Public state envelope: `{revision: 1, version: STRING, expires_at: RFC3339,
+state: ENUM, challenge: OBJECT_OR_NULL, error: CODE_OR_NULL}`. States are
+`credential`, `required_password`, `factor`, `enrollment`, `activation_required`,
+`external_redirect`, `consent`, `complete`, `denied`, `expired`, `cancelled` and
+`outcome_unknown`. Native policy chooses transitions. Challenge payloads are typed
+by the expected native step: native factor options/WebAuthn public options,
+`{client_id, name, scope, approval_required}` for consent, or native activation status.
+If native policy permits existing-grant/client auto-approval, it sets
+`approval_required: false`; Soda may finish that consent step without inventing a
+new prompt. Only native policy chooses this, never a remembered Soda role/decision. No session cookie, native
+handle, password, reusable code or copied role inventory appears in this browser
+projection. One-time enrollment material is returned only by the begin command,
+not by arbitrary later status reads. An external redirect needs the separately
+approved IdP-origin decision and native state validation; no Forgejo-page fallback.
+
+Native state binds handle hash, configured client, browser binding, registered
+return, requested scopes, PKCE/nonce, native method/verified subject, progress,
+challenge and expiry. Store it under Forgejo authority with atomic version/consume
+checks; do not use ordinary web-cookie identity as its privilege. A small native
+transaction record is justified by one-use authentication state, not a job engine.
+Reuse native credential/challenge/grant services; extract their operations where
+currently embedded in web handlers. Soda retains only its own pre-auth browser
+binding and protected native handle, using purpose-separated authenticated
+protection, then discards them on completion/cancellation/expiry.
+
+**Atomicity:** claim `expected_version` before verification; concurrent/stale
+submissions fail with 409 and do not verify twice. A state read never repeats a
+mutation or returns a previously delivered authorization code. Native password/
+recovery/credential changes must preserve their actual committed outcome. Where
+an existing helper cannot participate in a combined native transaction, leave an
+explicit unknown/consumed outcome on uncertainty and require fresh native proof;
+do not replay it or fabricate “not applied.” That helper's crash behavior needs
+focused H05 tests before exposing the operation.
+
+**Selected initial bounds:** ten-minute absolute transaction lifetime, with each
+challenge expiring no later than its existing native lifetime or that deadline;
+no sliding extension on failure/status reads. At most five failed proofs per
+transaction. Add native-owned aggregate limits that survive new transaction IDs:
+10 failed proofs per resolved native account in 15 minutes, 60 transaction starts
+and 60 proof submissions per configured client per minute (separate counters),
+two simultaneous expensive verifications per
+Forgejo instance, and 1,000 active transactions globally. Unresolved login names
+use native normalization with protected keys; aliases must converge on the native
+user after lookup. Atomic counters/expiry are native-owned, not browser or Soda
+role records. Unknown-account errors must not distinguish existence. Prove these
+controls under concurrent/restarted requests; do not claim an unverified cache
+check is an atomic limiter.
+
+Request JSON is strict and at most 64 KiB; native field validation may be stricter.
+Responses are at most 256 KiB and no-store. Native OTP/seed/key entropy/counters,
+password algorithms, code/grant expiry and account policies remain native choices,
+not Soda replacements. An aborted request must not release its expensive-work
+slot before the verifier actually ends. The Go/native password verifier may not
+be cancellable mid-hash; a request deadline alone is not a CPU/memory bound. H05
+must test the configured native algorithm's cost and preserve its native limits.
+
+Errors: 400 malformed/unsupported proof; 401 invalid client/handle/proof with no
+account enumeration; 403 native policy refusal only at a stage allowed to disclose
+it; 409 stale/out-of-order/consumed submission; 410 expired transaction; 413 body
+limit; 429 admission/attempt limit; 503 unavailable/unknown outcome. Public messages
+are fixed, no underlying verifier/HTTP/body diagnostics. Code exchange and refresh
+continue to use the existing native OAuth endpoints and their error semantics.
+
+**Review disposition:** sufficient concrete shape for focused native extraction/
+security review, but not permission to claim feasibility of every native method.
+IdP product policy and named review remain human decisions; factor-policy parity,
+atomic helper behavior and aggregate attempt enforcement need native tests. Do not
+start a second protocol proposal or silently fall back to borrowed cookies if one
+of these implementation constraints fails.
+
 ## Decisions that must return to the product/maintainer
 
-1. **Production browser origin and enrolled-key preservation.** Recommend keeping
-   the existing RP-ID where the final Soda host is eligible for it, and adding only
-   the exact Soda origin through a reviewed native configuration/interface change.
-   Origins differing only by port can share an RP-ID, but the native origin check
-   still needs explicit support. Unrelated domains cannot simply reuse enrolled
-   credentials by changing the UI. No live RP-ID/credential inventory was inspected
-   or modified in this batch; do not assume the test `localhost` arrangement is the
-   production contract. Confirm the intended production Soda origin and the RP-ID
-   that must remain valid before implementing this native configuration change.
+1. **Origin/RP-ID policy is now a concrete configuration contract, not a demand
+   for one global production hostname.** SodaOS is installed with operator-supplied
+   browser origins. Preserve an existing installation's native RP-ID independently
+   of browser and Git-advertisement hostnames; configure only the exact eligible
+   Soda origin for assertions, with temporary legacy origin retention only during
+   separately tested cutover. New installations choose an eligible RP-ID from their
+   declared origin; upgrades must not silently rederive/change it. Validate HTTPS,
+   exact scheme/host/port and RP-ID host eligibility before enabling the new flow.
+   An unrelated new domain is refused until explicit credential/origin migration
+   is approved; never reset enrollment automatically. Native configuration owns
+   this setting and validation, not a browser parameter. The actual hostname/RP-ID
+   values are installation/rollout inputs, not a reason to repeat U01 R&D. No live
+   RP-ID/credential inventory was inspected or changed; U17/U18 must verify those
+   exact inputs and existing-key assertions before any ingress/configuration change.
 2. **External IdP browser interaction.** Forgejo-owned pages must stay in Soda;
    an external IdP may require its own website. Confirm whether that external
    provider's own login/consent is allowed, with a registered return to Soda. If
@@ -126,14 +233,32 @@ Preserve that association; do not rename/recreate Linux accounts on a native nam
 change or interpret a reused username as the former identity. Native resource
 lookup/ownership checks must use stable IDs and fail on ambiguous associations.
 
-Repository transfer, organization ownership, account deletion/disablement and
-revocation still require explicit decisions about **Soda's legitimate records and
-new browser access**, not a generalized Linux offboarding subsystem. Recommend
-preserving existing roots/accounts/data and refusing ambiguous new privileged
-operations while showing an honest association error. Do not silently select that
-as final transfer/deletion policy, change existing project administrator authority,
-or block ordinary unrelated native operations to hide the decision. U05/U07/U12/
-U16 retain these decisions under the leading plan.
+U01 technical dispositions (implementation belongs to the existing U owners):
+
+| Native change | Soda consequence |
+| --- | --- |
+| User/repository rename with the same native ID | Resolve by stable native identity, verify the returned ID, then refresh only cached display/route names. Keep stored project-local login/home/account. Never follow a reused name onto a different native ID. |
+| Native account disabled/deleted or grant revoked | Deny new protected browser operations when native validation fails; invalidate affected Soda sessions/grants on confirmed account/grant invalidation, not on network uncertainty. Preserve existing project roots and project-local development SSH keys/accounts/workloads. Forgejo still owns effects on its personal Git keys. No claim that native account deletion revokes Linux access. |
+| Repository deleted, hidden from the actor or lookup unavailable | Keep the association by ID and show unavailable/denied as appropriate. A 404 is not proof of deletion and cannot authorize row/root cleanup or reattachment to a reused name. |
+| Native operation succeeded but Soda cache/association persistence failed | Report native success plus the bounded Soda failure; no automatic retry, inverse native mutation or invented rollback. Subsequent trusted ID reads may repair display data, not grant new administration. |
+| Human-to-human or organization repository transfer | **Human decision still required:** specify project-admin succession independently of Linux account preservation, including which human administers an organization-linked environment. Do not derive host authority from site/org administration. |
+
+This is not already dynamic succession: `apiCreateEnvironment` stores the creating
+human as `Project.OwnerID`; `apiEnvironmentMembers` checks that stored ID (or the
+configured Soda operator), rather than the repository's current owner. Existing
+organization-owned environment creation is explicitly rejected. Thus a transfer
+policy cannot be called implemented by merely updating a cached repository name.
+U05/U07/U12/U16 must implement the chosen bounded authority/association change and
+native denial/name-reuse/session tests. The decision must not become a generalized
+Linux offboarding/reconciliation service or a waiver of native transfer/delete UI.
+
+For Soda-only protected routes, provider-independent cached membership is not proof
+that a native account/grant remains valid. The U04/U07 implementation must perform
+current native validation before new privileged access/key/terminal/provisioning
+operations; any finite read-session freshness must be explicit and tested. Native
+unavailability fails those new privileged operations closed without deleting data.
+Already established native SSH/workload sessions remain outside browser revocation;
+U07 separately owns the browser terminal's authenticated connection lifetime.
 
 No native authentication patch, new auth route, compatibility advertisement, live
 configuration mutation or security-key reset is implemented by this design. Keep
