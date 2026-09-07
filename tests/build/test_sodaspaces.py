@@ -1,10 +1,12 @@
 """Production staging/preflight in temporary filesystems; never host installation."""
 import ast
+import json
 import os
 from pathlib import Path
 import runpy
 import shutil
 import stat
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -16,6 +18,58 @@ PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
 
 class SodaspacesPackaging(unittest.TestCase):
+    def test_browser_probe_refuses_bad_inputs_without_secret_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'input.json'
+            source.write_text('invalid JSON SYNTHETIC_AUTH_SECRET_MARKER')
+            source.chmod(0o600)
+            for permission in ([], ['--allow-auth-transitions']):
+                result = subprocess.run(['node', str(ROOT / 'tests/installed/sodaspaces.mjs'),
+                                         str(source), str(root / 'not-created'), *permission],
+                                        capture_output=True, text=True, timeout=15)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn('private input validation', result.stdout)
+                self.assertNotIn('SYNTHETIC_AUTH_SECRET_MARKER', result.stdout + result.stderr)
+                self.assertFalse((root / 'not-created').exists())
+
+    def test_browser_probe_does_not_finalize_an_occupied_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root.chmod(0o700)
+            run = root / 'sodaspaces-run'
+            run.mkdir(mode=0o700)
+            (run / 'retained-marker').write_text('retained')
+            private = root / 'synthetic-input'
+            private.write_text('synthetic fixture, not a real credential or CA')
+            private.chmod(0o600)
+            config = {'origin': 'https://example.invalid', 'target': 'fixture',
+                      'revision': '1' * 40, 'repository_path': '/alice/repo',
+                      'repository_id': '42', 'oauth_client_id': 'synthetic-client',
+                      'ca_file': str(private), 'users': [
+                          {'id': '1', 'login': 'alice', 'password_file': str(private)},
+                          {'id': '2', 'login': 'bob', 'password_file': str(private)}]}
+            request = root / 'request.json'
+            request.write_text(json.dumps(config))
+            request.chmod(0o600)
+            # Source/transport doubles only. Never query a provider or start a browser.
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            git = bin_dir / 'git'
+            git.write_text('#!/bin/sh\ncase "$1" in rev-parse) echo ' + '1' * 40 + ';; status) :;; *) exit 1;; esac\n')
+            git.chmod(0o755)
+            guard = root / 'no-network.cjs'
+            guard.write_text("require('node:https').request = () => { require('node:fs').writeFileSync(" + json.dumps(str(root / 'unexpected-network')) + ", 'refused'); throw Error('test transport refused'); };\n")
+            result = subprocess.run(['node', '--require', str(guard), str(ROOT / 'tests/installed/sodaspaces.mjs'),
+                                     str(request), str(root), '--allow-auth-transitions'],
+                                    env={**os.environ, 'PATH': str(bin_dir) + os.pathsep + os.environ['PATH'],
+                                         'SODA_NATIVE_VALIDATE': 'fixture'},
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(sorted(p.name for p in run.iterdir()), ['retained-marker'])
+            self.assertEqual((run / 'retained-marker').read_text(), 'retained')
+            self.assertFalse((root / 'unexpected-network').exists())
+
     def test_actual_stage_recipe_with_synthetic_build_inputs(self):
         # No generated artifact is placed in the production .artifacts/native tree.
         with tempfile.TemporaryDirectory() as tmp:

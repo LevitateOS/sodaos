@@ -9,7 +9,7 @@ import (
 )
 
 func TestInstalledIdentityUsesExactBytesAndActivationPhase(t *testing.T) {
-	for _, mode := range []string{"before", "activated", "coreos-absolute", "coreos-relative", "revision", "bytes", "mode", "image", "inspection-error"} {
+	for _, mode := range []string{"before", "activated", "coreos-absolute", "coreos-relative", "revision", "bytes", "mode", "hook-bytes", "hook-mode", "image", "inspection-error"} {
 		t.Run(mode, func(t *testing.T) {
 			path := t.TempDir()
 			for _, dir := range []string{"etc/soda", "usr/local/libexec/soda"} {
@@ -33,6 +33,31 @@ func TestInstalledIdentityUsesExactBytesAndActivationPhase(t *testing.T) {
 			}
 			image := "sha256:" + strings.Repeat("c", 64)
 			inv := Inventory{Files: map[string]File{"rootfs/usr/local/libexec/soda/fixture": {SHA256: hash, Mode: 0600}}, Images: map[string]Image{"forgejo": {Config: image}, "dashboard": {Config: image}, "caddy": {Config: image}}}
+			hook := "var/lib/soda/forgejo/gitea/templates/custom/header.tmpl"
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(path, hook)), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(path, hook), []byte("fixture hook"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(filepath.Join(path, hook), 0644); err != nil {
+				t.Fatal(err)
+			}
+			hookHash, err := HashFile(filepath.Join(path, hook))
+			if err != nil {
+				t.Fatal(err)
+			}
+			inv.Files["rootfs/"+hook] = File{SHA256: hookHash, Mode: 0644}
+			if mode == "hook-bytes" {
+				if err := os.WriteFile(filepath.Join(path, hook), []byte("changed hook"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "hook-mode" {
+				if err := os.Chmod(filepath.Join(path, hook), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if mode == "bytes" {
 				if err := os.WriteFile(file, []byte("changed"), 0600); err != nil {
 					t.Fatal(err)
@@ -49,7 +74,7 @@ func TestInstalledIdentityUsesExactBytesAndActivationPhase(t *testing.T) {
 				}
 			}
 			if strings.HasPrefix(mode, "coreos-") {
-				if err := os.Mkdir(filepath.Join(path, "var"), 0755); err != nil {
+				if err := os.MkdirAll(filepath.Join(path, "var"), 0755); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.Rename(filepath.Join(path, "usr/local"), filepath.Join(path, "var/usrlocal")); err != nil {

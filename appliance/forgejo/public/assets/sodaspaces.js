@@ -160,6 +160,7 @@
           failure({status: 401});
           return;
         }
+        actor.textContent = `Soda account: ${provider.login} (ID ${provider.id})`;
         const collection = await readJSON(`/api/environments?repository_id=${repositoryId}`, signal, userId);
         if (!active()) return;
         requireValue(collection.repository?.id === repositoryId && text(collection.repository.owner) &&

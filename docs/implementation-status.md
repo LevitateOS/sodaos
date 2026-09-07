@@ -340,6 +340,38 @@ temporary filesystems. Logs: `.artifacts/research/read-only-05217f7/`. These fix
 are not an actual native stage/build/install. The added actual-stage assertions
 remain unexecuted; no service, native target, credentials or project data changed.
 
+## Native probe source and final local checks
+
+The opt-in [read-only browser journey](native-validation.md#read-only-sodaspaces-browser-probe)
+is now authored, not executed against a provider/browser/proxy. It uses actual
+native password/consent forms, two existing users and a public repository; only
+explicit authentication writes are permitted. It checks served asset bytes and
+conditional revalidation, proxy aliases/encoding, scoped cookies, actor/CSRF denial,
+OAuth returns, native-only switching, Soda-only logout, stale tabs, native form
+coexistence, keyboard/layout/themes and actual BFCache restoration. An unobserved
+BFCache restoration returns incomplete scope, not a synthetic pass. Source inspection
+confirmed stock version compatibility suffixes and Playwright's default BFCache
+exclusion. Sandbox/TLS protections remain enabled, and failed profiles are retained.
+
+CLI preflight tests cover missing permission, sanitized malformed private input and
+refusal to finalize into an occupied run. These use synthetic files and git/transport
+doubles, never a browser, provider or real credential. Final delivery review also
+extended the installed-byte verifier to the exact new template files, with changed
+hook bytes/mode regressions. The read-only caller displays a fresh provider rename
+while preserving the original own project login.
+
+Full uncached Go suite and web/store/Forgejo/config/nativebuild race suites passed;
+43 DOM tests and all 36 Python build fixtures passed. Node syntax, shell syntax and
+documentation/whitespace checks passed. Logs and source hashes are retained in
+`.artifacts/research/read-only-05217f7/`. Go used cached 1.26.7, readonly modules and
+disabled resolution; Node used the existing pinned runtime/Cockpit jsdom dependency.
+No dependency installation, real native stage/image build, staged-payload suite,
+Cockpit retest, browser launch, Caddy/provider execution, service/VM action, private
+state migration or project change occurred. The new source test invocations of the
+installed probe stop at preflight. Real OAuth/proxy/browser and staged/installed
+verification remain held for an explicitly approved fixture/target and exact artifacts.
+Step-4 mutation controls remain absent; no new native/product acceptance is claimed.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring

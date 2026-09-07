@@ -24,6 +24,70 @@ Follow [installation](installation.md) on the matching native x86_64 builder. Re
 
 Record actual source revision, native OS/architecture/tool versions, commands, output and defects in an ordinary operator log or issue. Do not manufacture PASS lines or an acceptance schema. No CI workflow runs automatically.
 
+## Read-only Sodaspaces browser probe
+
+`tests/installed/sodaspaces.mjs` is authored and opt-in, **not executed native proof**.
+It uses stock 15.0.7, the candidate's served CSS/JS, real native forms and OAuth,
+then read-only drawer states. It never seeds cookies/sessions, substitutes responses,
+creates repositories/environments, joins or installs keys. Protective request
+interception aborts unapproved origins/writes and makes the run fail, not pass.
+
+Execution needs explicit target and authentication-transition permission. Supply
+an existing approved **public repository with Issues enabled and a plain new-issue
+form**, two existing password-login fixture users who can view it, automatic native
+theme selection, and the existing Soda OAuth client ID. MFA/captcha/insufficient
+consent are not bypassed. The probe changes native browser sessions and Soda login/
+logout/grants, which can affect upstream refresh counters; it does not revoke grants
+or edit callbacks/secrets. It types, preserves, then discards only its own synthetic
+unsaved issue title without submitting it. An existing-environment view requires
+approved helper read scope; an absent reservation suffices for initial OAuth proof.
+
+Use a fresh restricted browser home with the selected CA already trusted by
+Chromium. All input/password/CA files are absolute regular mode-0600 files; the
+home is mode 0700. No TLS bypass or sandbox disabling is selected. Reuse prepared
+pinned Playwright/Chromium; the probe does not download browsers. Private request:
+
+```json
+{
+  "origin": "https://approved-fixture.example",
+  "target": "approved-fixture",
+  "revision": "FULL_40_CHARACTER_CANDIDATE_REVISION",
+  "repository_path": "/alice/approved-repository",
+  "repository_id": "42",
+  "oauth_client_id": "EXISTING_PUBLIC_CLIENT_ID",
+  "ca_file": "/private/fixture-ca.pem",
+  "users": [
+    {"id": "1", "login": "alice", "password_file": "/private/alice-password"},
+    {"id": "2", "login": "bob", "password_file": "/private/bob-password"}
+  ]
+}
+```
+
+Later authorized invocation (not permission):
+
+```sh
+SODA_NATIVE_VALIDATE=approved-fixture node tests/installed/sodaspaces.mjs \
+  /private/request.json /private/browser-home --allow-auth-transitions
+```
+
+The source checkout must be clean and match the declared revision. A fresh
+`sodaspaces-run/` below the home retains the private profile and exclusive sanitized
+`result.json`, including failures. Existing run directories are refused untouched.
+No screenshots, traces, raw callback URLs, provider bodies or credential dumps are
+recorded. The caller must separately bind the installed backend/config/artifacts;
+served asset hashes alone do not prove its binary revision or installed migration.
+
+Coverage includes raw proxy alias/encoding denials, native version/asset routes,
+conditional asset revalidation, actual Soda cookie attributes, anonymous/native-only
+cookies, two OAuth returns, actor/CSRF logout denials, native-only account switching,
+Soda-only logout, stale tabs, native unsaved form coexistence, keyboard/focus/backdrop,
+narrow/wide automatic themes and actual back-forward restoration. Playwright's
+inspected default `--disable-back-forward-cache` is omitted for this check. If a real
+BFCache restoration does not occur, the probe records incomplete scope and exits 2,
+not a synthetic pass; failure exits 1. Exit 0 is only this scoped journey. Current
+asset revalidation is not an update rehearsal; native provisioning/SSH, final product,
+backend artifact binding, cutover and independent aarch64 acceptance remain separate.
+
 ## Read-only installed observations
 
 After separately authorized installation, inspect:

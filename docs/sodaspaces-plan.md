@@ -228,7 +228,8 @@ existing Linux accounts, keys, SSH sessions or workloads.
 
 **Source underway, not native-accepted:** the hook/assets, identity/read caller and
 focused source tests and bounded packaging/conflict fixtures are implemented.
-The opt-in journey follows;
+The [opt-in native journey](native-validation.md#read-only-sodaspaces-browser-probe)
+is authored but unexecuted;
 complete native proof for the caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
 source tests first, packaging with fixtures next, then the opt-in native journey.
 Run native proof only with its separate approval. Read-only UI source may proceed

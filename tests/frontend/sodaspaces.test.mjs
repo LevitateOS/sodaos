@@ -160,6 +160,13 @@ for (const [name, changes, expected] of [
   assert.equal(f.$('warning').textContent !== '', Boolean(changes.authority_unavailable));
 });
 
+test('fresh provider rename updates the label without remapping the project login', async t => {
+  const f = await fixture(t, {provider: {id: '1', login: 'alice-renamed'}, collection: {...absent, items: [reservation]}});
+  await f.open();
+  assert.equal(f.$('actor').textContent, 'Soda account: alice-renamed (ID 1)');
+  assert.equal(f.$('login').textContent, 'Your project login: alice-original');
+});
+
 test('cross-repository collection and detail never render', async t => {
   for (const options of [{collection: {...absent, repository: {...absent.repository, id: '43'}}}, {collection: {...absent, items: [reservation]}, detail: {...detail, environment: {...reservation, repository_id: '43'}}}]) {
     const f = await fixture(t, options); await f.open();

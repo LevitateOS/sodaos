@@ -163,8 +163,9 @@ still requires real verification; source DOM doubles do not establish it.
 Templates, static assets, form handlers, repository/People pickers and their dedicated
 clients/tests are removed. `/profile`, `/people`, `/keys`, `/projects`, their form/
 join routes and `/logout` return 404; use the protected JSON logout operation.
-The Go command/container/service/database keep their names. There is no embedded
-or external Soda frontend; `/healthz` remains independent of browser rendering.
+The Go command/container/service/database keep their names. Go serves no embedded
+or standalone frontend; native Forgejo serves the four hook/assets. `/healthz`
+remains independent of browser rendering.
 
 Focused Go tests retain CSRF/input/error, provider/grant/race, native ownership,
 create/join/reservation, key and persistence coverage. Negative route tests ensure

@@ -65,7 +65,7 @@ checks are `go test -mod=readonly ./scripts` and
 and script with jsdom/API/dialog doubles. No new frontend dependency or build is
 needed. The full `scripts/check-native.sh ARCH` still requires a clean revision and
 actual native stage. Browser focus, styling, cookies and stock hook rendering need
-the separately approved native journey.
+the separately approved [native journey](native-validation.md#read-only-sodaspaces-browser-probe).
 
 ### Controls and states
 
