@@ -27,9 +27,16 @@ alignment remains separate; no product concept was removed as a readiness caveat
 Validation: the website's real `snapshotFromDirectory` parsed the draft in memory
 (5 sections, 22 pages), validating Markdown shape and all relative page/heading
 links without writing a fictitious revision-bound snapshot. `git diff --check`
-passed. The next handoff is clean-source commit → website CLI sync → source
-freshness/integrity and website tests. No native build/test, VM/service/network,
-provider, image-generation, publication or destructive operation ran for this work.
+passed. Source committed at `ba2c5d6`; website `65fb5db` ingests that exact source
+through the CLI, adds source-link/retained-route regressions and points Dashboard
+guide to `/docs/dashboard` instead of operator Cockpit. Source freshness and
+snapshot integrity passed. Website `vp run test` passed 49 Node ingestion/
+architecture tests and 48 component/page tests; `vp run typecheck` and
+`vp run build` passed. No browser/visual or real-interface screenshot review ran.
+Neither repository was pushed or deployed. No appliance native build/test,
+VM/service/network, provider, image-generation or destructive operation ran for
+this work. The original source revision remains the snapshot's valid provenance;
+this subsequent internal evidence entry changes no public handbook bytes.
 
 ## New requirement recorded — browser workspace terminal
 
