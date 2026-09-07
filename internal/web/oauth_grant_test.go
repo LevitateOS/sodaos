@@ -26,7 +26,7 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 		}
 	})
 	login := httptest.NewRecorder()
-	s.ServeHTTP(login, httptest.NewRequest("GET", "/-/soda/login?administration=1", nil))
+	s.ServeHTTP(login, apiTestRequest("GET", "/login?administration=1", "", "alice"))
 	location, err := url.Parse(login.Header().Get("Location"))
 	if err != nil {
 		t.Fatal(err)

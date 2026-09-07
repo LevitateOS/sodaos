@@ -35,6 +35,8 @@ type Project struct {
 type Session struct {
 	User User
 	CSRF string
+	// Internal cancellation boundary, never serialized as browser identity.
+	ContextID string
 }
 
 func Open(path string) (*Store, error) { return open(path, nil) }
@@ -172,16 +174,27 @@ func hash(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires) VALUES(?,?,?,?)`, hash(token), uid, csrf, time.Now().Add(12*time.Hour).Unix())
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	expires := time.Now().Add(12 * time.Hour).Unix()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, hash(token), expires); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires,context_id) VALUES(?,?,?,?,?)`, hash(token), uid, csrf, expires, hash(token)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 func (s *Store) Session(ctx context.Context, token string) (Session, error) {
 	var v Session
-	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token=? AND sessions.expires>?`, hash(token), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF)
+	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf,sessions.context_id FROM sessions JOIN users ON users.id=sessions.user_id JOIN login_contexts c ON c.id=sessions.context_id WHERE sessions.token=? AND sessions.expires>? AND c.expires>?`, hash(token), time.Now().Unix(), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF, &v.ContextID)
 	return v, err
 }
 func (s *Store) DeleteSession(ctx context.Context, token string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE token=?`, hash(token))
+	_, err := s.db.ExecContext(ctx, `DELETE FROM login_contexts WHERE id=(SELECT context_id FROM sessions WHERE token=?)`, hash(token))
 	return err
 }
 
@@ -192,16 +205,4 @@ type OAuthLogin struct {
 	Verifier       string
 	RepositoryID   int64
 	ExpectedUserID int64
-}
-
-func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin) error {
-	// The historical return_path column remains unused. Store only native IDs;
-	// callbacks must resolve visibility and construct their own destination.
-	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,repository_id,expected_user_id) VALUES(?,?,?,?,?)`, hash(state), login.Verifier, time.Now().Add(10*time.Minute).Unix(), login.RepositoryID, login.ExpectedUserID)
-	return err
-}
-func (s *Store) ConsumeOAuth(ctx context.Context, state string) (OAuthLogin, error) {
-	var login OAuthLogin
-	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? RETURNING verifier,repository_id,expected_user_id`, hash(state), time.Now().Unix()).Scan(&login.Verifier, &login.RepositoryID, &login.ExpectedUserID)
-	return login, err
 }

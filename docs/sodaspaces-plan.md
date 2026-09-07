@@ -8,7 +8,8 @@ routing/configuration/scoped cookies and backend actor/return context are in sou
 Native-page wiring and real browser/proxy proof remain pending. Steps 2–6 are not
 completed. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks can outlive Soda logout, and new joins do
-not check repository access. Their fix plans below are **not implemented**.
+not check repository access. The callback/logout fix below is now source-implemented;
+repository authorization remains next. Neither is deployed.
 
 ## Selected approach
 
@@ -82,6 +83,10 @@ mutation controls; mocks are not that proof. If supported mechanisms cannot meet
 this contract, stop and explain the precise gap—no fork or substitute frontend.
 
 #### OAuth callback and logout fix
+
+**Source-implemented:** schema v5, conditional finalization/cancellation and focused
+race/migration tests. Browser/proxy and installed rehearsal remain pending. The
+steps below record the selected contract, not permission for native execution.
 
 **Files:** `internal/web/{auth,api}.go`, `internal/store/{store,grants,migrations}.go`
 and their focused tests. Preserve the existing PKCE/state/cookie/actor/consent and

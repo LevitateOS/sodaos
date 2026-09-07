@@ -92,9 +92,25 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid repository or expected user ID.", 400)
 		return
 	}
+	var session, previous string
+	for name, target := range map[string]*string{sessionCookie: &session, oauthCookie: &previous} {
+		c, err := requestCookie(r, name)
+		if err == nil {
+			*target = c.Value
+		} else if !errors.Is(err, http.ErrNoCookie) {
+			http.Error(w, "Ambiguous Soda cookies; clear them and sign in again.", 400)
+			return
+		}
+	}
 	state, verifier := token(), token()
-	if err := s.Store.BeginOAuth(r.Context(), state, store.OAuthLogin{Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID}); err != nil {
-		http.Error(w, "Cannot begin sign-in.", 500)
+	if err := s.Store.BeginOAuth(r.Context(), state, store.OAuthLogin{Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID}, session, previous); err != nil {
+		if errors.Is(err, store.ErrLoginContext) {
+			s.cookie(w, sessionCookie, "", -1)
+			s.cookie(w, oauthCookie, "", -1)
+			http.Error(w, "Previous sign-in expired or ended; start sign-in again.", 409)
+		} else {
+			http.Error(w, "Cannot begin sign-in.", 500)
+		}
 		return
 	}
 	challenge := sha256.Sum256([]byte(verifier))
@@ -123,8 +139,11 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Ambiguous Soda session; sign in again.", 400)
 		return
 	}
-	s.cookie(w, oauthCookie, "", -1)
-	login, err := s.Store.ConsumeOAuth(r.Context(), state)
+	var oldSession string
+	if oldErr == nil {
+		oldSession = old.Value
+	}
+	login, err := s.Store.ConsumeOAuth(r.Context(), state, oldSession)
 	if err != nil {
 		http.Error(w, "Sign-in expired or was already used.", 400)
 		return
@@ -166,21 +185,16 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 			repository = &repo
 		}
 	}
-	if err = s.Store.UpsertUser(r.Context(), store.User{ID: u.ID, Login: u.Login, Name: u.Name}); err != nil {
-		http.Error(w, "Could not save Soda profile.", 500)
-		return
-	}
-	if oldErr == nil {
-		if err = s.Store.DeleteSession(r.Context(), old.Value); err != nil {
-			http.Error(w, "Could not rotate session.", 500)
-			return
-		}
-	}
 	value, csrf := token(), token()
-	if err = s.Store.CreateGrantedSession(r.Context(), value, u.ID, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: grant.ExpiresAt}); err != nil {
-		http.Error(w, "Could not create session.", 500)
+	if err = s.Store.FinishOAuth(r.Context(), login, store.User{ID: u.ID, Login: u.Login, Name: u.Name}, value, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: grant.ExpiresAt}); err != nil {
+		if errors.Is(err, store.ErrLoginContext) {
+			http.Error(w, "Sign-in cancelled, expired or superseded; reload and start again.", 409)
+		} else {
+			http.Error(w, "Could not create session.", 500)
+		}
 		return
 	}
+	s.cookie(w, oauthCookie, "", -1)
 	s.cookie(w, sessionCookie, value, int((12 * time.Hour).Seconds()))
 	s.forgejoReturn(w, r, repository)
 }

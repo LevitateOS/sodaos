@@ -210,7 +210,7 @@ func TestAPILogoutDeletesOnlyActingSession(t *testing.T) {
 		t.Fatal("other session removed", err)
 	}
 	cookies := w.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].MaxAge != -1 || !cookies[0].Secure || !cookies[0].HttpOnly {
+	if len(cookies) != 2 || cookies[0].MaxAge != -1 || !cookies[0].Secure || !cookies[0].HttpOnly {
 		t.Fatal("unsafe logout cookie")
 	}
 }

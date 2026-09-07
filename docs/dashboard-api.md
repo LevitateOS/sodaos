@@ -40,7 +40,7 @@ supplied fixture username against bootstrap before using the actor ID.
 | Endpoint | Behavior |
 | --- | --- |
 | `GET /api/session` | Soda acting identity, CSRF token, explicit Soda operator flag and configured Forgejo browser URL |
-| `POST /api/session/logout` | `{}`; delete Soda session/grant and expire its cookie; not global Forgejo/Linux logout |
+| `POST /api/session/logout` | `{}`; cancel this Soda login context, its pending OAuth and session/grant; expire both Soda cookies; not global Forgejo/Linux logout |
 | `GET/PATCH /api/me/preferences` | Soda-only display name; PATCH `{display_name}` |
 | `GET/POST /api/me/development-keys` | Own development-access public keys; POST `{public_key}`; not native Git key management |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
@@ -65,11 +65,9 @@ this retained API. The leading plan owns that next source slice.
 
 ## Browser/session/security contracts
 
-**Known source gaps:** new joins still lack repository authorization, and in-flight
-OAuth callbacks can issue a new session after Soda logout. The
-[logout fix](sodaspaces-plan.md#oauth-callback-and-logout-fix) and
-[repository authorization fix](sodaspaces-plan.md#repository-authorization-fix)
-are not implemented; refresh/logout tests do not establish callback cancellation safety.
+**Known source gap:** new joins still lack repository authorization; the
+[repository authorization fix](sodaspaces-plan.md#repository-authorization-fix) is next.
+Callback/logout cancellation is now implemented in source, not deployed.
 
 - `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
   `repository_id` and `expected_user_id` with the same positive-ID representation;
@@ -84,9 +82,18 @@ are not implemented; refresh/logout tests do not establish callback cancellation
   under the configured HTTPS origin. Missing/inaccessible/invalid context falls
   back to Forgejo home. Callback-supplied IDs/URLs, provider URLs and the historical
   `return_path` column never select the destination.
-- Schema v4 adds only two default-zero OAuth context ID columns; migrated pending
-  transactions have no context and return home. Grant encryption/keys and project
-  records are unchanged. Auth queries are limited to 8 KiB; malformed encoding,
+- Schema v5 adds a bounded internal login context shared by pending OAuth and the
+  rotating Soda session. Its state-hash marker survives the single-use claim during
+  provider I/O. Callback finalization atomically checks the marker, saves the profile
+  and rotates the session/grant. Logout invalidates the same context, including a
+  replacement committed after logout authenticated. Late cookies cannot revive it;
+  superseded callbacks do not write cookies or profiles. Other browser contexts are
+  untouched. Contexts expire with the login/session; no global native logout.
+  Existing sessions receive independent contexts without changing their credentials;
+  pre-v5 pending OAuth requires restarting sign-in, not anonymous completion.
+  A stale cookie at explicit login returns 409 and expires Soda cookies so the user
+  can start again; failed callbacks never silently retry. Grant encryption/keys and
+  project records are unchanged. Auth queries are limited to 8 KiB; malformed encoding,
   duplicate state/code and oversized code/state fail closed. Login/callback use
   `Referrer-Policy: no-referrer` to keep query data out of subsequent referrers.
 - New login requests only `read:user read:repository read:organization` for current
@@ -101,8 +108,7 @@ are not implemented; refresh/logout tests do not establish callback cancellation
   Cookie paths do not isolate mutually untrusted applications on the same origin.
 - Keep single-use state, PKCE, callback binding, cookie protections, session rotation,
   the existing provider/session-bound grant encryption, serialized refresh and
-  logout-winning grant refresh. Callback/logout finalization still needs the fix
-  above. No second password or provider-role authority.
+  logout-winning refresh and callback finalization. No second password or provider-role authority.
 - API IDs are decimal strings. Unsafe methods require the exact configured `ForgejoURL` Origin,
   same-origin fetch metadata when present, a matching `X-CSRF-Token` and UTF-8 JSON.
   Bodies are bounded to 64 KiB; unknown/trailing fields/data fail. Outputs/errors

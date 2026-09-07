@@ -23,7 +23,7 @@ func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
 			w.WriteHeader(500)
 		}
 	})
-	if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}); err != nil {
+	if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}, "", ""); err != nil {
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest("GET", "/-/soda/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)

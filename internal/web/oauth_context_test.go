@@ -39,7 +39,7 @@ func TestOAuthLoginBindsBoundedContextToPKCEState(t *testing.T) {
 	if query.Get("repository_id") != "" || query.Get("expected_user_id") != "" || w.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal("context leaked into provider request/referrer")
 	}
-	pending, err := s.Store.ConsumeOAuth(t.Context(), query.Get("state"))
+	pending, err := s.Store.ConsumeOAuth(t.Context(), query.Get("state"), "")
 	if err != nil || pending.RepositoryID != 42 || pending.ExpectedUserID != 1 {
 		t.Fatal(pending, err)
 	}
@@ -99,7 +99,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 				}
 			})
 			start := httptest.NewRecorder()
-			s.ServeHTTP(start, httptest.NewRequest("GET", config.SodaPath+"/login?"+tc.context, nil))
+			s.ServeHTTP(start, apiTestRequest("GET", "/login?"+tc.context, "", "alice"))
 			location, err := url.Parse(start.Header().Get("Location"))
 			if err != nil || start.Code != 302 {
 				t.Fatal(start.Code, err)
@@ -152,7 +152,7 @@ func TestOAuthExpectedUserMismatchPreservesExistingSodaState(t *testing.T) {
 		}
 	})
 	start := httptest.NewRecorder()
-	s.ServeHTTP(start, httptest.NewRequest("GET", config.SodaPath+"/login?repository_id=42&expected_user_id=1", nil))
+	s.ServeHTTP(start, apiTestRequest("GET", "/login?repository_id=42&expected_user_id=1", "", "alice"))
 	location, err := url.Parse(start.Header().Get("Location"))
 	if err != nil || start.Code != 302 {
 		t.Fatal(start.Code, err)

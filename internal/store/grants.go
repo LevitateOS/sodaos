@@ -99,6 +99,21 @@ func grantBinding(session string, uid int64) string {
 
 // CreateGrantedSession makes the session and encrypted grant visible together.
 func (s *Store) CreateGrantedSession(ctx context.Context, session string, uid int64, csrf string, grant Grant) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, hash(session), time.Now().Add(12*time.Hour).Unix()); err != nil {
+		return err
+	}
+	if err = s.insertGrantedSession(ctx, tx, hash(session), session, uid, csrf, grant); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) insertGrantedSession(ctx context.Context, tx *sql.Tx, contextID, session string, uid int64, csrf string, grant Grant) error {
 	if s.grants == nil {
 		return ErrGrantKey
 	}
@@ -109,18 +124,13 @@ func (s *Store) CreateGrantedSession(ctx context.Context, session string, uid in
 	if err != nil {
 		return ErrGrantUnavailable
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires) VALUES(?,?,?,?)`, hash(session), uid, csrf, time.Now().Add(12*time.Hour).Unix()); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires,context_id) VALUES(?,?,?,?,?)`, hash(session), uid, csrf, time.Now().Add(12*time.Hour).Unix(), contextID); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO session_grants(session_token,ciphertext) VALUES(?,?)`, hash(session), s.grants.seal(plain, grantBinding(session, uid))); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 func (s *Store) Grant(ctx context.Context, session string, uid int64) (Grant, error) {
 	var grant Grant

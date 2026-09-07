@@ -182,12 +182,12 @@ func (s *Server) apiLogout(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if !decodeAPIObject(w, r, &struct{}{}) {
 		return
 	}
-	cookie, _ := requestCookie(r, sessionCookie)
-	if err := s.Store.DeleteSession(r.Context(), cookie.Value); err != nil {
+	if err := s.Store.EndLoginContext(r.Context(), v.ContextID); err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Could not end this session.")
 		return
 	}
 	s.cookie(w, sessionCookie, "", -1)
+	s.cookie(w, oauthCookie, "", -1)
 	w.WriteHeader(http.StatusNoContent)
 }
 

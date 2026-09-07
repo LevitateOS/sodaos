@@ -55,7 +55,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The drawer remains unimplemented. Source now has
   same-origin `/-/soda/` routing/scoped cookies, expected-actor API guards and
-  schema-v4 OAuth repository/expected-user context. Native-page wiring and browser
+  schema-v5 login cancellation plus OAuth repository/expected-user context. Native-page wiring and browser
   proof remain pending; the actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and
   asset compatibility still need review/tests; preserve working login and native

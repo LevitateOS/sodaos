@@ -6,7 +6,7 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | None: React/duplicate forge adapters removed in `752079e`; original Go/HTMX pages/forms/assets and exclusive clients removed in `9f3baa7` |
-| Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v4 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
+| Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
 | Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
@@ -16,8 +16,9 @@ retest of the removal commits occurred. The current source has no usable Soda
 browser controls until Sodaspaces is connected. Root returns to configured Forgejo
 home; OAuth can return to a freshly resolved repository under that origin using
 single-use stored context and the acting grant, never a caller-supplied URL.
-Schema v4 adds only OAuth repository/expected-user IDs. The historical return-path
-column remains unused; installed data was not migrated.
+Schema v5 adds internal login cancellation contexts after v4's repository/expected-
+user IDs. The historical return-path column remains unused; installed data was not
+migrated. Old pending OAuth must restart; existing session/grant bytes are preserved.
 New consent requests read user/repository/organization scopes, not administrator
 expansion; actual existing grants remain intact. Redirecting is not native-session
 transfer or cross-origin authorization.
@@ -230,6 +231,25 @@ access. Both remain **planned, unimplemented**. No schema change, session invali
 or Linux revocation has occurred. This planning change edits documentation only;
 relative-link/anchor and whitespace checks ran, not additional product tests or builds.
 Native browser/proxy proof, migration rehearsal and rollout remain separately scoped.
+
+### Callback/logout repair in source
+
+Implemented the first fix: one persisted login context and pending-state hash bind
+OAuth claims and rotating Soda sessions. Callback finalization atomically checks
+cancellation/expiry/supersession before profile/session/grant writes. Logout carries
+its authenticated context across concurrent rotation; either commit ordering leaves
+no usable session/grant after successful logout. Superseded callbacks write no
+cookies; a delayed successful cookie for a deleted session remains unusable. No new
+browser cookie, native identity authority or global revocation was introduced.
+
+Schema v5 backfills independent contexts for existing sessions without rewriting
+their token/identity/expiry/grant bytes. Pre-v5 pending OAuth must restart. Local
+real-v3/v4 fixtures cover migration preservation and wrong/missing-key refusal.
+Uncached web/store/config/Forgejo race suites passed, including deterministic HTTP
+logout/callback orderings and store cancellation/supersession/rollback/restart tests.
+Logs: `.artifacts/research/security-fixes-1b3e355/auth-race.log`; initial focused pass
+also retained. Repository authorization remains next. No deployment, native/browser,
+provider or retained-data changes; only local source checks ran.
 
 ## Remaining work and permission boundary
 

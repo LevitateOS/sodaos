@@ -99,7 +99,7 @@ func TestSodaLoginAndLogoutUseScopedSecureCookies(t *testing.T) {
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("POST", "/api/session/logout", "{}", "alice"))
 	cookies = w.Result().Cookies()
-	if w.Code != 204 || len(cookies) != 1 || cookies[0].Name != sessionCookie || cookies[0].MaxAge != -1 || cookies[0].Path != config.SodaPath+"/" || cookies[0].Domain != "" || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
+	if w.Code != 204 || len(cookies) != 2 || cookies[0].Name != sessionCookie || cookies[0].MaxAge != -1 || cookies[0].Path != config.SodaPath+"/" || cookies[0].Domain != "" || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatal("logout did not expire only the scoped Soda cookie")
 	}
 }
@@ -114,7 +114,7 @@ func TestOAuthRejectsLegacyAndDuplicateCookiesBeforeExchange(t *testing.T) {
 			t.Error("invalid cookies reached provider")
 			w.WriteHeader(500)
 		})
-		if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}); err != nil {
+		if err := s.Store.BeginOAuth(t.Context(), "pending", store.OAuthLogin{Verifier: "verifier"}, "", ""); err != nil {
 			t.Fatal(err)
 		}
 		r := httptest.NewRequest("GET", config.SodaPath+"/oauth/callback?state=pending&code=test", nil)
@@ -124,7 +124,7 @@ func TestOAuthRejectsLegacyAndDuplicateCookiesBeforeExchange(t *testing.T) {
 		if w.Code != 400 || w.Header().Get("Location") != "" {
 			t.Fatal("invalid cookies accepted", w.Code)
 		}
-		if _, err := s.Store.ConsumeOAuth(t.Context(), "pending"); err != nil {
+		if _, err := s.Store.ConsumeOAuth(t.Context(), "pending", ""); err != nil {
 			t.Fatal("invalid cookies consumed state", err)
 		}
 	}

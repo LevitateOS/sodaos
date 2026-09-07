@@ -113,6 +113,17 @@ assume the extra columns make mixed binaries safe. Rehearse a matching candidate
 on authorized fresh/copied state, including context expiry/replay and rollback
 preservation, before any live configuration/database change.
 
+## Schema v5 login cancellation — source only
+
+The next append-only migration adds internal login contexts and session/OAuth
+references. Each existing Soda session gets its own context; user IDs, token hashes,
+CSRF, expiry and encrypted grants/key-check bytes are preserved. Old pending OAuth
+has no cancellation binding and must restart, including a v4 pending login. This
+supersedes the v4-only pending-state compatibility above, not historical evidence.
+Wrong/missing keys still fail before migration. Pre-v5 binaries reject schema v5;
+rehearse matching DB/config/key/artifacts before separately authorized deployment.
+No installed database, callback registration or retained session was changed.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth

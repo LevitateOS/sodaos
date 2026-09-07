@@ -73,11 +73,11 @@ func TestMigrationPreservesLegacyProductState(t *testing.T) {
 	if err != nil || login != "alice" {
 		t.Fatal(login, err)
 	}
-	oauth, err := s.ConsumeOAuth(ctx, "legacy-state")
-	if err != nil || oauth != (OAuthLogin{Verifier: "fixture-verifier"}) {
+	oauth, err := s.ConsumeOAuth(ctx, "legacy-state", "")
+	if err == nil {
 		t.Fatal(oauth, err)
 	}
-	if _, err = s.ConsumeOAuth(ctx, "legacy-state"); err == nil {
+	if _, err = s.ConsumeOAuth(ctx, "legacy-state", ""); err == nil {
 		t.Fatal("OAuth state reused")
 	}
 	s.Close()
@@ -183,11 +183,11 @@ func TestLegacyOAuthDestinationIsIgnoredAndStateIsSingleUse(t *testing.T) {
 	if _, err = s.db.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,return_path) VALUES(?,?,?,?)`, hash("state"), "verifier", time.Now().Add(time.Minute).Unix(), "/app/"); err != nil {
 		t.Fatal(err)
 	}
-	v, err := s.ConsumeOAuth(ctx, "state")
-	if err != nil || v != (OAuthLogin{Verifier: "verifier"}) {
+	v, err := s.ConsumeOAuth(ctx, "state", "")
+	if err == nil {
 		t.Fatal(v, err)
 	}
-	if _, err = s.ConsumeOAuth(ctx, "state"); err == nil {
+	if _, err = s.ConsumeOAuth(ctx, "state", ""); err == nil {
 		t.Fatal("replayed state")
 	}
 }
