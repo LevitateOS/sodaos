@@ -1,5 +1,70 @@
 # Implementation handoff
 
+## Dashboard implementation plan revised after H01
+
+At the user's request, revised `docs/dashboard-implementation-plan.md` against the
+**179-action-group audit at `c832901`**, starting from that clean tree. Retained
+U01–U20 and the single action register; no new milestone count, implementation
+stack, provider authority or acceptance claim. The leading plan now assigns every
+H01 group a primary U owner and names its cross-feature callers.
+
+The remaining sequence is now explicit:
+
+1. Review supported Forgejo baseline, concrete contracts/resource limits,
+   linked-resource effects, license/build obligations and named security/update
+   maintainers. Do not repeat the broad H01 inventory or infer an approved v16
+   upgrade from its usable human Actions additions.
+2. Start U04/U05/U16 native authentication/challenge/consent/security design early,
+   alongside U02/H02 source-build and U03/H03 compatibility. First-password/MFA
+   gates and WebAuthn origins are architectural risks, not late account forms.
+3. Deliver the first U09/H04 blame/net-diff slice and reviewed authentication path;
+   keep suitable stock APIs, bounded adapters and existing-adapter/UI-only fixes.
+   U09 now covers the audited code/ref/restore/notes/patch/copy/task workflows, not
+   only its earlier personal-fork/basic-import subset. Its eventual rollout must
+   account for the reviewed Forgejo candidate, not assume dashboard-only changes.
+4. Complete feature-owned batches: U10 boards/time/dependencies/history, U11 native
+   review/viewed/merge state, U12 settings/hooks/invitations, U13 search/graphs,
+   U14 baseline-aware Actions, U15 wiki/packages and early/complete U16 admin.
+   U17 integrates evidence rather than implementing everyone's postponed gaps.
+5. Demonstrate update/rebase/native contract compatibility as patches grow. U17
+   verifies complete candidate workflows and end-state ingress rehearsal; U18
+   performs the separately approved retained-installation cutover. This avoids a
+   circular prerequisite or closing live Forgejo login before its replacement.
+   U19 improves measured tasks; U20 requires final native proof on both targets.
+
+Assigned the separately requested **existing-workspace browser terminal to U07**,
+with U02/U03/U04 build/security review and U17/U20 coverage. Transport, native
+account binding and lifetime/security/stopped behavior still need review; no
+mechanism, implicit create/join/start or native shell execution was selected.
+U08 remains accepted only for its earlier bounded x86_64 scope (**1/20**). Retained
+its evidence-link headings and concise revision/criterion reconciliation; the
+original detailed execution checklist remains in Git history, not a new run order.
+E01–E03 and optional media remain unselected.
+
+Aligned the page/dependency inventory and headless work package with the revised
+order and actual resolved/installed subsets. Clarified in the deferred guide that
+Soda cross-system/Linux offboarding deferrals do not waive native Forgejo security,
+invitation or identity workflows. Updated subordinate support ownership/artifact
+contracts for the planned core-owned Forgejo build and terminal, and repaired two
+historical incoming snapshot links. No second P implementation or readiness gate.
+
+Checks: read-only documentation validation confirmed **20 unique U milestones,
+3 conditional E tracks, all 179 audited groups assigned exactly once**, local
+new/rewritten-plan links/anchors and all tracked incoming plan links; `git diff
+--check` passed. Script/logs are ignored research artifacts under
+`.artifacts/research/dashboard-replan-c832901/`, not a product test suite. These
+checks establish document consistency, not native semantics or feasibility.
+No Go/frontend/native builds/tests, dependency changes, native patches, deployment,
+provider/account/repository actions, fixture creation, network changes, reboot,
+cleanup or push occurred. Installed affected components remain last recorded at
+`8b823db`; all four environments, private inputs, workloads and failed evidence
+were untouched. Existing local build/test authorization remains valid.
+
+Next: the concrete baseline/contracts/maintenance and early H05 review above;
+H02–H08 remain unimplemented and every U milestone except bounded U08 remains
+unaccepted. This revision is the implementation plan, not proof that those
+architecture decisions or workflows are complete.
+
 ## H01 — full source workflow audit recorded
 
 At the user's request, replaced the family-only `docs/forgejo-api-coverage.md`

@@ -7,7 +7,12 @@ authentication feasibility and maintenance review remain open; no patch/build/
 deployment or U milestone is accepted by that audit. Implements the proposed
 [architecture revision](forgejo-architecture-revision-plan.md) through the existing
 [U01–U20 owners](dashboard-implementation-plan.md). This is a detailed work package,
-not another product roadmap or a reset of accepted U08 evidence.
+not another product roadmap or a reset of accepted U08 evidence. The leading
+plan's [post-H01 execution order](dashboard-implementation-plan.md#6-milestone-map-and-execution-order)
+and [action ownership](dashboard-implementation-plan.md#9-inventory-coverage-cross-reference)
+now govern sequencing: early authentication/admin review, feature-owned gaps,
+candidate verification before retained-installation cutover. Only U08 is accepted
+(1/20); this refinement implements no native code.
 
 **Goal:** make missing or changing upstream interfaces a supported engineering
 path, not a recurring reason to expose Forgejo's frontend or abandon a feature.
@@ -59,19 +64,22 @@ honest handoff; authoring a contract does not pass its workflow.
 | Task | Existing owner | Depends on | Deliverable / exit |
 | --- | --- | --- | --- |
 | H01 — Action-level contract audit | U01/U17 with feature owners | Architecture review | Every required action classified; exact upstream evidence, authorization, existing or missing interface, implementation owner and test requirement recorded |
-| H02 — Source/patch build spine | U01/U02/U03 shared build owners | H01 baseline selection | Verified native Forgejo build from pinned source/patches, compatible output/install identity and negative build tests |
-| H03 — Bounded compatibility contract | U03/U04/U17 | H01, reviewed first API contracts | Soda distinguishes supported, incompatible and unavailable provider interfaces without HTML/privileged fallback |
-| H04 — Blame and aggregate diff | U09 | H01–H03 | Complete native implementation → explicit API → Soda adapter → React workflows, with authorization/resource/native Git tests |
-| H05 — Headless authentication/security | U04/U05/U16 | H01; design begins alongside H02–H04 | Reviewed threat model and full native-backed login/challenge/security flow; no provider frontend required |
-| H06 — Remaining coverage | U10–U16 | H01 and relevant H02/H03/H05 contracts | Actions, collaboration, account/admin and other inventory actions completed, not just links or placeholders |
+| H02 — Source/patch build spine | U01/U02/U03 shared build owners | U01 baseline/build/license/maintenance review | Verified native Forgejo build from pinned source/patches, compatible output/install identity and negative build tests |
+| H03 — Bounded compatibility contract | U03/U04/U17 | H01, reviewed first API and pre-auth compatibility contracts | Soda distinguishes supported, incompatible and unavailable provider interfaces without HTML/privileged fallback |
+| H04 — Blame and aggregate diff | U09 | Relevant H02/H03 contracts and early H05 feasibility review | First complete native read slice → explicit API → Soda adapter → React, with authorization/resource/native Git tests; not all U09 acceptance |
+| H05 — Headless authentication/security | U04/U05/U16 | H01; design starts before broad expansion, alongside H02/H03 | Reviewed threat model and full native-backed login/challenge/security flow; account-security and admin design do not wait for all collaboration screens |
+| H06 — Remaining coverage | U05/U06/U09–U16 features, with authentication/security in H05 | Relevant H02/H03/H05 and shared feature contracts, not whole-milestone completion | Remaining code, boards/reviews/settings/Actions/wiki/packages/account/admin actions completed by their owners, not postponed to U17 |
 | H07 — Upgrade/rebase verification | U01/U02/U03/U17/U20 | H02–H04 first slice; expanded with H05/H06 | Candidate update procedure demonstrated against native contracts and approved populated fixtures |
 | H08 — Installed integration and UI exposure closure | U17/U18/U20 and feature owners | Required H04–H07 work | Matching candidate, preserved state, complete Soda-only browser journeys and deliberate API/Git/package/Cockpit separation |
 
-**Order:** H01 first; H02/H03 and H05 design in parallel; H04 first running vertical
-slice; H06 by feature; H07 starts with that slice and grows with coverage; H08 only
-when required interfaces and views are complete. Do not postpone authentication
-feasibility until the rest of the frontend is built. Independent fixes and already
-authorized local checks can continue; no new parallel P product suite.
+**Order from the audited tree:** review the recorded H01 baseline/contracts and
+early H05 feasibility rather than repeat the broad inventory. H02/H03 implementation
+and reviewed H05 work proceed alongside the first H04 read slice; H06 follows
+feature contracts, not a rigid U-number sequence. H07 starts with that slice and
+grows with coverage; H08 requires complete candidate workflows before live cutover.
+U17 integrates evidence, not everyone's postponed native gaps. Independent stock
+adapter/UI fixes and already authorized local checks can continue; no new parallel
+P product suite or re-execution of accepted U08.
 
 ## 3. H01 — Audit before writing more screens
 
@@ -86,10 +94,11 @@ matrix. The following rules apply to contract review and every later feature:
 - Trace selected upstream router → middleware → handler → native implementation
   and configuration. Inspect alternate supported protocols and maintainer/design
   history before assuming a new endpoint is necessary.
-- Classify each action: sufficient stock interface; existing interface needing
-  Soda adaptation; missing upstream interface; missing Soda implementation.
-  A schema omission is not proof of absence, and an unfinished screen is not an
-  API limitation. Record unknowns without relabeling them as deferred work.
+- Use the register's precise classes: **1** suitable stock API; **2** bounded
+  adaptation/composition of an existing interface; **3** reviewed native addition
+  or extension; **4** specified UI fields whose Soda adapters already exist.
+  Class 4 is not a general label for all missing Soda code. A schema omission is
+  not proof of absence, and an unfinished screen is not an API limitation.
 - State whether web behavior mixes rendering with computation/authorization.
   Name the smallest extraction needed for shared native functionality, its
   callers, effects, authority and tests. No blanket internal-function exposure.
@@ -136,8 +145,10 @@ revision and required feature contract revisions (initially blame/comparison),
 not native roles, installation secrets or a dynamic command catalog.
 
 Soda requests it through its configured Forgejo client with the appropriate
-native authentication. No browser-supplied provider origin or token. Keep the
-requirements next to their concrete feature clients; no plug-in registry, arbitrary
+native authentication. Review pre-authentication compatibility with H05 so the
+login contract does not depend on obtaining an ordinary grant it cannot yet issue.
+No browser-supplied provider origin or token. Keep requirements next to their
+concrete feature clients; no plug-in registry, arbitrary
 capability dispatch, interchangeable providers or multiple dormant backends.
 
 - Missing endpoint/contract: clear incompatible-provider result for that feature;
@@ -206,8 +217,12 @@ requires its exact approval; authoring these tests does not run them.
 ### Authentication/security
 
 First produce a reviewed sequence and threat model covering signup/onboarding
-where selected, first-password change, sign-in, MFA/passkeys, consent, refresh,
-logout, recovery, email verification and sensitive account/admin operations.
+under native configuration, first-password change, sign-in, MFA/security keys,
+consent, refresh, logout, recovery, email verification and sensitive account/admin
+operations. Conditional native features remain required when enabled; disabling
+them is not a scope waiver. U05 owns self-account/security views, U16 their
+administrator counterparts, and U04 the shared authentication/challenge boundary.
+Do not equate inspected second-factor WebAuthn with proven passwordless passkeys.
 Identify native challenge issuance/verification, replay/expiry, session fixation,
 login-CSRF, rate limits, enumeration resistance and credential redaction. Resolve
 WebAuthn RP-ID/origin compatibility and any supported external-provider redirects.
@@ -280,9 +295,12 @@ without breaking API/Git/package/SSH or separate Cockpit. Do not deploy that spl
 while current login still depends on provider pages. Update installed browser
 fixtures coherently; preserve historical OAuth evidence rather than relabel it.
 
-U17 closes coverage, U18 performs the approved SPA cutover, U20 owns final matching
-revision/upgrade/native architecture and retained-service acceptance. This work
-package does not create another readiness certificate or erase prior U08 scope.
+U17 verifies complete workflows and end-state ingress on the matching approved
+candidate/rehearsal target; U18 then performs the preserved default-route/live
+ingress cutover. U17 must not depend on a completed U18, nor require blocking live
+login before its replacement passes. U20 owns final matching revision/upgrade/
+native architecture, terminal and retained-service acceptance. This work package
+does not create another readiness certificate or erase prior U08 scope.
 
 ## 10. Ready-to-implement review and first commits
 

@@ -1,915 +1,635 @@
 # Unified Soda frontend and backend implementation plan
 
-**Status: implementation in progress; U08 accepted for bounded native x86_64 first-product proof (1/20 core milestones).** The React preview, backed-up migration and first two-developer provisioning journey have installed evidence on `soda-test`. Substantial feature implementation and native verification remain—not just polish. The current snapshot below supersedes earlier source-only/pending statements for the specifically verified work; it does not relax the detailed acceptance criteria. See [native evidence](implementation-status.md#native-first-developer-fixtures-and-complete-core-build) and [implemented API contracts](dashboard-api.md).
+**Status: implementation in progress; only U08 is accepted, for bounded native x86_64 first-product proof (1/20 core milestones).** This revision incorporates the **179-action-group H01 source audit** committed at `c832901`. It changes remaining work, dependencies and acceptance criteria—not installed bytes, prior evidence or execution permissions. U09 remains incomplete. H01 source coverage is recorded; H02–H08 implementation, baseline selection, concrete native contracts and authentication feasibility remain open.
 
-**Goal:** one complete React frontend for upstream Forgejo and Soda's development-environment extension, including every developer and administrator workflow. **Soda-only presentation is mandatory:** no links to Forgejo frontend pages, embedded upstream HTML or temporary native-page fallback. Missing APIs are integration work to resolve, not permission to omit a workflow. This also covers sign-in, first-password change, MFA, consent and account security; the currently installed OAuth redirect flow is not an accepted permanent exception. First make real workflows work; then make them good. Security, accessibility basics, truthful failures and preservation of work are part of “works.”
+**Goal:** one complete client-rendered Soda frontend for Forgejo's developer, administrator, authentication and account-security workflows, plus Soda's persistent development-environment extension. No Forgejo frontend links, embedded upstream HTML, scraping or temporary native-page fallback. Missing interfaces require integration, not omitted features. First make complete workflows work; then make them good. Security, accessible basic interaction, honest failures and preservation are part of “works.”
 
-**Read with:** [page/dependency inventory](dashboard-plan.md), [architecture and authority boundaries](architecture.md), [deferred scope](deferred.md), [actual execution evidence](implementation-status.md), [installation](installation.md) and [native validation](native-validation.md).
+**Read with:** [page/dependency inventory](dashboard-plan.md), [single workflow register](forgejo-api-coverage.md), [architecture](architecture.md), [headless architecture review](forgejo-architecture-revision-plan.md), [headless implementation details](forgejo-headless-implementation-plan.md), [deferred scope](deferred.md), [actual evidence](implementation-status.md), [installation](installation.md) and [native validation](native-validation.md).
 
-This is the leading implementation sequence for the **core product**: frontend, Go API/session/data integration, production native environment/access mechanisms and their product acceptance. The [native support porting plan](native-porting-plan.md) covers outside VM/SSH/evidence/artifact tools and retained host-operator integrations, under the [coordination contract below](#coordination-with-native-support-porting). **If the plans conflict, this plan wins.** Native support must not create a second core implementation, test suite or readiness gate.
-
-The [initial M01–M18 plan](implementation-plan.md) remains historical context for the existing Go + HTMX/native implementation; its completed source work is reused, not implemented again. U08/U20 revisit its still-unverified native requirements. Milestone numbers here do not inherit earlier PASS records.
+This is the leading **core product** plan: React, Go API/session/data integration, maintained Forgejo interfaces, production native environment/access mechanisms and product acceptance. The [native support plan](native-porting-plan.md) is subordinate under the [coordination contract](#coordination-with-native-support-porting). H01–H08 are work packages inside existing U owners, not another roadmap or milestone count. The [initial M01–M18 plan](implementation-plan.md) and earlier execution checklists are historical. Reuse their implementation and accurately scoped evidence; do not restart the codebase or inherit their PASS labels.
 
 ## Current execution snapshot — U08 completion run
 
-The user authorized the complete U08 run, then the namespaced SYS_PTRACE correction and one further fresh fixture. Four environments are retained. **U08 is accepted** after merged `8b823db` build/check, backed-up affected-component rollout and regression reconciliation. Lifecycle evidence is reused for explicitly unchanged mechanisms, not relabeled as a new reboot. The console delivery gap remains P11/U20. See the [acceptance handoff](implementation-status.md#u08-accepted--bounded-native-x86_64-first-product-proof).
+This heading is retained for incoming evidence links. The current planning baseline is the post-H01 tree, not a request to resume U08 execution.
 
 ### What is actually built and installed
 
-- **Location:** this workspace is on x86_64 infra (`linux-infra.dimensionlab.net`), with the existing `soda-test` VM accessible through the pinned local SSH tooling. Builder SSH-to-self is not a blocker.
-- **Dashboard/helper/runner companion/default new-project image:** matching candidate `8b823db`, schema v3 grants and React preview at `/app/`; no whole-appliance reinstall. Default routes remain HTMX; **U18 has not happened**.
-- **Project bytes:** the three preceding roots remain at their recorded baselines, including the `952f3b3` root with explicit initializer/unit corrections. The fourth, `p7b41edaf83f10a6fd7e579bf`, was created from exact `c96c108` without integration patches. No project container was replaced or gained capabilities in place.
-- **Checks:** exact `8b823db` full native build/seal and aggregate `check-native.sh x86_64` passed: Go, Cockpit checks/60 tests, dashboard checks/21 tests, 30 build-fixture and 9 staging tests. Post-build operator-probe regression brings current Python build checks to 31 passing tests. Installed checks remain scoped subsets, not a complete product verdict.
-- **Migration/authentication:** original isolated schema 1→3/key/asset refusal evidence remains. New consistent populated-v3 backups and isolated startup rehearsals preserved identity/key/project/membership/session/grant rows before matching rollouts. This is populated v3 preservation, not a populated version-changing migration or live rollback. Operator and both developers passed post-reboot OAuth/read/navigation/logout; real connection authorization returned rediscovered addresses and matching public keys.
-- **Real developer state:** Alice and Bob have native accounts, completed first-password change/OAuth, registered development public keys, created private repositories and persistent environments, and explicitly joined. Bob also joined Alice's environment without project-administrator rights. Native collaboration, private-repository visibility and administrator/owner denials were checked separately from Linux membership.
-- **Connection/workload/persistence evidence:** infra's restricted project-only route was restored after reboot, without LAN/Tailnet exposure or host-key bypasses. Direct SSH/PTY/SCP/SFTP, sudo/engine denials, personal Git, shared Node/files and ordinary bridge HTTP/PostgreSQL passed, including post-reboot clients. Both new personal Git keys were unlocked in their own restarted project-local agents. Corrected project stop/start and `soda-test` reboot preserved all declared stable state across three roots. Existing workloads required explicit native starts; automatic workload resurrection is not claimed. The earlier resumed onboarding was not a clean first-install run.
+- Last recorded affected-component installation on retained `soda-test`: **`8b823db` dashboard, helper, runner companion and default new-project image**. React is preview at `/app/`; default routes remain HTMX. Forgejo's separate browser origin remains exposed. Neither Soda-only authentication nor U18 cutover has happened.
+- Exact `8b823db` native build/seal/check passed: Go, 60 Cockpit tests, 21 dashboard tests, 30 Python build tests and 9 staging tests. A subsequent operator-probe correction brought Python build tests to 31 passing. These counts describe those revisions, not every later source change.
+- Later U09/Soda-navigation source at `1d74a08`/`ad42223` passed local Go and TypeScript checks, 31 dashboard tests and dashboard builds; it was **not deployed**. H01 performed source/schema/document checks, not native builds or workflow tests.
+- Four persistent environments remain. The fourth, `p7b41edaf83f10a6fd7e579bf`, was created from exact `c96c108` without rootfs/unit patches. Earlier roots retain their recorded identities and corrections; rebuilding the default image does not replace them.
+- U08 combines `f233a4a` lifecycle evidence for explicitly unchanged mechanisms, `c96c108` fresh/different-UID exec proof and `8b823db` preserved rollout/regressions. It is not a final-image reboot, fresh appliance installation, headless-authentication proof, U20 acceptance or aarch64 evidence.
+- The console welcome hook is missing; corrected `operator.sh` fails honestly. P11/U20 retain its delivery/interactive proof. Tailscale `NeedsLogin` and zero local runners are observations, not enrollment/job acceptance.
+
+See the [U08 acceptance handoff](implementation-status.md#u08-accepted--bounded-native-x86_64-first-product-proof) and [reconciliation](#u08-closure-reconciliation--merged-candidate). The recorded infra-only route does not establish laptop/LAN/Tailnet reachability. Existing native workload starts after lifecycle events were explicit; automatic workload resurrection was not proved.
 
 ### Milestone status and remaining work
 
-“Locally checked” means the implemented subset has source/build/test evidence, not that all milestone cases or installed workflows passed. “Installed subset” likewise does not mean milestone acceptance.
-
-| Milestone | Current progress | Still required |
+| Milestone | Reusable progress | Remaining acceptance responsibility |
 | --- | --- | --- |
-| **U01 — Audit** | H01 source action register now covers v15.0.7 native frontend/API surfaces, authority/configuration gaps and targeted v16.0.3 additions | Review concrete baseline/contracts/authentication/lifecycle/maintenance decisions; close dependency/licenses and prove native conformance. Source audit is not U01 acceptance. |
-| **U02 — React foundation** | React shell, real lockfile, assets and packaging built; preview navigation installed | Finish asset/header/route/permission and development-arrangement acceptance coverage, local branding/notices and retained-service regression checks. |
-| **U03 — API/migration** | JSON/security foundation and encrypted schema v3 locally checked; native migration subset exercised | Complete populated-state preservation, incompatible/failing migration and installed API/security failure cases. |
-| **U04 — SSO/grants** | Session-bound encrypted grants and refresh source locally checked; real redirect-based operator/developer login, consent and logout; H01 identifies native headless challenge gates | Reviewed and implemented Soda-only native login/password-change/MFA/consent; installed expiry/rotation/concurrent refresh, replay, multi-session isolation and logout-race/security coverage. |
-| **U05 — Accounts/keys/People** | Connected profile/Git-key/People/development-key source; actual two-user onboarding and non-admin denial | Remaining account/key/UI cases and full Forgejo-admin/non-Soda-operator versus Soda-operator authority matrix. |
-| **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
-| **U07 — Environments** | Actual four-environment creation, explicit account/key provisioning, memberships and post-reboot connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
-| **U08 — First product proof** | **Accepted:** real onboarding/access/Git/shared resources/bridge workloads/different-UID exec; recorded lifecycle preservation with explicit source/image delta reuse; merged 8b823db build/rollout/security/Cockpit regressions | No open U08 criterion in the bounded native x86_64 scope. U20 final-revision/fresh-install/aarch64/full operator acceptance remains separate; console delivery is P11/U20. |
-| **U09 — Code/history/writes** | Earlier connected subsets checked; new source pins comparison SHAs, corrects file-list/scope semantics, validates copy results and protects route changes; local Go/TypeScript checks, 31 frontend tests and dashboard builds passed for the follow-up; installed proof pending | Finish remaining edge-case/installed fixture source, obtain separately approved rollout/repository/import execution and native proof. U17-BLAME/U17-COMPARE-DIFF require backend integration for complete Soda views; native-view fallbacks are rejected. Local builds/tests are authorized; deployment and repository mutations remain separate. |
-| **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked; H01 maps native stock and missing sub-actions | Templates, comment/assets/timeline/timers/dependencies, native lock/content-history and board interfaces, full Soda downloads, failure cases and real two-user proof; follow the single action register. |
-| **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked; H01 confirms native reply APIs and identifies missing review/merge-state contracts | Existing/outdated threads, old-side positions, teams, native resolve/viewed-state/merge-panel interfaces and real reviewer/merger/conflict/check-failure/stale-head Git journeys. |
-| **U12 — Settings/orgs/teams** | Connected settings/access/protections/hooks/org/team subsets locally checked; H01 distinguishes existing Soda form fields from native settings/hook/invitation gaps | Finish registered sub-actions, advanced protection/team forms and owner/collaborator/team/admin matrix; implement missing native interfaces and resolve linked-resource lifecycle decisions, not native-page fallbacks. |
-| **U13 — Work/search/notifications** | Connected and locally checked; installed operator notification reads | Real multi-user visibility/update/activity journeys, pagination, rapid query/account switching and advanced coverage decisions. |
-| **U14 — Actions** | Runs/tasks/workflow discovery/dispatch/configuration source locally checked; H01 traces v16 human job/log/artifact/cancel additions and remaining native gaps | Select baseline; close workflow schema/steps/attempts/rerun/trust/configuration/runner authority gaps, then approved native jobs/dispatch/secret-variable and expiry/large-output proof. |
-| **U15 — Releases/wiki/packages** | Release/assets subset connected and locally checked | **Implement wiki index/page/editor/history and package owner/version/file/install-guidance views**; release-specific UI tests and native release/asset/wiki/package permission/conflict/transfer proof. |
-| **U16 — Administration/security** | Initial People capability; H01 maps native admin/account-security stock APIs, web-only operations and missing fields | Implement the audited native account/security/admin contracts and complete views/permission tests, including native MFA reset, authentication sources, config/maintenance and provider—not host—administration. |
-| **U17 — Coverage closure** | Source action register expanded by H01; native semantics and UI/ingress closure not proven | Close every registered action and concrete contract/authority gap, compatibility/update tests and Soda-only auth/content/navigation; no native frontend dependency, unavailable placeholder or metadata-only acceptance. |
-| **U18 — SPA cutover** | Not performed; preview and legacy UI coexist | Complete U08 and required U17 Soda-only coverage; rehearse backed-up deployment, move React to `/`, preserve bookmarks/state, remove replaced HTMX paths/assets and document lossless rollback limits. |
-| **U19 — Polish** | Baseline UI/error/security handling exists; dedicated acceptance pending | Real-task usability, keyboard/focus/accessibility, responsive forms/tables/diffs, measured bundle/render/request performance and before/after evidence. |
-| **U20 — Final acceptance** | Earlier build/installed subsets provide reusable evidence only | Final-revision full/race/UI/browser/packaging regressions; fresh installation and controlled populated-state upgrade; complete developer/collaboration/admin journeys; independent native x86_64 and aarch64 proof and final handoff. |
+| U01 | Full H01 source action register | Reviewed supported baseline, field-complete first contracts, authentication/lifecycle decisions and maintenance/license ownership; continue per-feature conformance, not another broad inventory |
+| U02 | Built React shell, real lockfile, static packaging and installed preview | Complete assets/dependency notices/dev-route coverage; integrate and verify the reviewed native Forgejo source/patch build |
+| U03 | Protected JSON, typed bounded provider errors, encrypted schema-v3 grants; migration/preservation subsets | Minimal extension compatibility, complete populated upgrade/refusal tests and coordinated config/asset/schema consumers |
+| U04 | Real redirect OAuth and session-bound grants; refresh/security source | Native-backed Soda login/challenges/consent/logout; threat model, expiry/replay/concurrency/revocation and installed security proof |
+| U05 | Profile/People/Git-key/development-key subsets and actual two-user onboarding | Complete self-account/security/key/application/email flows inside Soda; full admin/operator distinction with U16 |
+| U06 | Repository discovery/create/tree/README/content subsets; native private creation | Complete template/init choices, permission/pagination/ref/content/download and safe-rendering matrix |
+| U07 | Real create/explicit join/account-key provisioning/membership/connection subsets | Failure/forged-target/stopped cases; **browser terminal into the existing own workspace**, including design and native proof |
+| **U08** | **Accepted in the bounded scope above** | No reopened U08 criterion; new terminal/headless work and final repetition belong to their owners and U20 |
+| U09 | Connected history/ref/file/copy subsets; immutable comparison and race/error corrections locally checked | Native blame/net diff, remaining code/ref/copy/search-related contracts and complete native Git/write/fork/import proof |
+| U10 | Issues/comments/labels/milestones/reaction/subscription subsets | Templates/timeline/assets/timers/dependencies, native lock/content history and **repo/org/personal issue boards** |
+| U11 | Revision-bound review/merge and inspection subsets | Existing/outdated/old-side/team workflows, native resolve/viewed/merge-panel/range state and real Git/check/conflict proof |
+| U12 | Settings/access/protections/hooks/organizations/teams subsets | Existing advanced form fields, remaining native settings/hook/invitation/client operations and linked-resource lifecycle handling |
+| U13 | Work/search/notifications/profile subsets | Full native search/activity/graph coverage, visibility/paging/account races and real multi-user updates |
+| U14 | Runs/tasks/dispatch/configuration subsets | Baseline-specific stock Actions reuse; workflow/steps/attempts/rerun/trust/configuration/runner gaps and approved real provider proof |
+| U15 | Releases/assets subset | Release clear semantics; complete wiki/history/search and package metadata/settings/protocol-backed views |
+| U16 | Initial People capability and source audit | Complete site administration, native account/MFA detail/reset, auth sources/config/maintenance/moderation and authority tests |
+| U17 | Single source register and supplemental navigation guard | Reconcile every action's native/adapter/browser evidence, update/rebase compatibility and full Soda-only candidate coverage |
+| U18 | Not performed | Approved preserved SPA/default-route/ingress cutover and coherent legacy removal |
+| U19 | Basic usability/error handling | Measured real-task accessibility, navigation, responsive and performance improvements |
+| U20 | Earlier scoped evidence only | Final matching-revision source/browser/native regressions, fresh install/populated upgrade, full operator/provider/terminal and independent native architectures |
 
 ### Next execution and decisions
 
-1. **U08 is complete; retain its fixtures and evidence.** The user approved the private tunnel, and direct project-IP access from infra now works. The route is runtime-only: `10.89.0.0/24` through `tun8417`, with interface-specific firewall restrictions. No LAN/Tailnet routes or global forwarding sysctls changed. This does not route the user's laptop automatically.
-2. Merged `8b823db` build/rollout and affected checks close U08. Preserve all four roots/private inputs and revision-scoped lifecycle results. Resolve the separately recorded P11/U20 console-hook delivery gap later; no further fixture, reboot, capability change or destructive operation is inferred.
-3. **Review H01 before broad UI expansion:** the [action audit](forgejo-api-coverage.md) now maps the full selected source surface. Settle concrete baseline/contract/maintenance decisions and start H05 authentication design alongside H02/H03. Independent fixes and already authorized local tests can continue; missing APIs are not a reason to copy native rules or expose Forgejo pages.
-4. Approve an exact disposable runner/repository before real Actions dispatch. Select approved native aarch64 and fresh-install targets for U20; neither has acceptance evidence yet.
-5. Close U17 with explicit upstream-gap decisions before U18 cutover, then complete U19/U20. The current preview rollout is not authorization to discard data or perform final cutover.
+1. **Review, do not repeat H01:** decide the supported Forgejo baseline, first native contracts and named security/update maintainers. Evaluate v16's real Actions additions before deciding on backports; neither inspected version is already selected for an upgrade.
+2. **Start U04/U05/U16 authentication design now**, alongside U02's source-build and U03's compatibility design. Establish native challenge/consent/security feasibility before broad UI expansion. Do not wait until U16 to discover that ordinary grants cannot complete onboarding.
+3. After the relevant reviews, implement the build/compatibility spine and first U09 blame/net-diff vertical slice, while proving the reviewed authentication path. Continue independent stock-API/UI fixes without duplicating native features. See the [execution order](#6-milestone-map-and-execution-order).
+4. Complete feature-owned action batches, including early administrator work; verify the first patch update/rebase procedure before allowing a large unmaintained patch set to accumulate. U17 reconciles delivered work, not a late implementation bucket.
+5. Only after complete candidate coverage and rehearsal: separately approved U18 cutover, U19 measured improvement and U20 final installed proof. Select exact provider/fixture/import/rollout and native aarch64/fresh-install scopes when needed.
 
-**Preserve current state:** `u08-alice-8417` and `u08-bob-8417`, their repositories, project writable roots, accounts, keys and memberships are real retained resources. Private fixture inputs/bindings are under `.artifacts/test-vm/u08-8417a90/`; detailed backup/evidence locations are in the handoff. The pre-migration backup predates these writes and is **not a lossless rollback now**. Do not rerun bootstrap, recreate fixtures, replace containers or restore the old DB as a repair shortcut.
+**Preserve:** the VM, all four environments, accounts, repositories, memberships, public/private key inputs, installed tools, dirty checkouts, workloads/volumes, backups and failed evidence. Previous fixture/reboot approvals were used. No fifth environment, reset/reseed, replacement root, provider job/enrollment, host-network change, reboot or cleanup is implied. Never reboot infra. Old pre-change backups are not lossless rollback after later writes.
 
-**Not selected:** E01–E03 (image profiles, lifecycle controls, resource limits) remain conditional. ISO/QCOW2 delivery is separate optional support work; **no installable SodaOS ISO has been built**, and ISO delivery is not a prerequisite for completing this dashboard plan.
+**Not selected:** E01–E03 and optional ISO/QCOW2/media. There is no installable SodaOS ISO; media is not a core prerequisite. Local builds and automated tests are already authorized within the recorded development scope; this documentation revision neither revokes that permission nor authorizes installation or live provider mutations.
 
 ## Architecture revision under review — first-class headless integration
 
-The [architecture revision plan](forgejo-architecture-revision-plan.md) replaces
-the assumption that stock Forgejo REST coverage is sufficient with a proposed
-first-class integration boundary: suitable stock APIs plus reviewed Forgejo-side
-API additions sharing native application functionality. It defines workflow audit,
-authentication/security design, interface contracts, patch/build maintenance,
-preservation and acceptance, assigned to the existing U owners—not a new milestone
-sequence. The [headless implementation work package](forgejo-headless-implementation-plan.md)
-now defines concrete paths/tasks, native patch-build integration, compatibility
-contracts, first U09 implementation and recurring upstream-update verification.
-H01–H08 are tasks assigned to existing U owners, not additional product milestones.
-The [H01 source audit](forgejo-api-coverage.md) now records the action-level gaps,
-including new v16 Actions interfaces, native API/web authority mismatches and
-headless authentication/admin blockers. Baseline, concrete contracts, security and
-maintenance review remain open. No patch, upgrade, authentication mechanism or
-deployment is selected by this audit/planning work. U08 evidence/data are unchanged.
+H01 establishes that stock REST coverage is insufficient, but also that much useful native API and Soda code already exists. The implementation strategy is **suitable stock interfaces plus narrowly reviewed Forgejo-side additions sharing native functionality**, consumed by explicit Go adapters and React views. It is not a replacement forge, generic proxy or codebase rewrite.
+
+The audit's decisive changes to this plan are:
+
+- **Authentication is an early architectural gate.** Native middleware rejects forced-password-change and required-but-missing-MFA accounts. WebAuthn JSON is session/origin-bound; Basic rejects security-key users. Password-to-token, borrowed-cookie and administrator-token shortcuts cannot satisfy this requirement.
+- **Version choice matters, but is not a solution by itself.** Inspected v16.0.3 adds human Actions jobs/logs/artifacts/cancel APIs. It still lacks blame/net comparison and complete headless authentication, review/board/admin and Actions semantics. Its targeted audit is not support/security/migration qualification.
+- **A missing screen is not always a missing endpoint.** Reuse reviews/replies, issue templates/assets/timers/dependencies, file/ref/copy/protection/team/release/package/quota APIs. Advanced protection and team-policy fields already have Soda adapters. Byte authorization, read scopes and partial-update translation are adapter work.
+- **Authority/semantics gaps need native changes, not Soda elevation.** Examples include repository Actions owner-only REST versus admin-capable web settings, webhook secret/events and release-note clearing. A JSON handler, Swagger entry, version response or cleanly applying patch proves none of these contracts.
+- **Coverage is broader than code and collaboration.** Native authentication/security, boards, review state, activity/graphs, settings/invitations/hooks, wiki history, packages and site administration have named feature owners below.
+
+Use the register's action classes to choose the work: **1** suitable stock API → ordinary typed client/UI; **2** existing interface → bounded adapter/composition; **3** missing native semantics/authority/interface → reviewed native addition/extension; **4** existing Soda adapter fields → missing UI controls only. Mixed rows require their specific sub-actions, not a blanket “whole family needs a patch” decision.
+
+The [headless work package](forgejo-headless-implementation-plan.md) supplies H02–H08 implementation detail. This plan determines product order and acceptance. No concrete patch, wire protocol, dependency upgrade, maintainer or live configuration change is selected merely by writing either document.
 
 ## 1. Governing decisions
 
-1. **Forgejo is upstream.** Its users, account fields, organizations, teams, permissions, repositories, collaboration, CI and administration remain upstream-owned. Use supported interfaces; do not replace its business rules, access its database directly or build a competing forge/permissions database. Bounded Forgejo-side API additions are subject to the architecture revision's contract/maintenance review before implementation; they must share native functionality, not duplicate it.
-2. **Soda is an extension.** Its backend owns the integration that makes persistent development environments, project-local accounts, public development-access keys, memberships and connection information usable. Linux/OpenSSH/Podman remain the native mechanisms.
-3. **Frontend:** TypeScript, client-rendered React, PatternFly, Vite+, Zustand and ordinary `fetch`. React Router is a browser routing library only. No SSR, JavaScript production server, Tailwind or TanStack.
-4. **Backend:** retain Go, `net/http`, SQLite and the fixed-operation Unix-socket host helper. The browser-facing process stays unprivileged. A page in Soda does not move that page's business rules out of Forgejo.
-5. **Current authentication baseline:** Forgejo OAuth code flow with S256 PKCE, Go-owned secure sessions and protected server-side user credentials. Complete Soda-only login/challenges/consent require the reviewed H05 native boundary; the redirect baseline is not a permanent frontend exception. Never use a bootstrap/operator token to rescue an unauthorized request.
-6. **Administration:** build Forgejo administrator views as upstream-authorized clients, Soda environment/access views under their own narrow rules, and retain host administration in Cockpit. These are not a new universal administrator role.
-7. **Persistence:** keep existing project IDs, memberships, writable roots, accounts, homes, tools, service data and SSH host keys. A frontend migration must not recreate environments.
-8. **Initial environment scope:** retain one Rocky-based environment per repository, the human-owner administrator rule and explicit join for every person, including the creator. OS choice and other extensions have explicit conditional tracks below.
-9. **Provider gaps block their required workflows.** Implement supported interfaces where available; otherwise propose precise upstream API work or a reviewed bounded integration. Forgejo frontend fallbacks, waiting as a substitute for completion, and silent feature omissions are not acceptable. No backend patch, shadow forge or authentication bypass is authorized by this requirement.
+1. **Forgejo owns identity/password verification and storage, permissions, Git, repositories, collaboration, CI and administration.** Shared native services—not copied rules—must back both its existing web callers and new APIs. Soda never reads the provider database/filesystem directly or calls a privileged internal/runner protocol as a human API.
+2. **Soda owns presentation and its extension.** Keep additional preferences, development-access public keys, environment associations/memberships and secure browser sessions. No second password/role inventory, clone/index backend, scheduler or secret registry.
+3. **Retain the chosen stack:** TypeScript/React, PatternFly, Vite+, Zustand, browser routing and `fetch`; Go/`net/http`, SQLite and the bounded native helper. No SSR, Node production service, Tailwind, TanStack, Rust introduction or replacement framework.
+4. **Every Forgejo workflow stays in Soda**, including sign-in, first-password change, MFA/security keys, recovery, consent, mail-linked account actions and administration. External IdP/origin conflicts require explicit design review, not an unrecorded exception. Ordinary Git/SSH/LFS/package protocols and operator Cockpit remain separate selected boundaries.
+5. **Native actors are distinct:** repository owner/admin/writer/reader, organization owner/team member, site administrator, Soda operator, project administrator and host root. Scopes are not roles. Resolve native resources and authorize each operation server-side; no Sudo/impersonation/operator-token fallback.
+6. **Keep installed login working until its replacement passes.** Existing OAuth redirects, HTMX pages and direct Forgejo browser ingress are transitional gaps, not final exceptions. Do not close the origin first and strand users or enrolled security keys.
+7. **Preserve native project integration.** One Rocky environment per eligible human-owned repository, explicit join including the creator, existing project-local account/home and normal existing-container startup. Native Git authorization remains separate from joining.
+8. **No incidental lifecycle policy.** Upstream rename/transfer/delete/security actions do not automatically remap Linux users, change project administrators, delete environments or revoke SSH sessions. Their exact effect on legitimate Soda records/access must be reviewed; general reconciliation/offboarding remains deferred.
+9. **Conditional upstream functionality remains in scope when enabled.** Do not disable registration, mail, quotas, federation, moderation, hooks or repository units to shrink the frontend requirement. A truthful native-disabled state is not a missing-interface waiver.
+10. **Evidence is specific.** Source tests, exact native builds and installed workflows are different. Neither a mock, schema/metadata advertisement, screenshot nor old sibling-architecture result certifies current behavior.
 
 ## 2. Baseline and changes actually needed
 
-Baseline source inspected at `6f7b51e`; this dashboard plan was committed in `55ce5cb` and then coordinated with the native support proposal from `9c8d672`. Those are documentation changes, not implemented U/E milestones. Recheck the merged HEAD and local work before implementation.
+Use the post-audit source and [handoff](implementation-status.md), not the original pre-React assumptions. Recheck HEAD and unrelated working-tree changes before each batch.
 
-| Existing source | Reuse | Required change |
+| Existing source | Retain | Remaining change |
 | --- | --- | --- |
-| `internal/web/`, `cmd/soda-dashboard/` | Server lifecycle, configuration, security/session concepts and existing product flows | JSON API, React static delivery and eventual removal of HTMX/template callers |
-| `internal/forgejo/client.go` | Selected upstream, bounded HTTP transport, bootstrap and repository calls | Per-session user credentials, typed errors and the additional supported developer/admin operations |
-| `internal/store/store.go` | Stable identity links, public development keys, project/membership records and hashed sessions | Ordered migrations, protected OAuth credential lifecycle and a small amount of explicit environment result metadata |
-| `internal/host/` | Fixed `create`, `inspect`, `account` operations and Unix-socket client | Needed non-secret inspection details and tested API integration; new controls only in an approved extension |
-| `project-os/`, `soda-project@.service` | Persistent Rocky userspace, native account setup, shared mise paths and existing-container startup | Fix concrete native defects discovered during proof; do not replace the runtime speculatively |
-| `cockpit/` | Existing React/PatternFly/Vite+/Zustand dependency baseline and applicable UI patterns | Preserve separate build, privileged bridge and Tailnet/Runners behavior |
-| `assets/` | Canonical artwork, palette, attribution and native branding | Correct imports/bundling in the dashboard, not new artwork |
-| `scripts/`, `appliance/`, `tests/` | Native packaging, activation, staged checks and opt-in installed journeys | Include frontend assets and schema/key migration needs; expand tests without adding automatic live execution |
+| `dashboard/src/`, manifest/lockfile and Vite config | Connected flat feature files, PatternFly shell, session/race guards, safe Markdown and focused tests | Complete workflows and controls; split files only for real responsibilities, not a forced folder rewrite |
+| `internal/web/`, `cmd/soda-dashboard/` | Explicit protected JSON routes/DTOs, unprivileged server and static preview | Native auth/feature adapters, bounded bytes, complete errors/read scopes; remove replaced legacy paths in U18 |
+| `internal/forgejo/` | Acting-user stock clients, sanitized complete bounded responses, OAuth exchange/refresh | Reviewed feature contracts, minimal compatibility and native-backed missing operations |
+| `internal/store/` | Stable identities/associations, ordered migrations, hashed sessions, schema-v3 authenticated-encrypted grants | Only required additive Soda metadata and proven upgrade/refusal/concurrency behavior; no copied provider inventory |
+| `internal/config/`, setup/activation | Explicit origins, restricted credential files, strict parsing and legitimate bootstrap | Coordinated auth/build/rollout contracts across every consumer, including `soda-runners` |
+| `internal/host/`, `project-os/`, `soda-project@.service` | Fixed create/inspect/account boundary, persistent roots, shared tools and validated U08 mechanisms | Remaining U07 failures and reviewed own-workspace terminal; concrete native corrections only |
+| Forgejo service/build input | Standalone container, native data/runtime/protocols; currently pulled 15.0.7 image | Reviewed source/patch build feeding existing artifact consumers; no live change yet |
+| `cockpit/`, canonical `assets/`, project CLIs | Separate privileged bridge, Tailnet/Runners backing logic/tests, artwork/licenses and native tools | Preserve packaging and operator compatibility; no dashboard takeover |
+| `scripts/`, `appliance/`, `tests/` | Existing build/check/stage/install and core-owned installed entrypoints | Extend one delivery/test path for Forgejo contracts, preservation and final browser boundary |
 
-Historical limitations at the pre-React baseline above (superseded for implemented
-subsets by the current execution snapshot and handoff):
-
-- OAuth requests only `read:user`; its access token is used for identification and not retained. Refresh credentials are not handled.
-- Repository reads currently use the operator credential with filtering. That must not become the general Forgejo frontend API.
-- Mutation protection is form/POST-specific, and failures/expired sessions return HTML or HTMX redirects.
-- Soda's current People list is its local profile table, not the full upstream user inventory.
-- The host helper accepts one configured image; project records have no per-environment image choice. The database enforces one environment per repository.
-- Native environment status exposes ID, IP and a running boolean. There is no dashboard start/stop API, propagated key rotation or general recovery controller.
-- Earlier source checks and operator browser evidence do not validate the merged tree, real project routing, two-user SSH, nested workloads or full persistence.
+Do not recreate already implemented grants/migrations or call the current personal-only fork/basic import form full native parity. Present source coverage and remaining native work separately.
 
 ## 3. Scope and decision register
 
 ### Included in the core U milestones
 
-- Replace the dashboard's presentation with the selected React stack while keeping existing native/operator functionality.
-- Real Forgejo-backed user and administrator screens for the supported page inventory, not mocked repositories or a second identity system.
-- Safe per-user provider access, environment creation/join/status, development key registration, direct-IP connection guidance and basic environment administrator visibility.
-- Ordered data/config migration, packaged static delivery, regression coverage, native proof, final cutover and subsequent UX/performance improvements.
-- Explicit investigation and disposition of every native/API-gap page, including administrator and account-security screens.
+All 179 audited action groups and their sub-actions, Soda environment create/join/access integration, the requested browser workspace terminal, complete packaging/migration/security coverage, preserved cutover and final native proof. The [single register](forgejo-api-coverage.md) owns action evidence; [section 9](#9-inventory-coverage-cross-reference) assigns implementation responsibility without duplicating endpoint inventories.
 
 ### Decisions with safe defaults
 
-| Decision | Default while unresolved | Decision point |
+| Decision | Required review / safe behavior while open | Owner and timing |
 | --- | --- | --- |
-| Exact new package versions | Reuse existing shared pins; verify new packages without incidental upgrades | U01/U02 |
-| Forgejo OAuth scopes, refresh behavior and admin capabilities | Only verified minimum scopes for the implemented operations; no admin-token fallback | U01/U04/U16 |
-| API gaps: boards, logs/artifacts, account security, site configuration | Keep the requirement open; research newer supported interfaces and propose concrete upstream API/integration work, never a Forgejo page link | Owning milestone, closed out in U17 |
-| Existing sessions without user credentials | Explicit reauthentication for the new API; never mint credentials from local identity rows | U03/U04 |
-| Legacy Soda display-name data | Preserve it without writing it into Forgejo or treating it as upstream identity | U03/U05 |
-| Rocky versus Fedora selection | Rocky only until the E01 scope and release/image contract are approved | E01 after U08 |
-| Browser start/stop/restart | Retain native operator controls until E02 is approved | E02 after U08 |
-| Environment resource limits/usage | No new quota/admission subsystem; basic caps only if E03 is approved | E03 after U08 |
-| Org-owned environments, multiple environments per repository | Keep the current owner rule and uniqueness constraint | Separate product decision |
-| Key rotation/offboarding, account remapping, destructive lifecycle and recovery | Remain deferred; do not imply that provider edits revoke Linux access | Separate product decision |
+| Supported Forgejo source baseline | Review support/security horizon, release/migration notes, native build/runtime dependencies and v16 stock reuse versus maintained backports. Keep installed 15.0.7 untouched; do not invent a lock from research hashes. | U01/U02/U03 before H02 implementation |
+| Patch/security/update ownership | Name maintainers/reviewers and responsibilities for native semantics, security fixes, dependency/license notices, rebase and patch retirement. No automatic updater or unsupported freeze. | U01/U02 with feature owners before adopting patches; U17 verifies H07 |
+| Concrete native contracts | Specify actor/resource binding, scope, request/response fields, omission/clear semantics, errors, paging, native work/time/output/concurrency/cancellation limits and shared callers. Review API/web authority discrepancies individually. | Owning U feature with U03/U04 before each addition |
+| Authentication/challenge/consent feasibility | Review the full native sequence, pre-authentication authority, abuse protections, grant/logout/revocation and sensitive reauthentication. Keep current login until isolated replacement proof. | U04/U05/U16 early H05 gate |
+| WebAuthn, mail and external IdP origins | Resolve RP-ID/origin/enrolled-key compatibility, native-generated links/callbacks and external interactions against the Soda-only requirement. Do not reset keys, change domains or silently allow a frontend escape. | U04/U05/U16 with U18 ingress owner, before auth implementation/cutover |
+| Consent and current sessions | Minimum per-operation read/write/category scopes, including package and distinct administrator consent; explicit reauthentication for missing grants. Never mint user authority from Soda rows. | U03/U04; features supply exact requirements |
+| Linked identity/resource lifecycle | Specify native rename/transfer/archive/delete/disable/moderation and account-security effects on existing Soda associations, sessions and project access; preserve roots and avoid stale-owner/name-reuse escalation. Native workflows remain required, not silently excluded. | U05/U07/U12/U16 with U03/U04 before affected actions are enabled |
+| Browser workspace terminal | Select one transport/native account-binding design, terminal lifetime, disconnect/expiry/revocation behavior, output/input bounds and stopped/unavailable behavior. No implicit create/join/start, host shell or shared-root login. | **U07** with U02/U03/U04 security/build review; U17/U20 coverage |
+| New packages | Keep current manifest/lock pins. Add only researched, licensed dependencies with real callers; Forgejo build tools follow its own selected source contract. | U01/U02 and requesting feature |
+| E01–E03, org-owned/multiple environments, generalized access lifecycle/recovery | Keep current uniqueness/owner/runtime rules; no dormant schemas/helpers or implicit selection. Native provider quotas are not Soda environment quotas. | Separate scoped product decision; conditional tracks below |
 
-Choosing to plan an extension is not choosing to ship it. Approval must update this register and the relevant [deferred boundary](deferred.md) before its implementation. Native Forgejo quota/admin features are not authorization to introduce Soda environment quotas or Linux account-remapping machinery.
+A decision blocks its affected contract or acceptance, not every independent stock-API fix. Record the concrete unresolved choice and reviewer; do not replace decisions with invented defaults, a generic policy engine or a gap waiver. Measured bounds must make the real workflow usable; today's subset byte caps are not a permanent parity exemption.
 
-**Newly requested scope — browser workspace terminal:** after choosing a project,
-a signed-in user with an existing workspace there must be able to open its
-terminal in the dashboard as their project-local Linux user. See the
-[environment page inventory](dashboard-plan.md#soda-environments-and-operator-pages).
-This narrowly supersedes the earlier web-terminal exclusion, not the browser IDE
-or host-access exclusions. It must use the existing workspace and server-side
-project/account authorization, without implicit provisioning/join or a shared
-root shell. Transport, session/security design, stopped-project behavior, tests
-and milestone placement remain to be planned before implementation. Include the
-requirement in U17 coverage and U20 acceptance when implemented; the recorded U08
-acceptance remains evidence for its earlier scope, not terminal proof. This
-request records the requirement only and authorizes no implementation or native
-execution.
+**Terminal placement:** U07 owns the requested terminal into a signed-in user's **existing project-local account/home** in the selected persistent environment. It is not U09, a browser IDE, a new per-user container or an E02 lifecycle control. This plan assigns design/implementation/testing responsibility; it does not select the transport or authorize native shell execution. U08 remains accepted for its earlier scope.
 
-Not included: host UI replacement, a new forge/CI engine, a web IDE, a tool/service marketplace, private toolchain/service branches, project DNS or an SSH gateway, unrestricted Podman access, an ISO/bootc/updater platform, or a generic reconciliation/backup system. Existing native development tools and host Cockpit remain usable.
+Not added: host UI replacement, forge/CI engine, tool/service marketplace, managed private toolchain branches, project DNS/custom SSH gateway, unrestricted host Podman access, new VM backend, generalized recovery/deletion, installer media or an update platform. See [deferred scope](deferred.md).
 
 ## 4. Architecture, source ownership and dependencies
 
 ```text
-React browser application
-  /api/session, /api/forgejo/..., /api/environments/...
+React browser application (Soda origin; no provider credentials)
                          |
                     Go dashboard
-              /           |            \
-    upstream Forgejo   Soda SQLite   fixed-operation Unix socket
-                                          |
-                                     root native helper
-                                          |
-                              existing Podman environments
+           /             |                 \
+ explicit Forgejo     Soda SQLite       bounded native socket
+ interfaces                              |
+           |                         host helper
+ Forgejo-owned auth,                     |
+ services and state              existing project/account
 ```
 
-Proposed source organization; these are paths to create/adapt, not existing implemented modules:
+The required native additions live **inside Forgejo**, sharing its authorization/computation with existing web callers before rendering. Do not serialize complete HTML contexts, expose arbitrary internal methods, add a privileged sidecar or let Soda access native storage.
 
-```text
-dashboard/
-  package.json, pnpm-lock.yaml, vite.config.ts, tsconfig.json, index.html
-  src/app/                 router, shell, session startup and error boundaries
-  src/api/                 small fetch client and explicit TypeScript API contracts
-  src/components/          genuinely reused PatternFly compositions
-  src/features/            accounts, repositories, environments, issues, pulls,
-                           actions, organizations, administration, releases, wiki, packages
-  src/styles/              canonical palette integration and minimal overrides
-  tests/                   shared browser/DOM test setup
-  dist/                    ignored generated assets
-internal/web/              HTTP routes, session integration, explicit handlers/DTOs
-internal/forgejo/          supported upstream HTTP operations and error handling
-internal/store/            concrete Soda queries and ordered migrations
-internal/host/             fixed native protocol, client and root helper
-cmd/soda-dashboard/        application composition, configuration and shutdown
-appliance/, scripts/       packaging, activation and explicit build/check entrypoints
-tests/installed/            authorized browser and real native product journeys
-```
+### Concrete source and build ownership
 
-Keep each feature's components, request actions, types and tests together. Split files by real responsibility; do not build generic resource frameworks, separate microservices per page, a permissions engine or a utility package full of unrelated branches. Do not import Cockpit's privileged transport into `dashboard/`.
+Retain `dashboard/src/`, `internal/{web,forgejo,store,host}/` and existing tests. The following Forgejo paths are **planned, not implemented**; the [headless work package](forgejo-headless-implementation-plan.md#1-concrete-source-and-delivery-arrangement) specifies their contracts:
+
+- U01/U02: `appliance/forgejo/README.md`, sole authoritative `source.lock.json`, ordered `patches/` and `Containerfile`; upstream provenance, patch reason/retirement, build input identities, notices and corresponding source.
+- U02: `scripts/build-forgejo.sh` called by **existing** `scripts/build-native.sh`; `tests/build/test_forgejo_source.py` for retrieval/patch/build-boundary failures. Native feature tests accompany the Forgejo patches; do not claim the current Soda aggregate already runs them.
+- U02/U03 and artifact owners: retain `forgejo.iid`, `images/forgejo.oci`, staging, sealing and install consumers. Replace the reviewed Forgejo input only; Caddy and project roots are not incidentally upgraded.
+- U03/U04: minimal explicit extension compatibility in the existing client/config/session boundary; the owning account/repository/collaboration/admin features supply typed native operations and corresponding Soda callers/tests.
+- Full downloaded source, generated assets and build/test output go in fresh ignored `.artifacts/` attempts, not a copied tracked upstream tree or overwritten accepted stage.
+
+Forgejo's actual build includes native Go and frontend/embedded assets, migrations and runtime/entrypoint/Git requirements. Its build pins may differ from Soda's. Root GPL/GPL-3.0-or-later source obligations must be reviewed; the Swagger MIT license is not the distribution license. Preserve required source and notices, rather than assuming an equivalent Go-only binary.
 
 ### Dependency work
 
-The full direct-dependency inventory and existing versions remain in [dashboard planning](dashboard-plan.md#direct-dependency-inventory); manifests/lockfiles are authoritative once implemented. Do not repeat independent version rules here.
-
-- **U02:** React/DOM, browser React Router, Zustand, PatternFly core/icons/table/base styles, TypeScript, Vite+, compatible React development integration, type definitions and existing DOM/browser test tools.
-- **U04:** evaluate the proposed `golang.org/x/oauth2` addition for standard exchange/refresh support; retain existing Go/SQLite/crypto/native dependencies.
-- **U06:** safe Markdown rendering and GFM support for actual README behavior.
-- **U09/U11:** evaluate/pin the proposed diff-view dependency when it has real callers.
-- **U19:** add syntax highlighting or other performance dependencies only for demonstrated needs. No speculative editor dependency.
-- Use a dedicated `dashboard/` manifest/lockfile, consistent with the existing separate `cockpit/` build. No workspace-wide restructuring is required to start.
-- Node/pnpm are development/build tools only. No Axios, TanStack, Tailwind, Redux, Node server, new database, ORM, Go web framework or GraphQL layer is selected.
-- Review licenses, transitive closure, native tooling architectures and generated notices. Do not fabricate lockfiles/checksums or claim compatibility from version strings alone.
+Manifests/lockfiles/image recipes—not this plan—own exact versions. Complete their transitive/license/native-architecture review in U01/U02. Existing React routing, Markdown and Go OAuth implementations are reusable; neither an OAuth library, diff renderer nor terminal emulator package is automatically selected. Add a small dependency only after a concrete caller and compatibility/security/license review. Keep separate dashboard/Cockpit builds; Node/pnpm remain build/development tools. No generic frontend resource/cache framework or speculative directory reorganization.
 
 ### Coordination with native support porting
 
-The [P plan](native-porting-plan.md) supplies outside helpers. It is subordinate to this core plan and does not redefine product scope or move runtime ownership merely because code runs on Linux. In particular, production `internal/host/` and `project-os/` remain core, not P-plan infrastructure.
+Production `internal/host/`, `project-os/` **and Forgejo integration** are core, not outside infrastructure merely because they run on Linux.
 
 | Shared area / contract | Core owner | Outside support owner and limit |
 | --- | --- | --- |
-| React, Go routes/DTOs, provider authority, OAuth/session/CSRF and Soda migrations | U01–U19 as assigned | No P implementation of these; consume existing app/test entrypoints |
-| Production project helper, account/key setup, shared tools, workload runtime and persistent roots | U07/U08; policy/image/control additions only under approved E01–E03 | P02/P03 offer VM/SSH/observation primitives, not project APIs, image-policy decisions or alternate runtimes |
-| Application asset payload and build order | U02 | P04 inspects/bundles the specified output; does not create a second frontend build or missing-asset substitute |
-| Application config, secret/key provisioning, bootstrap, migrations and cutover | U03/U04/U18 | P05 transports private inputs/invokes approved existing steps, never copies OAuth/bootstrap or edits Soda/Forgejo databases |
-| `scripts/`, `appliance/`, shared config and staging checks | U02/U03/U04/U18 own app payload/semantics | P04/P05 own outer artifact format/integrity and CoreOS provisioning transport; agree changed interfaces before either edits them |
-| Product `tests/installed/dashboard.mjs`, project/shared-tools/workloads checks and fixtures | Owning U feature, integrated U08/U20 | P tools may invoke these exact entrypoints and retain evidence; do not copy browser flows or scenario catalogs into `internal/acceptance/` |
-| Host/service substrate checks, native Cockpit/Tailnet/local runners, console and native branding delivery | Preserve compatibility in U02/U18 and consume results in U20 | P06 host observations and P11 outside integrations; no Forgejo Actions/admin UI or dashboard redesign |
-| Exact-candidate/architecture evidence | U08/U20 own product assertions and overall readiness | P12/P13 hand off artifact/host/operator evidence, without independently qualifying the product |
-| Optional ISO/QCOW2 delivery | No core prerequisite; current CoreOS installation remains usable | Conditional P09/P10 only after explicit delivery selection; no bootc/Anaconda/updater decision implied |
+| React, Go routes/DTOs, native provider authority, auth/session/CSRF and Soda schema | U01–U19 as assigned | Consume existing app/tests; no alternate handlers, password/role model or provider database access |
+| Forgejo baseline, patches, native feature tests and source-build semantics | U01/U02/U03 plus owning U04–U16 features | P04 inspects/bundles specified identities; no P-owned fork, API implementation, update mechanism or conformance verdict |
+| Project helper/accounts/keys/tools/runtime/persistent roots and own-workspace terminal | U07; U08 retained proof/U20 final integration; approved E tracks only | P02/P03 supply VM/SSH/observation primitives, not account/terminal policy or an alternate runtime |
+| Dashboard/Forgejo payload and build order | U02 | P04 packages specified output; no second build or fake missing-asset substitute |
+| Config, secret/key provisioning, bootstrap, both owners' migrations and cutover | U03/U04/U18; Forgejo owns its own migrations | P05 transports approved inputs/steps; no copied bootstrap logic or direct database edits |
+| Shared `scripts/`, `appliance/`, identity/staging/install checks | U02/U03/U04/U18 own application semantics | P04/P05 own outer integrity/provisioning transport; agree changed input/output contracts first |
+| Core `tests/installed/` scenarios and fixtures | Owning U feature, integrated U08/U17/U20 | Invoke exact entrypoints and retain results; no copied browser/product suite in `internal/acceptance/` |
+| Host substrate, Cockpit/PAM/Tailnet/local runners, console/branding/CLIs | Preserve U02/U18; final consumption U20 | P06 observations/P11 retained integrations, not Forgejo Actions/admin or developer workspace UI |
+| Exact-candidate/architecture evidence | U08/U17/U20 own relevant product assertions | P12/P13 hand off evidence, not independent product readiness |
+| Optional ISO/QCOW2 | Not a core prerequisite | Conditional P09/P10 only after explicit selection |
 
-**Single implementation, reusable evidence:** name the owning milestone, affected paths and input/output contract before shared-file work. Keep existing build/install/test entrypoints and extend them coherently, instead of adding parallel builders, bootstrap scripts or product suites. Cross-plan callers pass exact revision, artifact identity, target/client and private input references; logs retain observations, not a second authoritative product database.
+Name the owning milestone, affected paths and caller contract before shared-file work. Retain exact Soda revision, Forgejo source/patch/image identity, architecture, target/client and private input references. Support results are reusable observations, not another product authority.
 
-**Overlap disposition:** former P07 developer/workload and P08 persistence work now belongs exclusively to U08/U20, with its useful techniques retained in the [core proof detail](#core-owned-native-proof-detail). P06 is limited to installed host/service facts; application browser/auth assertions stay U04–U08. P11 owns host-operator/companion behavior, not developer fixture/authentication logic. P12/P13 hand off their own observations rather than duplicate U20 acceptance.
-
-**Ordering without a second gate:** core U01–U07 source and U08 execution can use the existing authorized scripts/VM tools. P02–P06 can later supply safer reusable fixtures/artifact inputs; the entire P plan is not a dependency. U18/U20 do not wait for optional media or P12 completion, and P12/P13 do not wait for a U20 product verdict to report support results. U20 consumes available relevant evidence and records any missing architecture/integration proof. Unavailable routing or permission remains a real U08 blocker, not permission to substitute forwarded access.
-
-Defects follow their owner: a QMP/SSH/logging/bundling bug goes to P; a core auth/config/schema/project runtime defect goes to its U/E milestone. A cross-boundary fix coordinates both callers. Neither plan may weaken acceptance, change a core contract unilaterally or claim an old result validates changed bytes. The [native validation guide](native-validation.md) is shared operational guidance, not another roadmap.
+Former P07/P08 product/workload/persistence scenarios belong solely to the [core proof detail](#core-owned-native-proof-detail) and U20. Core work can use existing authorized entrypoints without finishing the P plan; optional media/P12 are not readiness barriers. A transport/artifact defect goes to P, a provider/auth/schema/runtime/terminal defect to its U owner. Cross-boundary corrections update both callers, without weakening acceptance or relabeling old results.
 
 ## 5. Shared API, state and migration contracts
 
 ### HTTP and route boundary
 
-- Reserve explicit `/api/...` routes for JSON. Register supported Forgejo operations individually under `/api/forgejo/...`; this is not a catch-all proxy accepting arbitrary upstream URLs, credentials or verbs.
-- Keep `/login` and `/oauth/callback` as Go-owned browser redirects so the installed OAuth callback does not need an unnecessary upstream application replacement.
-- `GET /api/session` returns the current identity, narrowly useful action hints, CSRF token and public configured links; `POST /api/session/logout` ends the Soda session. Provider credentials never appear in responses.
-- Resource responses use explicit typed DTOs; lists include items and reliable pagination metadata. Preserve native permission/validation outcomes rather than returning successful empty lists on upstream failure.
-- Errors carry a stable application code, safe message, optional field errors and a non-secret diagnostic reference. Distinguish unauthenticated, forbidden, missing, conflict, oversized/invalid input, unavailable dependency and incomplete/unknown native result.
-- Require appropriate content types, bounded bodies, explicit input fields and CSRF/origin validation on POST/PUT/PATCH/DELETE. Safe GETs do not mutate provider/native state.
-- API expiration returns JSON 401, not login HTML hidden inside a successful fetch. The frontend deliberately begins top-level OAuth navigation when needed.
-- Treat provider IDs as opaque identifiers in the browser; choose a lossless encoding for Go int64 IDs at the DTO boundary. Repository refs/file paths must survive slashes, spaces and Unicode without confusing them with route segments or host filesystem paths.
-- Requests have bounded timeouts and cancellation. Refreshing a token is not permission to replay an ambiguous non-idempotent write. A browser disconnect is not proof that native creation rolled back.
-- Keep provider transport errors typed and sanitized; never expose raw response bodies, full container inspection, passwords, token-bearing URLs or project file contents in diagnostics.
+- Explicit `/api/...` routes and typed operations, not an arbitrary URL/method/header/token proxy. `docs/dashboard-api.md` records implemented Soda contracts; the audit records actual native interfaces. Proposed headless auth/extension/terminal routes need review before they are asserted to exist.
+- Go owns secure browser sessions/request protection. Current `/login` and `/oauth/callback` keep working during transition, but **permanent Forgejo redirects are not the target contract**. U04 provides Soda-owned login/challenge/consent presentation; U18 changes installed origins/routes only after proof.
+- Require bounded typed bodies/content types and CSRF/origin protection on every unsafe method, including authentication entrypoints as appropriate before a normal session. API expiry is JSON 401, not HTML in a successful fetch; users reauthenticate inside Soda once U04 is implemented.
+- Browser IDs are lossless canonical strings for native int64 identities. Refs/paths preserve slash/space/Unicode semantics, are bound to authorized repositories and cannot become host paths. Native result identity must match the requested operation.
+- Distinguish unauthenticated, forbidden, hidden/missing, native-disabled, conflict, validation, oversized, malformed, incompatible interface, unavailable and uncertain mutation outcomes. No successful empty fallback, raw provider errors, inferred permissions or automatic replay after ambiguous writes/refreshes.
+- Safe reads need minimum native read scopes; mutations require actual write/category scopes and native actor/resource gates. Repository deletion, package operations and administrator actions do not inherit repository-write authority. UI hints never authorize the operation.
+- Native additions specify real computation/input/time/output/concurrency budgets and cancellation/reaping, not just HTTP response size. Blame pagination cannot bound whole-file computation by itself. Binary/large/limited results must be useful and truthful, never a Forgejo-page escape.
+- Authorized attachment/avatar/raw/archive/log/artifact/package bytes use reviewed same-origin adapters or native protocols as appropriate. No arbitrary redirect credential forwarding, active untrusted HTML on the authenticated origin or browser navigation to a native frontend. Audit provider/mail/Markdown/error URLs as well as explicit TSX links.
 
-### Representative API families
+### Minimal extension compatibility — H03
 
-These are proposed **Soda** contracts to implement, not claims that these exact paths exist in Forgejo. U01 maps each operation to the actual selected upstream interface.
+Keep required contract revisions beside concrete feature clients, using a small read-only native interface description reviewed with the first additions. No generic discovery/plugin system, copied permissions, durable capability table, permanent stock/patched selector or arbitrary fallback dispatch.
 
-| API family | Responsibility | Milestones |
-| --- | --- | --- |
-| `/api/session`, `/api/session/logout` | Session discovery and local sign-out | U03/U04 |
-| `/api/me/preferences`, `/api/me/development-keys` | Soda-only preferences and public development-key registration/listing | U05 |
-| `/api/forgejo/me/...`, `/api/forgejo/users/...` | Native profile/key/account capabilities and visible user information | U05/U13/U16 |
-| `/api/forgejo/repositories`, `/api/forgejo/repos/{owner}/{repo}/...` | Discovery, creation, code, history, collaboration and repository settings | U06/U09–U12/U14/U15 |
-| `/api/environments`, `/api/environments/{id}` | Soda discovery, create and observed detail | U07 |
-| `/api/environments/{id}/join`, `/members`, `/connection` | Native join, allowed membership information and usable connection details | U07 |
-| `/api/forgejo/notifications`, `/search/...` | Upstream notifications/search; no local index of Forgejo data | U13 |
-| `/api/forgejo/orgs/...`, `/teams/...` | Native organizations/teams and scoped administration | U12 |
-| `/api/forgejo/admin/...` | Upstream-authorized site administration, not host-root delegation | U05/U16 |
-| `/api/environments/{id}/start`, `/stop`, `/restart` | Fixed existing-environment controls, only if approved | E02 |
-
-For environment creation, accept a repository selection and resolve its canonical ID/owner through Forgejo. Do not accept caller-chosen Linux privileges, owner IDs, native names, mounts, Podman flags or unrestricted image references. Source-backed OS profile selection is added only by E01.
+Metadata is neither authority nor execution proof. Reject malformed/missing/breaking contracts for the affected operation; distinguish access denial and network failure. Define finite freshness/invalidation if cached. A missing blame contract must not disable unrelated working stock reads or environment access; graceful development unavailability still blocks final coverage. Resolve pre-authentication compatibility/bootstrap with U04 so checking compatibility does not itself require an unavailable ordinary grant. Test exact built behavior, not only `/version` or advertised feature names.
 
 ### Zustand and frontend state
 
-- Store session display state and feature-owned data/loading/error state; use a small `fetch` wrapper for cookies, CSRF, parsing and typed errors.
-- Keep filters, pagination and selected refs in the URL where they are navigable state. Keep local form drafts local; do not persist passwords, tokens, private repository data or key material in browser storage.
-- Abort superseded reads and ignore late results after a route, user or session change. Clear all user-specific stores and drafts at sign-out/reauthentication.
-- After a successful mutation, update or reload the specific affected view. Do not add a generic query/cache framework inside Zustand.
-- Show empty, pending, denied, failed and unavailable states from real results. Keep consequential actions disabled while pending; do not report optimistic environment provisioning, joining or merging as complete.
-- Forgejo workflows must remain in the SPA. Audit app-owned links, provider-returned URLs, authentication redirects and direct browser ingress; removing navigation alone does not prevent access to the upstream frontend. Preserve Git/package/download protocols and separate operator Cockpit authority.
+Keep a small cookie/CSRF/error-aware fetch client and explicit feature-owned stores. Navigable refs/filters/pages belong in URLs; drafts stay local to their actor/target. No tokens/passwords/private content in browser persistence. Abort superseded reads and reject late route/session/account results, including uploads, downloads and terminal traffic. Logout clears private state; refresh must not resurrect it. Mutations report native completion or uncertainty and reload only affected state. Keyboard/focus/error/empty/loading behavior is required with the feature, not deferred to U19.
 
-### Data and credential migration
+### Data, credential and deployment preservation
 
-- Replace the current startup-only `CREATE TABLE IF NOT EXISTS` approach with small ordered, transactional migrations that recognize the existing version-1 database and reject unsupported newer schemas safely.
-- Preserve identity IDs, existing projects, key records, memberships and native container associations. Do not rebuild the database or automatically convert its `users` table into an authoritative Forgejo user directory.
-- Add session-bound provider credential storage: access/refresh material, actual expiry/granted scopes and the session association needed for safe deletion/rotation. Use authenticated encryption with an operator-managed key outside the database, restricted file access and standard cryptography—not a new vault framework. Missing/wrong keys must fail closed, without a plaintext fallback or regeneration on each boot.
-- Bind credential records to their session/user so one user cannot acquire another's grant. Coordinate concurrent refresh for the same grant; logout must win over an in-flight refresh and prevent session resurrection.
-- A legacy session lacks the required user grant. Preserve its product records but require reauthentication before new Forgejo-backed API use. Do not manufacture a grant from the operator token.
-- Preserve legacy Soda profile values; do not silently push them to Forgejo. Native account fields are fetched/changed upstream. Retain only explicitly Soda-specific preferences/annotations going forward.
-- Extend environment result metadata only where U07 needs it: distinguish retained/incomplete provisioning from live observed state. No generic job tables, mirrored repository ACLs or private-resource inventory.
-- Preserve the one-repository/one-environment constraint unless a separate scope decision changes it. Do not guess an existing environment's original OS/image from the current global default.
-- An explicit operator migration must provide any new configuration/key file without rerunning first-install OAuth bootstrap. Schema/key migration and rollback compatibility are documented and tested on controlled fixtures before a live rollout.
+- Retain ordered Soda migrations and schema-v3 AES-GCM session/provider-bound grants with a restricted external key. Wrong/missing keys fail closed without regeneration/plaintext fallback. Logout wins refresh races; old sessions without grants reauthenticate without losing product records.
+- Forgejo owns any native auth/challenge/session data and its migrations. Do not add a Soda password, provider-role or permission database to complete headless auth. Review native grant/session revocation separately from deleting Soda's credential copy and from Linux/SSH access.
+- Preserve stable IDs, Soda-only profile values, keys, memberships and environment associations; only add metadata needed by an actual extension operation. No generic jobs/reconciliation, image selector or inferred creation-image history.
+- Test populated old/current/newer-schema refusal, migration failure, repeat startup and irreversible changes separately for Soda and Forgejo. Back up consistently through each owner's supported mechanism, with matching restricted config/keys/artifacts—not a blind live-WAL file copy or direct provider edits.
+- Validate assets/config/compatibility at the appropriate pre-mutation boundaries. Coordinate all strict config consumers, including dashboard/setup/runner companions, instead of loosening parsing or inventing duplicate configs.
+- Rehearse exact rollout ordering and supported mixed-version behavior on restricted copies. Old binaries/backups are not automatic lossless rollback after new writes. No first-install/bootstrap replay, replaced project roots or broad service activation as a dashboard upgrade shortcut.
 
 ## 6. Milestone map and execution order
 
-The map specifies the full target sequence, not completed work. Current partial source work is recorded in the status above and implementation handoff; no milestone inherits PASS from an authored test. Dependencies below are source/integration dependencies unless a milestone explicitly requires installed evidence. Execute tests only under the applicable authorization.
+**Numbers identify responsibility, not a requirement to accept U01 through U20 serially.** A prerequisite below means the named reviewed contract/working deliverable, not completion of every case in the referenced milestone. This permits early authentication/admin work and avoids making U04 wait for a complete U16 or U17 wait for an already completed U18. Only U08's historically bounded acceptance is retained; broader uncompleted milestones do not inherit it.
 
-| ID | Milestone | Depends on | Main outcome |
+| ID | Milestone | Required inputs | Main remaining outcome |
 | --- | --- | --- | --- |
-| U01 | Capability, authority and baseline audit | Existing source | Concrete API/scope map, migration decisions and dependency research |
-| U02 | React foundation and early asset packaging | U01 | Installable SPA shell, isolated from Cockpit and legacy routes |
-| U03 | JSON API and database migration foundation | U01 | Shared security/error contracts and safe persistent-state evolution |
-| U04 | Forgejo SSO and per-session provider access | U02/U03 | Authenticated React API with no operator-token substitution |
-| U05 | Account, keys and initial administrator onboarding | U04 | Real profiles/key views and upstream-backed People/create-person flow |
-| U06 | Repository discovery, creation and basic code browsing | U04/U05 | A real repository workflow entirely from the new frontend |
-| U07 | Environment creation, joining and connection UI/API | U05/U06 | Existing native integration exposed safely through React |
-| U08 | First installed product proof | U02–U07 plus named target permissions | Two-user repository-to-SSH/shared-workload/persistence evidence |
-| U09 | Code history, comparison and native repository writes | U06 | Commits/branches/tags/file edits/import/fork workflows |
-| U10 | Issues, labels and milestones | U06 | Real issue collaboration |
-| U11 | Pull requests, reviews and merge | U09/U10 | Native-authorized review and merge workflows |
-| U12 | Repository settings and organizations/teams | U06/U09 | Upstream-owned scoped administration |
-| U13 | My work, search, notifications and user profiles | U09–U12 | Coherent cross-repository navigation |
-| U14 | Actions and automation configuration | U11/U12 | Provider-owned workflow/run views and supported actions |
-| U15 | Releases, wiki and packages | U09/U10 | Remaining core collaboration/artifact views |
-| U16 | Forgejo site administration and account-security coverage | U05/U12/U14/U15 | Complete administrator workstream, not just developer screens |
-| U17 | Page/API coverage and upstream-gap closure | U09–U16 | Every required inventory row has implemented Soda coverage; unresolved integration blocks closure |
-| U18 | Default SPA cutover and legacy removal | U08/U17 | One production dashboard, migrated safely |
-| U19 | Make it good | U18 | Measured UX, accessibility and performance improvements |
-| U20 | Final installed verification and handoff | U19 plus target permissions | Fresh-install/upgrade evidence, architecture-specific results and honest release scope |
-| E01 | Rocky/Fedora creation-time image profiles | Approval + U08 | Optional second supported userspace, not an in-place distro switch |
-| E02 | Existing-environment lifecycle controls | Approval + U08 | Optional scoped start/stop/restart UI and helper operations |
-| E03 | Basic environment resource limits and usage | Approval + U08 | Optional native caps and observation, not a scheduler/quota product |
+| U01 | Audit, baseline and maintainership decisions | Recorded H01 and existing source | Reviewed contract/security/lifecycle/build decisions with concrete feature owners |
+| U02 | React assets and native Forgejo build spine | U01 baseline/build/license decisions | One exact source/patch-to-image path plus complete SPA packaging |
+| U03 | API, compatibility and migration foundation | U01 contracts; U02 artifact/config inputs | Safe typed APIs, H03 compatibility and preservation/refusal behavior |
+| U04 | Native-backed Soda authentication and grants | Early U01/H05 security review; U02/U03 native interfaces | Full Soda login/challenge/consent/session lifecycle, not just redirect OAuth |
+| U05 | Self-account/security/keys and onboarding | U04 challenge/reauth contracts; relevant stock/native account APIs | Complete account/security flows and initial People/onboarding integration |
+| U06 | Repository discovery/create/content | U03/U04 acting-user contract | Complete native repository basics/content and template/init choices |
+| U07 | Environments, direct connection and workspace terminal | U04/U05 identity/access, U06 repository selection; reviewed terminal design | Real provisioning/failure coverage and existing-user terminal |
+| U08 | First installed product proof — **accepted** | Historical U02–U07 deliverables and scoped native execution | Retained bounded x86_64 result; no new dependency on later terminal/headless work |
+| U09 | Code history/comparison/native writes and copies | U06; U02/U03 first native contracts; early H05 feasibility review | Blame/net diff first, then complete audited code/ref/copy/native Git workflows |
+| U10 | Issues, time/dependencies and boards | U06; relevant native/template/content contracts | Complete native issue collaboration and issue-project boards |
+| U11 | Pull requests, reviews and merge state | U09 diff/ref and U10 conversation contracts | Complete native review/resolve/viewed/merge controls and proof |
+| U12 | Repository/org/team/hook administration | U06/ref contracts; lifecycle and native authority review | Full scoped settings/invitations/hooks and advanced existing forms |
+| U13 | Work/search/notifications/profiles/activity | Stable resource routing; native search/activity contracts | Complete permission-filtered cross-resource navigation/graphs |
+| U14 | Actions and provider configuration | Selected baseline; U11 checks/trust and U12 scoped authority contracts | Stock human APIs plus missing workflow/run/configuration semantics |
+| U15 | Releases/wiki/packages | U09 refs/content; native package scopes/protocols | Complete native artifact/documentation/settings workflows |
+| U16 | Complete Forgejo site administration | Early U04/U05 security/People contracts; shared U12/U14/U15 operations as needed | Admin native interfaces/views, redaction and distinct-actor proof |
+| U17 | Coverage, update compatibility and browser closure | Delivered U02–U07/U09–U16 actions; H07 update demonstration | Complete candidate coverage/rehearsed ingress, not a late gap backlog |
+| U18 | Default SPA cutover and legacy removal | Accepted U08; U17 candidate proof; current backups/rollout scope | Preserved live default-route/auth/ingress transition |
+| U19 | Make it good | Working complete workflows; U18 default integration for final review | Measured usability/accessibility/performance improvement |
+| U20 | Final native verification and handoff | U17–U19 candidate; exact fresh/upgrade/architecture/provider scopes | Final revision/architecture-specific complete product proof |
 
-**Recommended serial path:** U01 → U02/U03 → U04 → U05 → U06 → U07 → U08, then functional expansion, cutover, polish and final proof. Do not wait until every forge screen exists to test the core environment.
+**Execution from the current tree:**
 
-**Parallel work:** U02 and U03 have separate owners; U09/U10 and later U12 can advance independently once their contracts are stable; U13–U16 can be divided by feature after shared APIs exist. Existing native risk investigation can begin early with separate permission, but U08's React journey is not satisfied by an old HTMX test. If native execution is unavailable, source work can continue with the verification gap recorded; cutover/readiness claims remain gated. Conditional extensions do not block core source delivery.
+1. **Review first:** U01 baseline/maintenance and first feature contracts; U04/U05/U16 H05 sequence/threat model in parallel. Review linked-resource effects and U07 terminal design before their implementations. No second broad H01 inventory.
+2. **Build the shared native boundary:** U02/H02 source/patch build and U03/H03 compatibility/migration tests. Preserve usable stock APIs. Implement U09/H04 blame/net comparison as the first full read slice; prove the reviewed authentication path in parallel, not after all screens.
+3. **Finish early account/environment integration:** U04/U05 end-to-end onboarding/security, U06 content and U07 error/terminal work. Begin U16 security-sensitive contracts/People detail now; it is not a post-collaboration afterthought. U08 is not replayed.
+4. **Deliver feature-owned batches:** remaining U09 and U10–U16, following their concrete shared contracts. Stock-API forms/adapters can progress independently: for example advanced protection/team fields, read-scope fixes and authorized attachment bytes. Native additions follow native tests → API → Soda adapter → React, each with bounded errors/authority proof.
+5. **Verify maintenance early and repeatedly:** H07 begins with the first native slice/update candidate and grows with every patch. U17 keeps the single register current, then closes complete candidate workflows and end-state ingress rehearsal. It does not implement everyone's postponed gaps.
+6. **Deliver safely:** U18 approved preserved cutover, U19 measured whole-product review, U20 final fresh/upgrade/native-architecture/operator proof. Basic accessibility/security and measured native resource limits run throughout, not only here.
+
+H01 maps to U01/U17; H02 to U01/U02/U03; H03 to U03/U04/U17; H04 to U09; H05 to U04/U05/U16; H06 to remaining feature-owned work; H07 to U01/U02/U03/U17/U20; H08 to U17/U18/U20 and feature owners. These labels add no milestone count or P-owned gate. Unselected E tracks do not block core delivery.
 
 ## 7. Detailed core milestones
 
+Every feature below must close its assigned [audit actions](#9-inventory-coverage-cross-reference), not only its named examples. Required evidence has three layers: **N** native semantics/authority and real outcome, **A** typed bounded Soda adapter/security tests, **B** browser interaction/navigation/actor isolation. H01 names test starting points; it did not execute them.
+
 ### U01 — Capability, authority and baseline audit
 
-**Primary files:** existing `internal/web`, `internal/forgejo`, `internal/store`, `internal/host`, dependency manifests, service/build recipes; new `docs/forgejo-api-coverage.md` and `docs/dashboard-api.md`.
+**Files:** single coverage register, this plan/headless review, dependency manifests/locks, native service/build/config source.
 
-- Freeze the implementation baseline and record unrelated working-tree changes to preserve. Read native/operator guides before planning target actions.
-- Map each page/action in the inventory to the selected Forgejo version's actual endpoint, verb, credential/scopes, native authority, pagination, errors and required missing-interface work. Include private/collaborator repository visibility, user creation, admin functions, OAuth refresh/consent, files/downloads and API gaps.
-- Use the saved installed 15.0.7 schema as a starting point, not proof of every runtime behavior. Inspect the matching upstream source/docs where the schema is incomplete; retain minimal public contract fixtures and provenance, never real credentials or private content. Record each row's owner, endpoint/verb, scopes, authority, request/result shape, failure cases, implementation milestone and source/native evidence.
-- Record the authority matrix: ordinary user, human repository owner, Forgejo administrator without Soda operator status, configured Soda operator, and native root. Keep trusted-team environment discovery/join separate from native Git visibility.
-- Set the new dependency pins through compatibility/license research and later authorized resolution. Decide the credential migration and old-session behavior before implementation; do not change the Forgejo service version as a shortcut.
-- Confirm which conditional E tracks are approved. Unselected ones remain absent from implementation and schema.
+- Treat the 179 groups as the starting register. Review field-complete contracts for the first additions; keep later refinements with their feature owners instead of inventing a parallel inventory.
+- Select a supported native baseline through release/security/migration/build research. Compare reusable v16 human Actions interfaces with the cost/support of older backports. No automatic upgrade or promise that either inspected release closes parity.
+- Record native scopes and resource/actor/unit/config predicates, including API/web differences. Separate public/read/write/repository admin/owner/org owner/site admin/Soda operator/project admin/root cases and revocation/name reuse.
+- Review H05 feasibility/threat model, exact linked-resource lifecycle questions, build/license obligations and named maintenance/security-update owners before the affected implementation. Keep future upstream contribution status truthful.
+- Complete dependency/notice research against real manifests/lockfiles; select no E/media work implicitly.
 
-**Acceptance:** every inventory family has an owner/milestone; foundational API/auth assumptions have source references or explicit verification tasks. No unsupported endpoint, new role system or silently mandatory optional feature is in the contract. Review only at this stage is not runtime proof.
+**Exit:** the audit is reconciled with this plan, first native contracts/build/auth designs have concrete review dispositions, maintenance is assigned and later feature-specific decisions/tests have accountable owners. U01 acceptance is planning/contract readiness, not native product conformance; H01 alone does not pass it.
 
-### U02 — React foundation and early asset packaging
+### U02 — React foundation and native Forgejo asset/build packaging
 
-**Primary files:** new `dashboard/`, `.gitignore`, `.containerignore`, `internal/web/server.go`, `internal/config`, `appliance/dashboard.Containerfile`, `scripts/build-native.sh`, `scripts/stage.py`, `scripts/check-native.sh`, packaging tests.
+**Files:** `dashboard/`, static server/config, `appliance/forgejo/` (planned), `scripts/build-{dashboard,forgejo,native}.sh`, staging/sealing/install/check consumers and build/packaging tests.
 
-- Create the client-only app, explicit router, PatternFly shell, navigation/error boundaries, basic help/empty/loading states and feature-store conventions. Import canonical branding; keep fonts/assets local and preserve notices.
-- Use `dashboard/dist` as ignored build output. Stage a validated frontend bundle into the native artifact tree and `/usr/local/share/soda/dashboard`, and copy it into the dashboard image. Serve it from Go as read-only files; keep API tests independent of generated assets through explicit filesystem injection/test fixtures.
-- Validate production assets and required configuration before applying persistent-state migrations, rather than serving a fake index when the bundle is missing. Serve correct MIME/cache headers; hashed assets may be cached, while the entry document revalidates. Missing assets and unknown API routes must not return SPA HTML.
-- Mount the preview SPA under `/app/` while legacy routes remain available. Keep the router/build base explicit. U18 changes the production base to `/`; do not infer authorization or backend targets from browser path fragments.
-- Provide a loopback-only development arrangement with API/OAuth forwarding and trusted HTTPS where real login is tested. No permissive production CORS, cookie weakening, exposed dev server or secrets in `VITE_*` variables.
-- Make build/staging include the frontend from the first installable slice, not as a final packaging afterthought. Preserve Cockpit assets/PAM/branding, project CLIs and existing native artifact paths. Add an explicit dashboard-only build path for later UI iteration so it need not rebuild unrelated project images.
+- Retain the functioning client-only shell, explicit router, local branding, independent Cockpit build and dashboard-only iteration path. Complete local asset/font/notices, MIME/cache/security-header, unknown API/missing asset and startup validation coverage. No production Node or fake index fallback.
+- Keep preview/base paths explicit until U18; trusted loopback development must not require permissive production CORS, insecure cookies, exposed dev servers or secrets in `VITE_*` variables.
+- Implement H02's reviewed source lock/retrieval/ordered patches and exact native build, preserving upstream assets/features/runtime/data/entrypoint/protocols and corresponding source. Keep patches cohesive with native tests/schema/provenance/retirement.
+- Refuse bad hashes, unsafe extraction, wrong bases, reordered/partial patches, stale/occupied outputs, missing assets/notices and wrong architectures. Wire native Forgejo tests and exact source/patch/image identities into existing aggregate build/check consumers; Caddy is unchanged.
+- Test both native architectures independently when available. Artifact identity, successful compilation and installed conformance remain distinct.
 
-**Tests/acceptance:** direct-link navigation, missing assets, API-versus-SPA routing, production asset startup validation, local fonts/branding and staged file permissions. Under build authorization, the native image serves the shell without Node; Cockpit and the old dashboard still operate independently.
+**Exit:** a repeatable, identity-bound dashboard/Forgejo build through the existing delivery path, actual native build/check evidence, complete asset/license behavior and preserved Cockpit/project-tool packaging. Record resolved inputs honestly; bit-for-bit reproducibility is not inferred. No second build/release platform.
 
-### U03 — JSON API and database migration foundation
+### U03 — JSON API, compatibility and database migration foundation
 
-**Primary files:** `internal/web` handlers/DTOs/security, `internal/store` migrations/queries, `internal/config`, `dashboard/src/api`, Go/DOM contract tests, `docs/dashboard-api.md`.
+**Files:** `internal/{web,forgejo,store,config}/`, startup/config consumers, `dashboard/src/api.ts`, API/migration/build tests and implemented contract docs.
 
-- Implement explicit JSON decoding, request limits, safe typed errors and a consistent status contract. Protect every unsafe HTTP method; do not wrap JSON handlers in the old `ParseForm`-only POST path.
-- Implement session discovery/logout contracts and shared request plumbing. Keep authenticated data out of shared/public caches and preserve security headers with tested PatternFly-compatible styling—not blanket script/CSP bypasses.
-- Introduce migrations recognizing schema v1, additive session-credential storage and only the required application metadata. Define the restricted external encryption-key configuration and fail-closed behavior; use standard cryptography.
-- Preserve legacy IDs/data and test old/new database fixtures. Make schema upgrades transactional and stop safely on incompatible versions/errors. Document how a consistent pre-migration copy and matching key are taken on an approved target; never blindly copy a live WAL database as a backup.
-- Define legacy session reauthentication, profile ownership and rollback compatibility. Do not drop old tables/fields or reinterpret Forgejo account data during foundation work.
+- Complete typed input/ID/error/CSRF/content-type/size/read-scope contracts across existing handlers; preserve complete bounded provider responses, cancellation and no uncertain replay.
+- Implement H03 only for concrete reviewed extensions: required revisions, native-authenticated configured provider, finite freshness and correct incompatible/unavailable/denied behavior. Resolve the pre-auth compatibility boundary with U04; no global outage for an unrelated absent feature.
+- Retain and test encrypted per-session grants, external key checks and ordered migrations. Cover populated prior/current fixtures, newer schema, partial failure, restart and missing/wrong key; never regenerate keys or infer user authority from legacy sessions.
+- Specify consistent current backup/rehearsal, native-versus-Soda schema ownership, rollout order and lossless rollback limits. Update strict config consumers together, including runner companion changes; do not use first-install as migration.
 
-**Tests/acceptance:** v1-to-current preservation, clean initialization, repeat startup, migration failure/newer-schema refusal, wrong/missing key behavior, JSON errors/content types, CSRF/origin checks on all write verbs, field/body limits and API expiration. Real grants remain U04 work; an empty credential table is not authenticated integration.
+**Exit:** executed adapter/migration/compatibility tests with positive, malformed, unauthorized, changed-provider and preservation failures; matched assets/config cannot silently corrupt or reinterpret existing data. Native metadata advertisement alone does not pass compatibility.
 
-### U04 — Forgejo SSO and per-session provider access
+### U04 — Native-backed Soda authentication and per-session provider access
 
-**Primary files:** `internal/web/auth.go`, `internal/forgejo` OAuth/transport, `internal/store` credential/session queries, `cmd/soda-setup` only where contract changes require it, config/activation source, `dashboard/src/app` and auth tests.
+**Files:** native auth patches/tests, `internal/web/auth.go`, `internal/forgejo/` auth/transport, `internal/store/` sessions/grants, setup/config only as required, Soda authentication views and real browser tests.
 
-- Extend the existing code/S256 flow with the U01-verified scopes and token response. Preserve state binding, single use, session rotation and the configured callback/origins.
-- Keep login return destinations local and validated; store the preview/final destination with the OAuth transaction rather than trusting arbitrary redirect URLs. Do not require another password authority or changes to Forgejo cookies.
-- Store grants per Soda session, refresh against the supported native endpoint, persist rotation atomically and coordinate concurrent refresh. Distinguish insufficient scope/authorization from expired credentials; require consent/reauthentication when appropriate.
-- Separate a user-authorized provider client from operator bootstrap usage. Credentials are explicit internal inputs, never browser-supplied tokens, a `sudo` impersonation header or an operator fallback.
-- Populate React session display/action hints from trusted information, but enforce permissions on the actual operation. Native Forgejo denials remain authoritative even if a previously rendered button was enabled.
-- Clear server grants/session and user-specific stores on logout; prevent in-flight requests from repopulating a signed-out account's data. Explain local sign-out versus native Forgejo/SSH session lifetime.
+- **First review H05:** explicit native next-step/challenge/verification/consent/grant/session sequence for password sign-in, forced password change, TOTP/scratch recovery, WebAuthn, registration/activation/recovery and external-method/link callbacks. Do not publish arbitrary web JSON as bearer APIs or bypass native must-change/MFA gates.
+- Keep password verification/storage, enrolled credentials, counters/challenge authority, native policy/rate limits and revocation in Forgejo. Define transaction binding, one-use/expiry/replay, enumeration resistance, login-CSRF, session fixation/rotation, allowed return locations and secret-safe failures.
+- Resolve WebAuthn RP-ID/allowed origins and existing credential compatibility; distinguish inspected second-factor security keys from unproved discoverable/passwordless passkeys. Resolve native mail/IdP/callback implications without changing live origins or destroying enrollment.
+- Implement complete Soda login/challenge/consent/reauth presentation using reviewed native interfaces. Preserve standard code/PKCE/exchange/refresh behavior where applicable; there is no required new OAuth library or password-to-token shortcut.
+- Retain session-bound encrypted grants with actual scopes/expiry, serialized native refresh and logout-winning races. Define Soda logout, native session/grant revocation and other sessions explicitly; none implies Linux/SSH deprovisioning.
+- Include package/user/repository/issue/org/notification/admin scopes per operation and fresh consent inside Soda. No operator-token, Basic/security-key workaround, reverse-proxy impersonation or copied provider cookies.
 
-**Tests/acceptance:** real browser sign-in/remembered consent when authorized; stale/replayed state, scope denial, token expiry/refresh rotation, multi-user isolation, concurrent refresh, logout races and no credential leakage. An old session is prompted to reauthenticate without losing environments. A denied request never reaches a bootstrap-token retry.
+**Exit:** native/API/browser proof of complete sign-in/onboarding/challenge/consent and failure/recovery paths, expiry/rotation/concurrency/replay, multi-session isolation/logout and sensitive reauthentication. No Forgejo-page hop or leaked secret. If native headless feasibility is unresolved, stop the affected architecture—not the security check. Current OAuth remains operational until isolated replacement proof; final origin cutover is U18.
 
-### U05 — Profiles, public keys and initial administrator onboarding
+### U05 — Profiles, account security, public keys and onboarding
 
-**Primary files:** `dashboard/src/features/accounts` and `administration`, `internal/web/people.go`/new API handlers, `internal/forgejo` user/key/admin calls, `internal/store` extension preferences/keys, existing auth/journey tests.
+**Files:** account/profile/key/security/application views, native account interfaces/patches, Go adapters, Soda-only preference/development-key queries and onboarding tests.
 
-- Build My profile/preferences, development-key registration/listing, Forgejo Git-key views and complete Soda account-security views over upstream-authorized interfaces. Identity/account fields come from Forgejo; preserve existing Soda-only values with explicit ownership instead of synchronizing two profiles.
-- Validate development public keys using the existing canonical parser and retain duplicate-key behavior. Never request/generate a user's private key in the browser/backend or claim that adding a key updates existing project accounts.
-- Implement the initial administrator People/create-person flow through actual upstream admin authorization. List upstream users, optionally joined with permitted Soda associations—not local profile rows as the full user directory.
-- Do not impose Soda's Linux username restrictions on general Forgejo account creation. Forgejo validates its accounts; unsupported Linux names are explained when that person requests a Soda environment account, without an automatic remapping subsystem.
-- Support Forgejo's first-password-change/onboarding behavior without persisting passwords or user-creation drafts in Zustand. Retain the explicit setup/bootstrap path; a configured Soda operator ID does not confer arbitrary Forgejo or host privileges.
-- Include ordinary-user denial, Forgejo-admin/non-Soda-operator and Soda-operator/host-root distinctions in navigation and tests. Further administrator controls are U16, not excluded from the product.
+- Complete own profile/visibility/rename/avatar-source/blocking/storage/quota and preference flows using native fields/configuration; retain legitimate Soda-only values without synchronizing a second profile authority.
+- Separate development-access keys from native Git SSH/GPG/signing verification. Reuse existing CRUD/challenge APIs; add reviewed missing SSH signing proof. Reject private keys/unsafe options; no generated personal private keys or promised later project-key propagation.
+- Complete email primary/verification/resend/preferences, current-password change, TOTP/security-key enrollment/removal/recovery, external-login/OpenID links, account deletion and security status over U04's native challenge/reauth contracts.
+- Distinguish personal API-token metadata from secret creation/deletion auth, owned OAuth clients from authorized-app grants, and real secret rotation from delete/recreate. Secrets are request-local/show-once, never persisted in client stores/logs or as a second Soda inventory.
+- Keep initial People/create-person integration shared with U16: actual native admin authority, native username validation and full Soda-only first-password/MFA onboarding. Linux username eligibility is checked only on explicit environment join; no automatic remapping.
+- Implement affected lifecycle decisions before enabling rename/delete/security mutations against linked records. Explain Linux access limitations truthfully without treating an unresolved association policy as complete coverage.
 
-**Tests/acceptance:** authorized admin creates an actual native account, that person completes native onboarding and signs into Soda; non-admin direct API attempts fail. Key syntax/options/private-key inputs are rejected, own-user data is scoped, and Forgejo Git keys do not silently become installed project keys.
+**Exit:** real native self-account/key/security/application and newly created-user journeys, admin/non-admin/non-Soda-operator distinctions, conditional settings, sensitive reauth and secret/race/denial cases. All steps remain in Soda; changing native Git keys does not silently modify existing project accounts.
 
 ### U06 — Repository discovery, creation and basic code browsing
 
-**Primary files:** repository feature, explicit `internal/web` repo handlers, `internal/forgejo` repository/content calls, Markdown components, API and browser tests.
+**Files:** repository/content/Markdown views, native repository/content clients, explicit web handlers and byte/permission/browser tests.
 
-- Build Projects/repository discovery, create repository, repository overview/README and ref-aware file tree/viewer. Use the upstream visibility endpoint verified in U01, including pagination and collaborators where supported; do not confuse the old owner-only environment picker with all accessible repositories.
-- Let the provider create/validate repositories. Return its stable identity and real clone URLs. Repository creation does not automatically provision an environment or create a project record.
-- Add safe standard Markdown with relative links resolved for the selected repository/ref. No raw-HTML/script execution or unreviewed remote content loading. Clearly delimit unsupported native rendering extensions.
-- Handle empty repositories, binary/large files and downloads without unbounded buffering. Do not serve untrusted repository HTML as active content on Soda's authenticated origin or proxy arbitrary URLs with provider credentials.
-- Compose authorized repository data with Soda environment summaries. If a user can see a Soda environment under the existing trusted-team policy but cannot read its private Forgejo repository, do not use the operator token to fill in the missing native content.
+- Complete visible repository discovery, create/init/template-generation choices, overview/README/tree/ref/file content and genuine clone URLs. Return native stable identities; repository creation never implicitly provisions an environment.
+- Preserve native private/collaborator/team visibility and pagination. Compose permitted Soda environment summaries without using an operator token to fill hidden repository content.
+- Provide safe Markdown/native markup adaptation, relative object links, avatars, raw/archive and LFS-aware file views. Keep bytes authorized, bounded and inert; no active repository HTML, arbitrary URL proxy or provider frontend navigation.
+- Cover empty/binary/large/invalid-encoding content and native limits truthfully. Review necessary usable transfer limits rather than calling today's small subset cap full parity.
 
-**Tests/acceptance:** list across pages, create a real repository, browse a non-default/slash-containing ref and README/files, preserve private/collaborator permissions, handle empty/large/binary content, and reject cross-user/URL/path injection. The original environment-picker owner rule still applies only to environment creation.
+**Exit:** real native multi-page/private/read/collaborator/create/template/ref/content/download cases plus path/URL/CSRF/cross-account failures and browser deep links. Environment creation's human-owner rule does not become a restriction on general repository browsing.
 
-### U07 — Environment creation, joining and connection integration
+### U07 — Environment creation, joining, connection and workspace terminal
 
-**Primary files:** environment feature, `internal/web/projects.go` and JSON handlers, `internal/store`, `internal/host/client.go`/`daemon.go`, narrow project-native changes if needed, installed tests.
+**Files:** environment views, `internal/web/environments_api.go`, `internal/store/`, `internal/host/`, minimal reviewed project-native terminal integration and existing installed tests.
 
-- Port existing discovery/create/detail/join flows to JSON/React while reusing native implementations and preserving IDs. Resolve owner, native target and granted project-local privilege server-side; retain one environment per repository and explicit creator join.
-- Keep UI creation/join pending until the actual operation completes. Retain a reserved/incomplete record after a native failure; expose safe results and read-only inspection even when provisioning did not finish. Do not turn a lost HTTP response into permission to recreate the container.
-- Separate product provisioning state from live observed running/ready/IP information. A cached address or `ready` row is not proof of SSH reachability. Add only bounded status/failure metadata, not a durable workflow/reconciliation engine.
-- Add allowed member/own-membership views and project/operator administration context. Identity/key installation reaches the existing fixed `/account` operation; membership follows native success, and joining does not alter Git permissions.
-- Provide a fixed, non-secret inspection path for public SSH host keys/fingerprints and connection details if needed. Never read private host-key files or return full container inspection/environment data.
-- Build Connect with actual user/IP, SSH/SCP/SFTP/editor guidance, stopped/unavailable warnings and native host-key verification. Expose reported state honestly; routing is operator configuration, not a new browser-controlled host-network API.
-- Show existing key-installation limitations. No rotation/offboarding, arbitrary command endpoint, image picker or start/stop buttons unless the relevant scope is separately approved.
+- Preserve canonical repository/project IDs and one eligible repository/one environment. Resolve owner, native container/account and privilege server-side. Every person explicitly joins; native account/key provisioning precedes membership success and remains separate from Git authorization.
+- Finish partial native/DB failure, invalid/missing key, unavailable/stopped, forged privilege/target and retained/incomplete state cases. Do not retry uncertain creation, replace roots or turn a status row into a reachability claim.
+- Keep bounded connection inspection for own login/current IP/public SSH host keys. Direct SSH/SCP/SFTP and editor guidance use trusted pins and actual routed clients; no full inspection/private keys or browser-controlled host networking.
+- **Design then implement the requested terminal:** select an existing project and enter as the current user's existing project-local account/home, never host root or a shared administrator login. A fixed host-side target/account operation may open that session; it must not expose caller-selected UIDs/containers, arbitrary host commands or Podman flags. Inside the authorized own shell, ordinary native project commands remain ordinary Linux operations.
+- Review transport origin/CSRF/authentication, PTY resize/encoding, input/output backpressure and limits, connection lifetime, logout/expiry/revocation, disconnect/process behavior and audit/secret handling. Do not record terminal contents or leak session material in URLs/logs. Specify what happens to shell children without killing unrelated shared workloads.
+- Missing workspace/membership retains explicit join; stopped/unavailable state is truthful and never an implicit create/join/start. E02 start/stop controls remain unselected. No general recovery, IDE, private-key upload or automatic offboarding.
 
-**Tests/acceptance:** owner/non-owner/organization selection, forged native IDs/privileges, missing/invalid keys, explicit Alice/Bob joins, partial native/DB failures, stopped/unavailable endpoints and cross-project isolation. Fake native command tests establish handler behavior only; actual usable access is U08.
+**Exit:** executed adapter/native/browser access and failure matrix, including owner/member/nonmember/cross-project/expired/forged terminal requests; shell identity/home and persistent changes agree with the existing account, and session termination follows the reviewed policy. Direct-IP access remains separately supported. Fake helper tests or SSH access alone do not prove browser terminal delivery; U08's accepted earlier scope is unchanged.
 
 ### U08 — First installed product proof
 
-**Primary files:** `tests/installed`, build/staging checks, `project-os`/native source for concrete corrections, `docs/local-testing.md`, `docs/native-validation.md`, execution handoff.
-
-**Requires explicit builder/VM/client/resources and permission for each mutating test.** Prefer the recorded isolated test setup; do not change builder infrastructure, erase disks or infer network/reboot authority from a build permit.
-
-- Build/check the actual merged implementation and install the matching dashboard assets/config/schema on an approved target. Verify the unprivileged process, restricted socket/credential permissions, trusted TLS and preserved Cockpit services.
-- Create approved test identities/repositories through the new administrator/developer UI. Both users sign in, register public development keys, and explicitly join the owner's environment. Native Git credentials remain personal and separate.
-- From an actual routed developer client, verify the displayed SSH host key and exercise interactive SSH, a command, SCP and SFTP. Browser tunnels to the VM do not substitute for project reachability.
-- Verify the owner's project-local sudo boundary, the ordinary member's lack of that privilege and absence of human host accounts/host-engine access. Use a second named project to verify independent native state.
-- Prove shared files and the same installed mise tool path for both users; build/start the ordinary nested workload example and reach its HTTP/database ports with real data and bind mounts.
-- With separate permission, stop/start the existing project and reboot only the approved test host. Confirm container identity, accounts, host keys, homes, installed tools, shared files and service data survive.
-- Investigate user namespaces, cgroups, seccomp, capabilities and SELinux precisely. The current nested candidate's `label=disable` and extra capabilities are limitations to evaluate, not a claim of fully confined hostile-tenant isolation. Do not solve failures with unrestricted/privileged host access or an unapproved VM fallback.
-
-**Acceptance:** record source revision, target/client, commands, safe evidence and remaining limitations. Any unavailable routing, workload or persistence step stays unverified. Correct concrete blockers and rerun affected checks; no source-only or screenshot-only substitute makes this milestone verified. P tooling/host observations may be reused, but U08 owns the product tests and their interpretation.
+**Accepted for the recorded bounded scope, not a new execution checklist.** Keep core-owned `tests/installed/`, runtime corrections and private evidence. Later headless/terminal changes are tested under U04/U07/U17/U20 rather than retroactively adding requirements to this acceptance.
 
 #### U08 completion execution plan — baseline `0d4c4eb`
 
-This checklist was subsequently explicitly authorized and executed through the
-lifecycle stages; the outcome table below records remaining acceptance gaps.
-The original checklist itself was not permission to run it. Existing Git/shared-tool/project-network workload evidence is reusable,
-but does not pass default bridge networking or lifecycle persistence. No pruning
-is needed: the last observation showed approximately 690 GB free on infra and
-54 GB free in the guest. Keep existing projects, failed workloads, volumes,
-backups, logs and transports.
+This historical heading is retained for evidence links. The original staged checklist was executed and refined through `952f3b3`, `935dbdf`, `f233a4a`, separately approved `c96c108` and merged closure `8b823db`; its full text remains in Git history at `c832901`. It is not permission to repeat fixture creation, stop/start or reboot.
 
-**Fixed scope:** native x86_64 infra as builder and routed developer client;
-existing `soda-test` as the only appliance target. Retain Alice/Bob and their two
-existing projects. Propose one additional private Alice-owned repository named
-`u08-completion-<candidate-short-sha>` and its new environment, with Bob explicitly
-joining. Record the real repository/environment/container identities returned by
-native operations; names are not authority and no project ID is preselected.
-This extra fixture needs approval before creation. No aarch64/fresh-appliance/ISO
-requirement is added to U08; those remain U20 or separate optional delivery work.
-
-| Stage | Work and exit condition | Execution boundary |
-| --- | --- | --- |
-| **A — Prepare the remaining proof** | Extend existing `tests/installed/` cases to consume the new run's explicit identities/IPs and independently verified host keys rather than hardcoded old targets. Add fail-closed, secret-safe before/after observations and exact transport restoration. Prepare durable personal Git authentication for lifecycle tests. | Source/local checks are already authorized; preparation does not mutate fixtures. |
-| **B — Build/check one candidate** | Freeze a clean source revision containing the fixed NET_ADMIN creation contract, local-engine environment handling and root:wheel socket activation. Run `scripts/build-native.sh x86_64` and the **entire** `scripts/check-native.sh x86_64` with the pinned native toolchain. Retain logs, checksums and sealed metadata. Exit only on an actual aggregate pass, not inferred component results. | Existing local build/test scope; no automatic CI, publication or sibling-architecture barrier. |
-| **C — Back up and stage the candidate** | Inventory current installed bytes and populated state. Take a consistent current DB/config/key/artifact backup and rehearse startup/migration on a restricted copy. Deploy matching dashboard/backend assets at `/app/`, host helper and new-project image; verify TLS, service identity, socket/secret permissions, health and retained Cockpit paths. | Confirm this exact rollout on `soda-test`; no bootstrap, U18 cutover, project replacement or unrelated service restart. Account for helper-socket Requires dependencies stopping the dashboard and deliberately restore its prior active state. |
-| **D — Create the fresh bridge fixture** | Through the real acting-user UI/API, create the approved private repository/environment, explicitly join Alice and Bob and verify public host keys/direct access. Confirm installed socket permissions, actual NET_ADMIN, project-owned network/user namespaces and the unchanged non-privileged outer-container boundary. | Approve the one additional repository/project. Do not try to retrofit capabilities by exporting/recreating the old projects or editing Podman state. |
-| **E — Prove the default runtime** | Repeat personal Git, shared-tool/file and member/administrator checks in the fresh project. Run the ordinary Compose example **without project-network/host-mode overrides**: image build, default bridge, source bind-mount edit, reachable HTTP and committed PostgreSQL read/write/readback from Alice, Bob and infra. Verify the second project is independent and ordinary members cannot administer the engine. | Approved fixture operations only. A failure stops acceptance, preserves partial resources and triggers exact diagnosis—not a privileged parent, appliance socket, deleted volume or silently changed networking mode. |
-| **F — Project stop/start persistence** | Capture complete before-state, stop/start only the new project's existing `soda-project@ID.service`, reconnect both users, normally start existing workloads if required and compare state/data. Observe the two older projects remain intact and unaffected. | Separate explicit approval for this exact project stop/start. No rebuild/recreate, `down -v`, pruning or repair reset. |
-| **G — Appliance reboot persistence** | Take the next complete snapshot, reboot **only `soda-test`**, verify changed boot ID, restore the recorded test transports, rediscover/verify endpoints and repeat functional/state comparisons. Check all three project identities/roots and retained appliance/Cockpit service health. | Separate explicit VM reboot approval. Do not reboot infra or use first-install/activation as recovery. |
-| **H — Close U08** | Reconcile every U08 criterion with exact revision/bytes, target/client, executed commands, positive/negative results and limitations. Rerun affected checks after any correction; update the plan/handoff and commit evidence references. | Mark U08 accepted only after all required cases pass. Document trusted-team/SELinux/cgroup/capability limits; do not claim U20 release readiness. |
-
-**Recorded execution outcome:**
-
-| Stage | Actual result |
-| --- | --- |
-| A/B | Parameterized fixtures, bounded snapshots, private transport restoration and durable new Git inputs; full `f233a4a` native build/check passed. |
-| C/D | Populated-v3 backups/rehearsals and matching rollouts; one new Alice repository/environment (`ped30b9d6932974b14feb2278`) with explicit joins. |
-| E | Bridge/workload/Git/shared-tool/authority checks passed; the separately approved exact `c96c108` fresh fixture also passes different-UID SQL/PTY exec while denying the member engine access. Initial HTTP readiness raced; bounded read-only checks passed without recreation. |
-| F | First stop/start exposed a socket ordering cycle; the retained-state comparison differed only by its deliberate socket-file correction. Corrected repeat cold startup and full three-project stable comparison passed. |
-| G | Only `soda-test` rebooted; boot ID changed. Three-project stable comparison, native workload restarts, both users' Git unlock/ref readback, SSH/SCP/SFTP, shared tools, HTTP/DB and browser connection checks passed. Cockpit root login/PAM/navigation/TLS passed; full host/operator scripts retain package/configuration gaps. |
-| H | **Accepted after closure reconciliation at 8b823db.** Real c96c108 fresh/exec proof, recorded unchanged-mechanism persistence, merged build/rollout and affected regressions satisfy bounded U08. Full P11/U20 exits remain separate. |
-
-**Required lifecycle rules (exercised for the new fixture):**
-
-- The current fixture Git keys depend on live project-local agents; their generated
-  passphrases were removed. Do not count them as durable post-reboot authentication.
-  For the new fixture, retain passphrase inputs in restricted private channels and
-  exercise native agent unlock after reconnect. Generate private keys in personal
-  project homes, register only public keys through acting-user Forgejo interfaces,
-  and never export private keys, forward another user's agent or borrow tokens.
-- Keep the actual Forgejo Git advertisement distinct from browser/project routes.
-  Its current loopback endpoint needs the recorded private Git forwards. Restore
-  the exact approved tunnel, VM firewall rules and browser/Git forwards after reboot
-  without duplicate listeners, broader routes or host-key bypasses. A transport
-  failure is not an authorization denial or a persistence failure by itself.
-- Snapshot all three environments' stable container/repository/provider/account
-  associations, public host-key fingerprints, UID/GID/groups/permissions, homes,
-  canonical installed tool paths/content, shared files, relevant system config,
-  native workload/volume identities and committed database values. Preserve dirty
-  and untracked checkout content and native Git refs. Use bounded allowlisted
-  observations, not full container inspection, shadow/password files or private
-  key export; incomplete reads fail the snapshot.
-- Separate stable comparisons from volatile boot IDs, PIDs, socket paths, mount
-  device numbers and live IP observations. Re-resolve current addresses and verify
-  trusted host keys before connecting. Shared executable/file inode equality is
-  useful **within one running project**, not a required cross-reboot inode promise.
-- Record the native workload restart behavior honestly. An explicit start of the
-  same existing containers/volumes is allowed when required; automatic resurrection
-  must not be claimed unless actually observed. PostgreSQL must return the exact
-  committed pre-stop/pre-reboot fixture value without reinitialization or reseeding.
-
-**Follow-up outcome:** the user approved SYS_PTRACE in the project user namespace
-and one further fixture; `c96c108` now has real different-UID exec/fresh-image proof.
-Both fixture approvals have been used. Reconcile outstanding host/operator and
-lifecycle coverage without silently creating another project, replacing roots,
-rebooting either host or taking unrelated provider actions.
+The run established actual administrator/two-user onboarding, personal keys and Git, explicit Linux joins, direct routed client access, shared installed tools/files, default bridge HTTP/PostgreSQL, concrete namespace/socket/startup fixes and retained-state lifecycle comparisons. Early readiness/exec/snapshot/operator failures remain in the evidence. Exactly four environments are retained; no fifth is required to preserve this verdict.
 
 #### U08 closure reconciliation — merged candidate
 
-The user requested implementation of the closure plan after `d4e29e4`: native
-x86_64 infra build/check, backed-up matching rollout on `soda-test`, and affected
-checks using the four retained projects. No new fixture, project stop/start,
-reboot, enrollment, job, publication or destructive cleanup is authorized here.
+| Criterion | Accepted evidence / boundary |
+| --- | --- |
+| Exact build and affected rollout | Clean native `8b823db` build/seal/full check, restricted consistent populated-v3 backup and isolated rehearsal; exact dashboard/helper/runner/default-image binding, not whole-host upgrade |
+| Browser/security/substrate | Real independent operator/Alice/Bob OAuth/navigation/logout and connection authorization; trusted TLS, asset 404/API 401, full `host.sh`, root Cockpit/PAM and non-root denial |
+| Onboarding/provisioning | Native account creation/first-password change, development keys, private repositories and explicit Alice/Bob joins; creation/onboarding evidence reused only for unchanged handlers |
+| Routed access/authority | Actual infra→project-IP SSH/PTY/SCP/SFTP with independently pinned public host keys; owner sudo/member and cross-project denials; no human host accounts/unrestricted host engine |
+| Native Git/shared resources | Personal encrypted Git credentials/agents, genuine commits/remote refs, same shared executable installation/ownership and shared files; not a cache-only claim |
+| Workloads/different-UID exec | `c96c108` exact fresh creation, project-owned namespaces/default seccomp, bridge image build/bind HTTP/committed SQL; default-root/UID-999/PTY exec passed and Bob's engine access denied; read-only readiness resumed without rebuild/reseed |
+| Lifecycle/preservation | Real `f233a4a` existing-project stop/start and **only `soda-test`** reboot; trusted reconnection/own-agent unlock/native workload starts and stable state compared. Reused for explicitly unchanged mechanisms, not a new c96c108/8b823db reboot |
+| Rebuilt-image delta | Failed strict layer-ID comparison retained; content/mode/owner/link/capability audit found only rebuilt Tea content changed, with native immutable-image version proof; runtime layers/config unchanged |
+| Four retained environments | `8b823db` regressions preserved declared roots/records; only intentional access-probe additions in the newest root. Boot ID unchanged during closure |
+| Operator/provider limits | Package-provider and stale strict-config runner fixes verified. Corrected console probe **fails** for missing hook; P11/U20 delivery remains. Zero runners/`NeedsLogin` are not provider/enrollment acceptance |
 
-| U08 criterion | Existing evidence (logs under `.artifacts/logs/`) | Closure action / disposition |
-| --- | --- | --- |
-| Matching merged build/assets/config | `u08-ptrace-{build,check}-c96c108` passed; current main also contains support/frontend-validation changes | Full clean merged 8b823db build/check, populated-v3 rehearsal and matching affected-component rollout passed; these are new results, not c96c108 results attributed to the merge. |
-| Unprivileged dashboard, socket/credential modes, trusted TLS | `u08-completion-final-bytes-and-boundary`, c96c108 rollout and browser logs | Passed after rollout: full host checks, separate changed-component byte binding, trusted TLS, missing-asset 404 and unauthenticated JSON API 401. |
-| Acting-admin People, first-password change, two separate logins/keys, explicit joins | `u08-developer-browser*` at 8417a90; `u08-ptrace-{alice,bob}-creation-join` at c96c108 | Reuse actual creation/onboarding records: relevant handlers/schema/UI unchanged since c96c108. Repeat independent login/connection/denial reads; no duplicate users or joins. |
-| Routed client SSH/PTY/SCP/SFTP and verified public keys | `u08-ptrace-developer-access` | Repeat existing client entrypoint with current private bindings. |
-| Owner sudo/member denial, no human host accounts or host-engine access, independent projects | `u08-ptrace-{fresh-image-boundary,developer-access,different-uid-exec,shared-tools}` | Repeat bounded observations and member denial; do not substitute a transport error for denial. |
-| Personal Git and genuinely shared tools/files | `u08-ptrace-{git-exercise,shared-tools}` | Retain actual clone/push/two-user shared-file evidence. Read existing remote refs and compare state; do not regenerate keys or replay fixture creation. |
-| Ordinary bridge build/start, live bind HTTP and committed PostgreSQL | `u08-ptrace-{workloads-first-run,workloads-ready-check,client-member-workloads,final-exec-check}` | Initial readiness race remains recorded. Repeat `workloads.sh check`/different-UID exec and read existing client HTTP/SQL data without rebuild or reseeding. |
-| Existing-project stop/start and VM reboot persistence | `u08-completion-{corrected-project-persistence,vm-persistence,vm-git-tools}` at f233a4a | **Reuse with delta analysis**, not a claim that c96c108 rebooted: f233a4a→c96c108 only adds fixed namespaced SYS_PTRACE in create argv; project rootfs, units, start/stop/storage paths are unchanged. c96c108 fresh boot/exec tests exercise that changed permission. Current merge leaves those runtime paths unchanged. No additional lifecycle run required for unchanged mechanisms; U20 repeats final-revision lifecycle acceptance. |
-| Namespace/cgroup/seccomp/capability/SELinux limitations | c96c108 boundary observations; preceding runtime diagnosis | Retain project-owned namespaces/default seccomp and trusted-team-only limits (`label=disable`, extra project capabilities, incomplete cgroup confinement). Not hostile-tenant or aarch64 proof. |
-| Preserved Cockpit and companion services | `u08-completion-vm-{cockpit-browser,cockpit-pam}`; earlier host/operator script failures | Package query and stale runner companion corrected; host/root Cockpit/PAM and native runner-list observations passed. Full operator script fails on preexisting missing console hook (P11/U20). Provider registrations/jobs/enrollment remain P11/U20, not U08 gates. |
-
-**Concrete regression disposition:** native RPM inspection found `nodejs22`
-providing `nodejs` and `zlib-ng-compat` providing `zlib`. Installer/host checks now
-query those capabilities, preserving failure on a missing provider; provisioning
-requests and dependency versions are unchanged. Focused command-double tests
-cover replacement providers and missing dependencies. Installed `soda-runners`
-does not recognize `grant_key_file`, present in the real dashboard config. This
-is a stale configuration consumer, not absent enrollment: deploy its matching
-binary with a restricted backup, without loosening config parsing or inventing a
-second runner config. `tailscaled` reporting `NeedsLogin` is a legitimate native
-state, not successful enrollment and not failure of the read-only status check.
-
-**Exit achieved:** full `8b823db` build/check (Go, 60 Cockpit, 21 dashboard,
-30 Python build and 9 staging tests), backed-up populated-v3 matching rollout,
-trusted browser/security/Cockpit/PAM and client/native checks passed. Exact hashes
-bind the four affected deployed components; other retained components are not
-claimed as a full-host upgrade. Both users' own-agent Git refs, shared executable
-identity and retained HTTP/committed SQL passed. All four roots' prior declared
-state matched; only the deliberately added access-probe files differ. Evidence:
-`.artifacts/logs/u08-closure-*`; details in the acceptance handoff.
-
-The project image's layer IDs differ after rebuilding. Content/mode/ownership/
-link/capability comparison identifies only the rebuilt Tea binary as changed
-content; native immutable-image Tea version execution passed. Unchanged runtime
-layers/configuration support reuse of recorded project lifecycle results, not a
-new boot claim. No fifth project, project stop/start or VM reboot occurred.
-
-Complete `host.sh` now passes. The restored runner command lists native zero
-capacity; Cockpit native login/navigation/PAM checks pass. Corrected `operator.sh`
-still fails because the preexisting console welcome hook was never installed;
-its earlier completion message ignored source failure. The new missing/failing/
-noisy/quiet-hook regression passes (31 current Python tests). This explicit
-P11/U20 console delivery defect is not erased, a full operator PASS, or a second
-U08 gate. U08 is **accepted for the first-product scope**; U20 retains final
-lifecycle, fresh-install/upgrade, full operator/provider and native aarch64 proof.
+Evidence lives under `.artifacts/logs/u08-{completion,ptrace,closure}-*`, retained native stages and restricted fixture/backup locations in the [handoff](implementation-status.md#u08-accepted--bounded-native-x86_64-first-product-proof). No failed result was erased or an old backup declared current rollback. Trusted-team extra namespaced capabilities/`label=disable` and cgroup limits are not hostile-tenant confinement. U20 owns final-image lifecycle, fresh/upgrade, full operator/provider and native aarch64 proof.
 
 #### Core-owned native proof detail
 
-These concrete techniques were retained from the incoming P07/P08 proposal and are now owned here and reused by U20. Extend the existing `tests/installed/` and bounded workload/Git fixtures; do not create a parallel Go product-scenario runner. Predecessor `product_scenarios.go`, `project_scenarios.go`, `fixtures.go` and `preservation.go`/`preservation.sh` are references for selective test reuse at `bc1d3e0`, not imported product requirements.
+These requirements remain with U08/U20, not a duplicate P07/P08 suite. Extend existing `tests/installed/` and bounded fixtures; predecessor techniques are references, not another product runner.
 
-- Exercise populated repository discovery/selection, owner-only environment creation, native first-password change and both explicit joins through the actual frontend. Missing keys, denied provider/native operations and partial provisioning must not appear joined/ready. Do not seed sessions or Linux accounts to bypass onboarding.
-- Verify project public host keys through U07's trusted HTTPS connection information or an explicitly trusted native operator channel. From the named routed client, exercise interactive SSH, exact-output commands and bidirectional SCP/SFTP. QEMU remapping, `ProxyJump` or appliance-local SSH may support management but do not establish the claimed direct project-IP path.
-- Check positive authorized operations and specific permission denials. A transport/lookup failure is not proof of denied access or absent host accounts. The second project must have separate roots/host keys and scoped runtime authority; project-local UID numbers may legitimately coincide across environments.
-- Use personal home checkouts and independently authorized native Git credentials for real clone/commit/push/readback. Soda login, project join and Git authorization are distinct. Tea/gh delivery/version observations may come from P11; personal API authentication/credential isolation, if exercised, uses the core's user fixtures and separately approved provider access, never a P credential broker.
-- Prove both users consume the same canonical shared mise installation/files with the intended ownership/permissions and executable resolution, including noninteractive SSH. Equal version/path strings or duplicate installations/downloads are insufficient. The ordinary member can execute but cannot replace the administrator-owned shared installation.
-- Exercise the actual project-local workload engine/socket boundary: image build, source bind-mount edit, changed HTTP response and a committed PostgreSQL fixture value. Bob and the actual client reach the intended service ports. Compose parsing, a listed container or an unrelated host engine is insufficient.
-- Before authorized lifecycle changes, capture bounded secret-safe observations of container identity, account/provider association, groups/ownership, public host-key fingerprints, homes, dirty/untracked Git work, shared files/tools, system configuration and service data. Fail on incomplete/failed snapshots instead of comparing empty outputs. Do not export shadow files, password hashes or private keys.
-- Stop/start the existing project, reconnect as both users and compare state; repeat around the separately authorized appliance reboot. Confirm a changed boot ID only to prove that a reboot occurred; exclude volatile PIDs/timestamps from persistence equality. The second project and the same writable roots must remain intact.
-- Follow the documented native workload restart path. If a normal explicit workload start is needed after reboot, record it and verify retained data; do not imply automatic service resurrection or rebuild/delete volumes to get a passing query.
+- Use real frontend/native onboarding, repository selection and explicit joins. No seeded sessions/accounts or successful rows substituting for provisioning. In U20 use the completed Soda-only authentication path.
+- Resolve current project addresses and independently trust public host keys. Exercise interactive/exact-output SSH and bidirectional SCP/SFTP from the named routed client. QEMU forwards, ProxyJump and appliance-local access do not prove that direct path.
+- Check authorized operations and specific native denials; transport failures are not denial evidence. Independent projects retain separate roots/host keys/authority even if local UID numbers coincide.
+- Use personal home checkouts and each user's own native Git credentials for clone/commit/push/readback. Do not borrow tokens/agents; retain restricted passphrases needed to unlock after lifecycle events.
+- Prove the same canonical shared mise installation/files and intended ownership, including noninteractive resolution. Version/path strings or duplicate downloads alone are insufficient; ordinary members cannot replace admin-owned tools.
+- Exercise the project-local engine boundary with real image build, bind-mount HTTP edits and committed PostgreSQL values reached by both members and the client. Compose parsing or an unrelated host engine is insufficient.
+- Before separately authorized lifecycle changes, capture complete bounded allowlisted identity/account/group/key/home/dirty-work/tool/config/workload/volume/data observations. Failed/incomplete snapshots fail the comparison; never export shadow/password/private-key data.
+- Stop/start the same existing project, then repeat only around an explicitly approved appliance reboot. Compare stable state, not volatile IPs/PIDs/device numbers; observe independent retained roots. No replacement, pruning, `down -v` or reseeding.
+- Record actual native workload restart behavior and verify exact committed data. An explicit start of the same container/volume is not automatic resurrection. U20 adds final own-workspace terminal and complete collaboration/admin checks without replacing these direct-access assertions.
 
 ### U09 — Code history, comparison and native repository writes
 
-**Primary files:** repository code/history/edit features, `internal/forgejo` content/git/ref/import/fork operations, explicit web handlers and contract tests.
+**Files:** existing history/file-editor/repository-copy views and Go clients/handlers/tests; reviewed native Git read/write interface patches and core installed Git fixtures.
 
-- Implement commit list/detail, file history/blame, branches/tags, comparison and native fork/import screens. Handle refs and pagination without a local clone or second Git index.
-- Add simple file create/edit/upload with native commit metadata and conflict/precondition handling. Use upstream update/version requirements so stale forms do not overwrite newer work silently.
-- Respect branch protection, native permissions and import/fork capabilities. Never run arbitrary imported repository code in the Go service or provision/copy environments as a fork side effect.
-- Add diff presentation needed for commits/comparison and subsequent reviews. Large/binary changes get an explicit bounded Soda view with truthful limits; preserve meaningful provider errors.
+- Reuse immutable SHA binding, exact result validation, minimum read scopes, complete per-commit comparison lists, byte bounds and route/account draft guards already locally checked. Do not call concatenated per-commit files a net diff or invent pagination.
+- **First native slice H04:** share native blame/ignore-revs and comparison engines with existing web callers; expose explicit typed attribution/original paths/commit identities and direct-versus-merge-base/net-file/hunk semantics. Bind full base/head/merge-base identities and authorize every disclosed resource; no Soda clone/index, temporary PR or copied Git algorithm.
+- Complete history/verification/diffs and branch/tag create/rename/delete/**native deleted-branch history/restore**; guessed-SHA branch creation is not native restore. Include notes and native cherry-pick/revert editor workflows. U13 owns search implementation; integrate its repository/commit search in U09 navigation.
+- Complete native create/edit/delete/upload/rename/multi-file/patch commit choices with provider SHA/precondition/protection/branch authority and exact result checks. Preserve same-target drafts and reject stale/cross-account responses; no uncertain mutation replay.
+- Complete native permitted personal/organization forks, ahead/behind/sync and supported import/migration destinations/options. Current personal fork/basic synchronous HTTPS import is a subset, not the entire contract. Native task progress/retry needs its own interface; a timeout proves neither cancellation nor cleanup.
+- Resolve native computation/time/output/concurrency/cancellation budgets and usable large/binary behavior. Copy/import credentials stay request-local and absent from storage/logs/redirects; never widen native migration network policy or provision/copy environments as a side effect.
 
-**Tests/acceptance:** history/ref correctness, stale file edit, protected branch denial, unsafe content/downloads, failed import and permitted fork. Confirm results in native Forgejo and ordinary Git, not only the React state. Unsupported blame/import details remain explicit U17 coverage items.
+**Exit:** all audited code/ref/write/copy workflows have N/A/B proof, including private/read/write/protected/invalid/stale/malformed/ambiguous paths, blame and net comparison against ordinary native Git. Missing native interfaces block U09, not merely a U17 note. Repository transfer/archive/deletion settings stay U12; workspace terminal stays U07.
 
 #### U09 completion plan — existing source to installed acceptance
 
-**Status:** source implementation in progress; latest local Go/TypeScript/DOM
-checks and dashboard builds passed. Required blame/aggregate-diff integration and
-installed verification remain incomplete. See the [handoff](implementation-status.md#u09-implementation-started--upstream-contracts-and-source-corrections).
-U08 remains accepted for its recorded scope.
-The browser workspace terminal is a separate requirement, not U09 work. Local builds/tests have now been authorized explicitly. Deployment, new
-repositories, native Git writes, network-policy changes and provider jobs remain
-separately scoped; this plan alone does not authorize them.
+This supersedes the earlier A–H checklist's narrow personal-copy/one-time-import scope and stale “missing DOM suites” statements. H01 is complete as source discovery; first native contracts, remaining implementation and installed acceptance are not.
 
-**Inspected starting point:** `internal/forgejo/{history,file_writes}.go`,
-`internal/web/history_api{,_test}.go` and
-`dashboard/src/{history,file-editor,repository-copy}.tsx` already connect history,
-commit detail/bounded unified diff, branch/tag listing/creation, comparison,
-SHA-preconditioned file create/update/upload, personal fork and one-time HTTPS Git
-import. Existing focused tests cover stale file conflict, protection denial,
-import owner binding and editor draft retention. This is reusable implementation,
-not full U09 acceptance. Blame is absent; comparison currently shows commit/file
-lists rather than an aggregate diff and has no explicit pagination. History,
-refs, compare and repository-copy surfaces lack dedicated DOM suites.
+1. Review selected baseline, first blame/net-diff wire/authority/budget contracts and early H05 feasibility; establish U02/U03 native build/compatibility inputs. Author native tests with each shared-service/API change.
+2. Deliver that read slice through Forgejo → explicit Go adapter → React, retaining existing working reads/writes. Test rename/delete/binary/invalid encoding/large/ignore-revs/divergent history/ref movement/cancellation and mismatch; no incomplete result masquerades as complete.
+3. Complete remaining refs/restore/notes/file/patch/cherry-pick/copy/task/sync actions in bounded batches; reuse native APIs before adding interfaces. Coordinate U13 search and U12 authority/settings contracts, not entire milestone acceptance.
+4. Run already authorized focused and aggregate local suites as applicable, including native contract tests after the reviewed additions exist. Build clean exact Soda/Forgejo source/patch/image candidates through existing entrypoints, preserving prior artifacts. No new project image/runtime change is implied by U09.
+5. With exact rollout scope, take consistent current native/Soda/config/key/artifact backups, rehearse supported pairing/migrations and deploy matching affected components. This may now include Forgejo; the old dashboard-only rollout assumption is no longer sufficient. Keep preview/login/protocols and retained services usable; no U18 cutover by implication.
+6. With separately approved repository/import actions, verify real two-user React outcomes through supported native reads and personal Git in new checkout directories inside existing projects. Preserve original environment/membership associations, roots and workloads; no fifth environment or lifecycle operation.
+7. Reconcile **all** U09 actions and N/A/B evidence by exact revision/bytes; retain failures, fix defects and rerun affected cases before accepting the milestone. U17 integrates that evidence; it does not supply missing U09 functionality later.
 
-**Boundaries:** Forgejo owns repository data, visibility, protection, commits,
-forks and imports. Use acting-user grants only, never an operator fallback,
-server-side clone/Git engine, provider database access or HTML scraping. Preserve
-existing bounds (32 KiB writes, 1 MiB diff) unless a concrete reviewed need changes
-them. No repository deletion/transfer/archive, mirroring, PR merge/review engine,
-workspace provisioning, terminal, shared-resource promotion or new scheduler.
+**Installed fixture proposal, not permission:** retain Alice/Bob and four environments. Propose Alice's private repository-only `u09-code-<candidate>`, Bob's fork, Alice's import and a separately named failed-import target if needed. Native read→write collaboration phases and fixture-only branch protections must not touch U08 repositories. Use independently authorized personal Git, verify exact refs/bytes, and demonstrate stale concurrent edits preserving the newer commit and the other user's draft. Approve a small HTTPS import source actually reachable by Forgejo under existing TLS/network policy; browser reachability is insufficient. Broader native org/task/copy cases need their own exact fixtures/actions rather than silently extending these names. Retain resulting partial resources, failure logs and checkouts; respect native failure semantics without adding Soda retries or cleanup.
 
-| Stage | Implementation and checks | Exit |
-| --- | --- | --- |
-| **A — Close upstream contracts** | Audit selected Forgejo 15.0.7 source/schema/config for commit/file-history/ref/compare/diff/blame, create/update/upload, fork and migration interfaces. Record exact verb/path/scope, ref/path encoding, pagination/truncation, returned SHAs and native failure semantics in `docs/forgejo-api-coverage.md`. Check branch/tag reads currently requiring write scope. Verify whether blame has a supported acting-user interface; absence in Swagger alone is not proof. Inspect import permission/network policy, credential handling, synchronous/task completion and partial-failure behavior. | Every U09 sub-action has a source-backed contract or a precise unresolved capability question. Do not invent an endpoint or silently downgrade scope. |
-| **B — Finish read workflows** | Complete repository/file history, full-SHA commit links, changed files and usable bounded commit/compare diffs. Resolve mutable refs to native SHAs where multiple responses must describe the same revision. Preserve slash/Unicode/space paths and ref names; handle paging, native truncation, empty/binary/large/invalid-encoding results explicitly rather than displaying a partial list as complete. Implement blame with native line attribution and pinned Soda navigation; supply missing upstream interfaces through reviewed integration work. Reuse safe diff presentation with U11 where appropriate, without introducing review semantics or a new rendering dependency by default. | A user can follow file → history/blame → commit/diff and compare two refs without mixed revisions, misleading completeness or unsafe rendering. Unsupported details remain visible. |
-| **C — Harden native writes** | Complete branch/tag creation and file create/edit/upload on explicit writable branches, preserving the native file SHA precondition. Verify returned commit/content identities; do not count unconfirmed/malformed mutation responses as success or replay them. Handle duplicate refs/files, protected branches, invalid refs/paths, empty files, binary replacement and UTF-8 byte limits. Preserve drafts on ordinary failure; prevent pending uploads or late responses from affecting another route/account. Expiry must clear private account state, not persist drafts across users. | Successful operations map to native commit/ref results; stale/denied/uncertain operations cannot overwrite newer work, switch targets or silently retry. |
-| **D — Finish fork/import workflows** | Keep personal destination ownership server-derived and native source visibility enforced. Verify native fork relationship and imported repository identity/readiness before presenting completion. Support the selected one-time HTTPS Git import, not provider-wide issue migration or mirroring. Keep source credentials request-local and absent from logs/storage/errors. Preserve non-secret form inputs where useful; ambiguous failures offer authoritative inspection, not automatic mutation retry. Do not widen Forgejo network policy to get an import test through. | Permitted fork/import works; denial, duplicate name, invalid source, native failure and partial/unconfirmed result are honest. Neither operation calls the environment helper or creates memberships. |
-| **E — Focused regression coverage** | Extend existing provider/web/editor tests; add feature-owned history/ref/compare/blame and fork/import DOM tests. Reuse the real router/session test setup and native HTTP doubles. Cover the matrix below, including negative assertions that repository operations never invoke project provisioning. Add installed U09 coverage under `tests/installed/`, reusing independent OAuth and personal Git mechanisms rather than duplicating a product runner. | Behavior changes have positive/failure/authority tests; authored versus executed results are distinct. |
-| **F — Freeze and validate candidate** | On approval, run focused Go/UI tests, full Go and both dashboard/Cockpit frontend checks, and applicable build/staging/asset tests with pinned tools. Build one clean matching backend/frontend candidate through existing core entrypoints. Preserve prior artifacts. Rehearse against a consistent restricted copy of current populated state, then perform an explicitly approved dashboard rollout on `soda-test`; preserve config consumers, origins, grants, keys and native services. No project image/runtime changes are planned. | Exact candidate checks, backed-up deployment, trusted TLS, asset/API routing, acting-user login and retained service/access smoke checks pass. No U18 cutover or first-install replay. |
-| **G — Native two-user proof** | With separately approved U09 repository fixtures, use actual React actions and Alice/Bob identities. Read native commits/refs/files/fork/import outcomes through supported Forgejo interfaces and ordinary personal Git from existing projects. Exercise stale writes, protected/unauthorized operations and import failure as described below. Compare original Soda environment/membership records and retained project identities; keep intentional test checkouts/results, never reset U08 data. | Native results agree with the UI/API; failures retain their expected class and unchanged target content. No mock, screenshot or mere repository row substitutes for Git/readiness proof. |
-| **H — Close U09** | Reconcile every stage/sub-action with exact revision, tests, installed evidence and limitations. Fix defects and rerun affected checks. Update the coverage register, U09 ledger and implementation handoff; commit coherent source/test/evidence-reference changes. | Mark U09 accepted only when all required workflows, including Soda blame and aggregate diffs, have native proof; a documented API gap or native page is not completion. U10 is next; U17/U20 still own broader coverage/final product acceptance. |
+### U10 — Issues, labels, milestones, time and boards
 
-**Test matrix — feature-owned, not another framework:**
+**Files:** issue/conversation/metadata/activity/board views, existing stock clients/handlers and reviewed lock/history/board native patches/tests.
 
-- **Read correctness:** non-default and slash-containing refs, Unicode/spaces and
-  reserved URL characters in paths, missing/empty repositories, native page caps,
-  history filtered by file, tag targets, changed/renamed/deleted/binary files,
-  bounded/truncated diffs, ref movement during multi-read comparisons and pinned
-  blame line/commit attribution. Show unavailable information,
-  not fabricated zero changes.
-- **Mutation correctness:** exact method/payload/acting token, create versus update
-  SHA requirements, stale 409, native protection denial, duplicate creation,
-  empty/binary content, 32 KiB UTF-8 boundaries, invalid base64 and malformed
-  success responses. Assert a single native mutation on ambiguous failure.
-- **Authority/security:** private source visibility, reader versus writer versus
-  owner, insufficient scope/expired grant, forged destination/owner/URL/path,
-  CSRF/method/body checks, no bootstrap fallback or helper calls, sanitized errors
-  and no import credential persistence/redirect forwarding by Soda.
-- **Browser state:** loading/empty/error states, reliable paging/back navigation,
-  route changes during fetch/upload/save, late responses after logout/account
-  switch, duplicate clicks, preserved same-user drafts on conflict and accessible
-  keyboard/form feedback. Test fork/import failures and unconfirmed outcomes,
-  not only navigation after success.
+- Complete issue filters/state/assignments/ref/due dates, labels/milestones, Markdown/YAML templates and configured contact/blank-issue choices. Reuse native template/config/validation APIs; do not invent an issue schema or render repository text as executable instructions.
+- Reuse native timeline/comments, reactions, subscriptions/ignored state, issue/comment asset CRUD, timers/tracked time, dependencies, pin/reorder and deletion. Correct Soda read-scope overreach and replace attachment `native_url` with a bounded same-origin authorized byte adapter; the native byte interface already exists.
+- Add reviewed native lock/reason and edited-content-history/detail/soft-delete interfaces, retaining native author/writer/admin gates and audit semantics.
+- Implement **repository, organization and personal issue projects/boards**: cards, columns/default/order, CRUD/open/close, issue association/move/reorder under native unit/owner/card visibility. These are Forgejo issue projects, not Soda environments; no local board store or migration/F3 interface repurposed as human CRUD.
 
-**Proposed installed fixture scope — requires approval before mutations:**
-
-1. Keep the existing `soda-test`, Alice/Bob accounts, four environments, keys,
-   workloads and U08 repositories intact. No new workspace/project environment,
-   fixture reset, stop/start or reboot is needed for U09.
-2. Request one new private Alice-owned **repository-only** fixture
-   `u09-code-<candidate>`, one Bob-owned fork, one Alice-owned successful import
-   and, if native failure semantics require it, one distinct failed-import target
-   whose partial repository is retained. Names are proposals; trust actual native
-   IDs. Do not touch protection or permissions on U08 repositories.
-3. Begin with Bob denied the private source, then grant native read and write
-   collaboration in explicit phases. Use fixture-only protected branches to
-   demonstrate writer denial without relying on an administrator bypass. Preserve
-   the original ref/file after each rejected write.
-4. Exercise UI-created refs and text/binary files; verify byte-equal contents and
-   commit/ref SHAs through each person's existing independent personal Git
-   credentials, in new U09 checkout directories rather than altering U08 work.
-   Have Alice/Bob load the same file revision, commit one edit and verify the
-   other's stale update fails without losing the draft or newer content.
-5. Check comparison/history/blame against the known commits, then native fork
-   ancestry and import contents. Select an explicitly approved small HTTPS Git
-   source reachable from Forgejo under its **existing** network/TLS policy. A
-   browser-accessible loopback origin is not automatically a valid import source.
-   Credentials, if needed, use restricted per-user inputs; no weakening policy,
-   public publication, borrowed cookies or enabling Actions jobs. Missing approved
-   import access leaves that case unverified.
-6. Keep all successful and partial repository resources, checkouts, snapshots and
-   failure logs. A run-owned fixture is not permission to delete it. Record any
-   later cleanup as a separate exact-resource decision.
-
-**Upstream-gap rule:** if the selected Forgejo cannot supply required blame,
-comparison or import behavior through supported acting-user interfaces, document
-its exact limitation and the concrete backend work in U17. Native Forgejo views
-are rejected; the required Soda workflows must be implemented and verified
-before declaring U09 complete. Do not replace upstream with a Soda Git backend or
-call the current basic form full parity. A source-only phase can finish useful
-implementation/tests while installed permissions or such decisions are pending.
-
-### U10 — Issues, labels and milestones
-
-**Primary files:** issues feature, reusable Markdown/form components, native issue/comment/label/milestone adapters and web handlers.
-
-- Implement list/filter/pagination, create and detail/conversation flows; native assignments, state transitions, labels and milestones; supported attachments/reactions/subscriptions as recorded in the inventory audit.
-- Let Forgejo own issue numbering, authorship, notification behavior and permissions. No local issue/comment store or Soda-maintained assignment authority.
-- Respect supported native templates/field constraints without inventing another issue schema or interpreting project files as backend instructions. Render input safely and bound uploads.
-
-**Tests/acceptance:** two users create/comment/assign/close/reopen through authorized native operations; native IDs and results agree with Forgejo. Exercise missing/private repositories, oversized/unsafe attachments, stale metadata and denied edits. Changing issues must not trigger environment operations.
+**Exit:** real two-user issue/template/timeline/assets/time/dependency/board journeys with native identity/order/state, positive and forbidden/stale/oversized/hidden/unit-disabled cases, inert bytes and accessible browser interactions. Native mutations do not call the environment helper.
 
 ### U11 — Pull requests, reviews and merge
 
-**Primary files:** pull request/review features, shared diffs, native pull/review/merge adapters and web handlers.
+**Files:** pull/review/diff/check views, existing native review/merge clients and missing-state patches/tests; real Git fixtures.
 
-- Implement PR list/create/detail, conversation, commits/files/checks tabs, review requests, inline comments and approve/request-changes actions supported upstream.
-- Bind review positions to the exact upstream revision/diff model. A refreshed branch must not silently attach a comment or approval to the wrong revision.
-- Delegate mergeability, checks, protections, approvals and merge execution to Forgejo. Handle stale heads, conflicts and native rejection without simulating a successful merge.
-- Reload authoritative results after mutation. Do not apply repository migrations, promote tools/services or clean up a development environment when a PR merges.
+- Complete list/create/retarget/state/maintainer-edit/templates/draft workflows; obtain configured native draft prefixes/metadata rather than hardcoding an alternate policy.
+- Reuse existing native review/reply/pending/submit/delete, old/new-side positions, individual/team requests and dismiss/undismiss APIs. Preserve native conversation identity, outdated context, pending-review visibility and exact commit/diff binding; a reply API already exists.
+- Add native resolve/unresolve, viewed/unviewed/changed-since-viewed and complete merge blocker/options/pending auto-merge state. A local viewed flag or `mergeable` boolean is not equivalent. Forgejo owns protections/checks/approvals and calculations, not Soda.
+- Complete commit-range/context inspection, update/rebase, merge/squash/manual choices, schedule/cancel auto-merge and permitted branch deletion. Use SHA-bound operations and refresh actual results; no automatic replay or merge-triggered environment promotion/cleanup. U14 owns real Actions/trust state.
 
-**Tests/acceptance:** real branch/PR/review/merge flow, restricted reviewer/merger, outdated diff/head, failed checks and native conflicts. Verify native commit/PR state. No Go Git engine, CI scheduler or merge-triggered environment mutation appears.
+**Exit:** native two-user author/reviewer/merger/team/pending/outdated/old-side/resolved/viewed/stale-head/conflict/check-failure and merge-state tests, plus adapter/DOM races and real Git result verification. No copied merge engine, misleading eligibility panel or provider-page escape.
 
 ### U12 — Repository settings and organizations/teams
 
-**Primary files:** repository settings and organization/team features; native settings/access/protection/key/hook/org/team operations; web authorization tests.
+**Files:** settings/access/protection/hooks/org/team/invitation/client views, existing clients/handlers and precise native settings/hook/authority patches.
 
-- Implement general settings, collaborators, branch/tag protection, deploy keys, webhooks and supported metadata/settings. Sensitive values are write-only or redacted as upstream defines them.
-- Implement organization directory/create/profile, members/teams and scoped settings using Forgejo-owned entities/permissions. Do not mirror membership lists into a Soda authorization database.
-- Separate repository and organization administration from Soda environment administration. An organization-owned repository may be browsable/administered while environment creation remains unsupported under the current human-owner rule.
-- Keep deletion/rename/transfer and linked-environment effects behind the decision register; do not automatically reassign Linux accounts or delete containers when native ownership changes.
+- Complete native settings/units/merge options/topics/avatar/subscription/collaborators/protection/deploy keys/mirrors/Git hooks/LFS and unadopted-repository workflows. Existing transport does not imply complete fields; keep code-executing Git hooks, site-admin health/index and native network/config gates explicit.
+- Expose **already implemented** advanced protection and team-policy adapter fields (RS06/OR04) before inventing native APIs. Reuse native organization/team/member/repository-assignment/label/activity/block/quota operations without mirrored roles.
+- Add missing units/settings/fork-detach/transfer-cancel/federation/LFS administration and organization invitation/OAuth-client/rotation/grant contracts. Email/token invitations are not the same workflow as adding an existing user to a team.
+- Complete hook handler-specific creation, signing-secret keep/replace/clear, package/Actions events, explicit tests/delivery inspection/replay and default/system kinds. Reuse native handler logic; preserve omission semantics and redact secrets/auth headers/URLs/payloads. A delivery replay is an explicit network mutation.
+- Implement native rename/transfer/accept/reject/archive/delete workflows after linked-resource decisions, retaining owner user/organization scopes and native authority. Never silently rename/deprovision projects or grant an organization owner project/root authority. U14 owns Actions configuration authority parity; U16 reuses instance operations.
 
-**Tests/acceptance:** owner/collaborator/team/admin permission matrix, protected operations, unsafe hook/secret handling and denied direct API access. Provider-authorized settings change in Forgejo; no unrelated native host/project privileges change.
+**Exit:** full reader/writer/repo-admin/owner/org-owner/team/site-admin matrix and revocation, partial-update/clear/conflict/secret/network-effect tests, with native outcomes and preserved Soda/project associations. Unresolved lifecycle decisions block affected acceptance, not become an exclusion.
 
-### U13 — My work, search, notifications and user profiles
+### U13 — My work, search, notifications and activity
 
-**Primary files:** app overview/search/notification/profile features, provider query adapters and safe composition handlers.
+**Files:** work/search/notification/profile/activity/graph views, native query clients and reviewed native search/graph/statistic interfaces.
 
-- Implement assigned/review-requested work, visible repositories/environments, native user profiles/activity and notification inbox/read state.
-- Use native search/filter/pagination; no new search index or event store. Keep Soda-only environment information distinctly sourced.
-- Put navigable filters in URLs, handle partial dependency failure per view and cancel superseded searches. Never reuse one user's cached private results for another session.
+- Complete assigned/review-requested work, repositories/orgs/teams, user profile/follow/star/watch/activity and notification read/unread/pinned/filter/native subject navigation. Keep Soda environment information separately sourced.
+- Reuse native repository/issue/PR/user/org/topic search and heatmaps/feeds. Add bounded native code/commit search, multi-ref graph and period/contributor/code-frequency/recent-commit activity where missing; share repository search navigation with U09.
+- Native filtering/paging/visibility stays native; no fetch-all inventory, Soda index/event store, generated fake pagination or cross-account cache. Handle independent dependency failures and route/query/account cancellation.
 
-**Tests/acceptance:** permission-filtered cross-repository results, native notification updates, deep links, independent empty/error states, pagination and rapid account/query changes. Native activity/graph gaps remain explicitly mapped to U17.
+**Exit:** actual multi-user private/public/collaborator search/activity/notification results, native updates, correct paging/deep links and late-response isolation; graphs/search do not disclose hidden commits or require a provider frontend.
 
 ### U14 — Actions and automation configuration
 
-**Primary files:** actions feature, native workflow/run/task/status/variable/secret adapters, bounded read/dispatch handlers, browser/native-provider tests.
+**Files:** Actions/workflow/job/log/artifact/configuration/provider-runner views, explicit native clients and missing-semantic/authority patches/tests.
 
-- Implement workflow/run listings, supported run/job detail, checks and permitted dispatch/configuration actions. Forgejo remains scheduler and record keeper.
-- Implement supported repository/organization Actions variables/secrets with no readback of secret values. Do not place workflow credentials in browser persistence, logs or the Soda database as a second CI secret store.
-- Verify actual human-authorized interfaces for logs, artifacts, cancellation and reruns. The saved REST schema alone does not establish these; do not borrow runner/admin cookies or proxy a runner-only protocol to manufacture coverage.
-- Scope polling/streaming to the viewed run, bound retention/buffering and close it on navigation/logout. Keep local runner service registration/capacity in Cockpit.
+- Apply the selected baseline decision: **v16 already has human jobs/logs/artifacts/cancel APIs**; do not blindly recreate/backport all v15 gaps. Verify exact native token/resource/unit/write predicates, byte Range/archive/attempt/expiry semantics and deliver complete run/job/step/attempt/progress/diagnostic views. Task-token `/actions/run` is not human authority.
+- Reuse native dispatch/input validation and completed-run deletion. Add missing workflow input/default/options/enabled metadata, enable/disable, full/native selected-job rerun and PR trust/approval controls. Re-dispatch is not rerun; file scanning/editing is not workflow state.
+- Resolve repository API owner-only versus web-admin configuration/runner authority natively, without owner-token substitution. Preserve correct user/org/repo/site scope and distinct site administration.
+- Complete secrets/variables and metadata rename/keep-value behavior, including instance variables with U16; no secret-value readback/storage. Complete provider runner registration/list/read/delete/token/jobs and missing name/description/credential/token reset. Labels are agent-reported, not invented edit fields.
+- Bound polling/log streaming/download buffers and lifetime; stop on navigation/logout and distinguish absent/expired/unexecuted output from empty success. Forgejo owns scheduling/workflows/results; host local-capacity services remain Cockpit/P11.
 
-**Tests/acceptance:** real provider run/status/configuration/dispatch cases only with approved runners/repositories. Test secret redaction, unauthorized cross-repo run access, expired credentials, failed dispatch and large outputs. Missing interactions remain required U14/U17 integration tasks, not Forgejo links or fake buttons.
+**Exit:** native human reader/writer/admin/owner/unit/expiry/large-output proof and separately approved real workflow/run/dispatch/cancel/rerun/trust/configuration/runner actions. No fake job, runner-only protocol proxy, native-page fallback or replacement scheduler. Provider mutation scopes are explicit, not inferred from local test permission.
 
 ### U15 — Releases, wiki and packages
 
-**Primary files:** release/wiki/package features, supported provider adapters, shared safe Markdown/download/upload components.
+**Files:** release/wiki/package views, existing release/content/byte clients and reviewed native clear/wiki/package extensions/tests.
 
-- Implement release list/detail/create/edit and assets using native tags/releases; wiki index/page/editor/history; package owner/version/file views and native install guidance.
-- Delegate persistence, permissions and package/release semantics to Forgejo. No Soda artifact store, registry or package format.
-- Stream authorized binary data through a bounded supported path; verified file/protocol URLs must not send users to Forgejo frontend pages. Do not forward bearer credentials to arbitrary redirects, allow path traversal or buffer unlimited uploads in Go.
-- Handle stale wiki edits, duplicate tags/versions, private artifacts and deleted native objects with truthful results. Native package publishing protocols remain native developer tools unless explicitly in the coverage map.
+- Complete native releases/drafts/tags/publish/delete/assets and authorized byte transfers. Extend actual release-note clear semantics shared with native web edit; do not assume all empty fields are valid or delete/recreate a release to clear notes.
+- Reuse current wiki/index/sidebar/footer/revision-list/create/edit/rename/delete APIs and native wiki-branch normalization. Add historical content/raw/diff/restore-content/search and full-wiki deletion contracts. The wiki is a separate native Git repository; main-repo endpoints are not its history API.
+- Preserve **native wiki last-write behavior**: neither inspected web nor API has edit CAS. Do not fabricate a stale-write guarantee; any stronger native precondition is a separately reviewed semantic change.
+- Reuse package inventory/version/files/link/unlink/delete/quota and format-specific publish/download protocols with package consent. Complete native descriptor/properties/counts/install context, owner cleanup-rule CRUD/preview/run and native Cargo/Chef settings interfaces. No Soda registry, index, artifact/cleanup engine or secret store.
+- Handle draft/private/hidden/expired/duplicate/quota/native-unit restrictions, safe filenames and complete bounded transfer/cancellation; copyable tool commands must not embed real secrets or send browsers to Forgejo pages.
 
-**Tests/acceptance:** real release/asset and wiki revision operations, package visibility/download metadata, conflict/permission cases, cancellation and malformed/oversized uploads. Verify upstream state and that failed transfers do not become successful local records.
+**Exit:** real release/asset/wiki revision/search/package metadata/protocol/settings outcomes and negative authority/byte/native-write-semantics tests. Explicit cleanup/deletion/maintenance fixtures need their own scope; missing UI or missing native fields are not conflated.
 
-### U16 — Forgejo site administration and account-security coverage
+### U16 — Forgejo site administration and security-sensitive administration
 
-**Primary files:** administration/account-security features, explicit native admin adapters, role/session handling, administrator browser tests and coverage documentation.
+**Files:** complete admin views, shared People/account/configuration/hook/runner/package clients and reviewed native admin interfaces/tests. Begin design and independent slices alongside U04/U05, not after all U15 work.
 
-- Extend U05 into administration overview, account editing, instance organization/repository views, instance hooks, provider runner/job views and supported native quota/maintenance operations.
-- Use actual Forgejo administrator authority and verified scopes for the acting session. Recheck on the operation; a stale menu hint is not authority. A Forgejo admin who is not the configured Soda operator gets no host/root or extra Soda privilege.
-- Treat provider quotas, cron tasks and runner registrations as upstream features; do not introduce a Soda scheduler, quota engine or local runner coordinator in the dashboard.
-- Audit native account settings, email verification, applications/tokens, MFA/passkeys/recovery, auth-source configuration and site settings. Implement credential-entry/reauthentication inside Soda while preserving Forgejo's password/MFA/consent authority. Missing challenge APIs require a reviewed upstream integration; they do not exempt these forms from the complete-frontend requirement.
-- Distinguish harmless account metadata edits from rename/disable/delete effects on Soda sessions and existing Linux accounts. Do not promise deprovisioning/offboarding synchronization or implement it accidentally.
-- Preserve the native operator bootstrap and Cockpit paths. Do not provide a generic configuration-file editor, host command endpoint or catch-all `/admin` proxy.
+- Complete native People/status filters/editable fields/MFA status and explicit **other-user MFA reset**, email activation/avatar/keys, organizations/repositories/unadopted resources and native flags. Reuse available APIs; missing filter/detail fields require native contracts, not fetching all users or applying self-account authority.
+- Complete native overview/runtime/health, notices, queues/process/stacktrace/diagnostics, selected configuration/auth-source/OAuth-client operations, cron versus special branch/tag synchronization and explicit mail/cache/conditional DB self-check. Redact secret-bearing detail; expose only native UI-supported bounded settings/actions, never arbitrary app.ini/filesystem/shell/internal-method access.
+- Reuse shared hooks/default hooks, provider runners/jobs, quotas and package inventory/cleanup contracts with U12/U14/U15. Native quotas/cron/queues are upstream functions, not a Soda scheduler or environment quota service.
+- Implement conditional moderation/abuse/federation user and admin interactions with their real actors/config gates. A native “report abuse” action is not automatically site-admin-only because its review screen is administrative.
+- Complete U04/U05 sensitive reauth/auth-source effects and reviewed native rename/delete/disable/security consequences for linked Soda records/sessions. Preserve Linux access/roots and distinguish site admin, Soda operator, project administrator and Cockpit root.
 
-**Tests/acceptance:** admin, non-admin, downgraded admin, insufficient-scope and non-Soda-operator cases; actual upstream admin results; no credential exposure or cross-project host control. Source inspection of a maintenance API is not permission to execute it on an arbitrary instance.
+**Exit:** complete native ordinary-user/site-admin/downgraded/insufficient-scope/non-Soda-operator matrix; actual permitted outcomes, redaction and sensitive-confirmation/denial tests. Maintenance/reset/delete effects execute only against exact approved native fixtures. No new universal administrator role or Forgejo UI escape.
 
-### U17 — Page/API coverage and upstream-gap closure
+### U17 — Page/API coverage, update verification and browser closure
 
-**Primary files:** `docs/forgejo-api-coverage.md`, inventory, affected feature/adapters/tests and frontend/authentication/ingress integration.
+**Files:** single coverage register, feature-owned native/adapter/browser tests, compatibility/update fixtures and auth/content/ingress integration checks.
 
-- Reconcile every inventory row and sub-action with implementation, tests and observed capability. Use distinct labels: implemented, source-tested, installed-verified or blocked integration. Earlier explicitly deferred lifecycle scope remains separate; missing Forgejo APIs are not feature deferrals.
-- Investigate outstanding boards, logs/artifacts/run controls, advanced graphs, account-security and site-configuration interfaces against the pinned upstream. If a supported path exists, implement it in its owning feature rather than leaving an avoidable permanent external link.
-- Where it does not exist, record exact source-backed constraints, upstream proposal/reference, required implementation and maintenance cost. Obtain approval for any bounded backend patch/integration before implementing it. The user has rejected Forgejo frontend fallbacks and feature omission; do not reopen that as a default choice or count a blocked item as completion.
-- Revisit destructive/ownership actions only through the decision register. Preserve existing work and explicitly state which native operations do not propagate to Linux access.
+- Track each action's concrete contract, configuration, authority, implementation and N/A/B evidence throughout delivery. Route defects back to the owner; do not defer boards/graphs/auth/admin implementation to this milestone or create a second readiness database.
+- Close every required action, including conditional-enabled behavior, origin/mail/IdP decisions, linked-resource effects and UI05 terminal/environment boundaries. The TSX `forgejo_url` guard is supplemental: inspect redirects, errors/help, native URLs, Markdown/mail/notification links, authorized bytes and actual browser requests.
+- **Demonstrate H07:** on a reviewed upstream update or contract-changing candidate, review support/security/migration and touched native services, rebase patches, rerun native authority/semantics and Soda consumers, check supported rollout pairs and preservation. Clean patch application/version advertisement is insufficient. Deliberately adopt equivalent stock APIs and retire patches with equivalence tests when applicable; no speculative duplicate backends or automatic updater.
+- Verify complete Soda-only workflows and the proposed API/Git/SSH/LFS/package/Cockpit listener/proxy separation on the matching approved candidate/rehearsal target. Frontend restrictions must not break native protocols or rely on hiding navigation/User-Agent tricks.
 
-**Acceptance:** no inventory item disappears, no placeholder is reported as a working page, and administrator coverage is as explicit as developer coverage. Final cutover uses an agreed coverage boundary; “full frontend” must not be claimed for still-unreplaced interactions.
+**Exit:** all registered requirements have delivered evidence, no unresolved class-3 contract/authority/lifecycle gap or unavailable placeholder is counted complete, and update/compatibility/rehearsed end-state browser tests pass. **U17 proves the candidate; U18 changes the retained installation.** Do not require live ingress closure before its login replacement is proved, or make U17 depend circularly on completed U18. No missing-API scope waiver.
 
 ### U18 — Default SPA cutover and legacy removal
 
-**Primary files:** `internal/web`, `dashboard` router/build base, config/activation/build/staging source, installed browser checks and operator documentation.
+**Files:** Go/router/build base, `appliance/config/proxy.Caddyfile`, explicit native auth/listener/origin config as reviewed, build/stage/install consumers and browser/operator documentation.
 
-- Rehearse on a migrated database/config copy and then an approved target. Preserve configured HTTPS origins and OAuth application/callback, secret ownership, database path and all project identities/state.
-- Move the SPA from `/app/` to the default browser routes. Keep legacy GET bookmarks useful through explicit redirects (including old project IDs to environment detail); keep `/login` and callback contracts stable. Never redirect/replay old POST mutations as a migration strategy.
-- Remove HTMX-only routes, templates, script/license payload and headers only after their consumers are replaced and tests updated. Retain attribution required for any still-used material. Remove old operator-token repository/admin UI paths coherently; do not delete bootstrap credentials that still have legitimate setup/native callers.
-- Retire temporary preview/config branches after the transition. One frontend and one API implementation remain, not a permanent dual-stack framework.
-- Document a bounded dashboard-only deployment/migration procedure rather than rerunning the first installer or enabling an updater. Package matching frontend/backend assets together.
-- State rollback compatibility precisely: retain a consistent pre-change DB/config/key set and prior application artifact; an old binary is not assumed compatible with every new schema. No rollback may discard unrelated Forgejo changes or project writable state.
+- Require accepted U08 plus U17's complete candidate/ingress/update proof. Inventory exact installed bytes and current populated state; rehearse native/Soda/config/key migration and rollout order, then obtain the exact retained-target cutover scope.
+- Move React from `/app/` to default browser routes and apply the reviewed Soda-only authentication/content/direct-ingress boundary. Preserve valid native API/Git/SSH/LFS/package and separate operator Cockpit access. Origins, RP-ID and callbacks are reviewed contracts, not assumed unchanged or reconstructed from old ports.
+- Preserve stable environment/repository/user links and legacy GET bookmarks through explicit Soda redirects. Never redirect/replay old POST mutations. Keep working login until the replacement passes and preserve enrolled credentials; no bootstrap/first-install replay or environment replacement.
+- Remove replaced HTMX routes/templates/assets and operator-token frontend callers coherently. Remove license payloads only when their material is no longer included; retain actual setup/native consumers and required attribution. Retire temporary preview/dual-stack branches, not a permanent frontend selector.
+- Deploy matching strict-config companions/assets/native interface versions together; document interruption/re-authentication and irreversible changes. Backups and prior binaries are useful evidence, not permission to discard subsequent writes as rollback.
 
-**Tests/acceptance:** existing IDs/keys/memberships survive, legacy bookmarks work, sessions reauthenticate as documented, missing assets/API paths fail correctly and application-owned navigation remains inside Soda. Verify no Forgejo frontend exposure through login, account-security, provider-returned links or direct browser origins before cutover. Cutover requires U08 proof and completed required U17 Soda-only coverage, not a gap waiver or just successful bundling.
+**Exit:** retained installation serves all required frontend workflows only through Soda, no browser escape through auth/content/direct origin, real protocols/Cockpit still work, old bookmarks and persistent IDs/data survive, and exact installed security/byte/preservation checks pass. A successful bundle or partial preview is not cutover acceptance.
 
 ### U19 — Make it good
 
-**Primary files:** dashboard components/styles/stores, API hot paths only where measured, usability/browser tests, branding documentation.
+**Files:** actual feature components/styles/stores, measured API/native hot paths and usability/browser evidence.
 
-- Review real developer/admin tasks for navigation, information density, keyboard/focus flow, responsive tables/forms and legible diffs. Apply PatternFly and canonical tokens consistently rather than wrapping every component in a competing design system.
-- Improve accessibility beyond the baseline: focus restoration, screen-reader announcements, error association, contrast, reduced motion and practical small-screen behavior.
-- Measure bundle size, large repository/diff behavior and request/polling cost. Use route-level code splitting, bounded rendering, lazy expensive views and targeted state refresh; add a dependency only if the measured problem warrants it.
-- Refine empty/failure/provisioning guidance, connection copy actions and admin confirmations. Keep private data/capabilities scoped to the active session.
+- Review real developer/admin/terminal tasks for navigation, density, forms/tables/diffs, responsive layouts, keyboard/focus, announcements, contrast and reduced motion. Apply PatternFly/canonical branding without another design system.
+- Measure bundle/render/request/polling/large-diff/log/terminal behavior; use targeted route splitting, bounded rendering and state refresh for observed problems. Do not add a cache framework or speculative editor.
+- Improve clear failure/recovery-without-recreation guidance, confirmations and connection/tool instructions. Keep private data session-bound and all Forgejo workflows in Soda.
 
-**Tests/acceptance:** documented before/after evidence for actual bottlenecks and user tasks, no accessibility/security regression and no new framework/state system introduced for hypothetical scale. Polish does not retroactively excuse unsafe or nonfunctional earlier milestones.
+**Exit:** before/after measurements and real-task accessibility/usability evidence, no security/authority/retained-service regressions. Basic functionality/accessibility and native resource safety were required earlier, not postponed here.
 
 ### U20 — Final installed verification and handoff
 
-**Primary files:** native/source/browser test entrypoints, packaging/configuration tests, operator/developer documentation, final coverage and implementation status.
+**Files:** existing core/source/native/browser/packaging tests and actual installation/operator/developer/coverage handoff.
 
-- Execute the approved source suite, focused race tests, DOM/store tests, real browser workflows and packaging checks against the final revision. Keep all retained Cockpit, PAM, branding, console, provider-CLI and runner test source in the regression set.
-- Exercise a clean first installation on a separately approved fresh target and an upgrade of controlled existing state. The recovered early VM installation is not evidence of a clean final installer. Verify static assets, dependency notices, migrations, secret permissions, callback origins, service identity and the fixed socket boundary.
-- Repeat the core-owned U08 entrypoints/proof detail and implemented collaboration/admin journeys with real provider state. Consume P06/P11/P12/P13 host/operator/artifact observations by exact revision/bytes when available; do not create or count a second P product suite. Optional P09/P10 media needs its own delivery proof only if selected, not as a prerequisite for verifying the existing installation path. Separately authorize runner jobs, native maintenance, network changes, destructive test fixtures and reboots; missing permissions stay explicit, not silently passed.
-- Build and verify x86_64 and aarch64 independently on matching native hardware. The unavailable sibling does not block useful work, but cross-compilation or browser-only tests do not establish its native runtime compatibility.
-- Document supported/verified architectures, supported image profiles, remaining upstream-native screens, credential/session limits, trusted-team isolation assumptions, access lifecycle limits and operational instructions. Include honest current routing/SELinux/workload/persistence evidence.
-- Record changes and checks by revision; preserve clean Git history and unrelated work. Publication, provider enrollment on other instances, physical installation and an OS/component updater remain separate authorization/scope decisions.
+- Execute final-revision Go/native Forgejo contract/race, both frontend suites, browser, asset/build/packaging/compatibility tests. Preserve Cockpit/PAM/Tailnet/Runners/console/branding/project-CLI tests and resolve the missing console-hook delivery with P11 evidence.
+- Prove a clean installation on a separately approved fresh target and a controlled populated-state upgrade with exact Soda/Forgejo source/patch/image/config identities, native/Soda migration/credential/origin behavior and current-state preservation. The retained early VM is not a clean final install.
+- Repeat the [core proof](#core-owned-native-proof-detail), full Soda-only onboarding/security/developer/collaboration/admin/provider journeys and U07 terminal with real native outcomes. Account for lifecycle/logout/reconnect, unchanged roots/host keys/dirty work/shared tools/HTTP/committed SQL; explicitly observe workload restart behavior.
+- Build and execute independently on matching native x86_64 and aarch64 hardware. An unavailable sibling does not block useful work, but full two-architecture acceptance cannot be inferred from cross-compilation/emulation or browser-only tests.
+- Consume exact P06/P11/P12/P13 host/operator/artifact evidence, not a second P product suite. Optional media adds proof only if selected. Separately scope provider jobs/enrollment/maintenance, fresh resources, routing, destructive fixtures and reboots; missing required execution stays incomplete, not PASS.
+- Record an honest handoff of verified architecture/configuration, complete coverage, source/patch/license/security-update ownership, install/migration instructions, credential/access lifecycle and trusted-team/runtime/network limits. No “remaining upstream screens” exception to the full frontend.
 
-**Acceptance:** an operator can install/migrate the approved product and a developer can complete its documented workflows without hidden manual integration or fake data. Every held item is visible; neither a generated bundle nor a list of authored tests is called release readiness.
+**Exit:** all required final source/native/browser/upgrade/operator matrices pass on both native x86_64 and aarch64, and real operators/developers can complete the documented product without missing integration or provider-page fallback. Useful one-architecture results remain valid partial evidence, not complete U20 acceptance. Retained failures/limits stay explicit. Publication, upstream submission, other-instance enrollment and an updater are separate actions, not implied by acceptance.
 
 ## 8. Conditional Soda extension milestones
 
-These are concrete plans for discussed additions, **not approved baseline requirements**. Do not create dormant flags, tables or helper methods for them before selection. An accepted extension must be included in U17/U20 coverage and preserve all upstream/native boundaries.
+E01–E03 remain **unselected**, outside the 20 core milestone count. Do not create dormant flags/tables/helper operations. Selection must update the product/deferred boundary and add relevant U17/U20 proof. Native Forgejo settings/quotas and the already requested U07 terminal do not select these extensions.
 
 ### E01 — Rocky/Fedora creation-time image profiles
 
-**Gate:** explicit OS-choice approval, a supported Fedora release/image candidate and U08's baseline native proof. **Files:** `project-os` recipes/rootfs, native build/staging scripts, `internal/host` config/create protocol, `internal/store` migration, environment UI/API, image-specific installed tests.
+**Gate:** explicit OS-choice/release/image approval and U08 baseline proof. **Files:** project image/rootfs, native build/stage/create protocol, narrow metadata migration and environment UI/tests.
 
-- Define a small operator-approved profile list with stable IDs, distro/release, native architecture and immutable resolved image identity. Select prepared Soda-compatible OCI images, not arbitrary browser-supplied registry URLs/flags.
-- Reuse common project account/SSH/shared-tool behavior, with separate package/build steps where Rocky and Fedora differ. Test package names, Python packaging, systemd/OpenSSH, mise/CLIs, storage/cgroups/SELinux and nested workloads; a different `FROM` line is not compatibility proof.
-- Add optional per-environment profile/creation-image metadata through an additive migration. Preserve the existing default for new requests that use the old contract, and inspect existing native image identity rather than pretending old projects were created from the current default.
-- Allow profile selection only for creation. A stopped environment restarts unchanged; selecting Fedora never replaces a Rocky writable root or changes the host kernel. OS migration/update remains separate work.
-- Expose each profile only for architectures with the required build/validation evidence. No unsupported profile appears selectable; one unavailable profile/architecture need not block the working baseline.
+- Define a small approved immutable profile set with native architecture/distro/release/image identity; no caller-selected registry URLs/flags.
+- Reuse account/SSH/shared-tool behavior and verify each distro's package/Python/systemd/mise/CLI/storage/cgroup/SELinux/nested-runtime differences natively. Changing `FROM` is not compatibility proof.
+- Add only needed creation metadata; preserve old defaults/identities without pretending retained projects used today's image. Choice applies only to new creation, never in-place distro switching or stopped-root replacement.
 
-**Acceptance:** create separate approved Rocky and Fedora environments and pass the same account/SSH/shared-workload/persistence/isolation tests. Invalid profiles never reach arbitrary image execution. Existing environments keep their original identity/data after changing the default for future creations.
+**Exit:** approved Rocky/Fedora fixtures pass the same real access/shared-workload/persistence/authority matrix on their claimed architectures; invalid/unsupported choices are refused and existing environments remain unchanged.
 
 ### E02 — Existing-environment lifecycle controls
 
-**Gate:** explicit approval of allowed actors and supported start/stop/restart operations plus U08. **Files:** fixed host protocol/daemon, existing systemd unit integration, web/API authorization, environment UI and native lifecycle tests.
+**Gate:** explicit actors/start/stop/restart scope and U08 proof. **Files:** fixed helper/unit operations, server authorization, environment UI and native tests.
 
-- Resolve the environment and actor from trusted state. Add only named operations targeting that existing labeled container/unit; never expose arbitrary unit names or Podman commands.
-- Preserve rootfs/accounts/host keys/service data. Reuse normal native startup rather than container replacement. Clearly warn that stopping/restarting disconnects users and affects shared services.
-- Report already-running/stopped states, timeouts and failures without optimistic success or automatic destructive repair. Handle native owner/association mismatches conservatively, not through automatic remapping.
-- Keep operator host reboot/network/service administration outside these project controls.
+- Resolve only the existing trusted labeled environment/unit; no arbitrary Podman/systemd target. Preserve accounts/rootfs/host keys/tools/data and normal existing-container startup.
+- Warn about shared service/session disruption, including terminals. Report already-stopped/running/timeouts honestly; no recreation, automatic remapping/repair or host reboot/network control.
 
-**Acceptance:** approved owner/operator actions work, unauthorized/cross-project attempts fail, stopped projects remain stopped until an explicit/defined native start, and all persistent state survives. No delete/rebuild/auto-idle feature is smuggled in.
+**Exit:** permitted operations and precise cross-project/unauthorized denials, retained persistent state and documented explicit start behavior. No delete/rebuild/auto-idle feature.
 
 ### E03 — Basic resource limits and usage
 
-**Gate:** explicit resource-policy scope and native cgroup/storage investigation after U08. **Files:** host config/create/inspect boundary, environment metadata where necessary, project/admin views and native cap tests.
+**Gate:** explicit policy and native cgroup/storage investigation after U08. **Files:** bounded create/inspect/config metadata, environment/admin views and cap tests.
 
-- Select a small set of native CPU, memory and PID limits and decide who may choose/change them. Apply validated bounds at the whole-environment boundary and prove how nested workloads inherit them.
-- Expose bounded CPU/memory/process/disk-usage observations using native data, without returning full host/container internals. Distinguish usage reporting from enforceable limits.
-- Investigate filesystem/storage support before promising disk quotas. Do not infer that a generic Podman size flag safely caps the current writable-root/nested-volume layout.
-- Do not add a scheduler, admission/quota database, billing model, automatic shutdown/deletion or a resource-pressure repair controller.
+- Select native CPU/memory/PID limits and permitted actors; verify effective inheritance by nested workloads. Usage observation is not enforceable quota.
+- Bound non-secret native usage output. Investigate actual writable-root/volume storage before promising disk enforcement; no inferred generic flag support.
+- No scheduler/admission/billing/automatic shutdown/deletion or pressure-repair subsystem; existing projects are not silently resized.
 
-**Acceptance:** invalid/unapproved values are rejected, effective native caps match requested policy, a busy environment does not bypass those caps via nesting, and existing projects are not silently resized or deleted. Any unsupported disk enforcement is explicitly omitted from the claim.
+**Exit:** native effective limits match approved policy and cannot be bypassed by ordinary nesting; invalid choices fail, persistent state survives and unsupported disk enforcement is not claimed.
 
 ### Other gaps remain decisions, not hidden milestones
 
-Key rotation/removal propagation, member offboarding, provider disablement/session termination coordination, organization-to-project-admin mapping, identity renames, multiple environments per repository, destructive lifecycle, image replacement and backup/restore each need their own scoped policy and preservation tests before implementation. Native Forgejo can still own its corresponding account/repository operations; Soda must not claim those automatically reconcile Linux access or live environment state.
+General key propagation/offboarding/identity remapping/reconciliation/recovery, org-to-project administration, multiple environments, project deletion/image replacement and backup platforms remain deferred. This does **not** defer Forgejo's own required rename/delete/security interfaces or normal authorization/preservation. Resolve their exact Soda association effects under the owning core milestone without silently building those larger subsystems.
 
 ## 9. Inventory coverage cross-reference
 
-Use this table with the detailed [page inventory](dashboard-plan.md#page-inventory). It assigns work, not completion status.
+The [179-group register](forgejo-api-coverage.md) remains the **single action/contract/evidence inventory**. This table assigns a primary implementation owner for each existing group; named collaborators provide shared contracts and integrate their views. Do not copy endpoint details/status into another synchronized register. Ranges below cover every H01 group exactly once; action splits/additions must keep ownership current, not freeze the count as a scope cap.
 
-| Inventory family | Owning milestones |
-| --- | --- |
-| Shell/help/error states, sign-in/session expiry | U02–U05, refined U19 |
-| Projects, repository create/overview/files, environment summaries | U06/U07 |
-| My profile/preferences, development keys, Git/GPG keys | U05; extended native account capabilities U16 |
-| My work, global search, notifications, user profiles/activity | U13; advanced gaps U17 |
-| Import/fork, file edit/upload/history/blame, commits, branches/tags/compare | U09 |
-| Issue list/create/detail, comments/attachments, labels/milestones | U10 |
-| Pull requests, conversations/checks, reviews and merges | U11 |
-| Repository settings/access/protection/deploy keys/hooks | U12 |
-| Organizations, teams, membership and scoped settings | U12; native Actions configuration U14 |
-| Actions runs/jobs/workflows/dispatch, variables/secrets | U14; missing logs/artifact/control APIs resolved or explicitly held U17 |
-| Releases/assets, wiki/revisions, packages/files | U15 |
-| Forgejo administrator overview/People/account edit/instance orgs/repos | U05/U16 |
-| Instance hooks/provider runners/jobs/native quotas/maintenance | U16 |
-| Account security, applications/tokens, MFA/recovery, native site/auth configuration | U04/U05 Soda authentication/security, U16 complete integration, U17 closure |
-| Issue boards, advanced graphs and unresolved upstream interactions | U17 with the relevant feature owner |
-| Environment create/detail/members/join/connect/incomplete state/admin views | U07/U08; optional control/image/resource work E01–E03 |
-| Destructive/ownership/account-remapping controls | Decision register; U17 must record their explicit exclusion or newly approved scope |
-| Host administration/Tailnet/local runner capacity | Retained outside integration P11; preserve packaging U02/U18 and consume evidence in U20 |
-| Default routes, old bookmarks and removal of HTMX | U18 |
-| Responsive/accessibility/performance improvements | Baseline throughout, focused U19 |
-| Complete artifact/data migration and installed architecture evidence | U02/U03/U08/U18/U20 |
+| Audit groups | Primary owner | Integration responsibility |
+| --- | --- | --- |
+| AU01–AU10 | U04 | U05 account/onboarding and U16 auth-source/security contracts; U18 installed origin transition |
+| AU11–AU22 | U05 | U04 native challenge/reauth/grant lifecycle; U16 administrator counterparts |
+| AC01–AC05, AC07, AC11–AC13 | U05 | U07 linked account/access consequences; native key/profile/security authority stays Forgejo |
+| AC06, AC08 | U13 | User/profile/follow/activity navigation; U05 own-account entrypoints |
+| AC09, CO01–CO02 | U06 | U09 refs/changes and U15 package bytes; U07 separately owns environment creation |
+| AC10 | U02 | Native-backed about/settings/help/tool guidance with U05/U16 fields; no native-page help fallback |
+| CO03–CO16, CO18 | U09 | U11 diff consumers, U12 ref/settings authority and native copy lifecycle |
+| CO17, WK01–WK06 | U13 | U09 repository code/commit-search views reuse native search contracts |
+| IS01–IS15, BD01–BD04 | U10 | U11 conversation/asset reuse; boards remain native issue projects, not environments |
+| PR01–PR12 | U11 | U09 diff/ref and U14 actual checks/trust/run integration |
+| RS01–RS16, HK01–HK06, OR01–OR09 | U12 | U05 personal clients/hooks, U14 Actions authority, U16 instance counterparts and lifecycle decisions |
+| CI01–CI15 | U14 | U11 checks/trust; U16 site-scope configuration/runners; Cockpit still owns local capacity |
+| RE01–RE04, WI01–WI05, PK01–PK06 | U15 | U04 package consent; U12 wiki setting entrypoints; U16 instance package/quota views |
+| AD01–AD23 | U16 | U04/U05 sensitive account/auth mechanisms; reuse U12/U14/U15 operations; retain native ordinary-user moderation/federation entrypoints |
+| UI01–UI04 | U17 | Each feature implements its own safe links/content/auth; U18 performs verified default-route/live ingress cutover |
+| UI05 | U07 | U08 retained earlier access evidence, U20 final terminal/access/preservation and P11 separate operator integration |
+
+Soda-only preferences/development keys/environment records/terminal are U05/U07; cross-cutting API/data/build are U02/U03/U04; default routing U18; focused whole-product polish U19; final native architecture/upgrade proof U20. U17 integrates these alongside the register rather than treating missing features as its own parking lot. E tracks and outside operator/media work retain the boundaries above.
 
 ## 10. Definition of done, execution and handoff
 
 ### Per-feature completion
 
-A feature is **source-complete** only when its frontend, typed API, real provider/native caller, necessary persistence/configuration/build wiring and focused tests are connected. A mocked success path, disabled placeholder or manual Linux checklist is not an implemented product operation.
+**Source-complete** means connected production native/provider functionality, explicit API/adapter, React workflow, required persistence/config/build/license wiring and focused tests—not a stub, mocked success, unavailable placeholder or manual Linux checklist.
 
-Track evidence separately:
+Track separate evidence states in the existing register/handoff:
 
-1. **Planned** — this document and contracts only.
-2. **Source-complete** — production callers and authored tests exist; no execution implied.
-3. **Source-tested/built** — named revision and actual checks/artifacts recorded.
-4. **Installed-verified** — named native target/client and real end-to-end outcomes recorded.
-5. **Blocked integration** — exact reason and required work retained; no native Forgejo frontend fallback or missing-API scope waiver. Existing explicitly deferred environment lifecycle work is separate.
+1. **Planned/review pending:** contracts and decisions only.
+2. **Source-complete:** real callers/tests exist; no execution implied.
+3. **Source-tested/built:** exact revisions, actual suites and artifact identities recorded.
+4. **Installed-verified:** exact native target/client/actors/configuration and real positive/negative outcomes recorded.
+5. **Blocked integration/execution:** precise unresolved contract/decision/permission/failure and owner; not a native-page waiver or milestone PASS.
 
-Each milestone handoff records changed paths, authority/data effects, upstream contract evidence, tests authored versus executed, actual commands/targets, unresolved questions and the next milestone. Shared-file changes name their U/P owner and agreed interface; support evidence is linked by exact revision/artifact/target rather than duplicated or used as an independent product verdict. Keep coherent commits; do not amend unrelated history or sweep other work into them. No milestone is checked off by writing this plan.
+A U milestone is accepted only against its stated complete exit and evidence. Conditional native settings distinguish enabled/disabled/denied/missing/incompatible/unavailable; source defaults are not live observations. Update the one register when native versions/fields/authority change, not just when a page appears. U08 is accepted only in its recorded historical scope.
 
 ### Verification matrix to maintain
 
-- **Go/provider/API:** status/error contracts, source-backed native payloads, malformed input, pagination, timeouts, body limits, private/cross-user access and no credential fallback.
-- **Auth/data:** OAuth state/PKCE, consent/scopes, refresh/logout concurrency, encrypted storage, upgrade/old-session behavior and no product-state loss.
-- **React:** real routing, forms and keyboard interaction, loading/error/empty states, mutation results, stale-response/account isolation and safe content rendering.
-- **Installed:** trusted TLS, actual Forgejo login/permissions, genuine repository/collaboration/admin changes, real environment account/SSH/shared-workload/persistence behavior.
-- **Packaging:** frontend/backend match, complete local assets/licenses, missing-bundle failures, service UID/permissions, unchanged native operator integrations and clean first-install plus existing-state migration.
-- **Architectures/profiles:** independently recorded native x86_64/aarch64 and each approved userspace profile; no inference from emulation or a sibling's result.
+- **Native Forgejo:** exact built source/patch/architecture, shared web/API semantics, actor/resource/scope/unit/config gates, token/challenge lifecycle, revocation and bounded expensive work/cancellation. Test real outcomes, not only interface advertisement.
+- **Go/API:** typed complete results/IDs, read/write separation, partial-update/clear behavior, pagination, denied/malformed/oversized/timeouts, secret redaction and no privilege fallback/uncertain replay.
+- **Auth/data:** headless challenges/WebAuthn origins/consent/recovery/reauth, CSRF/session fixation, encrypted grants/refresh/logout races and native/Soda populated migration/refusal/rollback limits.
+- **React/browser:** real forms/keyboard/focus, safe content/downloads, route/page/query/account races/drafts, all authentication/navigation/mail/provider-origin paths and own-workspace terminal lifetime.
+- **Build/update:** verified source extraction/ordered patches/real notices, exact native image pairing, missing assets, all config consumers, rebase/security review and equivalent-API patch retirement. No automatic CI/update system is implied.
+- **Installed/preservation:** real native Git/collaboration/admin/provider/terminal and direct SSH/shared-workload/data outcomes, exact client reachability/pins, final fresh/upgrade/lifecycle and retained Cockpit/console/runner integration.
+- **Architectures:** independent matching-native x86_64/aarch64 and each explicitly selected userspace/media profile; no sibling/emulation inference or optional-media prerequisite.
 
-Only run the applicable checks when authorized. This planning request does not authorize dependency installation, compilation, product tests, live account/repository changes, provider runner jobs, routing/firewall changes, deployment, removal or reboot. Keep secrets and private inputs in restricted channels and ignored private locations; never include them in commits, argv, logs or screenshots. Preserve the existing VM backing image and all unrelated builder infrastructure.
+Each coherent commit/handoff names changed paths and owners, native contract/authority/data effects, authored versus executed tests, exact bytes/targets, preserved failures and next concrete work. Keep Git history/unrelated work intact; do not amend without permission.
 
-**Current implementation:** continue U01's full action/dependency audit, verify/correct U02–U07 source and complete outstanding Markdown/download/pagination/auth/native tests before claiming the U08 workflow. Protected per-session grants and first-workflow API/React callers now exist in unbuilt source; they are not a completed migration or installed proof. Continue the full U01–U20 sequence rather than scaffolding fake inventory pages. See the handoff for unfinished work and execution gates.
+**Execution:** already authorized local builds/automated tests need no renewed generic permission request. Concrete new native patch/dependency scope follows its review; deployment, real provider/account/repository/import/runner mutations, installed fixtures, origins/networks, publication/submission, lifecycle and cleanup retain exact separate scopes. Never expose credentials in source/argv/tracing/logs/screenshots, overwrite private inputs/evidence or infer permission to reset the VM. This plan revision runs none of those actions.
+
+**Next work:** review the recorded H01 baseline/contracts/maintenance and early H05 authentication gates, then implement U02/H02 and U03/H03 with the first U09/H04 slice and reviewed U04 authentication path. Continue independent stock-adapter/UI corrections. Keep U08 accepted, every other unfinished U owner accountable, and U17/U18/U20 gated on complete delivered behavior—not another audit, a version bump or successful bundling alone.

@@ -38,7 +38,7 @@ Keep out of the first-version implementation scope:
 - automated member departure, deprovisioning and manual account/key drift repair;
 - invitation/approval systems and generalized permission synchronization.
 
-Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
+Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. These deferrals concern Soda's cross-system/project access machinery, not Forgejo's own required invitations, account-security, grant/session revocation or identity lifecycle workflows. The post-H01 core plan assigns their native-backed implementation and explicit Soda-association decisions without introducing generalized Linux offboarding. U07 also owns the requested existing-workspace browser terminal and its own connection/session lifetime; that is not permission to terminate unrelated SSH sessions or shared workloads. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
 
 ## 3. Deferred: identity and ownership remapping
 

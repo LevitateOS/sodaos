@@ -20,10 +20,11 @@
 
 | Responsibility | Leading owner | Native support contribution |
 | --- | --- | --- |
-| React routes, Go API/DTOs, OAuth/session/CSRF, upstream developer/admin adapters, Soda schema | U01–U19 as assigned in the core plan | Supply build/transport/fixture inputs; no alternative handlers, account model, browser runner or database writes |
-| Production `internal/host`, project account/SSH setup, shared tools, nested workloads, persistence, image/lifecycle/resource policy | U07/U08 and approved E01–E03 | Run-owned VM/client transport and bounded observation utilities only; report runtime defects to the core owner |
+| React routes, Go API/DTOs, native-backed auth/session/CSRF, upstream developer/admin adapters, Soda schema | U01–U19 as assigned in the core plan | Supply build/transport/fixture inputs; no alternative handlers, account model, browser runner or database writes |
+| Forgejo baseline, reviewed source/patch build, native interfaces and contract/update tests | U01/U02/U03 and owning U04–U16 features; U17/U20 integration | P04 consumes specified source/patch/image identities; no P-owned fork, authentication design, build platform or conformance verdict |
+| Production `internal/host`, project account/SSH setup, own-workspace terminal, shared tools, nested workloads, persistence, image/lifecycle/resource policy | U07; retained U08 proof/U20 final integration and approved E01–E03 | Run-owned VM/client transport and bounded observation utilities only; report runtime defects to the core owner |
 | Product browser/People/repository/join/Git/SSH/workload/persistence tests and fixture meanings | Owning U feature; integrated U08/U20 | Invoke the existing core-owned entrypoints once on exact inputs; retain their results, without copying scenarios into a Go harness |
-| Dashboard asset payload, application config/secret/migration semantics and cutover | U02/U03/U04/U18 | P04 packages the specified payload; P05 transports/invokes the specified installer/bootstrap steps; neither redesigns them |
+| Dashboard/Forgejo payload, application config/secret/migration semantics and cutover | U02/U03/U04/U18 | P04 packages the specified payload; P05 transports/invokes approved install/migration steps, not first-install replay; neither redesigns them |
 | Build-tool execution, artifact inspection/bundling, native VM/QMP/SSH/evidence helpers | P01–P05 | Reuse concrete tools with real callers, outside the production appliance command set |
 | Installed OS/service substrate observations | P06, against core-owned service contracts | Report host/package/unit/permission/listener observations for U08/U20; not proof of application login or usable projects |
 | Stock Cockpit/Tailnet/local runner services, native console and native branding delivery | P11 | Preserve/adapt these outside integrations and their focused tests; upstream CI/admin screens remain U14/U16 |
@@ -138,7 +139,7 @@ Each phase has explicit inputs and native results. Evidence is human-readable ou
 | --- | --- |
 | Native deployment bundle | Core-defined staged rootfs/assets/native/provider payloads and image archives, matching installer and notices; correct modes/symlinks; no provisioning/runtime state |
 | Soda image archives | Actual explicitly selected OCI format, platform and source; a `.oci` suffix does not establish format, and current saves need inspection |
-| Upstream application inputs | Recorded selected Forgejo/Caddy platform digests and matching loaded bytes; no incidental version change or silent later tag drift |
+| Upstream application inputs | Core-selected Forgejo/Caddy platform digests and matching bytes; for a reviewed source-built Forgejo, also core-owned upstream/patch/build identities. No incidental version change, second lock or silent tag drift |
 | Build information | Source/native tool/input references, image manifest/config identities, observed package inventories and `SHA256SUMS`; not a PASS/signature/qualification schema |
 | Optional installer ISO | Selected CoreOS media/bootstrap/payload arrangement, checksums, companions and network requirements; private derivative separately identified |
 | Optional QCOW2 delivery | Approved kit versus preinstalled-image meaning, standalone disk and any selected fixed compression/checksums; all required companions named |
@@ -180,7 +181,7 @@ These are **support deliverables**, not a replacement core milestone graph. Sepa
 
 Recommended support source order: P01 → P02, then P03/P04/P05 interface work → P06/P11 → P12, with conditional P09/P10 separately selected. P03 boot observation uses P05's input retrieval; P05 installation observation uses P03's VM. Those observation dependencies do not require circular source completion or a second downloader. P13 never blocks x86_64 work.
 
-The core can proceed U01 → U02–U07 → U08 with existing authorized tooling. **U08, U18 and U20 do not require this whole port, ISO/QCOW2 delivery or P12 completion.** Consume whichever support outputs exist. P12/P13 report their own scope without waiting for U20 to declare the product verified; U20 can reuse that evidence when applicable. No circular “core waits for native qualification, native waits for core qualification” gate.
+The core follows its [post-H01 execution order](dashboard-implementation-plan.md#6-milestone-map-and-execution-order) using existing authorized tooling; U08's bounded acceptance is retained, not replayed. **U08, U18 and U20 do not require this whole port, ISO/QCOW2 delivery or P12 completion.** Consume whichever support outputs exist. P12/P13 report their own scope without waiting for U20 to declare the product verified; U20 can reuse that evidence when applicable. No circular “core waits for native qualification, native waits for core qualification” gate.
 
 ### P01 — Confirm outside-tool contracts and provenance
 
@@ -217,7 +218,7 @@ The core can proceed U01 → U02–U07 → U08 with existing authorized tooling.
 
 - Extend existing build/check/stage entrypoints only for concrete format/identity/bundle needs; compile infrastructure tools separately. U02 owns adding the React build/asset payload and dashboard-only build path.
 - Select/inspect actual OCI archive format/platform, add source/base attribution and bind binaries/rootfs/assets to one checkout. Retain real tool/dependency metadata.
-- Resolve the selected Forgejo/Caddy platform identities without upgrading them. Coordinate any service-image reference change with the core installer/config owner; no separate tag policy hidden in the wrapper.
+- Consume core-selected Forgejo/Caddy platform identities without upgrading them. If U02 adopts a reviewed source-built Forgejo, inspect its supplied upstream/patch/image identity through the same artifact contract; do not build a second source/patch mechanism. Coordinate service-image/identity changes with core build/installer/config owners; no separate tag policy hidden in the wrapper.
 - Assemble the allowlisted bundle, matching installer/notices and checksums with modes/symlinks intact. Validate hash/platform/source/content and extraction safety before host writes; retain `/usr/local` mapping, parent ownership and delivered-path SELinux behavior.
 - Refuse stale/mismatched/missing outputs. Route actual core build/config/runtime defects to the owning U/E milestone; do not bypass checks, fabricate frontend output or recreate project state.
 

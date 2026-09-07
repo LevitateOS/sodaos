@@ -2,7 +2,7 @@
 
 ## Status and decisions
 
-Planning inventory following the user's React/dashboard direction. This inventory is not completion evidence or a frozen dependency lockfile. Implementation has started with the [preview/API foundation](implementation-status.md#core-implementation-started); the full migration is not built, validated or deployed. The current dashboard remains Go + HTMX; the earlier architecture/milestone descriptions of that frontend describe the existing implementation. The page scope below is proposed for review. The [multi-milestone implementation plan](dashboard-implementation-plan.md) assigns the work, API/data/build boundaries, tests and acceptance criteria; it also separates conditional environment extensions from the core migration.
+This is the selected page-family/dependency inventory, not completion evidence or a frozen dependency lockfile. The React/API/schema-v3 preview is installed at `8b823db` on retained `soda-test`; default routes remain HTMX. Only U08 is accepted, for bounded native x86_64 first-product proof (1/20), not complete frontend/cutover acceptance. The [implementation plan](dashboard-implementation-plan.md) now incorporates H01's **179 action groups**, revising dependencies and feature ownership without restarting the milestones. The [single action register](forgejo-api-coverage.md) owns concrete interface/authority findings; the [handoff](implementation-status.md) owns actual source/build/installed evidence. Conditional environment extensions remain unselected.
 
 **Coordination:** the [implementation plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) leads core frontend/backend, production environments and U08/U20 product acceptance. The [native support plan](native-porting-plan.md) is subordinate and covers outside tooling/operator integrations, not a parallel product roadmap. This inventory defines page families, not another execution sequence.
 
@@ -30,8 +30,10 @@ Go serves the production frontend assets behind the existing Caddy proxy. Node a
 
 The [headless architecture revision plan](forgejo-architecture-revision-plan.md)
 now defines the proposed workflow-first integration and maintenance model for
-these requirements. Keep this inventory authoritative for page/action coverage;
-do not create a parallel inventory or restart the U milestones.
+these requirements. This document supplies page families; the [single action
+register](forgejo-api-coverage.md) supplies action/contract evidence and the leading
+U plan supplies implementation order. Do not create a parallel inventory or restart
+the milestones.
 
 ## Upstream ownership and extension boundary
 
@@ -56,7 +58,7 @@ The unified frontend includes three distinct administrative contexts: **Forgejo 
 
 ## Authentication and authorization
 
-**Required experience:** sign-in, first-password change, MFA/recovery, consent and account security must also stay in Soda's interface, with Forgejo retaining identity/password authority. No second password store, borrowed cookies or weakened MFA is authorized. The existing redirect-based flow below is a working baseline, **not an exception** to the Soda-only requirement. U04/U16/U17 must design the necessary upstream authentication/challenge interfaces before replacing it; do not break working login or merely hide the provider behind a proxy.
+**Required experience:** sign-in, first-password change, MFA/recovery, consent and account security must also stay in Soda's interface, with Forgejo retaining identity/password authority. No second password store, borrowed cookies or weakened MFA is authorized. The existing redirect-based flow below is a working baseline, **not an exception** to the Soda-only requirement. U04/U05/U16 must review the native authentication/challenge design early, alongside the source-build/compatibility work—not after the other screens. U17 verifies complete coverage and U18 performs the preserved transition; do not break working login or merely hide the provider behind a proxy.
 
 1. The browser enters Soda's Go-owned login route and is redirected to Forgejo.
 2. Forgejo owns password entry, first-login password changes, MFA and consent. If its browser session and consent are still valid, another password prompt normally is not needed; this is not a promise of a redirect-free login.
@@ -172,13 +174,13 @@ Forgejo still owns CI scheduling and results. These are provider views, not a So
 | Organization directory/create/profile | Native organization discovery, creation and overview | F | Next |
 | Organization members / teams | Lists, team detail, membership and native repository access | F | Next |
 | Organization settings | Profile, native hooks and Actions settings | F | Next |
-| Destructive/ownership settings | Repository or organization deletion, transfer, rename and archive workflows with linked environments need an explicit scope decision | F/S | Integration required |
+| Destructive/ownership settings | Repository rename/transfer/archive/delete and organization rename/delete remain required; their effects on linked Soda records/access need an explicit lifecycle decision, not automatic environment mutation | F/S | Integration required |
 
 Displaying native organization/team functionality does not implement an organization-to-Linux-project-administrator mapping. The existing ordinary human-owner environment rule remains the first-version rule. Do not introduce copied roles, membership synchronization or automatic environment deletion.
 
 ### Forgejo site administration
 
-Administrator functionality is part of the unified frontend, not just developer repository screens. The adapter delegates upstream-owned operations rather than implementing a second administration backend. The exact controls on each page still need a capability/authorization audit against the selected Forgejo version.
+Administrator functionality is part of the unified frontend, not just developer repository screens. The adapter delegates upstream-owned operations rather than implementing a second administration backend. H01 now records the native action/authority gaps; U16 implements complete contracts/views with early U04/U05 security review, not another broad audit after collaboration is finished.
 
 | Page or surface | Contents | Authority | Delivery |
 | --- | --- | --- | --- |
@@ -190,7 +192,7 @@ Administrator functionality is part of the unified frontend, not just developer 
 | Provider runner administration | Forgejo registration/runner/job views; local service execution/capacity stays in Cockpit | F | Next |
 | Native quota administration | Forgejo's own quota rules/groups where supported; not a new Soda environment quota system | F | Next |
 | Authentication/configuration/maintenance | Upstream settings, authentication configuration and supported maintenance tasks; API gaps require backend integration | F | Integration required |
-| Destructive/account-remapping actions | Upstream deletion/rename operations with Soda associations need an explicit lifecycle decision; no implicit environment deprovisioning | F/S | Integration required |
+| Native identity lifecycle actions | Required upstream deletion/rename/security operations need explicit handling of Soda associations; no generalized account remapping or implicit environment deprovisioning | F/S | Integration required |
 
 The existing scoped operator bootstrap remains the first-install path. Adding administrator screens neither exposes an unfinished installer nor grants arbitrary host commands. Source/schema coverage alone does not authorize executing live account, runner or maintenance operations.
 
@@ -202,7 +204,7 @@ The existing scoped operator bootstrap remains the first-install path. Adding ad
 | Environment overview | Actual native state, environment identity, associated repository and connection readiness | F/S | First |
 | Members / join | Existing membership, explicit Add me, missing-key guidance and real account provisioning | S | First |
 | Connect | Observed project IP, own login, SSH/SCP/SFTP/editor guidance and route/host-key caveats; may be a detail tab | S | First |
-| Workspace terminal | After choosing a project to work in, open a browser terminal into the signed-in user's existing project-local workspace, as that user | S | Newly requested; design/implementation pending |
+| Workspace terminal | After choosing a project to work in, open a browser terminal into the signed-in user's existing project-local workspace, as that user | S | U07 design/implementation; U17/U20 complete coverage/proof |
 | Incomplete/unavailable environment | Honest native failure and operator guidance; not a destructive recreate button | S | First |
 | Environment/access administration | Soda-specific environment status, association, membership and development-access views/actions, with the existing project/operator boundaries | S | First |
 | Operator tools entry | Soda administration navigation and the separately retained host-operator Cockpit entry; links do not grant access | F/S | First |
@@ -216,22 +218,22 @@ account. Enforce access to the selected project and the user's own account on th
 server; do not grant a host-root or shared administrator shell. Selecting a
 project/opening its terminal must not silently create a workspace or join the
 project. Missing membership/workspace keeps the existing explicit join flow.
-Terminal transport/authentication, session lifetime and stopped-project behavior
-remain design work; no mechanism or automatic start is selected by this request.
-Ordinary SSH/SCP/SFTP remain supported. This is a recorded requirement, not an
+The revised implementation plan assigns terminal design/implementation/tests to
+**U07**, with U02/U03/U04 build/security review and U17/U20 final coverage. Transport,
+authentication, lifetime/disconnect and stopped-project behavior still require
+review; no mechanism or automatic start is selected. Ordinary SSH/SCP/SFTP remain
+supported. U08's accepted earlier scope is unchanged. This assignment is not an
 implemented feature or authorization to execute commands.
 
 No browser IDE, tool/service catalog, managed toolchain branches, environment deletion/rebuild, updater, backup platform or generalized recovery UI is added by this inventory. Normal native development tools remain the workflow inside projects. Native operator setup remains the installer/bootstrap path, not a new publicly exposed setup wizard.
 
 ### API coverage evidence and limits
 
-Reviewed the locally saved schema obtained from installed Forgejo **15.0.7**, `.artifacts/downloads/forgejo-swagger.json`, plus the existing Go authentication/provider source. This is source/schema inspection, not execution of all the proposed operations.
-
-The schema contains repository/content/commit/branch, issues/PR/review, release/wiki, notifications, organization/team, package, user-key/settings and selected Actions endpoints. Its `/admin` surface also includes users, organizations, emails, hooks, runners/jobs, cron tasks, unadopted repositories and native quotas. This does not establish complete site-configuration, authentication-source, issue-board, Actions-log/artifact or account-security UI coverage. Absence there is not proof that no other native interface exists. Verify each feature against the pinned upstream before replacing its native page; do not scrape HTML, borrow operator cookies or invent unsupported API calls to fake parity.
+The [H01 register](forgejo-api-coverage.md) supersedes the earlier schema-only inventory with full v15.0.7 source-surface tracing and targeted v16.0.3 comparison. It distinguishes suitable stock APIs, bounded Soda adaptation, required native additions and existing-adapter/UI-only work. V16 supplies human Actions jobs/logs/artifacts/cancel interfaces, but neither inspected version closes blame/net diff or complete authentication/review/board/admin coverage. This is source evidence, not installed conformance, baseline selection or patch approval. Consult the exact action/actor/configuration contract before implementation; do not scrape, borrow cookies or invent unsupported APIs.
 
 ## Direct dependency inventory
 
-This is the proposed **direct** dependency list for the dashboard work, not an invented list of every transitive package or OS RPM. The real frontend lockfile and Go module metadata must record the resolved closure. React Router 7.18.3 is now selected from public metadata; other proposed additions remain unselected and the dashboard dependency closure is not installed/resolved. Verify compatibility/licensing and review real lockfiles before builds.
+This is a **direct** dependency inventory with selected and proposed entries, not every transitive package or OS RPM. `dashboard/package.json`, its real `pnpm-lock.yaml`, Go metadata and native recipes own actual pins. React Router/Markdown dependencies are resolved and the implemented frontend subset has local build/test evidence; full transitive/license and feature acceptance remain U01/U02 work. Proposed additions below are not requirements to install unused packages or upgrade existing pins.
 
 Most of the requested stack already appears in `cockpit/package.json`. Reuse that baseline where appropriate without coupling dashboard code to Cockpit privileges or incidentally upgrading the existing operator pages.
 
@@ -241,14 +243,14 @@ Most of the requested stack already appears in `cockpit/package.json`. Reuse tha
 | --- | --- | --- |
 | `react` | UI | 18.3.1 |
 | `react-dom` | Browser rendering | 18.3.1 |
-| `react-router-dom` | Client-only URL routing, not SSR/framework mode | 7.18.3 selected from public metadata; resolution/build verification pending |
+| `react-router-dom` | Client-only URL routing, not SSR/framework mode | 7.18.3 selected/resolved; subset locally built/tested, full acceptance pending |
 | `zustand` | Feature stores, request status and UI state | 5.0.15 |
 | `@patternfly/react-core` | Forms, layout, navigation, feedback and other UI components | 6.6.1 |
-| `@patternfly/react-icons` | Icons | 6.6.1 |
-| `@patternfly/react-table` | Repository/issue/member tables | 6.6.1 |
+| `@patternfly/react-icons` | Icons | 6.6.1 shared baseline; not currently a direct dashboard dependency |
+| `@patternfly/react-table` | Repository/issue/member tables | 6.6.1 shared baseline; not currently a direct dashboard dependency |
 | `@patternfly/patternfly` | Base CSS, design tokens and assets | 6.6.1 |
-| `react-markdown` | README/issues/wiki rendering without enabling raw HTML | 10.1.0 selected; build/closure unverified |
-| `remark-gfm` | Standard GitHub-flavored Markdown features | 4.0.1 selected; build/closure unverified |
+| `react-markdown` | README/issues/wiki rendering without enabling raw HTML | 10.1.0 resolved; subset locally built/tested, full content/license acceptance pending |
+| `remark-gfm` | Standard GitHub-flavored Markdown features | 4.0.1 resolved; subset locally built/tested, full content/license acceptance pending |
 | `react-diff-view` | Commit/PR diff and review presentation; add when implementing that feature | Candidate pin/API to verify |
 
 `fetch`, `AbortController`, `URL` and browser file/clipboard APIs need no package. Use explicit feature-owned Zustand stores and a small HTTP client. Handle cancellation/stale responses, pagination, errors and post-write reloads deliberately; do not build a generic query/cache framework inside Zustand. No TanStack Query or Router, Axios, Redux or second state system.
@@ -260,7 +262,7 @@ A syntax-highlighting package such as `refractor` is a **polish candidate**, not
 | Dependency/tool | Purpose | Existing shared baseline / selection |
 | --- | --- | --- |
 | `vite-plus` | Dev server, production bundling, lint/format/test tooling | 0.3.0 |
-| `@vitejs/plugin-react` | React development integration/Fast Refresh | New compatible pin to verify |
+| `@vitejs/plugin-react` | React development integration/Fast Refresh | Unselected candidate; verify an actual need/compatible pin before adding |
 | `typescript` | Type checking | 7.0.2 |
 | `@types/react` | React types | 18.3.13 |
 | `@types/react-dom` | DOM renderer types | 18.3.1 |
@@ -284,22 +286,16 @@ Use the test tooling exposed by Vite+ rather than adding a parallel Jest toolcha
 | `golang.org/x/crypto` | Existing public-key/crypto integration | Existing v0.55.0 |
 | `golang.org/x/sys` | Existing Linux/native integration | Existing v0.47.0 |
 | `github.com/stretchr/testify` | Existing Go test assertions | Existing v1.12.1; test-only use |
-| `golang.org/x/oauth2` | Standard OAuth exchange/refresh support for the expanded user-token lifecycle | Proposed addition; compatible pin to verify |
-| Forgejo | Identity, repositories and collaboration | Existing 15.0.7 service |
+| `golang.org/x/oauth2` | Possible standard OAuth helper | Unselected; existing Go exchange/refresh is implemented, so require a concrete need before adding |
+| Forgejo | Native identity, repositories, collaboration and administration | Existing 15.0.7 service; U01 reviews supported source baseline, U02 owns reviewed native source/patch build |
 | Caddy | Existing HTTPS entry point | Keep current image/configuration baseline |
 | Podman/systemd/native helper | Existing application and project runtime | Keep current host/source baseline |
 | Cockpit, Tailscale and runner integrations | Existing operator functionality | Retained, not dashboard JS dependencies |
 
-The immutable host, project OS, Git/OpenSSH/mise/Tea/GitHub CLI and native workload/provider dependencies remain governed by their current image recipes and lockfiles. This frontend migration does not add or upgrade those systems. No Node production service, additional database, Redis, GraphQL, Go web framework, ORM or new authentication provider is required.
+The host, project OS, Git/OpenSSH/mise/Tea/GitHub CLI and native workload dependencies remain governed by current recipes/lockfiles; no incidental upgrade is selected. The reviewed Forgejo source-build work must account for its own native Go/frontend/runtime pins, GPL/source/notices and exact image identity through existing packaging—not assume Soda's toolchain or Swagger's MIT license covers its distribution. No Node production service, additional database, Redis, GraphQL, Go web framework, ORM or second authentication authority is selected.
 
 ## Implementation order and working criteria
 
-This is a summary; follow [U01–U20 and conditional E01–E03](dashboard-implementation-plan.md) for the detailed sequence. Partial implementation is recorded in the handoff; no milestone is complete merely because its foundation or test source exists.
+Follow the [post-H01 U01–U20 execution order](dashboard-implementation-plan.md#6-milestone-map-and-execution-order), not a fresh foundation-first restart. It prioritizes baseline/contracts/maintenance and early native authentication design; source-build/compatibility and first blame/net-diff plus authentication proof; then feature-owned complete workflows, including U07 terminal and early U16 administration. Stock APIs and existing Soda adapters remain reusable. U17 proves complete candidate coverage/update behavior, U18 performs the preserved default/ingress cutover, U19 measures whole-product improvement and U20 owns final installed acceptance.
 
-1. **Foundation:** new React source/build entry, PatternFly shell, browser router, same-origin JSON contract and Go asset delivery. Preserve canonical branding. Do not remove the working HTMX routes before their replacements are connected.
-2. **Authentication:** reuse Forgejo login, add the required per-user API credential lifecycle and test secure sessions, expired/denied access and CSRF on every write method. Preserve the separate operator/host boundary.
-3. **First end-to-end slice:** sign in, create/list a real Forgejo repository, open its README/files, register the needed public keys, create its Soda environment, explicitly join and connect by ordinary SSH. Include operator People/onboarding. No fake success from seeded JSON or a database row alone.
-4. **Functional expansion:** finish code history/comparison, issues and PRs, then the remaining mapped repository/organization/collaboration and Forgejo administrator pages in small complete workflows. Build views and supported API integration, not replacement upstream business logic. Resolve missing backend interfaces and implement complete Soda views; do not offer native Forgejo links.
-5. **Make it good:** improve layout, responsiveness, keyboard efficiency, syntax/diff presentation, performance and request caching based on observed problems. Do not defer security, preservation of work or basic usable error/empty states to this stage.
-
-Existing native gaps still matter: project subnet routing, actual two-user SSH/shared-tools/workload use, nested Podman and persistence have not been fully proved. A React rewrite does not close those gaps. Builds, browser/native testing and VM changes require the applicable explicit scope; this planning work runs none of them.
+U08 remains accepted for recorded native x86_64 two-developer/direct-access/shared-resource/workload/lifecycle proof, not all configurations, headless authentication, terminal, final revision or aarch64. E01–E03/media remain unselected. Local builds/tests are already authorized within the recorded scope; deployment, real provider mutations and infrastructure/lifecycle actions remain separately scoped. This planning revision performs none of them.

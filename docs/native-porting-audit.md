@@ -36,7 +36,7 @@ trusted-CA download server. Neither is installed/native evidence. Additional
 external-tool/VM/installer failure coverage and all relevant native exits remain
 open; **the plan is not marked complete**. Newer core evidence already establishes
 personal Git/shared files/tools and project-network workload subsets; follow the
-[leading core snapshot](dashboard-implementation-plan.md#current-execution-snapshot--gitshared-toolworkload-follow-up), not section 5's historical pending list.
+[leading core snapshot](dashboard-implementation-plan.md#current-execution-snapshot--u08-completion-run), not section 5's historical pending list.
 
 ## 1. Credit what already exists
 
@@ -225,7 +225,7 @@ Add focused doubles/fixtures at these existing boundaries, not an exhaustive new
 
 ## 5. Core-owned work still pending, not native-port omissions
 
-The current [core snapshot](dashboard-implementation-plan.md#current-execution-snapshot--approved-routed-access-follow-up) is the authority. Do **not** start a P07/P08 implementation for these:
+The current [core snapshot](dashboard-implementation-plan.md#current-execution-snapshot--u08-completion-run) is the authority. Do **not** start a P07/P08 implementation for these:
 
 - U08: personal Git clone/commit/push through the routed client; truly shared files and one shared mise installation executed by both users; remaining host-engine/cross-project isolation; nested web/database workload, bind mounts and durable data.
 - U08/U20: separately authorized existing-project stop/start and guest reboot; compare existing container identity, users/homes/SSH host keys, dirty work, shared installs/files, configuration and service data. The temporary route is not reboot-persistent.
