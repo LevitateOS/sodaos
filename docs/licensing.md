@@ -18,7 +18,7 @@ template overrides; no patched executable or native source-build path is selecte
 - Preserve copyright/license notices in overridden upstream templates and assets,
   document modifications as required and deliver their applicable source/notices.
   Do not stamp inherited templates as original Apache-only Soda code.
-- U02's actual bundle must bind the stock image, overrides and Soda artifacts to
+- The actual bundle must bind the stock image, overrides and Soda artifacts to
   their source/notices. Include required source and licenses for distributed
   dependencies/runtime material; a tag URL or generic license-name list is not
   automatically sufficient. Exclude private configuration, credentials, databases,
@@ -45,9 +45,10 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   Font Name Red Hat. Font Awesome 5.0.13 distinguishes fonts (OFL-1.1), SVG/JS icons
   (CC-BY-4.0) and other code (MIT). Actual shipped-font/notice pairing remains a
   packaging check; an arbitrary current OFL text is not proof for every version.
-- The shared `cockpit/build/licenses.ts` collector exempts `@patternfly/*` from
-  missing-license-text refusal; dashboard uses it too. U02 must supply actual CSS/
-  emitted font/icon notices, not rely on this exemption as complete compliance.
+- `cockpit/build/licenses.ts` exempts `@patternfly/*` from missing-license-text
+  refusal. The removed dashboard also used it at the reviewed revision. Current
+  Cockpit delivery still needs actual CSS/emitted font/icon notices; this exemption
+  is not complete compliance.
 - Top-level license/NOTICE texts for all 13 modules named in Soda's go.mod were
   reviewed from exact-version caches: MIT/BSD and YAML's per-file MIT/Apache split
   plus NOTICE. This is not the full dependency graph or final binary closure.

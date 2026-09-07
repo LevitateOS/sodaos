@@ -2,10 +2,11 @@
 
 **Rehearsed and executed for dashboard candidate `35df189` on the existing
 `soda-test` guest; not a general installer or final cutover proof.** See
-[exact execution evidence](implementation-status.md#native-react-preview-migration-and-operator-browser-proof).
-U03/U04 own the schema/key
-contract; U18 owns later default-SPA cutover. This is a bounded dashboard upgrade,
-not first-install/bootstrap, an updater or a whole-appliance recovery system.
+[revision-specific evidence](implementation-status.md#accepted-native-evidence);
+the complete historical migration record remains in Git at `9f3baa7`.
+Both standalone frontends are now removed, but the Go API's schema/key contract
+remains. Rehearsal must precede separately approved native Sodaspaces cutover.
+This is a bounded service upgrade, not bootstrap, an updater or appliance recovery.
 Require explicit target/deployment permission before executing any step.
 
 ## New installations
@@ -18,7 +19,7 @@ application startup. Setup/activation retain first-install refusal.
 
 ## Controlled existing-state rehearsal, before live deployment
 
-1. Record the exact prior and candidate backend/frontend image/artifact identities.
+1. Record the exact prior and candidate application image/artifact identities.
    Preserve a matching prior artifact; do not rely on a mutable image tag.
    Inventory native consumers of the configuration too: `soda-runners` uses the
    same strict loader. A pre-grant-key binary rejects `grant_key_file`; back up
@@ -41,7 +42,7 @@ application startup. Setup/activation retain first-install refusal.
    For an encrypted v3 database, reuse its exact existing key—never generate a
    replacement. Place the final key under `/etc/soda` with root:soda 0640 and a
    restricted parent, as the native service recipe expects.
-5. Validate the matching frontend bundle and config/key before opening the copied
+5. Validate the matching backend/native payload and config/key before opening the copied
    database through the candidate. Exercise preservation, missing/wrong key,
    grant binding, callback/consent, refresh/logout and rollback tests against
    controlled fixtures. No live schema change is authorized by this document.
@@ -84,10 +85,11 @@ implemented or implied.
 
 Forgejo 15.0.7 reuses confidential-client grants and does not return scopes in the
 token response. Soda verifies actual scopes by the supported introspection
-endpoint. For older `read:user` consent, users must revoke that native application
-grant in Forgejo Applications settings and consent again for repository writes.
-Administrators separately request administrator consent. This is not a request
-to replace the OAuth application or use the bootstrap token for a denied user.
+endpoint. For an older insufficient grant, the acting user may need to explicitly revoke
+that unique Soda application grant in native Applications settings and consent
+again. Current Soda requests only read user/repository/organization scopes; the
+retired admin form no longer requests administrator consent. Do not automatically
+revoke grants, replace the OAuth application or use the bootstrap token for a denial.
 
 Native refresh counters belong to a user/application grant. Another session's
 login or refresh can invalidate an older refresh token when upstream invalidation

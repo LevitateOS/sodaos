@@ -32,10 +32,10 @@ release-day outcome without inventing transport, implicit join or automatic star
 
 | Area | Internal follow-up, not public readiness copy |
 | --- | --- |
-| ISO/QCOW2/Scaleway | Website launch paths are preserved. P09/P10 media remain unselected in the engineering plan. Bind the public deployment guides to real release recipes, exact artifact forms, target firmware/disk semantics and platform-specific Ignition delivery before launch. Do not call a CoreOS base/kit a preinstalled Soda disk or infer cloud-init/Anaconda from the predecessor. |
+| ISO/QCOW2/Scaleway | Website launch paths are preserved. Installer-media deliverables remain unselected. Bind the public deployment guides to real release recipes, exact artifact forms, target firmware/disk semantics and platform-specific Ignition delivery before launch. Do not call a CoreOS base/kit a preinstalled Soda disk or infer cloud-init/Anaconda from the predecessor. |
 | Artifact trust | The new repository has no selected predecessor-equivalent release signing/publishing contract. Verification prose explains trusted digests without inventing a Sigstore workflow, filenames, OCI host image or signed record. Add exact trust bootstrap and commands once selected; do not copy the old production certificate identity. |
-| Product acceptance | U20 owns release proof, native architectures, fresh install, upgrade and lifecycle. These docs create no execution grant, new implementation milestone or evidence of a working terminal/complete dashboard. |
-| Interface wording | Confirm actual release labels and native fallback destinations against each completed page; do not couple public instructions to `/app/` preview routes. |
+| Product acceptance | Final product validation still requires native architectures, fresh install, upgrade and lifecycle proof. These docs create no execution grant, new implementation milestone or evidence of a working terminal/complete dashboard. |
+| Interface wording | Confirm actual native Forgejo/Sodaspaces labels and destinations against implemented pages; do not couple public instructions to `/app/` preview routes. |
 | Existing-workspace terminal | Test the requested own-user/selected-project experience and session/security behavior before taking screenshots or accepting the corresponding instructions. No mechanism is selected here. |
 | Backup/maintenance | Native operator procedures are guidance, not a new coordinated Soda backup/restore/updater feature. Match application upgrade steps and database/grant-key compatibility to the release. |
 | Screenshots | Capture real dashboard/Forgejo/operator views per `docs/screenshot-capture.md`. No image placeholders, generated UI or private test evidence are published. |

@@ -8,7 +8,7 @@ published pages. Implementation and publication gaps belong in
 [the internal editorial checklist](../public-docs-review.md) and
 [implementation status](../implementation-status.md).
 
-The [architecture](../architecture.md), [leading dashboard plan](../dashboard-implementation-plan.md)
+The [architecture](../architecture.md), [current Sodaspaces plan](../sodaspaces-plan.md)
 and [scope boundary](../deferred.md) govern the new product. The website's
 release-day deployment presentation retains ISO, QCOW2 and Scaleway paths,
 x86-64 and AArch64, and personally owned hardware as well as team servers.

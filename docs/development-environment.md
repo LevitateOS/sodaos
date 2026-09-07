@@ -1,6 +1,6 @@
 # Working inside a project
 
-Adapted from the predecessor's developer handbook for project-local identities and shared resources. The retained x86_64 fixtures now have direct SSH/file-transfer, personal Git and shared-tool evidence. This is not complete product/persistence acceptance; see the [current handoff](implementation-status.md#personal-git-shared-tools-and-nested-workload-evidence).
+Adapted from the predecessor's developer handbook for project-local identities and shared resources. The retained x86_64 fixtures now have direct SSH/file-transfer, personal Git and shared-tool evidence. This is not complete product/persistence acceptance; see the [current handoff](implementation-status.md#accepted-native-evidence).
 
 ## Join, verify and connect
 

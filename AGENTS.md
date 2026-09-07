@@ -5,19 +5,16 @@
 Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
-- `docs/dashboard-plan.md` — selected frontend/ownership constraints and page/dependency inventory
-- `docs/dashboard-implementation-plan.md` — leading core U01–U20 plan, including production native integration and product acceptance; conditional E01–E03 extensions
-- `docs/native-porting-plan.md` — subordinate outside VM/SSH/evidence/artifact tools, provisioning support and retained host-operator integrations
+- `docs/sodaspaces-plan.md` — short current implementation sequence and ownership
 - `docs/native-support.md` — authored support-tool contracts, private inputs, phase effects and retention; not execution permission or native proof
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence
-- `docs/implementation-plan.md` — historical initial M01–M18 plan; not the new dashboard implementation sequence
 
 For deployment changes, also read `docs/installation.md` and `docs/native-validation.md`. Read the relevant feature guide before changing project environments, Cockpit, Tailnet or Runners.
 
 ## Current execution boundary
 
-The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; default routes remain HTMX. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not U20/release acceptance. The missing console hook remains an explicit P11/U20 delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
+The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; default routes remain HTMX. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not final-product/release acceptance. The missing console hook remains an explicit delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
 
 The user subsequently authorized local builds and automated tests for the U09
 source work on this development machine. This does not authorize deployment,
@@ -50,7 +47,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
 - **Use Forgejo's official template overrides for Forgejo-owned workflows.**
   Native server-rendered pages/handlers/authentication are selected, with custom
   shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
-  superseded. See the decision at the top of `docs/dashboard-implementation-plan.md`.
+  superseded. See `docs/sodaspaces-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
   tab/right-drawer addition. No new component library or Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
@@ -66,8 +63,10 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   administration, or access its database directly. Supported customization is
   described in `docs/forgejo-frontend-integration.md`. The fork-specific preparer
   and proposals have been removed; Git history retains them. The source-backed
-  H01 action register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
-  findings before implementing a feature or assuming an API gap.
+  historical audit/plans remain in Git at `9f3baa7`, not an active feature checklist.
+  **Architecture lesson:** the assistant wrongly promoted an API-only preference
+  into a requirement. Verify official extension points and exact upstream source
+  before declaring a limitation; missing JSON is not missing native functionality.
   **Forking Forgejo is an architectural failure path, not an implementation
   option.** A downstream source patch set/custom executable counts as a fork
   even if called a small adapter or API extension. If a requirement appears to
@@ -108,13 +107,13 @@ The current **source implementation**, not an immutable deployment prescription:
 | --- | --- |
 | Host | Fedora CoreOS candidate with rpm-ostree layering; native Cockpit, `tailscaled`, project helper and CI runner services |
 | Appliance applications | Separate Podman containers for Forgejo, the dashboard and Caddy; Forgejo is **not currently a Podman pod** |
-| Projects | Persistent Rocky + mise containers with project-local accounts and writable roots; nested Podman is the unvalidated workload candidate |
+| Projects | Persistent Rocky + mise containers with project-local accounts and writable roots; nested Podman has only bounded native x86_64 evidence |
 | Application code | Go API/OAuth/setup/native integration; native Forgejo frontend; TypeScript/React Cockpit pages |
 
 Use actual service/image/configuration source to establish details. A pod groups
 containers; it is not itself a Linux user database, init system or filesystem.
-Do not call the nested runtime proven or describe the unused host fallback as
-implemented. Introduce Rust only for a concrete need and an agreed responsibility.
+Do not infer full runtime compatibility from bounded evidence or describe the
+unused host fallback as implemented. Introduce Rust only for a concrete need and an agreed responsibility.
 
 ## Human-maintainable engineering
 
@@ -180,7 +179,7 @@ recovery, project deletion/archival or a new release/update platform.
 
 ## Scope discipline
 
-**Plan precedence:** `docs/dashboard-implementation-plan.md` wins over `docs/native-porting-plan.md` for core behavior, API/auth/data/build contracts and product acceptance. Production `internal/host/` and `project-os/` are core, not outside harness code. Former P07/P08 developer/workload/persistence work belongs only to U08/U20. P tools can invoke those core-owned tests and hand off evidence, not copy scenarios or create a second readiness gate. Coordinate shared build/config/staging files by the core plan's ownership matrix. Optional native media and unfinished helper ports do not block core work using existing authorized tools.
+**Ownership:** `docs/sodaspaces-plan.md`, production callers and the API/credential guides govern product behavior and shared build/config/staging contracts. `internal/host/` and `project-os/` are production integration, not outside harness code. Support tools may invoke product-owned tests and hand off evidence, not copy scenarios or create a second readiness gate. Optional native media and unfinished helper ports do not block work using existing authorized tools. Old M/U/P plans and the forge API register are retired; historical labels remain only for existing evidence/tool contracts, not a progress tally.
 
 Keep ordinary Git, mise and container workflows. Shared resources mean actual shared files, installed tools and services—not just a shared download cache.
 

@@ -89,6 +89,6 @@ The installed workload test bounds HTTP/PostgreSQL readiness after detached
 startup. `workloads.sh check` performs only readiness/SQL observations against
 already started workloads; it does not replay up/build after an uncertain result.
 
-See the [handoff](implementation-status.md#u08-different-uid-exec-verified--c96c108)
+See the [handoff](implementation-status.md#accepted-native-evidence)
 for exact resources, revisions, failures and retained state. Do not remove failed
 containers/volumes or run `down -v` as a repair shortcut.

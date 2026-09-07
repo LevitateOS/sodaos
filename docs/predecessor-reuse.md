@@ -36,7 +36,11 @@ Relevant operating instructions are linked from the README. Native application c
 
 ## Native support source reuse
 
-The [native support porting plan](native-porting-plan.md) identifies outside VM/QMP, process cleanup, SSH/evidence, artifact-inspection, provisioning and retained operator helpers. It is subordinate to the [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting), which owns the frontend/backend, production native environments and U08/U20 product tests. Predecessor product/workload/preservation scenarios are references for the core's existing test entrypoints, not another Go P-plan suite; former P07/P08 redirect to U08/U20.
+The [native support guide](native-support.md) describes retained outside VM/QMP,
+process/SSH/evidence, artifact/provisioning and operator helpers. The [Sodaspaces
+plan](sodaspaces-plan.md) and production callers own product contracts and native
+environments. Predecessor product/workload/preservation scenarios are references
+for existing product tests, not a second Go harness suite or readiness gate.
 
 The active source port now has concrete callers under `tools/`, adapted helpers/tests in `internal/acceptance` and `internal/nativebuild`, exact-source remote phases, bundle/provisioning integration and retained-operator checks. See [support contracts/recipes](native-support.md) and [source attribution](native-support-notices.md). No builds, tests or native observations were performed for this source port. Optional ISO/QCOW2 wrappers remain unimplemented, require a delivery decision and do not gate core work. Retain CoreOS/project-local identities; do not import bootc/Anaconda, old host-workspace assertions or release qualification/publication machinery. Native architecture evidence remains independent.
 

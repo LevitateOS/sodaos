@@ -1,23 +1,30 @@
 # Native support tools
 
-**Implemented tooling with partial recorded execution, not completed support acceptance.** The full x86_64 `8417a90` build/stage/seal and component checks now provide evidence; the corrected pinned Go suite passed subsequently. The aggregate check was not successfully rerun. Fresh support-fixture/install/operator and aarch64 proof remain pending. The [remaining-work audit at `58ddc0d`](native-porting-audit.md) also identifies source defects and missing tests; this guide describes the intended contracts, not a claim that all are fully enforced.
+Implemented outside artifact/VM/SSH/evidence tools with **partial native evidence**.
+See the [handoff](implementation-status.md) for exact build/check revisions and
+limits; suite participation does not prove every remote/VM/install path. The
+historical plan/audit are retired from active docs; unresolved checks are retained
+[below](#remaining-validation), not declared fixed by deleting an audit.
 
-A subsequent [source remediation pass](native-porting-audit.md#source-remediation-follow-up) tightens these boundaries and adds tests. Those edits are not built/tested and do not complete native exits; preserve historical bundles with their own verifier rather than resealing them under the new contract.
-
-The [dashboard implementation plan](dashboard-implementation-plan.md) owns the core product and U08/U20 acceptance. These tools cover the active scope of the [native support plan](native-porting-plan.md): P01–P06, P11 and the P12/P13 reporting interfaces, subject to the audited remaining implementation work. P07/P08 remain redirects. P09/P10 media remain unselected. No helper, flag, source commit or report grants execution permission.
+The [Sodaspaces plan](sodaspaces-plan.md) and production callers own API/config/schema,
+build/stage and product behavior. These tools supply transport/artifacts/observations,
+not duplicate product scenarios or a second readiness gate. Optional ISO/QCOW2
+wrappers remain unselected. U/P labels in existing CLI arguments and observations
+are retained protocol/evidence identifiers, not an active numbered roadmap. No
+helper, flag, commit or report grants execution permission.
 
 ## Shared contracts and provenance
 
 | Interface | Owner / implementation boundary |
 | --- | --- |
-| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Core build/stage remain authoritative. P04 adds fresh-output locking, explicit OCI archives, resolved image IDs, public input metadata and sealing. U02 owns native customization and the Go API command; standalone React build/output has been removed. |
-| Containerfile `BASE_IMAGE` argument | P04 pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
-| `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. P04/P05 add verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
+| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Production build/stage remain authoritative. Support adds fresh-output locking, OCI archives, resolved image IDs, public input metadata and sealing. No standalone Soda UI payload remains. |
+| Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
+| `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. Support adds verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
 | `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. The bundle carries only the verifier as a transport utility, not an installed program. |
-| Installed checks | P06 owns host/ordering/PAM-account/TLS observations; P11 owns retained-operator observations. Existing `dashboard.mjs`, developer/shared-tools/workload/persistence journeys stay core-owned. |
+| Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; new native-page coverage remains pending. |
 
-No new Go dependency was added. Reuse and licensing are recorded in [native support notices](native-support-notices.md). The predecessor checkout and `scripts/test-vm.sh` are unchanged.
+Reuse and licensing are recorded in [native support notices](native-support-notices.md). The predecessor checkout and `scripts/test-vm.sh` remain separate and preserved.
 
 ## Effects and permissions
 
@@ -113,7 +120,7 @@ Remote commands are bounded with native `timeout` plus a 10-second termination a
   --out /absolute/cache/new-coreos-attempt
 ```
 
-Both compressed/uncompressed hashes and the selected GPG signature must match. Success writes a read-only `coreos.qcow2` and private `verified-base.json`. A failed attempt is retained and cannot be overwritten. This is a fixture base, **not P10 delivery or a preinstalled Soda disk**.
+Both compressed/uncompressed hashes and the selected GPG signature must match. Success writes a read-only `coreos.qcow2` and private `verified-base.json`. A failed attempt is retained and cannot be overwritten. This is a fixture base, **not a preinstalled Soda disk or selected media deliverable**.
 
 Prepare one private directory, a fresh Ed25519 **host** key, the operator's existing public authentication key, and a private crypt password-hash file. Host and operator keys are different identities. Host-key generation and conversion are explicit actions; never put passwords/hashes/key contents in shell arguments or logs.
 
@@ -176,7 +183,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 | `forgejo-advertisement.sh` | Explicit existing-helper invocation and unchanged core origins; also requires `SODA_ALLOW_FORGEJO_ADVERTISEMENT_REFRESH=1` and an already approved running Tailnet. |
 | `probe-ssh --owner P11 --remote FILE …` | Pinned Git endpoint observed from the actual selected client. Use `User: git`; no identity key is used. Not Git auth/project acceptance. |
 
-Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains core U08/U20.
+Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains product validation.
 
 Registration/start/stop/restart/remove use the **existing** `soda-runners` stdin protocol and Cockpit UI with separately approved IDs/provider grants. Retain actual provider run URL/attempt and job output, not merely listener status. `tests/fixtures/runner/native-support.yaml` is a manually selected trusted-job fixture, outside CI discovery; approve any copy/scheduling in the actual provider repository first. Choose the actual registered label. Record registration removal, service/account cleanup and provider leftovers explicitly. Never dump registrations, runner credentials, container environments or entire provider responses.
 
@@ -195,6 +202,35 @@ Each new private evidence root has bounded, streaming-redacted captures. Structu
   --out /absolute/private/new-support-handoff.md
 ```
 
-Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Core observations are cited with owner U08/U20, not independently certified. No sibling/media/product qualification gate is introduced.
+Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Product observations retain their original owner labels (including historical U08/U20), not an independent support certification. No sibling/media/product qualification gate is introduced.
 
-Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`, `tests/build/test_native_support.py` and existing core/packaging/Cockpit tests. Later execution of the existing suites is recorded in [implementation status](implementation-status.md); the [audit's coverage inventory](native-porting-audit.md#4-missing-authored-coverage-versus-tests-merely-awaiting-rerun) distinguishes missing cases from checks awaiting an exact-candidate rerun. Fix the audited source boundaries before relying on their advertised guarantees. Native builds/checks/VM/provider work still require the applicable action/target permission.
+Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`,
+`tests/build/test_native_support.py` and production/packaging/Cockpit tests. Execution
+is revision-scoped in the handoff. Native builds/checks/VM/provider work still need
+applicable action/target permission.
+
+## Remaining validation
+
+Condensed from the audit at `58ddc0d` and its subsequent source-remediation record,
+retained in full at `git show 9f3baa7:docs/native-porting-audit.md`. The old audit's
+line-specific defects are not assertions about today's edited source. These are
+remaining proof/coverage obligations, not new work authorizations or a finding
+that any retained bundle leaked secrets.
+
+| Boundary | Source follow-up and remaining proof |
+| --- | --- |
+| Public/private payload | Explicit public paths and real credential-name rejection tests exist; exercise fresh staging/export and private-input contamination. Filename checks cannot prove unknown secrets absent from allowed content. Preserve old bundles with their original verifier. |
+| Process ownership | Linux non-reaping leader/group termination and resistant-descendant cases exist; native cancellation, leader-first exit, remote interruption and exact bounded cleanup still need observed results. No stale-PID adoption. |
+| Evidence/redaction/finalization | Structured escaped-secret handling and exclusive pending→final publication exist; retain failure-injection coverage and exercise actual partial launch/write/close/scan/cleanup failures. Unknown secrets remain outside exact-match guarantees. |
+| Filesystem confinement | Directory-relative scans/hash/copy and parent checks exist; cover changed parents, special files, byte changes during copy/stream and actual native extraction, including legitimate CoreOS `/usr/local` mapping. |
+| Artifact identity | Retired SPA payloads are rejected; rebuild/check current Go/Cockpit output. OCI schema/descriptor/rootfs checks and tiny real tar fixtures exist, not a full compressed-layer/native-import proof. Verify exact transfer digest, installer/verifier trust and byte-bound handoff; generic exec identity stays caller-declared. |
+| CoreOS/VM inputs | Missing-tool preflight, version capture and bounded tool phases exist. Independently select trusted signer/keyring and matching per-architecture firmware/tools; exercise retrieval/signature/decompression, strict Ignition and fresh KVM boot/restart/shutdown with retained disk/NVRAM. Never adopt the live guest. |
+| First installation | Route/container-network collision, writable ancestry and booted-deployment checks exist; complete behavioral rejection fixtures and a genuinely fresh exact-target install/activation without repair edits. Reinstalling the persistent guest is not that proof. |
+| Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and both providers' actual runner lifecycle/jobs/removal require separate grants. |
+| Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage and independent aarch64 results remain incomplete; no inferred full support acceptance. |
+
+Tests for these boundaries are not an exhaustive recovery framework. Preserve
+failed attempts and the worktree retention mappings. Product reachability, native
+Git/shared tools/workloads/persistence and browser integration remain in
+[native validation](native-validation.md), not a second support suite. Actual
+input/package/license/source-delivery closure is still required; see [licensing](licensing.md).

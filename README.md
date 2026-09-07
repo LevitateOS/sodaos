@@ -1,107 +1,72 @@
 # SodaOS
 
-Persistent, shared development environments on an immutable appliance host. Developers use a browser, ordinary SSH, Git, mise and container tools—not individual Linux accounts on the host.
+Persistent, shared development environments on an operator-managed Fedora CoreOS
+appliance. Developers use native Forgejo, SSH, Git, mise and container tools—not
+individual Linux accounts on the host.
 
-**The local Soda dashboard is running, with Forgejo OAuth sign-in verified in a real browser.** Open **https://localhost:24443** using the tunnels and private operator credentials in [local dashboard access](docs/local-testing.md). Recorded native x86_64 build/source checks passed, but the merged tree, including branding, console and project-CLI follow-ups, has not been rebuilt or retested. Full developer/project journeys remain unvalidated. This is not a ready-to-deploy release. See [implementation status](docs/implementation-status.md) for evidence and remaining work.
+**Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
+tab/environment drawer. Both standalone Soda frontends (React and Go/HTMX) are
+removed. The protected Go environment/access API, OAuth, native provisioning and
+separate Cockpit Tailnet/Runners pages remain. **Sodaspaces is not implemented yet.**
 
-**Frontend direction:** native Forgejo pages with supported customization and the planned **Sodaspaces** repository tab/environment drawer. The standalone React dashboard and duplicate forge adapters have been removed from source; the old Go/HTMX frontend is now removed too. The Go environment/access API, OAuth/security/native integration and separate Cockpit pages remain. The drawer is not implemented or deployed. See the [leading plan](docs/dashboard-implementation-plan.md) and [current handoff](docs/implementation-status.md).
+The isolated `soda-test` guest still has historical `8b823db` React preview/HTMX
+bytes; source cleanup has not been deployed. Bounded native x86_64 first-product
+proof is accepted, not final product, fresh-install or aarch64 acceptance. See
+[current work](docs/sodaspaces-plan.md), [handoff/evidence](docs/implementation-status.md)
+and [local access](docs/local-testing.md). This is not a ready-to-deploy release.
 
-**Plan ownership:** the dashboard implementation plan leads the core—including production native environments and their acceptance. The [native support porting plan](docs/native-porting-plan.md) covers outside VM/SSH/evidence/artifact helpers, provisioning and host-operator integrations. It follows the core's contracts; optional media is not a core prerequisite. The active [support tool source and recipes](docs/native-support.md) are now authored, with tests not yet executed; no new native readiness is claimed.
-
-## How it fits together
+## System
 
 ```text
-CoreOS host — operator administration only
-├── Native systemd services
-│   ├── Cockpit + Soda Tailnet/Runners pages
-│   ├── tailscaled
-│   ├── Restricted Soda project helper
-│   └── Local CI runners
+Fedora CoreOS host — operator administration only
+├── Native Cockpit + Tailnet/Runners, tailscaled, project helper and CI runners
 └── Podman
-    ├── Soda service — Go API/OAuth, persistent SQLite database
-    ├── Forgejo — identity and Git, persistent data and its own SQLite database
-    ├── Caddy — private HTTPS endpoints
-    └── Persistent project environments — Rocky Linux + mise
-        ├── Project-local Linux accounts, homes and SSH
-        ├── Shared files and installed tools
-        └── Project-local services through nested Podman
+    ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
+    ├── Soda Go API/OAuth service — separate SQLite/grants
+    ├── Caddy — configured private HTTPS endpoints
+    └── Persistent Rocky + mise projects
+        ├── Project-local accounts, homes, SSH and personal checkouts
+        ├── Actual shared installed tools/files
+        └── Native nested workloads and persistent service data
 ```
 
-The implemented host candidate is **Fedora CoreOS**, with native packages requested through **rpm-ostree layering**. Tailscale runs on that host as `tailscaled.service`; it is not embedded in Forgejo or the projects.
+Forgejo, Soda and Caddy are separate containers; **Forgejo is not a Podman pod**.
+See [architecture](docs/architecture.md) and `appliance/services/` for ownership and
+placement. The repository's human owner administers its project, not the host.
+Each user explicitly joins with a public development key; native Git authorization
+is separate. Normal startup preserves the existing container/root, not replacement.
 
-**Forgejo is currently a standalone Podman container, not a Podman pod.** Its Quadlet is [`appliance/services/forgejo.container`](appliance/services/forgejo.container). The dashboard and HTTPS proxy also have separate container definitions.
+Project access is ordinary `user@project-ip`, SCP/SFTP and native service ports.
+Clients need a real route; host Tailnet enrollment alone does not provide it.
+Cockpit is loopback-first/root-only. Browser origins, Git advertisement and project
+routing are separate configuration—not inferred from an old port or hostname.
 
-Native package layering and initial services have been exercised on the isolated x86_64 host. Nested Podman, real client routing and the full product journey still need validation.
+## Source and guides
 
-## Developer workflow
-
-**Target workflow:** native Forgejo pages plus the planned Sodaspaces integration.
-Both old Soda frontends are removed from source; new browser controls are not yet
-implemented. Existing protected APIs and native provisioning remain.
-
-1. The operator establishes Forgejo/Soda access; native Forgejo handles account administration.
-2. Developers sign in through Forgejo and register development-access public keys through the planned Sodaspaces controls. Private keys stay on their clients.
-3. A repository's human owner explicitly creates its shared environment through Sodaspaces. That owner administers the project, not the host.
-4. Each person explicitly selects **Add me to this project**, including the creator.
-5. Developers connect directly to the project's IP, for example `ssh alice@192.168.1.101`, and use ordinary SSH commands, SCP and SFTP.
-6. Personal checkouts coexist with shared files, actual shared mise installations and project services. Git credentials remain separately managed by Forgejo.
-
-Projects retain their writable userspace across normal stop/start. Replacing or deleting a project container is not normal startup or maintenance.
-
-## Private connectivity and operator tools
-
-Cockpit is loopback-first and permits only the native root/operator identity. Its retained Tailnet page controls host Tailscale; Runners manages local Forgejo/GitHub execution capacity. Providers still own CI workflows, scheduling and results.
-
-Browser services and Forgejo Git SSH bind to an explicitly selected private appliance address. For Tailnet access, that listener must accept the host's Tailscale IP. Forgejo's SSH advertisement refresh checks this rather than inventing a reachable endpoint; browser/OAuth origins remain configured separately.
-
-Project IPs use a separate routed bridge subnet. Developer clients need a LAN route through the appliance or an advertised and approved Tailscale subnet route. **Enrolling the host in Tailscale does not automatically make project IPs reachable.** No project DNS or project SSH gateway is used.
-
-## Repository map
-
-| Path | Purpose |
+| Area | Source / documentation |
 | --- | --- |
-| `cmd/`, `internal/` | Go dashboard, database, provider clients and native helpers |
-| `internal/web/` | Soda environment/access APIs and OAuth; no standalone React or Go/HTMX frontend |
-| `cockpit/` | Retained TypeScript/React Tailnet and Runners pages and tests |
-| `project-os/` | Rocky project image, accounts, SSH, shared tools and workload configuration |
-| `appliance/` | Native services, Quadlets, configuration and activation source |
-| `scripts/` | Explicit build, staging, provisioning, installation, check and local test-VM entrypoints |
-| `tools/soda-{artifacts,acceptance}/` | Outside artifact/VM/transport/evidence tools, never installed as appliance commands |
-| `tests/` | Authored staging checks and opt-in installed journeys/fixtures |
-| `assets/` | Canonical branding and attribution |
-| `docs/` | Architecture, scope, implementation handoff and operator guides |
+| Product decisions and remaining work | [Architecture](docs/architecture.md), [Sodaspaces plan](docs/sodaspaces-plan.md), [deferred scope](docs/deferred.md) |
+| API/auth/native integration | `cmd/`, `internal/`, [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md), [Forgejo customization](docs/forgejo-frontend-integration.md) |
+| Installation/operator access | `appliance/`, `scripts/`, [installation](docs/installation.md), [bootstrap](docs/operator-setup.md), [native validation](docs/native-validation.md) |
+| Project environments | `project-os/`, [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |
+| Cockpit and outside tooling | `cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
+| Branding and reuse | `assets/`, [attribution](docs/predecessor-reuse.md), [console](docs/console-welcome.md), [branding review](docs/branding-review.md), [capture rules](docs/screenshot-capture.md) |
+| Public handbook | [Release-day handbook](docs/public/10-Start-here/10-index.md), [authoring/sync](docs/public/README.md), [editorial review](docs/public-docs-review.md); intended product documentation, not current acceptance |
+| Evidence and coding guidance | [Current handoff](docs/implementation-status.md), [local test host](docs/local-testing.md), [AGENTS.md](AGENTS.md) |
 
-## Read next
-
-- [Release-day public handbook](docs/public/10-Start-here/10-index.md), [authoring/website sync](docs/public/README.md) and [internal editorial review](docs/public-docs-review.md)
-- [Architecture](docs/architecture.md) and [deferred scope](docs/deferred.md)
-- [Current frontend/backend milestone plan](docs/dashboard-implementation-plan.md), [page/dependency inventory](docs/dashboard-plan.md) and [current handoff](docs/implementation-status.md)
-- [Historical initial M01–M18 plan](docs/implementation-plan.md)
-- [Installation](docs/installation.md) and [operator bootstrap](docs/operator-setup.md)
-- [Development environment](docs/development-environment.md), [project services](docs/project-services.md) and [provider CLIs](docs/project-clis.md)
-- [Operator welcome](docs/console-welcome.md), [branding review](docs/branding-review.md) and [screenshot guidance](docs/screenshot-capture.md)
-- [Predecessor reuse inventory](docs/predecessor-reuse.md) and [subordinate native support porting plan](docs/native-porting-plan.md)
-- [Local test host access](docs/local-testing.md) and [native validation](docs/native-validation.md)
-- [Coding-agent instructions](AGENTS.md)
-
-## Development and validation
-
-Native execution has started on the x86_64 builder and its isolated `soda-test` VM. Installation on other targets, host networking changes, provider enrollment and destructive lifecycle checks still require explicit scope and permission. Keep source-check, host-boot and end-to-end evidence separate; do not report unexecuted checks as passed.
-
-The implementation targets native x86_64 and aarch64 independently. Evidence on one is not evidence on the other, and an unavailable sibling does not block useful authorized work.
-
-Selected native/Cockpit code is reused from the predecessor repository, with attribution in the handoff and retained license files. The old vendored HTMX payload/license and embedding code were removed with that frontend; their historical attribution remains in Git.
+Native x86_64 and aarch64 are independent targets. Builds/tests, installation,
+restart, routing, provider mutations and destructive cleanup need their applicable
+scope; neither this README nor a tool flag grants it. Preserve credentials, project
+state, backups and failed evidence. Historical plans/audits remain in Git, not active
+roadmaps; the handoff explains where to find them.
 
 ## License
 
-Original SodaOS code, documentation and configuration are licensed under the
-[Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution and
-scope. This grant does **not** relicense inherited code, canonical artwork or
-third-party material. Their existing notices and terms remain applicable;
-absence of a license on an inherited file is not an Apache grant.
+Original SodaOS code, documentation and configuration are licensed under
+[Apache-2.0](LICENSE). [NOTICE](NOTICE) defines attribution and scope. This does not
+relicense inherited code, canonical artwork or third-party material; their existing
+terms apply, and a missing inherited license is not an Apache grant.
 
-Forgejo modifications retain Forgejo's applicable licenses. The appliance also
-contains separately licensed libraries, fonts, tools and runtime packages. Its
-exact corresponding-source/notice delivery and inherited-rights checks remain
-required under [the licensing/delivery contract](docs/licensing.md), not satisfied
-by adding this original-code license.
+Preserve Forgejo and other dependency licenses. Actual-artifact corresponding-source,
+notice/font delivery and inherited-rights clearance remain required under
+[licensing](docs/licensing.md), not satisfied by adding the original-code license.

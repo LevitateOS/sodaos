@@ -11,7 +11,7 @@ U08 closure run found that the existing VM lacks the profile hook: source/stagin
 success did not install it. `tests/installed/operator.sh` now fails on a missing
 or failing hook rather than allowing a subsequent sentinel to hide the failure;
 its focused missing/failing/noisy/quiet regression passed. Native console delivery
-and interactive verification remain P11/U20 work, not a passing full operator
+and interactive verification remain outstanding, not a passing full operator
 journey. On an approved rollout, install the matching renderer/hook and verify
 root interactive output, configured URLs, no secret leakage and quiet
 noninteractive transfers separately from the [native product journey](native-validation.md).

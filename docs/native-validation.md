@@ -1,14 +1,24 @@
 # Native validation
 
-**U08 native x86_64 first-product proof accepted; full U20 acceptance remains pending.** [Implementation status](implementation-status.md) records the full `8b823db` merged native build/aggregate check, backed-up rollout and affected regressions, alongside c96c108 fresh-project exec and earlier scoped persistence results. [Local testing](local-testing.md) records four retained environments and approved infra routing; this is not a fresh appliance/support-fixture installation proof. See the [native porting audit](native-porting-audit.md) for remaining source defects, tests and native exits. Name the actual builder, installed target, architecture, developer client and permitted actions before additional execution. A build permit is not a disk-install, provider-registration, service-stop or reboot permit. Missing access is **unverified**, not passed or simulated.
+**Historical bounded U08 native x86_64 proof is accepted; new UI and final product
+acceptance are pending.** The [handoff](implementation-status.md) records exact
+`8b823db` build/rollout/regressions and scoped earlier lifecycle/fresh-project proof.
+The four retained environments and infra route are not a fresh appliance install
+or independent aarch64 result. No old browser harness validates current API-only source.
 
-**Ownership:** U08/U20 in the [leading core plan](dashboard-implementation-plan.md#core-owned-native-proof-detail) own the browser/developer/workload/persistence journeys and overall product acceptance; individual features own their focused tests. The subordinate [native support plan](native-porting-plan.md) supplies VM/SSH/evidence/artifact/provisioning helpers, P06 host observations and P11 retained operator integrations. P07/P08 redirect to the core rather than create a second suite. Optional media and unfinished support ports do not block using the existing authorized entrypoints.
+This is the product validation guide, not another roadmap. Features own their
+focused tests; extend existing product entrypoints rather than copying scenarios
+into the [outside support tools](native-support.md). Those tools have separate
+[remaining checks](native-support.md#remaining-validation), not a second readiness
+gate. Optional media/helper completion is not required to use authorized tools.
 
-The [support tools and check entrypoints](native-support.md) have partial build/source-check evidence, but their new VM/remote/transfer/install/operator paths are not all natively exercised. P12/P13 report interfaces do not establish those results. Audited support-source fixes, clean first installation, complete QEMU/firmware/Ignition and retained operator journeys, and independent aarch64 proof remain; core aggregate success does not close those separate cases. Each native action still needs its applicable authorization.
+Name the exact revision/artifacts, builder, target, architecture, developer client,
+actions and cleanup limits before execution. Rehearse preserved-state changes before
+separately approved cutover. A build permit is not install/restart, disk erasure,
+provider registration, routing or fixture permission. Record reused evidence by
+exact bytes/target, not a second independent PASS. Missing access is **unverified**.
 
-This guide records operational checks, not another implementation roadmap. The M15–M18 labels below identify the historical proof stages and existing commands; current ownership follows U/P above. Record reused evidence by exact revision/bytes/target, never as a second independent PASS. No new execution is authorized by these plans.
-
-## M15: native source/build evidence
+## Native source and build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
 
@@ -26,12 +36,16 @@ After separately authorized installation, inspect:
 
 Do not paste credentials, full container environment dumps, provisioning password hashes or private keys into evidence. Service/listener state alone does not prove a login or development journey.
 
-## M16–M17: explicitly permitted Alice/Bob journey
+## Explicitly permitted product journey
 
-These actions **change real state**. Use operator-approved users, projects/repositories and credentials, with real client reachability. Extend/invoke the core-owned installed tests and [U08 proof detail](dashboard-implementation-plan.md#core-owned-native-proof-detail), including shared installation identity, precise denials and failed-snapshot handling; do not implement this sequence again in the P harness.
+These actions **change real state**. Use explicitly approved users, repositories,
+projects and credentials with real client reachability; existing fixture grants
+are not reusable permission. Extend/invoke product-owned installed tests. Keep shared
+installation identity, precise denial results and failure-safe bounded snapshots;
+a failed inspection is not evidence of absent state or forbidden access.
 
 1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Both old Soda frontends are removed from current source; native Sodaspaces browser coverage remains pending. Verify actual native Forgejo administrator authority, not the retired Soda People form. Ordinary non-admin developers cannot use administrator APIs; Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority.
-2. Create `alice` and `bob` through People; each changes their initial password in Forgejo and signs into Soda separately. Register each person's public development-access key. Private keys stay on their clients.
+2. Provision the approved Alice/Bob identities through native Forgejo; each completes native password/security requirements and authenticates independently. Exercise native-page/Sodaspaces identity matching and development-key controls once implemented. Private keys stay on their clients; no database-seeded browser success.
 3. Alice creates an ordinary Forgejo repository with native Git credentials and then creates its Soda environment. Only its human owner may create that environment. Both explicitly select **Add me to this project**. No creator auto-enrollment is assumed.
 4. From the real developer client, verify the SSH host key through native operator access and connect to the displayed project IP as Alice and Bob. Exercise interactive SSH, a noninteractive command, SCP and SFTP. Do not disable host-key checking to manufacture a pass.
 5. Run `tests/installed/project-os.sh` inside the project with `SODA_NATIVE_VALIDATE` set only for that named target. Inspect `sudo -l`: Alice is project-local administrator, Bob is not. Neither acquires a host account or the host engine socket. A second project must have separate writable state and native identities.
@@ -39,6 +53,14 @@ These actions **change real state**. Use operator-approved users, projects/repos
 7. Alice installs a shared tool with native mise using the documented root/global path (see [development environment](development-environment.md)). Execute `tests/installed/shared-tools.sh` from the real client with explicit Alice/Bob/project inputs. Verify both resolve and execute the same `/opt/mise/installs` installation without independent downloads.
 8. In Alice's ordinary checkout of `tests/fixtures/workload`, provide a disposable database password and explicitly run `tests/installed/workloads.sh`. This builds images and starts services. Confirm the web/database from Bob and the actual client, not only localhost. Inspect a real bind-mounted file and persistent database write/read. Do not delete volumes automatically.
 9. With separate permission, stop/start the existing `soda-project@ID.service`; then authorize a host reboot independently. Verify the same project container, accounts/homes/SSH host keys, shared installs/files, service configuration and database data survive. Do not remove/replace the project container to make it start.
+10. Once implemented, verify the browser terminal is the user's existing project-local account/home, with explicit session lifetime, origin/CSRF, bounded transport and cross-project denials. Opening it must not create/join/start anything or expose host root.
+
+For supported customization, test the affected native login/MFA/consent, developer
+and administrator workflows, scripts/forms, enabled/disabled states and ordinary
+Git/LFS/package protocols. Keep current native authorization after rename/transfer,
+without automatic Linux remapping. Cover stale/denied/error states, keyboard/focus,
+narrow/wide display and upgrade compatibility. Native workflows stay upstream-owned;
+there is no requirement to rebuild them against the retired 179-group JSON register.
 
 The highest-risk profile is nested Podman with private cgroups, user-namespace allocation, fuse and the selected capabilities/seccomp/SELinux arrangement. If a real blocker appears, correct the concrete mechanism. Only then investigate the project-scoped host fallback; do not expose an unrestricted host socket, enable a privileged parent or introduce a VM substitute without revisiting the design.
 
@@ -62,6 +84,6 @@ Removing a runner destroys its local state. Only exercise removal on an explicit
 - In Alice/Bob's project, inspect `tea --version`/`gh --version`. With separate provider/account permission, follow [CLI authentication](project-clis.md) and confirm each uses only their own credential state. Mere CLI availability is not API compatibility evidence.
 - Capture actual UI only under the [screenshot brief](screenshot-capture.md); no generated or component-sheet images stand in for installed product behavior.
 
-## M18: independent AArch64 evidence
+## Independent aarch64 evidence
 
 Repeat on actual matching-native aarch64 access when authorized. No sibling barrier, cross-build substitute or emulator result is native installed proof. Record that architecture's own results and unresolved differences.

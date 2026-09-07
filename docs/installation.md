@@ -2,7 +2,13 @@
 
 Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
 
-The [leading core plan](dashboard-implementation-plan.md#coordination-with-native-support-porting) owns application payload/assets, configuration, credentials, migrations and cutover. The subordinate [native support plan](native-porting-plan.md) supplies artifact inspection/bundling and provisioning transport around those contracts. Its ISO/QCOW2 wrappers are conditional proposals, not implemented or required for core delivery. The [support source and recipes](native-support.md) have now participated in the sealed x86_64 `8417a90` build; their remaining native/architecture limits are recorded in the [implementation status](implementation-status.md). The commands below retain the existing installation path with sealed bundles and private provisioning; do not assume a Soda host OCI, installer ISO or preinstalled QCOW2 is available, or rerun first-install as a dashboard migration.
+The [Sodaspaces plan](sodaspaces-plan.md) and production callers own application
+payload/configuration/credentials/migrations/cutover. [Native support](native-support.md)
+supplies artifact inspection/bundling and provisioning transport, not a second
+installer or product gate. ISO/QCOW2 wrappers are unselected/unimplemented. See
+[handoff](implementation-status.md) for actual native build/check limits. The recipes
+below use sealed bundles and private provisioning; do not assume a Soda host OCI,
+installer ISO or preinstalled QCOW2, or replay first-install as a service upgrade.
 
 ## 1. Prepare the native builder
 
@@ -74,7 +80,7 @@ a prior binary is not assumed compatible with the new schema.
 
 The implemented profile is a native routed Podman bridge (`soda0`) on the appliance. Host-to-project access is through that bridge; developer clients need a route for the chosen project subnet via the appliance. Set that route on the deployment's LAN router, or use a native Tailscale subnet route with the required Tailnet administrator approval. Respect existing firewall policy and authorize only the intended private ingress/forwarding. No project DNS, SSH gateway or extra identity authority is required.
 
-Host Tailnet enrollment by itself does not route the project subnet. Port-forward-only access to a builder VM is not proof that real developer clients can reach project IPs. Verify the actual routing/firewall setup in core U08 (the current owner of the historical M16 proof); do not call a Podman-only address usable because it appears on the dashboard.
+Host Tailnet enrollment by itself does not route the project subnet. Port-forward-only access to a builder VM is not proof that real developer clients can reach project IPs. Verify the actual routing/firewall setup in the product journey; do not call a Podman-only address usable because it appears on the dashboard.
 
 ## 5. Operator services and state
 

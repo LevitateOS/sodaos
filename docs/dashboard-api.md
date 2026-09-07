@@ -79,5 +79,5 @@ and Cockpit tests remain. Sodaspaces browser replacement coverage is pending, no
 inferred from historical React results.
 
 See [credential/migration constraints](dashboard-credentials.md),
-[leading plan](dashboard-implementation-plan.md), [frontend integration](forgejo-frontend-integration.md)
+[current plan](sodaspaces-plan.md), [frontend integration](forgejo-frontend-integration.md)
 and [handoff](implementation-status.md) for current scope and performed checks.
