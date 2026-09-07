@@ -155,13 +155,6 @@ func (s *Server) validMutation(r *http.Request, csrf string) bool {
 	}
 	return csrf != "" && subtle.ConstantTimeCompare([]byte(r.FormValue("csrf")), []byte(csrf)) == 1
 }
-func (s *Server) operator(w http.ResponseWriter, v store.Session) bool {
-	if v.User.ID != s.Config.OperatorID {
-		s.fail(w, "Operator access required.", 403)
-		return false
-	}
-	return true
-}
 func (s *Server) redirectLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Redirect", "/login")

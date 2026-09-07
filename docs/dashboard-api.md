@@ -27,9 +27,9 @@ DTOs. No operation retries a write or substitutes an operator credential.
 | `GET/POST /api/me/development-keys` | List canonical keys; POST `public_key`; own user only, duplicate fingerprint no-op, no private keys/options or later native propagation |
 | `GET /api/environments` | Trusted-team environment reservations, including incomplete ones; not upstream repository visibility |
 | `POST /api/environments` | `{owner,repository}`; resolve upstream identity/owner using acting-user grant, reserve once, call real native create; creator is **not** joined |
-| `GET /api/environments/{id}` | Reservation/provisioning result, nullable live observation, own login and narrow environment-administrator hint; inspect incomplete reservations too |
+| `GET /api/environments/{id}` | Reservation/provisioning result, nullable live observation, own login and current-native-authority/Soda-operator hint; `authority_unavailable` distinguishes unverified ownership. Inspect incomplete reservations too; cached `owner_id` is historical, not current authorization |
 | `POST /api/environments/{id}/join` | `{}`; session-derived Linux identity, own public keys, fixed native account operation; membership follows native success |
-| `GET /api/environments/{id}/members` | Owner/Soda operator sees permitted members; others see only their own membership |
+| `GET /api/environments/{id}/members` | Current native human/org owner or explicit Soda operator sees permitted members; others see only their own membership. `authority_unavailable:true` withholds elevated visibility on lookup/consent failure, preserving own membership |
 | `GET /api/environments/{id}/connection` | Requires own membership; current IP/running state and fixed public Ed25519 host key/fingerprint; `routing_verified:false` |
 
 Create failures return the retained environment ID and `Location` with a truthful

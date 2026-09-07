@@ -40,7 +40,8 @@ mount. No template copy/render path currently exists. `internal/web/auth.go` onl
 allows `/projects` and `/app/` as OAuth return destinations. `/api/session` already
 supplies configured `forgejo_url`; native navigation should use it safely rather
 than invent another endpoint/origin configuration store. The entry-route, renderer,
-packaging, permission fixes and browser assertions in the plan are still to write.
+packaging and browser assertions in the plan are still to write. The three known
+Soda authority defects now have source fixes/local regressions, not installed proof.
 
 ## Actual template mechanism and limits
 

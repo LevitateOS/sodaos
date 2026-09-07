@@ -1,5 +1,58 @@
 # Implementation handoff
 
+## Template preparation — active authority fixes in source
+
+Started implementing the preparation plan from clean `66266a0`. This commit closes
+its three known active Soda authority defects in source (preparation commit 2),
+not the entire template preparation sequence or any new U acceptance. The bounded
+hook/container review from the preceding plan remains valid; final public-URL/
+render/delivery/session integration closure is still pending. Only U08 is accepted.
+
+- Legacy `/projects` reads and creates now use the session-bound acting grant and
+  repository scope, never the setup token. Discovery uses existing bounded
+  `/user/repos` pages with explicit next-page navigation, including after filtering
+  already-reserved repositories. Removed the now-uncalled unbounded
+  `UserRepositories` implementation and adapted its failure/cancellation tests to
+  the actual bounded caller; setup/operator clients were not removed.
+- Legacy People GET/POST now delegate through acting-user admin-scoped native
+  requests. Native site admins need not be Soda operators; operator identity is
+  not sufficient. Missing consent gives safe native Applications/reconsent links,
+  not privilege escalation or POST replay. Removed the dead operator-only page
+  predicate and independent Linux/`root`/minimum-password rules from account
+  creation/forms; bounds and CSRF remain. Account creation no longer seeds a Soda
+  profile before OAuth. Project Linux eligibility checks remain at provisioning.
+- Added stock repository-by-ID and organization-owner reads. Environment detail/
+  membership visibility uses current native owner identity or native `is_owner`,
+  not cached `Project.OwnerID`, org `is_admin` or arbitrary site-admin status.
+  The configured Soda operator remains an explicit separate authority. Failure
+  withholds elevated visibility and reports `authority_unavailable`; own membership
+  and connection access remain usable. React reports that distinction. Lookup does
+  not remap stored ownership/login, Linux users, keys, homes or existing access.
+
+Focused tests cover acting-token/native-denial boundaries, non-operator native
+admins, native account validation, CSRF/consent, bounded discovery, current/former
+human owner, organization owner versus admin, malformed/deleted/unavailable native
+results, explicit Soda operator and retained memberships. React tests exercise
+ownership lookup failure at detail and member reads without losing own connection.
+These use test doubles/private local fixtures, not live Forgejo/Linux proof.
+
+Checks passed: remaining full Go suite (some cached), Go race suite for web/Forgejo,
+TypeScript check and all 33 dashboard tests in 15 files. Used installed Go 1.26.7
+with readonly modules/cached dependencies and network resolution disabled; frontend
+used installed Node 24.20.0/dependencies. Logs:
+`.artifacts/research/template-implementation-66266a0/`. No dependency changes,
+artifact/image build, template rollout, provider action, service restart or native
+installed test occurred. Four environments, credentials and prior evidence remain
+untouched; installed affected components still `8b823db` with stock Forgejo 15.0.7.
+Document checks passed 20 U milestones, three conditional E tracks, all 179 groups,
+11 local new/plan links and 37 incoming plan links; `git diff --check` passed.
+
+**Next source work:** complete the bounded template/URL/render contract, implement
+repository-context entry and safe OAuth return, then actual hook/render/staging
+scaffolding and focused native-browser tests. Terminal and coherent duplicate
+frontend retirement remain later U07/U18 work. This is an implemented security
+slice, not a claim that the requested preparation plan is finished.
+
 ## Native-template/API preparation plan — source work specified, not implemented
 
 After clean `effc501`, added the user's requested concrete preparation sequence to

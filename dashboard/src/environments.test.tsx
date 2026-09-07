@@ -24,3 +24,18 @@ it("requires an explicit join and never reports a failed native join as membersh
   expect(write?.[0]).toBe("/api/environments/p1/join"); expect(write?.[1].body).toBe("{}");
   expect(fetcher.mock.calls.some(([path]) => path.endsWith("/connection"))).toBe(false);
 });
+
+it.each(["detail", "members"])("preserves own connection when %s cannot verify current ownership", async (failureAt) => {
+  const fetcher = vi.fn(async (path: string) => {
+    const value = path.endsWith("/members") ? { items: [{ user_id: "1", login: "linux-alice" }], authority_unavailable: failureAt === "members" }
+      : path.endsWith("/connection") ? { login: "linux-alice", connection: { environment: { running: true, ip: "10.89.0.2" }, host_key: "public-test-key", fingerprint: "public-test-fingerprint" }, routing_verified: false }
+        : { environment: { id: "p1", name: "demo", repository: "alice/demo", provisioned: true }, observed: { running: true }, login: "linux-alice", environment_administrator: failureAt !== "detail", authority_unavailable: failureAt === "detail" };
+    return new Response(JSON.stringify(value), { headers: { "Content-Type": "application/json" } });
+  });
+  vi.stubGlobal("fetch", fetcher); useSession.setState({ session: alice, phase: "authenticated" });
+  render(<MemoryRouter initialEntries={["/environments/p1"]}><Routes><Route path="/environments/:id" element={<EnvironmentDetail session={alice} />} /></Routes></MemoryRouter>);
+  await screen.findByText(/Current Forgejo ownership could not be verified/);
+  await screen.findByText(/ssh linux-alice@10.89.0.2/);
+  expect(screen.queryByText(/You may view the environment membership/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add me to this project" })).toBeNull();
+});

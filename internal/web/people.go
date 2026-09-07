@@ -2,35 +2,30 @@ package web
 
 import (
 	"net/http"
-	"net/mail"
-	"regexp"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
-
 type Page struct {
 	Environment     host.Environment
 	NativeError     bool
 	Session         store.Session
-	Operator        bool
 	Keys            []store.Key
 	Users           []store.User
 	Projects        []store.Project
 	Repositories    []forgejo.Repository
 	RepositoryError bool
+	NextPage        *int
 	Project         store.Project
 	Member          string
 	ForgejoURL      string
 }
 
 func (s *Server) page(v store.Session) Page {
-	return Page{Session: v, Operator: v.User.ID == s.Config.OperatorID, ForgejoURL: s.Config.ForgejoURL}
+	return Page{Session: v, ForgejoURL: s.Config.ForgejoURL}
 }
 func (s *Server) profile(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p := s.page(v)
@@ -62,40 +57,55 @@ func (s *Server) addKey(w http.ResponseWriter, r *http.Request, v store.Session)
 	http.Redirect(w, r, "/profile", 303)
 }
 func (s *Server) people(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.operator(w, v) {
+	grant, err := s.userGrant(r, v)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	if !forgejo.HasScope(grant.Scopes, "read:admin") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		s.render(w, "people-consent", s.page(v))
+		return
+	}
+	page, ok := apiPage(w, r)
+	if !ok {
+		return
+	}
+	users, pagination, err := s.Forgejo.People(r.Context(), grant.Access, page)
+	if err != nil {
+		providerError(w, err)
 		return
 	}
 	p := s.page(v)
-	var err error
-	p.Users, err = s.Store.Users(r.Context())
-	if err != nil {
-		s.fail(w, "Cannot list people.", 500)
-		return
+	p.NextPage = pagination.NextPage
+	for _, u := range users {
+		p.Users = append(p.Users, store.User{ID: u.ID, Login: u.Login, Name: u.Name})
 	}
 	s.render(w, "people", p)
 }
 func (s *Server) createPerson(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !s.operator(w, v) {
-		return
-	}
-	login, email, password := strings.TrimSpace(r.FormValue("login")), strings.TrimSpace(r.FormValue("email")), r.FormValue("password")
-	if _, err := mail.ParseAddress(email); err != nil || !projectLogin.MatchString(login) || login == "root" || len(password) < 12 {
-		s.fail(w, "Provide a lowercase Linux-compatible username (1–31 characters, not root), email and initial password of at least 12 characters.", 400)
-		return
-	}
-	admin, err := config.Secret(s.Config.AdminTokenFile)
+	grant, err := s.userGrant(r, v)
 	if err != nil {
-		s.fail(w, "Operator provider credential is unavailable.", 503)
+		providerError(w, err)
 		return
 	}
-	u, err := s.Forgejo.CreateUser(r.Context(), admin, login, email, password)
+	if !forgejo.HasScope(grant.Scopes, "write:admin") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		s.render(w, "people-consent", s.page(v))
+		return
+	}
+	login, email, password := r.FormValue("login"), r.FormValue("email"), r.FormValue("password")
+	if login == "" || len(login) > 255 || email == "" || len(email) > 320 || password == "" || len(password) > 4096 {
+		s.fail(w, "Provide a username, email and initial password within supported lengths.", 400)
+		return
+	}
+	_, err = s.Forgejo.CreateUser(r.Context(), grant.Access, login, email, password)
 	if err != nil {
-		s.fail(w, "Forgejo could not create the user. Inspect native Forgejo administration before retrying.", 502)
+		providerError(w, err)
 		return
 	}
-	if err = s.Store.UpsertUser(r.Context(), store.User{ID: u.ID, Login: u.Login, Name: u.Name}); err != nil {
-		s.fail(w, "Forgejo user created, but Soda profile could not be stored. Inspect native state before retrying.", 500)
-		return
-	}
+	// Native onboarding/OAuth establishes the Soda profile, not an admin snapshot.
 	http.Redirect(w, r, "/people", 303)
 }

@@ -103,9 +103,10 @@ and default Soda routes remain HTMX. Forgejo remains stock 15.0.7. Four environm
 and all existing login/data/evidence stay untouched by source cleanup.
 
 The three inspected authority defects in legacy admin-token substitution, native
-account creation rules and cached environment ownership remain source work. Native
-replacement pages can retire obsolete callers after proof, not silently excuse
-active vulnerabilities or remove legitimate environment checks.
+account creation rules and cached environment ownership now have source fixes/local
+regressions; the installed candidate remains unchanged. Native replacement pages
+can retire obsolete callers after proof, not silently excuse active vulnerabilities
+or remove legitimate environment checks.
 
 U01 still needs the concrete supported template/integration review. U02 packages
 customization, U03/U04 integrate secure native/Soda behavior, feature owners verify

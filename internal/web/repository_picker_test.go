@@ -1,14 +1,15 @@
 package web
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/store"
@@ -35,10 +36,10 @@ func TestProjectRepositoryPicker(t *testing.T) {
 				{"id":21,"full_name":"team/private","owner":{"id":99}},
 				{"id":0,"full_name":"alice/invalid","owner":{"id":1}}
 			]`,
-			status: 200, wantOptions: true, wantCalls: 2,
+			status: 200, wantOptions: true, wantCalls: 1,
 		},
 		{name: "empty account", body: `[]`, status: 200, wantCalls: 1},
-		{name: "all repositories already reserved", body: `[{"id":7,"full_name":"alice/existing","owner":{"id":1}},{"id":8,"full_name":"alice/incomplete","owner":{"id":1}}]`, status: 200, wantCalls: 2},
+		{name: "all repositories already reserved", body: `[{"id":7,"full_name":"alice/existing","owner":{"id":1}},{"id":8,"full_name":"alice/incomplete","owner":{"id":1}}]`, status: 200, wantCalls: 1},
 		{name: "provider unavailable", body: "provider-private-detail", status: 503, wantError: true, wantCalls: 1},
 		{name: "invalid provider response", body: "{", status: 200, wantError: true, wantCalls: 1},
 		{name: "missing credential", missingKey: true, wantError: true},
@@ -46,7 +47,7 @@ func TestProjectRepositoryPicker(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			dir := t.TempDir()
-			db, err := store.Open(filepath.Join(dir, "soda.db"))
+			db, err := store.OpenEncrypted(filepath.Join(dir, "soda.db"), bytes.Repeat([]byte{1}, 32))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -54,7 +55,12 @@ func TestProjectRepositoryPicker(t *testing.T) {
 			if err := db.UpsertUser(ctx, store.User{ID: 1, Login: "alice"}); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.CreateSession(ctx, "session", 1, "csrf"); err != nil {
+			if test.missingKey {
+				err = db.CreateSession(ctx, "session", 1, "csrf")
+			} else {
+				err = db.CreateGrantedSession(ctx, "session", 1, "csrf", store.Grant{Access: "acting-alice", Refresh: "refresh", Scopes: "read:repository", Expires: time.Now().Add(time.Hour).Unix()})
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 			for _, project := range []store.Project{
@@ -68,17 +74,11 @@ func TestProjectRepositoryPicker(t *testing.T) {
 			if err := db.MarkReady(ctx, "p-existing", "10.89.0.2"); err != nil {
 				t.Fatal(err)
 			}
-			key := filepath.Join(dir, "token")
-			if !test.missingKey {
-				if err := os.WriteFile(key, []byte("operator-token"), 0600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			s := New(config.Config{PublicURL: "https://soda.test", ForgejoURL: "https://forgejo.test", ForgejoInternalURL: "http://forgejo", AdminTokenFile: key, OperatorID: 99}, db)
+			s := New(config.Config{PublicURL: "https://soda.test", ForgejoURL: "https://forgejo.test", ForgejoInternalURL: "http://forgejo", AdminTokenFile: "/must-not-read-bootstrap-token", OperatorID: 99}, db)
 			calls := 0
 			s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 				calls++
-				if r.URL.Path != "/api/v1/users/alice/repos" || r.Header.Get("Authorization") != "token operator-token" {
+				if r.URL.Path != "/api/v1/user/repos" || r.Header.Get("Authorization") != "token acting-alice" {
 					t.Fatal("listing must use the session user, not the operator's repository inventory")
 				}
 				body := test.body
@@ -129,7 +129,7 @@ func TestProjectRepositoryPicker(t *testing.T) {
 
 func TestProjectCreateRejectsForgedPickerChoice(t *testing.T) {
 	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "soda.db"))
+	db, err := store.OpenEncrypted(filepath.Join(dir, "soda.db"), bytes.Repeat([]byte{1}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,14 +137,10 @@ func TestProjectCreateRejectsForgedPickerChoice(t *testing.T) {
 	if err := db.UpsertUser(t.Context(), store.User{ID: 1, Login: "alice"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.CreateSession(t.Context(), "session", 1, "csrf"); err != nil {
+	if err := db.CreateGrantedSession(t.Context(), "session", 1, "csrf", store.Grant{Access: "acting-alice", Refresh: "refresh", Scopes: "read:repository", Expires: time.Now().Add(time.Hour).Unix()}); err != nil {
 		t.Fatal(err)
 	}
-	key := filepath.Join(dir, "token")
-	if err := os.WriteFile(key, []byte("operator-token"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	s := New(config.Config{PublicURL: "https://soda.test", ForgejoInternalURL: "http://forgejo", AdminTokenFile: key}, db)
+	s := New(config.Config{PublicURL: "https://soda.test", ForgejoInternalURL: "http://forgejo", AdminTokenFile: "/must-not-read-bootstrap-token"}, db)
 	s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path != "/api/v1/repos/bob/private" {
 			t.Fatal("submission did not recheck the selected repository")

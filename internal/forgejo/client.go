@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -95,24 +94,6 @@ func (c *Client) Repository(ctx context.Context, token, owner, name string) (Rep
 	var r Repository
 	err := c.request(ctx, "GET", "/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(name), token, nil, &r)
 	return r, err
-}
-
-// UserRepositories lists the requested user's repositories, not those of the
-// operator whose token authorizes the request. Continue until an empty page so
-// a server-side page-size cap cannot silently truncate the picker.
-func (c *Client) UserRepositories(ctx context.Context, token, username string) ([]Repository, error) {
-	var repositories []Repository
-	for page := 1; ; page++ {
-		var batch []Repository
-		path := fmt.Sprintf("/users/%s/repos?page=%d&limit=50", url.PathEscape(username), page)
-		if err := c.request(ctx, "GET", path, token, nil, &batch); err != nil {
-			return nil, err
-		}
-		if len(batch) == 0 {
-			return repositories, nil
-		}
-		repositories = append(repositories, batch...)
-	}
 }
 
 func (c *Client) Application(ctx context.Context, token, redirect string) (Application, error) {

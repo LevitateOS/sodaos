@@ -140,13 +140,15 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	if nativeErr == nil {
 		observed = &env
 	}
+	administrator, authorityErr := s.environmentAdministrator(r, v, p)
 	jsonResponse(w, 200, struct {
-		Environment       environmentView   `json:"environment"`
-		Observed          *host.Environment `json:"observed"`
-		NativeUnavailable bool              `json:"native_unavailable"`
-		Login             string            `json:"login"`
-		Administrator     bool              `json:"environment_administrator"`
-	}{environmentDTO(p), observed, nativeErr != nil, login, p.OwnerID == v.User.ID || s.Config.OperatorID == v.User.ID})
+		AuthorityUnavailable bool              `json:"authority_unavailable"`
+		Environment          environmentView   `json:"environment"`
+		Observed             *host.Environment `json:"observed"`
+		NativeUnavailable    bool              `json:"native_unavailable"`
+		Login                string            `json:"login"`
+		Administrator        bool              `json:"environment_administrator"`
+	}{authorityErr != nil, environmentDTO(p), observed, nativeErr != nil, login, administrator})
 }
 func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !decodeAPIObject(w, r, &struct{}{}) {
@@ -214,7 +216,8 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 		Login  string `json:"login"`
 	}
 	items := []memberView{}
-	if p.OwnerID == v.User.ID || s.Config.OperatorID == v.User.ID {
+	administrator, authorityErr := s.environmentAdministrator(r, v, p)
+	if administrator {
 		members, err := s.Store.Members(r.Context(), p.ID)
 		if err != nil {
 			jsonError(w, 503, "store_unavailable", "Could not list members.")
@@ -234,8 +237,9 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 		}
 	}
 	jsonResponse(w, 200, struct {
-		Items []memberView `json:"items"`
-	}{items})
+		Items                []memberView `json:"items"`
+		AuthorityUnavailable bool         `json:"authority_unavailable"`
+	}{items, authorityErr != nil})
 }
 func (s *Server) apiConnection(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)

@@ -107,7 +107,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	}
 }
 
-func TestPeopleRequiresOperatorOnServer(t *testing.T) {
+func TestPeopleRequiresActingGrantOnServer(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "soda.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestPeopleRequiresOperatorOnServer(t *testing.T) {
 		r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session"})
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
-		if w.Code != 403 {
+		if w.Code != 401 {
 			t.Fatal(method, w.Code)
 		}
 	}

@@ -36,6 +36,7 @@
 <p class="notice">No repositories available to create an environment. Create a repository in Forgejo, or use an
     existing Soda project above.</p>
 {{end}}
+{{if .NextPage}}<p><a href="/projects?page={{.NextPage}}">Next repository page</a></p>{{end}}
 <p><a hx-boost="false" href="{{.ForgejoURL}}/repo/create">Create a repository in Forgejo</a> ·
     <a href="/projects">Refresh repositories</a></p>
 {{template "foot" .}}{{end}}

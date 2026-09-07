@@ -10,12 +10,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 var repoPart = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$`)
+
+// Linux eligibility is a provisioning constraint, not a Forgejo account rule.
+var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 func (s *Server) projectRoutes() {
 	s.mux.HandleFunc("GET /projects", s.protected(s.projects))
@@ -31,9 +34,17 @@ func (s *Server) projects(w http.ResponseWriter, r *http.Request, v store.Sessio
 		s.fail(w, "Cannot list projects.", 500)
 		return
 	}
-	admin, err := config.Secret(s.Config.AdminTokenFile)
-	if err == nil {
-		p.Repositories, err = s.Forgejo.UserRepositories(r.Context(), admin, v.User.Login)
+	page, ok := apiPage(w, r)
+	if !ok {
+		return
+	}
+	grant, err := s.userGrant(r, v)
+	if err == nil && forgejo.HasScope(grant.Scopes, "read:repository") {
+		var pagination forgejo.Pagination
+		p.Repositories, pagination, err = s.Forgejo.MyRepositories(r.Context(), grant.Access, page)
+		p.NextPage = pagination.NextPage
+	} else if err == nil {
+		err = store.ErrGrantUnavailable
 	}
 	if err != nil {
 		p.RepositoryError = true
@@ -62,14 +73,18 @@ func (s *Server) createProject(w http.ResponseWriter, r *http.Request, v store.S
 		s.fail(w, "Choose an existing Forgejo repository as owner/name.", 400)
 		return
 	}
-	admin, err := config.Secret(s.Config.AdminTokenFile)
+	grant, err := s.userGrant(r, v)
 	if err != nil {
-		s.fail(w, "Provider credential unavailable.", 503)
+		providerError(w, err)
 		return
 	}
-	repo, err := s.Forgejo.Repository(r.Context(), admin, parts[0], parts[1])
+	if !forgejo.HasScope(grant.Scopes, "read:repository") {
+		s.fail(w, "Forgejo repository consent is required.", 403)
+		return
+	}
+	repo, err := s.Forgejo.Repository(r.Context(), grant.Access, parts[0], parts[1])
 	if err != nil {
-		s.fail(w, "Cannot find that Forgejo repository.", 400)
+		providerError(w, err)
 		return
 	}
 	if repo.Owner.ID != v.User.ID || repo.ID <= 0 {

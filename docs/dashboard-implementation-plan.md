@@ -227,6 +227,10 @@ do not introduce an endpoint into Forgejo. This plan alone does not accept U01.
 
 #### Commit 2 — Fix active Soda authority paths (U04/U05/U06/U07/U12/U16)
 
+**Implemented in source with local regressions; not deployed.** See the
+[authority-fix handoff](implementation-status.md#template-preparation--active-authority-fixes-in-source).
+Repository-entry, hook delivery and native browser acceptance are still pending.
+
 Do this before exposing new integration navigation; it can proceed alongside the
 hook review because the three defects are already identified.
 
@@ -371,8 +375,8 @@ Trace setup, Cockpit and project-CLI consumers before removing any client method
 Do not retain two forge frontends permanently, and do not delete working workflows
 before replacements are proven. Narrow Soda's OAuth scopes after caller retirement.
 
-**Immediate next implementation:** commit 1's bounded contract closure and commit 2's
-known authority fixes, then commit 3's tested environment entry. Commit 4 can proceed
+**Immediate next implementation:** finish commit 1's bounded contract closure and
+commit 3's tested environment entry; commit 2's authority fixes are now in source. Commit 4 can proceed
 once route/public-URL contracts are settled; commit 5 integrates them. Each commit
 records source tests separately from native evidence. No new runtime/dependency,
 Forgejo fork, release platform or broad audit is a prerequisite.
@@ -387,13 +391,13 @@ integration. Confirm which existing Soda routes are kept versus replaced; preser
 working login. **Exit:** a concrete supported override/integration design and
 packaging/test responsibilities, without a fork requirement. **Still open.**
 
-Three inspected Soda defects remain actual source work, not resolved by deleting
-the preparer: shared-admin credentials in legacy projects/People (U04/U05/U06/U16),
-independent Linux/password rules in native account creation (U05/U16), and stale
-`Project.OwnerID` authority in environment APIs (U07/U12). Fix active paths or retire
-them after verified native replacements; do not leave them until final cleanup.
-Retain malformed-input/security bounds, Linux provisioning restrictions and real
-Soda membership enforcement. This is not an exhaustive authority audit.
+The three inspected defects now have source fixes and local regressions: legacy
+projects/People use acting grants (U04/U05/U06/U16), native account creation no longer
+imposes Linux/password policy (U05/U16), and environment membership views resolve
+current native ownership instead of `Project.OwnerID` (U07/U12). Installed components
+remain unchanged; native integrated acceptance is pending. Retain malformed-input/
+security bounds, Linux provisioning restrictions and real Soda memberships. This
+is neither an exhaustive authority audit nor completion of the preparation sequence.
 
 ### U02 — Stock Forgejo customization and Soda asset packaging
 
