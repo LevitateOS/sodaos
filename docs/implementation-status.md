@@ -25,6 +25,23 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Local signed-in dashboard preview
+
+The personal home feed now has an official Soda dashboard template override,
+new generated workbench artwork, responsive feed/sidebar layout and branded
+native empty guide. Native account/org navigation, alerts, heatmap, activity
+partial/pagination and Vue repository/organization controls remain composed
+upstream partials. Shared shell styles match the explorer; Forgejo account theme
+state remains authoritative. Custom dashboard copy is English for now.
+
+The local stock 15.0.7 preview reloaded successfully. Chrome verified empty feed,
+repository/organization tab switching, light and auto/dark themes, appearance
+navigation and 390px layout without horizontal overflow. Account theme was
+restored to `forgejo-auto`. Existing Alice authenticated HTTP rendering returned
+200 with populated activity and native repo-list markup; its populated layout was
+not visually checked. Organization/team contexts, heatmap and feed pagination
+were not newly exercised. No new fixture data or appliance deployment.
+
 ## Local repository explorer preview
 
 The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer

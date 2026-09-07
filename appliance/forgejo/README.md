@@ -167,3 +167,25 @@ Local browser checks covered signed-in repository no-match/reset (20 rows restor
 empty organizations with the native creation link, guest people search/clear
 (3 users restored), guest organization empty state without creation controls,
 dark desktop and light 480 CSS-pixel layout without horizontal overflow.
+
+### Signed-in home dashboard
+
+`user/dashboard/dashboard.tmpl` wraps the native account/context navigation,
+alerts, heatmap, activity/guide and Vue repository list. The new workbench hero,
+feed card, sidebar and discovery link use `dashboard.css`; shared navbar/footer
+rules in `explore.css` also cover `.soda-dashboard`. Native account themes remain
+authoritative. The appearance shortcut uses the upstream `PageIsNews` flag.
+Organization contexts retain stock navigation and receive an organization greeting.
+New custom copy is English pending the existing i18n follow-up.
+
+`dashboard-papercraft.png` is a newly generated supplemental asset; its exact
+prompt is in `assets/branding/forgejo/dashboard-art-prompt.md`.
+
+Local stock 15.0.7 template reload succeeded. Chrome checks covered the Vince
+empty feed, sidebar tab switching, light and auto/dark colors, native appearance
+shortcut, and 390px mobile layout without horizontal overflow. The original
+`forgejo-auto` preference was restored. An authenticated HTTP check as the existing
+Alice fixture returned the populated native activity feed and repository sidebar
+with the new wrapper (200); populated activity was not visually checked. No new
+records were created. Organization/team contexts, heatmap and feed pagination were
+retained by composition but not newly exercised. No appliance deployment occurred.

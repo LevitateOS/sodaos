@@ -5,6 +5,6 @@
 			</button>
 {{end}}
 
-{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations) .IsSigned}}
+{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations .PageIsNews) .IsSigned}}
   <a class="soda-account-appearance" href="{{AppSubUrl}}/user/settings/appearance" aria-label="{{ctx.Locale.Tr "settings.manage_themes"}}" title="{{ctx.Locale.Tr "settings.manage_themes"}}">{{svg "octicon-paintbrush" 21}}</a>
 {{end}}

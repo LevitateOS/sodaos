@@ -1,0 +1,32 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds soda-dashboard" data-signed="true">
+  <div class="soda-dashboard-container">
+    <section class="soda-dashboard-intro" aria-labelledby="soda-dashboard-title">
+      <div>
+        <p class="soda-explore-eyebrow">Your workbench</p>
+        <h1 id="soda-dashboard-title">{{if .ContextUser.IsOrganization}}{{.ContextUser.ShortName 40}}’s workbench.{{else}}Welcome back, {{.SignedUser.ShortName 40}}.{{end}}</h1>
+        <p class="soda-dashboard-lede">Pick up where you left off.</p>
+      </div>
+      <img class="soda-dashboard-art" src="{{AssetUrlPrefix}}/soda/forgejo/dashboard-papercraft.png" alt="" width="1536" height="1024">
+    </section>
+    {{template "user/dashboard/navbar" .}}
+    <div class="soda-dashboard-grid">
+      <section class="soda-dashboard-feed" aria-labelledby="soda-activity-title">
+        {{template "base/alert" .}}
+        <div class="soda-dashboard-heading"><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
+        {{template "user/heatmap" .}}
+        {{if .Feeds}}{{template "user/dashboard/feeds" .}}{{else}}{{template "user/dashboard/guide" .}}{{end}}
+      </section>
+      <aside class="soda-dashboard-sidebar" aria-label="Repositories and organizations">
+        {{template "user/dashboard/repolist" .}}
+        <section class="soda-dashboard-discover">
+          {{svg "octicon-telescope" 24}}
+          <h2>Find something to build.</h2>
+          <p>A new idea could be one repository away.</p>
+          <a href="{{AppSubUrl}}/explore/repos">Explore repositories {{svg "octicon-arrow-right" 16}}</a>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+{{template "base/footer" .}}
