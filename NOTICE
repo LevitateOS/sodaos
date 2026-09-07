@@ -1,0 +1,22 @@
+SodaOS
+
+Original SodaOS code, documentation and configuration are licensed under the
+Apache License, Version 2.0; see LICENSE and the licensing section of README.md.
+This statement does not relicense inherited or third-party material.
+
+Selected code and canonical branding were adapted or imported from Soda OS
+(https://github.com/LevitateOS/soda-os), including the source at revision
+bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c. See docs/predecessor-reuse.md,
+docs/native-support-notices.md and assets/README.md for provenance and scope.
+Existing copyright, license and trademark notices remain applicable. Missing
+inherited license grants are not supplied by the Apache license for original
+SodaOS work.
+
+Forgejo, Cockpit, HTMX, Tea, frontend dependencies, fonts, runtime packages and
+container inputs retain their respective licenses. A modified Forgejo build
+retains its applicable GPL-3.0-or-later and per-file terms, not an Apache-only
+license. See appliance/forgejo/README.md for source/notices delivery requirements.
+
+This notice records attribution and scope. It is not a complete third-party
+notice bundle or evidence that an appliance distribution has passed its license
+and corresponding-source checks. No trademark rights or endorsement are implied.

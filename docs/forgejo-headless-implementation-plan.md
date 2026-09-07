@@ -2,20 +2,21 @@
 
 **Status: H01 source audit recorded; H02 source preparation implemented at `c9a9be0`; native image/extensions remain unimplemented.**
 The [single workflow register](forgejo-api-coverage.md) now records the v15.0.7
-surface audit and targeted v16.0.3 comparison. Baseline, concrete contracts,
-authentication feasibility and maintenance review remain open; no patch/build/
-deployment or U milestone is accepted by that audit. Implements the proposed
+surface audit and targeted v16.0.3 comparison. U01's subsequent baseline/first-read/
+native-auth/build-license source review is accepted. The audit alone did not
+supply that review, and neither establishes native patch/build/deployment proof. Implements the proposed
 [architecture revision](forgejo-architecture-revision-plan.md) through the existing
 [U01–U20 owners](dashboard-implementation-plan.md). This is a detailed work package,
 not another product roadmap or a reset of accepted U08 evidence. The leading
 plan's [post-H01 execution order](dashboard-implementation-plan.md#6-milestone-map-and-execution-order)
 and [action ownership](dashboard-implementation-plan.md#9-inventory-coverage-cross-reference)
 now govern sequencing: early authentication/admin review, feature-owned gaps,
-candidate verification before retained-installation cutover. Only U08 is accepted
-(1/20). The [source preparer](../appliance/forgejo/README.md) locks 16.0.3 only as a
+candidate verification before retained-installation cutover. U01 planning/contract
+readiness and bounded U08 native x86_64 proof are accepted (2/20). The [source preparer](../appliance/forgejo/README.md) locks 16.0.3 only as a
 development candidate, not an approved deployment baseline. The
 [authentication design](forgejo-authentication-design.md) and
-[first read contracts](forgejo-read-contracts.md) are review drafts, not endpoints.
+[first read contracts](forgejo-read-contracts.md) record reviewed implementation
+dispositions, not existing endpoints.
 
 **Goal:** make missing or changing upstream interfaces a supported engineering
 path, not a recurring reason to expose Forgejo's frontend or abandon a feature.
@@ -311,16 +312,16 @@ does not create another readiness certificate or erase prior U08 scope.
 
 ## 10. Ready-to-implement review and first commits
 
-Before H02–H05 implementation, settle the concrete patch baseline/contracts,
-maintenance owners, runtime/build compatibility and authentication threat model
-at the relevant stage. The architecture and this implementation plan identify
-those decisions; they do not fabricate their outcomes.
+U01's baseline/first-read/native-auth/build-license source review is complete.
+Use its concrete dispositions; review actual native patch diffs and runtime/build
+results at their implementation stage. The review does not prove implemented
+compatibility, complete distribution compliance or headless authentication.
 
 Remaining coherent commit sequence — follow the leading plan's
 [U01 delta-only closure checklist](dashboard-implementation-plan.md#u01--capability-authority-and-baseline-audit), not a fresh R&D pass:
 
-1. Close genuine native-interface/security/build/license review gaps in the
-   existing source guide and corrected contracts. The user selected Apache-2.0
+1. Implement from the accepted U01 source/design review in the existing source
+   guide and contracts, without repeating its baseline/auth/read/license review. The user selected Apache-2.0
    for original Soda code; native auth/IdP/logout/ownership rules remain Forgejo's,
    not unanswered Soda policy choices. Fix the leading plan's explicit acting-user,
    account-validation and stale-owner defects under their U owners. Reuse H01 authority findings. Investigate
@@ -342,4 +343,5 @@ repository/account/provider mutations, new fixtures, upstream submission and
 publication retain separate scopes. H01 ran source/research/document checks only.
 H02 now has tested source preparation and a development input lock, not the native
 build/packaging spine. H03–H08 product implementation and native validation remain
-pending; drafts above expose decisions to resolve, not a missing-API waiver.
+pending; U01's accepted review supplies their initial implementation contracts,
+not a missing-API waiver or native completion claim.

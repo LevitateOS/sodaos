@@ -87,3 +87,17 @@ Native execution has started on the x86_64 builder and its isolated `soda-test` 
 The implementation targets native x86_64 and aarch64 independently. Evidence on one is not evidence on the other, and an unavailable sibling does not block useful authorized work.
 
 Selected native/Cockpit code is reused from the predecessor repository, with attribution in the handoff and retained license files. Vendored HTMX and its license are under `internal/web/static/`.
+
+## License
+
+Original SodaOS code, documentation and configuration are licensed under the
+[Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution and
+scope. This grant does **not** relicense inherited code, canonical artwork or
+third-party material. Their existing notices and terms remain applicable;
+absence of a license on an inherited file is not an Apache grant.
+
+Forgejo modifications retain Forgejo's applicable licenses. The appliance also
+contains separately licensed libraries, fonts, tools and runtime packages. Its
+exact corresponding-source/notice delivery and inherited-rights checks remain
+required under [U02's build contract](appliance/forgejo/README.md), not satisfied
+by adding this original-code license.

@@ -109,8 +109,9 @@ new license inventory was added to tracked source.
 - Dashboard's 17 and Cockpit's 19 direct installed package metadata entries were
   inspected against their manifests. They declare MIT except TypeScript's Apache
   license. PatternFly CSS lacks a top-level license file in that installed package;
-  U02 must obtain its exact upstream notice and embedded font notices, not infer
-  font/asset licensing from the JavaScript package name. Retain Cockpit's existing
+  the closing review below supplies its exact upstream notice/font findings.
+  U02 must deliver the matching notices, not infer font/asset licensing from the
+  JavaScript package name. Retain Cockpit's existing
   LGPL text, HTMX and Tea licenses and canonical branding attribution.
 - Upstream `Makefile`'s `go-licenses` target prefixes collection with `-` and hides
   stderr; `generate-go-licenses.go` excludes NOTICE/README files. **Do not accept
@@ -121,11 +122,11 @@ new license inventory was added to tracked source.
   build-tag identity. Reuse those texts where they match, rather than claiming they
   prove the final closure. Full transitive Go/native/font license clearance remains
   open; metadata inspection is not that clearance.
-- The user has selected **Apache-2.0 for original SodaOS code**. The top-level
-  license/notice boundary still needs to be authored; the choice is no longer an
-  open question. Preserve all inherited/third-party terms, including Forgejo's
-  GPL terms. This selection neither relicenses third-party code nor completes
-  distribution compliance or authorizes publication.
+- **Apache-2.0 for original SodaOS code is now implemented** in the root
+  `LICENSE`, `NOTICE` and README licensing scope. The license text is a verbatim
+  copy retrieved from the Apache Software Foundation. Inherited/third-party code
+  and artwork are explicitly outside that new grant; Forgejo retains its terms.
+  This is not complete distribution compliance or publication authorization.
 
 Selected delivery contract for U02: the existing native stage/bundle must include
 corresponding Forgejo source, ordered patches, build scripts/locks and required
@@ -137,10 +138,68 @@ existing staging/seal allowlists and provide Soda-owned notice/source access;
 no separate release platform or publication job. Resolve native build-image pins
 and assemble these outputs in U02, not by repeating U01 source preparation.
 
-**Remaining delivery work:** implement the selected original-code license/notice
-boundary and review Soda's actual patches and artifact-level obligations under the
-existing U owners. Forgejo's policies are not a new user decision. Unresolved
-license compatibility must be brought back before distribution, not called PASS.
+### U01 closing review — implementation-ready build and license contract
+
+The following closes the **planning/readiness review**, not the U02 image build
+or artifact-level license clearance. Reused the source lock/preparer and release
+review; did not resolve/install dependencies or build/retrieve a new image.
+
+Additional exact-input findings after `8727233`:
+
+- Retrieved PatternFly 6.6.1's actual `LICENSE.txt` at its published npm `gitHead`
+  `26b709bfeb14c3643a6b999a2619b6bd65641ffa`: MIT, copyright 2019 Red Hat, Inc.
+  Compared all **33 installed font files** with Git blob IDs in that exact source:
+  they match. They include Red Hat Display/Text/Mono and Font Awesome Solid.
+- Retrieved Red Hat Font's actual OFL/author texts as verified Git blobs, including
+  the **Reserved Font Name Red Hat**, and Font Awesome 5.0.13's license statement:
+  font files OFL-1.1, SVG/JS icons CC-BY-4.0, other code MIT. Preserve those
+  distinctions and attribution; CSS package MIT metadata cannot cover all fonts.
+  Exact shipped font/notice pairing still needs the U02 bundle check, not an
+  assumption that an arbitrary current OFL file matches every historical font.
+- Reviewed top-level license texts for all **13 modules named in Soda's go.mod**
+  from the existing exact-version caches. They use MIT/BSD grants and the YAML
+  module's per-file MIT/Apache split plus NOTICE. The initial default-cache scan
+  missed two modules; their exact files are in the existing go-runner cache. This
+  is not the full dependency graph or native Forgejo binary closure.
+- `cockpit/build/licenses.ts` explicitly exempts `@patternfly/*` from missing-text
+  refusal; dashboard imports that collector. **Reject this exemption for U02
+  distribution**: collect the exact missing CSS notice and emitted font/icon
+  notices rather than accepting the package name. Neither this nor upstream's
+  error-ignoring Go collector supplies complete compliance today.
+- The predecessor has no root LICENSE/COPYING grant in the inspected checkout.
+  Preserve file-level/vendor terms and provenance; do not relabel inherited
+  support/Cockpit code or canonical artwork Apache merely because it is present
+  here. U02's actual distributed-file review must establish the applicable grant
+  for every inherited item; unresolved rights stop distribution, not create a
+  license by inference. No predecessor file or license was modified.
+
+Evidence is retained in `.artifacts/research/u01-8727233/`: retrieval provenance,
+license texts, font Git-blob bindings and exact-module notice snapshots. Initial
+`LICENSE` retrieval returned 404 (`LICENSE.txt` was correct); broad Git-tree reads
+exceeded the 512 KiB and then 4 MiB bounds, so the successful review used only
+font directories. The 4 MiB prefix is retained; the first oversized body was not
+saved by the initial helper. No failed request is represented as a successful
+integrity check.
+
+**Selected U02 delivery decisions:**
+
+| Boundary | Concrete implementation / refusal contract |
+| --- | --- |
+| Native build | Keep the selected upstream Dockerfile/Makefile behavior: native Go/frontend generation, CGO, `sqlite sqlite_unlock_notify bindata timetzdata`, static executable, environment-to-ini and the complete s6/OpenSSH/Git runtime. Preserve `/data`, git UID/GID 1000 and entrypoint behavior. Require actual build-platform = target-platform on each native architecture; upstream cross helpers are not emulated acceptance. |
+| Input identities | Extend the existing source-lock/parser contract for the actual xx/Go/Alpine build-image/platform digests. Resolve them in U02, not invent them in U01. Keep native npm/go locks and the real upstream build tools; record apk/compiler/runtime resolver output. Digest pinning alone does not freeze package repositories or prove bit-for-bit reproducibility. |
+| Existing caller | Replace only Forgejo's pull in `scripts/build-native.sh` with the reviewed `scripts/build-forgejo.sh` caller. Retain `forgejo.iid`, `images/forgejo.oci`, native-info/stage/seal/install consumption and untouched Caddy/project inputs. The build-only Go preparer remains the sole source owner, outside `cmd/`; no second builder/release platform. |
+| Verification before consumption | Verify prepared tree/lock/patch binding immediately before build, then actual source/patch/platform/image identity and mandatory binary/assets/runtime content. Reject edited prepared trees, stale/missing outputs, wrong architecture, partial patches and mismatched image/notice/source payloads before staging/sealing. |
+| License compatibility | Apache for original Soda does not change GPL Forgejo or inherited terms. Preserve MIT/BSD notices, Apache NOTICE, MPL covered-source requirements, LGPL source/relinking obligations and OFL/CC attribution according to the actual shipped material. Review executable linkage and embedded assets, not just OCI labels or `dev` flags. Missing/unresolved rights or source obligations stop distribution. |
+| Source/notices payload | Supply the corresponding modified Forgejo source, ordered patches, scripts/locks and required dependency/runtime source/notices beside the exact image through the existing bundle. Match Go build tags/architecture and emitted frontend/assets to their actual versions/licenses; don't accept unbound `go-licenses.json` or swallowed collection errors. Add bounded Soda notice/source access and preserve third-party rights on removal/update. |
+| Acceptance checks | U02 authors/runs missing-notice/source, identity-mismatch, wrong-platform and private-input exclusion tests; U03 covers compatibility/migrations; feature owners cover each native patch; U17 exercises the first update/rebase/retirement case. Exact native builds/installed migration/Git/browser proof stay with those milestones and their target scopes. |
+
+**Review disposition:** proceed with this one source-backed build candidate.
+No known source-level license incompatibility forces a replacement stack/baseline;
+actual complete per-artifact closure and inherited-rights verification remain
+mandatory U02 deliverables, not a U01 legal-clearance PASS. Soda maintains/reviews
+its own packaging, adapters and carried patches under these existing owners;
+Forgejo owns upstream policy/fixes. No new named human is invented or assigned an
+upstream maintenance promise.
 
 ## Current concrete entrypoint
 
@@ -199,8 +258,10 @@ retried. This tool is not a sandbox for malicious same-user workspace mutation.
 Before connecting the aggregate build, finish these as one coherent source-backed
 candidate, rather than changing the service reference first:
 
-1. Review the concrete read/native-auth contracts and their native fixes; add
-   cohesive patches, native tests/schema, provenance and retirement conditions.
+1. Implement the reviewed read/native-auth extraction contracts and required
+   native fixes with cohesive patches, native tests/schema, provenance and
+   retirement conditions. Review actual patch diffs before accepting them; do not
+   repeat U01's source/architecture inventory.
 2. Implement the native Containerfile/build caller, preserving the selected
    upstream `Dockerfile`/Makefile behavior: frontend assets, Go generation,
    SQLite/bindata/timezone tags, CGO/static build, environment-to-ini, entrypoint,

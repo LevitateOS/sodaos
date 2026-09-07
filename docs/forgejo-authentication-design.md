@@ -143,6 +143,100 @@ native validation and fail new privileged work closed on uncertainty without
 removing data. U07 separately owns the browser terminal's authenticated connection
 lifetime; existing SSH/workload processes are not silently terminated.
 
+## U01 closing review — concrete native integration disposition
+
+Reviewed the prepared v16.0.3 source after `8727233`. **The shared-service direction
+is ready for implementation; stock bearer APIs alone are rejected.** This is a
+source/design verdict, not a passed headless login or approval to expose an
+untested patch. The first read contract is independently field-defined in the
+[read contract](forgejo-read-contracts.md). No second auth policy is selected.
+
+### Exact native owners and extraction boundaries
+
+| Operation | Selected native owner / implementation instruction |
+| --- | --- |
+| Password sign-in | `routers/web/auth/auth.go::SignInPost` calls `services/auth/method.UserSignIn`, observes native CAPTCHA and `EnableInternalSignIn`, honors the source's `LocalTwoFASkipper`, and stores native `twofaUid`/remember/link state before challenges. Extract those non-rendering decisions together, not just password verification. |
+| Successful authentication versus normal grant eligibility | `handleSignInFull`/`updateSession` perform native session regeneration, cleanup, locale and last-login effects. `routers/web/web.go::verifyAuthWithOptions` subsequently enforces activation/prohibition, forced password change and required MFA. A native `uid` is therefore **not** proof that an ordinary OAuth grant may be issued. Share these gates with the new native caller rather than rewriting or bypassing them. |
+| Forced password / recovery | `password.go::MustChangePasswordPost` and `ResetPasswdPost` call `services/user.UpdateAuth`; native minimum/complexity/pwned checks and authorization-token consumption stay there. `commonResetPassword` checks target identity and token purpose. Preserve native reset-token consumption order and honest failed/uncertain outcomes, not a Soda promise of reusable tokens or rollback. |
+| TOTP / scratch | `2fa.go::TwoFactorPost`/`TwoFactorScratchPost` validate through `models/auth.TwoFactor`, update native last-used/scratch state and finish native sign-in/linking. The current read/validate/update sequences are not proof of atomic concurrent consumption. Add native race/regression tests and any required shared-native atomic correction; serializing one Soda browser alone is insufficient. This is a concrete security review item, not a new attempt/lockout policy. |
+| WebAuthn | `webauthn.go::WebAuthnLoginAssertion`/`WebAuthnLoginAssertionPost` use native session-bound `SessionData`, `BeginLogin`/`ValidateLogin`, stored-credential lookup, legacy credential migration, clone detection and sign-counter persistence. Extract the complete operation and keep its cleanup/linking/native RP-ID/origin behavior. Do not validate the response in Soda. |
+| Consent / code / tokens | `oauth.go::AuthorizeOAuth`, `GrantApplicationOAuth`, `AccessTokenOAuth` and native `OAuth2Application`/`OAuth2Grant` operations own registered redirects, client validation, consent, codes, PKCE, exchange and refresh. Return typed native outcomes instead of HTML/redirect presentation. An existing confidential-client grant is reused; the native POST rejects a differently scoped existing grant. Do not silently enlarge scopes or revoke/recreate grants to make a request pass. Present native authorized-app management when its explicit action is required. |
+| Logout / revocation | `auth.go::HandleSignOut` flushes/destroys the native session and clears remember/redirect cookies; `SignOut` also emits the native logout event. It does not delete OAuth grants. `models/auth/oauth2.go::RevokeOAuth2Grant` separately deletes by grant ID **and user ID**, reached through native settings handlers. Preserve both operations' distinct effects; Soda clears its own session/private UI too. No invented IdP/global logout or Linux termination follows. |
+| External methods and conditional security | Existing `oauth.go`, `openid.go`, `linkaccount.go`, registration/activation and native security-setting callers remain the owners. Extract callback/link/CAPTCHA/mail/enrollment operations as their U04/U05/U16 batches are implemented; do not fork external-account linking or render provider HTML. H01 already assigns all conditional actions. |
+
+### Selected transport boundary, not a new account state machine
+
+Use an explicit **native-issued, confidential-client-bound session handle** to
+carry native pending-auth/session context between the Soda Go adapter and the new
+native operations. It is not a human bearer grant. Reuse Forgejo's configured
+session storage/lifetime/regeneration/destruction mechanisms (`modules/session`,
+`routers/common/middleware.go::Sessioner`, `auth.go::updateSession`) through a
+small native transport adapter. Do not create another transaction database or
+reassign native account/factor lifetimes. The existing middleware is cookie-bound:
+it cannot simply be attached to a new token route and declared headless.
+
+Concrete constraints for U04's native patch:
+
+- Issue a fresh native context through an operation-specific interface after
+  validating the registered confidential client and return/PKCE request. Bind the
+  carrier to that client and Soda's pre-session/browser nonce. Neither a caller's
+  UID nor an existing web-session cookie may initialize human authority. Reject
+  regular bearer-token, cookie and Sudo substitution on this channel.
+- Store native pending identity/challenge facts only in Forgejo. The adapter owns
+  only the protected handle association and browser/session binding; React sees
+  public native next-step data and transient form fields, never native handles,
+  tokens, passwords in persisted state or session-store keys.
+- Use fixed typed credential, password, TOTP, scratch, WebAuthn begin/finish,
+  consent, status and sign-out operations. Their input fields are the respective
+  existing native forms/protocol payloads, not a generic operation/field bag.
+  Native code determines the allowed next operation on every request; UI labels
+  and cached outcomes do not authorize it. Define each wire DTO alongside its
+  extracted native operation/test, without another architecture proposal.
+- Preserve native session regeneration and expiry; a rotated handle must remain
+  bound to the same client/browser and invalidate its predecessor. Do not emulate
+  regeneration merely by changing a Soda cookie. Persist the native result before
+  returning success; do not replay a lost mutation/rotation. Status may report a
+  native outcome but cannot synthesize a missing grant or bypass native gates.
+- Reuse native code issuance only after the shared native eligibility/consent
+  checks. Go retains its existing S256 exchange, actual subject/scope verification,
+  grant protection and logout-winning behavior. A client secret is application
+  authentication, never permission to name/impersonate an arbitrary user.
+- Keep native abuse/CAPTCHA behavior and bounded secret-safe HTTP transport. Before
+  exposing each endpoint, test native session-store failure, rotation, cross-client
+  binding, challenge replay and direct calls that skip the preceding native step.
+  Newly exposed pre-auth transport needs its own admission protections, not a
+  newly invented account password/factor/lockout policy.
+
+This resolves the U01 architecture choice: the necessary work is a bounded native
+session-transport adapter and shared service extraction, not an upstream-policy
+redesign. Native storage/rotation integration and exact operation DTOs are real
+U04 implementation/test work, not existing capabilities advertised by this review.
+Keep `auth: 0` until the implemented contract and its native tests justify changing
+it. In particular, source inspection does not prove concurrent proof consumption.
+
+### Ownership lookup disposition
+
+The selected source already has `GET /repositories/{id}` and
+`GET /users/{username}/orgs/{org}/permissions` (`org.go::GetUserOrgsPermissions`).
+The latter derives `is_owner` from native `GetOrgUserMaxAuthorizeLevel`; it is
+not `is_admin` or `can_create_repository`. U07/U12 should reuse these interfaces:
+resolve the stored repository ID with the acting grant, verify the current user/
+organization stable identities, and query the acting user's native organization
+ownership where required. Never accept a caller-selected username/org as authority
+or enumerate/copy teams. Require `read:repository` for repository access and the organization-permissions
+route's `read:user` plus `read:organization` and native access;
+a denial is not permission to consult an operator credential.
+
+For a human owner, compare the current repository owner ID with the authenticated
+native subject. For an organization, use its native ownership result, not a generic
+site-admin bypass or an invented designated-human successor. Verify names against
+stable IDs around the lookup, fail new privileged requests closed on unavailable/
+mismatched results, and preserve data. This is request-time Soda API authority,
+not a promise to atomically coordinate Forgejo transfers with Linux processes or
+automatically remap old sudo groups/keys. Existing Linux access limitations remain
+explicit. U07 owns regression coverage and the three source corrections remain
+pending in the leading plan; U01 does not perform those code fixes.
+
 ## Implementation and review tests
 
 - Compare each exposed operation with its native caller/configuration: valid,
@@ -162,4 +256,5 @@ lifetime; existing SSH/workload processes are not silently terminated.
 
 No native patch, new route, compatibility advertisement or live change is delivered
 by this correction. U04/U05/U07/U12/U16 implement their bounded responsibilities;
-U17/U18 verify and cut over. U01 is not accepted by correcting these documents.
+U17/U18 verify and cut over. U01's closing source/design review above now satisfies
+its planning-readiness exit, not any of those implementation or native exits.

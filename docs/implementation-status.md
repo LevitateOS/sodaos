@@ -1,5 +1,77 @@
 # Implementation handoff
 
+## U01 accepted — planning and first-contract readiness
+
+Completed the remaining U01 review from clean `8727233`, using the existing H01
+register, verified v16.0.3 source preparation and previous release/license/Git
+primitive evidence. **U01 is accepted at its stated planning/contract-readiness
+exit; U01 and bounded U08 are now accepted (2/20).** This is not source-complete
+headless authentication, native build/conformance, security certification, complete
+distribution license clearance or authorization to upgrade the retained VM.
+
+Closure results:
+
+- Kept the single locked 16.0.3 engineering input and supported-stable direction;
+  no version/dependency change, repeat API inventory or source preparation.
+- Completed H05's native-helper/gate/session/consent/logout source review and
+  selected a bounded client/browser-bound native session transport over shared
+  native operations. Native `uid` establishment does not bypass later password/
+  activation/MFA gates. Native sign-out does not revoke OAuth grants; current
+  consent does not silently enlarge an existing grant. Concurrent TOTP/scratch
+  consumption still needs real native tests and any shared-native atomic fix.
+- Resolved the ownership lookup: stable repository IDs and native human ownership,
+  or the stock organization-permissions `is_owner` result with the acting grant
+  and native scopes, not a copied role list or `is_admin` shortcut. The three
+  previously identified source defects remain pending under their assigned U
+  owners; this review neither fixes them nor authorizes Linux remapping.
+- Reviewed/closed the first read and compatibility contracts. Found additional
+  concrete parser/cancellation constraints: diff display charset conversion,
+  ambiguous header paths, per-file truncation, native old/new modes and submodules.
+  Require shared raw-byte/path fixes; corrected the operation budget to 15 seconds
+  to preserve native five-second termination grace instead of replacing native
+  process cancellation. Updated the single register's existing CO07 row.
+- Added root `LICENSE` (verbatim ASF Apache-2.0 text), `NOTICE` and README scope
+  for original SodaOS work only. Inherited/third-party code/artwork are not
+  relicensed. No predecessor file was changed.
+- Retrieved exact PatternFly 6.6.1 CSS license and verified all 33 installed font
+  files against its published Git commit; retrieved Red Hat OFL/author texts and
+  Font Awesome's distinct font/icon/code terms. Reviewed license/NOTICE texts for
+  all 13 modules named in Soda's go.mod from existing exact-version caches.
+  Identified the PatternFly missing-license exemption in the shared frontend
+  collector and the predecessor's absent root grant as concrete U02 distribution
+  checks, not missing permissions that Apache can magically supply.
+- Closed the native build/readiness contract in the existing source guide: real
+  upstream build/runtime, native platform/pin/tree/image binding, existing IID/
+  OCI/stage/seal callers, corresponding source/notices and fail-closed compliance.
+  U02 implements artifact closure, U03 compatibility/migration, U04/U05/U16 native
+  authentication, U07/U12 authority integration, U09 parser/API/UI and U17 update
+  proof. These are existing implementation exits, not tasks relabeled as passing.
+
+Executed work: read-only source/license inspection, bounded public metadata/text
+retrieval, file/Git-blob integrity comparisons and document checks. The provenance
+check passed for the ASF text, retained retrieval hashes, PatternFly license/33
+font bindings and 13 exact-module notice snapshots; recorded hashes of 17 selected
+native review files. The existing document checker passed: 20 ordered U milestones,
+three E tracks, 179 groups assigned once, 36 local new/plan links and 37 incoming
+plan links/anchors. `git diff --check` passed. Scripts/logs and evidence are in
+`.artifacts/research/u01-8727233/` (`check-review.py`, `review-check.log`,
+`document-check.log`; reused the existing `u01-d5b5065/check-documents.py`). Initial PatternFly `LICENSE` retrieval failed
+404 before finding `LICENSE.txt`; broad tree reads exceeded 512 KiB and 4 MiB,
+then only the needed font directories were read. Initial 512 KiB overflow was
+not retained by the first helper; the 4 MiB prefix and first 404 log are retained.
+The initial default Go cache scan missed two modules found in the existing
+`.cache/go-runner/mod` cache; neither versions nor license texts were invented.
+
+No Go/frontend/native tests/builds, dependency installation/resolution, native
+patches, deployment, provider/account/repository actions, origin changes, lifecycle
+or cleanup ran. All four environments and working login remain untouched;
+installed affected components remain `8b823db`, Forgejo 15.0.7. Exact native
+budgets/operation races, complete shipped-license/source pairing, inherited rights
+and both-architecture/full product acceptance remain unverified under their owners.
+Next is U02's real native build spine with U03/early U04 integration, not another
+U01 research pass. Historical handoffs below keep their original evidence scope;
+their then-open U01 questions are superseded by this closure.
+
 ## Authority-boundary correction — documentation only
 
 At the user's request, corrected the leading plan, H05 contract, source guide and

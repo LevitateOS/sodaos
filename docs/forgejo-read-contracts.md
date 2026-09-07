@@ -1,7 +1,7 @@
 # First native read contracts — U09/H03/H04 review
 
-**U01 contract candidate, not implemented or advertised.** Wire and resource
-choices below now have a concrete engineering disposition; native implementation,
+**U01 reviewed implementation contract, not implemented or advertised.** The
+source review below resolves the first-contract gate; native implementation,
 packaged-runtime checks and conformance remain U02/U03/U09 work. Source input: the
 [Forgejo source lock](../appliance/forgejo/source.lock.json). The
 [single action register](forgejo-api-coverage.md) remains authoritative for
@@ -13,7 +13,8 @@ primitive experiment below are not U09 completion or measured product capacity.
 Use explicit additions under the existing `/api/v1/repos/{owner}/{repo}` native
 repository assignment/scope/code-reader gates, not a generic internal-method
 proxy. Proposed suffixes are `/soda/blame` and `/soda/compare-diff`; these routes
-**do not exist**. Namespace/schema naming needs review with the native patches.
+**do not exist**. These names are selected for the first patch; do not advertise
+them until the producer and native contract tests exist.
 Soda calls the configured provider with the acting user's grant. Preserve native
 repository/token restrictions, private visibility and revocation; no Sudo, owner
 credential, temporary PR, task-token-only protocol or Soda Git clone.
@@ -45,6 +46,39 @@ Exact v16.0.3 source paths inspected:
   `services/gitdiff/gitdiff.go::{DiffOptions,GetDiffFull}`: reuse native base/head/
   merge-base calculation and limited diff production. Do not serialize the full
   web context or duplicate its permission/merge calculations in Soda.
+
+### Closing source-review disposition
+
+Reviewed against the same prepared v16.0.3 input after `8727233`; no second API
+audit or source preparation. **Proceed with shared native fixes, not a thin JSON
+wrapper around the existing display DTO.** Additional decision-critical findings:
+
+- `services/gitdiff/gitdiff.go::ParsePatch` performs charset detection and rewrites
+  `DiffLine.Content` for display. `parseHunks` uses `ReadLine`, and native limit flags
+  occur both on the whole diff and individual files. Preserve raw bytes/newline
+  markers before display conversion; move conversion to the existing web-facing
+  presentation step. Base64-encoding already converted strings is not lossless.
+- `createDiffFile`/`readFileName` explicitly acknowledge ambiguous space-containing
+  paths. Bind exact old/new path and mode identities from native machine-readable
+  Git output/tree objects under the same SHAs/budget, rather than guessing from
+  rendered headers. Keep this inside the shared Git/diff owner, not Soda.
+- Native `DiffFile` already has `Mode`, `OldMode` and `IsSubmodule`; retain these
+  facts in the contract below. Native type constants have no separate type-change
+  constant: derive type change from verified native mode types, not an unknown
+  enum fallback. Existing rename/copy detection stays native.
+- `modules/git/command.go::Command.Run` already calls
+  `modules/process/manager_unix.go::SetupCancellableCommand`: process groups,
+  graceful cancellation and forced termination are upstream mechanisms. Its
+  `TerminateGraceTimeout` is **five seconds**, contradicting the draft's two-second
+  termination allowance. Retain that native mechanism and correct the budget to
+  15 seconds below; do not change a process-wide timeout or add another supervisor.
+  The fixed resource-limit launcher must still run through this command owner.
+
+U09's first patch must include native parser/path/mode/CRLF/no-final-newline tests,
+per-file and whole-result truncation rejection, and termination/admission tests
+using that actual native process owner. Existing `modules/process/manager_test.go`
+is a test starting point, not executed evidence. A source review can select this
+contract without claiming that parser changes or packaged limits already pass.
 
 ## Resource/error/compatibility review
 
@@ -119,14 +153,18 @@ requires all three fields. Response: `revision: 1`, `repository_id`, `base_sha`,
 merge-base otherwise. No common merge-base is `no_merge_base` (422), never an
 implicit switch to direct comparison. Equal SHAs yield a verified empty result.
 
-Each file has `old_path_b64`/`new_path_b64` (null for an absent side), `status`
+Each file has `old_path_b64`/`new_path_b64` and `old_mode`/`new_mode` (null for an
+absent side), `is_submodule`, and `status`
 (`added`, `deleted`, `modified`, `renamed`, `copied`, `type_changed`), `binary`,
 `additions`, `deletions`, and `hunks`. Hunks have `old_start`, `old_count`,
 `new_start`, `new_count`, `heading_b64`, and `lines`. Lines have `kind`
 (`context`, `add`, `delete`), `old_line`/`new_line` (null on absent side),
 `content_b64` and `has_newline`. Preserve native old/new positions and newline
 markers; metadata-only/binary files have empty hunks. Unknown native statuses
-are a contract failure, not silently converted to `modified`.
+are a contract failure, not silently converted to `modified`. Modes are native
+six-digit octal Git mode strings, not caller-selected filesystem permissions.
+A mode-only change remains visible without invented hunks. Submodules expose
+native Gitlink diff content/identities without fetching the linked repository.
 
 This first complete-result contract has **no fabricated pagination or partial
 success**: if native computation is incomplete or any budget is exceeded, return
@@ -145,7 +183,7 @@ Selected conservative initial ceilings, not throughput guarantees:
 | Ignore-revs blob | 64 KiB; validate/limit before copying, with native faulty-file behavior explicitly reported |
 | Comparison | 1,000 files / 20,000 diff lines and native stricter diff settings; no success for a natively limited result |
 | Complete encoded response | 12 MiB; accommodates base64 of an 8 MiB long line plus bounded metadata, otherwise 413 |
-| Native operation | 10-second total wall budget: at most eight seconds across resolution/blobs/ignore fallback/diff, reserving two seconds for termination; not a fresh budget per subprocess |
+| Native operation | 15-second operation budget: eight seconds across resolution/blobs/ignore fallback/diff, native five-second termination grace and two seconds for cleanup/encoding; not a fresh budget per subprocess |
 | Native expensive read admission | One in flight per Forgejo process across these endpoints; no unbounded waiting queue; 429 + `Retry-After: 1` after authorization |
 | Git worker | 256 MiB address-space and 8-second CPU ceilings, imposed before execution; memory ceiling is address space, not a claimed RSS measurement |
 | Native Git stdout | 32 MiB total across the operation, enforced while streaming, including blob/porcelain/diff metadata before parsing; cancel on excess |
@@ -220,5 +258,8 @@ Adapter/browser tests: exact configured path/token and DTO identities, malformed
 null/truncated/oversized results, no privilege fallback or secret leakage, inert
 rendering and accurate limited states, file→blame→commit and base/head navigation,
 route/logout/account races. Existing U09 writes/copy/draft guards remain intact.
-Only after these contracts/budgets/native fixes are reviewed should H03/H04 code
-be added, built and exercised. The source preparer is not that API implementation.
+U01's source/contract review is complete for this first slice. U02/U03/U09 now
+implement and test it, including the named native fixes; actual patch changes
+still require diff/security review and native tests before exposure. The source
+preparer is not that API implementation. Wider U09 cross-fork/action contracts
+remain with their owning feature; this does not waive them.

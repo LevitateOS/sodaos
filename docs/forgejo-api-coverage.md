@@ -51,10 +51,11 @@ boundaries. Unavailable placeholders do not complete a workflow.
    but does not select every registration, mail, federation, quota or authentication
    option. Conditional rows below remain required when enabled; disabling features
    is not an approved way to reduce the requested frontend.
-8. Before H02/H03/H05 implementation, review a concrete baseline, native contract
-   scope, authentication sequence/threat model, update ownership and lifecycle
-   decisions for linked identities/resources. This audit does not establish that
-   one small patch or a version bump completes headless feasibility.
+8. The subsequent U01 closing review now records the concrete baseline, first
+   [read contract](forgejo-read-contracts.md), [native auth/ownership delegation](forgejo-authentication-design.md)
+   and build/license responsibilities. Follow those dispositions under the leading
+   plan. Neither this audit nor that source review proves native headless behavior;
+   real patches, compatibility, security tests and delivered outcomes remain due.
 
 ## Evidence and audit boundary
 
@@ -229,7 +230,7 @@ to omit an explicitly required supported browser action.
 | CO04 | Commit metadata, verification, changed files, single-commit patch/diff | `R/git/commits/{sha}` and `.{diff,patch}`; A `repo/commits.go`, `modules/git.GetRawDiff`. API accepts ref/SHA; Soda validates pinned returned identity. Single-commit diff is not a range API. | 2 / S; verification/full viewing matrix unfinished |
 | CO05 | Blame attribution spans/lines/original paths; ignore-revs handling | W `repo/blame.go::{RefBlame,performBlame}` → `git.CreateBlameReader`; no blame API in either inspected release. Code read, native file/work limits. Ordinary web route is not OAuth-accessible. | 3 / M; U17-BLAME retained |
 | CO06 | Compare commits with resolved immutable base/head | `GET R/compare/{basehead}`; A `repo/compare.go`, native compare resolution and Git. Returns whole commit list, `total_commits` = its length; `files` concatenates per-commit entries. | 2 / S; duplicates retained, not a net file list |
-| CO07 | Net comparison files/hunks, rename/binary/deletion and direct versus merge-base view | W `repo/compare.go::PrepareCompareDiff` → `gitdiff.GetDiffFull`, `modules/git/repo_compare.go`. No aggregate patch API; single-commit diff, write-only `/diffpatch` and an existing PR are not substitutes. | 3 / M; U17-COMPARE-DIFF retained |
+| CO07 | Net comparison files/hunks, rename/binary/deletion and direct versus merge-base view | W `repo/compare.go::PrepareCompareDiff` → `gitdiff.GetDiffFull`, `modules/git/repo_compare.go`. No aggregate patch API; single-commit diff, write-only `/diffpatch` and an existing PR are not substitutes. Closing read review found display charset conversion, ambiguous path parsing and per-file truncation flags in `services/gitdiff/gitdiff.go`; preserve raw bytes/modes and reject incomplete output through shared native fixes. Native cancellation uses a five-second grace, not the earlier draft's two seconds. | 3 / M; U17-COMPARE-DIFF retained |
 | CO08 | List/read/create branches and tags | `R/branches`, `/tags`, individual ref routes; A `repo/{branch,tag}.go`. Code read versus writer/token/non-archived/quota checks; native protection. | 1 / S |
 | CO09 | Rename/delete/restore branches and delete tags | PATCH/DELETE branch and DELETE tag routes cover rename/deletion. A branch list hardcodes `IsDeletedBranch=false`; W `repo/branch.go::RestoreBranchPost` resolves a repository-bound deleted-branch record before native push/update. No API deleted-history/restore workflow; creating from a caller-guessed SHA does not supply that record. Preserve protected/default-branch rules. | 1 rename/delete + 3 deleted-history/restore / M |
 | CO10 | Create/edit/delete/upload/rename files, select target branch and commit metadata | POST/PUT/DELETE `R/contents/{path}`, A `repo/file.go` → `services/repository/files/`; `reqRepoBranchWriter` includes native maintainer-write-to-branch behavior, non-archived/quota/protection gates. SHA/last-commit checks return conflict. | 2 / S basic text/edit/upload; complete metadata/rename/delete UI unfinished |
