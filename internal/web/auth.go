@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
@@ -19,8 +19,27 @@ func token() string {
 	rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
+
+const (
+	sessionCookie = "__Secure-sodaspaces-session"
+	oauthCookie   = "__Secure-sodaspaces-oauth"
+)
+
+// Ignore native Forgejo and legacy standalone Soda cookies. Duplicate names
+// cannot select an actor or OAuth transaction by header order.
+func requestCookie(r *http.Request, name string) (*http.Cookie, error) {
+	cookies := r.CookiesNamed(name)
+	if len(cookies) == 0 {
+		return nil, http.ErrNoCookie
+	}
+	if len(cookies) != 1 || cookies[0].Value == "" || len(cookies[0].Value) > 128 {
+		return nil, errors.New("invalid Soda cookie")
+	}
+	return cookies[0], nil
+}
+
 func (s *Server) cookie(w http.ResponseWriter, name, value string, seconds int) {
-	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", MaxAge: seconds, HttpOnly: true, Secure: strings.HasPrefix(s.Config.PublicURL, "https://"), SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: config.SodaPath + "/", MaxAge: seconds, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
 }
 func (s *Server) authRoutes() {
 	s.mux.HandleFunc("GET /login", s.login)
@@ -38,20 +57,25 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	challenge := sha256.Sum256([]byte(verifier))
-	s.cookie(w, "soda_oauth", state, 600)
+	s.cookie(w, oauthCookie, state, 600)
 	scopes := "read:user read:repository read:organization"
-	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.PublicURL + "/oauth/callback"}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
+	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.OAuthCallbackURL()}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
 	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), 302)
 }
 func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	c, err := r.Cookie("soda_oauth")
+	c, err := requestCookie(r, oauthCookie)
 	state := r.URL.Query().Get("state")
 	if err != nil || state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(c.Value)) != 1 {
 		http.Error(w, "Invalid sign-in state; sign in again.", 400)
 		return
 	}
-	s.cookie(w, "soda_oauth", "", -1)
+	old, oldErr := requestCookie(r, sessionCookie)
+	if oldErr != nil && !errors.Is(oldErr, http.ErrNoCookie) {
+		http.Error(w, "Ambiguous Soda session; sign in again.", 400)
+		return
+	}
+	s.cookie(w, oauthCookie, "", -1)
 	verifier, err := s.Store.ConsumeOAuth(r.Context(), state)
 	if err != nil {
 		http.Error(w, "Sign-in expired or was already used.", 400)
@@ -67,7 +91,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Sign-in is not configured.", 503)
 		return
 	}
-	grant, err := s.Forgejo.ExchangeGrant(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.PublicURL+"/oauth/callback", verifier)
+	grant, err := s.Forgejo.ExchangeGrant(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.OAuthCallbackURL(), verifier)
 	if err != nil {
 		http.Error(w, "Forgejo sign-in failed.", 502)
 		return
@@ -86,7 +110,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not save Soda profile.", 500)
 		return
 	}
-	if old, e := r.Cookie("soda_session"); e == nil {
+	if oldErr == nil {
 		if err = s.Store.DeleteSession(r.Context(), old.Value); err != nil {
 			http.Error(w, "Could not rotate session.", 500)
 			return
@@ -97,6 +121,6 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not create session.", 500)
 		return
 	}
-	s.cookie(w, "soda_session", value, int((12 * time.Hour).Seconds()))
+	s.cookie(w, sessionCookie, value, int((12 * time.Hour).Seconds()))
 	s.forgejoHome(w, r)
 }

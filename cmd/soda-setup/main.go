@@ -25,18 +25,17 @@ func run() error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("run through the operator's native root access")
 	}
-	public := flag.String("public-url", "", "dashboard HTTPS origin")
 	external := flag.String("forgejo-url", "", "Forgejo HTTPS origin")
 	internal := flag.String("forgejo-internal-url", "http://127.0.0.1:3000", "native Forgejo origin")
 	tokenPath := flag.String("token-file", "", "operator Forgejo access token file")
 	out := flag.String("out", "/etc/soda/dashboard.json", "new dashboard configuration")
 	flag.Parse()
-	for _, u := range []string{*public, *external, *internal} {
+	for _, u := range []string{*external, *internal} {
 		if err := config.BaseURL(u); err != nil {
 			return err
 		}
 	}
-	if !strings.HasPrefix(*public, "https://") || !strings.HasPrefix(*external, "https://") {
+	if !strings.HasPrefix(*external, "https://") {
 		return fmt.Errorf("browser origins must use HTTPS")
 	}
 	if !filepath.IsAbs(*out) {
@@ -58,7 +57,7 @@ func run() error {
 	if !u.Admin {
 		return fmt.Errorf("Forgejo operator token is not a site administrator")
 	}
-	a, err := client.Application(ctx, token, strings.TrimRight(*public, "/")+"/oauth/callback")
+	a, err := client.Application(ctx, token, (config.Config{ForgejoURL: strings.TrimRight(*external, "/")}).OAuthCallbackURL())
 	if err != nil {
 		return err
 	}
@@ -88,7 +87,7 @@ func run() error {
 			return ce
 		}
 	}
-	c := config.Config{Listen: "127.0.0.1:8080", PublicURL: strings.TrimRight(*public, "/"), ForgejoURL: strings.TrimRight(*external, "/"), ForgejoInternalURL: strings.TrimRight(*internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, GrantKeyFile: keyPath, AdminTokenFile: adminPath, OperatorID: u.ID}
+	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(*external, "/"), ForgejoInternalURL: strings.TrimRight(*internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, GrantKeyFile: keyPath, AdminTokenFile: adminPath, OperatorID: u.ID}
 	f, err := os.OpenFile(*out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return err

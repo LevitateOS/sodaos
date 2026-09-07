@@ -99,7 +99,11 @@ if sys.argv[1] == 'activated':
     address = str(ipaddress.ip_address(env['SODA_BIND']))
     if not ipaddress.ip_address(address).is_private or ipaddress.ip_address(address).is_unspecified:
         raise SystemExit('private explicit proxy bind required')
-    for key in ('SODA_ORIGIN', 'FORGEJO_ORIGIN'):
+    if 'public_url' in cfg or 'SODA_ORIGIN' in env:
+        raise SystemExit('legacy separate-origin configuration requires rehearsed maintenance')
+    if env['FORGEJO_ORIGIN'].rstrip('/') != cfg['forgejo_url'].rstrip('/'):
+        raise SystemExit('proxy and API browser origin mismatch')
+    for key in ('FORGEJO_ORIGIN',):
         origin = urlsplit(env[key])
         if origin.scheme != 'https' or not origin.hostname: raise SystemExit('invalid configured HTTPS origin')
         bound(address, origin.port or 443)

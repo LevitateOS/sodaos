@@ -46,7 +46,7 @@ fi`,
 }
 
 func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
-	config, env := consoleFixture(t, "0", `{"public_url":"https://soda.example.test","forgejo_url":"https://forgejo.example.test","oauth_secret":"never-print-this"}`)
+	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","oauth_secret":"never-print-this"}`)
 	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
@@ -54,7 +54,7 @@ func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
 		t.Fatal(err, string(output))
 	}
 	text := string(output)
-	for _, want := range []string{"native-appliance", "Observed local IPv4 (eth0): 192.168.1.10", "Observed local IPv4 (wifi0): 192.168.2.10", "https://soda.example.test", "https://forgejo.example.test", "ssh -N -L 9090:127.0.0.1:9090 root@HOST", "not a listener"} {
+	for _, want := range []string{"native-appliance", "Observed local IPv4 (eth0): 192.168.1.10", "Observed local IPv4 (wifi0): 192.168.2.10", "Forgejo / Sodaspaces: https://forgejo.example.test", "ssh -N -L 9090:127.0.0.1:9090 root@HOST", "not a listener"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in %s", want, text)
 		}
@@ -78,7 +78,7 @@ func TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins(t *testing.T) {
 		t.Fatal("non-operator banner", err, string(out))
 	}
 	for _, origin := range []string{"https://name:private-value@soda.example.test", "https://@soda.example.test", "https://soda.example.test:bad-port", "https://soda.example.test:65536"} {
-		config, env = consoleFixture(t, "0", `{"public_url":"`+origin+`","forgejo_url":"https://forgejo.example.test"}`)
+		config, env = consoleFixture(t, "0", `{"forgejo_url":"`+origin+`"}`)
 		cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
 		cmd.Env = env
 		out, err = cmd.CombinedOutput()

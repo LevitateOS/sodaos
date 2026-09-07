@@ -6,6 +6,17 @@ or a completed Sodaspaces button/drawer. Native Forgejo owns collaboration/accou
 administration pages. The old Go/HTMX frontend is also removed; no Soda browser UI
 remains in source while supported Sodaspaces integration is still pending.
 
+## Browser namespace
+
+Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.
+Paths below are relative to that prefix: `/api/session` means
+`/-/soda/api/session`, and `/login` means `/-/soda/login`. The direct loopback
+backend still answers `/healthz` and redirects `/`; unprefixed API/login/callback
+paths are not aliases. Caddy forwards only the Soda prefix unchanged and leaves
+native Forgejo routes upstream-owned. This foundation is source-tested, not
+installed or a completed authenticated drawer. Actor-context guards and
+repository-bound OAuth return handling are still pending.
+
 ## Retained operations
 
 | Endpoint | Behavior |
@@ -45,10 +56,16 @@ this retained API. The leading plan owns that next source slice.
   callers; `administration=1` no longer requests extra consent. Existing grants are
   not silently revoked or rewritten; scopes come from upstream introspection.
   A redirect does not establish/transfer a native Forgejo session.
+- Cookies are host-only, Secure/HttpOnly/SameSite=Lax, scoped to `/-/soda/` and
+  named `__Secure-sodaspaces-session` / `__Secure-sodaspaces-oauth`. Duplicate,
+  empty or oversized Soda cookies fail closed. Native Forgejo and old `soda_session`
+  / `soda_oauth` cookies are not authentication inputs. Cutover requires a fresh
+  Soda login; old pending browser flows restart rather than gain a callback alias.
+  Cookie paths do not isolate mutually untrusted applications on the same origin.
 - Keep single-use state, PKCE, callback binding, cookie protections, session rotation,
   encrypted schema-v3 provider/session-bound grants, serialized refresh and
   logout-winning persistence. No second password or provider-role authority.
-- API IDs are decimal strings. Unsafe methods require one exact configured Origin,
+- API IDs are decimal strings. Unsafe methods require the exact configured `ForgejoURL` Origin,
   same-origin fetch metadata when present, a matching `X-CSRF-Token` and UTF-8 JSON.
   Bodies are bounded to 64 KiB; unknown/trailing fields/data fail. Outputs/errors
   are bounded and sanitized; no credentials in errors or browser responses.

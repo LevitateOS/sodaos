@@ -54,7 +54,7 @@ func (p *providerLocks) lock(ctx context.Context, uid int64) (func(), error) {
 }
 
 func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error) {
-	cookie, err := r.Cookie("soda_session")
+	cookie, err := requestCookie(r, sessionCookie)
 	if err != nil {
 		return store.Grant{}, store.ErrGrantUnavailable
 	}

@@ -3,7 +3,9 @@
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**. No new tab or standalone page.
 Both old Soda frontends and duplicate forge adapters are removed; the drawer and
-its authenticated integration are **not implemented**. All steps below are pending.
+its complete authenticated integration are **not implemented**. Step 1 is underway:
+routing/configuration/scoped-cookie foundations are in source; actor/return context
+and native-browser proof remain pending. Steps 2–6 are not completed.
 
 ## Selected approach
 
@@ -15,7 +17,7 @@ its authenticated integration are **not implemented**. All steps below are pendi
   frontend and Cockpit's separate React/PatternFly stack remain intact.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
-  This is a candidate to implement and verify, not an existing proxy/API contract.
+  The routing foundation is authored/source-tested, not native proxy/browser proof.
 - **Authority:** Forgejo owns identity, native sessions, permissions, Git keys,
   collaboration and administration. Soda owns its additional data and real
   environment/access integration—not copied roles or another password authority.

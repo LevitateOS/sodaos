@@ -37,24 +37,24 @@ Using Forgejo's native settings, create the operator token required for setup:
 private input channel in a mode-0600 file on the appliance, not argv or a shared
 terminal transcript. Do not lend this server credential to developers.
 
-On the host, replace the example origins and token-file path:
+On the host, replace the example Forgejo origin and token-file path:
 
 ```sh
 /usr/local/sbin/soda-setup \
-  --public-url https://soda.example.test \
   --forgejo-url https://git.example.test \
   --token-file /root/private/forgejo-token
 ```
 
 Setup creates the actual OAuth application and records the operator identity.
-The browser domains must resolve to the approved endpoint and be covered by
-trusted certificates. Setup refuses to overwrite existing configuration. After
+Current source shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`;
+the drawer is not implemented yet. That origin must resolve to the approved
+endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After
 an uncertain failure, inspect Forgejo's applications and Soda's existing state
 before retrying; do not reset its databases.
 
 ## Activate trusted private browser access
 
-Supply a valid certificate/key covering both configured browser origins. Use a
+Supply a valid certificate/key covering the configured Forgejo/Sodaspaces origin. Use a
 restricted private input directory. Select the private appliance IP deliberately:
 
 ```sh

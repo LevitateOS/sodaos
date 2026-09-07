@@ -32,7 +32,7 @@ func grantedTestServer(t *testing.T, upstream http.HandlerFunc) *Server {
 	if err = os.WriteFile(secretPath, []byte("test-client-secret"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	s := New(config.Config{PublicURL: "https://soda.example.test", ForgejoURL: "https://forgejo.example.test", ForgejoInternalURL: provider.URL, OAuthClientID: "client", OAuthSecretFile: secretPath, OperatorID: 1, AdminTokenFile: "/must-not-read-bootstrap-token"}, db)
+	s := New(config.Config{ForgejoURL: "https://forgejo.example.test", ForgejoInternalURL: provider.URL, OAuthClientID: "client", OAuthSecretFile: secretPath, OperatorID: 1, AdminTokenFile: "/must-not-read-bootstrap-token"}, db)
 	for i, login := range []string{"alice", "bob"} {
 		uid := int64(i + 1)
 		if err = db.UpsertUser(context.Background(), store.User{ID: uid, Login: login}); err != nil {

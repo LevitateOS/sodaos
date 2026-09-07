@@ -41,7 +41,7 @@ try:
     config = json.loads(Path(sys.argv[1]).read_text())
     if not isinstance(config, dict): raise ValueError('configuration object required')
     origins = []
-    for field, label in [('public_url', 'Soda dashboard'), ('forgejo_url', 'Forgejo')]:
+    for field, label in [('forgejo_url', 'Forgejo / Sodaspaces')]:
         value = config[field]
         if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value):
             raise ValueError('invalid origin')

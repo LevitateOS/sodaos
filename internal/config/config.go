@@ -13,9 +13,12 @@ import (
 	"strings"
 )
 
+// SodaPath is the fixed browser namespace on the configured Forgejo origin.
+// Caddy forwards this prefix unchanged; the Go service owns its routing.
+const SodaPath = "/-/soda"
+
 type Config struct {
 	Listen             string `json:"listen"`
-	PublicURL          string `json:"public_url"`
 	ForgejoURL         string `json:"forgejo_url"`
 	ForgejoInternalURL string `json:"forgejo_internal_url"`
 	Database           string `json:"database"`
@@ -49,15 +52,14 @@ func Load(path string) (Config, error) {
 	if err != nil || !net.ParseIP(listenHost).IsLoopback() {
 		return c, errors.New("listen must be a loopback IP:port behind the private HTTPS proxy")
 	}
-	for name, value := range map[string]string{"public_url": c.PublicURL, "forgejo_url": c.ForgejoURL, "forgejo_internal_url": c.ForgejoInternalURL} {
+	for name, value := range map[string]string{"forgejo_url": c.ForgejoURL, "forgejo_internal_url": c.ForgejoInternalURL} {
 		if err := BaseURL(value); err != nil {
 			return c, fmt.Errorf("%s: %w", name, err)
 		}
 	}
-	if !strings.HasPrefix(c.PublicURL, "https://") || !strings.HasPrefix(c.ForgejoURL, "https://") {
-		return c, errors.New("browser origins must use HTTPS")
+	if !strings.HasPrefix(c.ForgejoURL, "https://") {
+		return c, errors.New("browser origin must use HTTPS")
 	}
-	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
 	c.ForgejoURL = strings.TrimRight(c.ForgejoURL, "/")
 	c.ForgejoInternalURL = strings.TrimRight(c.ForgejoInternalURL, "/")
 	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "admin_token_file": c.AdminTokenFile, "grant_key_file": c.GrantKeyFile} {
@@ -69,6 +71,10 @@ func Load(path string) (Config, error) {
 		return c, errors.New("oauth_client_id and operator_id are required; run operator setup first")
 	}
 	return c, nil
+}
+
+func (c Config) OAuthCallbackURL() string {
+	return c.ForgejoURL + SodaPath + "/oauth/callback"
 }
 
 func BaseURL(value string) error {

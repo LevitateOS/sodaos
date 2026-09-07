@@ -31,7 +31,7 @@ After separately authorized installation, inspect:
 - `rpm-ostree status`, the extensions journal and the active native packages;
 - `systemctl status soda-host.socket forgejo.service soda-dashboard.service soda-proxy.service cockpit.socket tailscaled.service`;
 - native service journals, listener addresses, subordinate UID/GID mappings, helper socket owner/group/mode, service UID and persistent directory ownership;
-- TLS trust and both configured browser origins, native Forgejo clone URLs, Cockpit's root-only PAM policy;
+- TLS trust and the configured Forgejo/Sodaspaces browser origin, native Forgejo clone URLs, Cockpit's root-only PAM policy;
 - actual project inspection/IPs, client routes and existing firewall policy.
 
 Do not paste credentials, full container environment dumps, provisioning password hashes or private keys into evidence. Service/listener state alone does not prove a login or development journey.

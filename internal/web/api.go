@@ -70,7 +70,7 @@ func (s *Server) apiProtected(next func(http.ResponseWriter, *http.Request, stor
 			jsonError(w, http.StatusMethodNotAllowed, "method_not_allowed", "HTTP method not supported.")
 			return
 		}
-		cookie, err := r.Cookie("soda_session")
+		cookie, err := requestCookie(r, sessionCookie)
 		if err != nil || cookie.Value == "" {
 			jsonError(w, http.StatusUnauthorized, "unauthenticated", "Sign in through Forgejo.")
 			return
@@ -106,7 +106,7 @@ func (s *Server) apiProtected(next func(http.ResponseWriter, *http.Request, stor
 
 func (s *Server) validAPIMutation(r *http.Request, csrf string) bool {
 	origins, tokens := r.Header.Values("Origin"), r.Header.Values("X-CSRF-Token")
-	if s.Config.PublicURL == "" || len(origins) != 1 || origins[0] != s.Config.PublicURL || len(tokens) != 1 || csrf == "" {
+	if s.Config.ForgejoURL == "" || len(origins) != 1 || origins[0] != s.Config.ForgejoURL || len(tokens) != 1 || csrf == "" {
 		return false
 	}
 	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" {
@@ -164,12 +164,12 @@ func (s *Server) apiLogout(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if !decodeAPIObject(w, r, &struct{}{}) {
 		return
 	}
-	cookie, _ := r.Cookie("soda_session")
+	cookie, _ := requestCookie(r, sessionCookie)
 	if err := s.Store.DeleteSession(r.Context(), cookie.Value); err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Could not end this session.")
 		return
 	}
-	s.cookie(w, "soda_session", "", -1)
+	s.cookie(w, sessionCookie, "", -1)
 	w.WriteHeader(http.StatusNoContent)
 }
 

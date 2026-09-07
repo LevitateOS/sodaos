@@ -68,6 +68,14 @@ class NativeStage(unittest.TestCase):
         for name in ['palette.css', 'theme.css', 'soda-logo-horizontal.svg', 'soda-logo-horizontal-dark.svg']:
             self.assertTrue((brand / name).is_file(), name)
 
+    def test_sodaspaces_proxy_namespace(self):
+        proxy = (self.root / 'etc/soda/proxy.Caddyfile').read_text()
+        self.assertNotIn('SODA_ORIGIN', proxy)
+        self.assertEqual(proxy.count('{$FORGEJO_ORIGIN} {'), 1)
+        self.assertIn('handle /-/soda/* {\n    reverse_proxy 127.0.0.1:8080\n  }', proxy)
+        self.assertIn('handle {\n    reverse_proxy 127.0.0.1:3000\n  }', proxy)
+        self.assertNotIn('handle_path', proxy)
+
     def test_forgejo_native_asset_paths(self):
         public = self.root / 'var/lib/soda/forgejo/gitea/public/assets'
         for name in ['logo.svg', 'favicon.svg', 'favicon.png']:

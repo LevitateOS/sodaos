@@ -45,7 +45,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	if err = db.MarkReady(ctx, id, "10.89.0.2"); err != nil {
 		t.Fatal(err)
 	}
-	server := New(config.Config{PublicURL: "https://soda.test", ForgejoURL: "https://forgejo.test", OperatorID: 99}, db)
+	server := New(config.Config{ForgejoURL: "https://forgejo.test", OperatorID: 99}, db)
 	nativeCalls := 0
 	reject := false
 	server.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
@@ -67,11 +67,11 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		return &http.Response{StatusCode: code, Body: io.NopCloser(strings.NewReader(`{"ok":true}`)), Header: make(http.Header)}, nil
 	})}
 	post := func(login string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest("POST", "/api/environments/"+id+"/join", strings.NewReader(`{}`))
+		r := httptest.NewRequest("POST", "/-/soda/api/environments/"+id+"/join", strings.NewReader(`{}`))
 		r.Header.Set("Content-Type", "application/json")
-		r.Header.Set("Origin", server.Config.PublicURL)
+		r.Header.Set("Origin", server.Config.ForgejoURL)
 		r.Header.Set("X-CSRF-Token", "csrf")
-		r.AddCookie(&http.Cookie{Name: "soda_session", Value: login})
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: login})
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, r)
 		return w
@@ -102,8 +102,8 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	r := httptest.NewRequest("GET", "/api/environments/"+id, nil)
-	r.AddCookie(&http.Cookie{Name: "soda_session", Value: "bob"})
+	r := httptest.NewRequest("GET", "/-/soda/api/environments/"+id, nil)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "bob"})
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"login":"bob"`) {

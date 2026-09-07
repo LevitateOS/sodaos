@@ -73,7 +73,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo","admin":true}`, "alice"); w.Code != 400 || id != "" {
 		t.Fatal("privilege field accepted", w.Code)
 	}
-	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo"}`, "alice"); w.Code != 201 {
+	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo"}`, "alice"); w.Code != 201 || w.Header().Get("Location") != "/-/soda/api/environments/"+id {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	for _, uid := range []int64{1, 2} {

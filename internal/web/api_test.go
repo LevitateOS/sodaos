@@ -32,16 +32,16 @@ func apiTestServer(t *testing.T) *Server {
 			t.Fatal(err)
 		}
 	}
-	return New(config.Config{PublicURL: "https://soda.example.test", ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
+	return New(config.Config{ForgejoURL: "https://forgejo.example.test", OperatorID: 1}, db)
 }
 
 func apiTestRequest(method, path, body, login string) *http.Request {
-	r := httptest.NewRequest(method, path, strings.NewReader(body))
+	r := httptest.NewRequest(method, config.SodaPath+path, strings.NewReader(body))
 	if login != "" {
-		r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session-" + login})
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-" + login})
 	}
 	r.Header.Set("Content-Type", "application/json")
-	r.Header.Set("Origin", "https://soda.example.test")
+	r.Header.Set("Origin", "https://forgejo.example.test")
 	r.Header.Set("X-CSRF-Token", "csrf-"+login)
 	return r
 }

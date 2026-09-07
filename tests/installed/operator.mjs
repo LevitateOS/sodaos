@@ -49,7 +49,7 @@ try {
   assert.equal(await page.getByRole('link', { name: 'Accounts', exact: true }).count(), 0, 'Accounts navigation is not hidden (PAM gate is checked separately)');
 
   stage = 'native target and core origin snapshot before page effects';
-  const originProbe = 'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("public_url","forgejo_url","forgejo_internal_url")},sort_keys=True))';
+  const originProbe = 'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
   await page.waitForFunction(() => [window, ...[...document.querySelectorAll('iframe')].map(frame => frame.contentWindow)].some(candidate => candidate?.cockpit));
   const before = await page.evaluate(async script => {
     const candidate = [window, ...[...document.querySelectorAll('iframe')].map(frame => frame.contentWindow)].find(value => value?.cockpit);

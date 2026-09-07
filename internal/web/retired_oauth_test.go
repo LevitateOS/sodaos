@@ -24,8 +24,8 @@ func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
 	if err := s.Store.BeginOAuth(t.Context(), "pending", "verifier"); err != nil {
 		t.Fatal(err)
 	}
-	r := httptest.NewRequest("GET", "/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)
-	r.AddCookie(&http.Cookie{Name: "soda_oauth", Value: "pending"})
+	r := httptest.NewRequest("GET", "/-/soda/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)
+	r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "pending"})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 303 || w.Header().Get("Location") != s.Config.ForgejoURL+"/" {

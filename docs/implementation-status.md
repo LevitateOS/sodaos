@@ -102,9 +102,9 @@ footer-hook markup plus moving our own button into the existing repository actio
 row, scoped right-aligned dialog CSS, content-only native spinner and native copy
 controls. No full header override, new tab or library is needed for this candidate.
 The row selector/initialization, browser layout/accessibility and authenticated
-connection remain untested. Current Soda Origin/CSRF checks and two-origin proxy
-prevent simply wiring native-page fetches; a same-origin namespace remains a
-candidate requiring actual callback/cookie/config/route review, not a selected API.
+connection remained untested at that revision. Its Soda Origin/CSRF checks and
+two-origin proxy prevented simply wiring native-page fetches; the namespace was
+then only a candidate. See the routing foundation below for subsequent source work.
 
 Only source inspection/documentation/link/whitespace checks ran in this slice.
 No production source, payload, dependency, browser/native test or installed state
@@ -119,7 +119,8 @@ read-only hook/drawer delivery, explicit access actions, native-browser validati
 and separately approved rehearsal/cutover. The candidate uses Go/JSON plus vanilla
 JavaScript and native `<dialog>`, with no added HTMX or frontend build. Fixed
 `/-/soda/` routing, single-origin configuration, scoped cookies, repository return
-context and stable-ID API changes are **planned only**; current source is unchanged.
+context and stable-ID API changes were **planning only** at that revision. The
+routing foundation below records the first implemented subset.
 
 Inspected actual Go/config/setup/staging callers and retained Forgejo 15.0.7 routing
 and OAuth application handlers. Native callback editing need not rotate the secret;
@@ -141,6 +142,37 @@ smoke checks; do not recreate upstream business-logic/conformance suites.
 
 This change is documentation-only: source/test inventory inspection and Markdown
 link/whitespace checks, no product test execution or installed-state changes.
+
+## Sodaspaces routing foundation
+
+First implementation slice after `e59f99e`: Go mounts API/login/callback routes
+under `/-/soda/`; Caddy's source recipe forwards only that prefix unchanged and
+leaves other paths with Forgejo. `forgejo_url` is the sole browser origin;
+`public_url` / `--public-url` / `SODA_ORIGIN` are retired. Setup, activation, console
+output, strict-loader tests, connection/operator probes and staging assertions
+follow that contract. This configuration is incompatible with the installed old
+loader/config pairing; no retained configuration or OAuth application was changed.
+
+New host-only Secure/HttpOnly/SameSite=Lax cookies use unique names and the Soda
+path. Legacy/native cookies are ignored; duplicate/empty/oversized Soda cookies
+fail closed. Callback/session rotation and mutations retain PKCE/state, encrypted
+grants, exact-origin/CSRF and refresh/logout checks. Go rejects unprefixed API/auth
+aliases and encoded/unclean mounted paths without redirects; creation Location
+headers include the prefix. Direct backend root/health remain. Schema v3 and keys
+are unchanged; completed OAuth still returns only to configured Forgejo home.
+
+Passed full Go suite, web/config/store/Forgejo races, 31 Python build fixtures,
+Python/JavaScript/shell syntax and documentation/whitespace checks. Go used cached 1.26.7,
+readonly modules and disabled dependency resolution; some results were cached.
+Logs: `.artifacts/research/sodaspaces-routing-e59f99e/`. No native image/stage build,
+staged-payload execution, Caddy/browser execution, Cockpit retest, deployment,
+restart, provider action or retained-state change. The new staging assertion is
+authored, not an executed staged-payload result.
+
+**Milestone 1 is not complete:** next implement actor-mismatch guards and bounded
+repository/expected-user OAuth state/return context, then prove the actual native
+browser/proxy round trip under applicable permission. No UI/mutation controls
+were added; the drawer and repository-scoped read changes remain pending.
 
 ## Remaining work and permission boundary
 

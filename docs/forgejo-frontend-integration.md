@@ -2,8 +2,9 @@
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
-and [handoff](implementation-status.md). Neither the UI nor authenticated native-page
-→ Soda connection is implemented; the findings below are source inspection only.
+and [handoff](implementation-status.md). The UI and complete authenticated native-page
+→ Soda connection remain pending. Go/proxy/config/scoped-cookie foundations now exist
+in source; the upstream UI findings below remain inspection, not browser proof.
 
 ## Verified source surface
 
@@ -81,14 +82,18 @@ native web session, and different ports do not isolate cookies. Preserve actual
 actor/repository identity, origin/CSRF and native WebAuthn/session boundaries; the
 [existing API](dashboard-api.md) is not proof of authenticated embedding.
 
-Concrete current constraint: `internal/web/api.go` requires a Soda session cookie,
-Soda CSRF token, exact `PublicURL` Origin and same-origin fetch metadata for writes;
-`proxy.Caddyfile` exposes Soda and Forgejo on separate origins. Native Forgejo CSRF
-or `fetch('/api/...')` is not a substitute. A fixed same-origin Soda API/OAuth namespace
-through existing Caddy is a candidate to verify, not an implemented route: callback,
-cookie/path, configured-origin and native-route collision contracts need review.
-`config.BaseURL` currently permits origins only, so simply putting a subpath into
-`public_url` is not valid. Do not weaken checks or add permissive CORS to hide this.
+The source foundation now uses `forgejo_url` as the sole browser origin and mounts
+Soda API/login/callback paths at `/-/soda/`. Caddy forwards that prefix unchanged;
+Go rejects unprefixed aliases, encoded paths and canonicalization redirects. Soda
+uses its own newly named path-scoped cookies, CSRF token, exact Forgejo Origin and
+same-origin fetch metadata. Native Forgejo cookies/CSRF are not substitutes, and
+`fetch('/api/...')` still targets Forgejo rather than Soda. `public_url` and its
+setup flag are removed; URL configuration remains origin-only. No permissive CORS.
+
+Actor-context mismatch guards, repository-bound OAuth return context and the native
+browser round trip remain pending. The new Caddy recipe has not been exercised or
+deployed; source HTTP tests do not prove native route matching or cookie behavior.
+The installed guest retains its historical separate origins/configuration.
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 

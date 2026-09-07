@@ -17,7 +17,7 @@ export async function observeProjectConnections({ page, username, fixtureDirecto
  const keys = [], connections = [];
  for (const binding of bindings) {
   assert(/^p[0-9a-f]{24}$/.test(binding.environmentID));
-  const result = await page.evaluate(async id => { const response = await fetch('/api/environments/' + id + '/connection'); return { status: response.status, body: await response.json() }; }, binding.environmentID);
+  const result = await page.evaluate(async id => { const response = await fetch('/-/soda/api/environments/' + id + '/connection'); return { status: response.status, body: await response.json() }; }, binding.environmentID);
   if (binding.login !== username && !username.includes('-bob-')) { assert.equal(result.status, 403, 'Connection disclosed before project join'); continue; }
   assert.equal(result.status, 200); assert.equal(result.body.login, username); assert.equal(result.body.routing_verified, false);
   const connection = result.body.connection; assert.equal(connection.environment.id, binding.environmentID); assert.equal(connection.environment.running, true);

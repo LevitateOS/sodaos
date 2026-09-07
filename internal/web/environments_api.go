@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
@@ -97,7 +98,7 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		jsonError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Inspect the environment list before retrying.")
 		return
 	}
-	w.Header().Set("Location", "/api/environments/"+p.ID)
+	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
 	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID})
 	if err != nil {
 		jsonResponse(w, 502, struct {

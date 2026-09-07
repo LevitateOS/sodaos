@@ -26,7 +26,7 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 		}
 	})
 	login := httptest.NewRecorder()
-	s.ServeHTTP(login, httptest.NewRequest("GET", "/login?administration=1", nil))
+	s.ServeHTTP(login, httptest.NewRequest("GET", "/-/soda/login?administration=1", nil))
 	location, err := url.Parse(login.Header().Get("Location"))
 	if err != nil {
 		t.Fatal(err)
@@ -36,9 +36,9 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 	}
 	state := location.Query().Get("state")
 	callback := func() *httptest.ResponseRecorder {
-		r := httptest.NewRequest("GET", "/oauth/callback?"+url.Values{"state": {state}, "code": {"test-code"}, "return_to": {"https://untrusted.invalid"}}.Encode(), nil)
-		r.AddCookie(&http.Cookie{Name: "soda_oauth", Value: state})
-		r.AddCookie(&http.Cookie{Name: "soda_session", Value: "session-alice"})
+		r := httptest.NewRequest("GET", "/-/soda/oauth/callback?"+url.Values{"state": {state}, "code": {"test-code"}, "return_to": {"https://untrusted.invalid"}}.Encode(), nil)
+		r.AddCookie(&http.Cookie{Name: oauthCookie, Value: state})
+		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		return w
@@ -49,11 +49,11 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 	}
 	var session *http.Cookie
 	for _, cookie := range result.Result().Cookies() {
-		if cookie.Name == "soda_session" {
+		if cookie.Name == sessionCookie {
 			session = cookie
 		}
 	}
-	if session == nil || !session.HttpOnly || !session.Secure {
+	if session == nil || !session.HttpOnly || !session.Secure || session.Domain != "" || session.Path != "/-/soda/" || session.SameSite != http.SameSiteLaxMode {
 		t.Fatal("session cookie missing protections")
 	}
 	grant, err := s.Store.Grant(context.Background(), session.Value, 1)

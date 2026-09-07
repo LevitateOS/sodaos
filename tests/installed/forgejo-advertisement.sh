@@ -7,7 +7,7 @@ origins() {
   python3 - <<'PY'
 import json
 x=json.load(open('/etc/soda/dashboard.json'))
-print(json.dumps({k:x[k] for k in ('public_url','forgejo_url','forgejo_internal_url')},sort_keys=True))
+print(json.dumps({k:x[k] for k in ('forgejo_url','forgejo_internal_url')},sort_keys=True))
 PY
 }
 /usr/bin/tailscale status --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("BackendState")=="Running" and not (d.get("Self") or {}).get("Expired",False), "approved running Tailnet required; no enrollment is performed"'

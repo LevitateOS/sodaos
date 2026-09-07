@@ -60,6 +60,36 @@ ownership before mutation. A reusable dashboard-only deployment tool is still pe
 private operator recipes executed the recorded `35df189` rehearsal/rollout;
 the steps above do not establish deployment proof for other revisions/targets.
 
+## Sodaspaces namespace transition — not executed
+
+The current source removes `public_url` / `--public-url` and uses the unchanged
+`forgejo_url` origin with `/-/soda/` API/login/callback routes. The strict loader
+rejects old configuration; this is not an automatic migration or permission to
+edit the retained VM. Schema v3, encrypted grant binding and the existing grant key
+are unchanged in this routing slice. Actor/return context and browser proof remain
+pending; this source is not a completed drawer cutover candidate.
+
+For a later approved transition, include the matching backend and strict-config
+consumers (notably `soda-runners`), copied configuration without `public_url`, Caddy
+recipe and `proxy.env` using only `FORGEJO_ORIGIN` plus the existing private bind.
+Preserve native Forgejo's origin/client identity, all credential files and project
+state. Back up proxy configuration as well as the consistent Soda DB/config/key/
+artifact set. Do not rerun first-install setup/activation on an existing target.
+
+The actual OAuth application's owner must register
+`FORGEJO_ORIGIN/-/soda/oauth/callback` through native Applications settings in the
+approved transition sequence. That native edit preserves the client secret;
+Forgejo 15.0.7's API PATCH regenerates it, so do not substitute a blind API update.
+Preserve the prior callback/configuration for the explicitly reviewed transition
+and rollback scope rather than deleting upstream state automatically.
+
+New host-only Secure/HttpOnly/SameSite=Lax cookies use unique names and Path
+`/-/soda/`. Old standalone cookies are ignored, not borrowed or automatically
+expired across ports; users explicitly sign in again. Old pending browser flows
+restart, with no unprefixed callback alias or rewriting of stored destinations.
+Soda-only logout remains distinct from native Forgejo/SSH logout. These rules still
+need real browser/proxy and populated-state rehearsal before rollout.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth
