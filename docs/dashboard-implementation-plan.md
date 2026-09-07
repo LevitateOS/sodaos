@@ -4,6 +4,18 @@
 
 ## Selected direction — official template overrides; partial U01 invalidation
 
+**Hard boundary: forking Forgejo is a failure path.** If meeting a requirement
+appears to require maintaining modified Forgejo source or a downstream custom
+executable, the chosen approach has failed and needs architectural reconsideration
+with the user. Stop the affected approach; do not normalize it as a small patch,
+bounded API extension or routine next milestone. This overrides every historical
+patch/build permission or proposal below. Supported template overrides, extension
+points, themes/assets, configuration, native workflows/protocols and existing
+APIs/integrations are the intended lanes. Never bypass native security to avoid a
+fork. Separately scoped upstream contributions are possible, but are not permission
+to ship or depend on an unmerged downstream fork. No requirement is silently
+removed: bring the concrete conflict back for a design decision.
+
 **The user selected Forgejo's official template-override method.** Retain upstream
 Forgejo's server-rendered pages, handlers, authentication and business rules;
 customize the shell/navigation/presentation through supported template overrides

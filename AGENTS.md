@@ -63,11 +63,17 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   `docs/forgejo-architecture-revision-plan.md`, with its concrete work package in
   `docs/forgejo-headless-implementation-plan.md`. The source-backed H01 action
   register is `docs/forgejo-api-coverage.md`; consult its exact version/authority
-  findings before implementing a feature or assuming an API gap. Bounded
-  Forgejo-side API additions may be designed over shared native functionality,
-  but concrete patch contracts and maintenance responsibility need review before
-  implementation. Do not fork
-  its business rules or build a competing backend for UI parity.
+  findings before implementing a feature or assuming an API gap.
+  **Forking Forgejo is an architectural failure path, not an implementation
+  option.** A downstream source patch set/custom executable counts as a fork
+  even if called a small adapter or API extension. If a requirement appears to
+  need one, stop that approach, explain the exact limitation and revisit the
+  architecture with the user. Do not proceed under previous patch/build plans.
+  First use supported configuration, themes/assets, template extension points/
+  overrides, native workflows/protocols and existing APIs/integrations. Official
+  customization is not a fork; bypassing native security is not an alternative.
+  Upstream contributions require separate scope and must not become a permanent
+  downstream dependency disguised as upstream work.
   The unified frontend includes Forgejo developer **and administrator** views;
   those views delegate through supported upstream interfaces, not a replacement
   Soda forge/administration backend.

@@ -1,5 +1,23 @@
 # Implementation handoff
 
+## Forking Forgejo is a failure path — hard boundary
+
+The user explicitly ruled out treating a Forgejo fork as a normal implementation
+option. Recorded this in agent guidance and the leading plan: if a requirement
+appears to need downstream source patches/a custom Forgejo executable, stop the
+affected approach and revisit the architecture with the user. Calling it a small
+API extension does not evade the boundary. Prefer supported native customization/
+integration, including official template overrides; do not weaken security or
+silently drop required workflows. Separately scoped upstream contributions are
+not authorization for an unmerged downstream dependency.
+
+This supersedes the remaining historical patch proposals, not the retained factual
+research or licensing work. Only bounded U08 remains accepted (1/20). No code,
+service, environment, dependency or installed behavior changed. The existing
+read-only document checker passed (20 U milestones, three E tracks, 179 groups,
+30 local new/plan links and 46 incoming plan links); `git diff --check` passed.
+No product tests, builds or native actions ran.
+
 ## Official template overrides selected — U01 acceptance withdrawn
 
 The user selected **Forgejo's official template-override mechanism**, retaining
