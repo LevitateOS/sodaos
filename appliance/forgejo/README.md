@@ -104,8 +104,8 @@ background. Used by the repository explorer intro.
 `explore.css` scopes presentation to this wrapper. Native main navigation,
 authentication links, permission-dependent controls and repository data remain
 upstream-owned. The custom extra-links hook adds a guest theme button only here.
-Guests share the homepage/login theme state; signed-in users use native Forgejo
-colors and their native logo. New introductory copy remains English for now.
+Guests share the homepage/login theme state; signed-in users use the same Soda palette and logo, with light/dark selection
+following Forgejo’s native account color-scheme. New introductory copy remains English for now.
 
 Local browser checks covered matching/empty search, alphabetical sorting, the
 not-archived filter, guest light/dark switching, and a narrow 480 CSS-pixel viewport
@@ -133,3 +133,20 @@ depicts a shared workshop and project handoff. Both were newly generated with th
 built-in image tool, retaining PNG alpha. Exact prompts are recorded in
 `assets/branding/forgejo/directory-art-prompts.md`. Local template reload and browser
 inspection confirmed each directory references its own asset.
+
+### Signed-in explorer parity
+
+The same wrapper, artwork, spacing, typography, repository rows and Soda palette
+are now used before and after sign-in. Signed-in light/dark colors use CSS
+`light-dark()` with Forgejo's inherited `color-scheme`; the guest storage value
+never overrides the account setting. The Soda logo follows the bundled native
+light/dark/auto theme families. Account menus, notifications, create actions and
+administrator links are still generated entirely by the stock navbar. A paintbrush
+shortcut opens native appearance settings; it does not write a separate preference.
+
+Local Chrome verification with the existing Vince session covered native light
+and auto/dark appearance, the appearance shortcut, profile/admin menu links,
+mobile menu at 390 CSS pixels without horizontal overflow, repository search and
+page-two navigation. The original `forgejo-auto` account preference was restored.
+No backend/authentication or permissions code was modified. Additional theme
+families and private-repository authorization were not newly tested.

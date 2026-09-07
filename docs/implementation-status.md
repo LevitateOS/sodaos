@@ -30,7 +30,8 @@ no setup-token, stale-creator or copied-permission fallback was restored.
 The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer
 wrapper and scoped CSS with the approved folder artwork. Native search, list,
 filters, sorting, pagination and main navigation remain upstream partials. Guests
-share the login/home theme preference; signed-in pages retain native theme colors.
+share the login/home theme preference; signed-in pages use the same Soda palette
+with light/dark selection inherited from the native account color-scheme.
 Local browser checks exercised matching and empty searches, alphabetical sorting,
 not-archived filtering, light/dark switching and a 480 CSS-pixel narrow layout
 without horizontal overflow. The preview now contains 21 public repositories with sample descriptions/topics;
@@ -46,6 +47,14 @@ conditions, search, sorting and pagination remain upstream-owned. Local browser
 checks covered people search, organization sorting/empty state, light/dark
 appearance and 480 CSS-pixel layouts without horizontal overflow. No sample
 organizations were added, so populated organization rows remain unexercised.
+
+Signed-in explorer parity now includes the Soda logo/palette, themed native account
+menus and a shortcut to native appearance settings. Local Chrome checks using the
+existing Vince session covered light and auto/dark themes, profile/admin links,
+390 CSS-pixel mobile navigation without horizontal overflow, search and page two.
+Vince's original `forgejo-auto` preference was restored after verification. Native
+navbar permission conditions are unchanged; private-repository authorization and
+additional theme families were not newly tested. No appliance deployment occurred.
 
 ## Accepted native evidence
 

@@ -4,3 +4,7 @@
 				<svg class="soda-home-moon" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.3A8.7 8.7 0 0 1 10.7 3.5 8.7 8.7 0 1 0 20.5 13.3Z"/></svg>
 			</button>
 {{end}}
+
+{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations) .IsSigned}}
+  <a class="soda-account-appearance" href="{{AppSubUrl}}/user/settings/appearance" aria-label="{{ctx.Locale.Tr "settings.manage_themes"}}" title="{{ctx.Locale.Tr "settings.manage_themes"}}">{{svg "octicon-paintbrush" 21}}</a>
+{{end}}
