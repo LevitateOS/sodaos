@@ -42,8 +42,28 @@ snapshot of all three projects and Soda associations succeeded.
 Current logs are `.artifacts/logs/u08-completion-*`; private candidate payload,
 backup and rehearsal are `/var/lib/soda/u08-completion-952f3b3/` on the VM. New
 fixture inputs/state/transports are `.artifacts/test-vm/u08-completion-952f3b3/`.
-No project stop/start or VM reboot has run in this continuation yet. U08 is not
-accepted; remaining execution and the different-UID exec gap stay explicit.
+Corrected candidate `935dbdf` also completed full native build/check and a second
+populated backup/rehearsal/matching rollout. Its initializer and service changes
+are installed in the fresh fixture's retained writable root (the original outer
+container/image identity remains `952f3b3`). The first approved project stop/start
+preserved all declared stable data except the subsequent deliberate socket-unit
+correction: comparison identified exactly that file's SHA256, no other changes.
+
+Cold startup exposed an ordering cycle: socket -> sockets.target -> basic.target
+-> init -> socket. The enabled init/socket jobs were not started; readiness was
+absent. Remove the socket's init dependency; the activated service still requires
+init, and init still precedes SSH. A corrected repeat cold start is pending.
+The project's IP changed to `10.89.0.5`; the exact transport utility now rediscovers
+native addresses and verifies every prior public host-key pin before refreshing
+only private connection/pgpass inputs. It does not reset data or accept new keys.
+
+Read-only regression attempts also retained preexisting fixture limits: `host.sh`
+stops at RPM name assumptions (`nodejs`, `zlib` absent under those names), and
+`operator.sh` cannot list runners without its integration configuration. Neither
+is a passing full host/operator regression. Native Cockpit PAM root admission /
+existing non-root denial and configured-origin TLS did pass. No VM reboot has
+run yet. U08 is not accepted; remaining execution and exec/coverage gaps stay
+explicit.
 
 ## U08 completion execution authorized — preparation
 

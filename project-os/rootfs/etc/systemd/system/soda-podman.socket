@@ -1,7 +1,7 @@
 [Unit]
 Description=Project-local Podman API socket for project administrators
-Requires=soda-project-init.service
-After=soda-project-init.service
+# Do not order this socket after init: sockets.target precedes basic.target,
+# which precedes init. The activated service requires init before accepting work.
 
 [Socket]
 ListenStream=/run/soda-podman/podman.sock
