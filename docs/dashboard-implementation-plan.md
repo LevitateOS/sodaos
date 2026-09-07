@@ -12,14 +12,14 @@ The [initial M01–M18 plan](implementation-plan.md) remains historical context 
 
 ## Current execution snapshot — U08 completion run
 
-The user authorized the complete U08 plan on infra and `soda-test`, including one additional environment, its stop/start and the VM reboot. Those actions have executed with preserved state. **U08 remains unaccepted:** different-UID workload exec is still blocked, the final image needs fresh-creation coverage, and full host/operator regression has explicit limits. See the [latest execution handoff](implementation-status.md#u08-completion-execution--candidate-and-remaining-runtime-correction).
+The user authorized the complete U08 run, then the namespaced SYS_PTRACE correction and one further fresh fixture. Four environments are retained. **Different-UID exec and exact final-image fresh creation now pass at `c96c108`. U08 remains unaccepted** pending host/operator regression reconciliation and exact-revision lifecycle coverage; prior project/VM persistence passed at its recorded baseline. See the [latest execution handoff](implementation-status.md#u08-different-uid-exec-verified--c96c108).
 
 ### What is actually built and installed
 
 - **Location:** this workspace is on x86_64 infra (`linux-infra.dimensionlab.net`), with the existing `soda-test` VM accessible through the pinned local SSH tooling. Builder SSH-to-self is not a blocker.
-- **Dashboard/helper/default new-project image:** matching candidate `f233a4a`, schema v3 grants and React preview at `/app/`; no whole-appliance reinstall. Default routes remain HTMX; **U18 has not happened**.
-- **Project bytes:** the two original roots remain at their recorded older baselines. The added environment was created from `952f3b3`; its retained writable root received the source-backed initializer/service/socket corrections now packaged in `f233a4a`. No project container was replaced.
-- **Checks:** exact `f233a4a` full native build/seal and aggregate `check-native.sh x86_64` passed: Go, Cockpit checks/60 tests, dashboard checks/21 tests, 19 build-fixture and 9 staging tests. Installed checks remain scoped subsets, not a complete product verdict.
+- **Dashboard/helper/default new-project image:** matching candidate `c96c108`, schema v3 grants and React preview at `/app/`; no whole-appliance reinstall. Default routes remain HTMX; **U18 has not happened**.
+- **Project bytes:** the three preceding roots remain at their recorded baselines, including the `952f3b3` root with explicit initializer/unit corrections. The fourth, `p7b41edaf83f10a6fd7e579bf`, was created from exact `c96c108` without integration patches. No project container was replaced or gained capabilities in place.
+- **Checks:** exact `c96c108` full native build/seal and aggregate `check-native.sh x86_64` passed: Go, Cockpit checks/60 tests, dashboard checks/21 tests, 20 build-fixture and 9 staging tests. Installed checks remain scoped subsets, not a complete product verdict.
 - **Migration/authentication:** original isolated schema 1→3/key/asset refusal evidence remains. New consistent populated-v3 backups and isolated startup rehearsals preserved identity/key/project/membership/session/grant rows before matching rollouts. This is populated v3 preservation, not a populated version-changing migration or live rollback. Operator and both developers passed post-reboot OAuth/read/navigation/logout; real connection authorization returned rediscovered addresses and matching public keys.
 - **Real developer state:** Alice and Bob have native accounts, completed first-password change/OAuth, registered development public keys, created private repositories and persistent environments, and explicitly joined. Bob also joined Alice's environment without project-administrator rights. Native collaboration, private-repository visibility and administrator/owner denials were checked separately from Linux membership.
 - **Connection/workload/persistence evidence:** infra's restricted project-only route was restored after reboot, without LAN/Tailnet exposure or host-key bypasses. Direct SSH/PTY/SCP/SFTP, sudo/engine denials, personal Git, shared Node/files and ordinary bridge HTTP/PostgreSQL passed, including post-reboot clients. Both new personal Git keys were unlocked in their own restarted project-local agents. Corrected project stop/start and `soda-test` reboot preserved all declared stable state across three roots. Existing workloads required explicit native starts; automatic workload resurrection is not claimed. The earlier resumed onboarding was not a clean first-install run.
@@ -36,8 +36,8 @@ The user authorized the complete U08 plan on infra and `soda-test`, including on
 | **U04 — SSO/grants** | Session-bound encrypted grants and refresh source locally checked; real operator/developer login, consent and logout | Installed expiry/rotation/concurrent refresh, replay, multi-session isolation and logout-race/security coverage. |
 | **U05 — Accounts/keys/People** | Connected profile/Git-key/People/development-key source; actual two-user onboarding and non-admin denial | Remaining account/key/UI cases and full Forgejo-admin/non-Soda-operator versus Soda-operator authority matrix. |
 | **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
-| **U07 — Environments** | Actual three-environment creation, explicit account/key provisioning, memberships and post-reboot connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
-| **U08 — First product proof** | Onboarding/access, personal Git/shared tools, default bridge HTTP/PostgreSQL, corrected project stop/start and VM reboot preservation passed; new personal agents unlocked after both lifecycle operations | Resolve different-UID workload exec, validate the resulting final profile/image in another approved fresh fixture, and reconcile limited host/operator regression. No privilege retrofit, reset or acceptance by omission. |
+| **U07 — Environments** | Actual four-environment creation, explicit account/key provisioning, memberships and post-reboot connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
+| **U08 — First product proof** | Onboarding/access, personal Git/shared tools, bridge HTTP/PostgreSQL and preceding lifecycle preservation passed; exact `c96c108` fresh creation and different-UID/default-user/PTY exec now pass with member denial | Reconcile limited host/operator regression and exact-revision lifecycle coverage. No new lifecycle run, privilege retrofit, reset or acceptance by omission is implied. |
 | **U09 — Code/history/writes** | Connected history/refs/compare/file-write/fork/basic-import source locally checked | Blame and fuller diff/import coverage; real Git readback, stale/protected writes, forks and import failure journeys. |
 | **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked | Structured native templates, remaining comment attachment/reaction detail, expanded failure cases and real two-user collaboration proof. |
 | **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked | Existing inline threads, old-side positions, team reviewers and real reviewer/merger/conflict/check-failure/stale-head journeys. |
@@ -54,7 +54,7 @@ The user authorized the complete U08 plan on infra and `soda-test`, including on
 ### Next execution and decisions
 
 1. **Finish U08 from the retained fixtures.** The user approved the private tunnel, and direct project-IP access from infra now works. The route is runtime-only: `10.89.0.0/24` through `tun8417`, with interface-specific firewall restrictions. No LAN/Tailnet routes or global forwarding sysctls changed. This does not route the user's laptop automatically.
-2. The approved additional fixture and lifecycle checks now ran. Native exec into PostgreSQL's different-UID namespace still fails; the project lacks SYS_PTRACE. Review a fixed, project-user-namespace-scoped capability correction and obtain approval for **one further fresh fixture** to validate it. Podman cannot add the capability to an existing container in place; never edit its database, replace current roots or run a privileged supervisor as a shortcut. Preserve the new durable Git inputs and all existing evidence.
+2. The additionally approved SYS_PTRACE/fresh-fixture follow-up passed at `c96c108`: real different-UID exec works, Bob remains denied the socket, and all three prior roots' snapshots match. Preserve all four roots and private inputs. Reconcile remaining host/operator regression and lifecycle evidence without inferring permission for another fixture, reboot, capability change or destructive operation.
 3. **Continue independent source work:** U15 wiki/packages, U16 administration, missing U09–U14 interactions and focused tests. Routing is not a blocker to this work, and checkpoints are not completion.
 4. Approve an exact disposable runner/repository before real Actions dispatch. Select approved native aarch64 and fresh-install targets for U20; neither has acceptance evidence yet.
 5. Close U17 with explicit upstream-gap decisions before U18 cutover, then complete U19/U20. The current preview rollout is not authorization to discard data or perform final cutover.
@@ -438,10 +438,10 @@ requirement is added to U08; those remain U20 or separate optional delivery work
 | --- | --- |
 | A/B | Parameterized fixtures, bounded snapshots, private transport restoration and durable new Git inputs; full `f233a4a` native build/check passed. |
 | C/D | Populated-v3 backups/rehearsals and matching rollouts; one new Alice repository/environment (`ped30b9d6932974b14feb2278`) with explicit joins. |
-| E | Default bridge build/bind-mount/HTTP/committed PostgreSQL, shared tools, personal Git and authority checks passed. Different-UID exec remains a failure, not a hidden skipped case. |
+| E | Bridge/workload/Git/shared-tool/authority checks passed; the separately approved exact `c96c108` fresh fixture also passes different-UID SQL/PTY exec while denying the member engine access. Initial HTTP readiness raced; bounded read-only checks passed without recreation. |
 | F | First stop/start exposed a socket ordering cycle; the retained-state comparison differed only by its deliberate socket-file correction. Corrected repeat cold startup and full three-project stable comparison passed. |
 | G | Only `soda-test` rebooted; boot ID changed. Three-project stable comparison, native workload restarts, both users' Git unlock/ref readback, SSH/SCP/SFTP, shared tools, HTTP/DB and browser connection checks passed. Cockpit root login/PAM/navigation/TLS passed; full host/operator scripts retain package/configuration gaps. |
-| H | **Not accepted.** Resolve exec/final-profile coverage and regression dispositions without resetting retained state. |
+| H | **Not accepted.** Exec/fresh-image coverage is now verified at `c96c108`; reconcile remaining regression/lifecycle evidence without resetting retained state. |
 
 **Required lifecycle rules (exercised for the new fixture):**
 
@@ -472,11 +472,11 @@ requirement is added to U08; those remain U20 or separate optional delivery work
   must not be claimed unless actually observed. PostgreSQL must return the exact
   committed pre-stop/pre-reboot fixture value without reinitialization or reseeding.
 
-**Immediate next decision:** approve a bounded capability correction and one
-further fresh fixture for different-UID exec/final-profile validation, with its
-scoped lifecycle checks if desired. The original one-fixture approval has been
-used; it does not authorize silently creating another project, replacing roots,
-destructive cleanup, infrastructure reboot or unrelated provider actions.
+**Follow-up outcome:** the user approved SYS_PTRACE in the project user namespace
+and one further fixture; `c96c108` now has real different-UID exec/fresh-image proof.
+Both fixture approvals have been used. Reconcile outstanding host/operator and
+lifecycle coverage without silently creating another project, replacing roots,
+rebooting either host or taking unrelated provider actions.
 
 #### Core-owned native proof detail
 

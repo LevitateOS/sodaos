@@ -9,18 +9,70 @@ integration performed conflict/whitespace review, not builds, product tests or
 native operations. The combined candidate remains unvalidated. The pre-existing
 uncommitted `tests/installed/workloads.sh` edit is retained separately.
 
-## Approved U08 different-UID exec follow-up — preparation
+## U08 different-UID exec verified — c96c108
 
 The user approved project-namespace-scoped SYS_PTRACE and **one further fresh
-fixture** on `soda-test`, preserving all three existing roots. The fixed creation
-profile now includes that capability; no caller-supplied capability parameter,
-privileged parent, host namespace/socket or existing-container retrofit is added.
-The exact-argv Go test retains all namespace/device/security constraints. Added
-`tests/installed/workload-exec.py` for default-root, explicit UID-999 and PTY exec
-against a PostgreSQL PID 1 actually running as UID 999, plus Bob's engine denial.
-This section records preparation, not native success. Build/check, backed-up
-matching deployment and fresh-fixture evidence follow. No additional VM reboot,
-old-project lifecycle, provider CI or destructive cleanup is inferred.
+fixture** on `soda-test`. Current installed dashboard/helper/default project image
+are **`c96c108`**. Full native x86_64 build/seal and aggregate check passed (Go,
+Cockpit 60 tests, dashboard 21 tests, 20 Python build and 9 staging tests). A
+consistent populated-v3 backup, isolated startup/preservation rehearsal and
+matching rollout preserved all existing rows and project/Forgejo/proxy identities.
+No first-install/bootstrap, U18 cutover or whole-appliance reinstall occurred.
+
+The existing Alice/Bob identities created/joined private repository
+`u08-alice-8417/u08-completion-c96c108`, provider repository ID `4`, environment
+`p7b41edaf83f10a6fd7e579bf`, currently `10.89.0.5`. It was created directly from the
+exact new image, with no manual initializer/unit/rootfs integration patch. Native
+inspection proved private project-owned user/network/PID namespaces, default
+seccomp, nonprivileged parent, mapped root and absent human host accounts. The
+fixed creation profile adds SYS_PTRACE only in that project user namespace; no
+caller-selected capability, host namespace/socket, process-debugging supervisor
+or retrofit of older containers was introduced.
+
+**The exec blocker is resolved in this fresh fixture.** PostgreSQL PID 1 actually
+runs as UID/GID 999. `tests/installed/workload-exec.py` passed default-root exec,
+explicit PostgreSQL-user exec, real SQL and PTY exec; Bob still receives native
+socket permission denial. Ordinary Compose bridge creation/build/start succeeded
+without a network override. Its first immediate HTTP check raced the newly
+started server (connection refused). The test now bounds HTTP/PG readiness reads
+and offers explicit `check` mode, so completing reads never replays up/build.
+Those reads and Compose SQL exec passed against the same retained workloads.
+A missing personal `.config` parent was corrected before secret creation; no
+credential or partially created resource was reset.
+
+Direct SSH/PTY/SCP/SFTP, cross-project authentication denial, sudo boundaries,
+personal encrypted Git keys/acting-user registration/clone/commit/push/readback,
+shared Node installation/files and ordinary-member tool-write denial passed.
+The real client, Alice and Bob also passed live bind-mounted HTTP and committed
+PostgreSQL read/write/readback. A new loopback Git transport uses client port
+24424; prior routes/transports were left intact. Git passphrase inputs remain
+restricted and private; keys stay in the two personal project homes.
+
+Before/after comparison proved **all three older roots' declared state unchanged**,
+including accounts, keys, tools, Git, workloads and database rows. Original Soda
+records matched; exactly one project and its two explicit memberships were added.
+The VM boot ID is unchanged. No project lifecycle or VM reboot was repeated for
+this capability follow-up; earlier `f233a4a` lifecycle evidence remains scoped to
+its recorded bytes. No extra fixture, provider CI, publication or cleanup ran.
+
+Evidence: `.artifacts/logs/u08-ptrace-*` (especially `build-c96c108`,
+`check-c96c108`, `fresh-image-boundary`, `different-uid-exec`,
+`workloads-ready-check`, `client-member-workloads`, `git-exercise`, `shared-tools`
+and `preserved-comparison`). Private inputs/current bindings/new-root snapshot:
+`.artifacts/test-vm/u08-completion-c96c108/`. VM payload/backups/rehearsal:
+`/var/lib/soda/u08-completion-c96c108/`. Readiness regression tests and documentation
+follow the built revision; they do not change its production bytes. All 24 current
+Python build tests passed, including start-once, bounded failed readiness,
+check-without-mutation and invalid/empty-mode cases; shell syntax and Git whitespace
+checks passed.
+
+**U08 is still not marked accepted:** reconcile the separately recorded
+host/operator regression limits and exact-revision lifecycle coverage against the
+core acceptance criteria. Full provider/runner and fresh-appliance support exits
+remain U20/P work, not a new independent U08 gate. The
+specific different-UID exec and final-image fresh-creation gaps are now closed
+for native x86_64, not inferred from TCP success. Unselected aarch64/U20/media and
+other U milestones are unchanged.
 
 ## Core/support merge — source only
 
@@ -64,7 +116,7 @@ in this pass.
 
 ## U08 completion execution — candidate and remaining runtime correction
 
-**Current installed preview/helper/default new-project image: `f233a4a`.** Its
+**Preceding installed checkpoint: `f233a4a`.** Its
 entire native x86_64 build/seal and aggregate `check-native.sh` passed: full Go,
 60 Cockpit tests, 21 dashboard tests, 19 build tests and 9 staging tests. Earlier
 `952f3b3` and `935dbdf` candidates were also built/checked and rolled out during

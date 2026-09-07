@@ -1,4 +1,4 @@
-# Native project workloads — partial installed evidence
+# Native project workloads — bounded installed evidence
 
 The candidate remains nested Podman, not a host-socket backend. Rocky contains
 Podman and podman-compose 1.6.0. The project-local engine uses
@@ -15,12 +15,12 @@ native systemd socket activation with root:wheel mode 0660. Project initializati
 creates the socket directory root:wheel 0750; the image enables the socket unit.
 The service uses the activation FD, not a second listener. It keeps its native
 root:root process identity; only the socket is root:wheel. Using wheel as the
-engine's primary GID caused process-namespace access failures during exec. These source units were
-applied to Alice's retained project with a private backup: owner API access works,
-and Bob's direct engine access is denied. This is not a rebuilt project image or
-an automatic update of other existing projects.
+engine's primary GID caused process-namespace access failures during exec.
+Candidate `c96c108` now packages these corrections and passed fresh-project
+creation with no manual integration patch. Earlier project roots keep their
+recorded versions/explicit corrections; this is not an automatic image update.
 
-## Networking: verified mode versus outstanding candidate
+## Native profile and installed evidence
 
 The outer project retains its automatic user namespace, private cgroup/network
 namespaces, `/dev/fuse`, disabled SELinux labeling and the host's default seccomp
@@ -41,16 +41,25 @@ and PostgreSQL operations passed from both users and infra. Corrected cold proje
 startup and the approved VM reboot now have full declared-state preservation
 comparisons. The socket must not depend on init before sockets.target/basic.target;
 the activated service retains that dependency. Existing workloads were explicitly
-started after lifecycle operations, not recreated or automatically resurrected. Different-UID workload exec
-remains blocked by process-namespace permission checks; it must not be reported
-as passing merely because TCP database access works.
+started after lifecycle operations, not recreated or automatically resurrected.
 
-As a diagnostic, two real workloads now run through the same nested engine with
+Different-UID exec exposed another concrete permission requirement. The approved
+`c96c108` creation profile adds **SYS_PTRACE in the project's own user namespace**,
+alongside SYS_ADMIN/MKNOD/NET_ADMIN. This lets the project-root engine enter
+PostgreSQL's UID-999 process namespace; it does not grant appliance ptrace or a
+host PID view. Fresh native testing passed default-root, explicit PostgreSQL-user,
+SQL and PTY exec, while Bob remains denied the root:wheel engine socket. All three
+older roots were preserved without capability retrofits. This profile remains
+for trusted teams, not a claim of hostile-tenant isolation or complete cgroup /
+SELinux confinement. Its capability follow-up did not repeat a VM reboot.
+
+In the earlier retained project, two diagnostic workloads run through the same nested engine with
 native `--network host`: here **host means the project's network namespace**, not
 the appliance's. HTTP source bind-mount changes and committed PostgreSQL data were
 verified by Alice, Bob and the routed infra client. This establishes useful nested
-runtime evidence, **not** working default Compose bridge networking, complete
-isolation or restart/reboot persistence. It is not an alternate appliance backend.
+runtime evidence, not evidence for the newer default bridge profile or complete
+isolation. It is not an alternate appliance backend; newer bridge and lifecycle
+results are recorded separately above and in the handoff.
 
 ## Ordinary example and secrets
 
@@ -76,6 +85,10 @@ commit password files. Normal image/container/volume/secret storage remains owne
 by native Podman inside `/var/lib/containers/storage` and its native state paths.
 No Soda artifact/secret database was added.
 
-See the [handoff](implementation-status.md#personal-git-shared-tools-and-nested-workload-evidence)
+The installed workload test bounds HTTP/PostgreSQL readiness after detached
+startup. `workloads.sh check` performs only readiness/SQL observations against
+already started workloads; it does not replay up/build after an uncertain result.
+
+See the [handoff](implementation-status.md#u08-different-uid-exec-verified--c96c108)
 for exact resources, revisions, failures and retained state. Do not remove failed
 containers/volumes or run `down -v` as a repair shortcut.

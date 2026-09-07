@@ -7,11 +7,11 @@ The [native support tools](native-support.md) are source-only additions, not a r
 ## Current React preview candidate
 
 The existing guest runs matching dashboard/helper/default new-project image
-`f233a4a`, with React preview at <https://localhost:24443/app/>. Default routes
+`c96c108`, with React preview at <https://localhost:24443/app/>. Default routes
 remain HTMX; this is not U18 cutover. Full native build/check and populated-v3
 backup/startup rehearsals passed before rollout. Earlier schema-1→3/key-failure
 and rollback-copy rehearsals remain historical evidence, not a lossless live
-rollback now. See [current evidence](implementation-status.md#u08-completion-execution--candidate-and-remaining-runtime-correction).
+rollback now. See [current evidence](implementation-status.md#u08-different-uid-exec-verified--c96c108).
 
 The installed React operator OAuth/native-read/navigation/logout check passed
 with certificate verification enabled. Older native Soda consent was explicitly
@@ -29,11 +29,12 @@ node tests/installed/dashboard-react.mjs \
 `SODA_RECONSENT_APPLICATION='SodaOS dashboard'` is a separate explicit mutation:
 it revokes only this user's uniquely named native Soda grant before reconsenting.
 Do not enable it as an automatic retry or for unrelated applications/users.
-The same two users, `u08-alice-8417` and `u08-bob-8417`, now use three retained
+The same users, `u08-alice-8417` and `u08-bob-8417`, now use four retained
 environments: the original two and Alice's approved `u08-completion-952f3b3`
-repository/environment. Explicit joins and native collaboration remain separate.
-Original inputs are `.artifacts/test-vm/u08-8417a90/`; new inputs, current verified
-addresses and state comparisons are `.artifacts/test-vm/u08-completion-952f3b3/`.
+and `u08-completion-c96c108` repository/environments. Explicit joins and native collaboration remain separate.
+Original inputs are `.artifacts/test-vm/u08-8417a90/`; completion inputs, verified
+addresses and state comparisons are in `.artifacts/test-vm/u08-completion-952f3b3/`
+and `.artifacts/test-vm/u08-completion-c96c108/`.
 Do not infer addresses from old examples: stop/start and reboot changed them.
 
 From infra, direct SSH/SCP/SFTP, personal Git/shared tools and ordinary bridge
@@ -41,9 +42,11 @@ HTTP/PostgreSQL passed, as did corrected project stop/start and `soda-test` rebo
 preservation. Both new personal Git keys were unlocked after reboot; older Git
 agents died and their original passphrases were not retained. Runtime routes and
 browser/Cockpit/Git transports were restored. This does not route a laptop or
-prove automatic workload startup. Different-UID workload exec and final-profile
-fresh creation remain unverified/blocked; U08 is not accepted. Another fixture or
-capability change needs new scoped approval. Never replace roots or restore an
+prove automatic workload startup. The further approved `c96c108` fixture now
+passes exact-image fresh creation and different-UID/default-user/PTY exec, while
+Bob remains denied engine administration. U08 is not yet accepted: host/operator
+regression and exact-revision lifecycle coverage need reconciliation. No further
+reboot occurred. Another fixture or capability change needs new scoped approval. Never replace roots or restore an
 outdated DB to repair these limits.
 
 `SODA_U08_FIXTURES_DIR` enables real fixture creation through the core-owned
