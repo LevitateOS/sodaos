@@ -27,13 +27,14 @@ refusal means that reverting an image alone is not rollback.
 **Technical disposition after the U01 delta review:** retain 16.0.3 as the single
 implementation input and follow the supported stable line, rather than backporting
 its APIs to 15.0.7 or implementing two backends. This selects the engineering
-candidate, not a live upgrade or an unassigned human support commitment. Before adopting a deployment baseline, confirm
-a human maintainer/reviewer responsible for the supported-release cadence. The
-SodaOS repository owns build/patch integration (U02), native feature semantics
-(the relevant U owner), consumer compatibility (U03/U17) and security/rebase/
-retirement review (U01/U17). No person or upstream team has been assigned a new
-maintenance commitment by this change. No security-support promise is made for a
-Soda patch set that does not exist yet.
+candidate, not a live upgrade. **Forgejo upstream owns its security rules, native
+semantics and upstream fixes.** Soda owns build/patch integration (U02), faithful
+native-interface adaptation (feature owners), consumer compatibility (U03/U17)
+and review/security of its own code and carried patches (U01/U17). Incorporating
+upstream fixes and maintaining an unmerged extension remain Soda engineering
+responsibilities; they do not require the user to become the owner of Forgejo's
+policies. Record actual patch/release review in that existing work, not a new
+policy-selection gate or a promise that upstream maintains Soda's unmerged code.
 
 The source lock binds commit, compressed archive SHA-256 and ordered patch names/
 digests. The commit archive was independently downloaded again from Codeberg and
@@ -79,8 +80,8 @@ Concrete upgrade constraints from that review, not a second API inventory:
   single register. This does not supply the missing MFA-reset/detail workflows.
 
 **Disposition:** no new source-level reason to recreate the v16 APIs on the LTS
-line was found. Implementation proceeds from the existing lock. Human maintenance
-assignment remains open; actual migration/build/conformance checks remain U02/U03/
+line was found. Implementation proceeds from the existing lock. Soda's actual patch/release
+review and migration/build/conformance checks remain U02/U03/
 U17/U20 and require their applicable target scope. Do not reopen the completed
 release-note retrieval unless upstream corrects it or the selected version changes.
 
@@ -120,9 +121,11 @@ new license inventory was added to tracked source.
   build-tag identity. Reuse those texts where they match, rather than claiming they
   prove the final closure. Full transitive Go/native/font license clearance remains
   open; metadata inspection is not that clearance.
-- There is **no top-level SodaOS LICENSE/COPYING grant** in tracked source. This
-  needs the copyright owner's decision; the agent cannot assign a project license
-  or assume the predecessor's rights. No publication is permitted by this review.
+- The user has selected **Apache-2.0 for original SodaOS code**. The top-level
+  license/notice boundary still needs to be authored; the choice is no longer an
+  open question. Preserve all inherited/third-party terms, including Forgejo's
+  GPL terms. This selection neither relicenses third-party code nor completes
+  distribution compliance or authorizes publication.
 
 Selected delivery contract for U02: the existing native stage/bundle must include
 corresponding Forgejo source, ordered patches, build scripts/locks and required
@@ -134,9 +137,9 @@ existing staging/seal allowlists and provide Soda-owned notice/source access;
 no separate release platform or publication job. Resolve native build-image pins
 and assemble these outputs in U02, not by repeating U01 source preparation.
 
-**Remaining human decisions:** name the stable-update/security maintainer and
-reviewer, and choose SodaOS's own license subject to retained third-party rights.
-Other exact artifact-level obligations above have U02 ownership, but unresolved
+**Remaining delivery work:** implement the selected original-code license/notice
+boundary and review Soda's actual patches and artifact-level obligations under the
+existing U owners. Forgejo's policies are not a new user decision. Unresolved
 license compatibility must be brought back before distribution, not called PASS.
 
 ## Current concrete entrypoint

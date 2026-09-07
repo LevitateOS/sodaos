@@ -1,5 +1,46 @@
 # Implementation handoff
 
+## Authority-boundary correction — documentation only
+
+At the user's request, corrected the leading plan, H05 contract, source guide and
+related scope documents after `1275c88`. **Forgejo owns its authentication, external
+identity integration, native logout/revocation, account policy, ownership/transfer
+rules and upstream security fixes. Soda extends and delegates; it maintains its
+own adapters/carried patches without becoming a replacement authority.** Missing
+native interfaces remain engineering work, not new policy questions for the user.
+
+- Removed the proposed alternative IdP/logout/transfer policies and generic demand
+  to name a new owner of upstream security as U01 blockers. Replaced the H05 draft's
+  mandatory custom transaction/schema/account-attempt rules with a native-service
+  delegation contract. Retained browser/session/CSRF/PKCE/secret/bounds protections,
+  native challenge enforcement, origin/RP-ID preservation and working-login hold.
+- Made three inspected code corrections explicit with U owners and regression
+  requirements: ordinary shared-admin substitution (U04/U05/U06/U16), independent
+  Linux/password rules in native account creation (U05/U16), and stale creator
+  authority in environment handlers (U07/U04/U12). Fix active paths before their
+  later U18 removal; the correctly delegated JSON admin handler does not excuse
+  legacy callers. This is not an exhaustive codebase audit or a claim of fixes.
+- Clarified that native organization ownership/repository transfers are required;
+  generalized Linux remapping and separate environment lifecycle machinery stay
+  deferred. Preserve legitimate Soda memberships, all roots/accounts/keys/workloads
+  and distinct native/operator/host authorities.
+- Recorded the user's **Apache-2.0 selection for original SodaOS code**. A license/
+  notice boundary still needs authoring; all third-party terms remain intact and
+  transitive/native/font compliance is not yet established.
+
+Executed the existing read-only document checker: 20 ordered U milestones, three
+conditional E tracks, 179 action groups assigned once, 30 local new/plan links and
+37 incoming plan links/anchors passed; `git diff --check` passed. Log retained at
+`.artifacts/research/authority-docs-1275c88/document-check.log`. These are document
+checks, not native evidence. No Go/frontend/native tests or builds, source
+remediation, license-file creation, deployment, provider mutation or environment
+change is claimed. The selected native input remains 16.0.3; installed Forgejo stays 15.0.7.
+All four environments are untouched. Only bounded U08 is accepted (1/20).
+
+The following historical entry records the original U01 delta work/evidence.
+Its human-policy blockers and prescriptive auth candidate are superseded by this
+correction; preserved release/license/Git experiment evidence is not relabeled.
+
 ## U01 delta execution — concrete dispositions, acceptance still held
 
 Implemented the revised closure work starting from clean `d5b5065`, reusing the
@@ -64,9 +105,9 @@ plan links/anchors; `git diff --check` passed. Script/log:
 checks are separate from the executed primitive experiment and do not validate
 native protocol semantics.
 
-**Not accepted:** U01 still needs named maintenance/security review, the original
-SodaOS license decision, external IdP/logout policy, project-admin transfer policy
-and concrete native-auth/license review dispositions. Exact artifact/native tests
+**Not accepted (corrected):** U01 still needs concrete native-interface/security
+and license/build readiness review. The original license-selection and alternative
+IdP/logout/transfer-policy questions are resolved/withdrawn as described above. Exact artifact/native tests
 remain with U02/U03/U04/U09/U17/U20; their ownership is not a PASS. Only bounded U08
 is accepted (1/20). Continue from these concrete candidates/remaining questions,
 not another research or proposal pass. Working login and all four environments

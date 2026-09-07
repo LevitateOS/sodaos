@@ -38,13 +38,13 @@ Keep out of the first-version implementation scope:
 - automated member departure, deprovisioning and manual account/key drift repair;
 - invitation/approval systems and generalized permission synchronization.
 
-Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. These deferrals concern Soda's cross-system/project access machinery, not Forgejo's own required invitations, account-security, grant/session revocation or identity lifecycle workflows. The post-H01 core plan assigns their native-backed implementation and explicit Soda-association decisions without introducing generalized Linux offboarding. U07 also owns the requested existing-workspace browser terminal and its own connection/session lifetime; that is not permission to terminate unrelated SSH sessions or shared workloads. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
+Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. These deferrals concern Soda's cross-system/project access machinery, not Forgejo's own required invitations, account-security, grant/session revocation or identity lifecycle workflows. The post-H01 core plan assigns their native-backed implementation and conforming Soda-association handling without introducing generalized Linux offboarding. U07 also owns the requested existing-workspace browser terminal and its own connection/session lifetime; that is not permission to terminate unrelated SSH sessions or shared workloads. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
 
 ## 3. Deferred: identity and ownership remapping
 
 Username renames, reused names, collision-resolution policies, historical UID/GID remapping and ownership migration do not need a new Soda subsystem now. Retain the stable Forgejo identity association and use the ordinary native account path; native validation errors should be reported rather than hidden behind automatic remapping.
 
-The working project-admin rule is the owner of the associated Forgejo project/repository. Organization ownership, ownership transfers and elaborate multi-repository/role mappings are deferred, not a reason to build a parallel permissions product.
+The working project-admin rule is the owner of the associated Forgejo project/repository. Forgejo's native organization ownership and repository transfers remain required under the leading plan. Resolve current native authority rather than treating the stored creator as permanently authorized; preserve Linux accounts/data. Generalized Linux ownership migration and elaborate multi-repository/role mappings remain deferred, not a reason to build a parallel permissions product.
 
 ## 4. Deferred: general operation-recovery machinery
 
@@ -60,7 +60,7 @@ The following are not first-version requirements:
 - disaster recovery and comprehensive service-resurrection/availability policies;
 - quota systems, capacity admission and automated disk/resource-pressure management;
 - long-term project image replacement and preservation/migration of arbitrary system modifications;
-- project archival, transfer, deletion and destructive rebuild workflows.
+- separate environment archival, transfer, deletion and destructive rebuild workflows (not Forgejo's required repository lifecycle actions).
 
 Basic persistence across normal project stop/start and host reboot stays in scope. That is not a claim of disaster recovery or high availability. This deferral does not cancel or redirect the predecessor's separately reserved Updates work in issue #61.
 

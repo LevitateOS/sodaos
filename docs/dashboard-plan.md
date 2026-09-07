@@ -174,7 +174,7 @@ Forgejo still owns CI scheduling and results. These are provider views, not a So
 | Organization directory/create/profile | Native organization discovery, creation and overview | F | Next |
 | Organization members / teams | Lists, team detail, membership and native repository access | F | Next |
 | Organization settings | Profile, native hooks and Actions settings | F | Next |
-| Destructive/ownership settings | Repository rename/transfer/archive/delete and organization rename/delete remain required; their effects on linked Soda records/access need an explicit lifecycle decision, not automatic environment mutation | F/S | Integration required |
+| Destructive/ownership settings | Repository rename/transfer/archive/delete and organization rename/delete remain required; linked Soda records/access must follow current native ownership/authorization without stale creator authority; preserve Linux state, not a competing lifecycle policy or automatic environment mutation | F/S | Integration required |
 
 Displaying native organization/team functionality does not implement an organization-to-Linux-project-administrator mapping. The existing ordinary human-owner environment rule remains the first-version rule. Do not introduce copied roles, membership synchronization or automatic environment deletion.
 

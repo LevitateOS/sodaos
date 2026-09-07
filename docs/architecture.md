@@ -133,7 +133,7 @@ The initial flow is a trusted team's straightforward project join. Do not introd
 
 The working rule is that the owner of the associated Forgejo project/repository is the administrator of the project's development pod. This is project-local administration, not host-root or Soda dashboard administration.
 
-The native Linux and Podman permissions must implement that project-local authority in the chosen runtime arrangement. This rule does not require a new Soda role hierarchy or a copy of all Forgejo permissions. Organization ownership, transfers and more elaborate ownership mappings are deferred.
+The native Linux and Podman permissions must implement that project-local authority in the chosen runtime arrangement. This rule does not require a new Soda role hierarchy or a copy of all Forgejo permissions. Generalized Linux ownership remapping remains deferred, not native repository ownership/transfer workflows. Follow current Forgejo ownership and the relevant native authority, including organization ownership; a stored creator ID must not preserve stale authority. This does not elevate arbitrary site/org/repository admins to project or host root, or mutate retained Linux accounts/data.
 
 ### Project Linux user
 
@@ -212,7 +212,7 @@ Mutability belongs to the project environment, not the appliance host. The proje
 
 Persistence must cover Linux account records, SSH host keys, homes, shared files, installed tools, service data and configuration. Selecting volumes or a writable container layer remains an engineering decision to prove. Normal stop/start and host reboot must not unexpectedly discard that state.
 
-Do not substitute routine deletion/recreation for the persistent development experience. Broader backup/restore, disaster recovery, resource-pressure policies and long-term replacement/rebuild machinery are deferred. No project-deletion, archival or transfer workflow is added to the first version.
+Do not substitute routine deletion/recreation for the persistent development experience. Broader backup/restore, disaster recovery, resource-pressure policies and long-term replacement/rebuild machinery are deferred. No separate environment-deletion, archival or transfer workflow is added to the first version. Forgejo's repository lifecycle workflows remain required, with conforming association/authority handling and preserved Linux state.
 
 ## 9. Rocky Linux + mise
 

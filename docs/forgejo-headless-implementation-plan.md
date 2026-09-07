@@ -221,6 +221,8 @@ requires its exact approval; authoring these tests does not run them.
 
 ### Authentication/security
 
+Follow the corrected [authentication delegation contract](forgejo-authentication-design.md): Forgejo owns authentication/IdP/consent/logout/revocation rules, Soda presents and securely adapts them. Do not implement the withdrawn draft account/factor policies or treat missing interfaces as missing policy. Soda maintains its own adapters/patches; upstream security authority is not reassigned to a newly named human.
+
 First produce a reviewed sequence and threat model covering signup/onboarding
 under native configuration, first-password change, sign-in, MFA/security keys,
 consent, refresh, logout, recovery, email verification and sensitive account/admin
@@ -317,8 +319,11 @@ those decisions; they do not fabricate their outcomes.
 Remaining coherent commit sequence — follow the leading plan's
 [U01 delta-only closure checklist](dashboard-implementation-plan.md#u01--capability-authority-and-baseline-audit), not a fresh R&D pass:
 
-1. Resolve the unanswered baseline/maintenance/auth/read/lifecycle decisions in
-   the existing source guide and drafts. Reuse H01 authority findings. Investigate
+1. Close genuine native-interface/security/build/license review gaps in the
+   existing source guide and corrected contracts. The user selected Apache-2.0
+   for original Soda code; native auth/IdP/logout/ownership rules remain Forgejo's,
+   not unanswered Soda policy choices. Fix the leading plan's explicit acting-user,
+   account-validation and stale-owner defects under their U owners. Reuse H01 authority findings. Investigate
    only an identified missing or contradictory fact; do not repeat the inventory,
    v16 API comparison or authentication proposal.
 2. Retain the implemented source lock/preparer/tests at `c9a9be0`. Extend them with
