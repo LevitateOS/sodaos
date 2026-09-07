@@ -1,6 +1,6 @@
 # Unified Soda frontend and backend implementation plan
 
-**Status: implementation in progress; 0/20 core milestones meet full acceptance.** The React preview, backed-up migration and first two-developer provisioning journey have installed evidence on `soda-test`. Substantial feature implementation and native verification remain—not just polish. The current snapshot below supersedes earlier source-only/pending statements for the specifically verified work; it does not relax the detailed acceptance criteria. See [native evidence](implementation-status.md#native-first-developer-fixtures-and-complete-core-build) and [implemented API contracts](dashboard-api.md).
+**Status: implementation in progress; U08 accepted for bounded native x86_64 first-product proof (1/20 core milestones).** The React preview, backed-up migration and first two-developer provisioning journey have installed evidence on `soda-test`. Substantial feature implementation and native verification remain—not just polish. The current snapshot below supersedes earlier source-only/pending statements for the specifically verified work; it does not relax the detailed acceptance criteria. See [native evidence](implementation-status.md#native-first-developer-fixtures-and-complete-core-build) and [implemented API contracts](dashboard-api.md).
 
 **Goal:** one usable React frontend for upstream Forgejo and Soda's development-environment extension, including developer and administrator workflows. First make real workflows work; then make them good. Security, accessibility basics, truthful failures and preservation of work are part of “works.”
 
@@ -12,14 +12,14 @@ The [initial M01–M18 plan](implementation-plan.md) remains historical context 
 
 ## Current execution snapshot — U08 completion run
 
-The user authorized the complete U08 run, then the namespaced SYS_PTRACE correction and one further fresh fixture. Four environments are retained. **Different-UID exec and exact final-image fresh creation now pass at `c96c108`. U08 remains unaccepted** pending host/operator regression reconciliation and exact-revision lifecycle coverage; prior project/VM persistence passed at its recorded baseline. See the [latest execution handoff](implementation-status.md#u08-different-uid-exec-verified--c96c108).
+The user authorized the complete U08 run, then the namespaced SYS_PTRACE correction and one further fresh fixture. Four environments are retained. **U08 is accepted** after merged `8b823db` build/check, backed-up affected-component rollout and regression reconciliation. Lifecycle evidence is reused for explicitly unchanged mechanisms, not relabeled as a new reboot. The console delivery gap remains P11/U20. See the [acceptance handoff](implementation-status.md#u08-accepted--bounded-native-x86_64-first-product-proof).
 
 ### What is actually built and installed
 
 - **Location:** this workspace is on x86_64 infra (`linux-infra.dimensionlab.net`), with the existing `soda-test` VM accessible through the pinned local SSH tooling. Builder SSH-to-self is not a blocker.
-- **Dashboard/helper/default new-project image:** matching candidate `c96c108`, schema v3 grants and React preview at `/app/`; no whole-appliance reinstall. Default routes remain HTMX; **U18 has not happened**.
+- **Dashboard/helper/runner companion/default new-project image:** matching candidate `8b823db`, schema v3 grants and React preview at `/app/`; no whole-appliance reinstall. Default routes remain HTMX; **U18 has not happened**.
 - **Project bytes:** the three preceding roots remain at their recorded baselines, including the `952f3b3` root with explicit initializer/unit corrections. The fourth, `p7b41edaf83f10a6fd7e579bf`, was created from exact `c96c108` without integration patches. No project container was replaced or gained capabilities in place.
-- **Checks:** exact `c96c108` full native build/seal and aggregate `check-native.sh x86_64` passed: Go, Cockpit checks/60 tests, dashboard checks/21 tests, 20 build-fixture and 9 staging tests. Installed checks remain scoped subsets, not a complete product verdict.
+- **Checks:** exact `8b823db` full native build/seal and aggregate `check-native.sh x86_64` passed: Go, Cockpit checks/60 tests, dashboard checks/21 tests, 30 build-fixture and 9 staging tests. Post-build operator-probe regression brings current Python build checks to 31 passing tests. Installed checks remain scoped subsets, not a complete product verdict.
 - **Migration/authentication:** original isolated schema 1→3/key/asset refusal evidence remains. New consistent populated-v3 backups and isolated startup rehearsals preserved identity/key/project/membership/session/grant rows before matching rollouts. This is populated v3 preservation, not a populated version-changing migration or live rollback. Operator and both developers passed post-reboot OAuth/read/navigation/logout; real connection authorization returned rediscovered addresses and matching public keys.
 - **Real developer state:** Alice and Bob have native accounts, completed first-password change/OAuth, registered development public keys, created private repositories and persistent environments, and explicitly joined. Bob also joined Alice's environment without project-administrator rights. Native collaboration, private-repository visibility and administrator/owner denials were checked separately from Linux membership.
 - **Connection/workload/persistence evidence:** infra's restricted project-only route was restored after reboot, without LAN/Tailnet exposure or host-key bypasses. Direct SSH/PTY/SCP/SFTP, sudo/engine denials, personal Git, shared Node/files and ordinary bridge HTTP/PostgreSQL passed, including post-reboot clients. Both new personal Git keys were unlocked in their own restarted project-local agents. Corrected project stop/start and `soda-test` reboot preserved all declared stable state across three roots. Existing workloads required explicit native starts; automatic workload resurrection is not claimed. The earlier resumed onboarding was not a clean first-install run.
@@ -37,7 +37,7 @@ The user authorized the complete U08 run, then the namespaced SYS_PTRACE correct
 | **U05 — Accounts/keys/People** | Connected profile/Git-key/People/development-key source; actual two-user onboarding and non-admin denial | Remaining account/key/UI cases and full Forgejo-admin/non-Soda-operator versus Soda-operator authority matrix. |
 | **U06 — Repository basics** | Discovery/create/tree/README source locally checked; actual private creation and collaboration visibility | Native pagination/ref/empty/binary/large-file/download cases and fuller private/collaborator/security coverage. |
 | **U07 — Environments** | Actual four-environment creation, explicit account/key provisioning, memberships and post-reboot connection inspection | Partial native/DB failure, invalid/missing-key, stopped/unavailable, forged-target and cross-project cases; usable client access belongs to U08. |
-| **U08 — First product proof** | Onboarding/access, personal Git/shared tools, bridge HTTP/PostgreSQL and preceding lifecycle preservation passed; exact `c96c108` fresh creation and different-UID/default-user/PTY exec now pass with member denial | Reconcile limited host/operator regression and exact-revision lifecycle coverage. No new lifecycle run, privilege retrofit, reset or acceptance by omission is implied. |
+| **U08 — First product proof** | **Accepted:** real onboarding/access/Git/shared resources/bridge workloads/different-UID exec; recorded lifecycle preservation with explicit source/image delta reuse; merged 8b823db build/rollout/security/Cockpit regressions | No open U08 criterion in the bounded native x86_64 scope. U20 final-revision/fresh-install/aarch64/full operator acceptance remains separate; console delivery is P11/U20. |
 | **U09 — Code/history/writes** | Connected history/refs/compare/file-write/fork/basic-import source locally checked | Blame and fuller diff/import coverage; real Git readback, stale/protected writes, forks and import failure journeys. |
 | **U10 — Issues** | Connected issues/comments/labels/milestones/reactions/subscriptions/bounded attachments locally checked | Structured native templates, remaining comment attachment/reaction detail, expanded failure cases and real two-user collaboration proof. |
 | **U11 — Pull requests** | Connected revision-bound review/merge and PR inspection source locally checked | Existing inline threads, old-side positions, team reviewers and real reviewer/merger/conflict/check-failure/stale-head journeys. |
@@ -53,8 +53,8 @@ The user authorized the complete U08 run, then the namespaced SYS_PTRACE correct
 
 ### Next execution and decisions
 
-1. **Finish U08 from the retained fixtures.** The user approved the private tunnel, and direct project-IP access from infra now works. The route is runtime-only: `10.89.0.0/24` through `tun8417`, with interface-specific firewall restrictions. No LAN/Tailnet routes or global forwarding sysctls changed. This does not route the user's laptop automatically.
-2. The additionally approved SYS_PTRACE/fresh-fixture follow-up passed at `c96c108`: real different-UID exec works, Bob remains denied the socket, and all three prior roots' snapshots match. Preserve all four roots and private inputs. Reconcile remaining host/operator regression and lifecycle evidence without inferring permission for another fixture, reboot, capability change or destructive operation.
+1. **U08 is complete; retain its fixtures and evidence.** The user approved the private tunnel, and direct project-IP access from infra now works. The route is runtime-only: `10.89.0.0/24` through `tun8417`, with interface-specific firewall restrictions. No LAN/Tailnet routes or global forwarding sysctls changed. This does not route the user's laptop automatically.
+2. Merged `8b823db` build/rollout and affected checks close U08. Preserve all four roots/private inputs and revision-scoped lifecycle results. Resolve the separately recorded P11/U20 console-hook delivery gap later; no further fixture, reboot, capability change or destructive operation is inferred.
 3. **Continue independent source work:** U15 wiki/packages, U16 administration, missing U09–U14 interactions and focused tests. Routing is not a blocker to this work, and checkpoints are not completion.
 4. Approve an exact disposable runner/repository before real Actions dispatch. Select approved native aarch64 and fresh-install targets for U20; neither has acceptance evidence yet.
 5. Close U17 with explicit upstream-gap decisions before U18 cutover, then complete U19/U20. The current preview rollout is not authorization to discard data or perform final cutover.
@@ -441,7 +441,7 @@ requirement is added to U08; those remain U20 or separate optional delivery work
 | E | Bridge/workload/Git/shared-tool/authority checks passed; the separately approved exact `c96c108` fresh fixture also passes different-UID SQL/PTY exec while denying the member engine access. Initial HTTP readiness raced; bounded read-only checks passed without recreation. |
 | F | First stop/start exposed a socket ordering cycle; the retained-state comparison differed only by its deliberate socket-file correction. Corrected repeat cold startup and full three-project stable comparison passed. |
 | G | Only `soda-test` rebooted; boot ID changed. Three-project stable comparison, native workload restarts, both users' Git unlock/ref readback, SSH/SCP/SFTP, shared tools, HTTP/DB and browser connection checks passed. Cockpit root login/PAM/navigation/TLS passed; full host/operator scripts retain package/configuration gaps. |
-| H | **Not accepted.** Exec/fresh-image coverage is now verified at `c96c108`; reconcile remaining regression/lifecycle evidence without resetting retained state. |
+| H | **Accepted after closure reconciliation at 8b823db.** Real c96c108 fresh/exec proof, recorded unchanged-mechanism persistence, merged build/rollout and affected regressions satisfy bounded U08. Full P11/U20 exits remain separate. |
 
 **Required lifecycle rules (exercised for the new fixture):**
 
@@ -487,8 +487,8 @@ reboot, enrollment, job, publication or destructive cleanup is authorized here.
 
 | U08 criterion | Existing evidence (logs under `.artifacts/logs/`) | Closure action / disposition |
 | --- | --- | --- |
-| Matching merged build/assets/config | `u08-ptrace-{build,check}-c96c108` passed; current main also contains support/frontend-validation changes | Full clean merged build/check, populated-v3 rehearsal and matching affected-component rollout required; do not attribute c96c108 results to the merge. |
-| Unprivileged dashboard, socket/credential modes, trusted TLS | `u08-completion-final-bytes-and-boundary`, c96c108 rollout and browser logs | Repeat selected installed security, TLS and asset/API route assertions after rollout. |
+| Matching merged build/assets/config | `u08-ptrace-{build,check}-c96c108` passed; current main also contains support/frontend-validation changes | Full clean merged 8b823db build/check, populated-v3 rehearsal and matching affected-component rollout passed; these are new results, not c96c108 results attributed to the merge. |
+| Unprivileged dashboard, socket/credential modes, trusted TLS | `u08-completion-final-bytes-and-boundary`, c96c108 rollout and browser logs | Passed after rollout: full host checks, separate changed-component byte binding, trusted TLS, missing-asset 404 and unauthenticated JSON API 401. |
 | Acting-admin People, first-password change, two separate logins/keys, explicit joins | `u08-developer-browser*` at 8417a90; `u08-ptrace-{alice,bob}-creation-join` at c96c108 | Reuse actual creation/onboarding records: relevant handlers/schema/UI unchanged since c96c108. Repeat independent login/connection/denial reads; no duplicate users or joins. |
 | Routed client SSH/PTY/SCP/SFTP and verified public keys | `u08-ptrace-developer-access` | Repeat existing client entrypoint with current private bindings. |
 | Owner sudo/member denial, no human host accounts or host-engine access, independent projects | `u08-ptrace-{fresh-image-boundary,developer-access,different-uid-exec,shared-tools}` | Repeat bounded observations and member denial; do not substitute a transport error for denial. |
@@ -496,7 +496,7 @@ reboot, enrollment, job, publication or destructive cleanup is authorized here.
 | Ordinary bridge build/start, live bind HTTP and committed PostgreSQL | `u08-ptrace-{workloads-first-run,workloads-ready-check,client-member-workloads,final-exec-check}` | Initial readiness race remains recorded. Repeat `workloads.sh check`/different-UID exec and read existing client HTTP/SQL data without rebuild or reseeding. |
 | Existing-project stop/start and VM reboot persistence | `u08-completion-{corrected-project-persistence,vm-persistence,vm-git-tools}` at f233a4a | **Reuse with delta analysis**, not a claim that c96c108 rebooted: f233a4a→c96c108 only adds fixed namespaced SYS_PTRACE in create argv; project rootfs, units, start/stop/storage paths are unchanged. c96c108 fresh boot/exec tests exercise that changed permission. Current merge leaves those runtime paths unchanged. No additional lifecycle run required for unchanged mechanisms; U20 repeats final-revision lifecycle acceptance. |
 | Namespace/cgroup/seccomp/capability/SELinux limitations | c96c108 boundary observations; preceding runtime diagnosis | Retain project-owned namespaces/default seccomp and trusted-team-only limits (`label=disable`, extra project capabilities, incomplete cgroup confinement). Not hostile-tenant or aarch64 proof. |
-| Preserved Cockpit and companion services | `u08-completion-vm-{cockpit-browser,cockpit-pam}`; earlier host/operator script failures | Fix actual package-query mismatch and stale runner companion; repeat host/operator read-only and root Cockpit observations. Provider registrations/jobs/enrollment remain P11/U20, not U08 gates. |
+| Preserved Cockpit and companion services | `u08-completion-vm-{cockpit-browser,cockpit-pam}`; earlier host/operator script failures | Package query and stale runner companion corrected; host/root Cockpit/PAM and native runner-list observations passed. Full operator script fails on preexisting missing console hook (P11/U20). Provider registrations/jobs/enrollment remain P11/U20, not U08 gates. |
 
 **Concrete regression disposition:** native RPM inspection found `nodejs22`
 providing `nodejs` and `zlib-ng-compat` providing `zlib`. Installer/host checks now
@@ -509,10 +509,29 @@ binary with a restricted backup, without loosening config parsing or inventing a
 second runner config. `tailscaled` reporting `NeedsLogin` is a legitimate native
 state, not successful enrollment and not failure of the read-only status check.
 
-**Exit:** close U08 only after the merged build/rollout and affected assertions
-have actual evidence. If something fails, record the exact remaining U08 row,
-not a vague requirement to rerun every P/U20 journey. Earlier persistence remains
-revision-scoped reused evidence; no new reboot result is manufactured.
+**Exit achieved:** full `8b823db` build/check (Go, 60 Cockpit, 21 dashboard,
+30 Python build and 9 staging tests), backed-up populated-v3 matching rollout,
+trusted browser/security/Cockpit/PAM and client/native checks passed. Exact hashes
+bind the four affected deployed components; other retained components are not
+claimed as a full-host upgrade. Both users' own-agent Git refs, shared executable
+identity and retained HTTP/committed SQL passed. All four roots' prior declared
+state matched; only the deliberately added access-probe files differ. Evidence:
+`.artifacts/logs/u08-closure-*`; details in the acceptance handoff.
+
+The project image's layer IDs differ after rebuilding. Content/mode/ownership/
+link/capability comparison identifies only the rebuilt Tea binary as changed
+content; native immutable-image Tea version execution passed. Unchanged runtime
+layers/configuration support reuse of recorded project lifecycle results, not a
+new boot claim. No fifth project, project stop/start or VM reboot occurred.
+
+Complete `host.sh` now passes. The restored runner command lists native zero
+capacity; Cockpit native login/navigation/PAM checks pass. Corrected `operator.sh`
+still fails because the preexisting console welcome hook was never installed;
+its earlier completion message ignored source failure. The new missing/failing/
+noisy/quiet-hook regression passes (31 current Python tests). This explicit
+P11/U20 console delivery defect is not erased, a full operator PASS, or a second
+U08 gate. U08 is **accepted for the first-product scope**; U20 retains final
+lifecycle, fresh-install/upgrade, full operator/provider and native aarch64 proof.
 
 #### Core-owned native proof detail
 

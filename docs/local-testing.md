@@ -7,11 +7,11 @@ The [native support tools](native-support.md) are source-only additions, not a r
 ## Current React preview candidate
 
 The existing guest runs matching dashboard/helper/default new-project image
-`c96c108`, with React preview at <https://localhost:24443/app/>. Default routes
+`8b823db`, with React preview at <https://localhost:24443/app/>. Default routes
 remain HTMX; this is not U18 cutover. Full native build/check and populated-v3
 backup/startup rehearsals passed before rollout. Earlier schema-1→3/key-failure
 and rollback-copy rehearsals remain historical evidence, not a lossless live
-rollback now. See [current evidence](implementation-status.md#u08-different-uid-exec-verified--c96c108).
+rollback now. See [current evidence](implementation-status.md#u08-accepted--bounded-native-x86_64-first-product-proof).
 
 The installed React operator OAuth/native-read/navigation/logout check passed
 with certificate verification enabled. Older native Soda consent was explicitly
@@ -44,9 +44,11 @@ agents died and their original passphrases were not retained. Runtime routes and
 browser/Cockpit/Git transports were restored. This does not route a laptop or
 prove automatic workload startup. The further approved `c96c108` fixture now
 passes exact-image fresh creation and different-UID/default-user/PTY exec, while
-Bob remains denied engine administration. U08 is not yet accepted: host/operator
-regression and exact-revision lifecycle coverage need reconciliation. No further
-reboot occurred. Another fixture or capability change needs new scoped approval. Never replace roots or restore an
+Bob remains denied engine administration. **U08 is accepted for bounded native
+x86_64 first-product proof** after merged `8b823db` build/rollout and affected
+checks, reusing earlier lifecycle evidence for unchanged mechanisms. No further
+reboot occurred. Full P11/U20 operator proof remains pending: the corrected
+operator test exposes the preexisting missing console welcome hook. Another fixture or capability change needs new scoped approval. Never replace roots or restore an
 outdated DB to repair these limits.
 
 `SODA_U08_FIXTURES_DIR` enables real fixture creation through the core-owned

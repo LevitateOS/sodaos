@@ -12,6 +12,6 @@ printf '{}\n' | /usr/local/libexec/soda/soda-runners list | python3 -c 'import j
 [[ -s /usr/local/share/cockpit/soda-tailscale/index.html && -s /usr/local/share/cockpit/soda-runners/index.html ]]
 [[ ! -e /usr/local/share/cockpit/soda-updates ]]
 # Test the delivered noninteractive hook without a login, TTY or MOTD trace.
-quiet=$(bash --noprofile --norc -c 'source /etc/profile.d/soda-console-welcome.sh; printf sentinel')
+quiet=$(bash --noprofile --norc -ec 'source /etc/profile.d/soda-console-welcome.sh; printf sentinel')
 [[ "$quiet" == sentinel ]]
 printf 'Retained native read-only observations completed. Enrollment, runner jobs, interactive console and personal provider authentication remain separate.\n'

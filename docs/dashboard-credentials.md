@@ -20,6 +20,10 @@ application startup. Setup/activation retain first-install refusal.
 
 1. Record the exact prior and candidate backend/frontend image/artifact identities.
    Preserve a matching prior artifact; do not rely on a mutable image tag.
+   Inventory native consumers of the configuration too: `soda-runners` uses the
+   same strict loader. A pre-grant-key binary rejects `grant_key_file`; back up
+   and include its compatible candidate binary in an approved config migration.
+   Do not weaken unknown-field validation or create a second runner config.
 2. With permission, stop **only** the target's dashboard service to quiesce its
    writes. Do not stop/delete Forgejo or project containers. Back up the configured
    Soda database using SQLite's backup API, including any committed WAL data;
@@ -42,8 +46,11 @@ application startup. Setup/activation retain first-install refusal.
    grant binding, callback/consent, refresh/logout and rollback tests against
    controlled fixtures. No live schema change is authorized by this document.
 6. Only after successful rehearsal and separately approved target rollout,
-   install the matching dashboard artifacts/config/key and restart only the
-   dashboard. Do not rerun `soda-setup`, `soda-activate` or `install-native.sh`
+   install the matching dashboard artifacts/config/key and any affected native
+   config-consumer binaries, preserving their owners/modes/SELinux labels; restart
+   only the dashboard. Check runner `list` through its native root boundary without
+   enrollment, registration or job execution. Replacing its CLI does not require
+   restarting runner services. Do not rerun `soda-setup`, `soda-activate` or `install-native.sh`
    against the existing installation. Preserve the OAuth application/callback,
    service UID/socket and all project identities/state.
 

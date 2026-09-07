@@ -6,4 +6,12 @@ The message shows observed local uplink IPv4 addresses, loopback-first Cockpit t
 
 The hook does not emit a banner into noninteractive SSH/SCP/SFTP streams and is installed on the host, not in project homes. Missing configuration produces setup guidance rather than a fabricated service URL. Existing installations are not updated by editing this source; applying a changed hook/configuration remains an explicitly authorized native operation.
 
-Focused command-double tests and staging expectations are authored but unexecuted. On the later target, verify an actual root interactive login, configured URLs, no secret leakage, and quiet noninteractive command/transfer behavior separately from the [native product journey](native-validation.md).
+Command-double/staging checks passed in the `8b823db` native build/check. The
+U08 closure run found that the existing VM lacks the profile hook: source/staging
+success did not install it. `tests/installed/operator.sh` now fails on a missing
+or failing hook rather than allowing a subsequent sentinel to hide the failure;
+its focused missing/failing/noisy/quiet regression passed. Native console delivery
+and interactive verification remain P11/U20 work, not a passing full operator
+journey. On an approved rollout, install the matching renderer/hook and verify
+root interactive output, configured URLs, no secret leakage and quiet
+noninteractive transfers separately from the [native product journey](native-validation.md).

@@ -1,5 +1,82 @@
 # Implementation handoff
 
+## U08 accepted — bounded native x86_64 first product proof
+
+**U08 is complete for the recorded infra → `soda-test` first-product scope.** This
+is not U20/release acceptance, a fresh appliance installation, SPA cutover or
+independent aarch64 proof. The criterion-by-criterion reconciliation is in the
+[leading plan](dashboard-implementation-plan.md#u08-closure-reconciliation--merged-candidate).
+Other U milestones remain unfinished; acceptance of this narrower installed
+journey does not pass their broader feature/security matrices.
+
+Built/sealed and ran the full native aggregate at clean **`8b823db`**: Go 1.26.7,
+Cockpit 60 tests, dashboard 21 tests, 30 Python build tests and 9 staging tests
+passed. Current installed dashboard image, host helper, **runner companion** and
+default new-project image match that candidate. Restricted populated-v3
+DB/config/key/helper/runner/unit/prior-image backups and isolated startup rehearsal
+preceded rollout; all identity/key/project/membership/session/encrypted-grant rows
+matched. Only affected components were deployed; other retained appliance bytes
+are not claimed as a whole-host upgrade. `/app/` remains preview; HTMX is default.
+
+After rollout, complete `host.sh` substrate/permission/listener checks passed;
+artifact binding was checked separately for the exact four changed components,
+not through a false full-host `verify-installed`. Trusted TLS/asset-missing/API-401
+checks, independent operator/Alice/Bob OAuth/navigation/logout, authenticated
+connection authorization/public keys, native root Cockpit login/navigation/logout
+and root-versus-existing-nobody PAM account checks passed. Alice's first repeated
+connection observation refused an existing output (`EEXIST`); it was repeated in
+a fresh private **observation directory**, without resetting fixtures or pins.
+
+Direct own-key SSH/PTY/SCP/SFTP and cross-project/sudo denials passed again.
+Different-UID/default-user/SQL/PTY exec and Bob's engine denial passed; explicit
+`workloads.sh check` passed without another up/build. Infra and both users read
+the exact retained committed PostgreSQL rows and live HTTP content. Both users'
+own project-local Git agents authenticated and returned their original native
+remote refs; shared executable device/inode/ownership/version matched. All four
+projects' preexisting declared state and Soda records survived; the only additions
+were the explicitly run SSH/file-transfer probe files in the newest project.
+The three older roots matched exactly. Boot ID did not change.
+
+**Lifecycle evidence disposition:** reuse the real f233a4a stop/start/reboot
+results for unchanged persistence mechanisms, not as a newly executed c96c108 or
+8b823db reboot. f233a4a→c96c108 changes only the fixed create-time SYS_PTRACE
+capability; c96c108 fresh boot and different-UID tests exercised that change.
+The merge changes no project runtime/rootfs/start/stop source. A strict image
+layer-ID equality probe failed and is retained: rebuilding changes Tea and tar
+metadata. Per-layer content/mode/owner/link/capability comparison then established
+only `/usr/local/bin/tea` has changed content; runtime dependency layers and
+project configuration remain identical. The new immutable image's native Tea
+0.15.1 version check passed; its stopped, network-disabled diagnostic container
+is retained on infra. It is not a new project. No lifecycle rerun or additional
+project is needed to close unchanged U08 assertions; U20 owns final repetition.
+
+**Operator gap disposition:** native RPM capability queries prove installed
+nodejs22/zlib-ng-compat satisfy nodejs/zlib; missing-provider regression tests keep
+failure strict. Updating the stale runner command restored native list output:
+zero runners/listeners/capacity. `NeedsLogin` is the observed Tailscale state, not
+enrollment proof. The initial operator script incorrectly printed completion
+when its console hook was missing. Added `-e` to its inner shell and a regression
+for missing/failing/noisy/quiet hooks. The corrected script now **fails** on absent
+`/etc/profile.d/soda-console-welcome.sh`; do not count the earlier apparent pass.
+That preexisting console delivery/interactive-review gap remains P11/U20, outside
+U08's preserved Cockpit-service criterion. No console files, providers, networks
+or runner services were changed to hide it. Full P11 acceptance is not claimed.
+
+**Evidence:** `.artifacts/logs/u08-closure-*`, including build/check `.exit` files,
+`rollout-8b823db`, `host-regression`, `operator-corrected`, `browser-*`,
+`cockpit-{browser,pam}`, `static-api-boundary`, `developer-access`,
+`different-uid-exec`, `retained-client-reads`, `workload-check`,
+`{original-three,four-project}-preservation`, `project-image-{delta,content}`,
+`tea-image-version` and `final-byte-binding`. Private backups/rehearsal are under
+`/var/lib/soda/u08-completion-8b823db/`; browser observations under
+`.artifacts/test-vm/u08-closure-8b823db/`; both completion fixture directories retain
+before/after snapshots. Earlier c96c108 artifacts moved intact to
+`.artifacts/retained-native-u08-c96c108/` before the build. No evidence was resealed
+or failed result overwritten. Post-build operator-test correction/documents do
+not alter deployed production bytes; all **31 current Python build tests** passed,
+including the new failure regression. No reboot, fixture creation, enrollment,
+provider job, project replacement, cleanup or publication occurred.
+
 ## U08 closure implementation — merged-candidate preparation
 
 User authorized the closure plan on infra and `soda-test`, using retained fixtures
