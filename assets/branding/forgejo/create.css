@@ -1,16 +1,17 @@
 /* The creation form retains upstream partials, constraints and conditional options. */
 .soda-create .soda-create-form { width:100%; margin:0; }
-.repository.new.repo.soda-create .ui.form { width:100% !important; max-width:none; margin:0; color:var(--explore-text); }
+.repository.new.repo.soda-create .ui.form,
+.organization.new.org.soda-create .ui.form { width:100% !important; max-width:none; margin:0; color:var(--explore-text); }
 .soda-create .ui.form fieldset { min-width:0; margin:0 0 24px; padding:24px; border:1px solid var(--explore-edge); border-radius:14px; background:var(--explore-surface); }
 .soda-create .ui.form legend { float:left; width:100%; margin:0 0 20px; padding:0; color:var(--explore-text); font:600 23px/1.4 "Fraunces Variable",Georgia,serif; }
 .soda-create .ui.form legend .help { display:block; margin:4px 0 0; font:400 14px/1.5 Barlow,sans-serif; }
 .soda-create .ui.form label { color:var(--explore-text); font:600 15px/1.5 Barlow,sans-serif; }
 .soda-create .ui.form .help { color:var(--explore-muted); font:400 14px/1.6 Barlow,sans-serif; }
-.soda-create .ui.form input:not([type="checkbox"]):not([type="hidden"]):not(.search),
+.soda-create .ui.form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search),
 .soda-create .ui.form textarea,
 .soda-create .ui.form .selection.dropdown { border:1px solid var(--explore-edge); border-radius:10px; background:var(--explore-canvas); color:var(--explore-text); min-height:46px; font:400 16px/1.5 Barlow,sans-serif; box-shadow:none; }
 .soda-create .ui.form textarea { resize:vertical; min-height:100px; }
-.soda-create .ui.form input[type="checkbox"] { accent-color:var(--soda-light-action); }
+.soda-create .ui.form input:is([type="checkbox"],[type="radio"]) { accent-color:var(--soda-light-action); }
 .soda-create .ui.form .selection.dropdown > .text { color:var(--explore-text); }
 .soda-create .ui.form .selection.dropdown > .default.text { color:var(--explore-muted); }
 .soda-create .ui.form .dropdown .menu { background:var(--explore-surface); border-color:var(--explore-edge); border-radius:10px; }
@@ -40,10 +41,12 @@
 .soda-create .ui.form fieldset > label:last-child,
 .soda-create .ui.form details > label:last-child,
 .soda-create .ui.form .hide-unless-checked > label:last-child { margin-bottom:0; }
-.soda-create .ui.form label > :is(input:not([type="checkbox"]):not([type="hidden"]),textarea,.selection.dropdown) { margin-top:8px; }
+.soda-create .ui.form label > :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),textarea,.selection.dropdown) { margin-top:8px; }
 .soda-create .ui.form label > .help { display:block; margin-top:6px; }
 .soda-create .ui.form #repo_template_search { margin-top:8px; }
 .soda-create .ui.form fieldset > label.tw-mb-0 { margin-bottom:0 !important; }
 .soda-create .ui.form details > summary { padding:0; }
 .soda-create .ui.form .hide-unless-checked { margin-top:20px; }
 .soda-create .soda-create-fields > p { margin:0 0 20px; }
+
+.soda-create .ui.form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search) { padding:10px 14px; }

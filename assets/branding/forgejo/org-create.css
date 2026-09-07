@@ -1,25 +1,8 @@
-/* Native organization creation fields, visibility values and permissions. */
-.organization.new.org.soda-org-create .ui.form { width:100% !important; max-width:none; margin:0; color:var(--explore-text); }
-.soda-org-create .soda-org-fields > .field { margin:0 0 24px; padding:24px; border:1px solid var(--explore-edge); border-radius:14px; background:var(--explore-surface); }
-.soda-org-create .ui.form .inline.field > label,
-.soda-org-create .ui.form .inline.field > span.field { display:block; width:auto; margin:0 0 12px; color:var(--explore-text); font:600 16px/1.5 Barlow,sans-serif; }
-.soda-org-create .ui.form .inline.field > span.field > label { width:auto; color:var(--explore-text); font:600 16px/1.5 Barlow,sans-serif; }
-.soda-org-create .ui.form #org_name { display:block; width:100%; max-width:none; min-height:46px; margin:0; padding:10px 14px; border:1px solid var(--explore-edge); border-radius:10px; background:var(--explore-canvas); color:var(--explore-text); font:400 16px/1.5 Barlow,sans-serif; box-shadow:none; }
-.soda-org-create .ui.form .help { display:block; margin:6px 0 0; color:var(--explore-muted); font:400 14px/1.6 Barlow,sans-serif; }
+/* Only adapt native organization markup; visual rules live in create.css. */
+.soda-org-create .ui.form .soda-org-name > label { margin:0 0 8px; }
+.organization.new.org.soda-org-create .ui.form #org_name { display:block; width:100%; max-width:none; margin:0; }
+.organization.new.org.soda-org-create .ui.form .soda-org-name > .help { display:block; margin:6px 0 0 !important; padding:0; text-align:left; }
 .soda-org-create .ui.form .inline-grouped-list { display:flex; flex-direction:column; align-items:flex-start; gap:16px; margin:0; padding:0; }
 .soda-org-create .ui.form .ui.checkbox { margin:0; min-height:24px; }
-.soda-org-create .ui.form .ui.checkbox label { color:var(--explore-text); font:400 15px/1.6 Barlow,sans-serif; }
-.soda-org-create .ui.form input:is([type="radio"],[type="checkbox"]) { accent-color:var(--soda-light-action); }
-.soda-org-create .soda-org-fields > .field:last-child { padding:0; border:0; background:transparent; margin:0; }
-.soda-org-create .ui.form .primary.button { min-height:48px; margin:0; padding:12px 24px; border:0; border-radius:10px; background:var(--soda-light-action); color:white; font:600 16px/1.5 Barlow,sans-serif; box-shadow:none; }
-.soda-org-create .ui.form .primary.button:hover { filter:brightness(1.08); }
-.soda-org-create .ui.form :is(input,button):focus-visible { outline:2px solid var(--explore-link); outline-offset:3px; }
-.soda-org-create .ui.form .field.error #org_name { border-color:var(--color-error-border); }
-@media (max-width:700px) {
- .soda-org-create .soda-org-fields > .field { padding:20px 16px; }
- .soda-org-create .ui.form .primary.button { width:100%; }
-}
-.organization.new.org.soda-org-create .ui.form .inline.field > label,
-.organization.new.org.soda-org-create .ui.form .inline.field > span.field,
-.organization.new.org.soda-org-create .ui.form .inline.field > span.field > label { width:auto; min-width:0; text-align:left; margin-left:0; }
-.organization.new.org.soda-org-create .ui.form .inline.field > .help { margin-left:0 !important; padding:0; text-align:left; }
+.soda-org-create .ui.form .ui.checkbox label { font:600 15px/1.5 Barlow,sans-serif; }
+.soda-org-create .soda-org-fields > .inline.field { margin:0; }
