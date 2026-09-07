@@ -67,10 +67,22 @@ sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP \
 
 Activation applies file ownership for the unprivileged dashboard, retains operator-only native access, binds Caddy and Forgejo Git SSH to the selected private IP, and starts the actual services. If Tailnet Git access is intended, enroll through operator Cockpit before activation and select that Tailnet private IP; later advertisement refresh refuses to substitute a Tailnet address while Git SSH only binds a LAN IP. Configured browser origins must resolve through the deployment's normal browser/network setup; this is unrelated to project SSH, which uses project IPs directly. Native Forgejo Git SSH uses port 2222; project SSH uses each project IP's port 22.
 
+### Sodaspaces customization delivery
+
+The source stage includes only `templates/custom/{header,footer}.tmpl` and
+`public/assets/sodaspaces.{css,js}` beneath `/var/lib/soda/forgejo/gitea/`, alongside
+existing branding. Files are 0644, new readable directories 0755; the installer
+applies Forgejo UID/GID 1000 to the exact new template paths. Bundle verification
+requires the four files and source LICENSE/NOTICE; it rejects arbitrary templates.
+First-install preflight refuses occupied hook/asset destinations, including
+symlinks, before host writes. Resolve conflicts explicitly, never merge or overwrite
+operator hooks automatically. This is not an upgrade interface. Actual CustomPath,
+labels, reload requirements and browser behavior still need approved native proof.
+
 ### Existing-state dashboard migration
 
-The current dashboard requires `grant_key_file` and schema-v3 encrypted session
-grants. Do not run first-install or OAuth bootstrap again on an existing target.
+The current dashboard requires `grant_key_file` and schema v5, retaining the
+session-grant encryption introduced in v3. Do not run first-install or OAuth bootstrap again on an existing target.
 Follow the [controlled credential migration and rollback procedure](dashboard-credentials.md),
 including a consistent SQLite backup, matching config/key/artifact set and
 separately approved rehearsal/deployment. A missing or wrong key fails closed;

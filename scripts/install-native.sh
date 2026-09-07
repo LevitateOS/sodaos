@@ -103,18 +103,27 @@ configure_network check
 python3 - "$bundle/build-info.json" <<'PY'
 import json, stat, sys
 from pathlib import Path
-for name in json.loads(Path(sys.argv[1]).read_text())['Files']:
-    if not name.startswith('rootfs/'): continue
-    target = Path('/') / name.removeprefix('rootfs/')
-    for path in [*reversed(target.parents), target]:
-        if path.is_symlink():
-            if path == Path('/usr/local') and path.resolve() == Path('/var/usrlocal'):
-                continue
-            raise SystemExit('unexpected symlink in installation destination')
-        if path.exists() and path != target:
-            info = path.stat()
-            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
-                raise SystemExit('unsafe installation destination ancestor')
+def check_destinations(root, files):
+    # Fixed first-install destinations, not a custom-template merge/adoption policy.
+    hooks = {'templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
+             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'}
+    protected = {'rootfs/var/lib/soda/forgejo/gitea/' + name for name in hooks}
+    for name in files:
+        if not name.startswith('rootfs/'): continue
+        parts = Path(name.removeprefix('rootfs/')).parts
+        target = root.joinpath(*parts)
+        for path in [root.joinpath(*parts[:i]) for i in range(len(parts) + 1)]:
+            if path.is_symlink():
+                if path == root / 'usr/local' and path.resolve() == root / 'var/usrlocal':
+                    continue
+                raise SystemExit('unexpected symlink in installation destination')
+            if path.exists() and path != target:
+                info = path.stat()
+                if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                    raise SystemExit('unsafe installation destination ancestor')
+        if name in protected and target.exists():
+            raise SystemExit('occupied Sodaspaces hook/asset; operator decision required')
+check_destinations(Path('/'), json.loads(Path(sys.argv[1]).read_text())['Files'])
 PY
 rpm-ostree status --json | python3 -c 'import json,sys; deployments=json.load(sys.stdin)["deployments"]; assert sum(d.get("booted") is True for d in deployments)==1, "one observed booted deployment required"'
 umask 077
@@ -131,6 +140,8 @@ systemd-sysusers /etc/sysusers.d/soda.conf /etc/sysusers.d/soda-runners.conf
 systemd-tmpfiles --create /etc/tmpfiles.d/soda.conf /etc/tmpfiles.d/soda-runners.conf
 configure_network apply
 chown -R 1000:1000 /var/lib/soda/forgejo/gitea/public
+# Only the new exact template paths; never recursively adopt mutable Forgejo data.
+chown 1000:1000 /var/lib/soda/forgejo/gitea/templates{,/custom,/custom/header.tmpl,/custom/footer.tmpl}
 # OCI image-ID saves need not preserve tag annotations. Restore precisely the
 # existing core references, from the verified config identity, without repulling.
 for image in project-os dashboard forgejo caddy; do

@@ -324,6 +324,22 @@ now invokes the DOM test; its actual-stage requirement is unchanged. Packaging,
 opt-in native journey and real browser/proxy proof still follow. No dependencies,
 images, stage, services, provider credentials or retained state changed.
 
+## Read-only packaging source
+
+The production stage now copies the four hook/assets with readable modes despite
+a private builder umask. The bundle requires them and admits only the two custom
+templates/ancestors, not an arbitrary template tree; source LICENSE/NOTICE are
+included alongside retained notices. First-install uses an actual readonly
+preflight function to refuse occupied hook/asset targets before writes and adjusts
+ownership only for the exact new template paths. It remains a first installer,
+not a retained-target upgrade or customization merger.
+
+Full uncached Go tests and all 34 Python build fixtures passed locally, including
+real stage logic with synthetic build inputs and readonly installer logic against
+temporary filesystems. Logs: `.artifacts/research/read-only-05217f7/`. These fixtures
+are not an actual native stage/build/install. The added actual-stage assertions
+remain unexecuted; no service, native target, credentials or project data changed.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring

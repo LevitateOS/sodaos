@@ -29,7 +29,19 @@ type Inventory struct {
 
 const inventoryName = "build-info.json"
 
+var sodaspacesFiles = []string{
+	"rootfs/var/lib/soda/forgejo/gitea/templates/custom/header.tmpl",
+	"rootfs/var/lib/soda/forgejo/gitea/templates/custom/footer.tmpl",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.css",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.js",
+}
+
 func allowedPayload(p string) bool {
+	for _, name := range sodaspacesFiles {
+		if p == name || strings.HasPrefix(name, p+"/") {
+			return true
+		}
+	}
 	// Retired React output is not a valid payload for new Soda bundles.
 	if p == "rootfs/usr/local/share/soda/dashboard" || strings.HasPrefix(p, "rootfs/usr/local/share/soda/dashboard/") {
 		return false
@@ -52,7 +64,7 @@ func allowedPayload(p string) bool {
 		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
 	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE":
+	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/soda-LICENSE", "notices/soda-NOTICE":
 		return true
 	}
 	return false
@@ -135,10 +147,22 @@ func tree(root string) (map[string]File, error) {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE"} {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
 		entry, ok := result[required]
 		if !ok || entry.SHA256 == "" {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)
+		}
+	}
+	for _, name := range sodaspacesFiles {
+		entry, ok := result[name]
+		if !ok || entry.SHA256 == "" || entry.Mode != 0644 {
+			return nil, fmt.Errorf("missing or unreadable Sodaspaces payload: %s", name)
+		}
+	}
+	for _, name := range []string{"rootfs/var/lib/soda/forgejo/gitea/templates", "rootfs/var/lib/soda/forgejo/gitea/templates/custom"} {
+		entry := result[name]
+		if !entry.Directory || entry.Mode != 0755 {
+			return nil, fmt.Errorf("unreadable Sodaspaces directory: %s", name)
 		}
 	}
 	return result, nil

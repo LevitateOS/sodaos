@@ -1,0 +1,119 @@
+"""Production staging/preflight in temporary filesystems; never host installation."""
+import ast
+import os
+from pathlib import Path
+import runpy
+import shutil
+import stat
+import tempfile
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[2]
+FILES = ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
+         'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js')
+PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
+
+
+class SodaspacesPackaging(unittest.TestCase):
+    def test_actual_stage_recipe_with_synthetic_build_inputs(self):
+        # No generated artifact is placed in the production .artifacts/native tree.
+        with tempfile.TemporaryDirectory() as tmp:
+            checkout = Path(tmp)
+            (checkout / 'scripts').mkdir()
+            shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
+            (checkout / 'assets').symlink_to(ROOT / 'assets', target_is_directory=True)
+            (checkout / 'appliance').symlink_to(ROOT / 'appliance', target_is_directory=True)
+            (checkout / 'cmd/soda-dashboard').mkdir(parents=True)
+            build = checkout / '.artifacts/native/x86_64'
+            (build / 'bin').mkdir(parents=True)
+            (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
+            (build / 'github-actions-runner').mkdir()
+            for page in ('tailscale', 'runners'):
+                (checkout / 'cockpit/dist' / f'soda-{page}').mkdir(parents=True)
+            previous = os.umask(0o077)
+            try:
+                with patch('sys.argv', ['stage.py', '--arch', 'x86_64']), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
+                    runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
+            finally:
+                os.umask(previous)
+            stage = build / 'rootfs'
+            for name in FILES:
+                p = stage / PREFIX.removeprefix('rootfs/') / name
+                self.assertEqual(p.read_bytes(), (ROOT / 'appliance/forgejo' / name).read_bytes())
+                self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
+                for parent in p.parents:
+                    if parent == stage:
+                        break
+                    self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
+
+    def test_original_source_notices_in_metadata(self):
+        module = runpy.run_path(str(ROOT / 'scripts/native-build-info.py'))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ('appliance', 'project-os', 'cockpit', 'docs', 'scripts',
+                         'go.mod', 'go.sum', 'LICENSE', 'NOTICE'):
+                (root / name).symlink_to(ROOT / name)
+            stage = root / '.artifacts/native/x86_64'
+            stage.mkdir(parents=True)
+            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy'):
+                (stage / (name + '.iid')).write_text('sha256:' + '1' * 64)
+            def synthetic_output(args):
+                return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
+            with patch.dict(module['collect'].__globals__, output=synthetic_output), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
+                module['collect'](root, 'x86_64', '1' * 40)
+            for source, name in (('LICENSE', 'soda-LICENSE'), ('NOTICE', 'soda-NOTICE')):
+                self.assertEqual((stage / 'notices' / name).read_bytes(), (ROOT / source).read_bytes())
+
+    def test_destination_refusal_before_writes(self):
+        installer = (ROOT / 'scripts/install-native.sh').read_text()
+        start = installer.index('python3 - "$bundle/build-info.json"', installer.index('# Inspect existing destination ancestors'))
+        end = installer.index('\nPY\n', start)
+        program = installer[start:end].split("<<'PY'\n", 1)[1]
+        tree = ast.parse(program)
+        # Execute the actual readonly function; its production caller is fixed '/'.
+        self.assertEqual(ast.unparse(tree.body[-1]), "check_destinations(Path('/'), json.loads(Path(sys.argv[1]).read_text())['Files'])")
+        namespace = {}
+        exec(compile(ast.Module(body=tree.body[:-1], type_ignores=[]), '<installer-preflight>', 'exec'), namespace)
+        check = namespace['check_destinations']
+        self.assertLess(end, installer.index('install -d -m 0700 /etc/soda'))
+        self.assertLess(end, installer.index('configure_network apply'))
+        real_stat = Path.stat
+        def root_owned(path, *args, **kwargs):
+            values = list(real_stat(path, *args, **kwargs))
+            values[4] = 0  # Simulate host root ownership, never chown the test host.
+            return os.stat_result(values)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'stat', root_owned):
+            root = Path(tmp)
+            payload = [PREFIX + name for name in FILES]
+            check(root, payload)
+            self.assertEqual(list(root.iterdir()), [])
+            for name in FILES:
+                target = root / PREFIX.removeprefix('rootfs/') / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text('operator bytes')
+                with self.assertRaisesRegex(SystemExit, 'occupied Sodaspaces'):
+                    check(root, payload)
+                self.assertEqual(target.read_text(), 'operator bytes')
+                target.unlink()  # Only exact temporary fixture files.
+            target = root / PREFIX.removeprefix('rootfs/') / FILES[0]
+            target.symlink_to(root / 'missing')
+            with self.assertRaisesRegex(SystemExit, 'symlink'):
+                check(root, payload)
+            target.unlink()
+            os.mkfifo(target)
+            with self.assertRaisesRegex(SystemExit, 'occupied Sodaspaces'):
+                check(root, payload)
+            target.unlink()
+            target.parent.chmod(0o777)
+            with self.assertRaisesRegex(SystemExit, 'unsafe installation'):
+                check(root, payload)
+            target.parent.chmod(0o755)
+            # Keep the one stock CoreOS link; refuse other links in ancestry.
+            (root / 'usr').mkdir()
+            (root / 'var/usrlocal').mkdir()
+            (root / 'usr/local').symlink_to(root / 'var/usrlocal', target_is_directory=True)
+            check(root, ['rootfs/usr/local/bin/tool'])
+            (root / 'var/usrlocal/bin').symlink_to(root / 'elsewhere')
+            with self.assertRaisesRegex(SystemExit, 'symlink'):
+                check(root, ['rootfs/usr/local/bin/tool'])

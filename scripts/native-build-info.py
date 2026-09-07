@@ -38,6 +38,8 @@ def collect(root, arch, revision):
     notices.mkdir()
     shutil.copyfile(root / 'docs/native-support-notices.md', notices / 'README.md')
     shutil.copyfile(root / 'project-os/licenses/tea-LICENSE', notices / 'tea-LICENSE')
+    shutil.copyfile(root / 'LICENSE', notices / 'soda-LICENSE')
+    shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')
     tools = {name: output(command) for name, command in {
         'go': ['go', 'version'], 'node': ['node', '--version'],
         'pnpm': ['pnpm', '--version'], 'podman': ['podman', '--version'],

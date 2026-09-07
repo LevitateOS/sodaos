@@ -22,14 +22,25 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
 		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
-		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "tools/soda-artifacts", "install-native.sh",
+		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
+	paths = append(paths, sodaspacesFiles...)
 	for _, name := range paths {
 		p := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(p, []byte("synthetic payload; never executed\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range sodaspacesFiles {
+		if err := os.Chmod(filepath.Join(root, name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"templates", "templates/custom"} {
+		if err := os.Chmod(filepath.Join(root, "rootfs/var/lib/soda/forgejo/gitea", name), 0755); err != nil {
 			t.Fatal(err)
 		}
 	}

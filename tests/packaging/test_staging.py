@@ -97,6 +97,22 @@ class NativeStage(unittest.TestCase):
         self.assertEqual(env.stat().st_mode & 0o777, 0o600)
         self.assertFalse((self.root / 'var/lib/soda/forgejo/gitea/public/assets/soda-theme-preview.html').exists())
 
+    def test_sodaspaces_payload(self):
+        custom = self.root / 'var/lib/soda/forgejo/gitea'
+        source = Path(__file__).resolve().parents[2] / 'appliance/forgejo'
+        for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
+                     'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'):
+            target = custom / name
+            self.assertFalse(target.is_symlink())
+            self.assertEqual(target.read_bytes(), (source / name).read_bytes())
+            self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+            for parent in target.parents:
+                if parent == self.root:
+                    break
+                self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
+        self.assertEqual(sorted(p.name for p in (custom / 'templates/custom').iterdir()),
+                         ['footer.tmpl', 'header.tmpl'])
+
     def test_operator_console_delivery(self):
         renderer = self.root / 'usr/local/libexec/soda/soda-console-welcome'
         self.assertTrue(renderer.is_file())

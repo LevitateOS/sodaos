@@ -69,6 +69,17 @@ for name in ['logo.svg', 'favicon.svg']:
     shutil.copy2(source / 'assets/branding/source/soda-symbol.svg', images / name)
 for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
+# Original Sodaspaces hooks/assets; no upstream template tree or frontend build.
+for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
+             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'):
+    target = copy(source / 'appliance/forgejo' / name,
+                  '/var/lib/soda/forgejo/gitea/' + name, 0o644)
+    # mkdir inherits a private builder umask. These public paths must be readable
+    # by the stock Forgejo UID; change only this run-owned staging ancestry.
+    for parent in target.parents:
+        if parent == stage:
+            break
+        parent.chmod(0o755)
 copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)

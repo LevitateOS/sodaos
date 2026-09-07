@@ -227,7 +227,8 @@ existing Linux accounts, keys, SSH sessions or workloads.
 ### 3. Deliver the read-only button and drawer
 
 **Source underway, not native-accepted:** the hook/assets, identity/read caller and
-focused source tests are implemented. Packaging and the opt-in journey follow;
+focused source tests and bounded packaging/conflict fixtures are implemented.
+The opt-in journey follows;
 complete native proof for the caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
 source tests first, packaging with fixtures next, then the opt-in native journey.
 Run native proof only with its separate approval. Read-only UI source may proceed
@@ -308,6 +309,8 @@ schema change, frontend build, component library or upstream executable is plann
   here describes environment behavior, not a claim that authentication has no effects.
 
 #### Packaging and conflict refusal
+
+**Source-implemented and fixture-tested; actual stage/install proof pending.**
 
 - `scripts/stage.py` copies only the four files into
   `/var/lib/soda/forgejo/gitea/{templates/custom/,public/assets/}`. Keep readable

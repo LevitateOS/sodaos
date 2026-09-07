@@ -23,8 +23,9 @@ The inspected **15.0.7** source establishes:
   `/var/lib/soda/forgejo/gitea/templates/`. Verify effective configuration and
   reload/restart requirements before any rollout.
 
-Staging already supplies native themes/logos under `gitea/public/assets`, **not** a
-new template delivery/render path. Forgejo's customized Fomantic subset has native
+Staging supplies native themes/logos and the four Sodaspaces hook/assets under
+`gitea/templates/custom/` and `gitea/public/assets/`. This is authored delivery,
+not an installed/rendered native result. Forgejo's customized Fomantic subset has native
 accessibility/initialization adaptations; it is not a standalone Soda component kit.
 Preserve native markup, scripts, form behavior and branding. The source reference
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact
@@ -146,13 +147,12 @@ Further source facts informing the [implementation sequence](sodaspaces-plan.md)
   the application's identity during that update. Use the application's actual
   owner/native settings for the planned callback transition, not a blind API PATCH.
   No OAuth application or credential was changed during inspection.
-- `internal/nativebuild/bundle.go` currently admits Forgejo public assets, not
-  custom template directories. The planned hooks need a narrow staging/verifier
-  change with tests, not a blanket allowance for Forgejo's writable data.
-  First-install destination ancestor/symlink checks do not refuse an occupied
-  regular target file; the planned four hook/asset paths also need exact conflict
-  refusal before host writes. This is authored work in the [read-only milestone](sodaspaces-plan.md#packaging-and-conflict-refusal),
-  not an installer fix or permission to overwrite existing customizations.
+- `internal/nativebuild/bundle.go` now admits only the two Soda template paths and
+  required ancestors, and requires both hooks/assets with readable modes. It does
+  not admit arbitrary templates or Forgejo data. First-install preflight now refuses
+  occupied hook/asset destinations before writes, including symlinks/special files;
+  source fixtures exercise the actual staging/preflight logic. No generic merge,
+  existing-target upgrade or permission to replace customizations was added.
 
 If supported configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,
