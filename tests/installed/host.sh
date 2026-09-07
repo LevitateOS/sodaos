@@ -15,7 +15,9 @@ else
 fi
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
-rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git nodejs python3 libicu openssl-libs krb5-libs zlib tar gzip
+rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git python3 libicu openssl-libs krb5-libs tar gzip
+# Fedora may satisfy these capabilities with versioned/replacement packages.
+rpm -q --whatprovides nodejs zlib
 rpm-ostree status --json | python3 -c 'import json,sys; x=json.load(sys.stdin); print(json.dumps([{k:d.get(k) for k in ("booted","version","checksum","requested-packages")} for d in x["deployments"]]))'
 printf 'Actual substrate: %s %s; host %s\n' "$(uname -s)" "$(uname -m)" "$(hostname)"
 for unit in soda-host.socket forgejo.service cockpit.socket tailscaled.service; do

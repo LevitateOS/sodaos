@@ -13,7 +13,9 @@ done
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]] || { echo 'Upstream Fedora CoreOS target required, not the builder' >&2; exit 1; }
 for command in python3 restorecon matchpathcon rpm-ostree podman ip systemd-sysusers systemd-tmpfiles sysctl; do command -v "$command" >/dev/null; done
-rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git nodejs python3 libicu openssl-libs krb5-libs zlib tar gzip >/dev/null
+rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git python3 libicu openssl-libs krb5-libs tar gzip >/dev/null
+# Fedora may satisfy these capabilities with versioned/replacement packages.
+rpm -q --whatprovides nodejs zlib >/dev/null
 [[ $(getenforce) == Enforcing ]] || { echo 'Host SELinux must remain enforcing' >&2; exit 1; }
 # Verify using the bundle's matching-native support tool; it is not installed.
 # The operator must establish the external SHA256SUMS identity before invoking

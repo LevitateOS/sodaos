@@ -1,5 +1,25 @@
 # Implementation handoff
 
+## U08 closure implementation — merged-candidate preparation
+
+User authorized the closure plan on infra and `soda-test`, using retained fixtures
+without another project, lifecycle action or provider enrollment/job. Added the
+criterion/evidence/delta table in the leading plan. Runtime source comparison
+supports reuse of recorded f233a4a persistence for unchanged start/stop/rootfs
+mechanisms, alongside c96c108 fresh-boot/different-UID exec proof; no new reboot
+result is claimed. Current merged frontend/build/support changes still need their
+own build/check and affected installed verification.
+
+Read-only native diagnosis found real providers `nodejs22` and `zlib-ng-compat`;
+installer/host preflights now query RPM capabilities for nodejs/zlib, with focused
+replacement/missing-provider tests. Installed `soda-runners` lacks the new config
+field `grant_key_file`; it needs matching companion deployment, not weaker config
+validation, enrollment or a second configuration. Other installed config.Load
+consumers were inspected; the dashboard and runner command are its callers.
+The pinned Go 1.26.7 merged suite passed before these shell/test changes. Evidence:
+`.artifacts/logs/u08-closure-{merged-go,package-observation,rpm-provides,runner-config-observation}.log`
+and runtime/merge delta diffs. Build/rollout results will follow, not inferred.
+
 ## Requested core/support integration
 
 Merged the native support branch through `3d7ca2e` with the local U08 lifecycle

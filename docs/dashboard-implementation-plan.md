@@ -478,6 +478,42 @@ Both fixture approvals have been used. Reconcile outstanding host/operator and
 lifecycle coverage without silently creating another project, replacing roots,
 rebooting either host or taking unrelated provider actions.
 
+#### U08 closure reconciliation — merged candidate
+
+The user requested implementation of the closure plan after `d4e29e4`: native
+x86_64 infra build/check, backed-up matching rollout on `soda-test`, and affected
+checks using the four retained projects. No new fixture, project stop/start,
+reboot, enrollment, job, publication or destructive cleanup is authorized here.
+
+| U08 criterion | Existing evidence (logs under `.artifacts/logs/`) | Closure action / disposition |
+| --- | --- | --- |
+| Matching merged build/assets/config | `u08-ptrace-{build,check}-c96c108` passed; current main also contains support/frontend-validation changes | Full clean merged build/check, populated-v3 rehearsal and matching affected-component rollout required; do not attribute c96c108 results to the merge. |
+| Unprivileged dashboard, socket/credential modes, trusted TLS | `u08-completion-final-bytes-and-boundary`, c96c108 rollout and browser logs | Repeat selected installed security, TLS and asset/API route assertions after rollout. |
+| Acting-admin People, first-password change, two separate logins/keys, explicit joins | `u08-developer-browser*` at 8417a90; `u08-ptrace-{alice,bob}-creation-join` at c96c108 | Reuse actual creation/onboarding records: relevant handlers/schema/UI unchanged since c96c108. Repeat independent login/connection/denial reads; no duplicate users or joins. |
+| Routed client SSH/PTY/SCP/SFTP and verified public keys | `u08-ptrace-developer-access` | Repeat existing client entrypoint with current private bindings. |
+| Owner sudo/member denial, no human host accounts or host-engine access, independent projects | `u08-ptrace-{fresh-image-boundary,developer-access,different-uid-exec,shared-tools}` | Repeat bounded observations and member denial; do not substitute a transport error for denial. |
+| Personal Git and genuinely shared tools/files | `u08-ptrace-{git-exercise,shared-tools}` | Retain actual clone/push/two-user shared-file evidence. Read existing remote refs and compare state; do not regenerate keys or replay fixture creation. |
+| Ordinary bridge build/start, live bind HTTP and committed PostgreSQL | `u08-ptrace-{workloads-first-run,workloads-ready-check,client-member-workloads,final-exec-check}` | Initial readiness race remains recorded. Repeat `workloads.sh check`/different-UID exec and read existing client HTTP/SQL data without rebuild or reseeding. |
+| Existing-project stop/start and VM reboot persistence | `u08-completion-{corrected-project-persistence,vm-persistence,vm-git-tools}` at f233a4a | **Reuse with delta analysis**, not a claim that c96c108 rebooted: f233a4a→c96c108 only adds fixed namespaced SYS_PTRACE in create argv; project rootfs, units, start/stop/storage paths are unchanged. c96c108 fresh boot/exec tests exercise that changed permission. Current merge leaves those runtime paths unchanged. No additional lifecycle run required for unchanged mechanisms; U20 repeats final-revision lifecycle acceptance. |
+| Namespace/cgroup/seccomp/capability/SELinux limitations | c96c108 boundary observations; preceding runtime diagnosis | Retain project-owned namespaces/default seccomp and trusted-team-only limits (`label=disable`, extra project capabilities, incomplete cgroup confinement). Not hostile-tenant or aarch64 proof. |
+| Preserved Cockpit and companion services | `u08-completion-vm-{cockpit-browser,cockpit-pam}`; earlier host/operator script failures | Fix actual package-query mismatch and stale runner companion; repeat host/operator read-only and root Cockpit observations. Provider registrations/jobs/enrollment remain P11/U20, not U08 gates. |
+
+**Concrete regression disposition:** native RPM inspection found `nodejs22`
+providing `nodejs` and `zlib-ng-compat` providing `zlib`. Installer/host checks now
+query those capabilities, preserving failure on a missing provider; provisioning
+requests and dependency versions are unchanged. Focused command-double tests
+cover replacement providers and missing dependencies. Installed `soda-runners`
+does not recognize `grant_key_file`, present in the real dashboard config. This
+is a stale configuration consumer, not absent enrollment: deploy its matching
+binary with a restricted backup, without loosening config parsing or inventing a
+second runner config. `tailscaled` reporting `NeedsLogin` is a legitimate native
+state, not successful enrollment and not failure of the read-only status check.
+
+**Exit:** close U08 only after the merged build/rollout and affected assertions
+have actual evidence. If something fails, record the exact remaining U08 row,
+not a vague requirement to rerun every P/U20 journey. Earlier persistence remains
+revision-scoped reused evidence; no new reboot result is manufactured.
+
 #### Core-owned native proof detail
 
 These concrete techniques were retained from the incoming P07/P08 proposal and are now owned here and reused by U20. Extend the existing `tests/installed/` and bounded workload/Git fixtures; do not create a parallel Go product-scenario runner. Predecessor `product_scenarios.go`, `project_scenarios.go`, `fixtures.go` and `preservation.go`/`preservation.sh` are references for selective test reuse at `bc1d3e0`, not imported product requirements.
