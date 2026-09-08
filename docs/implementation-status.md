@@ -1,5 +1,21 @@
 # Current handoff
 
+## Ordinary repository container spacing
+
+Local revision `2026-09-08.5` removes the extra 24px top padding from project
+lists and wiki revisions. The ordinary repository body container now explicitly
+owns zero padding; the shared repository header supplies the navigation gap.
+Native fluid/explicitly padded canvases keep their separate gutter contract.
+The earlier redesign had consolidated width without removing these family-local
+insets; its coverage did not establish equivalent container spacing.
+
+A read-only native regression compares Code, Projects, Issues and Releases at
+1440px and 390px, asserting equal padding, width, left alignment and gap below
+repository navigation. It passed, as did focused Forgejo Go checks. Wiki revision
+padding removal is source-reviewed; no wiki fixture was created for verification.
+Templates/assets refreshed only in the existing local preview.
+
+
 ## Repository file toolbar correction
 
 Local revision `2026-09-08.4` aligns the branch picker, compare/find/add controls,

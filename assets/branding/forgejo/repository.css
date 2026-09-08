@@ -11,6 +11,13 @@
   margin-inline: auto;
 }
 
+/* The shared repository header supplies the gap above ordinary page bodies.
+   Page families must not add another inset to these containers. Native fluid
+   and explicitly padded canvases retain their own gutter contracts. */
+.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid):not(.padded) {
+  padding: 0;
+}
+
 /* Repository identity and native unit navigation. */
 .soda-repository-header {
   padding: 24px 0 0;

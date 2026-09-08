@@ -1,9 +1,5 @@
 /* Shared project lists, forms, and boards. Forgejo owns project data,
    permissions, mutations, drag/drop state, cards, and dialogs. */
-.soda-projects-list > .ui.container {
-	padding-top: 24px;
-}
-
 .soda-shared-project-list {
 	display: grid;
 	gap: 16px;

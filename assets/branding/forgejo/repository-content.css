@@ -71,10 +71,6 @@
 	border-color: var(--soda-page-edge);
 }
 
-.soda-wiki-revisions > .ui.container {
-	padding-top: 24px;
-}
-
 .soda-wiki-revisions .ui.top.attached.header {
 	padding: 16px var(--soda-panel-inset);
 	border-color: var(--soda-page-edge);

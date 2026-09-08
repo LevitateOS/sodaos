@@ -482,3 +482,11 @@ SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 \
 Gallery evidence remains separate from native route evidence and does not prove
 permissions, providers, form submissions, editor plugins or unavailable admin,
 organization and setup states.
+
+Ordinary repository body containers have zero padding. `repository.css` owns
+that rule, and the repository header supplies the gap below navigation. Family
+styles must not add another top inset to the same container. Fluid or explicitly
+padded native canvases retain their separate gutter contract. The native
+`repository-container.test.mjs` regression compares Code, Projects, Issues and
+Releases at desktop/mobile widths so family-specific padding cannot silently
+return on those routes.
