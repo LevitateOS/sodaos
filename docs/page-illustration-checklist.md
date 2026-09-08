@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: package version lists and package detail pages. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: package settings and owner registry settings, including cleanup rules and Cargo controls. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -78,8 +78,8 @@ Next: package version lists and package detail pages. Organization registry artw
 | Partial — trace caller | [`package/shared/cleanup_rules/list.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`package/shared/cleanup_rules/preview.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/preview.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`package/shared/list.tmpl`](../appliance/forgejo/templates/package/shared/list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`package/shared/versionlist.tmpl`](../appliance/forgejo/templates/package/shared/versionlist.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`package/view.tmpl`](../appliance/forgejo/templates/package/view.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
+| No image | [`package/shared/versionlist.tmpl`](../appliance/forgejo/templates/package/shared/versionlist.tmpl) | `user/overview/package_versions` | Search, sort, container tag filter, version rows and pagination; no independent decorative header. Source assessment. |
+| No image | [`package/view.tmpl`](../appliance/forgejo/templates/package/view.tmpl) | `user/overview/header` | Package/version identity, protocol content, files and metadata take priority; source assessment below. |
 | Pending | [`post-install.tmpl`](../appliance/forgejo/templates/post-install.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`projects/list.tmpl`](../appliance/forgejo/templates/projects/list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`projects/new.tmpl`](../appliance/forgejo/templates/projects/new.tmpl) | — | Not yet reviewed in this goal. |
@@ -210,7 +210,7 @@ Next: package version lists and package detail pages. Organization registry artw
 | Existing — verify | [`user/notification/notification_div.tmpl`](../appliance/forgejo/templates/user/notification/notification_div.tmpl) | `notifications-papercraft.png` | Not yet reviewed in this goal. |
 | Done | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `subscriptions-papercraft.png`, `watching-papercraft.png` | Both page variants have separate integrated artwork and inspected native captures. |
 | Partial — no image | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | Native tab navigation | Shared across profile, package, code and project pages; only navigation/permission gates/counts. Art belongs to an assessed page intro, never this repeated tab strip. |
-| Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
+| No image | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Both owner branches are focused version lookup pages; preserve compact intro and filters without decoration. Source assessment. |
 | Variants — see below | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | Personal: `personal-packages-papercraft.png`; organization: `organization-packages-papercraft.png` | Personal complete; organization integrated, native verification pending. |
 | No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -237,6 +237,9 @@ Next: package version lists and package detail pages. Organization registry artw
 | --- | --- | --- |
 | Done | `/notifications/subscriptions` (`Status == 1`) | Dedicated conversation-bookmark scene integrated; desktop/mobile captures inspected. |
 | Done | `/notifications/watching` (`Status == 2`) | Dedicated binoculars/repositories scene; desktop/mobile native captures inspected. |
+| No image | Personal package version list | Existing profile identity plus package name gives context; keep version search and chronology prominent. |
+| No image | Organization package version list | Organization identity already supplies context; version and tag selection are the task, not registry discovery. |
+| No image | Package version detail, individual or organization owner | Preserve package name/version, install content, native assets and metadata; no added illustration in the common shell. Protocol-specific content remains upstream-owned. |
 | No image | Contributor repositories | Actual avatar plus searchable repository list; a decorative header would delay browsing and compete with identity. |
 | No image | Contributor public activity | Native heatmap/feed already provide relevant visuals; a scene would push activity below the fold. |
 | No image | Contributor starred repositories | Personal selection list belongs directly below profile navigation; retain actual repository entries and truthful empty result. |
@@ -250,6 +253,13 @@ Next: package version lists and package detail pages. Organization registry artw
 - [ ] Distinguish new/edit/detail states where one template serves multiple page purposes.
 
 ## Completed page records
+
+### Package version lists and detail
+
+- Source inspected: both owner branches in `user/overview/package_versions.tmpl`, the full `package/shared/versionlist.tmpl`, and full `package/view.tmpl`.
+- Personal version lookup already includes the owner's identity card; organization lookup includes its header. Both add a compact package-name introduction, breadcrumb, search/sort and version rows. Container versions also have a tagged/untagged selector. A decorative scene would add height before the release-selection task; neither branch receives one. Empty filtered results retain their truthful text.
+- Detail uses the actual package/version heading and publication information above protocol content, with metadata, downloads, files and latest versions alongside. Its 23 native content includes and 22 metadata includes remain unchanged. No decorative image in this shared detail shell for either owner type; this is not a claim to have reviewed or rendered every upstream protocol partial.
+- Read-only public package inventories for Alice and Vince returned empty lists, in addition to the previously captured empty Bob registry. No package was published to manufacture a screenshot. These decisions are based on source/layout responsibilities; no populated version/detail browser capture is claimed. No source behavior changed, so no new tests or template reload were needed.
 
 ### Organization package registry — integrated, native verification pending
 

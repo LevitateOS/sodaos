@@ -14,8 +14,10 @@ registry now has a compact wrapping illustration, with focused package tests and
 native desktop/mobile empty-state captures checked. Organization package registry
 has a distinct shared-shelf illustration and passing focused package tests;
 native verification is pending because the local public organization inventory
-is empty. Package version/detail pages are next; individual decisions and
-unexercised variants remain in the checklist.
+is empty. Package version lists and the common detail shell were assessed without
+added art to prioritize release selection, installation content and metadata;
+these are source decisions, not populated-page runtime evidence. Package settings
+are next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
