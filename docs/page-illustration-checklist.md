@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: repository activity, branches and commit history; assess their data-focused layouts. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: commit detail, comparison and code browsing; trace their shared commit/diff components. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -90,15 +90,15 @@ Next: repository activity, branches and commit history; assess their data-focuse
 | Partial — trace caller | [`repo/actions/no_workflows.tmpl`](../appliance/forgejo/templates/repo/actions/no_workflows.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/actions/runs_list.tmpl`](../appliance/forgejo/templates/repo/actions/runs_list.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/actions/view.tmpl`](../appliance/forgejo/templates/repo/actions/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/activity.tmpl`](../appliance/forgejo/templates/repo/activity.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/branch/list.tmpl`](../appliance/forgejo/templates/repo/branch/list.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/activity.tmpl`](../appliance/forgejo/templates/repo/activity.tmpl) | Native pulse and analytics | All four callers assessed: pulse summary/activity lists, contributor chart, code-frequency chart, recent-commit chart. Native data visuals are primary; loading/failed/empty feedback must remain unambiguous. Source and desktop captures below. |
+| No image | [`repo/branch/list.tmpl`](../appliance/forgejo/templates/repo/branch/list.tmpl) | Native branch state and divergence | Default/protected/deleted branch states, commit status, ahead/behind bars and PR state labels already encode meaning. Create/rename/delete dialogs are focused operations. Full source reviewed; read-only default branch captured. |
 | Partial — trace caller | [`repo/branch_dropdown.tmpl`](../appliance/forgejo/templates/repo/branch_dropdown.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/clone_buttons.tmpl`](../appliance/forgejo/templates/repo/clone_buttons.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/commit_header.tmpl`](../appliance/forgejo/templates/repo/commit_header.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/commit_page.tmpl`](../appliance/forgejo/templates/repo/commit_page.tmpl) | `repo/commit_header`, `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/commits.tmpl`](../appliance/forgejo/templates/repo/commits.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/commits.tmpl`](../appliance/forgejo/templates/repo/commits.tmpl) | Native commit table | History is author/message/SHA/date and reference navigation with search, not an introductory page. Wrapper and commits_table reviewed; native two-commit history captured. Comparison caller remains separately pending. |
 | Partial — trace caller | [`repo/commits_list.tmpl`](../appliance/forgejo/templates/repo/commits_list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/commits_table.tmpl`](../appliance/forgejo/templates/repo/commits_table.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`repo/commits_table.tmpl`](../appliance/forgejo/templates/repo/commits_table.tmpl) | Commit-history caller assessed | Full partial reviewed, including search, renamed-file and no-comparison branches; comparison page assessment remains. No independent artwork. |
 | Existing — verify | [`repo/create.tmpl`](../appliance/forgejo/templates/repo/create.tmpl) | `new-repo-papercraft.png` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/diff/box.tmpl`](../appliance/forgejo/templates/repo/diff/box.tmpl) | `repo/commit_header` | Not yet reviewed in this goal. |
 | Pending | [`repo/diff/compare.tmpl`](../appliance/forgejo/templates/repo/diff/compare.tmpl) | `repo/header` | Not yet reviewed in this goal. |
@@ -111,7 +111,7 @@ Next: repository activity, branches and commit history; assess their data-focuse
 | Pending | [`repo/empty.tmpl`](../appliance/forgejo/templates/repo/empty.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/find/files.tmpl`](../appliance/forgejo/templates/repo/find/files.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/forks.tmpl`](../appliance/forgejo/templates/repo/forks.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/graph.tmpl`](../appliance/forgejo/templates/repo/graph.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/graph.tmpl`](../appliance/forgejo/templates/repo/graph.tmpl) | Actual Git graph | The graph itself is the illustration of ancestry. Ref selection, monochrome/color modes and loading state need no decorative scene. Full wrapper source reviewed; populated native graph captured. |
 | Partial — trace caller | [`repo/header.tmpl`](../appliance/forgejo/templates/repo/header.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/home.tmpl`](../appliance/forgejo/templates/repo/home.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/choose.tmpl`](../appliance/forgejo/templates/repo/issue/choose.tmpl) | `repo/header` | Not yet reviewed in this goal. |
@@ -601,3 +601,19 @@ Wiki welcome now replaces the decorative book icon with the distinct [wiki-welco
 The wiki editor (new/edit), index, revision history, reader (including authored sidebar/footer and table of contents), and search result/no-result fragment were individually read in full. They retain authored content and native metadata without additional artwork. The illustrated welcome remains the entry point for an empty wiki. These content-state judgments are source-based: the inspected public wiki is empty and no pages were created.
 
 Release creation, tag-only submission, draft editing/publishing, published editing, prerelease selection, attachments/external assets and deletion confirmation were individually considered from the full form. All remain focused native editing states with no decorative illustration. Release list and tag list were read in full, including code/release permission differences, signing indicators, archive suppression, publisher and attachment variants. Native desktop captures show the existing prerelease list (`capture-id7a6e/001.png`) and tag list (`capture-0nKZ6d/001.png`); no downloads, submissions or mutations were performed. Single-release detail was inspected at 390×844 in `capture-SXnGuE/001.png` (`/bob/activity-field-notes/releases/tag/v0.2.0-preview`): prerelease label, publisher, notes and archive links remain readable; no additional artwork needed. No implementation changed; tests were not rerun for checklist decisions.
+
+## Repository activity and history
+
+All captures below used the authorized fixture at 1440×1000 on existing `/bob/activity-field-notes` pages; no repository changes, branch dialogs or downloads were performed. Full branch and graph wrappers, history wrapper and commits_table were read. The selected Forgejo 15.0.7 embedded pulse, contributor, code-frequency, recent-commit and navigation templates were also read to establish the activity variants without adding overrides.
+
+| Route suffix | Decision | Native evidence under `.artifacts/screenshots/` |
+| --- | --- | --- |
+| `/activity` | No image: period-specific counts, bars, authors and actual issue/release activity are the visual content. | `capture-ExrVGn/001.png` |
+| `/activity/contributors` | No image: contribution-type selector, real contributor identity and chart need prominence. | `capture-poIZvf/001.png` |
+| `/activity/code-frequency` | No image: native addition/deletion time series already explains the page. | `capture-poIZvf/002.png` |
+| `/activity/recent-commits` | No image: native annual commit chart is the subject. | `capture-poIZvf/003.png` |
+| `/branches` | No image: repository branches and their actual status/divergence. | `capture-ExrVGn/002.png` |
+| `/commits/branch/main` | No image: searchable revision evidence and author identity. | `capture-ExrVGn/003.png` |
+| `/graph` | No image: actual ancestry, branch/tag references and commit labels. | `capture-ExrVGn/004.png` |
+
+All seven screenshots were inspected. Default chart state and colored Git graph were observed; loading/error/empty, other contribution types, monochrome and branch mutation states were source-assessed, not exercised. No implementation changed and tests were not rerun for checklist decisions.
