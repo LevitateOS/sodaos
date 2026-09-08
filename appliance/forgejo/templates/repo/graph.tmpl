@@ -1,6 +1,6 @@
 {{/* Adapted from Forgejo 15.0.7 templates/repo/graph.tmpl (GPL-3.0-or-later); upstream SHA-256 fb938c350bbb9718ab6d0b289ff9156a4d184644581ec83a1ef01c8ebc6ddd0d. */}}
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content repository commits soda-page soda-insights soda-insights-graph" data-signed="{{.IsSigned}}">
+<div role="main" aria-label="{{.Title}}" class="page-content repository commits soda-page soda-insights soda-insights-graph" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{template "repo/header" .}}
 	<div class="ui container soda-page-container">
 		<div id="git-graph-container" class="ui segment{{if eq .Mode "monochrome"}} monochrome{{end}}">

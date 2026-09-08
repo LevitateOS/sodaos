@@ -30,7 +30,7 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 			provenance:  `{{/* Adapted from Forgejo 15.0.7 templates/repo/activity.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoActivity1507SHA + `. */}}` + "\n",
 			stockSuffix: "\n",
 			replacements: [][2]string{
-				{` class="page-content repository commits soda-page soda-insights soda-insights-activity" data-signed="{{.IsSigned}}"`, ` class="page-content repository commits"`},
+				{` class="page-content repository commits soda-page soda-insights soda-insights-activity" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`, ` class="page-content repository commits"`},
 				{` class="ui container flex-container soda-page-container"`, ` class="ui container flex-container"`},
 			},
 		},
@@ -39,7 +39,7 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 			sha:        forgejoGraph1507SHA,
 			provenance: `{{/* Adapted from Forgejo 15.0.7 templates/repo/graph.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoGraph1507SHA + `. */}}` + "\n",
 			replacements: [][2]string{
-				{` class="page-content repository commits soda-page soda-insights soda-insights-graph" data-signed="{{.IsSigned}}"`, ` class="page-content repository commits"`},
+				{` class="page-content repository commits soda-page soda-insights soda-insights-graph" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`, ` class="page-content repository commits"`},
 				{` class="ui container soda-page-container"`, ` class="ui container"`},
 			},
 		},
@@ -177,11 +177,14 @@ func TestForgejoGraphPreservesNativeModesRefsAndContent(t *testing.T) {
 		t.Fatalf("parse graph override: %v", err)
 	}
 
-	for _, mode := range []string{"color", "monochrome"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, tt := range []struct {
+		mode   string
+		signed bool
+	}{{mode: "color", signed: true}, {mode: "monochrome", signed: false}} {
+		t.Run(tt.mode, func(t *testing.T) {
 			var rendered bytes.Buffer
 			if err := parsed.ExecuteTemplate(&rendered, "page", map[string]any{
-				"Title": "Commit graph", "IsSigned": true, "Mode": mode,
+				"Title": "Commit graph", "IsSigned": tt.signed, "Mode": tt.mode,
 				"AllRefs": []forgejoGraphRef{{RefGroup: "heads", Name: "refs/heads/main", ShortName: "main"}, {RefGroup: "tags", Name: "refs/tags/v1", ShortName: "v1"}},
 			}); err != nil {
 				t.Fatalf("execute graph override: %v", err)
@@ -193,12 +196,16 @@ func TestForgejoGraphPreservesNativeModesRefsAndContent(t *testing.T) {
 				`id="native-graph"`, `id="native-commits"`, "native-pagination",
 			} {
 				if !strings.Contains(output, want) {
-					t.Errorf("graph mode %s lost native marker %q:\n%s", mode, want, output)
+					t.Errorf("graph mode %s lost native marker %q:\n%s", tt.mode, want, output)
 				}
 			}
-			wantMonochrome := mode == "monochrome"
+			wantMonochrome := tt.mode == "monochrome"
 			if got := strings.Contains(output, `id="git-graph-container" class="ui segment monochrome"`); got != wantMonochrome {
-				t.Errorf("graph mode %s monochrome container = %t, want %t", mode, got, wantMonochrome)
+				t.Errorf("graph mode %s monochrome container = %t, want %t", tt.mode, got, wantMonochrome)
+			}
+			wantSigned := fmt.Sprintf(`data-signed="%t"`, tt.signed)
+			if !strings.Contains(output, wantSigned) {
+				t.Errorf("graph mode %s lost explicit signed state %q:\n%s", tt.mode, wantSigned, output)
 			}
 		})
 	}
@@ -211,7 +218,7 @@ func TestForgejoInsightsCSSIsPageScoped(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	css := string(contents)
-	for _, marker := range []string{".soda-insights", "#repo-contributors-chart", "#repo-code-frequency-chart", "#git-graph-container", "var(--soda-page-surface)"} {
+	for _, marker := range []string{".soda-insights", "#repo-contributors-chart", "#repo-code-frequency-chart", "#repo-recent-commits-chart", "#git-graph-container", "var(--soda-page-surface)"} {
 		if !strings.Contains(css, marker) {
 			t.Errorf("insights stylesheet lost %q", marker)
 		}

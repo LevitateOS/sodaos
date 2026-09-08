@@ -64,7 +64,8 @@
 .soda-insights-activity .flex-container-main > .ui.header,
 .soda-insights-activity .flex-container-main > .ui.segment,
 .soda-insights-activity .flex-container-main > #repo-contributors-chart,
-.soda-insights-activity .flex-container-main > #repo-code-frequency-chart {
+.soda-insights-activity .flex-container-main > #repo-code-frequency-chart,
+.soda-insights-activity .flex-container-main > #repo-recent-commits-chart {
   border-color: var(--soda-page-edge);
   box-shadow: none;
 }
@@ -100,7 +101,7 @@
   font: 600 26px/1.2 "Fraunces Variable", Georgia, serif;
 }
 
-.soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart) {
+.soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart, #repo-recent-commits-chart) {
   min-height: 360px;
   padding: 22px;
   border: 1px solid var(--soda-page-edge);
@@ -196,7 +197,7 @@
     flex-direction: column;
   }
 
-  .soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart) {
+  .soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart, #repo-recent-commits-chart) {
     min-height: 280px;
     padding: 16px;
   }
