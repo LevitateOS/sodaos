@@ -1,0 +1,94 @@
+/* Public profiles retain Forgejo's native identity, relationship and repository workflows. */
+.soda-profile {
+  padding-top: 40px;
+}
+
+.soda-profile .soda-profile-layout {
+  align-items: flex-start;
+}
+
+.soda-profile .soda-profile-identity #profile-avatar-card {
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.soda-profile #profile-avatar-card > .content,
+.soda-profile #profile-avatar-card > .extra.content {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-profile #profile-avatar-card .profile-avatar-name .header {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-weight: 650;
+}
+
+.soda-profile #profile-avatar-card :is(.username, .muted, .extra.content, .extra.content a) {
+  color: var(--soda-page-muted);
+}
+
+.soda-profile #profile-avatar-card .actions.button-row {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-profile #profile-avatar-card .primary.button {
+  background: var(--soda-page-action);
+  color: var(--soda-page-on-action);
+}
+
+.soda-profile #profile-avatar-card .primary.button:hover {
+  background: var(--soda-page-action-hover);
+}
+
+.soda-profile .soda-profile-content > .soda-tabs {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.soda-profile .soda-tabs .ui.label {
+  margin-left: 2px;
+  border: 0;
+  background: var(--soda-page-hover);
+  color: inherit;
+}
+
+.soda-profile #visibility-hint {
+  margin: 0 0 20px;
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-muted);
+}
+
+.soda-profile :is(#user-heatmap, #activity-feed, .user-cards, .soda-profile-readme) {
+  color: var(--soda-page-text);
+}
+
+.soda-profile #activity-feed,
+.soda-profile .soda-profile-readme,
+.soda-profile .user-cards {
+  padding: var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-profile .soda-profile-readme pre {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--soda-page-text);
+}
+
+.soda-profile .user-cards .card {
+  border-color: var(--soda-page-edge);
+}
+
+@media (max-width: 767px) {
+  .soda-profile { padding-top: 24px; }
+  .soda-profile .soda-profile-identity,
+  .soda-profile .soda-profile-content { width: 100% !important; }
+}
