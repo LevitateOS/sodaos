@@ -11,7 +11,10 @@ the checklist. Local templates were reloaded; no migration or fixture mutation.
 Repository fork now also has distinct connected-notebook artwork, verified with
 focused onboarding tests and 1440/390px native light-theme captures. Migration
 progress retains native state visuals without extra decorative art. Other pages
-remain pending, starting with the 404 page. No blanket native or
+remain pending, starting with notification subscriptions. The 404 page now has
+small neutral wayfinding artwork; native general/repository contexts were checked
+at 1440/390px. A status stylesheet version bump fixed observed cached sizing;
+focused status tests passed. The 413 page remains a concise diagnostic without art. No blanket native or
 dark-theme acceptance is implied. Existing staged/unstaged work was preserved.
 
 ## Source versus installed state
