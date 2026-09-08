@@ -737,3 +737,8 @@ conditions remain native. No invented pinned repositories or aggregate activity
 payload is fetched. Code search and package version pages remain capability/data
  dependent. The read-only browser regression covers available profile destinations;
 private activity additionally has a source-rendered permission matrix in Go tests.
+
+The Forgejo navigation uses the `soda-forge-logo-horizontal` light/dark SVGs:
+canonical Soda symbol and Soda lettering with a cyan “forge” suffix. These are
+separate from the Soda OS assets used elsewhere. `components.css` reserves 152px
+for the wordmark on mobile and 166px on desktop.
