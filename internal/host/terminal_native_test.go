@@ -144,6 +144,17 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		t.Fatal("native output limit exceeded")
 		return nil
 	}
+	// A genuine marker/actor mismatch must refuse without changing the account.
+	wrong := TerminalRequest{Project: request.Project, Login: request.Accounts[0].Login, Identity: request.Accounts[1].Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
+	denied, err := c.OpenTerminal(ctx, wrong)
+	if err != nil {
+		t.Fatal("native refusal transport unavailable")
+	}
+	frame, err := denied.Receive(ctx)
+	denied.Close()
+	if err != nil || frame.Type != "closed" || frame.Reason != "launch_failed" {
+		t.Fatal("native identity mismatch was not refused")
+	}
 	results := []map[string]any{}
 	for _, a := range request.Accounts {
 		in := TerminalRequest{Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
@@ -157,12 +168,14 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			t.Fatal("native launch not confirmed")
 		}
 		t.Log("checking native account facts", a.Identity)
-		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman")}))'`)
+		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"resuid":os.getresuid(),"resgid":os.getresgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman")}))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
 		var actual struct {
 			UID    int
 			GID    int
 			Groups []int
+			ResUID []int
+			ResGID []int
 			Home   string
 			Cwd    string
 			TTY    bool
@@ -176,7 +189,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		}
 		sort.Ints(actual.Groups)
 		sort.Ints(a.Groups)
-		if actual.UID != a.UID || actual.GID != a.GID || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) || actual.Shell != "/bin/bash" || actual.Mise == "" || actual.Podman == "" {
+		if actual.UID != a.UID || actual.GID != a.GID || !reflect.DeepEqual(actual.ResUID, []int{a.UID, a.UID, a.UID}) || !reflect.DeepEqual(actual.ResGID, []int{a.GID, a.GID, a.GID}) || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) || actual.Shell != "/bin/bash" || actual.Mise == "" || actual.Podman == "" {
 			t.Fatal("native account/home/group/TTY mismatch")
 		}
 		if err = stream.Send(ctx, TerminalFrame{Type: "resize", Cols: 103, Rows: 37}); err != nil {
@@ -317,7 +330,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	// Independent SSH/workload preservation and browser integration are not
 	// fabricated by this private-helper test; observe them separately.
-	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "teardown": teardown, "scope": "native account/TTY/profile/explicit-close/EOF/lease/helper-loss"}, "", "  ")
+	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "teardown": teardown, "scope": "native account/TTY/profile/explicit-close/EOF/lease/helper-loss"}, "", "  ")
 	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal("native evidence finalization failed")
