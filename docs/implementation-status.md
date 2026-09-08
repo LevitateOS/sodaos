@@ -1,5 +1,17 @@
 # Current handoff
 
+## Avatar source simplification
+
+The avatar editor now starts directly with file selection when Gravatar is disabled;
+it submits the native `source=local` field without showing a lone radio. When
+lookup is available, both source radios and the saved selection remain native.
+Active local presentation is `2026-09-08.12`, via template reload only. The Go
+Forgejo suite passed, including rendered checks for both capability states and
+both saved source selections; four source/inventory checks passed. Verified dark
+1440px and light 320px captures under `.artifacts/avatar-source/` were visually
+reviewed. No account settings, upload or deletion were submitted; lookup-enabled
+runtime coverage remains unavailable on this fixture.
+
 ## Avatar editor refinement
 
 The profile avatar disclosure now aligns its source and upload fields without

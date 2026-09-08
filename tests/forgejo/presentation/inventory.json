@@ -843,7 +843,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "cccbfbd6ff8d2e4d69ff160c9b616d08bca2184b2ca83d791d689993e7c6d1f5",
+      "beforeRoleHash": "0e1135f9e088ab22c830d8402776601ff804886eba8bb759aeb66f93e6252861",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -8037,7 +8037,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/006.png"
         ]
       },
-      "beforeRoleHash": "7d04010ae5b8646ceffb698a0610cbe228a592bb10dcad574570deabceb95a5e",
+      "beforeRoleHash": "223e7d085933b3b89c2cbf3a72b88a76301bce3def40284d36914660f947eab0",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",

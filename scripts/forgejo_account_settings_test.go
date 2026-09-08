@@ -171,3 +171,46 @@ func TestForgejoOAuthEditorPreservesOtherCallers(t *testing.T) {
 		}
 	}
 }
+
+func (forgejoSettingsFixtureLocale) TrSize(size any) string { return "1 MiB" }
+
+func TestForgejoAvatarSourceChoices(t *testing.T) {
+	source := readForgejoTemplate(t, "user/settings/profile.tmpl")
+	start := strings.Index(source, "<form ")
+	source = source[start : start+strings.Index(source[start:], "</form>")+len("</form>")]
+	parsed, err := template.New("avatar").Funcs(template.FuncMap{"ctx": func() any { return struct{ Locale forgejoSettingsFixtureLocale }{} }}).Parse(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, disabled := range []bool{true, false} {
+		for _, custom := range []bool{true, false} {
+			var out bytes.Buffer
+			err := parsed.Execute(&out, map[string]any{"DisableGravatar": disabled, "SignedUser": map[string]any{"UseCustomAvatar": custom}, "Link": "/user/settings"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			html := out.String()
+			if disabled {
+				if strings.Contains(html, `type="radio"`) || strings.Contains(html, `id="gravatar"`) || !strings.Contains(html, `name="source" value="local" type="hidden"`) {
+					t.Fatal("upload-only mode must submit local without a false choice")
+				}
+			} else {
+				if strings.Count(html, `type="radio"`) != 2 || strings.Contains(html, `type="hidden"`) {
+					t.Fatal("lookup-enabled mode must retain both source choices")
+				}
+				selected := `value="lookup" type="radio" checked`
+				if custom {
+					selected = `value="local" type="radio" checked`
+				}
+				if !strings.Contains(html, selected) {
+					t.Fatal("lost native avatar source selection")
+				}
+			}
+			for _, contract := range []string{`action="/user/settings/avatar"`, `enctype="multipart/form-data"`, `name="avatar" type="file"`, `data-url="/user/settings/avatar/delete"`} {
+				if !strings.Contains(html, contract) {
+					t.Fatalf("lost avatar contract %s", contract)
+				}
+			}
+		}
+	}
+}
