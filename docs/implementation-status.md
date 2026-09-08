@@ -9,7 +9,9 @@ illustrations. Native forms, state, permissions and meaningful status text remai
 upstream-owned. Migration progress and 413 retain concise native diagnostics
 without additional decorative art. Public contributor profile tabs were also
 assessed without extra art: native identity, authored content and activity visuals
-take precedence, supported by desktop/mobile captures. Personal package registry
+take precedence, supported by desktop/mobile captures. The personal package
+registry now has a compact wrapping illustration, with focused package tests and
+native desktop/mobile empty-state captures checked. Organization package registry
 is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused

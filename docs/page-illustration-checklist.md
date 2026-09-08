@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal package registry — `user/overview/packages.tmpl`, individual-owner branch. Inspect the compact intro and generate a publishing/package scene if it improves the page.
+Next: organization package registry — `user/overview/packages.tmpl`, organization branch. Inspect an existing organization’s registry and choose a shared-distribution scene if appropriate.
 
 ## Per-template inventory
 
@@ -210,7 +210,7 @@ Next: personal package registry — `user/overview/packages.tmpl`, individual-ow
 | Done | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `subscriptions-papercraft.png`, `watching-papercraft.png` | Both page variants have separate integrated artwork and inspected native captures. |
 | Partial — no image | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | Native tab navigation | Shared across profile, package, code and project pages; only navigation/permission gates/counts. Art belongs to an assessed page intro, never this repeated tab strip. |
 | Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Pending | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
+| Variants — see below | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | Personal: `personal-packages-papercraft.png`; organization: none | Personal registry complete; organization registry pending. |
 | No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -228,6 +228,9 @@ Next: personal package registry — `user/overview/packages.tmpl`, individual-ow
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+- [x] Personal package registry: dedicated wrapping scene integrated and native desktop/mobile captures inspected.
+- [ ] Organization package registry: separate branch pending.
 
 | Status | Page variant | Decision / evidence |
 | --- | --- | --- |
@@ -295,3 +298,11 @@ Next: personal package registry — `user/overview/packages.tmpl`, individual-ow
 - Decision: no generated image for the seven profile variants listed above. The large native identity card is already the main visual; repositories, an authored README, the activity heatmap/feed and actual social identities should receive the remaining space. Mobile captures confirm the identity card already consumes much of the first viewport.
 - Native screenshot-helper captures inspected: `.artifacts/screenshots/capture-v555UO/{001,002,003}.png` at 1440×1000 for Bob’s repository, activity and starred tabs; `capture-mmWzCs/{001,002,003,004}.png` at 390×844 for repository, activity, followers and following tabs. Real repository/activity content and empty star/social states were visible. No personal credential content was captured; the fixture’s public `.invalid` contact is test data.
 - README and stars-disabled variants are source-based decisions, not claimed runtime captures. No templates, assets, profile content or relationships changed. No tests/reload needed for this documentation-only assessment.
+
+### Personal package registry
+
+- Appropriate in its dedicated compact introduction, distinct from basic profile tabs. A small wrapping scene identifies package publishing while the real owner avatar and native list remain separate. [Exact prompt](../assets/branding/forgejo/personal-packages-art-prompt.md).
+- Selected 1536×1024 RGBA image with transparent corners; no alpha repair. Added Artwork only to the individual-owner branch of `user/overview/packages.tmpl`, retaining the organization branch and shared package renderer.
+- Focused offline `TestForgejoPackages` tests passed; local templates reloaded.
+- Native `/bob/-/packages` screenshot-helper captures inspected: `.artifacts/screenshots/capture-idaJqm/001.png` (1440×1000), `capture-xqKhxu/001.png` (390×844). The illustration fits the introduction without overlapping identity/navigation/text. Desktop shows the unchanged truthful empty registry and documentation link. Baseline `capture-4tPRwq/001.png`.
+- No packages, account preferences or fixtures changed. Populated registry, dark appearance and package operations were not exercised; this is illustration/layout evidence.
