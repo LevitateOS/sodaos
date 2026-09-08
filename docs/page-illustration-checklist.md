@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal webhook settings landing page and its new/edit variants. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: personal organization-membership settings page; trace its native caller and assess its layout. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -219,6 +219,7 @@ Next: personal webhook settings landing page and its new/edit variants. Personal
 | Pending | [`user/settings/applications.tmpl`](../appliance/forgejo/templates/user/settings/applications.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | — | Not yet reviewed in this goal. |
+| Done | [`user/settings/hooks.tmpl`](../appliance/forgejo/templates/user/settings/hooks.tmpl) | `settings-webhooks-papercraft.png` | Personal webhook list only; desktop/mobile and new-form isolation checked. |
 | Pending | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/layout_footer.tmpl`](../appliance/forgejo/templates/user/settings/layout_footer.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`user/settings/layout_head.tmpl`](../appliance/forgejo/templates/user/settings/layout_head.tmpl) | `settings-account-papercraft.png`, `settings-appearance-papercraft.png`, `settings-applications-papercraft.png`, `settings-keys-papercraft.png`, `settings-profile-papercraft.png`, `settings-security-papercraft.png` | Not yet reviewed in this goal. |
@@ -230,6 +231,12 @@ Next: personal webhook settings landing page and its new/edit variants. Personal
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+| Status | Personal webhook variant | Decision |
+| --- | --- | --- |
+| Done | `/user/settings/hooks` | Dedicated connection illustration in list introduction. |
+| No image | `user/settings/hook_new.tmpl` — new | Provider icon and endpoint/event fields take precedence. Native Forgejo-provider desktop capture inspected. |
+| No image | `user/settings/hook_new.tmpl` — edit | Same provider form plus delivery history; source-based decision, no existing webhook edited or captured. |
 
 Upstream-only page callers traced from the running stock binary with `forgejo embedded view`:
 
@@ -376,3 +383,12 @@ Organization settings routes discovered in the native navbar (each still needs i
 - No image: unlike the personal landing page, this layout has no dedicated page introduction. The native organization avatar/name/description and horizontal navigation already precede a settings sidebar and the cleanup/Cargo sections. Adding a robot would create another header before two operational sections. Retain the real organization identity and direct access to those controls.
 - This decision is specific to registry settings; other organization settings pages remain pending individually. The native navbar exposed ten more route groups, now explicitly listed, including configuration-dependent pages. No blanket no-image rule was assigned to the shared layout.
 - Source-based assessment only: no accessible organization fixture is available for native capture. No templates, organization records, Cargo index or cleanup rules changed. No tests were needed for this documentation-only decision.
+
+### Personal webhook list
+
+- Inspected native `user/settings/hooks.tmpl` and `hook_new.tmpl` via the running binary's embedded viewer, the shared provider-dispatch override and initial shared event controls. Personal new/edit forms retain provider identity, endpoint configuration and delivery history without decorative art. Other owners/providers remain pending; this does not close all shared webhook partial callers.
+- Generated a distinct endpoint-connection scene using the fixed references; [exact prompts/provenance](../assets/branding/forgejo/settings-webhooks-art-prompt.md). Initial RGB/checkerboard rejected; built-in correction produced visually inspected 1536×1024 RGBA with transparent corners.
+- Added a stock personal list override, changing only its layout call to pass the existing explicit artwork input. Inventory now contains 205 overrides/helpers. Native list/actions remain unchanged.
+- Focused offline `TestForgejoWebhookPartialsRetain1507Source` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
+- Native captures inspected: `.artifacts/screenshots/capture-AsQZYE/001.png` (1440×1000 list), `002.png` (new Forgejo webhook form isolation), and `capture-86gUS7/001.png` (390×844 list). Art fits and composites cleanly; new form remains undecorated. Baselines `capture-v83uiR/{001,002}.png`.
+- No webhook created, edited, tested or delivered. Empty list/light theme captured; populated list, edit history, other providers and dark theme were not exercised.
