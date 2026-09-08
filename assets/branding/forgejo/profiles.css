@@ -93,3 +93,24 @@
   .soda-profile .soda-profile-identity,
   .soda-profile .soda-profile-content { width: 100% !important; }
 }
+
+/* Shared project lists keep Forgejo's project ownership and mutation controls. */
+.soda-shared-project-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.soda-shared-project-list > .milestone-card {
+  margin: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.soda-shared-project-list .milestone-toolbar {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-muted);
+}
