@@ -8,6 +8,13 @@ by separately approved preserved-state cutover and existing-account observations
 See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
 configuration, client reachability and acceptance limits.
 
+**Workspace correction pending:** this guide still describes today's API. The user
+rejected modal/focus-loss terminal behavior and mandatory manual SSH setup for browser
+development. The [leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
+requires a usable split view and revised session lifetime; browser-only joining and
+Forgejo-key integration are not implemented API capabilities yet. Do not infer new
+reattachment/key endpoints, consent or provider mutations from that plan.
+
 ## Browser namespace
 
 Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.

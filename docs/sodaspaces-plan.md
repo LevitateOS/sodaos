@@ -1,7 +1,8 @@
 # Sodaspaces implementation plan
 
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
-**right-side shared-environment drawer**. No new tab or standalone page.
+**right-side shared-environment drawer**. No new Forgejo repository tab or standalone
+page; tabs **inside the drawer** are now required.
 Both old Soda frontends and duplicate forge adapters are removed. The read-only
 hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
 pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
@@ -14,14 +15,130 @@ did not check repository access. Both fixes below are now source-implemented and
 locally tested, then delivered in the approved retained cutover. Deterministic race
 coverage remains handler/store evidence; installed observations have their own scope.
 
-**The original delivery sequence is complete at its bounded x86_64 scope.**
-Current remaining work is ordered below. The terminal's backend/component are now
-source implemented and mounted. Integrated existing-project management and fresh
-Create/Join/SSH journeys now passed on the isolated x86_64 fixture; see the leading
-[handoff](implementation-status.md) for exact bytes, failures and limits. Finish
-packaging correction/delivery rather than rebuilding these controls again.
-The read-only step-3 gate alone did not establish appliance installation, project
-access or retained-state cutover; those later results have distinct evidence.
+**The original delivery sequence is complete only at its bounded technical x86_64
+scope, not UX acceptance.** The user rejected the modal management-form layout,
+blocked left-hand native page and focus-loss terminal termination. Those are product
+failures despite the recorded native passes. Current product source and the installed
+fixture still implement that rejected behavior. The correction below governs the next
+work; the older delivery/terminal sections retain the previous implementation and
+its evidence, not permission to reintroduce that UX. See the leading
+[handoff](implementation-status.md) for exact bytes, failures and limits.
+
+## Product correction — development workspace, not a modal form
+
+The drawer is where the developer does their work, not an onboarding panel pointing
+them elsewhere for development. These layout requirements are user-selected;
+implementation and acceptance are pending:
+
+- **Non-modal desktop split view**, initially approximately half native Soda/Forgejo
+  page and half Sodaspaces, with an adjustable divider. No dimmed backdrop, inert
+  native page, outside-click dismissal or focus trap. Native forms, scrolling,
+  navigation, menus and notifications must work while a terminal is running. Reflow
+  native content to its actual pane width; merely uncovering half an unchanged
+  full-width page is insufficient. Keep stock routing and unsaved-form protections.
+- **Compact drawer top bar with tabs.** Terminal session tabs and an explicit new-
+  terminal action use that space; Environment and Access/Git controls belong in
+  separate views, not cards above the terminal. The selected terminal occupies the
+  entire remaining drawer width and height, without a fixed-height nested console or
+  a scrolling management page around it. Tab switching preserves existing sessions.
+  These are drawer tabs, not replacement Forgejo repository navigation.
+- **Both sides remain useful together.** Clicking or typing in the native pane, using
+  another browser/app tab or hiding the drawer does not immediately end development.
+  On narrow screens retain an explicit way to switch between native page and workspace
+  without killing sessions; do not shrink both panes into unusable columns.
+- **Stable workspace and session identity across native navigation.** Native Forgejo
+  loads whole pages, so CSS and removal of blur listeners alone cannot deliver this.
+  Reattach the same authorized native shell after navigation/reload or a transient
+  transport loss; never relaunch a shell and call it restoration. Keep the chosen
+  environment visibly identified and do not retarget a running shell merely because
+  the left pane navigated to another repository. Native routes remain native, not an
+  iframe, scraped page or new SPA navigation layer.
+- **Bounded retention, not permanent detached shells.** The preceding lifecycle
+  recommendation uses a 30-minute detached/closed-drawer grace and an explicit finite
+  longer keep-running choice. These are working defaults for the revised contract,
+  not runtime behavior. An open background browser tab is not automatically a lost
+  client. Server-owned deadlines, bounded session counts/buffers and actual authority
+  checks remain necessary; output/reconnect loops cannot renew abandonment forever.
+  Revisit the current unconditional two-hour active-session cap without discarding
+  native safety leases or authentication expiry. No input or mutation replay.
+- **Separate Hide, End terminal and Stop environment.** End affects that terminal;
+  Stop is the existing authorized shared-impact operation. No automatic container
+  stop on browser inactivity, loss of focus or drawer closure. Explicit Soda logout
+  and confirmed loss of authority end affected browser access; native-only logout
+  is not magically atomic Soda/SSH logout. Keep the actual acting identity explicit.
+  Bounded reattachment must preserve fresh authorization and logout-winning races,
+  not weaken them to retain a renderer.
+
+### SSH directions and the proposed Git setup
+
+The terminal itself uses the authenticated Soda/helper PTY, **not SSH**. Requiring
+manual SSH-key entry to use it is an onboarding coupling, not a transport requirement.
+The existing API, host helper and project account script all require a nonempty key
+set today. Browser-only joining needs a real account-only provisioning path without
+implicitly enabling password SSH or bypassing membership; never substitute a row or
+an unwired account. Preserve real installation of selected keys when SSH is enabled.
+
+For optional **device → project SSH**, offer the acting user's existing Forgejo
+profile public keys rather than requiring duplicate pasting. Fetch through supported
+acting-user APIs, let the user explicitly choose/review keys for this purpose and
+apply through the real native account boundary. A public key does not reveal where
+its private half lives: blindly trusting every profile key could also enable
+workspace-to-workspace access using generated Git credentials. Do not silently copy
+all keys or infer custody from a title. Keep the existing Soda saved keys and installed
+files intact; this proposal is not a deletion/migration or automatic synchronization
+policy. Later profile-key deletion does not automatically revoke installed project
+access. Ordinary SSH remains optional and its routing/host trust must be honest.
+
+For **project → Forgejo Git**, the user's key-generation suggestion is supported by
+native mechanisms. The recommended candidate is a **different keypair for each user
+in each project**, generated under that original project account. The private key
+stays in that home with restrictive permissions, never in shared files, an image,
+Soda's database, browser responses or logs. Only its public half is registered to the
+actual user's Forgejo profile, with a clear project label, through an explicit enable-
+Git action. Do not distribute one appliance-wide or per-user master private key to
+all projects, borrow another person's key, or ask for a laptop private key.
+
+That action must wire ordinary Git/SSH to the generated credential and the actual
+advertised Forgejo Git endpoint, with independently trusted host-key verification;
+registering a public-key row alone is not working Git access. Preserve existing
+private keys, SSH/Git configuration and host pins; no overwrite, blind keyscan trust
+or browser-origin-derived SSH address. A partial registration/setup outcome is
+unconfirmed, not permission to generate another key or replay provider mutations.
+
+**Credential model still needs agreement before implementation:** per-project
+keypair storage does **not** make a Forgejo profile key repository-scoped. It uses the
+person's normal native Git permissions across repositories. Project administrators
+with sudo, and appliance root, can read a project-resident private key despite 0600
+permissions. Explain that trust before enabling Git; do not promise hostile-tenant
+isolation or silently substitute a deploy key/shared provider identity. An unattended
+key also needs an explicit at-rest/passphrase decision. No keys or provider resources
+have been generated or registered by this plan.
+
+Selected-source basis, Forgejo **15.0.7**:
+
+- `routers/api/v1/api.go` exposes `GET/POST /api/v1/user/keys` and own-key DELETE;
+  `routers/api/v1/user/key.go` uses the acting user and upstream key validation/policy.
+  Use paginated own-user listing without the optional global fingerprint query;
+  validate ownership/type and bounds, not an arbitrary username or provider URL.
+- User-category reads need `read:user`; writes need `write:user`, as selected by
+  `requiredScopeLevel` and `models/auth/access_token_scope.go`. Soda currently requests
+  only read scopes (`internal/web/auth.go`). Registration therefore needs explicit
+  native user consent; no bootstrap/admin fallback, borrowed cookies or silent scope
+  escalation. Upstream policy may deny key management. Native profile settings stay
+  the authoritative key-management UI, not a duplicate Soda forge adapter.
+- `routers/private/serv.go` resolves a user key's owner and checks that person's
+  repository permissions. Deploy keys are a different identity/permission mechanism,
+  not a transparent safer replacement for personal Git authorization.
+
+**Acceptance must follow the real developer workflow:** create/join a real project
+without manually supplying a device SSH key, enable the agreed personal Git access,
+work entirely in full-size terminal tabs, and use native issues/code/forms on the
+left concurrently. Independently verify the same shell processes and editor/build
+state after switching panes/tabs, resizing, native navigation, reload and reconnection;
+then verify expiry, logout/denial/Stop and unrelated-session preservation. Test real
+clone/fetch/push with the acting user's permissions and protected key files under
+separately declared provider/native scope. A prompt screenshot, synthetic layout pass
+or the old blur-termination E2E is not acceptance of this revision.
 
 ## Minimum end-to-end user controls
 
@@ -30,16 +147,19 @@ Forgejo repository/collaboration controls or separate operator settings. It gove
 completion of the new drawer; the historical delivery slices below are not a complete
 current control checklist. Show only actions relevant to the observed state and actor,
 not every button at once. The established native hooks now mount the complete
-component through one dialog shell; the previous duplicate API caller is removed.
+component through one modal dialog shell; the previous duplicate API caller is removed.
+Replace that shell/layout and terminal lifetime under the correction above while
+retaining the legitimate existing operation owners.
 
 | Control | Required behavior | Current implementation gap |
 | --- | --- | --- |
 | Connect to Soda / Sign out | Forgejo OAuth, explicit acting account, honest local versus native logout boundary | Existing auth/API; preserve access to these actions in the replacement drawer |
 | Create environment | Human repository owner explicitly creates one shared environment; creation never joins | Implemented/proved in original drawer; retain in replacement |
-| Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Bounded native replacement/revocation and unrelated-session survival passed with temporary keys; original keys retained |
-| Join environment | Provision the real account and keys, then record membership; show the original login | Implemented/proved; retain separate from create and key save |
+| Optional external SSH access | Review/use own Forgejo profile public keys without duplicate pasting; preserve existing saved keys and explicit native apply/revoke | Current saved-key/native Apply path is proved; Forgejo key selection is not implemented |
+| Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
+| Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Mounted component passed real native OAuth/PTY/disconnect/no-reconnect plus independent process-disappearance checks |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach existing sessions without replay; separate hiding from ending | Current single-stream component ends on blur/close and requires reload; multiple tabs and bounded reattachment are unimplemented |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -89,16 +209,15 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Close packaging and delivery of the validated native drawer.** The bounded
-   integrated x86_64 journeys passed at the handoff's exact scope. Legacy public
-   staging modes are corrected and clean native build/check/export passed at
-   `dad2945`; production application source is unchanged from tested `2aa4960`.
-   Select an exact delivery candidate and scope; no retained rollout is implied. The
-   established hooks now mount the complete content through the
-   [existing contract](terminal-integration.md), preserving create/key/join/connection
-   actions. Local component/layout checks are not native acceptance. Validate the
-   combined native page, real OAuth/proxy/helper and terminal
-   lifecycle against exact candidate bytes. See the immediate checks below.
+1. **Correct the development workspace before another delivery.** Implement the
+   user-selected non-modal, terminal-filling, tabbed split view and bounded native
+   session reattachment above. Review the layout with a usable left native pane,
+   not another management-form console. Resolve the Git-credential trust/consent
+   choice, remove mandatory device-key entry from browser onboarding and retain real
+   account provisioning. Follow the existing [component/API ownership](terminal-integration.md),
+   but deliberately revise its rejected lifecycle contract and tests. Preserve prior
+   `2aa4960` native evidence and `dad2945` packaging correction; neither proves or
+   delivers the new UX. No retained rollout is implied.
 2. **Preserve the proved minimum environment/access controls above.** Bounded
    native Stop/Start and temporary-key replacement/revocation passed, along with
    fresh Create/Join/SSH. Distinct operator/provider and broader acceptance remain
@@ -141,14 +260,15 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    not lossless rollback. A terminal milestone may ship before later management work;
    every delivered milestone still needs its relevant checks, not just a final sweep.
 
-### Immediate next step — scoped delivery
+### Immediate next step — workspace correction, then scoped delivery
 
-- The mount, immutable context hints, asset loading and disposal are integrated.
-  Preserve native forms/navigation, explicit terminal Open and mandatory full-page
-  reload after close/stale context. Packaging now uses the exact complete presentation
-  inventory and locked full English locale; its native build/check/export and
-  bounded integrated fixture journeys now passed as recorded in the handoff.
-  Preserve their byte/target boundaries for the separately approved next delivery.
+- Implement and review the product correction above before treating the old drawer
+  as a delivery candidate. Preserve native forms/navigation and explicit new-terminal
+  launch, but replace modal blocking, blur teardown and forced reload-after-close.
+  Native page navigation must restore the existing authorized session, not silently
+  open a replacement. Update the corresponding old test assertions, not just CSS.
+  Packaging's exact full presentation inventory and locked English locale remain
+  product-owned; preserve earlier byte/target evidence for any later scoped delivery.
 - Build/check/stage the merged candidate from a clean exact revision. Extend the
   existing installed journey with an explicit terminal opt-in, using real OAuth,
   trusted sandboxed Chromium, Caddy and the fixed helper. Check both existing users,
@@ -170,8 +290,10 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
 
 - **Backend:** existing Go API, SQLite, encrypted Forgejo OAuth grants and restricted
   native helper. Keep `soda-dashboard` and all persistent project/service identities.
-- **Frontend:** stock Forgejo, two small custom-template hooks, browser `<dialog>`,
-  scoped native styling and vanilla JavaScript using `fetch` with the JSON API.
+- **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
+  native-page/workspace split view, scoped native styling and vanilla JavaScript
+  using the JSON API. This is the revised selection; source still uses a modal
+  browser `<dialog>` until the correction is implemented.
   Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
   through a drawer-local root; `.soda-page` activates a full-page shell and must not
   wrap the drawer.
@@ -189,7 +311,9 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   environment/access integration—not copied roles or another password authority.
 - **Environment model:** persistent and shared, with personal Linux accounts inside
   each project. Opening the drawer never creates, joins, starts or repairs anything.
-  Sodaspaces is a UI name, not disposable Codespaces or a browser IDE.
+  Sodaspaces is the developer's working surface, not disposable Codespaces or an
+  instruction to assemble external SSH access. Terminal-native development is the
+  selected interaction; no separate browser-editor framework is implied.
 
 ## Presentation foundation
 

@@ -1,5 +1,52 @@
 # Current handoff
 
+## Product UX rejected — workspace correction is next, not delivery
+
+After using the installed fixture, the user rejected immediate terminal termination
+on tab/app changes and the modal management-form drawer. They clarified that **all
+development happens in the drawer**: a terminal fills its entire content area,
+session/management tabs occupy a compact top bar, and the native Soda/Forgejo page
+must remain usable on the left at roughly half-screen width. The current backdrop
+turns that page into a large dismiss target; passing the old tests did not establish
+an acceptable development experience.
+
+The revised requirements and proposed credential integration are now recorded at
+[the start of the leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
+No runtime fix has been made. Source and installed `2aa4960` still have modal blocking,
+three layers of blur/hidden retirement, a two-hour absolute terminal cap, one stream
+per context/project, socket-owned PTY lifetime and mandatory SSH keys at join. Native
+Forgejo navigation replaces the document: merely removing blur or changing CSS
+cannot preserve development while using the left pane. Multiple terminal tabs,
+non-modal pane-width layout and bounded same-process reattachment remain source work.
+
+The user also asked to reuse Forgejo profile public keys and automate project Git
+credentials rather than demand manual SSH entry. Inspection of exact Forgejo 15.0.7
+source confirms acting-user public-key listing/registration through official APIs;
+listing uses `read:user`, registration needs `write:user`, which Soda does not currently
+request. Browser terminal transport itself uses no SSH key. Browser-only joining
+therefore needs an intentional API/helper/project-script change, not a UI-only bypass.
+Existing keys, account markers and memberships must be preserved.
+
+The recommended outbound Git candidate generates a distinct keypair inside each
+user/project account and registers only its public half, rather than distributing
+one private key everywhere. This credential model is **not yet selected or implemented**:
+a Forgejo profile key still carries the user's normal cross-repository Git permissions,
+and project sudo administrators/root can read project-resident private keys. At-rest/
+passphrase handling and explicit user consent must be agreed. Do not blindly install
+all profile keys for inbound project SSH, including workspace-generated Git keys;
+that could silently enable lateral access. No automatic later synchronization or
+new provider mutation authority follows from this discussion.
+
+Checks this turn: tracked tree inspection and product/exact-selected-upstream source
+review; documentation edits only. The documentation checker passed (94 Markdown
+files, 563 relative links, 71 anchors, zero errors), as did `git diff --check`.
+Earlier public terminal UX comparisons are retained in
+`.artifacts/research/terminal-ux-5f33120/`. No builds/product tests, browser/native execution,
+key generation/registration, credential/scope change, deployment or push occurred.
+The technical evidence below remains valid at its recorded scope, **not acceptance
+of the rejected UX or proof of these corrections**. Preserve both isolated projects,
+all later user work and the installed-versus-exported candidate distinctions.
+
 ## Integrated native E2E passed — bounded isolated x86_64 fixture
 
 Installed application/helper candidate `2aa4960` passed the real integrated

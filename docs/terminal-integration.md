@@ -1,5 +1,13 @@
 # Drawer terminal integration contract
 
+**Current source contract below, not the selected future UX.** The user rejected its
+modal blocking, management-form layout and blur/close teardown. The next change is a
+non-modal native-page/workspace split with full-content terminal tabs and bounded
+same-process reattachment; see the [product correction](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
+None of those changes is implemented yet. Preserve actual authorization and native
+ownership while deliberately replacing the old mounting/lifetime expectations and
+tests; do not treat old blur-termination passes as acceptance of the new workflow.
+
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
 dialog shell, which mounts `mountSodaspaces` once on explicit opening. It preserves
 native repository actions, forms, clipboard and beforeunload. Content and terminal

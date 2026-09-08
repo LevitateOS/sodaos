@@ -12,6 +12,14 @@ native access proof at `bdbce8e`, followed by separately approved retained cutov
 private-page browser and existing-account SSH/PTY checks. Exact evidence and limits
 remain in the handoff, not a general release/installation acceptance.
 
+**UX correction pending:** the user rejected the modal overlay and blocked native
+page. The selected next interface is a non-modal split with an independently usable
+native left pane and full-size terminal/session tabs inside the right drawer. See the
+[leading product correction](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
+The dialog/backdrop/full-page-reload details below describe the old candidate, not
+constraints to preserve in the redesign. Native routes, forms, authentication,
+customization ownership and no-fork boundaries remain selected.
+
 ## Verified source surface
 
 The inspected **15.0.7** source establishes:
