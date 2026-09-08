@@ -2,6 +2,8 @@ package scripts
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -16,6 +18,58 @@ func (forgejoSetupLocale) TrString(key string) string     { return key }
 
 type forgejoSetupContext struct {
 	Locale forgejoSetupLocale
+}
+
+func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
+	tests := []struct {
+		name         string
+		sha          string
+		provenance   string
+		replacements [][2]string
+	}{
+		{
+			name:       "install.tmpl",
+			sha:        "2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8bae8f2dcc",
+			provenance: "{{/* Adapted from Forgejo 15.0.7 templates/install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8bae8f2dcc */}}\n",
+			replacements: [][2]string{
+				{` class="page-content install soda-page soda-forgejo-setup" data-signed="false"`, ` class="page-content install"`},
+				{"\t<div class=\"soda-setup-theme\">{{template \"custom/soda/theme_toggle\" dict \"Class\" \"soda-setup-theme-toggle\"}}</div>\n", ""},
+				{` class="ui grid install-config-container soda-page-container"`, ` class="ui grid install-config-container"`},
+				{"\t\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Forge setup\" \"Title\" (ctx.Locale.Tr \"install.title\") \"Description\" \"Configure the native forge that powers your shared development workspace.\" \"Artwork\" \"home-papercraft.png\"}}\n\t\t\t<div class=\"ui segment soda-setup-panel\">", "\t\t\t<h3 class=\"ui top attached header\">\n\t\t\t\t{{ctx.Locale.Tr \"install.title\"}}\n\t\t\t</h3>\n\t\t\t<div class=\"ui attached segment\">"},
+				{` class="ui form soda-form"`, ` class="ui form"`},
+			},
+		},
+		{
+			name:       "post-install.tmpl",
+			sha:        "059e23b3e3dd5aa347f1f21c0f851862c3b45a094dcc7470373b26223b661fd1",
+			provenance: "{{/* Adapted from Forgejo 15.0.7 templates/post-install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 059e23b3e3dd5aa347f1f21c0f851862c3b45a094dcc7470373b26223b661fd1 */}}\n",
+			replacements: [][2]string{
+				{` class="page-content install post-install soda-page soda-forgejo-setup soda-forgejo-setup-completing" data-signed="false"`, ` class="page-content install post-install"`},
+				{"\t<div class=\"soda-setup-theme\">{{template \"custom/soda/theme_toggle\" dict \"Class\" \"soda-setup-theme-toggle\"}}</div>\n", ""},
+				{` class="ui container soda-page-container"`, ` class="ui container"`},
+				{` class="home soda-setup-completing"`, ` class="home"`},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contents := readForgejoTemplate(t, tt.name)
+			if !strings.HasPrefix(contents, tt.provenance) {
+				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
+			}
+			restored := strings.TrimPrefix(contents, tt.provenance)
+			for _, replacement := range tt.replacements {
+				if count := strings.Count(restored, replacement[0]); count != 1 {
+					t.Fatalf("%s has %d occurrences of attributed presentation change %q, want 1", tt.name, count, replacement[0])
+				}
+				restored = strings.Replace(restored, replacement[0], replacement[1], 1)
+			}
+			if got := fmt.Sprintf("%x", sha256.Sum256([]byte(restored))); got != tt.sha {
+				t.Errorf("%s differs from pristine Forgejo 15.0.7 outside attributed presentation changes: got SHA-256 %s, want %s", tt.name, got, tt.sha)
+			}
+		})
+	}
 }
 
 func TestForgejoSetupKeepsNativeFieldAndHookContract(t *testing.T) {
