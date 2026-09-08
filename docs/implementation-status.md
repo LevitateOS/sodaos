@@ -2,7 +2,7 @@
 
 ## Page illustration goal
 
-Administrator dashboard, OAuth credential editing and queue pages now explicitly suppress inherited home-dashboard decoration. Focused administrator source-parity/parse, native-boundary and shared-presentation tests passed. Native admin screenshots remain pending; other admin callers still require individual assessment.
+Administrator dashboard, OAuth credential editing, queue, scheduled-job, notice, self-check and stacktrace pages now explicitly suppress inherited home-dashboard decoration. Focused administrator source-parity/parse, native-boundary and shared-presentation tests passed. Native admin screenshots remain pending; other admin callers still require individual assessment.
 
 Wiki welcome now uses a distinct transparent reference-book illustration, preserving native text and the writer/mirror action gate. Repository content source-parity/gate tests passed; native read-only welcome was captured at desktop/mobile widths. Repository project wrappers and shared callers are assessed in the checklist.
 
