@@ -10,7 +10,7 @@
 			<div class="ui ten wide column">
 				{{template "org/team/navbar" .}}
 				{{if .IsOrganizationOwner}}
-					<div class="ui attached segment">
+					<div class="ui attached segment soda-p-section">
 						<form class="ui form ignore-dirty tw-flex tw-flex-wrap tw-gap-2" action="{{$.OrgLink}}/teams/{{$.Team.LowerName | PathEscape}}/action/add" method="post">
 							<input type="hidden" name="uid" value="{{.SignedUser.ID}}">
 							<div id="search-user-box" class="ui search tw-mr-2"{{if .IsEmailInviteEnabled}} data-allow-email="true" data-allow-email-description="{{ctx.Locale.Tr "org.teams.invite_team_member" $.Team.Name}}"{{end}}>
@@ -22,7 +22,7 @@
 						</form>
 					</div>
 				{{end}}
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					<div class="flex-list">
 						{{range .Team.Members}}
 							<div class="flex-item tw-items-center">
@@ -55,7 +55,7 @@
 				</div>
 				{{if and .Invites $.IsOrganizationOwner}}
 				<h4 class="ui top attached header soda-p-heading">{{ctx.Locale.Tr "org.teams.invite_team_member.list"}}</h4>
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					<div class="flex-list">
 						{{range .Invites}}
 							<div class="flex-item tw-items-center">

@@ -9,7 +9,7 @@
 }
 
 .soda-settings .flex-container-nav {
-	flex: 0 0 226px;
+	flex: 0 0 var(--soda-sidebar-width);
 }
 
 .soda-settings .flex-container-main {
@@ -41,7 +41,7 @@
 
 	.soda-settings .soda-settings-layout {
 		flex-direction: column;
-		gap: 18px;
+		gap: 16px;
 	}
 
 	.soda-settings .flex-container-nav {
@@ -59,8 +59,3 @@
 	}
 }
 
-@media (max-width: 540px) {
-	.soda-settings .flex-container-nav > .ui.vertical.menu {
-		display: block;
-	}
-}

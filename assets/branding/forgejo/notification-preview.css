@@ -21,11 +21,11 @@
 .soda-notification-preview-list ul { list-style: none; padding: 0; margin: 0; }
 .soda-notification-preview-list li + li { border-top: 1px solid var(--color-secondary); }
 .soda-notification-preview-list a { display: flex; gap: 12px; padding: 16px; color: inherit; }
-.soda-notification-preview-icon { flex: none; padding-top: 3px; }
-.soda-notification-preview-entry { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.soda-notification-preview-icon { flex: none; padding-top: 4px; }
+.soda-notification-preview-entry { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .soda-notification-preview-title { font-weight: 600; }
 .soda-notification-preview-repo, .soda-notification-preview-time { color: var(--color-text-light); font-size: 12px; }
-.soda-notification-preview-pin { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; }
+.soda-notification-preview-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
 .soda-notification-preview-all { display: block; text-align: center; padding: 16px; border-top: 1px solid var(--color-secondary); font-weight: 600; color: var(--color-primary); }
 .soda-notification-preview-status, .soda-notification-preview-empty { margin: 0; padding: 16px; }
 .soda-notification-preview-status:empty { display: none; }

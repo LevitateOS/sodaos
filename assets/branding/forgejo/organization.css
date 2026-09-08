@@ -1,7 +1,7 @@
 /* Native organization header, tabs, and settings shell. Page-specific cards
    and lists remain with their organization leaf stylesheets. */
 .page-content.organization:has(.soda-org-header) {
-	padding-bottom: 40px;
+	padding-bottom: 32px;
 }
 
 .page-content.organization:has(.soda-org-header) > .ui.container:not(.fluid) {
@@ -12,14 +12,12 @@
 	box-sizing: border-box;
 	align-items: center;
 	min-height: 196px;
-	margin-top: 22px;
+	margin-top: 24px;
 	margin-bottom: 16px;
-	padding: 24px 26px;
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background:
-		radial-gradient(circle at 84% 22%, color-mix(in srgb, var(--soda-page-link) 15%, transparent), transparent 30%),
-		var(--soda-page-surface);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 }
 
 .soda-org-header > .org-avatar {
@@ -39,7 +37,7 @@
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 10px;
+	gap: 8px;
 	min-width: 0;
 }
 
@@ -78,7 +76,7 @@
 }
 
 .page-content.organization:has(.soda-org-header) > .soda-org-header + .ui.container overflow-menu {
-	margin-bottom: 20px !important;
+	margin-bottom: 16px !important;
 	padding: 8px;
 	border: 1px solid var(--soda-page-edge) !important;
 	border-radius: var(--soda-control-radius);
@@ -99,7 +97,7 @@
 
 .soda-org-settings-layout {
 	align-items: flex-start;
-	gap: 18px;
+	gap: 16px;
 }
 
 .soda-org-settings-layout > .flex-container-nav {
@@ -131,7 +129,7 @@
 	width: min(1120px, calc(100% - 48px)) !important;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.soda-org-settings-layout > .flex-container-nav {
 		position: static;
 		flex-basis: 100%;
@@ -153,7 +151,7 @@
 	.soda-org-header {
 		align-items: flex-start;
 		min-height: 0;
-		padding: 18px 16px;
+		padding: 0;
 	}
 
 	.soda-org-header > .org-avatar {
@@ -164,7 +162,7 @@
 
 	.soda-org-header .org-header {
 		flex-direction: column;
-		gap: 14px;
+		gap: 12px;
 	}
 
 	.soda-org-header .button-sequence {

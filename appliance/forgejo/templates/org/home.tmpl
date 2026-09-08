@@ -41,7 +41,7 @@
 						<strong class="tw-flex-1">{{ctx.Locale.Tr "org.members"}}</strong>
 						<a class="text grey tw-flex tw-items-center" href="{{.OrgLink}}/members"><span>{{.NumMembers}}</span> {{svg "octicon-chevron-right"}}</a>
 					</h4>
-					<div class="ui attached segment members">
+					<div class="ui attached segment members soda-p-section">
 						{{$isMember := .IsOrganizationMember}}
 						{{range .Members}}
 							{{if or $isMember (call $.IsPublicMember .ID)}}
@@ -51,7 +51,7 @@
 					</div>
 				{{end}}
 				{{if .IsOrganizationMember}}
-					<div class="ui top attached header tw-flex">
+					<div class="ui top attached header tw-flex soda-p-heading">
 						<strong class="tw-flex-1">{{ctx.Locale.Tr "org.teams"}}</strong>
 						<a class="text grey tw-flex tw-items-center" href="{{.OrgLink}}/teams"><span>{{.Org.NumTeams}}</span> {{svg "octicon-chevron-right"}}</a>
 					</div>
@@ -67,7 +67,7 @@
 						{{end}}
 					</div>
 					{{if .IsOrganizationOwner}}
-						<div class="ui bottom attached segment">
+						<div class="ui bottom attached segment soda-p-section">
 							<a class="primary small button" href="{{.OrgLink}}/teams/new">{{ctx.Locale.Tr "org.create_new_team"}}</a>
 						</div>
 					{{end}}

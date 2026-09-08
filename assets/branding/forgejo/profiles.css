@@ -10,9 +10,9 @@
 .soda-profile-card-context #profile-avatar-card {
   width: 100%;
   margin: 0;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
   /* Native profile action menus extend beyond the card. */
   overflow: visible;
@@ -39,11 +39,11 @@
 
 .soda-profile .soda-profile-content > .soda-tabs {
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .soda-profile .soda-tabs .ui.label {
-  margin-left: 2px;
+  margin-left: 4px;
   border: 0;
   background: var(--soda-page-hover);
   color: inherit;
@@ -63,10 +63,10 @@
 .soda-profile #activity-feed,
 .soda-profile .soda-profile-readme,
 .soda-profile .user-cards {
-  padding: var(--soda-panel-inset);
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-profile .soda-profile-readme pre {
@@ -80,7 +80,7 @@
 }
 
 @media (max-width: 767px) {
-  .soda-profile { padding-top: 18px; }
+  .soda-profile { padding-top: 16px; }
   .soda-profile .soda-profile-identity,
   .soda-profile .soda-profile-content { width: 100% !important; }
 }

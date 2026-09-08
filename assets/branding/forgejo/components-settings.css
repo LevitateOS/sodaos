@@ -114,3 +114,15 @@
   height: 0;
   margin-block: 24px;
 }
+
+/* Stacked settings navigation stays compact without hiding native destinations.
+   Nested groups span both columns so their hierarchy remains legible. */
+@media (max-width: 900px) {
+  :is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu > :is(.header, details) {
+    grid-column: 1 / -1;
+  }
+}

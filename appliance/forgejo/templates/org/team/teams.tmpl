@@ -15,7 +15,7 @@
 		<div class="ui two column stackable grid">
 			{{range .Teams}}
 				<div class="column">
-					<div class="ui top attached header">
+					<div class="ui top attached header soda-p-heading">
 						<a class="text black" href="{{$.OrgLink}}/teams/{{.LowerName | PathEscape}}"><strong>{{.Name}}</strong></a>
 						<div class="ui right">
 							<a class="ui primary tiny button" href="{{$.OrgLink}}/teams/{{.LowerName | PathEscape}}">{{ctx.Locale.Tr "view"}}</a>
@@ -32,12 +32,12 @@
 							{{end}}
 						</div>
 					</div>
-					<div class="ui attached segment members">
+					<div class="ui attached segment members soda-p-section">
 						{{range .Members}}
 							{{template "shared/user/avatarlink" dict "user" .}}
 						{{end}}
 					</div>
-					<div class="ui bottom attached header">
+					<div class="ui bottom attached header soda-p-heading">
 						<p class="team-meta"><a class="muted" href="{{$.OrgLink}}/teams/{{.LowerName | PathEscape}}">{{.NumMembers}} {{ctx.Locale.Tr "org.lower_members"}}</a> · <a class="muted" href="{{$.OrgLink}}/teams/{{.LowerName | PathEscape}}/repositories">{{.NumRepos}} {{ctx.Locale.Tr "org.lower_repositories"}}</a></p>
 					</div>
 				</div>

@@ -11,7 +11,7 @@
 				{{template "org/team/navbar" .}}
 				{{$canAddRemove := and $.IsOrganizationOwner (not $.Team.IncludesAllRepositories)}}
 				{{if $canAddRemove}}
-					<div class="ui attached segment tw-flex tw-flex-wrap tw-gap-2">
+					<div class="ui attached segment tw-flex tw-flex-wrap tw-gap-2 soda-p-section">
 						<form class="ui form ignore-dirty tw-flex-1 tw-flex" action="{{$.OrgLink}}/teams/{{$.Team.LowerName | PathEscape}}/action/repo/add" method="post">
 							<div id="search-repo-box" data-uid="{{.Org.ID}}" class="ui search">
 								<div class="ui input">
@@ -26,7 +26,7 @@
 						</div>
 					</div>
 				{{end}}
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					<div class="flex-list">
 						{{range .Team.Repos}}
 							<div class="flex-item tw-items-center">

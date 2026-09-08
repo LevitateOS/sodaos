@@ -1,6 +1,6 @@
 /* Directory metadata only; native navigation/search adapters belong to the toolbar. */
-.soda-explore .flex-item-leading { padding-top: 3px; }
-.soda-explore .flex-item-body { font-size: 15px; line-height: 1.6; margin-top: 6px; }
+.soda-explore .flex-item-leading { padding-top: 4px; }
+.soda-explore .flex-item-body { font-size: 15px; line-height: 1.6; margin-top: 4px; }
 .soda-explore .flex-item-body:last-child { font-size: 12px; }
 .soda-explore .flex-item-trailing { font: 400 12px "IBM Plex Mono", monospace; }
 .soda-explore .flex-list > div:not(.flex-item) { padding: 24px 0; color: var(--soda-page-muted); }
