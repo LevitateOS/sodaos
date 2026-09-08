@@ -819,4 +819,4 @@ progress examples, overdue/upcoming/no-deadline states and empty milestone conte
 The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
 do not blindly rerun it. No non-fixture repository writes or deployment.
 
-<!-- Illustration queue: personal Actions lists, four runner subpages and both owner storage overviews source-assessed without art; organization general settings is next. See the per-page checklist. -->
+<!-- Illustration queue: personal Actions lists, four runner subpages and both owner storage overviews source-assessed without art; organization general and deletion pages source-assessed without extra art; labels and hooks are next. See the per-page checklist. -->

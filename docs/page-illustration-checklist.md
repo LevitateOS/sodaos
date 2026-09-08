@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization general settings and its remaining page variants. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization labels and webhook settings; inspect each native page wrapper. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -305,7 +305,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 
 | Status | Organization-relative route | Page |
 | --- | --- | --- |
-| Pending | `/settings` | General options |
+| No image | `/settings` | Organization identity/avatar already supplies visual context; prioritize profile, visibility and permission fields. |
 | Pending | `/settings/hooks` | Webhook list and new/edit variants |
 | Pending | `/settings/labels` | Organization labels |
 | Pending | `/settings/applications` | OAuth applications, when enabled |
@@ -314,7 +314,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 | Pending | `/settings/actions/variables` | Native Actions variables |
 | No image | `/settings/blocked_users` | Organization blocked users: actual identities, search and block/unblock controls take priority; source-reviewed. |
 | No image | `/settings/storage_overview` | Organization quota bars/totals/status are the relevant visuals; source-reviewed. |
-| Pending | `/settings/delete` | Organization deletion confirmation |
+| No image | `/settings/delete` | Warning and exact organization-name confirmation take priority; no decorative image in page or modal. |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
 - [ ] Trace account, organization, repository and administrator shared layouts for native routes without leaf overrides.
@@ -529,3 +529,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - No generated illustration for either owner. Quota group/rule names, used/limit values, native acceptable/exceeded icons, colored subject bars and expandable per-subject totals directly explain storage. Additional decoration would compete with those meaningful visuals.
 - No separate cleanup link or cleanup subpage appears in these inspected templates; no such route is inferred. Quota-disabled and empty-group cases retain the same source layout without invented state graphics.
 - Source-based assessment only: the fixture navbar did not expose quota storage and no configuration was changed to enable it. No usage, quota, file or account mutation performed; no runtime quota rendering or passing runtime validation claimed. No source changes/tests needed.
+
+### Organization general settings and deletion
+
+- Read complete stock `org/settings/options.tmpl` and `delete.tmpl` through the running binary's embedded viewer. Their previously inspected shared layout includes the real organization identity header and navigation.
+- General options: no extra image. The page edits that same identity, description/contact fields, public/limited/private visibility, repository-admin team-access option and avatar; the real organization header is the appropriate visual. The administrator-only repository-creation limit remains part of this same undecorated form. No separate illustration for validation or visibility variants.
+- Deletion: no image on the warning page or final modal. Keep the exact organization-name confirmation, alert and native destructive action prominent.
+- Both decisions are source-based; no organization fixture is available for native capture. No organization/avatar/visibility/permission change or deletion attempted. No source changes/tests required.
