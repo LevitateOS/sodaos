@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: commit detail, comparison and code browsing; trace their shared commit/diff components. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: shared commit header and diff box, then pull-request callers; finish the component review before closing those entries. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -95,13 +95,13 @@ Next: commit detail, comparison and code browsing; trace their shared commit/dif
 | Partial — trace caller | [`repo/branch_dropdown.tmpl`](../appliance/forgejo/templates/repo/branch_dropdown.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/clone_buttons.tmpl`](../appliance/forgejo/templates/repo/clone_buttons.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/commit_header.tmpl`](../appliance/forgejo/templates/repo/commit_header.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`repo/commit_page.tmpl`](../appliance/forgejo/templates/repo/commit_page.tmpl) | `repo/commit_header`, `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/commit_page.tmpl`](../appliance/forgejo/templates/repo/commit_page.tmpl) | Native commit metadata and diff | Commit identity/status and actual changed lines are the relevant visuals. Wrapper reviewed and real commit captured; shared header/diff internals remain separately tracked. |
 | No image | [`repo/commits.tmpl`](../appliance/forgejo/templates/repo/commits.tmpl) | Native commit table | History is author/message/SHA/date and reference navigation with search, not an introductory page. Wrapper and commits_table reviewed; native two-commit history captured. Comparison caller remains separately pending. |
 | Partial — trace caller | [`repo/commits_list.tmpl`](../appliance/forgejo/templates/repo/commits_list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/commits_table.tmpl`](../appliance/forgejo/templates/repo/commits_table.tmpl) | Commit-history caller assessed | Full partial reviewed, including search, renamed-file and no-comparison branches; comparison page assessment remains. No independent artwork. |
+| Partial — trace caller | [`repo/commits_table.tmpl`](../appliance/forgejo/templates/repo/commits_table.tmpl) | Commit-history caller assessed | Full partial reviewed, including search, renamed-file and no-comparison branches. History/comparison callers assessed; pull-request commits caller remains. No independent artwork. |
 | Existing — verify | [`repo/create.tmpl`](../appliance/forgejo/templates/repo/create.tmpl) | `new-repo-papercraft.png` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/diff/box.tmpl`](../appliance/forgejo/templates/repo/diff/box.tmpl) | `repo/commit_header` | Not yet reviewed in this goal. |
-| Pending | [`repo/diff/compare.tmpl`](../appliance/forgejo/templates/repo/diff/compare.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/diff/compare.tmpl`](../appliance/forgejo/templates/repo/diff/compare.tmpl) | Native reference picker and diff | Full wrapper reviewed: branch/tag/fork selectors, comparison direction/type, nothing-to-compare, existing PR, new PR and archived/sign-in states. Decorative branching or success imagery would compete with actual comparison state. Commit comparison captured. |
 | Pending | [`repo/editor/cherry_pick.tmpl`](../appliance/forgejo/templates/repo/editor/cherry_pick.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/editor/commit_form.tmpl`](../appliance/forgejo/templates/repo/editor/commit_form.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/editor/delete.tmpl`](../appliance/forgejo/templates/repo/editor/delete.tmpl) | `repo/header` | Not yet reviewed in this goal. |
@@ -109,7 +109,7 @@ Next: commit detail, comparison and code browsing; trace their shared commit/dif
 | Pending | [`repo/editor/patch.tmpl`](../appliance/forgejo/templates/repo/editor/patch.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/editor/upload.tmpl`](../appliance/forgejo/templates/repo/editor/upload.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/empty.tmpl`](../appliance/forgejo/templates/repo/empty.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/find/files.tmpl`](../appliance/forgejo/templates/repo/find/files.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/find/files.tmpl`](../appliance/forgejo/templates/repo/find/files.tmpl) | Native file finder | Focused path input and matching file rows support quick navigation. No-results text should stay direct, without another illustration. Full template reviewed and populated finder captured. |
 | Pending | [`repo/forks.tmpl`](../appliance/forgejo/templates/repo/forks.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | No image | [`repo/graph.tmpl`](../appliance/forgejo/templates/repo/graph.tmpl) | Actual Git graph | The graph itself is the illustration of ancestry. Ref selection, monochrome/color modes and loading state need no decorative scene. Full wrapper source reviewed; populated native graph captured. |
 | Partial — trace caller | [`repo/header.tmpl`](../appliance/forgejo/templates/repo/header.tmpl) | — | Not yet reviewed in this goal. |
@@ -617,3 +617,9 @@ All captures below used the authorized fixture at 1440×1000 on existing `/bob/a
 | `/graph` | No image: actual ancestry, branch/tag references and commit labels. | `capture-ExrVGn/004.png` |
 
 All seven screenshots were inspected. Default chart state and colored Git graph were observed; loading/error/empty, other contribution types, monochrome and branch mutation states were source-assessed, not exercised. No implementation changed and tests were not rerun for checklist decisions.
+
+## Commit detail, comparison and file finder
+
+Full commit-page wrapper, full comparison wrapper and full file-finder template were reviewed. No decorative image is appropriate: each page presents code evidence or direct navigation. The comparison assessment includes branch/tag and cross-fork selection, swapping head/base, comparison type, no changes (including allowed empty PR), existing PR status, new PR form visibility, archive and sign-in messages. These secondary branches were source-assessed, not submitted.
+
+Authorized native desktop captures, all inspected at 1440×1000, under `.artifacts/screenshots/capture-RMoZvK/`: `001.png` shows `/bob/activity-field-notes/commit/f89919ac0e`; `002.png` shows `/bob/activity-field-notes/compare/5de700b51b...f89919ac0e`; `003.png` shows `/bob/activity-field-notes/find/branch/main`. Real commit metadata, a three-line addition, comparison reference controls and the two-file finder list are visible. No code, note, PR or branch was changed. The shared commit header read was truncated, so its full review remains pending alongside diff-box/pull-request callers. Tests were not rerun for these documentation-only decisions.
