@@ -697,12 +697,47 @@ build fixtures**, JS syntax, whitespace and documentation links/anchors. Evidenc
 whole native bundle was built after `bdbce8e`; the follow-up changes are logging
 configuration, probe/tests and documentation.
 
-**Live cutover remains pending separate approval, as plan step 6 requires.** The
+**The user subsequently approved live cutover.** The
 [affected-component procedure](installation.md#retained-sodaspaces-cutover) covers
 fresh-at-cutover backups, owner-native callback editing, image-pinned backend,
 strict-config `soda-runners` CLI, proxy/namespace/hooks and query-free native logging.
 Unchanged helper, project roots/default image and runner services are not upgrade
-targets. Post-cutover native browser/own-access observations remain unperformed.
+targets. See the executed cutover below.
+
+## Approved retained cutover
+
+The user explicitly approved the documented affected-component cutover after the
+rehearsal. Evidence is under `.artifacts/cutover-c007eb6/`; the fresh private backup
+on `soda-test` is `/var/lib/soda-cutover-c007eb6/backup`. The old rehearsal backup was
+not reused as current state. The actual image-pinned unit, prior image, consistent
+SQLite data, credentials/key/config, proxy, native configuration and file metadata
+were preserved. An initial SCP transfer could not preserve two relative bundle
+symlinks; that partial tree remains untouched. A separately named tar transfer passed
+the production bundle verifier before deployment.
+
+Built `bdbce8e` dashboard image/binary and strict-config runners CLI, exact four native
+hooks/assets, namespaced proxy/config and reviewed query-free logging were delivered.
+The actual owner changed only app 4's callback through native Applications settings;
+client identity/name/confidential setting and credential-file bytes were preserved.
+No API PATCH, secret generation or Forgejo DB access occurred. Only affected services
+were restarted; no helper/project/default-image/runner-service or routing change.
+
+Live schema v3 → v5 passed integrity/FK checks and preserved every original column/row
+and grant/key-check ciphertext **before browser login**, with migrated contexts checked.
+The running backend executable/image match the export. Native runner `list` succeeded.
+The retained host lacked the selected static-cache setting (native default six hours);
+asset validation caught it. `STATIC_CACHE_TIME=0` was then applied, Forgejo restarted
+and actual conditional reads returned 304. Earlier input/cache/startup-preflight
+failures remain, not overwritten. A restricted CA copy was used without changing the
+original CA file or global trust.
+
+The real private-repository browser journey passed at probe `c007eb6` (`browser-d`),
+with three running views and genuine BFCache plus normal authentication/identity/
+logout/form guards. No environments, keys or memberships were written by the probe.
+A focused probe follow-up records usable displayed own SSH commands/fingerprints for
+independent comparison; its delivered-target rerun and direct own-key SSH observations
+are pending. This cutover is not whole-product, provider, laptop-route or aarch64
+acceptance. All old/fresh fixtures, failures and project roots remain retained.
 
 ## Remaining work and permission boundary
 

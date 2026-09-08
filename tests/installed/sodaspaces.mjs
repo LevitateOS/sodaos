@@ -208,6 +208,7 @@ try {
     ]);
     await p.goto(repoURL);
     assert.equal(await p.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[index].id);
+    assert.equal(await p.locator('#sodaspaces-root').getAttribute('data-repository-id'), input.repository_id);
   }
   async function nativeLogout(p) {
     const menu = p.locator('details').filter({has: p.locator('a[data-url="/user/logout"]')});
@@ -260,6 +261,15 @@ try {
     assert(/^(No shared environment\.|Environment (running\.|stopped\.|provisioning is incomplete\.|reserved;))/.test(state));
     result.states.push(state.startsWith('No shared') ? 'absent' : state.startsWith('Environment running') ? 'running'
       : state.startsWith('Environment stopped') ? 'stopped' : state.startsWith('Environment provisioning') ? 'incomplete' : 'live-status-unavailable');
+    if (await page.locator('#sodaspaces-connection').isVisible()) {
+      const command = await page.locator('#sodaspaces-command').inputValue();
+      const fingerprint = await page.locator('#sodaspaces-fingerprint').innerText();
+      assert.match(command, /^ssh [a-z][a-z0-9_-]{0,30}@[0-9a-fA-F:.]+$/);
+      assert.match(fingerprint, /^Ed25519 host-key fingerprint: SHA256:[A-Za-z0-9+/]{43}$/);
+      assert.equal(await page.locator('#sodaspaces-copy').getAttribute('data-clipboard-target'), '#sodaspaces-command');
+      assert(!(await page.locator('#sodaspaces-copy').isDisabled()));
+      (result.own_connections ||= []).push({user_id: input.users[index].id, repository_id: input.repository_id, command, fingerprint});
+    }
     const cookies = await context.cookies(origin.origin + '/-/soda/api/session');
     const soda = cookies.find(cookie => cookie.name === '__Secure-sodaspaces-session');
     assert(soda && soda.domain === origin.hostname && soda.path === '/-/soda/' && soda.secure && soda.httpOnly && soda.sameSite === 'Lax');
