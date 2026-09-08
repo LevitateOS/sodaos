@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: finish tracing OAuth list/create/grant partial callers, then conditional personal Actions/storage pages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: conditional personal Actions runners, secrets and variables; inspect native callers before deciding artwork. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -218,7 +218,7 @@ Next: finish tracing OAuth list/create/grant partial callers, then conditional p
 | No image | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `hideArtwork` | Native resource/scope selection takes priority; desktop creation form checked. |
 | Done | [`user/settings/applications.tmpl`](../appliance/forgejo/templates/user/settings/applications.tmpl) | `settings-applications-papercraft.png` via layout | Existing application-connection scene retained; native desktop/mobile landing captures inspected. |
 | No image | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `hideArtwork` | Credential and redirect configuration; source reviewed, native edit verification pending. |
-| Partial — trace caller | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | — | Not yet reviewed in this goal. |
+| No image | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | Personal, organization, admin application pages | Shared list/create section; native app identity, client IDs, locked state and configuration controls take priority. Page owners assessed separately. |
 | Done | [`user/settings/hooks.tmpl`](../appliance/forgejo/templates/user/settings/hooks.tmpl) | `settings-webhooks-papercraft.png` | Personal webhook list only; desktop/mobile and new-form isolation checked. |
 | Done | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `settings-keys-papercraft.png` via layout | Existing key-rack scene retained; native desktop/mobile landing captures inspected. |
 | Partial — trace caller | [`user/settings/layout_footer.tmpl`](../appliance/forgejo/templates/user/settings/layout_footer.tmpl) | — | Not yet reviewed in this goal. |
@@ -232,6 +232,14 @@ Next: finish tracing OAuth list/create/grant partial callers, then conditional p
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+| Status | OAuth caller / inline state | Decision / remaining work |
+| --- | --- | --- |
+| No image | Personal OAuth grants section and revoke confirmation | App names, authorization dates and revoke action; no additional decoration within the applications landing page. |
+| No image | Shared OAuth create form and application-delete confirmation | Name, redirect URIs, confidentiality choice and exact deletion notice; owner page supplies any header art. |
+| Pending | `org/settings/applications_oauth2_edit.tmpl` | Credential form traced; organization page rendering remains unverified. |
+| Pending | `admin/applications/list.tmpl` | Shared list/create caller traced; admin layout/page decision remains pending. |
+| Pending | `admin/applications/oauth2_edit.tmpl` | Shared credential form traced; admin layout/page decision remains pending. |
 
 | Status | Personal settings route | Decision / remaining work |
 | --- | --- | --- |
@@ -486,3 +494,9 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Re-ran the focused shared-presentation test successfully and reloaded local templates after restoring existing token-page classes.
 - Inspected `.artifacts/screenshots/capture-Rtrb3T/001.png` (1440×1000) and `capture-GCYOXS/001.png` (390×844), using `--scroll-top`. Decorative artwork is absent; desktop resource boundaries and permission rows retain their original Soda styling. Mobile header/navigation fit; the form remains below the viewport. These supersede the earlier token-page capture for final presentation evidence.
 - No token name, scope, resource selection or account state changed; no token generated. Native OAuth edit verification remains pending independently.
+
+### OAuth shared-section caller audit
+
+- Read complete overridden `applications_oauth2_list` and native `applications_oauth2`, `grants_oauth2`, organization application list/edit and administrator application list/edit wrappers via the running binary's embedded viewer. Correct admin path is `admin/applications/list.tmpl`; an initial lookup at `admin/applications.tmpl` returned no match, then the embedded inventory resolved it.
+- Shared list/create partial: no independent image. Application names/client IDs, locked built-ins, edit/delete controls and redirect/confidentiality fields are the content. Existing personal page artwork remains its sole decorative introduction. Grants and revoke confirmation likewise retain actual application identity and dates without extra art.
+- Organization/admin caller entries are explicit and remain pending where their full page assessment/rendering is incomplete. No new runtime evidence or mutation; no source changes or tests needed for this caller audit.
