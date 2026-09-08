@@ -1,10 +1,10 @@
 /* List adapters style native rows without copying their rendering or actions. */
 .soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) {
   margin: 0;
-  padding: 0 var(--soda-panel-inset);
-  background: var(--soda-page-surface);
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) > :is(.flex-item,.notifications-item) {

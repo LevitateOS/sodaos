@@ -1,5 +1,22 @@
 # Current handoff
 
+## Reduce decorative cards and dividers
+
+Shared toolbar, list, empty-state and form-section frames are removed. Native
+settings navigation and attached form sections use open backgrounds; profile
+privacy controls no longer have an extra enclosing box. Milestone cards and
+descriptions, repository-sidebar rules and the landing README frame are removed.
+Blank settings/milestone dividers retain a 24px margin; other removed section
+borders retain their existing padding and gaps. Control, table-row, alert and
+dialog boundaries remain. Changes are scoped to existing presentation owners.
+
+Focused Forgejo checks and whitespace checks passed. Local templates were reloaded
+for stylesheet versions. Desktop captures of repository/profile/explore and mobile
+profile/explore/milestone detail were inspected (`capture-wlMSyp`, `capture-BGWs4M`
+under `.artifacts/screenshots/`); inspection prompted removal of a remaining native
+README segment frame and profile legend rule. Restricted admin/organization forms
+and dark variants were not newly visually checked. No backend or appliance changes.
+
 ## Repository metadata sidebar
 
 The repository code landing override now places existing description, website,

@@ -246,10 +246,10 @@
 
 /* Existing stock milestone leaves share stable native page classes. */
 .page-content.repository.milestones .milestone-card {
-  margin-bottom: 16px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  margin-bottom: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -275,10 +275,10 @@
 }
 
 .page-content.repository.milestone-issue-list > .ui.container > .markup.content {
-  padding: var(--soda-panel-inset);
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 @media (max-width: 700px) {
@@ -313,4 +313,10 @@
   .soda-pull-files-container {
     width: calc(100% - 24px) !important;
   }
+}
+
+.soda-milestone-detail-container > .divider:empty {
+  border: 0;
+  height: 0;
+  margin-block: 24px;
 }

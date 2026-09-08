@@ -410,7 +410,7 @@
   grid-area: sidebar;
   min-width: 0;
   padding-left: 22px;
-  border-left: 1px solid var(--soda-page-edge);
+  border-left: 0;
   overflow-wrap: anywhere;
 }
 .soda-repo-sidebar .repo-description { margin-bottom: 12px; }
@@ -423,7 +423,7 @@
 .soda-repo-sidebar .soda-code-summary.ui.segments {
   margin-top: 18px !important;
   border: 0;
-  border-top: 1px solid var(--soda-page-edge);
+  border-top: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -437,7 +437,7 @@
   background: transparent;
 }
 .soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; flex: none; }
-.soda-repo-sidebar #language-stats { border-top: 1px solid var(--soda-page-edge); padding-top: 16px; }
+.soda-repo-sidebar #language-stats { border-top: 0; padding-top: 16px; }
 .soda-repo-sidebar #language-stats > ul { padding: 12px 0; }
 .soda-repo-sidebar #language-stats > ul > li { margin: 6px 0; }
 .soda-repo-main .repo-button-row.soda-toolbar { padding: 0; border: 0; background: transparent; }
@@ -445,6 +445,19 @@
 .soda-repo-main .clone-panel input { min-width: 0; }
 @media (max-width: 1000px) {
   .soda-repo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "code"; gap: 18px; }
-  .soda-repo-sidebar { padding: 0 0 16px; border-left: 0; border-bottom: 1px solid var(--soda-page-edge); }
+  .soda-repo-sidebar { padding: 0 0 16px; border-left: 0; border-bottom: 0; }
   .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 18px; }
 }
+
+/* The landing README is content, not another card beneath the file table. */
+.soda-repo-main .soda-code-file,
+.soda-repo-main .soda-code-file > .ui.attached.segment,
+.soda-repo-main .soda-code-file .file-header,
+.soda-repo-main .soda-code-file :is(.file-view, .repo-file-view) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+.soda-repo-main .soda-code-file { margin-top: 24px; }
+.soda-repo-main .soda-code-file .file-header { padding-inline: 0; }

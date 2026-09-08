@@ -20,13 +20,14 @@
 .soda-account-details--profile form > fieldset + fieldset {
   margin-top: 20px;
   padding-top: 18px;
-  border-top: 1px solid var(--soda-page-edge);
+  border-top: 0;
 }
 
 .soda-account-details--profile form > fieldset > legend {
   grid-column: 1 / -1;
   width: 100%;
   margin: 0;
+  border: 0;
   color: var(--soda-page-text);
   font: 600 19px/1.4 "Fraunces Variable", Georgia, serif;
 }
@@ -43,10 +44,10 @@
 
 .soda-account-details--profile form > fieldset + fieldset > label {
   grid-column: 1 / -1;
-  padding: 13px 14px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-canvas);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-account-details--profile form > fieldset + fieldset > label .help {
@@ -71,7 +72,7 @@
 }
 
 .soda-account-details--account > .ui.attached.segment > .ui.list > .item + .item {
-  border-top: 1px solid var(--soda-page-edge);
+  border-top: 0;
 }
 
 .soda-account-details--account .ui.list > .item > .content {
@@ -149,7 +150,7 @@
 
 .soda-account-details--access-token #repo-selector > * + * {
   padding-left: 18px;
-  border-left: 1px solid var(--soda-page-edge);
+  border-left: 0;
 }
 
 .soda-account-details--access-token .access-token-category {
@@ -228,7 +229,7 @@
   .soda-account-details--access-token #repo-selector > * + * {
     padding-top: 16px;
     padding-left: 0;
-    border-top: 1px solid var(--soda-page-edge);
+    border-top: 0;
     border-left: 0;
   }
 

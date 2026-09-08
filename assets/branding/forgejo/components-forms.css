@@ -22,11 +22,11 @@
 
   & .soda-form-section {
     min-width: 0;
-    margin: 0 0 18px;
-    padding: 18px;
-    border: 1px solid var(--soda-page-edge);
-    border-radius: var(--soda-panel-radius);
-    background: var(--soda-page-surface);
+    margin: 0 0 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   & .soda-form-section > legend {
@@ -176,7 +176,7 @@
 
   @media (max-width: 700px) {
     & .soda-form-section {
-      padding: 16px 16px;
+      padding: 0;
     }
 
     & .soda-form-section > legend {

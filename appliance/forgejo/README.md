@@ -98,6 +98,10 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
   `head` or `navbar`. It shares the anonymous route gate between the script and
   navbar toggle; native sign-in/home/setup wrappers own their local toggle.
 
+Prefer open sections over enclosing cards. Use gaps for section separation;
+reserve borders for controls, data rows, alerts and surfaces that need a boundary.
+Removing a decorative divider must preserve its spacing.
+
 Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
 list rows use 16px vertical padding, and section gaps generally use 16–24px.
 Use the shared components before adding page-specific spacing; preserve readable
