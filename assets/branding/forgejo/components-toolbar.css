@@ -425,3 +425,69 @@
   }
 
 }
+
+/* Repository file toolbar: native compact/small/tiny variants represent the
+   same action row here. Normalize only its top-level controls, never dropdown
+   menu items or the branch picker's search field. Native compact padding and
+   joined-input radii are enforced, hence the bounded !important declarations. */
+.repo-button-row.soda-toolbar :is(
+  .button-sequence > .ui.button,
+  .branch-dropdown-button,
+  .clone-panel > .ui.button,
+  .clone-panel > input
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  margin-block: 0;
+  padding: 0 12px !important;
+  border-radius: var(--soda-control-radius) !important;
+  font: 600 14px/1.2 Barlow, Arial, sans-serif;
+}
+.repo-button-row.soda-toolbar :is(.button-sequence > .ui.button, .branch-dropdown-button, .clone-panel > .ui.button):not(.primary) {
+  background: var(--soda-page-canvas) !important;
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-text) !important;
+  box-shadow: none;
+}
+.repo-button-row.soda-toolbar :is(.button-sequence > .ui.button, .branch-dropdown-button, .clone-panel > .ui.button):not(.primary):hover {
+  background: var(--soda-page-hover) !important;
+}
+.repo-button-row.soda-toolbar .button-sequence {
+  align-items: center;
+  gap: 8px;
+}
+.repo-button-row.soda-toolbar :is(#new-pull-request, .clone-panel > .icon.button) {
+  width: var(--soda-control-height);
+  min-width: var(--soda-control-height);
+  padding: 0 !important;
+}
+.repo-button-row.soda-toolbar .clone-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input) {
+  flex-shrink: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 0 !important;
+}
+.repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input):first-child {
+  border-radius: var(--soda-control-radius) 0 0 var(--soda-control-radius) !important;
+}
+/* The inline native clone script follows the last visual control. */
+.repo-button-row.soda-toolbar .clone-panel > .ui.button:last-of-type {
+  border-radius: 0 var(--soda-control-radius) var(--soda-control-radius) 0 !important;
+}
+.repo-button-row.soda-toolbar .clone-panel > input {
+  /* Native action inputs prohibit shrinking; clone text may truncate. */
+  flex: 1 1 0 !important;
+  min-width: 0;
+  font: 400 13px/1.5 "IBM Plex Mono", monospace !important;
+}

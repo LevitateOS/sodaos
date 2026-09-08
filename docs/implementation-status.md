@@ -1,5 +1,23 @@
 # Current handoff
 
+## Repository file toolbar correction
+
+Local revision `2026-09-08.4` aligns the branch picker, compare/find/add controls,
+clone protocol buttons, URL field, copy and menu controls to the same 44px row.
+The shared toolbar stylesheet owns their geometry and joined edges; the previous
+40px clone-input minimum is removed. Dropdown contents remain native. A bounded
+flex override lets the URL shrink instead of overflowing narrow viewports.
+
+Focused Forgejo Go checks, both inventory checks and all 10 component-boundary
+checks passed. The new toolbar case includes the owner-only Add file button,
+light/dark and 1440/390/320px layouts. Native non-owner desktop/mobile captures of
+`/alice/activity-workbench` passed route/revision/style verification and were
+visually inspected: `.artifacts/screenshots/capture-vUErxz/` and `capture-MkUotY/`.
+Owner-only Add file is fixture-tested, not claimed as authenticated owner evidence.
+The earlier complete review package remains a record of revision `.3`; this is a
+scoped local correction, with no form submissions or appliance deployment.
+
+
 ## Presentation redesign local candidate
 
 Candidate `2026-09-08.3` is active only in the existing local Forgejo preview.

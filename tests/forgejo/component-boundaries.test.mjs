@@ -43,6 +43,31 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       }
     });
 
+    await t.test('repository toolbar aligns native control variants and joins clone edges', async () => {
+      for (const theme of ['light', 'dark']) for (const width of [1440, 390, 320]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await render(`<main class="soda-page soda-code"><div class="ui container soda-page-container">
+          <div class="repo-button-row soda-toolbar"><div class="button-sequence">
+            <div class="soda-code-ref-selector"><div class="ui dropdown custom"><button id="branch" class="branch-dropdown-button ui basic small compact button">main</button></div></div>
+            <a id="new-pull-request" class="ui compact basic button">↗</a>
+            <a id="find" class="ui compact basic button">Find a file</a>
+            <button id="add" class="ui dropdown basic compact button">Add file</button>
+          </div><div class="clone-panel ui action tiny input">
+            <button id="protocol" class="ui small primary button">HTTP</button>
+            <input id="url" class="soda-code-clone-url" value="http://localhost:3300/alice/activity-workbench" readonly>
+            <button id="copy" class="ui small icon button">⧉</button>
+            <button id="more" class="ui small dropdown icon button">…</button><script type="application/json">{}</script>
+          </div></div></div></main>`, theme);
+        const controls = await page.locator('[id]').evaluateAll(els => els.map(el => ({id:el.id,height:el.getBoundingClientRect().height,top:getComputedStyle(el).borderTopRightRadius,left:getComputedStyle(el).borderTopLeftRadius})));
+        for (const c of controls) assert.equal(c.height,44,`${theme}/${width}: ${c.id}`);
+        for (const id of ['protocol','url','copy']) assert.equal(controls.find(c=>c.id===id).top,'0px');
+        assert.equal(controls.find(c=>c.id==='more').top,'8px');
+        assert.equal(controls.find(c=>c.id==='protocol').left,'8px');
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false, `${theme}/${width}: toolbar overflow`);
+      }
+      await page.setViewportSize({width:1654,height:1000});
+    });
+
     await t.test('settings panels do not give native tables panel padding', async () => {
       await render(`<main class="soda-page soda-admin"><section class="admin-setting-content">
         <h4 class="ui top attached header">Notices</h4>

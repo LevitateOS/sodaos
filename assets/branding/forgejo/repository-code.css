@@ -75,7 +75,6 @@
   background: var(--soda-page-surface);
 }
 .soda-code-clone-url {
-  min-height: 40px;
   border-color: var(--soda-page-edge) !important;
   background: var(--soda-page-canvas) !important;
   color: var(--soda-page-text) !important;
