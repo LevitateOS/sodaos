@@ -52,7 +52,7 @@ func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) 
 	if err != nil {
 		t.Fatalf("read migration overrides: %v", err)
 	}
-	if len(entries) != 2 || entries[0].Name() != "migrate.tmpl" || entries[1].Name() != "options.tmpl" {
+	if len(entries) != 3 || entries[0].Name() != "migrate.tmpl" || entries[1].Name() != "migrating.tmpl" || entries[2].Name() != "options.tmpl" {
 		t.Fatalf("provider forms must remain native fallbacks; found %v", entryNames(entries))
 	}
 	options := readForgejoTemplate(t, "repo", "migrate", "options.tmpl")
@@ -85,14 +85,55 @@ func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) 
 		`.repository.new.migrate:not(.soda-migrate-chooser)`,
 		`.soda-migrate-chooser .migrate-entry`,
 		`.soda-fork .soda-form`,
+		`.page-content.repository:has(#repo_migrating)`,
+		`#repo_migrating_progress_message`,
+		`#repo_migrating_failed_error`,
+		`#repo_migrating_failed_image svg`,
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("onboarding CSS missing scoped native seam %q", want)
 		}
 	}
-	for _, forbidden := range []string{"input[name=", "form[action=", "body .ui.form"} {
+	for _, forbidden := range []string{"input[name=", "form[action=", "body .ui.form", ".tw-hidden", "#repo_migrating_retry {"} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("onboarding CSS reaches behavior-sensitive native markup with %q", forbidden)
+		}
+	}
+}
+
+func TestForgejoOnboardingMigratingPreservesNativeRuntimeHooks(t *testing.T) {
+	source := readForgejoTemplate(t, "repo", "migrate", "migrating.tmpl")
+	for _, want := range []string{
+		`{{template "repo/header" .}}`,
+		`id="repo_migrating"`,
+		`data-migrating-task-id="{{.MigrateTask.ID}}"`,
+		`/img/forgejo-loading.svg`,
+		`id="repo_migrating_failed_image"`,
+		`id="repo_migrating_progress"`,
+		`id="repo_migrating_progress_message"`,
+		`id="repo_migrating_failed"`,
+		`id="repo_migrating_failed_error"`,
+		`{{if .Permission.IsAdmin}}`,
+		`{{if .Failed}}`,
+		`data-modal="#delete-repo-modal"`,
+		`data-modal="#cancel-repo-modal"`,
+		`id="repo_migrating_retry"`,
+		`data-migrating-task-retry-url="{{.Link}}/settings/migrate/retry"`,
+		`id="delete-repo-modal"`,
+		`action="{{.Link}}/settings" method="post"`,
+		`name="action" value="delete"`,
+		`id="repo_name_to_delete" name="repo_name" required`,
+		`id="cancel-repo-modal"`,
+		`action="{{.Link}}/settings/migrate/cancel" method="post"`,
+		`{{template "base/modal_actions_confirm" .}}`,
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("migrating page lost native runtime contract %q", want)
+		}
+	}
+	for _, id := range []string{"repo_migrating", "repo_migrating_failed_image", "repo_migrating_progress", "repo_migrating_progress_message", "repo_migrating_failed", "repo_migrating_failed_error", "repo_migrating_retry", "delete-repo-modal", "cancel-repo-modal"} {
+		if strings.Count(source, `id="`+id+`"`) != 1 {
+			t.Errorf("migrating page must retain exactly one #%s hook", id)
 		}
 	}
 }

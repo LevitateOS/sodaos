@@ -46,7 +46,55 @@
 .soda-fork .soda-form-section .inline.field > label { color: var(--soda-page-text); }
 .soda-fork .soda-form-section .inline.field + .inline.field { margin-top: 20px; }
 
+/* The native migration task script owns every visibility transition and action.
+   These selectors only adapt its stable replacement roots. */
+.page-content.repository:has(#repo_migrating) > .ui.container {
+  width: min(920px, calc(100% - 48px)) !important;
+  margin-block: 40px 64px;
+}
+
+.page-content.repository:has(#repo_migrating) .home {
+  padding: 32px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository:has(#repo_migrating) .home > .ui.page.grid {
+  width: 100%;
+  padding-inline: 0;
+  margin-inline: 0;
+}
+
+#repo_migrating img,
+#repo_migrating_failed_image svg {
+  width: min(192px, 52vw);
+  height: auto;
+}
+
+#repo_migrating_progress,
+#repo_migrating_failed {
+  color: var(--soda-page-text);
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+#repo_migrating_progress_message,
+#repo_migrating_failed_error {
+  color: var(--soda-page-muted);
+  overflow-wrap: anywhere;
+}
+
+.page-content.repository:has(#repo_migrating) .home .item {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 700px) {
   .soda-migrate-entries { grid-template-columns: 1fr; }
   .repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid { width: calc(100% - 32px); margin-top: 24px; }
+  .page-content.repository:has(#repo_migrating) > .ui.container { width: calc(100% - 32px) !important; margin-top: 24px; }
+  .page-content.repository:has(#repo_migrating) .home { padding: 24px 16px; }
 }
