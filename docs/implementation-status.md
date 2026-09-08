@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+Public registration now has a distinct transparent welcome-folder illustration, gated to enabled standalone registration. Exact prompt and original output are retained. Focused authentication/shared-presentation tests passed. Native guest desktop/mobile screenshots confirm disabled registration excludes the image; enabled registration rendering remains unverified because the local instance disables registration.
+
 All current administrator layout callers are source-assessed. Admin artwork is now opt-in: account creation selects its distinct illustration; operational/configuration pages receive none. Redundant suppression flags were removed. Native admin verification remains pending.
 
 Administrator account creation now selects a distinct transparent identity-card illustration through an explicit presentation input. The generated asset and exact prompt are retained; focused administrator parity/presentation tests passed. Native admin capture remains pending.

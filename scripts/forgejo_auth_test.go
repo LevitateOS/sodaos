@@ -40,6 +40,9 @@ func TestForgejoSecondaryAuthPagesOnlyAddPresentationRoot(t *testing.T) {
 				stock = strings.Replace(stock, `
 	{{if not .IsSigned}}{{template "custom/soda/theme_toggle" dict}}{{end}}`, "", 1)
 			}
+			if name == "signup.tmpl" {
+				stock = strings.Replace(stock, `			{{if and (not .DisableRegistration) (not .LinkAccountMode)}}<img class="tw-mx-auto" src="{{AssetUrlPrefix}}/soda/forgejo/signup-papercraft.png" width="180" height="120" alt="">{{end}}`+"\n", "", 1)
+			}
 			actualHash := fmt.Sprintf("%x", sha256.Sum256([]byte(stock)))
 			if actualHash != upstreamHash {
 				t.Errorf("%s diverges from pristine Forgejo 15.0.7 after removing presentation attributes: got %s, want %s", name, actualHash, upstreamHash)
