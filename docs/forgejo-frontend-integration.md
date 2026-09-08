@@ -59,6 +59,10 @@ explains the CSS and DOM boundaries that any future Lit component must account f
 
 ## Notification bell quick-view investigation
 
+The [implementation plan](notification-preview-plan.md) sequences compact native
+rendering, bell/HTMX integration, focused validation and separately authorized delivery.
+No preview is implemented yet.
+
 Source reviewed at **15.0.7**, tag commit
 `d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`. This is an investigation and candidate,
 not an implemented dropdown or an authenticated browser proof.

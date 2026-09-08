@@ -27,6 +27,12 @@ no setup-token, stale-creator or copied-permission fallback was restored.
 
 ## Notification bell quick-view investigation (not implemented)
 
+The requested [implementation plan](notification-preview-plan.md) is now authored:
+prove compact native rendering, enhance both bells using bundled HTMX, validate
+interaction/native coexistence, then deliver under separate target/action scope.
+Unread plus pinned is the proposed native-matching default; no UI code or runtime
+work was performed while writing the plan. Documentation whitespace checks passed.
+
 The [integration guide](forgejo-frontend-integration.md#notification-bell-quick-view-investigation)
 records source findings for stock 15.0.7 (`d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`).
 JSON notification APIs do not accept the ordinary web session, but the existing
