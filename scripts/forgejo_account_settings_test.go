@@ -76,7 +76,7 @@ func TestForgejoPersonalAdaptersKeepNativeRootContext(t *testing.T) {
 			var out bytes.Buffer
 			var input any = data
 			if personal {
-				input = map[string]any{"PersonalSettings": true, "ctxData": data}
+				input = map[string]any{"PersonalSettings": true, "SettingsPresentation": true, "ctxData": data}
 			}
 			if err = parsed.Execute(&out, input); err != nil {
 				t.Fatal(err)
@@ -101,9 +101,9 @@ func TestForgejoPersonalAdaptersKeepNativeRootContext(t *testing.T) {
 func TestForgejoPersonalActionsUseScopedEmptyStatesAndWarning(t *testing.T) {
 	personalActions := readForgejoTemplate(t, "user/settings/actions.tmpl")
 	for _, call := range []string{
-		`{{template "shared/secrets/add_list" (dict "PersonalSettings" true "ctxData" .)}}`,
-		`{{template "shared/actions/runner_list" (dict "PersonalSettings" true "ctxData" .)}}`,
-		`{{template "shared/variables/variable_list" (dict "PersonalSettings" true "ctxData" .)}}`,
+		`{{template "shared/secrets/add_list" (dict "SettingsPresentation" true "ctxData" .)}}`,
+		`{{template "shared/actions/runner_list" (dict "SettingsPresentation" true "ctxData" .)}}`,
+		`{{template "shared/variables/variable_list" (dict "SettingsPresentation" true "ctxData" .)}}`,
 	} {
 		if !strings.Contains(personalActions, call) {
 			t.Errorf("personal Actions caller lacks scoped adapter %q", call)
@@ -119,9 +119,9 @@ func TestForgejoPersonalActionsUseScopedEmptyStatesAndWarning(t *testing.T) {
 	} {
 		source := readForgejoTemplate(t, fixture.path)
 		for _, marker := range []string{
-			`{{if .PersonalSettings}}`,
+			`{{if .SettingsPresentation}}`,
 			`{{define "` + fixture.body + `"}}`,
-			`{{if $personal}}<div class="soda-empty soda-empty--compact">`,
+			`{{if $settings}}<div class="soda-empty soda-empty--compact">`,
 			fixture.empty,
 		} {
 			if !strings.Contains(source, marker) {
@@ -131,7 +131,7 @@ func TestForgejoPersonalActionsUseScopedEmptyStatesAndWarning(t *testing.T) {
 	}
 
 	runnerSetup := readForgejoTemplate(t, "shared/actions/runner_setup.tmpl")
-	if !strings.Contains(runnerSetup, `<p{{if $personal}} class="ui warning message soda-notice"{{end}}>{{ctx.Locale.Tr "actions.runners.runner_setup.last_chance_copying_token"}}</p>`) {
+	if !strings.Contains(runnerSetup, `<p{{if $settings}} class="ui warning message soda-notice"{{end}}>{{ctx.Locale.Tr "actions.runners.runner_setup.last_chance_copying_token"}}</p>`) {
 		t.Error("personal runner setup lacks its static last-chance warning")
 	}
 }
@@ -164,7 +164,7 @@ func TestForgejoOAuthHeadingScopedByCallerNotNativeSettingsFlag(t *testing.T) {
 		data := map[string]any{"PageIsSettingsApplications": true}
 		var input any = data
 		if personal {
-			input = map[string]any{"PersonalSettings": true, "ctxData": data}
+			input = map[string]any{"PersonalSettings": true, "SettingsPresentation": true, "ctxData": data}
 		}
 		var out bytes.Buffer
 		if err = parsed.Execute(&out, input); err != nil {
@@ -193,7 +193,7 @@ func TestForgejoOAuthEditorPreservesOtherCallers(t *testing.T) {
 		data := map[string]any{"PageIsSettingsApplications": true, "FormActionPath": "/native/oauth", "App": map[string]any{"Name": "Example", "ClientID": "fixture-id", "RedirectURIs": []string{"https://example.test/callback"}, "ConfidentialClient": true}}
 		var input any = data
 		if personal {
-			input = map[string]any{"PersonalSettings": true, "ctxData": data}
+			input = map[string]any{"PersonalSettings": true, "SettingsPresentation": true, "ctxData": data}
 		}
 		var out bytes.Buffer
 		if err = parsed.Execute(&out, input); err != nil {

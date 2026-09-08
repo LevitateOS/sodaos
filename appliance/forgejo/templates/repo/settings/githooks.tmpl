@@ -1,13 +1,11 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings githooks")}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings githooks" "title" (ctx.Locale.Tr "repo.settings.githooks"))}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-githooks">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "repo.settings.githooks"}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
+		<div class="soda-p-section">
+			{{if .Hooks}}
+			<p class="ui info message soda-notice">
+				{{ctx.Locale.Tr "repo.settings.githooks_desc"}}
+			</p>
 			<div class="ui list">
-				<div class="item">
-					{{ctx.Locale.Tr "repo.settings.githooks_desc"}}
-				</div>
 				{{range .Hooks}}
 					<div class="item truncated-item-container">
 						<span class="text {{if .IsActive}}green{{else}}grey{{end}} tw-mr-2">{{svg "octicon-dot-fill" 22}}</span>
@@ -18,6 +16,9 @@
 					</div>
 				{{end}}
 			</div>
+			{{else}}
+				<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-code" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" (ctx.Locale.Tr "repo.settings.githooks_desc")}}</div>
+			{{end}}
 		</div>
 	</div>
 {{template "repo/settings/layout_footer" .}}

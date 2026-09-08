@@ -1,11 +1,8 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings edit githook")}}
-	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-githook-edit">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "repo.settings.githooks"}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
-			<p>{{ctx.Locale.Tr "repo.settings.githook_edit_desc"}}</p>
-			<form class="ui form" action="{{.Link}}" method="post">
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings edit githook" "title" .Hook.Name "parentURL" (printf "%s/settings/hooks/git" .RepoLink) "parentTitle" (ctx.Locale.Tr "repo.settings.githooks"))}}
+	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-githook-edit soda-settings-editor">
+		<div class="soda-p-section">
+			<p class="ui info message soda-notice">{{ctx.Locale.Tr "repo.settings.githook_edit_desc"}}</p>
+			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 				{{with .Hook}}
 					<div class="inline field">
 						<label>{{ctx.Locale.Tr "repo.settings.githook_name"}}</label>

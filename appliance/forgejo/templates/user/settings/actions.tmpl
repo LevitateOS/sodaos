@@ -3,11 +3,11 @@
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings actions" "title" $taskTitle)}}
 	<div class="user-setting-content">
 	{{if eq .PageType "secrets"}}
-		{{template "shared/secrets/add_list" (dict "PersonalSettings" true "ctxData" .)}}
+		{{template "shared/secrets/add_list" (dict "SettingsPresentation" true "ctxData" .)}}
 	{{else if eq .PageType "runners"}}
-		{{template "shared/actions/runner_list" (dict "PersonalSettings" true "ctxData" .)}}
+		{{template "shared/actions/runner_list" (dict "SettingsPresentation" true "ctxData" .)}}
 	{{else if eq .PageType "variables"}}
-		{{template "shared/variables/variable_list" (dict "PersonalSettings" true "ctxData" .)}}
+		{{template "shared/variables/variable_list" (dict "SettingsPresentation" true "ctxData" .)}}
 	{{end}}
 	</div>
 

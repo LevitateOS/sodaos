@@ -3,16 +3,10 @@
 	padding-bottom: 32px;
 }
 
-.soda-repository-settings .soda-settings-layout {
-	width: min(1120px, calc(100% - 48px)) !important;
-	align-items: flex-start;
-	gap: 16px;
-}
-
-.soda-repository-settings .soda-settings-layout > .flex-container-nav {
-	position: sticky;
-	top: 20px;
-}
+.soda-repository-settings .soda-settings-layout { display: block; }
+.soda-repository-settings .soda-repo-settings-bar { align-items: flex-start; }
+.soda-repository-settings .soda-repo-settings-bar #soda-settings-title { margin: 0; min-width: 0; }
+.soda-repository-settings .soda-repo-settings-bar > .soda-settings-nav { margin-left: auto; }
 
 .soda-repository-settings .flex-container-main,
 .soda-repository-settings .repo-setting-content {
@@ -27,12 +21,6 @@
 	margin-top: 0;
 	color: var(--soda-page-muted);
 	line-height: 1.6;
-}
-
-.soda-repo-settings-detail .flex-list > .flex-item {
-	gap: 16px;
-	padding: 16px 4px;
-	border-color: var(--soda-page-edge);
 }
 
 .soda-repo-settings-detail .flex-item-title,
@@ -62,30 +50,6 @@
 	letter-spacing: .025em;
 }
 
-.soda-repo-settings-units > .ui.form > :is(.ui.segment, fieldset),
-.soda-repo-settings-protected-branch > .ui.form > fieldset {
-	min-width: 0;
-	margin: 0 0 16px;
-	padding: var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-}
-
-.soda-repo-settings-units > .ui.form > :is(.ui.segment, fieldset) > :is(h4, legend),
-.soda-repo-settings-protected-branch > .ui.form > fieldset > legend {
-	color: var(--soda-page-text);
-	font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
-}
-
-.soda-repo-settings-tags .ui.attached.segment > .ui.grid > .column > .ui.segment {
-	margin: 0;
-	border-color: var(--soda-page-edge);
-	border-radius: var(--soda-control-radius);
-	background: var(--soda-page-canvas);
-	box-shadow: none;
-}
-
 .soda-repo-settings-branches .ui.attached.segment > form.tw-flex {
 	align-items: center;
 	gap: 8px;
@@ -99,11 +63,6 @@
 .soda-repo-settings-deploy-keys .ui.list,
 .soda-repo-settings-githooks .ui.list {
 	color: var(--soda-page-text);
-}
-
-.soda-repo-settings-options .ui.attached.segment .divider {
-	margin-block: 16px;
-	border-color: var(--soda-page-edge);
 }
 
 .soda-repo-settings-githook-edit :is(.CodeMirror, .editor-toolbar),
@@ -124,27 +83,11 @@
 	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
 }
 
-:is(.soda-repo-settings-runner-create, .soda-repo-settings-runner-details, .soda-repo-settings-runner-edit, .soda-repo-settings-runner-setup, .soda-repo-settings-actions, .soda-repo-settings-secrets) :is(.ui.segment, .ui.segments) {
-	border-color: var(--soda-page-edge);
-	background: var(--soda-page-surface);
-	box-shadow: none;
-}
-
 :is(.soda-repo-settings-actions, .soda-repo-settings-secrets, .soda-repo-settings-lfs-pointers) .flex-list > .flex-item:last-child {
 	border-bottom: 0;
 }
 
 @media (max-width: 700px) {
-	.soda-repository-settings .soda-settings-layout {
-		width: calc(100% - 32px) !important;
-		flex-direction: column;
-	}
-
-	.soda-repository-settings .soda-settings-layout > .flex-container-nav {
-		position: static;
-		width: 100%;
-	}
-
 	.soda-repo-settings-detail .flex-item {
 		align-items: flex-start !important;
 		flex-wrap: wrap;
@@ -159,9 +102,9 @@
 		flex-direction: column;
 	}
 
-	.soda-repo-settings-detail > .ui.header > .ui.right {
-		float: none;
-		margin-top: 8px;
-	}
+}
 
+@media (max-width: 899px) {
+ .soda-repository-settings .soda-repo-settings-bar { flex-wrap: wrap; }
+ .soda-repository-settings .soda-repo-settings-bar #soda-settings-title { flex: 1 1 180px; }
 }

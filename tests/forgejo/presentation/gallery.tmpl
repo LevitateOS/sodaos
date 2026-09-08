@@ -24,7 +24,7 @@
 <div class="ui info message soda-notice">Informational context for this operation.</div><div class="ui warning message soda-notice">Read the consequences before continuing.</div>
 <section id="empty-section-reference" class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" "There are no deploy keys yet."}}</section>
 <section class="soda-empty">{{template "custom/soda/empty_content" dict "Title" "No results" "Description" "Try a different search."}}</section>
-<section class="soda-settings" id="personal-settings-gallery">
+<section class="soda-settings-shell soda-settings" id="personal-settings-gallery">
 <h2>Personal settings reference</h2><p>Production navigation, styles and minimal native composition fixtures; no account submissions.</p>
 <div class="soda-settings-bar"><span>Identity fixture</span>{{template "user/settings/navbar" (dict "Title" "Profile" "PageIsSettingsProfile" true)}}</div>
 <div class="user-setting-content"><div class="soda-account-details--profile"><aside class="soda-profile-portrait"><details class="soda-settings-disclosure" data-settings-editor open><summary>Avatar</summary><form class="ui form soda-p-form" onsubmit="return false"><label>Image<input type="file"></label><button class="ui primary button">Update avatar</button></form></details></aside><div class="soda-profile-editor"><form class="ui form soda-p-form" onsubmit="return false"><fieldset><legend>Public identity</legend><label>Full name<input name="full_name"></label><label>Biography<textarea></textarea></label></fieldset><button class="ui primary button">Update profile</button></form></div></div>

@@ -1,7 +1,8 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings new webhook")}}
-	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-webhook-new">
+{{$taskTitle := ctx.Locale.Tr "repo.settings.update_webhook"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr "repo.settings.add_webhook"}}{{end}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings new webhook" "title" $taskTitle "parentURL" (printf "%s/settings/hooks" .RepoLink) "parentTitle" (ctx.Locale.Tr "repo.settings.hooks"))}}
+	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-webhook-new soda-settings-editor">
 		{{$CustomHeaderTitle := ctx.Locale.Tr "repo.settings.update_webhook"}}
 		{{if .PageIsSettingsHooksNew}}{{$CustomHeaderTitle = ctx.Locale.Tr "repo.settings.add_webhook"}}{{end}}
-		{{template "webhook/new" (dict "ctxData" . "CustomHeaderTitle" $CustomHeaderTitle)}}
+		{{template "webhook/new" (dict "ctxData" . "CustomHeaderTitle" $CustomHeaderTitle "SettingsPresentation" true)}}
 	</div>
 {{template "repo/settings/layout_footer" .}}

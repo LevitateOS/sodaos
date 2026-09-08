@@ -1,5 +1,5 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings runners")}}
-<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-runner-setup">
-	{{template "shared/actions/runner_setup" .}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings runners" "title" (ctx.Locale.Tr "actions.runners.runner_setup.title" .Runner.Name) "parentURL" (printf "%s/settings/actions/runners" .RepoLink) "parentTitle" (ctx.Locale.Tr "actions.runners"))}}
+<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-runner-setup soda-settings-editor">
+	{{template "shared/actions/runner_setup" (dict "SettingsPresentation" true "ctxData" .)}}
 </div>
 {{template "repo/settings/layout_footer" .}}

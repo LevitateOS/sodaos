@@ -43,9 +43,9 @@ func TestForgejoRepositoryHeaderKeepsNativeAuthority(t *testing.T) {
 func TestForgejoRepositorySettingsUseSharedLayout(t *testing.T) {
 	head := readForgejoTemplate(t, "repo", "settings", "layout_head.tmpl")
 	for _, marker := range []string{
-		`class="page-content soda-page soda-repository-settings soda-native-forms {{.pageClass}}"`,
+		`class="page-content soda-page soda-settings-shell soda-repository-settings soda-native-forms {{.pageClass}}"`,
 		`data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}"`,
-		`class="ui container flex-container soda-settings-layout"`,
+		`class="ui container soda-page-container"`,
 	} {
 		if !strings.Contains(head, marker) {
 			t.Errorf("repository settings layout lost %q", marker)
@@ -63,7 +63,7 @@ func TestForgejoRepositoryStylesStayScopedToNativePages(t *testing.T) {
 	css := string(contents)
 	for _, scope := range []string{
 		`.page-content:has(> .soda-repository-header)`,
-		`.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid)`,
+		`:where(.page-content:has(> .soda-repository-header)) > .ui.container:not(.fluid)`,
 		`.soda-repository-header .repo-header .repo-buttons`,
 	} {
 		if !strings.Contains(css, scope) {

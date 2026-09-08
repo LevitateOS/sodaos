@@ -1,8 +1,13 @@
 {{template "base/head" .ctxData}}
-<div role="main" aria-label="{{.ctxData.Title}}" class="page-content soda-page soda-repository-settings soda-native-forms {{.pageClass}}" data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}">
+<div role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-settings-shell soda-repository-settings soda-native-forms {{.pageClass}}" data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}">
 	{{template "repo/header" .ctxData}}
-	<div class="ui container flex-container soda-settings-layout">
-		{{template "repo/settings/navbar" .ctxData}}
+	<div class="ui container soda-page-container">
+		{{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
+		<div class="soda-settings-bar soda-repo-settings-bar">
+			<h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>
+			{{template "repo/settings/navbar" .ctxData}}
+		</div>
+		<div class="soda-settings-layout">
 		<div class="flex-container-main">
 			{{template "base/alert" .ctxData}}
 			{{/* block: repo-setting-content */}}
@@ -10,5 +15,6 @@
 {{if false}}{{/* to make html structure "likely" complete to prevent IDE warnings */}}
 		</div>
 	</div>
+</div>
 </div>
 {{end}}

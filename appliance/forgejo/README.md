@@ -121,7 +121,7 @@ Each responsibility has one CSS owner:
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
-| `components-settings.css` | Shared repository/organization/administrator sidebar and open settings sections. Personal settings use their own compact identity/navigation row. Panel padding excludes native tables; nested row/dialog forms are not cards. |
+| `components-settings.css` | Shared personal/repository settings shell, compact grouped navigation, page gutters, open sections, 40px body inset and inventory action placement. Organization/administrator callers keep their native sidebar. Panel padding excludes native tables; nested row/dialog forms are not cards. |
 | `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
@@ -502,8 +502,8 @@ native destination and capability gate, including mandatory enrollment hiding
 ordinary navigation. Personal, Access & integrations, and Resources use Soda
 locale keys; native controls and warnings retain native translations.
 
-`account-settings.css` owns this shell, menus, open sections with headings above their bodies
-and the 900px transition. `account-details.css` owns the portrait/editor grid,
+`components-settings.css` owns the shared shell, menus, open sections with headings above their bodies
+and the 900px transition. `account-settings.css` only owns the personal identity row. `account-details.css` owns the portrait/editor grid,
 preference rows and credential/editor compositions. Shared presentation owns
 fonts, spacing and control roles. `soda-p-form` explicitly styles nested native
 principal forms; `soda-p-control` and `soda-p-compact` retain their presentation
@@ -515,9 +515,11 @@ Profile keeps one identity/address/privacy form and a separate sibling avatar
 form. Account keeps independent email/password/deletion handlers, with password
 on its native page and a Security link to `account#password`. Appearance keeps
 all four saves. Token selection, key verification, WebAuthn, runner configuration,
-quota and webhook dispatch remain native. Child titles move into the shell;
-shared cleanup/runner adapters explicitly rebind native root context and suppress
-only personal duplicate headings. Other callers retain their headers and data.
+quota and webhook dispatch remain native. Child titles move into the shell.
+Shared runner, secret, variable and webhook adapters use the explicit
+`SettingsPresentation` input for personal/repository callers. Cleanup and OAuth
+remain personal-only adapters. Each rebinds native root context and suppresses
+only the opted-in duplicate heading. Other callers retain their headers and data.
 
 `personal-settings.js` only enhances navigation, disclosure visibility, the avatar
 modal and focus. The avatar link progressively opens one native `<dialog>` with
@@ -587,11 +589,11 @@ Inventory actions remain beside headings on desktop and stack below on mobile.
 Content grids (portrait/editor, checklists and native label/value data) are not
 section-title columns and retain their task-specific arrangements.
 
-Every personal-settings destination uses one 40px inline-start inset on
-`.user-setting-content`. Section headings and fieldset legends return 40px toward
+Every personal/repository settings destination uses one 40px inline-start inset on
+`.user-setting-content` or `.repo-setting-content` inside `.soda-settings-shell`. Section headings and fieldset legends return 40px toward
 the outer edge. This covers native header/segment pairs, inventories and editors
 without requiring the personal section-body wrapper. Nested bodies never add
-another inset. `account-settings.css` owns this layout; shared form styles own
+another inset. `components-settings.css` owns this layout; shared form styles own
 only the vertical heading spacing and must not reset its inline alignment.
 The native browser check enumerates every permitted settings-menu destination,
 verifying the inset, heading alignment and overflow instead of sampling three pages.
@@ -614,16 +616,16 @@ real toolbar instead of an empty heading. Inventory actions accompany section
 headings, stacking below on mobile; page-level actions use a left-aligned toolbar.
 Submissions follow their fields and guidance, including all four Appearance saves
 and Cargo/Chef actions. Native absolutely positioned header actions are returned
-to normal flow within personal settings to prevent narrow-screen overlap.
+to normal flow within the shared settings shell to prevent narrow-screen overlap.
 
 Key, WebAuthn, authorized/owned OAuth and token repository-selection inventories
 use the same compact empty-state role. State the absence explicitly; when native
 copy only explains the inventory, use the existing localized “No results” title
 above that guidance. Empty authorized OAuth content must not
 claim that access has already been granted. Personal Actions secrets, variables
-and runners opt in through explicit context adapters; other callers retain their
-native empty branches. Runner setup's last-chance credential guidance is a static
-warning in personal settings. An empty personal cleanup preview omits its blank
+and runners opt in through explicit context adapters, also used by repository settings;
+organization/administrator callers retain their native empty branches. Runner
+setup's last-chance credential guidance is a static warning in the opted-in settings shell. An empty personal cleanup preview omits its blank
 heading and table, while populated and nonpersonal previews remain native.
 Personal webhook event groups use open fieldsets with their native legends and
 controls, without nested decorative boxes.
@@ -633,3 +635,55 @@ sentences, shown as separate info/warning notices before submission. Other local
 (or unexpected sentence structures) retain the complete translated warning; no
 translation text is discarded or replaced by a guessed split. Existing locale
 catalogs and activation remain unchanged.
+
+
+## Repository settings structural contract
+
+Repository settings compose the native repository header with the same
+`.soda-settings-shell` used by personal settings. The native identity and unit
+navigation remain above one task title and compact destination menus. There is
+no repository settings sidebar or repeated attached task heading. Repository,
+Access & integrations, and the conditional Actions group retain every native
+link and visibility gate. The mobile disclosure exposes all permitted groups in
+one expansion; JavaScript only enhances ordinary navigation and focus.
+
+`components-settings.css` owns the 1120px usable canvas, 24px desktop / 16px
+mobile gutters, 40px body inset, 24px section type and common action rows.
+`repository-settings-details.css` owns only repository-specific composition and
+technical data. Generic repository container rules have lower specificity so
+this explicit shell wins at every breakpoint; ordinary repository pages retain
+their zero-padding contract. File inputs use the shared principal-form width
+constraint, including native inline avatar fields. All actions retain the
+selected C — Tonal 44px dimensions.
+
+General settings use open Basic, Avatar, Federation, Mirrors, Signing,
+Administrator and Danger sections under their existing gates. Units retain one
+native POST form and all four native anchors/save controls. Branch/tag
+protection, collaborators, deploy keys, webhooks, Actions and LFS inventories
+use shared sections, actions, notices and empty states. Child editors receive
+one task title and a parent link. Technical tables use
+`.soda-settings-table-scroll` where their content needs horizontal scrolling;
+code viewers, native dropdowns, provider dispatch and dialog structures remain
+upstream-owned. LFS totals stay visible in inventory summaries.
+
+Ordinary repository-name and collaborator/team search fields no longer take
+initial focus away from the new page heading. Tag creation is an inventory
+landing page; its dedicated edit state retains autofocus. Deliberate child/panel
+focus, submitted values, validation, dirty-form behavior, IDs, permissions,
+methods/actions and destructive confirmations are preserved. No fields are
+submitted, credentials generated or repository state changed by the enhancement.
+
+`repository-settings-native-contracts.json` records exact 15.0.7 controls,
+conditions and script hooks for the 22 settings leaves and four unit partials.
+The Go navigation test compares all 256 feature/permission combinations with the
+exact native navbar. Non-opted organization/administrator shared-partial bodies
+retain explicit native-parity checks. The test-only inventory covers 235
+production overrides/helpers and both local and native callers.
+
+The separate `repository-settings-{light,dark}.html` gallery uses the production
+registry, native SVG assets and the runner editor with minimal native form/inventory
+fixtures. `repository-settings-browser.test.mjs` checks seven widths including
+900/899px, no-JavaScript fallback, focus, long labels, gutters, file input and
+table containment. Gallery output and component captures are ignored artifacts,
+not native repository screenshots. Native owner-only, provider, credential,
+mirror and mutation coverage must be recorded separately in the handoff.

@@ -844,7 +844,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ab6e62812bfa24468c0fdc833ea02c50cebfd8b0a73a1a6b40c476699782fdf4",
+      "beforeRoleHash": "b58b56b79fb166ea8d8613e3aec573e0476fc9787c00a715e12962b18d494554",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -860,7 +860,16 @@
         "package/shared/cleanup_rules/list.tmpl",
         "package/shared/cleanup_rules/preview.tmpl",
         "package/shared/list.tmpl",
+        "repo/settings/branches.tmpl",
+        "repo/settings/collaboration.tmpl",
         "repo/settings/deploy_keys.tmpl",
+        "repo/settings/githooks.tmpl",
+        "repo/settings/lfs.tmpl",
+        "repo/settings/lfs_file_find.tmpl",
+        "repo/settings/lfs_locks.tmpl",
+        "repo/settings/lfs_pointers.tmpl",
+        "repo/settings/protected_branch.tmpl",
+        "repo/settings/tags.tmpl",
         "repo/settings/webhook/base_list.tmpl",
         "shared/actions/runner_list.tmpl",
         "shared/blocked_users_list.tmpl",
@@ -4395,9 +4404,7 @@
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-actions",
         "soda-repo-settings-detail"
@@ -4409,13 +4416,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ea5ddcab1c9d09ba5938897c5157f8f79b8acbe40604ddb736834536494e5511",
+      "beforeRoleHash": "71624b9fa91d6813e3b1773cc23d4e5f4e7b430cc6e547145208200df67e527a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/branches.tmpl",
@@ -4423,14 +4431,20 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
         "soda-p-section",
         "soda-repo-settings-branches",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
       ],
       "states": [
         "light",
@@ -4445,13 +4459,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c3fe32cb1833fb6337adcba411d8e66e0f7648eb294df6dc42bed5275191525f",
+      "beforeRoleHash": "f4156a9407f17d0dab65ea54db185c7a962c2fa4ae55195da69e72619d2dd7e4",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/collaboration.tmpl",
@@ -4460,14 +4475,23 @@
       "callers": [],
       "nativeCalls": [
         "shared/user/name",
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-empty--page",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
         "soda-p-section",
+        "soda-p-toolbar",
         "soda-repo-settings-collaboration",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-actions",
+        "soda-settings-inventory-heading",
+        "soda-settings-section",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4483,13 +4507,15 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "044fa54c382a0c42e25838cd4d952f1de2dc541e8623934b48cf85b2826105bf",
+      "beforeRoleHash": "6a1684def7d64dbeb230e15fdfb82be1037bee0f97264d30bfd6d4fcd4207505",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native collaborator and team-search autofocus is intentionally removed on this ordinary landing page."
     },
     {
       "template": "repo/settings/deploy_keys.tmpl",
@@ -4497,14 +4523,19 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
+        "soda-p-toolbar",
         "soda-repo-settings-deploy-keys",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-actions",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4519,14 +4550,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "27b73a1835b17531ee64dbd46680cae895939589707ec1208bd27e3995b63a9f",
+      "beforeRoleHash": "8270df18ea9fc314e09e92889fc80c5c040f432b91a3c63cd8fcd09b296a6e3f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "tonal-empty-page-and-section-states"
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/githook_edit.tmpl",
@@ -4534,14 +4565,15 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "shared/codemirror_container",
-        "repo/settings/layout_footer"
+        "shared/codemirror_container"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-githook-edit"
+        "soda-repo-settings-githook-edit",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4554,24 +4586,25 @@
         "conditional-fields"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5d31883389f573ba1dfe29cd9a0a240f3d2e70287c6a61bba7ffca71d6ea7eaa",
+      "beforeRoleHash": "2e4d2f3a3fb6dfa8cd6f87eff59811892248485fcb5471133761cbffefcd8f9d",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/githooks.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-notice",
         "soda-p-section",
         "soda-repo-settings-detail",
         "soda-repo-settings-githooks"
@@ -4585,13 +4618,62 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8423c3e708748d04fd57d8a95a5390300e917518444a914d2ed0e7353389c9db",
+      "beforeRoleHash": "21b7e5afb3abf73b91ab3865345e84564a8049a6ec861b8ce635d465eef8a986",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/layout_footer.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/actions.tmpl",
+        "repo/settings/branches.tmpl",
+        "repo/settings/collaboration.tmpl",
+        "repo/settings/deploy_keys.tmpl",
+        "repo/settings/githook_edit.tmpl",
+        "repo/settings/githooks.tmpl",
+        "repo/settings/lfs.tmpl",
+        "repo/settings/lfs_file.tmpl",
+        "repo/settings/lfs_file_find.tmpl",
+        "repo/settings/lfs_locks.tmpl",
+        "repo/settings/lfs_pointers.tmpl",
+        "repo/settings/options.tmpl",
+        "repo/settings/protected_branch.tmpl",
+        "repo/settings/runner_create.tmpl",
+        "repo/settings/runner_details.tmpl",
+        "repo/settings/runner_edit.tmpl",
+        "repo/settings/runner_setup.tmpl",
+        "repo/settings/secrets.tmpl",
+        "repo/settings/tags.tmpl",
+        "repo/settings/units.tmpl",
+        "repo/settings/webhook/base.tmpl",
+        "repo/settings/webhook/new.tmpl"
+      ],
+      "nativeCalls": [
+        "base/footer"
+      ],
+      "roles": [],
+      "states": [
+        "dark",
+        "light",
+        "narrow",
+        "no-javascript"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "82a9156c5e7285423d5a853934403d36914e9a7db761f8e4a6a142dd2ba448cc",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/layout_head.tmpl",
@@ -4623,14 +4705,20 @@
       ],
       "nativeCalls": [
         "base/head",
-        "repo/settings/navbar",
         "base/alert"
       ],
       "roles": [
         "soda-native-forms",
+        "soda-p-title",
         "soda-page",
+        "soda-page-container",
+        "soda-repo-settings-bar",
         "soda-repository-settings",
-        "soda-settings-layout"
+        "soda-settings-bar",
+        "soda-settings-layout",
+        "soda-settings-parent",
+        "soda-settings-shell",
+        "soda-settings-title"
       ],
       "states": [
         "light",
@@ -4639,26 +4727,27 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "548488e2d9b092643b1b7586d25a495fe945d2e653c1767233c250d452d10bec",
+      "beforeRoleHash": "def385e8d54d424574d1d667121b16e1706bff2479dde4b1294d59cac61455e8",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs_file_find.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-file-find"
+        "soda-repo-settings-lfs-file-find",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -4669,13 +4758,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3e01b869f72938aaa99d57ea53ccb407230ea7151248e895db67d6fc10550586",
+      "beforeRoleHash": "d594f81c3167e35a20a95527eb13cbc8d92792831ae4ec0770774d90ea5ba11a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs_file.tmpl",
@@ -4683,14 +4773,15 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "repo/unicode_escape_prompt",
-        "repo/settings/layout_footer"
+        "repo/unicode_escape_prompt"
       ],
       "roles": [
-        "soda-p-heading",
         "soda-p-section",
+        "soda-p-toolbar",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-file"
+        "soda-repo-settings-lfs-file",
+        "soda-settings-inventory-actions",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4699,13 +4790,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "601ef230c1e246b85539fb6f32f866e8fb45acf262e1fddde1ee9f9119242259",
+      "beforeRoleHash": "acaefde6fd9eb72c8ba857c653d42263106b8abf676663a293729044e5393c67",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs_locks.tmpl",
@@ -4713,14 +4805,16 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/paginate",
-        "repo/settings/layout_footer"
+        "base/paginate"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-p-form",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-locks"
+        "soda-repo-settings-lfs-locks",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -4735,27 +4829,30 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a8d70a7eeaf47cf1a44ac22d44784ae089454dc812f6b6da8f5479290eb1957f",
+      "beforeRoleHash": "348f7c648582a61fa42522b5a3fae5e41233b72d79d82740af366b75d9605d1e",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs_pointers.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
+        "soda-empty",
+        "soda-empty--page",
         "soda-p-heading",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-pointers"
+        "soda-repo-settings-lfs-pointers",
+        "soda-settings-inventory-heading",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -4770,13 +4867,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "df7ef096bb1700faf8f848cfbe9e23374cdbc1878bcc300d053ff985a969d24d",
+      "beforeRoleHash": "bd4ef361e14e62be0fcdc9295cadd17d72c7f7edc575a8a3b5720bd263a548c9",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs.tmpl",
@@ -4785,13 +4883,17 @@
       "callers": [],
       "nativeCalls": [
         "base/paginate",
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-p-toolbar",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs"
+        "soda-repo-settings-lfs",
+        "soda-settings-inventory-actions",
+        "soda-settings-table-scroll",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4806,13 +4908,56 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ffec31c77c3151d5a3192e54000450adbb0ee27ffdf46dfa43f63c76028d46e3",
+      "beforeRoleHash": "d32bb9476504a63cead5627df586f7fd4cfb4c6963e672767454eb897efd53de",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/navbar.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/layout_head.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-settings-access",
+        "soda-settings-actions",
+        "soda-settings-current",
+        "soda-settings-destinations",
+        "soda-settings-group-label",
+        "soda-settings-menu",
+        "soda-settings-menu-label",
+        "soda-settings-nav",
+        "soda-settings-nav-group",
+        "soda-settings-nav-trigger",
+        "soda-settings-repository"
+      ],
+      "states": [
+        "dark",
+        "desktop-menu",
+        "feature-gates",
+        "keyboard-focus-return",
+        "light",
+        "mobile-all-destinations",
+        "narrow",
+        "no-javascript",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "1b3809b0c2290b703d44ef6c9b7c116ada96f7333ded439580231d1c5430c8da",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/options.tmpl",
@@ -4823,15 +4968,17 @@
         "base/disable_form_autofill",
         "base/disable_form_autofill",
         "base/disable_form_autofill",
-        "repo/settings/layout_footer",
         "repo/settings/push_mirror_sync_modal"
       ],
       "roles": [
-        "soda-p-gap",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-options"
+        "soda-repo-settings-options",
+        "soda-settings-danger",
+        "soda-settings-section",
+        "soda-settings-section-body"
       ],
       "states": [
         "light",
@@ -4847,13 +4994,15 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9a785460bdc89ed49511a0700232801d4fa6263f7792a39c1737c4fa974c6b05",
+      "beforeRoleHash": "98078cb003db17889e1868485b7678697e7165ae23c2a7c040792e6512e4c865",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native repo-name autofocus is intentionally removed on the ordinary settings landing page."
     },
     {
       "template": "repo/settings/protected_branch.tmpl",
@@ -4863,13 +5012,17 @@
       "nativeCalls": [
         "repo/search_name",
         "repo/search_name",
-        "repo/search_name",
-        "repo/settings/layout_footer"
+        "repo/search_name"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-form-section",
+        "soda-p-form",
         "soda-repo-settings-detail",
-        "soda-repo-settings-protected-branch"
+        "soda-repo-settings-protected-branch",
+        "soda-settings-editor",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -4884,25 +5037,25 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ad75022b2ab9dba5e9c13c876a99f1edd6a0b673166096ad98ff2cd96cc306ec",
+      "beforeRoleHash": "fbab630a0062534d78b57b201891119039a4bffa572896ddb404d11ae89fb93a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_create.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-create"
+        "soda-repo-settings-runner-create",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4911,22 +5064,21 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "dcf4b3d535bd703e298ab072c674b18b6a601f19b6da0577d7bb3b3499b223eb",
+      "beforeRoleHash": "59c9fcad792205cbb8e06194c45b0ddc50d057a7d75abf14be16d219e5da1b0a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_details.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-runner-details"
@@ -4938,25 +5090,25 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bfd0fa4291c9c68aad621225b00fc484f0566526a8a31ea3eda6acdb5803e58e",
+      "beforeRoleHash": "2912358e649398e6341a03343b8f5d6c97e3ed70d0c7f2cb1d1af169542a39f3",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_edit.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-edit"
+        "soda-repo-settings-runner-edit",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4965,25 +5117,25 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0bdd839f3a9db2ce4ee6c9370563f3cb58ee09532224776fb92ed6b398d3a5cc",
+      "beforeRoleHash": "87c0137451a8ad55a3d6aab95231b0e82b3d85d711ee130ac36e733fa7bebc37",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_setup.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-setup"
+        "soda-repo-settings-runner-setup",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4992,22 +5144,21 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b4eb24a418ab9d58cb1bdcd9bb2a0b655067631fd95079757750c5197516eac1",
+      "beforeRoleHash": "ef4b68eac7e44c3bace0fb18d485ecbb1e08656265ae9186cde6ac9b0e301442",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/secrets.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-secrets"
@@ -5019,13 +5170,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "304182b7b4e50cd34d05f1ec8090afe97ec50a57a28eed91f94bef5c335e7d03",
+      "beforeRoleHash": "2398ddc1e4cc4937854700cd24755c22161da64519d418c9f4e2da028b0b3d75",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/tags.tmpl",
@@ -5033,14 +5185,18 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "repo/search_name",
-        "repo/settings/layout_footer"
+        "repo/search_name"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-tags"
+        "soda-repo-settings-tags",
+        "soda-settings-editor",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -5055,26 +5211,22 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "63af84a2bb3f25d7246cdeadb64a90b0de16704618a2f7b5a0b762d753f06df2",
+      "beforeRoleHash": "7f4219186a018db2fb70ed65acad4aa123de5d431b50b2e6982de05af631cfb3",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native create-page autofocus is intentionally removed; edit-tag autofocus is retained."
     },
     {
       "template": "repo/settings/units.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/units/overview",
-        "repo/settings/units/issues",
-        "repo/settings/units/pulls",
-        "repo/settings/units/wiki",
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-units"
@@ -5090,30 +5242,170 @@
         "conditional-fields"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "200027a136a07ffb5d9df48a66fdacd7b5b17a9ee626fa918e6a5b5553598484",
+      "beforeRoleHash": "1fe1795e03360fb67763d72e7bf1e80df6352052a3bb978d2fdfa7e267a66596",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/issues.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "badd64cf513ebe15365d15e4e935619c69e2978b4cde85810c506b1cbe036323",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/overview.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notice",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "a9b279611ec08b83c5e576c3f9e7ebd162409011290f8a63358f8a22b459f05e",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/pulls.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notice",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "1f3bb17a8d4dbaf530cab2e3b918ad49b9abc85dff803f0520874a7d0410e5c0",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/wiki.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "09bc26551ba34f40c93b4325e4908e7c48d16402c8884d9f7bb139e239ff8435",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/webhook/base_list.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [
+        "repo/settings/webhook/base.tmpl",
         "user/settings/hooks.tmpl"
       ],
       "nativeCalls": [
         "repo/settings/webhook/link_menu"
       ],
       "roles": [
-        "soda-webhook-list-header",
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
         "soda-p-compact",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-settings-inventory-actions",
+        "soda-toolbar",
         "soda-webhook-list",
-        "soda-p-section"
+        "soda-webhook-list-header"
       ],
       "states": [
         "light",
@@ -5124,17 +5416,17 @@
         "populated"
       ],
       "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9f934bfb7a902d8c25b8470c81fad0770a390f202f5748355dbab922aa929de5",
+      "beforeRoleHash": "8dd6d82320157e86376b8559f94f283a4d06a95d732a45aae2ffa667a6607de2",
       "upstreamCallers": [
         "admin/hooks.tmpl",
         "repo/settings/webhook/list.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "presentationReview": "repository-settings-structural-overhaul",
       "definedPartials": [
         "repo/settings/webhook/base_list_body"
       ]
@@ -5145,8 +5437,7 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "repo/settings/webhook/list",
-        "repo/settings/layout_footer"
+        "repo/settings/webhook/delete_modal"
       ],
       "roles": [
         "soda-repo-settings-detail",
@@ -5159,13 +5450,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8f0439bf40433c0635135129727ee4ecfe246f5e11e7cb080a4487891ddba2a8",
+      "beforeRoleHash": "2241520a9ba9808d16cb0e6d70902a3fd5bff57d5dae1783fcefe2e116bf6cda",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/webhook/history.tmpl",
@@ -5196,7 +5488,7 @@
       ],
       "verification": {
         "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "faa65a38907fcac618176e4143933fd43f92825b4da6ff3127ea7d76d998c2f9",
@@ -5208,12 +5500,11 @@
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-webhook-new"
+        "soda-repo-settings-webhook-new",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -5222,13 +5513,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "472631b8414031feeaa39f8f134d55624e69fcb99e69b92508fe8cca222c3ce3",
+      "beforeRoleHash": "c966f0baa7bdf15639e0cd7587bf9afeda34b9065e555311c9251618ba51abaa",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/sub_menu.tmpl",
@@ -5626,10 +5918,12 @@
       ],
       "nativeCalls": [],
       "roles": [
-        "soda-shared-runner",
-        "soda-shared-runner-create",
+        "soda-form-section",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-form"
+        "soda-p-section",
+        "soda-shared-runner",
+        "soda-shared-runner-create"
       ],
       "states": [
         "light",
@@ -5646,13 +5940,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4c7bd383d59a39381c1161cbdd88b5f5c8df7907593fcdb2d9770fa4d663662e",
+      "beforeRoleHash": "679ce3877d982f42ccd72fca7bcb5bef346307589bc90ad68792a35252f43cbf",
       "upstreamCallers": [
         "admin/runners/create.tmpl",
         "org/settings/runners_create.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_create_body"
       ]
@@ -5669,9 +5963,11 @@
         "base/paginate"
       ],
       "roles": [
+        "soda-p-heading",
+        "soda-settings-inventory-actions",
         "soda-shared-runner",
         "soda-shared-runner-details",
-        "soda-p-heading"
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -5687,13 +5983,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2987f78272d36cbd3366d24ca99271095aef43ac0e26cc0ce1a9b5ece31e6fa7",
+      "beforeRoleHash": "dfb31ee184618697677cbf5650ba110c718bfbbf6a881ec8e6e0137eda6bd80b",
       "upstreamCallers": [
         "admin/runners/details.tmpl",
         "org/settings/runners_details.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_details_body"
       ]
@@ -5708,10 +6004,12 @@
       ],
       "nativeCalls": [],
       "roles": [
-        "soda-shared-runner",
-        "soda-shared-runner-edit",
+        "soda-form-section",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-form"
+        "soda-p-section",
+        "soda-shared-runner",
+        "soda-shared-runner-edit"
       ],
       "states": [
         "light",
@@ -5728,13 +6026,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4388a56c8ae0d64fdcb0f5f8ab0478b8232a3e86f2af40db3a96b2df8d0f31d0",
+      "beforeRoleHash": "63a69201916e052a8592cf53ed316e2c52d732877f5ee40b75ea24ce6fa094d6",
       "upstreamCallers": [
         "admin/runners/edit.tmpl",
         "org/settings/runners_edit.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_edit_body"
       ]
@@ -5753,6 +6051,8 @@
         "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-gap",
         "soda-p-heading",
         "soda-shared-runner",
@@ -5776,13 +6076,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "95163de51d65dc6e46f3addfea9701180b24dfd993a36f4f59fad9e78a36f0cc",
+      "beforeRoleHash": "e8fa157aef8a11276e0e4b810bdc51339c777ee30bbe736d55f5754b39786117",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-comprehensive-consistency-pass"
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "shared/actions/runner_setup.tmpl",
@@ -5794,9 +6094,10 @@
       ],
       "nativeCalls": [],
       "roles": [
+        "soda-notice",
+        "soda-p-heading",
         "soda-shared-runner",
-        "soda-shared-runner-setup",
-        "soda-p-heading"
+        "soda-shared-runner-setup"
       ],
       "states": [
         "light",
@@ -5809,13 +6110,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6ea080bb22e23c80e7449a19e48ac921983decf138bb10eb8e640346c65e6ab1",
+      "beforeRoleHash": "34410eebd11a8d28b42c762c4237300451437a9b1182e84d712a896d940cb843",
       "upstreamCallers": [
         "admin/runners/setup.tmpl",
         "org/settings/runners_setup.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_setup_body"
       ]
@@ -5905,6 +6206,8 @@
       "roles": [
         "soda-config-heading",
         "soda-config-list",
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-heading"
       ],
       "states": [
@@ -5924,12 +6227,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "51087e394e00e180d69ec0fd9f12b0819346338bf0507b5cc567eca7930df51e",
+      "beforeRoleHash": "2db72607941fcd0298055584979f97e0dabfa18d4a9b068b9278bfde2faf7a4f",
       "upstreamCallers": [
         "org/settings/actions.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-comprehensive-consistency-pass"
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "shared/variables/variable_list.tmpl",
@@ -5945,6 +6248,8 @@
       "roles": [
         "soda-config-heading",
         "soda-config-list",
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-heading"
       ],
       "states": [
@@ -5964,13 +6269,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bd582b81f83db4dc9b960dccf7efb2e54dc4c868086367c996032532440c7c7d",
+      "beforeRoleHash": "6ddfe974f2a43d71da49bf20477970a61bd2945e53e3136602b915c93f0a943b",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-comprehensive-consistency-pass"
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "status/404.tmpl",
@@ -7166,8 +7471,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-comprehensive-consistency-pass",
-      "beforeRoleHash": "75674b52750235ba070938ff3fffb24983ed6060fe65013cfae95d5a0e8630c2",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "42996d036ea945a127b79f01715d3dfcb2069a0b8ad1ec92c59af16c9ec1b7d5",
       "taskComposition": "native operations"
     },
     {
@@ -7519,8 +7824,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "ded3b2795bb78e22a7e641dd8141c327c24d9df60842cdda3f37f4fd2c588079",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "b8fd7b9be60aaaa230032386f8c0e7e1f571f0572d45cdb8654f9d666435cbba",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -7550,10 +7855,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f9b32dee737bb33eb4adda6627b2a5e54bdc545ed3d7841d1531cf149f03f3f4",
+      "beforeRoleHash": "e1c068a394af78c32a1a68b54994af624269b9fb6436f9eeafb96076c1be8af1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -7763,10 +8068,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "00cac88f147afc73f54ce3e7b6c3ad4140215f8d0dec8bc6d5f18fa71e17388c",
+      "beforeRoleHash": "f823bc0305df82c5776ff2553448f4b52b65869d8d80bac676de2a03bc7b1a97",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "taskComposition": "identity/navigation"
     },
     {
@@ -7803,16 +8108,17 @@
         "base/alert"
       ],
       "roles": [
-        "soda-page",
         "soda-native-forms",
-        "soda-settings",
+        "soda-p-title",
+        "soda-page",
         "soda-page-container",
+        "soda-settings",
         "soda-settings-bar",
         "soda-settings-identity",
         "soda-settings-layout",
         "soda-settings-parent",
-        "soda-settings-title",
-        "soda-p-title"
+        "soda-settings-shell",
+        "soda-settings-title"
       ],
       "states": [
         "dark",
@@ -7830,10 +8136,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "26598ec0217f8c014c17c1060fe1f1d5ce2ef8435dde00ae849bbc37e08f8dd2",
+      "beforeRoleHash": "7b38ac2b7f85a34d3da7a0e48f1a97e0562f5077ac154e0525a048c2c15b29d9",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "taskComposition": "identity/navigation"
     },
     {
@@ -8128,8 +8434,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "fed5a2d2c1a0004c186e3a3405d968381f6ab572a6f25d7e52bf1d905d3a3f02",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "d4e6c60c5ef4796bb6a8c09d0cc96ede8f463e79f4fe29722b5040664bb0af42",
       "taskComposition": "native operations"
     },
     {
@@ -8158,8 +8464,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "55bb6516c1776210d983fae78bf193c23dee0eafbd9e5a1a2cd06aa24fc8414a",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "393cd0db3766003e6d2fa6c5b7a06f61ca5ac22d0aa40161d7aaa783c1530c05",
       "taskComposition": "native operations"
     },
     {
@@ -8190,8 +8496,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "9dda95cde8f46c2746d60d67126f05e46acc5ff9ef79d03e31899fa9d8226224",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "376ee6654f2fd21674d7244124e113f8dc9dab16d52b9b796de3cd6ae7f017de",
       "taskComposition": "native operations"
     },
     {
@@ -8222,8 +8528,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "f7c56431bd957166e17f28a2f96b0a86226decbc1def16510ecce60df343935a",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "6bee3413e63734891a9774dd4262e250be134f0a65c5d414ac615e611c6292fa",
       "taskComposition": "native operations"
     },
     {
@@ -8518,8 +8824,8 @@
         "webhook/new/sourcehut_builds"
       ],
       "roles": [
-        "soda-webhook-heading",
         "soda-p-heading",
+        "soda-webhook-heading",
         "soda-webhook-provider"
       ],
       "states": [
@@ -8533,13 +8839,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0f23c40f1927894aedcfe7fb5fc5316a84a450725fb9c045825eb2fd15bedd56",
+      "beforeRoleHash": "ef7ac3933803c529b37849060a05164244f9d60ee920231a3083c4e110b5c787",
       "upstreamCallers": [
         "admin/hook_new.tmpl",
         "org/settings/hook_new.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "webhook/shared-settings.tmpl",

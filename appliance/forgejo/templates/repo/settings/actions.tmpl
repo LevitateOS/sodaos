@@ -1,11 +1,12 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings actions")}}
+{{$taskTitle := ctx.Locale.Tr "actions.runners"}}{{if eq .PageType "secrets"}}{{$taskTitle = ctx.Locale.Tr "secrets.secrets"}}{{else if eq .PageType "variables"}}{{$taskTitle = ctx.Locale.Tr "actions.variables"}}{{end}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings actions" "title" $taskTitle)}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-actions">
 		{{if eq .PageType "runners"}}
-			{{template "shared/actions/runner_list" .}}
+			{{template "shared/actions/runner_list" (dict "SettingsPresentation" true "ctxData" .)}}
 		{{else if eq .PageType "secrets"}}
-			{{template "shared/secrets/add_list" .}}
+			{{template "shared/secrets/add_list" (dict "SettingsPresentation" true "ctxData" .)}}
 		{{else if eq .PageType "variables"}}
-			{{template "shared/variables/variable_list" .}}
+			{{template "shared/variables/variable_list" (dict "SettingsPresentation" true "ctxData" .)}}
 		{{end}}
 	</div>
 {{template "repo/settings/layout_footer" .}}

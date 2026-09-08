@@ -1,5 +1,5 @@
-{{if .PersonalSettings}}{{template "shared/actions/runner_list_body" .}}{{else}}{{template "shared/actions/runner_list_body" (dict "ctxData" .)}}{{end}}
-{{define "shared/actions/runner_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
+{{if .SettingsPresentation}}{{template "shared/actions/runner_list_body" .}}{{else}}{{template "shared/actions/runner_list_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/actions/runner_list_body"}}{{$settings := .SettingsPresentation}}{{$ := .ctxData}}{{with .ctxData}}
 <div class="runner-container soda-shared-runner soda-shared-runner-list">
 
 	<h4 class="ui top attached header soda-p-heading">
@@ -125,7 +125,7 @@
 			</tbody>
 		</table>
 		{{else}}
-		{{if $personal}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-play" "Title" (ctx.Locale.Tr "actions.runners.none")}}</div>{{else}}<div class="tw-flex tw-p-4">
+		{{if $settings}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-play" "Title" (ctx.Locale.Tr "actions.runners.none")}}</div>{{else}}<div class="tw-flex tw-p-4">
 			{{ctx.Locale.Tr "actions.runners.none"}}
 		</div>{{end}}
 		{{end}}

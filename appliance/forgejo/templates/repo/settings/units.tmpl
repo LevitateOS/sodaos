@@ -1,5 +1,5 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings options")}}
-<div class="user-main-content twelve wide column soda-repo-settings-detail soda-repo-settings-units">
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings options" "title" (ctx.Locale.Tr "repo.settings.units.units"))}}
+<div class="user-main-content twelve wide column repo-setting-content soda-repo-settings-detail soda-repo-settings-units">
 	<form class="ui form" method="post" action="{{.RepoLink}}/settings/units">
 		{{template "repo/settings/units/overview" .}}
 		{{template "repo/settings/units/issues" .}}

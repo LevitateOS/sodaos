@@ -6,7 +6,7 @@
   font-family: Barlow, Arial, sans-serif;
 }
 
-.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid) {
+:where(.page-content:has(> .soda-repository-header)) > .ui.container:not(.fluid) {
   width: min(1120px, calc(100% - 48px)) !important;
   margin-inline: auto;
 }
@@ -14,7 +14,7 @@
 /* The shared repository header supplies the gap above ordinary page bodies.
    Page families must not add another inset to these containers. Native fluid
    and explicitly padded canvases retain their own gutter contracts. */
-.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid):not(.padded) {
+:where(.page-content:has(> .soda-repository-header)) > .ui.container:where(:not(.fluid):not(.padded)) {
   padding: 0;
 }
 
@@ -149,7 +149,7 @@
 }
 
 @media (max-width: 700px) {
-  .page-content:has(> .soda-repository-header) > .ui.container:not(.fluid),
+  :where(.page-content:has(> .soda-repository-header)) > .ui.container:not(.fluid),
   .soda-repository-header > .ui.container {
     width: calc(100% - 32px) !important;
   }

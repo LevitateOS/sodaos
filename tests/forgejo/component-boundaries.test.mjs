@@ -25,7 +25,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     await t.test('native form icons retain clearance and section headings share type', async () => {
       for (const theme of ['light','dark']) for (const width of [1440,390,320]) {
         await page.setViewportSize({width,height:1000});
-        await render(`<main class="soda-page soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,theme);
+        await render(`<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,theme);
         for (const heading of await page.locator('h4,legend').all()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px');
         assert.equal(await page.locator('.left.input input').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px');
         assert.equal(await page.locator('.input:not(.left) input').evaluate(el=>getComputedStyle(el).paddingInlineEnd),'40px');
@@ -45,7 +45,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     await t.test('settings headings stay above their bodies at every width', async () => {
       for (const width of [1440, 900, 899, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 });
-        await render(`<main class="soda-page soda-settings"><div class="user-setting-content"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></div></main>`);
+        await render(`<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></div></main>`);
         const placement = await page.evaluate(() => {
           const heading = document.querySelector('.soda-settings-section > h2').getBoundingClientRect();
           const body = document.querySelector('.soda-settings-section-body').getBoundingClientRect();
@@ -142,7 +142,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     await t.test('native size classes and adjoining inputs share the selected 44px size', async () => {
       const variants=['ui mini button','ui tiny button','ui small compact button','ui basic button','button secondary','btn','ui icon button','soda-p-compact ui button','soda-icon-action'];
       for (const theme of ['light','dark']) {
-        await render(`<main class="soda-page soda-settings">${variants.map((cls,i)=>`<button id="size-${i}" class="${cls}">Action</button>`).join('')}<form class="ui form soda-p-form"><input id="single-value"><div id="single-selection" class="ui selection dropdown"><span class="text">English</span></div></form><div class="ui labeled button"><button id="watch" class="ui tiny button">Watch</button><a id="counter" class="ui basic label">24</a></div></main>`,theme);
+        await render(`<main class="soda-page soda-settings-shell soda-settings">${variants.map((cls,i)=>`<button id="size-${i}" class="${cls}">Action</button>`).join('')}<form class="ui form soda-p-form"><input id="single-value"><div id="single-selection" class="ui selection dropdown"><span class="text">English</span></div></form><div class="ui labeled button"><button id="watch" class="ui tiny button">Watch</button><a id="counter" class="ui basic label">24</a></div></main>`,theme);
         for (const el of await page.locator('[id]').all()) {
           assert.equal(await el.evaluate(e=>e.getBoundingClientRect().height),44,await el.getAttribute('id'));
         }

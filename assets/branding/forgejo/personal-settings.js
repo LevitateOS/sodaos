@@ -1,5 +1,5 @@
 /* Progressive navigation/disclosures only. Forgejo owns all submissions. */
-const settings = document.querySelector('.soda-settings');
+const settings = document.querySelector('.soda-settings-shell');
 if (settings) {
   const nav = settings.querySelector('.soda-settings-nav');
   if (nav) {

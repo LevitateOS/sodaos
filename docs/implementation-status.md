@@ -1,5 +1,63 @@
 # Current handoff
 
+## Repository settings consistency overhaul
+
+Local revision `2026-09-08.29` replaces the repository-settings sidebar with
+compact grouped navigation beside one task title, retaining native repository
+identity and unit navigation. Personal and repository settings now explicitly
+share `.soda-settings-shell`; `components-settings.css` owns their navigation,
+1120px usable canvas, 24/16px gutters, 40px body inset, section placement and
+actions. The old competing repository sidebar/grid adapters were removed.
+Principal file inputs share width constraints, fixing the native avatar picker's
+mobile overflow. Ordinary repository containers keep their zero-padding contract.
+
+The pass covers General settings and native Units partials, branch/tag protection,
+collaborators, deploy keys, webhooks and child editors, Actions runners/secrets/
+variables and LFS leaves. Open sections, shared empty states, semantic notices,
+44px tonal controls, parent links and explicit primary-form roles replace the
+older attached task stacks. Native save boundaries, controls, IDs, permission
+and feature gates, destructive dialogs, provider dispatch and technical viewers
+remain intact. LFS totals remain visible; wide tables scroll within their canvas.
+Ordinary landing autofocus was deliberately removed; dedicated tag editing and
+panel/editor focus remain. Shared runner/webhook/secret/variable presentation uses
+an explicit opt-in; organization/administrator default callers retain native
+markup contracts. No locale additions or service restart were required.
+
+Actual checks: Go Forgejo checks passed, including exact native navigation across
+256 gate combinations and shared default-caller regressions. Five personal/repo
+source-contract tests passed; the repository snapshot covers 26 native templates.
+The final component/gallery/ordinary-repository batch passed 42 checks, including
+light/dark, 1440/1000/900/899/768/390/320px, keyboard navigation, no-JavaScript
+fallback, long labels, gutters, upload width and table containment. All 11 native
+personal-settings regression checks passed after the shared-style extraction.
+The inventory covers 235 overrides/helpers and exact local/native callers; its
+embedded-native-caller check passes. The pre-existing unrelated `custom/footer`
+hash mismatch remains the only inventory hash failure and was not silently
+accepted by this pass.
+
+Read-only live UI inspection reused the user's already-open Chrome session on
+`alice/activity-workbench/settings`. All seven permitted landing destinations
+were checked at 1440, 900, 899, 390 and 320px with revision `.29`, the 40px inset
+and no page overflow. Branch-rule creation and the Forgejo webhook editor were
+checked at 1440/390/320px; actual menu navigation, provider selection and custom
+event disclosure worked without a submission. No console errors were observed
+in the captured browser log. The viewport was restored and the tab returned to
+General settings. These are live DOM/UI checks, not verified screenshot captures
+or proof of persisted workflows.
+
+The production-derived gallery and six component captures are under ignored
+`.artifacts/forgejo-presentation/repository-settings-{light,dark}.html` and
+`.artifacts/repo-settings-overhaul/components/`; logs and a review index are in
+`.artifacts/repo-settings-overhaul/`. The existing screenshot fixture has no
+repository-admin access; dedicated owner-profile captures through
+`scripts/screenshot.mjs` remain a verification prerequisite. Actions, LFS and Git
+hooks are not exposed by the inspected repository's native gates. Populated
+credentials/protection rules, mirrors, runner setup, provider delivery history
+and success/error/mutation journeys remain unverified. Source and component
+completion is not full native visual or functional acceptance. No resources,
+credentials, permissions or saved preferences were changed; activation used
+native template reloads only in `sodaos-local-forgejo`. Appliance rollout is separate.
+
 ## Personal settings consistency review
 
 Local revision `2026-09-08.26` consolidates native and nested section headings on
