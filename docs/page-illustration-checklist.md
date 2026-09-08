@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal runner create/setup/edit/detail pages, then storage overview. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: personal storage overview and its native usage/cleanup subpages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -176,11 +176,11 @@ Next: personal runner create/setup/edit/detail pages, then storage overview. Enr
 | Partial — trace caller | [`repo/wiki/search.tmpl`](../appliance/forgejo/templates/repo/wiki/search.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/wiki/start.tmpl`](../appliance/forgejo/templates/repo/wiki/start.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/wiki/view.tmpl`](../appliance/forgejo/templates/repo/wiki/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
+| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
+| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
 | Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Personal caller reviewed; status table needs no art. Other owner pages remain pending. |
-| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
 | Partial — trace caller | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Personal caller reviewed; inline list and add/edit dialogs need no art. Other owner pages remain pending. |
@@ -232,6 +232,13 @@ Next: personal runner create/setup/edit/detail pages, then storage overview. Enr
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+| Status | Personal runner page | Decision |
+| --- | --- | --- |
+| No image | `user/settings/runner_create.tmpl` | Short name/description form; keep creation direct without a second visual section. |
+| No image | `user/settings/runner_setup.tmpl` | One-time token, UUID and configuration/command instructions are the essential content. |
+| No image | `user/settings/runner_edit.tmpl` | Properties and explicit token-regeneration option need clear form hierarchy. |
+| No image | `user/settings/runner_details.tmpl` | Actual status, labels, metadata and task history supply the meaningful visuals. |
 
 | Status | OAuth caller / inline state | Decision / remaining work |
 | --- | --- | --- |
@@ -508,3 +515,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Secrets: no decorative image. Masked values, names, dates and exact add/edit help take priority. Variables: no decorative image. Actual configuration values and mutation controls take priority. Their add/edit/delete dialogs also need no independent artwork.
 - These are source assessments. The fixture navbar did not expose Actions, and no configuration was changed to enable it. No runner registration, token reset, secret/variable mutation or native runtime capture is claimed. Repository, organization and administrator callers remain pending separately; runner create/setup/edit/detail pages are next.
 - No source change or tests required for this assessment.
+
+### Personal runner subpages
+
+- Read all four full shared runner overrides and the exact stock personal create/setup/edit/details wrappers through the running binary's embedded viewer. Each wrapper uses the personal settings layout without an artwork-specific input.
+- Create: no image for a two-property form. Setup: no image ahead of the one-time credential warning, UUID/token and copyable configuration/daemon command. Edit: no image beside properties and the token-regeneration choice. Details: preserve actual active/idle/offline indicators, ownership, labels, version and task run/status/repository/commit history as the visual information.
+- These four decisions are source-based. Actions was not enabled and no runner or token was created to manufacture a screenshot. Registration/setup commands were read as source only, not executed. Other owner layouts remain pending; shared partial rows retain that distinction.
+- No source changes or tests needed for these assessments.
