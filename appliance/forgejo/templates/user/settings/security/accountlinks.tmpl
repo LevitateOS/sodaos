@@ -1,7 +1,8 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/security/accountlinks.tmpl (GPL-3.0-or-later); upstream SHA-256 ed57eb1046683b6a22ab96405b3bfccd4353eb463dca5023c8f943f960874b01. */}}
 
-<section class="soda-settings-section soda-settings-explained ">{{/* No account links, no way to add account links: Menu will not be shown. */}}
+{{/* No account links, no way to add account links: Menu will not be shown. */}}
 {{if or .AccountLinks .OrderedOAuth2Names}}
+<section class="soda-settings-section soda-settings-explained">
 <h2>
 	{{ctx.Locale.Tr "settings.manage_account_links"}}
 	{{if .OrderedOAuth2Names}}
@@ -61,6 +62,5 @@
 		{{template "base/modal_actions_confirm" .}}
 	</div>
 </div>
-{{end}}
-
 </div></section>
+{{end}}

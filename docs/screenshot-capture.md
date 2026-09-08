@@ -58,8 +58,10 @@ node scripts/screenshot.mjs --width 390 --height 844 \
 ```
 
 Each run prints its PNG paths under a fresh `.artifacts/screenshots/capture-*`
-directory. Files are numbered in URL order. These are viewport screenshots,
-not full scrolling pages. `--wait 3000` gives JavaScript three extra seconds to
+directory. Files are numbered in URL order. These are viewport screenshots by default. Use `--full-page` to include offscreen
+content while preserving the requested CSS viewport and record that mode in the
+verification sidecar. Each capture starts from a fresh document so a fragment-only
+URL still receives an actual HTTP response for verification. `--wait 3000` gives JavaScript three extra seconds to
 settle. Inspect the result: a PNG can still show an expired login or an error page.
 Use `--scroll-top` to inspect the header when native autofocus scrolls to a form
 field. This scrolls after settling; it does not disable focus or change the page.

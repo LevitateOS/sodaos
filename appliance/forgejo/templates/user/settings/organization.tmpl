@@ -1,14 +1,13 @@
 {{/* Stock Forgejo 15.0.7 membership content; decorative artwork input only. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings organization")}}
 	<div class="user-setting-content">
-		<h2 class="soda-settings-inventory-heading soda-p-heading">
-			{{ctx.Locale.Tr "settings.orgs"}}
+		<div class="soda-toolbar soda-settings-inventory-actions">
 			{{if .SignedUser.CanCreateOrganization}}
 			<div class="ui right">
 				<a class="ui primary tiny button soda-p-compact" href="{{AppSubUrl}}/org/create">{{ctx.Locale.Tr "admin.orgs.new_orga"}}</a>
 			</div>
 			{{end}}
-		</h2>
+		</div>
 		<div class="ui attached segment orgs soda-p-section">
 			{{if .Orgs}}
 				<div class="flex-list">

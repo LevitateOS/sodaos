@@ -1,5 +1,7 @@
+{{if .PersonalSettings}}{{template "package/shared/cleanup_rules/preview_body" .}}{{else}}{{template "package/shared/cleanup_rules/preview_body" (dict "ctxData" .)}}{{end}}
+{{define "package/shared/cleanup_rules/preview_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <section class="soda-package-section soda-package-cleanup-preview">
-<h4 class="ui top attached header soda-package-section-heading">{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.preview"}}</h4>
+<h4 class="ui top attached header soda-package-section-heading">{{if not $personal}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.preview"}}{{end}}</h4>
 <div class="ui attached segment soda-package-section-body soda-p-section">
 	<p>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.preview.overview" (len .VersionsToRemove)}}</p>
 </div>
@@ -34,3 +36,5 @@
 	</table>
 </div>
 </section>
+
+{{end}}{{end}}

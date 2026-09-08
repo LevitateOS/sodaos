@@ -1,9 +1,6 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/repos.tmpl (GPL-3.0-or-later); upstream SHA-256 681852e5ffbf45b5d57070ce13830aebcd4d7777d810900b29775d1dac734b0f. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings repos")}}
 	<div class="user-setting-content">
-		<h2 class="soda-settings-inventory-heading soda-p-heading">
-			{{ctx.Locale.Tr "settings.repos"}}
-		</h2>
 		<div class="ui attached segment soda-p-section">
 			{{if or .allowAdopt .allowDelete}}
 				{{if .Dirs}}

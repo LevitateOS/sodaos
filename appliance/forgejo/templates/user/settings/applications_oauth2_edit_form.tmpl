@@ -1,11 +1,13 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_edit_form.tmpl (GPL-3.0-or-later); upstream SHA-256 d3d0490154dba87ed93bdaad86a00fe779b379fba517645a467b053814ebf996. */}}
-{{if not .PageIsSettingsApplications}}<h4 class="ui top attached header">
+{{if .PersonalSettings}}{{template "user/settings/applications_oauth2_edit_form_body" .}}{{else}}{{template "user/settings/applications_oauth2_edit_form_body" (dict "ctxData" .)}}{{end}}
+{{define "user/settings/applications_oauth2_edit_form_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
+{{if not $personal}}<h4 class="ui top attached header">
 	{{ctx.Locale.Tr "settings.edit_oauth2_application"}}
 </h4>{{end}}
 <div class="ui attached segment">
 	<p>{{ctx.Locale.Tr "settings.oauth2_application_create_description"}}</p>
 </div>
-<div class="ui attached segment form ignore-dirty soda-p-form soda-p-section">
+<div class="ui attached segment form ignore-dirty{{if $personal}} soda-p-form{{end}}{{if $personal}} soda-p-section{{end}}">
 	<div class="field">
 		<label for="client-id">{{ctx.Locale.Tr "settings.oauth2_client_id"}}</label>
 		<input id="client-id" readonly value="{{.App.ClientID}}">
@@ -23,14 +25,14 @@
 	{{end}}
 	<div class="item">
 		<!-- TODO add regenerate secret functionality */ -->
-		<form class="ui form ignore-dirty soda-p-form" action="{{.FormActionPath}}/regenerate_secret" method="post">
+		<form class="ui form ignore-dirty{{if $personal}} soda-p-form{{end}}" action="{{.FormActionPath}}/regenerate_secret" method="post">
 			{{ctx.Locale.Tr "settings.oauth2_regenerate_secret_hint"}}
-			<button class="ui mini button tw-ml-2 soda-p-compact" type="submit">{{ctx.Locale.Tr "settings.oauth2_regenerate_secret"}}</button>
+			<button class="ui mini button tw-ml-2{{if $personal}} soda-p-compact{{end}}" type="submit">{{ctx.Locale.Tr "settings.oauth2_regenerate_secret"}}</button>
 		</form>
 	</div>
 </div>
 <div class="ui attached bottom segment">
-	<form class="ui form ignore-dirty soda-p-form" action="{{.FormActionPath}}" method="post">
+	<form class="ui form ignore-dirty{{if $personal}} soda-p-form{{end}}" action="{{.FormActionPath}}" method="post">
 		<div class="field {{if .Err_AppName}}error{{end}}">
 			<label for="application-name">{{ctx.Locale.Tr "settings.oauth2_application_name"}}</label>
 			<input id="application-name" value="{{.App.Name}}" name="application_name" required maxlength="255">
@@ -45,8 +47,10 @@
 				<input type="checkbox" name="confidential_client" {{if .App.ConfidentialClient}}checked{{end}}>
 			</div>
 		</div>
-		<button class="ui primary button soda-p-control">
+		<button class="ui primary button{{if $personal}} soda-p-control{{end}}">
 			{{ctx.Locale.Tr "settings.save_application"}}
 		</button>
 	</form>
 </div>
+
+{{end}}{{end}}

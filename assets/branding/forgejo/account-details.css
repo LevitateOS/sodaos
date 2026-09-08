@@ -5,7 +5,7 @@
 .soda-profile-portrait > img { width: 112px; height: 112px; border-radius: 50%; margin-bottom: 8px; }
 .soda-profile-editor { min-width: 0; }
 .soda-profile-editor fieldset { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; min-width: 0; padding: 0; border: 0; margin: 0 0 32px; }
-.soda-profile-editor legend { width: 100%; font: 600 21px/1.35 "Fraunces Variable", Georgia, serif; margin-bottom: 16px; }
+.soda-profile-editor legend { width: 100%; font: var(--soda-font-heading); margin-bottom: 16px; }
 .soda-profile-editor label { min-width: 0; }
 .soda-profile-editor label:has(textarea), .soda-profile-editor fieldset:not(:first-child) > * { grid-column: 1 / -1; }
 .soda-profile-editor .help { display: block; color: var(--soda-page-muted); margin-top: 8px; }

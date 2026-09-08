@@ -58,7 +58,10 @@ if (settings) {
     let target;
     try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
     const editor = target?.closest('[data-settings-editor]');
-    if (editor) { editor.open = true; target.scrollIntoView({block: 'start'}); }
+    if (editor) {
+      editor.open = true; editor.scrollIntoView({block: 'start'});
+      editor.querySelector('input:not([type=hidden]), textarea')?.focus({preventScroll: true});
+    }
   };
   revealHash();
   window.addEventListener('hashchange', revealHash);

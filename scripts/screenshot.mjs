@@ -21,6 +21,7 @@ Options:
   --height N       Screenshot height (default: 1000)
   --wait N         Extra settling time in milliseconds (default: 1500)
   --scroll-top     Scroll to the page top after settling, before capture
+  --full-page      Include offscreen content at the requested viewport width
   --local-css      Use this checkout's Soda CSS on localhost:3300; server templates stay unchanged
   --verify         Reject redirects, error responses, missing landmarks, stale Soda assets and browser errors
   --landmark CSS   Expected visible page selector (requires --verify)
@@ -42,6 +43,7 @@ async function main() {
       landmark: { type: 'string' },
       theme: { type: 'string' },
       'scroll-top': { type: 'boolean' },
+      'full-page': { type: 'boolean' },
       profile: { type: 'string', default: path.join(root, '.local/screenshot-profile') },
       out: { type: 'string' },
       width: { type: 'string', default: '1440' },
@@ -149,6 +151,9 @@ async function main() {
     for (const [index, url] of urls.entries()) {
       const filename = path.join(output, `${String(index + 1).padStart(3, '0')}.png`);
       try {
+        // Fragment-only navigation returns no HTTP response. Start each capture
+        // from a fresh document so --verify always checks an actual native GET.
+        await page.goto('about:blank');
         browserErrors.length = 0;
         const response = await page.goto(url, { waitUntil: 'load' });
         if (values.verify) {
@@ -195,11 +200,11 @@ async function main() {
         await page.waitForTimeout(Number(values.wait));
         if (values['scroll-top']) await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
         if (values.verify && browserErrors.length) throw new Error(`Browser errors: ${browserErrors.join('; ')}`);
-        await page.screenshot({ path: filename });
+        await page.screenshot({ path: filename, fullPage: Boolean(values['full-page']) });
         if (values.verify) await writeFile(filename.replace('.png', '.json'), JSON.stringify({
           requestedURL: url, actualURL: page.url(), landmark: values.landmark || '[role="main"], main',
           status: response.status(), theme: values.theme || 'native',
-          viewport: page.viewportSize(), browserErrors,
+          viewport: page.viewportSize(), fullPage: Boolean(values['full-page']), browserErrors,
           presentationRevision: expectedRevision,
           registrySHA256: createHash('sha256').update(registrySource).digest('hex'),
           styles: expectedStyles, verifiedAt: new Date().toISOString(),

@@ -1,37 +1,76 @@
 # Current handoff
 
-## Personal settings UX investigation
+## Personal settings structural overhaul — local review candidate
 
-The [settings UX proposal](forgejo-settings-ux-proposal.md) records a read-only
-investigation of the complete personal-settings navigation and native child
-workflows against source `2cc73b6` / local presentation `2026-09-08.5`. It recommends
-a structurally different layout after the user's clarification: no settings
-sidebar, grouped top destination menus, compact identity context, and distinct
-identity-editor, setting-row, status/inventory and focused-editor compositions.
-Mobile uses one destination disclosure. The earlier grouped-rail proposal is
-superseded because it retained too much of the old layout. Native routes, forms,
-save boundaries, permissions and interactive hooks remain authoritative.
-The revised proposal is not implemented. Live inspection found password/expanded SSH
-controls still at 38px beside 44px shared controls, and ordinary mobile content
-starting about 637px below the page top. Prior source coverage did not establish
-consistent native form presentation or a complete UX redesign.
+The approved personal-settings overhaul is implemented through Forgejo 15.0.7
+configuration, template overrides, shared styles and a small presentation-only
+script. The existing local preview is active at presentation `2026-09-08.10`.
+There is no personal-settings sidebar or artwork hero: one actual identity row
+and grouped destination menus compose around distinct profile, preference,
+security, inventory and focused-editor layouts. Mobile uses one disclosure below
+900px. Native routes, permissions, handlers and save boundaries remain upstream.
 
-Actual evidence: 11 enabled landing routes and three new-form routes returned
-their requested URLs; 27 verified native viewport captures were visually reviewed
-across dark desktop/mobile and selected light desktop pages. Additional DOM
-checks covered the six core pages at 320/768px and opening/cancelling an empty
-native SSH add panel. No document overflow was observed in the inspected widths.
-Exact Account/Security handler review confirms password validation and redirects
-remain owned by Account. Evidence and an interactive structure/evidence outline
-are in `.artifacts/settings-ux-investigation/`; the outline's navigation and
-containment were checked at 1440/900/390/320px. It is a planning artifact, not
-native-page or production-gallery evidence.
+Profile retains one identity/address/privacy save and a separate avatar form.
+Account places email management before its disclosed password editor and final
+deletion warning. Appearance retains four saves. Security retains native factor
+state and links to Account for passwords. Keys, Applications, resources and
+conditional operational/child pages retain their native structures and gates.
+Shared OAuth, runner, webhook and cleanup adapters use explicit personal-caller
+inputs and preserve native root context; the organization Applications flag is
+not used as a personal-only presentation gate. The test-only inventory covers
+228 overrides/helpers, including 37 personal-settings files, their native callers,
+compositions and required states.
 
-No application source, templates, styles, services, saved preferences, resources
-or permissions changed; no forms were submitted. No build or application test
-suite was run for this documentation-only investigation. Enabled/mandatory factor,
-provider, populated credential/resource, Actions/quota, mutation and validation
-return states remain explicit verification gaps. No appliance rollout occurred.
+The complete English locale was generated from the exact embedded native 15.0.7
+INI plus Soda additions. Duplicate keys/namespaces are rejected; native INI bytes
+and JSON catalogs retain upstream ownership. The complete file was copied into
+the existing preview volume and activated with the single user-authorized restart
+of `sodaos-local-forgejo`, retaining its image, configuration and data. Subsequent
+template changes used native reloads. No appliance deployment occurred.
+
+Actual checks and review evidence:
+
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off SODA_FORGEJO_GALLERY=1 go test
+  -mod=readonly ./scripts -run TestForgejo -count=1` passed. Tests retain native
+  control/capability contracts, mandatory enrollment gates, caller-specific title
+  handling, selected cleanup values and native OAuth/runner root context.
+- The complete existing Forgejo browser suite passed 37 checks, with its separately
+  invoked personal-session journey skipped in that batch. The dedicated settings
+  run passed all 10 checks, including navigation at 1440/1000/900/899/768/390/320px,
+  Escape/outside dismissal, focus return, password and avatar disclosures, key
+  panel focus, token-select dimensions, no-JavaScript fallback and fixture errors.
+- Read-only native inspection covered 14 routes at six widths: 84 combinations
+  without document overflow or page errors. Forgejo 15.0.7 uses Go's native
+  `http.NewCrossOriginProtection` in `routers/web/web.go`; an initial audit's
+  hidden-CSRF-input assumption was corrected against exact source. That middleware
+  was not changed. No POST security/submission journey is claimed.
+- The review package contains 94 verified native captures in light/dark at
+  1440×1000 and 390×844, including full-page content and open editors. Requested
+  URLs, status, landmarks, presentation revision, stylesheet hashes and browser
+  errors were checked by `scripts/screenshot.mjs`. The helper now supports
+  `--full-page` and forces a fresh document for fragment-only capture requests.
+  Failed intermediate capture attempts are excluded from the review manifest.
+- `.artifacts/personal-settings/review.html` groups native evidence by family and
+  links the actual check logs, route observations and verification sidecars.
+  `.artifacts/forgejo-presentation/gallery-{light,dark}.html` is the separate
+  production-derived component gallery. Earlier generated concepts remain in
+  `.artifacts/settings-design-concepts/`; they are not native evidence.
+
+Native landing pages and accessible child editors were visually reviewed, including
+below-the-fold controls. This is not full visual or functional acceptance.
+Remaining prerequisites include enrolled/mandatory TOTP and WebAuthn, recovery and
+key verification challenges, populated credentials/OAuth grants/applications,
+providers, organization memberships/adoption permissions, configured webhooks and
+delivery history, populated cleanup previews, Actions/runners/secrets/variables,
+and enabled Storage/Quota. Successful/error POST journeys and native fallback for
+untranslated Soda additions were not manufactured. Nonpersonal shared callers
+have source and regression checks, not newly authorized owner/admin sessions.
+No credentials, saved preferences, resources or permissions were created or changed.
+
+The earlier [UX investigation](forgejo-settings-ux-proposal.md) and its evidence in
+`.artifacts/settings-ux-investigation/` remain the baseline for comparison, rather
+than the current implementation contract. See `appliance/forgejo/README.md` and its
+locale guide for the maintained presentation and local activation contracts.
 
 ## Ordinary repository container spacing
 

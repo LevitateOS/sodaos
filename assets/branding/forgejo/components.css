@@ -189,7 +189,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   box-shadow: none !important;
   margin-block: 0 24px;
 }
-.soda-p-heading, .soda-p-title {
+.soda-p-heading.ui.header, .soda-p-heading, .soda-p-title {
   padding: 0 !important;
   margin-block: 24px 16px;
   border: 0 !important;

@@ -68,6 +68,12 @@ func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
 		page = strings.ReplaceAll(page, " soda-webhook-list", "")
 		page = strings.ReplaceAll(page, " soda-webhook-history-header", "")
 		page = strings.ReplaceAll(page, " soda-webhook-history", "")
+		if tt.name == "base_list.tmpl" {
+			_, page, _ = strings.Cut(page, `{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}`+"\n")
+			page = strings.TrimSuffix(page, "\n{{end}}{{end}}\n")
+			page = strings.Replace(page, `{{if not $personal}}{{.Title}}{{end}}`, `{{.Title}}`, 1)
+		}
+
 		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(page))); got != tt.hash {
 			t.Errorf("%s diverges from exact Forgejo 15.0.7 beyond presentation classes: got %s, want %s", tt.name, got, tt.hash)
 		}
@@ -136,6 +142,16 @@ func TestForgejoSharedRunnerDetailsRetain1507Source(t *testing.T) {
 				t.Fatalf("%s must expose exactly one shared runner styling root", name)
 			}
 			recovered := strings.Replace(page, branded, `class="runner-container"`, 1)
+			if strings.Contains(recovered, `{{$personal := .PersonalSettings}}`) {
+				// Reviewed personal-only title suppression. Native root data is
+				// explicitly rebound before entering the original body.
+				prefix := `{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}` + "\n"
+				_, recovered, _ = strings.Cut(recovered, prefix)
+				recovered = strings.TrimSuffix(recovered, "\n{{end}}{{end}}\n")
+				recovered = strings.Replace(recovered, `{{if not $personal}}{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}{{end}}`, `{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}`, 1)
+				recovered = strings.Replace(recovered, `{{if not $personal}}`, "", 1)
+				recovered = strings.Replace(recovered, `</h4>{{end}}`, `</h4>`, 1)
+			}
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(recovered)))
 			if got != upstreamHash {
 				t.Fatalf("%s diverges from exact Forgejo 15.0.7 beyond its presentation class: got %s, want %s", name, got, upstreamHash)

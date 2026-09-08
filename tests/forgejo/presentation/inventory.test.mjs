@@ -21,7 +21,7 @@ test('presentation inventory covers every production override and its local call
     const callers = [...sources].filter(([, source]) => [...source.matchAll(/{{\s*template\s+"([^"]+)"/g)].some(m => m[1] + '.tmpl' === entry.template)).map(([name]) => name).sort();
     assert.deepEqual(entry.callers.sort(), callers, entry.template);
     const beforeRoles = sources.get(entry.template).replace(/ soda-p-(editor-container|form-host|form|title|heading|section|gap|toolbar)\b/g, '');
-    assert.equal(createHash('sha256').update(beforeRoles).digest('hex'), entry.beforeRoleHash, `${entry.template}: change outside declared role additions`);
+    assert.equal(createHash('sha256').update(beforeRoles).digest('hex'), entry.beforeRoleHash, `${entry.template}: ${entry.presentationReview ? "unreviewed structural change" : "change outside declared role additions"}`);
     for (const role of entry.roles) assert(sources.get(entry.template).includes(role), `${entry.template}: missing ${role}`);
   }
 });

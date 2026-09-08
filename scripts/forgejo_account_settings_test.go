@@ -3,110 +3,171 @@ package scripts
 import (
 	"bytes"
 	"html/template"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestForgejoAccountSettingsLayoutComposesNativeSeams(t *testing.T) {
-	functions := template.FuncMap{"dict": forgejoTemplateDict}
-	definition := `
-		{{define "base/head"}}native-head/{{.Title}}{{end}}
-		{{define "base/alert"}}native-alert/{{.Title}}{{end}}
-		{{define "base/footer"}}native-footer/{{.Title}}{{end}}
-		{{define "user/settings/navbar"}}native-settings-navbar/{{.Title}}{{end}}
-		{{define "custom/soda/page_intro"}}soda-intro/{{.Title}}/{{.Class}}{{end}}
-		{{define "settings-head"}}` + readForgejoTemplate(t, "user", "settings", "layout_head.tmpl") + `{{end}}
-		{{define "settings-footer"}}` + readForgejoTemplate(t, "user", "settings", "layout_footer.tmpl") + `{{end}}`
-	parsed, err := template.New("account-settings").Funcs(functions).Parse(definition)
-	if err != nil {
-		t.Fatalf("parse account settings layout: %v", err)
-	}
-
-	page := map[string]any{
-		"Title": "Security & access",
-		"ctxData": map[string]any{
-			"Title": "Security & access",
-		},
-		"pageClass": "user settings security",
-	}
-	var head bytes.Buffer
-	if err := parsed.ExecuteTemplate(&head, "settings-head", page); err != nil {
-		t.Fatalf("execute account settings head: %v", err)
-	}
-	output := head.String()
-	for _, want := range []string{
-		"native-head/Security &amp; access",
-		"native-settings-navbar/Security &amp; access",
-		"native-alert/Security &amp; access",
-		"soda-intro/Security &amp; access/soda-page-intro--compact",
-		`class="page-content soda-page soda-native-forms soda-settings user settings security"`,
-		`data-signed="true"`,
+// The native navigation restrictions must remain true even with no enhancement.
+func TestForgejoPersonalSettingsNavigationGates(t *testing.T) {
+	source := readForgejoTemplate(t, "user/settings/navbar.tmpl")
+	for _, test := range []struct {
+		name         string
+		data         map[string]any
+		disabled     bool
+		want, absent []string
+	}{
+		{name: "ordinary", data: map[string]any{}, disabled: true, want: []string{"/user/settings/account", "/user/settings/blocked_users"}, absent: []string{"/actions/runners", "/packages", "/storage_overview", "/hooks"}},
+		{name: "all capabilities", data: map[string]any{"EnableActions": true, "EnablePackages": true, "EnableQuota": true, "PageIsSettingsKeys": true}, want: []string{"/actions/runners", "/actions/secrets", "/actions/variables", "/packages", "/storage_overview", "/hooks", `aria-current="page"`}},
+		{name: "mandatory enrollment", data: map[string]any{"HideNavbarLinks": true, "EnableActions": true, "EnablePackages": true, "EnableQuota": true}, absent: []string{"<nav", "/user/settings"}},
 	} {
-		if !strings.Contains(output, want) {
-			t.Errorf("account settings head does not contain %q:\n%s", want, output)
-		}
-	}
-
-	var footer bytes.Buffer
-	if err := parsed.ExecuteTemplate(&footer, "settings-footer", page); err != nil {
-		t.Fatalf("execute account settings footer: %v", err)
-	}
-	if !strings.Contains(footer.String(), "native-footer/Security &amp; access") {
-		t.Errorf("account settings footer lost native footer:\n%s", footer.String())
-	}
-}
-
-func TestForgejoAccountSettingsStylesRemainPageScoped(t *testing.T) {
-	path := filepath.Join("..", "assets", "branding", "forgejo", "account-settings.css")
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	css := string(contents)
-	if !strings.Contains(css, ".soda-settings") {
-		t.Fatal("account settings stylesheet is missing its page root")
-	}
-	for _, forbidden := range []string{"body ", "#navbar", ".soda-page {", ".soda-form"} {
-		if strings.Contains(css, forbidden) {
-			t.Errorf("account settings stylesheet reaches outside its page contract with %q", forbidden)
-		}
-	}
-}
-
-func TestForgejoAccountSettingsArtworkUsesNativePageFlags(t *testing.T) {
-	definition := `{{define "base/head"}}{{end}}{{define "base/alert"}}{{end}}{{define "user/settings/navbar"}}{{end}}{{define "custom/soda/page_intro"}}{{.Artwork}}{{end}}{{define "settings"}}` + readForgejoTemplate(t, "user", "settings", "layout_head.tmpl") + `{{end}}`
-	parsed, err := template.New("settings-artwork").Funcs(template.FuncMap{"dict": forgejoTemplateDict}).Parse(definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for flag, artwork := range map[string]string{
-		"PageIsSettingsProfile":      "settings-profile-papercraft.png",
-		"PageIsSettingsAccount":      "settings-account-papercraft.png",
-		"PageIsSettingsAppearance":   "settings-appearance-papercraft.png",
-		"PageIsSettingsSecurity":     "settings-security-papercraft.png",
-		"PageIsSettingsKeys":         "settings-keys-papercraft.png",
-		"PageIsSettingsApplications": "settings-applications-papercraft.png",
-	} {
-		t.Run(flag, func(t *testing.T) {
-			var output bytes.Buffer
-			if err := parsed.ExecuteTemplate(&output, "settings", map[string]any{"ctxData": map[string]any{flag: true}}); err != nil {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, err := template.New("nav").Funcs(template.FuncMap{
+				"ctx":       func() forgejoTemplateContext { return forgejoTemplateContext{Locale: forgejoTemplateLocale{}} },
+				"AppSubUrl": func() string { return "" }, "svg": func(string, ...any) string { return "" }, "DisableWebhooks": func() bool { return test.disabled },
+			}).Parse(source)
+			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(output.String(), artwork) {
-				t.Fatalf("native %s did not select %s", flag, artwork)
-			}
-			if _, err := os.Stat(filepath.Join("..", "assets", "branding", "forgejo", artwork)); err != nil {
+			var out bytes.Buffer
+			if err = parsed.Execute(&out, test.data); err != nil {
 				t.Fatal(err)
+			}
+			for _, want := range test.want {
+				if !strings.Contains(out.String(), want) {
+					t.Errorf("missing %s", want)
+				}
+			}
+			for _, absent := range test.absent {
+				if strings.Contains(out.String(), absent) {
+					t.Errorf("unexpected %s", absent)
+				}
 			}
 		})
 	}
-	var unrelated bytes.Buffer
-	if err := parsed.ExecuteTemplate(&unrelated, "settings", map[string]any{"ctxData": map[string]any{"PageIsSettingsRepos": true}}); err != nil {
+}
+
+func TestForgejoAccountSettingsLayoutComposesNativeSeams(t *testing.T) {
+	source := readForgejoTemplate(t, "user/settings/layout_head.tmpl")
+	for _, want := range []string{`template "base/head" .ctxData`, `template "base/alert" .ctxData`, `template "user/settings/navbar" .ctxData`, ".ctxData.SignedUser", "soda-settings-bar", "soda-settings-title", `{{if not .ctxData.HideNavbarLinks}}href=`} {
+		if !strings.Contains(source, want) {
+			t.Errorf("missing native seam %s", want)
+		}
+	}
+	for _, old := range []string{"page_intro", "artwork", "flex-container-nav", "settings-sidebar"} {
+		if strings.Contains(source, old) {
+			t.Errorf("obsolete shell %s", old)
+		}
+	}
+}
+
+type forgejoCleanupFixtureType string
+
+func (t forgejoCleanupFixtureType) Name() string { return string(t) }
+
+func TestForgejoPersonalAdaptersKeepNativeRootContext(t *testing.T) {
+	funcs := template.FuncMap{"dict": forgejoTemplateDict, "ctx": func() any { return struct{ Locale forgejoSettingsFixtureLocale }{} }}
+	data := map[string]any{"Link": "/native/action", "RunnersListLink": "/native/runners", "Runner": map[string]any{"Name": "runner", "Description": "details"}, "AvailableTypes": []forgejoCleanupFixtureType{"alpine"}, "CleanupRule": map[string]any{"ID": 7, "Type": forgejoCleanupFixtureType("alpine"), "KeepCount": 5, "RemoveDays": 30}}
+	for _, path := range []string{"shared/actions/runner_create.tmpl", "package/shared/cleanup_rules/edit.tmpl"} {
+		for _, personal := range []bool{false, true} {
+			parsed, err := template.New("root").Funcs(funcs).Parse(readForgejoTemplate(t, path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			var input any = data
+			if personal {
+				input = map[string]any{"PersonalSettings": true, "ctxData": data}
+			}
+			if err = parsed.Execute(&out, input); err != nil {
+				t.Fatal(err)
+			}
+			html := out.String()
+			if !strings.Contains(html, `action="/native/action"`) {
+				t.Fatal("lost native action")
+			}
+			if strings.Contains(path, "cleanup") && !strings.Contains(html, `selected="selected" value="alpine"`) {
+				t.Fatal("lost native selection through root context")
+			}
+			if strings.Contains(path, "runner") && !strings.Contains(html, `href="/native/runners"`) {
+				t.Fatal("lost native root cancel link")
+			}
+			if strings.Contains(html, "<h4") == personal {
+				t.Fatal("child title suppression leaked across caller boundary")
+			}
+		}
+	}
+}
+
+type forgejoSettingsFixtureLocale struct{}
+
+func (forgejoSettingsFixtureLocale) Tr(key string, args ...any) string { return key }
+
+func TestForgejoPersonalProviderSectionAbsentWithoutProviders(t *testing.T) {
+	parsed, err := template.New("providers").Funcs(template.FuncMap{"ctx": func() any { return struct{ Locale forgejoSettingsFixtureLocale }{} }, "AppSubUrl": func() string { return "" }, "svg": func(...any) string { return "" }}).Parse(`{{define "base/modal_actions_confirm"}}{{end}}` + readForgejoTemplate(t, "user/settings/security/accountlinks.tmpl"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(unrelated.String(), "papercraft.png") {
-		t.Fatal("unrelated settings page borrowed a different page's artwork")
+	var out bytes.Buffer
+	if err = parsed.Execute(&out, map[string]any{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.String()) != "" {
+		t.Fatalf("disabled providers leaked structural markup: %s", out.String())
+	}
+}
+
+func TestForgejoOAuthHeadingScopedByCallerNotNativeSettingsFlag(t *testing.T) {
+	source := readForgejoTemplate(t, "user/settings/applications_oauth2.tmpl")
+	parsed, err := template.New("oauth").Funcs(template.FuncMap{"dict": forgejoTemplateDict, "ctx": func() any { return struct{ Locale forgejoSettingsFixtureLocale }{} }}).Parse(`{{define "user/settings/applications_oauth2_list"}}inventory{{end}}` + source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, personal := range []bool{false, true} {
+		data := map[string]any{"PageIsSettingsApplications": true}
+		var input any = data
+		if personal {
+			input = map[string]any{"PersonalSettings": true, "ctxData": data}
+		}
+		var out bytes.Buffer
+		if err = parsed.Execute(&out, input); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.String(), `<h4 class="ui top attached header">`) == personal {
+			t.Fatal("organization header lost through a shared native flag")
+		}
+		if !strings.Contains(out.String(), "inventory") {
+			t.Fatal("OAuth inventory lost")
+		}
+	}
+}
+
+type forgejoSettingsFixtureStrings struct{}
+
+func (forgejoSettingsFixtureStrings) Join(values []string, sep string) string {
+	return strings.Join(values, sep)
+}
+func TestForgejoOAuthEditorPreservesOtherCallers(t *testing.T) {
+	parsed, err := template.New("oauth-edit").Funcs(template.FuncMap{"dict": forgejoTemplateDict, "ctx": func() any { return struct{ Locale forgejoSettingsFixtureLocale }{} }, "StringUtils": func() any { return forgejoSettingsFixtureStrings{} }}).Parse(readForgejoTemplate(t, "user/settings/applications_oauth2_edit_form.tmpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, personal := range []bool{false, true} {
+		data := map[string]any{"PageIsSettingsApplications": true, "FormActionPath": "/native/oauth", "App": map[string]any{"Name": "Example", "ClientID": "fixture-id", "RedirectURIs": []string{"https://example.test/callback"}, "ConfidentialClient": true}}
+		var input any = data
+		if personal {
+			input = map[string]any{"PersonalSettings": true, "ctxData": data}
+		}
+		var out bytes.Buffer
+		if err = parsed.Execute(&out, input); err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{`action="/native/oauth"`, `action="/native/oauth/regenerate_secret"`, `https://example.test/callback`, `name="confidential_client" checked`} {
+			if !strings.Contains(out.String(), want) {
+				t.Errorf("missing native OAuth contract %s", want)
+			}
+		}
+		if strings.Contains(out.String(), "<h4") == personal {
+			t.Fatal("OAuth title suppression leaked to nonpersonal caller")
+		}
 	}
 }

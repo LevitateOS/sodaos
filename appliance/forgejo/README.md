@@ -407,9 +407,8 @@ Native menus may overflow their
 containers; repository action rows wrap on mobile without clipping dropdowns.
 Forms retain native handler URLs, security fields, permissions, state, scripts and
 semantic danger controls. Narrow auth grids explicitly clear native percentage
-padding before constraining width. The settings intro selects the six new
-`settings-*-papercraft.png` assets using upstream `PageIsSettings*` flags; provenance
-is in `assets/branding/forgejo/settings-art-prompts.md`.
+padding before constraining width. Personal settings no longer render artwork or an introductory hero. Previously
+selected artwork remains attributed in `assets/branding/forgejo/settings-art-prompts.md`.
 
 `custom/soda/guest_theme` owns one presentation gate for the head script and native
 navbar toggle. Repository context uses `.Repository`, organization context uses
@@ -464,7 +463,7 @@ the narrow main-content form adapter; compact row/search/modal forms are exclude
 Sign-in retains its native partial with a bounded form adapter. Do not replace
 these with selectors matching every descendant form or segment on a page.
 
-`tests/forgejo/presentation/inventory.json` accounts for all 206 overrides and
+`tests/forgejo/presentation/inventory.json` accounts for all 228 overrides and
 records local and embedded-15.0.7 callers, compositions, roles and required
 states. It is test-only, not routing configuration. Role-only source hashes
 complement the existing exact upstream-body tests; they do not constitute visual

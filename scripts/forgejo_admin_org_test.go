@@ -155,7 +155,7 @@ func TestForgejoSettingsComponentKeepsNativeBoundaries(t *testing.T) {
 	}
 	css := string(contents)
 	for _, marker := range []string{
-		`:is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu`,
+		`:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu`,
 		`details.item > summary`,
 		`:is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header`,
 		`> .ui.attached.segment:not(table)`,

@@ -29,11 +29,11 @@
 .soda-settings-disclosure-body { margin-top: 12px; }
 .soda-settings .soda-settings-section { margin-block: 32px; min-width: 0; }
 .soda-settings .soda-settings-section:first-child { margin-top: 0; }
-.soda-settings .soda-settings-section > h2 { margin: 0; font: 600 21px/1.35 "Fraunces Variable", Georgia, serif; }
+.soda-settings .soda-settings-section > h2 { margin: 0; font: var(--soda-font-heading); }
 .soda-settings .soda-settings-section-body { min-width: 0; }
 .soda-settings-explained { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; }
 .soda-settings .soda-settings-editor { max-width: 720px; }
-.soda-settings .flex-list > .flex-item { border: 0; padding-block: 12px; gap: 16px; }
+.soda-settings .flex-list > .flex-item { background: transparent; border-radius: 0; border: 0; padding-block: 12px; gap: 16px; }
 .soda-settings .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 899px) {
  .soda-settings { padding-top: 12px; }
@@ -69,3 +69,5 @@
 .soda-settings .soda-shared-runner > .ui.attached.segment:not(table) { border: 0; padding: 0; background: transparent; }
 .soda-settings .soda-shared-runner dl > .item { border: 0; }
 .soda-settings .soda-webhook-provider { margin-top: 16px; }
+.soda-settings-inventory-actions { justify-content: flex-end; }
+.soda-settings-inventory-actions:empty { display: none; }

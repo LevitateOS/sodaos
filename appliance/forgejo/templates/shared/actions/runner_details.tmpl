@@ -1,6 +1,8 @@
+{{if .PersonalSettings}}{{template "shared/actions/runner_details_body" .}}{{else}}{{template "shared/actions/runner_details_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/actions/runner_details_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <div class="runner-container soda-shared-runner soda-shared-runner-details">
 	<h4 class="ui top attached header soda-p-heading">
-		{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}
+		{{if not $personal}}{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}{{end}}
 		{{if .Runner.Editable $.RunnerOwnerID $.RunnerRepoID}}
 			<div class="ui right">
 				<a class="ui primary tiny button" tabindex="0" href="{{$.Link}}/edit">
@@ -156,3 +158,5 @@
 		{{template "base/paginate" .}}
 	</div>
 </div>
+
+{{end}}{{end}}

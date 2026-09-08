@@ -2,6 +2,6 @@
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--oauth2-edit applications" "title" (ctx.Locale.Tr "settings.edit_oauth2_application") "parentURL" (printf "%s/user/settings/applications" AppSubUrl) "parentTitle" (ctx.Locale.Tr "settings.applications"))}}
 	<div class="user-setting-content soda-settings-editor soda-account-details soda-account-details--oauth2-edit">
 
-		{{template "user/settings/applications_oauth2_edit_form" .}}
+		{{template "user/settings/applications_oauth2_edit_form" (dict "PersonalSettings" true "ctxData" .)}}
 	</div>
 {{template "user/settings/layout_footer" .}}

@@ -95,11 +95,12 @@
 
 <section class="soda-settings-section soda-settings-explained ">
 		<h2>
-			{{ctx.Locale.Tr "settings.change_password"}}
+			{{ctx.Locale.Tr "password"}}
 		</h2><div class="soda-settings-section-body">
 		<div class="ui attached segment soda-p-section">
 			{{if and (not ($.UserDisabledFeatures.Contains "manage_password")) (or (.SignedUser.IsLocal) (.SignedUser.IsOAuth2))}}
-			<details class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.change_password"}}</summary><form class="ui form ignore-dirty soda-p-form" action="{{AppSubUrl}}/user/settings/account" method="post">
+			<p>{{ctx.Locale.Tr "soda.password_description"}}</p>
+<details class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.change_password"}}</summary><form class="ui form ignore-dirty soda-p-form" action="{{AppSubUrl}}/user/settings/account" method="post">
 				{{template "base/disable_form_autofill"}}
 				{{if .SignedUser.IsPasswordSet}}
 				<div class="required field {{if .Err_OldPassword}}error{{end}}">

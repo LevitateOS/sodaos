@@ -188,6 +188,7 @@ func TestForgejoPackagesStylesStayScoped(t *testing.T) {
 
 func TestForgejoPackagesCleanupRulesKeepNativeActionsAndData(t *testing.T) {
 	functions := template.FuncMap{
+		"dict":        forgejoTemplateDict,
 		"ctx":         func() forgejoTemplateContext { return forgejoTemplateContext{} },
 		"svg":         func(...any) string { return "" },
 		"StringUtils": func() any { return struct{}{} },

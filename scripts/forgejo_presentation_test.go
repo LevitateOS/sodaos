@@ -22,9 +22,12 @@ func TestForgejoPresentationGallery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	funcs := template.FuncMap{"dict": forgejoTemplateDict, "AssetUrlPrefix": func() string { return "http://localhost:3300/assets" }, "svg": func(string, int) string { return "" }}
+	funcs := template.FuncMap{"dict": forgejoTemplateDict, "AssetUrlPrefix": func() string { return "http://localhost:3300/assets" }, "svg": func(string, ...any) string { return "" }, "AppSubUrl": func() string { return "" }, "DisableWebhooks": func() bool { return false }, "ctx": func() forgejoTemplateContext {
+		return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{"soda.nav_personal": "Personal", "soda.nav_access": "Access & integrations", "soda.nav_resources": "Resources", "settings.profile": "Profile", "settings.account": "Account", "settings.appearance": "Appearance", "settings.security": "Security", "settings.applications": "Applications", "settings.ssh_gpg_keys": "SSH/GPG keys", "settings.repos": "Repositories", "settings.organization": "Organizations", "settings.blocked_users": "Blocked users", "repo.settings.hooks": "Webhooks"}}}
+	}}
 	source := `{{define "custom/soda/page_intro"}}` + readForgejoTemplate(t, "custom/soda/page_intro.tmpl") + `{{end}}`
 	source += `{{define "custom/soda/empty_content"}}` + readForgejoTemplate(t, "custom/soda/empty_content.tmpl") + `{{end}}`
+	source += `{{define "user/settings/navbar"}}` + readForgejoTemplate(t, "user/settings/navbar.tmpl") + `{{end}}`
 	source += `{{define "gallery"}}` + string(fixtures) + `{{end}}`
 	parsed, err := template.New("gallery").Funcs(funcs).Parse(source)
 	if err != nil {

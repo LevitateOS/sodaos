@@ -1,0 +1,611 @@
+{
+  "upstream": "15.0.7",
+  "presentationDeltas": [
+    "one identity/navigation row; native sidebar replaced by gated menus",
+    "semantic open sections and reordered account/profile groups",
+    "landing autofocus removed; editor and error focus retained",
+    "explicit principal/compact/control roles; no native behavioral classes removed",
+    "child heading moved to shell; parent links added",
+    "avatar, password and OAuth registration progressive disclosures"
+  ],
+  "entries": {
+    "user/settings/access_token_edit.tmpl": {
+      "controls": [
+        "button aria-label=\"{{ctx.Locale.Tr \"search.search\"}}\" type=\"submit\" name=\"set_page\" value=\"1\" formnovalidate=\"true\" formmethod=\"get\"",
+        "button id=\"scoped-access-submit\"",
+        "button type=\"submit\" aria-label=\"{{ctx.Locale.Tr \"repo.editor.add\" .FullName}}\" formnovalidate=\"true\" name=\"add_selected_repo\" value=\"{{.FullName}}\" formmethod=\"get\"",
+        "button type=\"submit\" aria-label=\"{{ctx.Locale.Tr \"settings.access_token.remove\" .FullName}}\" formnovalidate=\"true\" name=\"remove_selected_repo\" value=\"{{.FullName}}\" formmethod=\"get\"",
+        "button type=\"submit\" formnovalidate=\"true\" name=\"set_page\" value=\"1\" formmethod=\"get\"",
+        "button type=\"submit\" formnovalidate=\"true\" name=\"set_page\" value=\"{{.Next}}\" formmethod=\"get\"",
+        "button type=\"submit\" formnovalidate=\"true\" name=\"set_page\" value=\"{{.Num}}\" formmethod=\"get\"",
+        "button type=\"submit\" formnovalidate=\"true\" name=\"set_page\" value=\"{{.Previous}}\" formmethod=\"get\"",
+        "button type=\"submit\" formnovalidate=\"true\" name=\"set_page\" value=\"{{.TotalPages}}\" formmethod=\"get\"",
+        "form id=\"scoped-access-form\" action=\"{{.Link}}\" method=\"post\"",
+        "input id=\"name\" name=\"name\" value=\"{{.name}}\" {{if eq .Autofocus \"name\"}}autofocus{{end}} required maxlength=\"255\"",
+        "input id=\"resource-all\" type=\"radio\" name=\"resource\" value=\"all\" {{if eq .resource \"all\"}}checked{{end}}",
+        "input id=\"resource-public-only\" type=\"radio\" name=\"resource\" value=\"public-only\" {{if eq .resource \"public-only\"}}checked{{end}}",
+        "input id=\"resource-repo-specific\" type=\"radio\" name=\"resource\" value=\"repo-specific\" {{if eq .resource \"repo-specific\"}}checked{{end}}",
+        "input type=\"hidden\" name=\"page\" value=\"{{.Current}}\"",
+        "input type=\"hidden\" name=\"selected_repo\" value=\"{{.FullName}}\"",
+        "input type=\"search\" name=\"repo_search\" spellcheck=\"false\" {{if eq .Autofocus \"search\"}}autofocus{{end}} placeholder=\"{{ctx.Locale.Tr \"search.repo_kind\"}}\" value=\"{{.repo_search}}\"",
+        "option value=\"\"",
+        "option value=\"read:{{.}}\" {{if (SliceUtils.Contains $.scope (printf \"read:%s\" .))}} selected {{end}}",
+        "option value=\"write:{{.}}\" {{if (SliceUtils.Contains $.scope (printf \"write:%s\" .))}} selected {{end}}",
+        "select name=\"scope\" id=\"access-token-scope-{{.}}\""
+      ],
+      "gates": [
+        "{{if $.IsAdmin}}",
+        "{{if $.IsAdmin}}",
+        "{{if (SliceUtils.Contains $.scope (printf \"read:%s\" .))}}",
+        "{{if (SliceUtils.Contains $.scope (printf \"write:%s\" .))}}",
+        "{{if .Err_Name}}",
+        "{{if .IsCurrent}}",
+        "{{if .IsFirst}}",
+        "{{if .IsLast}}",
+        "{{if eq (len .Repos) 0}}",
+        "{{if eq (len .SelectedRepos) 0}}",
+        "{{if eq .Autofocus \"name\"}}",
+        "{{if eq .Autofocus \"search\"}}",
+        "{{if eq .Num -1}}",
+        "{{if eq .resource \"all\"}}",
+        "{{if eq .resource \"public-only\"}}",
+        "{{if eq .resource \"repo-specific\"}}",
+        "{{if not .HasNext}}",
+        "{{if not .HasPrevious}}",
+        "{{range .Categories}}",
+        "{{range .Pages}}",
+        "{{range .Repos}}",
+        "{{range .SelectedRepos}}",
+        "{{with .Page.Paginater}}"
+      ]
+    },
+    "user/settings/account.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button ",
+        "button ",
+        "button data-modal-id=\"delete-account\" data-type=\"form\" data-form=\"#delete-form\"",
+        "button data-modal-id=\"delete-email\" data-url=\"{{AppSubUrl}}/user/settings/account/email/delete\" data-id=\"{{.ID}}\"",
+        "button disabled",
+        "button {{if not .CanAddEmails}}disabled{{end}}",
+        "form action=\"{{AppSubUrl}}/user/settings/account\" method=\"post\"",
+        "form action=\"{{AppSubUrl}}/user/settings/account/email\" method=\"post\"",
+        "form action=\"{{AppSubUrl}}/user/settings/account/email\" method=\"post\"",
+        "form action=\"{{AppSubUrl}}/user/settings/account/email\" method=\"post\"",
+        "form action=\"{{AppSubUrl}}/user/settings/account/email\" method=\"post\"",
+        "form id=\"delete-form\" action=\"{{AppSubUrl}}/user/settings/account/delete\" method=\"post\"",
+        "input id=\"email\" name=\"email\" type=\"email\" required {{if not .CanAddEmails}}disabled{{end}}",
+        "input id=\"old_password\" name=\"old_password\" type=\"password\" autocomplete=\"current-password\" required",
+        "input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"new-password\" required",
+        "input id=\"password-confirmation\" name=\"password\" type=\"password\" autocomplete=\"off\" required",
+        "input id=\"retype\" name=\"retype\" type=\"password\" autocomplete=\"new-password\" required",
+        "input name=\"_method\" type=\"hidden\" value=\"NOTIFICATION\"",
+        "input name=\"_method\" type=\"hidden\" value=\"PRIMARY\"",
+        "input name=\"_method\" type=\"hidden\" value=\"SENDACTIVATION\"",
+        "input name=\"id\" type=\"hidden\" value=\"{{.ID}}\"",
+        "input name=\"id\" type=\"hidden\" value=\"{{.ID}}\"",
+        "input name=\"preference\" type=\"hidden\" value=\"{{.EmailNotificationsPreference}}\""
+      ],
+      "gates": [
+        "{{if $.ActivationsPending}}",
+        "{{if $.EnableNotifyMail}}",
+        "{{if .CanBePrimary}}",
+        "{{if .Err_Email}}",
+        "{{if .Err_OldPassword}}",
+        "{{if .Err_Password}}",
+        "{{if .Err_Password}}",
+        "{{if .Err_Password}}",
+        "{{if .IsActivated}}",
+        "{{if .IsPrimary}}",
+        "{{if .SignedUser.IsPasswordSet}}",
+        "{{if .UserDeleteWithComments}}",
+        "{{if and (not ($.UserDisabledFeatures.Contains \"manage_password\")) (or (.SignedUser.IsLocal) (.SignedUser.IsOAuth2))}}",
+        "{{if eq .EmailNotificationsPreference \"andyourown\"}}",
+        "{{if eq .EmailNotificationsPreference \"disabled\"}}",
+        "{{if eq .EmailNotificationsPreference \"enabled\"}}",
+        "{{if eq .EmailNotificationsPreference \"onmention\"}}",
+        "{{if not ($.UserDisabledFeatures.Contains \"deletion\")}}",
+        "{{if not .CanAddEmails}}",
+        "{{if not .CanAddEmails}}",
+        "{{if not .CanAddEmails}}",
+        "{{if not .IsActivated}}",
+        "{{if not .IsPrimary}}",
+        "{{range .Emails}}"
+      ]
+    },
+    "user/settings/actions.tmpl": {
+      "controls": [],
+      "gates": [
+        "{{else if eq .PageType \"runners\"}}",
+        "{{else if eq .PageType \"variables\"}}",
+        "{{if eq .PageType \"secrets\"}}"
+      ]
+    },
+    "user/settings/appearance.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button ",
+        "button ",
+        "form action=\"{{.Link}}/hidden_comments\" method=\"post\"",
+        "form action=\"{{.Link}}/hints\" method=\"post\"",
+        "form action=\"{{.Link}}/language\" method=\"post\"",
+        "form action=\"{{.Link}}/theme\" method=\"post\"",
+        "input name=\"assignee\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"assignee\")}}checked{{end}}",
+        "input name=\"branch\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"branch\")}}checked{{end}}",
+        "input name=\"deadline\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"deadline\")}}checked{{end}}",
+        "input name=\"dependency\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"dependency\")}}checked{{end}}",
+        "input name=\"enable_repo_unit_hints\" type=\"checkbox\" {{if $.SignedUser.EnableRepoUnitHints}}checked{{end}}",
+        "input name=\"issue_ref\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"issue_ref\")}}checked{{end}}",
+        "input name=\"label\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"label\")}}checked{{end}}",
+        "input name=\"language\" type=\"hidden\" value=\"{{.SignedUser.Language}}\"",
+        "input name=\"lock\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"lock\")}}checked{{end}}",
+        "input name=\"milestone\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"milestone\")}}checked{{end}}",
+        "input name=\"project\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"project\")}}checked{{end}}",
+        "input name=\"pull_request_push\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"pull_request_push\")}}checked{{end}}",
+        "input name=\"reference\" type=\"checkbox\" {{if(call .IsCommentTypeGroupChecked \"reference\")}}checked{{end}}",
+        "input name=\"review_request\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"review_request\")}}checked{{end}}",
+        "input name=\"theme\" type=\"hidden\" value=\"{{.SignedUser.Theme}}\"",
+        "input name=\"time_tracking\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"time_tracking\")}}checked{{end}}",
+        "input name=\"title\" type=\"checkbox\" {{if (call .IsCommentTypeGroupChecked \"title\")}}checked{{end}}"
+      ],
+      "gates": [
+        "{{if $.SignedUser.EnableRepoUnitHints}}",
+        "{{if (call .IsCommentTypeGroupChecked \"assignee\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"branch\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"deadline\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"dependency\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"issue_ref\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"label\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"lock\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"milestone\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"project\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"pull_request_push\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"review_request\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"time_tracking\")}}",
+        "{{if (call .IsCommentTypeGroupChecked \"title\")}}",
+        "{{if eq $.SignedUser.Language .Lang}}",
+        "{{if eq $.SignedUser.Language .Lang}}",
+        "{{if eq $.SignedUser.Theme $a}}",
+        "{{if eq $.SignedUser.Theme $a}}",
+        "{{range $i,$a := .AllThemes}}",
+        "{{range .AllLangs}}",
+        "{{range .AllLangs}}"
+      ]
+    },
+    "user/settings/applications.tmpl": {
+      "controls": [
+        "button data-modal-id=\"delete-token\" data-url=\"{{$.Link}}/tokens/delete\" data-id=\"{{.Token.ID}}\"",
+        "button data-modal-id=\"regenerate-token\" data-url=\"{{$.Link}}/tokens/regenerate\" data-id=\"{{.Token.ID}}\""
+      ],
+      "gates": [
+        "{{if (ne . $.AccessTokenScopePublicOnly)}}",
+        "{{if .EnableOAuth2}}",
+        "{{if .Token.DisplayPublicOnly}}",
+        "{{if .Token.HasRecentActivity}}",
+        "{{if .Token.HasRecentActivity}}",
+        "{{if .Token.HasRecentActivity}}",
+        "{{if .Token.HasUsed}}",
+        "{{if .Token.ResourceAllRepos}}",
+        "{{range .Repositories}}",
+        "{{range .Token.Scope.StringSlice}}",
+        "{{range .TokensWithResources}}"
+      ]
+    },
+    "user/settings/applications_oauth2.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/applications_oauth2_edit.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/applications_oauth2_edit_form.tmpl": {
+      "controls": [
+        "button ",
+        "button type=\"submit\"",
+        "form action=\"{{.FormActionPath}}\" method=\"post\"",
+        "form action=\"{{.FormActionPath}}/regenerate_secret\" method=\"post\"",
+        "input id=\"application-name\" value=\"{{.App.Name}}\" name=\"application_name\" required maxlength=\"255\"",
+        "input id=\"client-id\" readonly value=\"{{.App.ClientID}}\"",
+        "input id=\"client-secret\" type=\"password\" readonly value=\"averysecuresecret\"",
+        "input id=\"client-secret\" type=\"text\" readonly value=\"{{.ClientSecret}}\"",
+        "input type=\"checkbox\" name=\"confidential_client\" {{if .App.ConfidentialClient}}checked{{end}}",
+        "textarea name=\"redirect_uris\" id=\"redirect-uris\" required"
+      ],
+      "gates": [
+        "{{if .App.ConfidentialClient}}",
+        "{{if .ClientSecret}}",
+        "{{if .Err_AppName}}",
+        "{{if .Err_ConfidentialClient}}",
+        "{{if .Err_RedirectURI}}"
+      ]
+    },
+    "user/settings/applications_oauth2_list.tmpl": {
+      "controls": [
+        "button ",
+        "button data-modal-id=\"remove-gitea-oauth2-application\" data-url=\"{{$.Link}}/oauth2/{{.ID}}/delete\"",
+        "form action=\"{{.Link}}/oauth2\" method=\"post\"",
+        "input id=\"application-name\" name=\"application_name\" value=\"{{.application_name}}\" required maxlength=\"255\"",
+        "input type=\"checkbox\" name=\"confidential_client\" checked",
+        "textarea name=\"redirect_uris\" id=\"redirect-uris\" required"
+      ],
+      "gates": [
+        "{{if $isBuiltin}}",
+        "{{if .Err_AppName}}",
+        "{{if .Err_ConfidentialClient}}",
+        "{{if .Err_RedirectURI}}",
+        "{{range .Applications}}"
+      ]
+    },
+    "user/settings/blocked_users.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/grants_oauth2.tmpl": {
+      "controls": [
+        "button data-modal-id=\"revoke-gitea-oauth2-grant\" data-url=\"{{AppSubUrl}}/user/settings/applications/oauth2/{{.ApplicationID}}/revoke/{{.ID}}\""
+      ],
+      "gates": [
+        "{{range .Grants}}"
+      ]
+    },
+    "user/settings/hook_new.tmpl": {
+      "controls": [],
+      "gates": [
+        "{{if .PageIsSettingsHooksNew}}"
+      ]
+    },
+    "user/settings/hooks.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/keys.tmpl": {
+      "controls": [],
+      "gates": [
+        "{{if not ($.UserDisabledFeatures.Contains \"manage_gpg_keys\")}}",
+        "{{if not ($.UserDisabledFeatures.Contains \"manage_ssh_keys\")}}"
+      ]
+    },
+    "user/settings/keys_gpg.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button data-modal-id=\"delete-gpg\" data-url=\"{{$.Link}}/delete?type=gpg\" data-id=\"{{.ID}}\"",
+        "button data-panel=\"#add-gpg-key-panel\"",
+        "button data-panel=\"#add-gpg-key-panel\"",
+        "form action=\"{{$.Link}}\" method=\"post\"",
+        "form action=\"{{.Link}}\" method=\"post\"",
+        "input name=\"type\" type=\"hidden\" value=\"gpg\"",
+        "input name=\"type\" type=\"hidden\" value=\"verify_gpg\"",
+        "input readonly=\"\" value=\"{{$.TokenToSign}}\"",
+        "input readonly=\"\" value=\"{{.TokenToSign}}\"",
+        "input type=\"hidden\" name=\"content\" value=\"{{.KeyID}}\"",
+        "input type=\"hidden\" name=\"key_id\" value=\"{{.KeyID}}\"",
+        "input type=\"hidden\" name=\"title\" value=\"none\"",
+        "input type=\"hidden\" name=\"title\" value=\"none\"",
+        "textarea id=\"gpg-key-content\" name=\"content\" placeholder=\"{{ctx.Locale.Tr \"settings.key_content_gpg_placeholder\"}}\" required",
+        "textarea id=\"gpg-key-signature\" name=\"signature\" placeholder=\"{{ctx.Locale.Tr \"settings.key_signature_gpg_placeholder\"}}\" required",
+        "textarea id=\"gpg-key-signature\" name=\"signature\" placeholder=\"{{ctx.Locale.Tr \"settings.key_signature_gpg_placeholder\"}}\" required"
+      ],
+      "gates": [
+        "{{if $.HasGPGVerifyError}}",
+        "{{if .Emails}}",
+        "{{if .Err_Content}}",
+        "{{if .Err_Signature}}",
+        "{{if .HasGPGError}}",
+        "{{if .Verified}}",
+        "{{if and (not .Verified) (eq $.VerifyingID .KeyID)}}",
+        "{{if and (not .Verified) (ne $.VerifyingID .KeyID)}}",
+        "{{if not .ExpiredUnix.IsZero}}",
+        "{{if not .HasGPGError}}",
+        "{{if or .ExpiredUnix.IsZero ($.PageStartTime.Before .ExpiredUnix.AsTime)}}",
+        "{{range .Emails}}",
+        "{{range .GPGKeys}}",
+        "{{range .SubsKey}}"
+      ]
+    },
+    "user/settings/keys_principal.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button data-modal-id=\"delete-principal\" data-url=\"{{$.Link}}/delete?type=principal\" data-id=\"{{.ID}}\"",
+        "button data-panel=\"#add-ssh-principal-panel\"",
+        "form action=\"{{.Link}}\" method=\"post\"",
+        "input id=\"ssh-principal-content\" name=\"content\" value=\"{{.content}}\" required",
+        "input name=\"title\" type=\"hidden\" value=\"principal\"",
+        "input name=\"type\" type=\"hidden\" value=\"principal\""
+      ],
+      "gates": [
+        "{{if .AllowPrincipals}}",
+        "{{if .Err_Content}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasUsed}}",
+        "{{if not .DisableSSH}}",
+        "{{if not .HasPrincipalError}}",
+        "{{range .Principals}}"
+      ]
+    },
+    "user/settings/keys_ssh.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button data-modal-id=\"delete-ssh\" data-url=\"{{$.Link}}/delete?type=ssh\" data-id=\"{{.ID}}\"{{if index $.ExternalKeys $index}} title=\"{{ctx.Locale.Tr \"settings.ssh_externally_managed\"}}\"{{end}}",
+        "button id=\"add-ssh-button\" data-panel=\"#add-ssh-key-panel\"",
+        "button id=\"cancel-ssh-button\" data-panel=\"#add-ssh-key-panel\"",
+        "form action=\"{{$.Link}}\" method=\"post\"",
+        "form action=\"{{.Link}}\" method=\"post\"",
+        "input id=\"ssh-key-title\" name=\"title\" value=\"{{.title}}\" required maxlength=\"50\"",
+        "input name=\"type\" type=\"hidden\" value=\"ssh\"",
+        "input name=\"type\" type=\"hidden\" value=\"verify_ssh\"",
+        "input readonly=\"\" value=\"{{$.TokenToSign}}\"",
+        "input type=\"hidden\" name=\"content\" value=\"{{.Content}}\"",
+        "input type=\"hidden\" name=\"fingerprint\" value=\"{{.Fingerprint}}\"",
+        "input type=\"hidden\" name=\"title\" value=\"none\"",
+        "textarea id=\"ssh-key-content\" name=\"content\" placeholder=\"{{ctx.Locale.Tr \"settings.key_content_ssh_placeholder\"}}\" required",
+        "textarea id=\"ssh-key-signature\" name=\"signature\" placeholder=\"{{ctx.Locale.Tr \"settings.key_signature_ssh_placeholder\"}}\" required"
+      ],
+      "gates": [
+        "{{if $.HasSSHVerifyError}}",
+        "{{if .DisableSSH}}",
+        "{{if .Err_Content}}",
+        "{{if .Err_Title}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasUsed}}",
+        "{{if .Verified}}",
+        "{{if and (not .Verified) (eq $.VerifyingFingerprint .Fingerprint)}}",
+        "{{if and (not .Verified) (ne $.VerifyingFingerprint .Fingerprint)}}",
+        "{{if index $.ExternalKeys $index}}",
+        "{{if index $.ExternalKeys $index}}",
+        "{{if not .HasSSHError}}",
+        "{{range $index, $key := .Keys}}"
+      ]
+    },
+    "user/settings/organization.tmpl": {
+      "controls": [
+        "button data-modal-id=\"leave-organization\" data-url=\"{{.OrganisationLink}}/members/action/leave\" data-datauid=\"{{$.SignedUser.ID}}\" data-name=\"{{$.SignedUser.DisplayName}}\" data-data-organization-name=\"{{.DisplayName}}\"",
+        "form "
+      ],
+      "gates": [
+        "{{if .Orgs}}",
+        "{{if .SignedUser.CanCreateOrganization}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "user/settings/packages.tmpl": {
+      "controls": [
+        "button ",
+        "form action=\"{{.Link}}/chef/regenerate_keypair\" method=\"post\""
+      ],
+      "gates": []
+    },
+    "user/settings/packages_cleanup_rules_edit.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/packages_cleanup_rules_preview.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/profile.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button data-url=\"{{.Link}}/avatar/delete\"",
+        "form action=\"{{.Link}}\" method=\"post\"",
+        "form action=\"{{.Link}}/avatar\" method=\"post\" enctype=\"multipart/form-data\"",
+        "input id=\"gravatar\" name=\"gravatar\" value=\"{{.SignedUser.AvatarEmail}}\"",
+        "input id=\"new-avatar\" name=\"avatar\" type=\"file\" accept=\"image/png,image/jpeg,image/gif,image/webp\"",
+        "input name=\"full_name\" value=\"{{.SignedUser.FullName}}\" maxlength=\"100\"",
+        "input name=\"keep_activity_private\" type=\"checkbox\" {{if .SignedUser.KeepActivityPrivate}}checked{{end}}",
+        "input name=\"keep_email_private\" type=\"checkbox\" {{if .SignedUser.KeepEmailPrivate}}checked{{end}}",
+        "input name=\"keep_pronouns_private\" type=\"checkbox\" {{if .SignedUser.KeepPronounsPrivate}}checked{{end}}",
+        "input name=\"location\" placeholder=\"{{ctx.Locale.Tr \"settings.location_placeholder\"}}\" value=\"{{.SignedUser.Location}}\" maxlength=\"50\"",
+        "input name=\"name\" value=\"{{.SignedUser.Name}}\" data-name=\"{{.SignedUser.Name}}\" required {{if or .UserRenameDisabled .IsReverseProxy}}disabled{{end}} maxlength=\"40\"",
+        "input name=\"pronouns\" list=\"pronouns\" placeholder=\"{{ctx.Locale.Tr \"settings.pronouns_unspecified\"}}\" value=\"{{.SignedUser.Pronouns}}\" maxlength=\"50\"",
+        "input name=\"source\" value=\"local\" type=\"radio\" {{if .SignedUser.UseCustomAvatar}}checked{{end}}",
+        "input name=\"source\" value=\"lookup\" type=\"radio\" {{if not .SignedUser.UseCustomAvatar}}checked{{end}}",
+        "input name=\"website\" type=\"url\" value=\"{{.SignedUser.Website}}\" maxlength=\"255\"",
+        "input type=\"hidden\" id=\"visibility\" name=\"visibility\" value=\"0\"",
+        "input type=\"hidden\" id=\"visibility\" name=\"visibility\" value=\"1\"",
+        "input type=\"hidden\" id=\"visibility\" name=\"visibility\" value=\"2\"",
+        "option value=\"{{.}}\"",
+        "textarea name=\"biography\" rows=\"2\" placeholder=\"{{ctx.Locale.Tr \"settings.biography_placeholder\"}}\" maxlength=\"255\""
+      ],
+      "gates": [
+        "{{else if $mode.IsLimited}}",
+        "{{else if $mode.IsPrivate}}",
+        "{{if $mode.IsPublic}}",
+        "{{if .Err_Biography}}",
+        "{{if .Err_FullName}}",
+        "{{if .Err_Gravatar}}",
+        "{{if .Err_Name}}",
+        "{{if .Err_Visibility}}",
+        "{{if .Err_Website}}",
+        "{{if .SignedUser.KeepActivityPrivate}}",
+        "{{if .SignedUser.KeepEmailPrivate}}",
+        "{{if .SignedUser.KeepPronounsPrivate}}",
+        "{{if .SignedUser.UseCustomAvatar}}",
+        "{{if .SignedUser.Visibility.IsLimited}}",
+        "{{if .SignedUser.Visibility.IsLimited}}",
+        "{{if .SignedUser.Visibility.IsPrivate}}",
+        "{{if .SignedUser.Visibility.IsPrivate}}",
+        "{{if .SignedUser.Visibility.IsPublic}}",
+        "{{if .SignedUser.Visibility.IsPublic}}",
+        "{{if gt .CooldownPeriod 0}}",
+        "{{if not .DisableGravatar}}",
+        "{{if not .SignedUser.UseCustomAvatar}}",
+        "{{if or .UserRenameDisabled .IsReverseProxy}}",
+        "{{if or .UserRenameDisabled .IsReverseProxy}}",
+        "{{range $mode := .AllowedUserVisibilityModes}}",
+        "{{range .CommonPronouns}}"
+      ]
+    },
+    "user/settings/repos.tmpl": {
+      "controls": [
+        "button data-modal=\"#adopt-unadopted-modal-{{$dirI}}\"",
+        "button data-modal=\"#delete-unadopted-modal-{{$dirI}}\"",
+        "form method=\"post\" action=\"{{AppSubUrl}}/user/settings/repos/unadopted\"",
+        "form method=\"post\" action=\"{{AppSubUrl}}/user/settings/repos/unadopted\"",
+        "input type=\"hidden\" name=\"action\" value=\"adopt\"",
+        "input type=\"hidden\" name=\"action\" value=\"delete\"",
+        "input type=\"hidden\" name=\"id\" value=\"{{$dir}}\"",
+        "input type=\"hidden\" name=\"id\" value=\"{{$dir}}\""
+      ],
+      "gates": [
+        "{{else if $repo.IsFork}}",
+        "{{else if $repo.IsMirror}}",
+        "{{else if $repo.IsTemplate}}",
+        "{{else if .IsFork}}",
+        "{{else if .IsMirror}}",
+        "{{else if .IsTemplate}}",
+        "{{if $.allowAdopt}}",
+        "{{if $.allowDelete}}",
+        "{{if $repo.IsFork}}",
+        "{{if $repo.IsPrivate}}",
+        "{{if $repo}}",
+        "{{if .Dirs}}",
+        "{{if .IsFork}}",
+        "{{if .IsPrivate}}",
+        "{{if .Repos}}",
+        "{{if not $repo}}",
+        "{{if not (eq $repo.Size 0)}}",
+        "{{if or .allowAdopt .allowDelete}}",
+        "{{range $dirI, $dir := .Dirs}}",
+        "{{range .Repos}}"
+      ]
+    },
+    "user/settings/runner_create.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/runner_details.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/runner_edit.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/runner_setup.tmpl": {
+      "controls": [],
+      "gates": []
+    },
+    "user/settings/security/accountlinks.tmpl": {
+      "controls": [
+        "button data-modal-id=\"delete-account-link\" data-url=\"{{AppSubUrl}}/user/settings/security/account_link\" data-id=\"{{$loginSource.ID}}\""
+      ],
+      "gates": [
+        "{{if $loginSource.IsActive}}",
+        "{{if .OrderedOAuth2Names}}",
+        "{{if or .AccountLinks .OrderedOAuth2Names}}",
+        "{{range $key := .OrderedOAuth2Names}}",
+        "{{range $loginSource, $provider := .AccountLinks}}"
+      ]
+    },
+    "user/settings/security/openid.tmpl": {
+      "controls": [
+        "button ",
+        "button ",
+        "button ",
+        "button data-modal-id=\"delete-openid\" data-url=\"{{AppSubUrl}}/user/settings/security/openid/delete\" data-id=\"{{.ID}}\"",
+        "form action=\"{{AppSubUrl}}/user/settings/security/openid\" method=\"post\"",
+        "form action=\"{{AppSubUrl}}/user/settings/security/openid/toggle_visibility\" method=\"post\"",
+        "input id=\"openid\" name=\"openid\" type=\"text\" required",
+        "input name=\"id\" type=\"hidden\" value=\"{{.ID}}\""
+      ],
+      "gates": [
+        "{{if .Err_OpenID}}",
+        "{{if .Show}}",
+        "{{range .OpenIDs}}"
+      ]
+    },
+    "user/settings/security/security.tmpl": {
+      "controls": [],
+      "gates": [
+        "{{if .EnableOpenIDSignIn}}",
+        "{{if .MustEnableTwoFactor}}",
+        "{{if not .MustEnableTwoFactor}}"
+      ]
+    },
+    "user/settings/security/twofa.tmpl": {
+      "controls": [
+        "button ",
+        "button data-modal-id=\"disable-twofa\" data-type=\"form\" data-form=\"#disable-form\"",
+        "form action=\"{{AppSubUrl}}/user/settings/security/two_factor/disable\" method=\"post\" enctype=\"multipart/form-data\" id=\"disable-form\"",
+        "form action=\"{{AppSubUrl}}/user/settings/security/two_factor/regenerate_scratch\" method=\"post\" enctype=\"multipart/form-data\""
+      ],
+      "gates": [
+        "{{if .SignedUser.MustHaveTwoFactor}}",
+        "{{if .TOTPEnrolled}}"
+      ]
+    },
+    "user/settings/security/twofa_enroll.tmpl": {
+      "controls": [
+        "button ",
+        "form action=\"{{.Link}}\" method=\"post\"",
+        "input id=\"passcode\" name=\"passcode\" required"
+      ],
+      "gates": [
+        "{{if .Err_Passcode}}",
+        "{{if .ReenrollTwofa}}"
+      ]
+    },
+    "user/settings/security/webauthn.tmpl": {
+      "controls": [
+        "button data-modal-id=\"delete-registration\" data-url=\"{{$.Link}}/webauthn/delete\" data-id=\"{{.ID}}\"",
+        "button id=\"register-webauthn\"",
+        "input id=\"nickname\" name=\"nickname\" type=\"text\" required"
+      ],
+      "gates": [
+        "{{range .WebAuthnCredentials}}"
+      ]
+    },
+    "user/settings/storage_overview.tmpl": {
+      "controls": [],
+      "gates": []
+    }
+  },
+  "attribution": "Derived from Forgejo 15.0.7 templates, GPL-3.0-or-later; native interaction contracts only.",
+  "sourceHashes": {
+    "user/settings/access_token_edit.tmpl": "0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42",
+    "user/settings/account.tmpl": "4e418544763f6a3d79fce08aa84ddca216bf390060fcb2d60b54d63a39c392ca",
+    "user/settings/actions.tmpl": "3892f30b05a4d0743540a73b81f8a7ac23eb46da66a1c2b5f2c928e4056fefb7",
+    "user/settings/appearance.tmpl": "f59f51eafb0a9e9884765a95b182906dc3884cb53cab79918dde50e4c6f9014f",
+    "user/settings/applications.tmpl": "113a38dd2baa98b0bcf9bb3ecb252b486fc5c6441807a7364687bda399d3930d",
+    "user/settings/applications_oauth2.tmpl": "82da1ade20b176d2c9c80d7b957b51ce2919a0ddb643b42cd562aef7f5aa21c9",
+    "user/settings/applications_oauth2_edit.tmpl": "1119c308d9540bb725559d41b9e747daad6e619e67ddbb86f274571ab9be2886",
+    "user/settings/applications_oauth2_edit_form.tmpl": "d3d0490154dba87ed93bdaad86a00fe779b379fba517645a467b053814ebf996",
+    "user/settings/applications_oauth2_list.tmpl": "fef3276344cd83d2df9a074ff37eafb320b2835de59d951add2601672d53c761",
+    "user/settings/blocked_users.tmpl": "b67e666e6ebc8463ab212fe19bda6252441441b4bd3c4cf5d419b02516569efd",
+    "user/settings/grants_oauth2.tmpl": "1d1f59a13b3676b5924869b559cc590690f306456222efb45e0f646fdc79eac6",
+    "user/settings/hook_new.tmpl": "7625cd383ec0618e2d629900700988de74ac2e1d08fef3c529bd9110af9204fe",
+    "user/settings/hooks.tmpl": "6edb3b075fc14376bffe507d8d61f360e0a2bb27297c5fa158651aad92d1f1ef",
+    "user/settings/keys.tmpl": "e587ae7db2beecccd7af83b42a64b85b417c8157cd70726c38b8093e23638740",
+    "user/settings/keys_gpg.tmpl": "6031321feca0c9e6d1c1b532db76ba988e1a1b46e54e2f5f7fc290afb346b566",
+    "user/settings/keys_principal.tmpl": "1e8f51c47e15c7cbdc031053588edb6b87c936b8aa31b709ff00fce41182fc24",
+    "user/settings/keys_ssh.tmpl": "4ae989aa229871aad84271593aaeae6f53d76208cad1491aadf70d0188bb3b73",
+    "user/settings/organization.tmpl": "e376e5f68c27040058c2ab8a394a2766e2ec070a77672f490831a8bfe4022896",
+    "user/settings/packages.tmpl": "d77d54167d107f22d7eec48658a67cb27e4dd04e1fd9cda99c96572747a266fc",
+    "user/settings/packages_cleanup_rules_edit.tmpl": "9f0b67fe1bda41daa237eeecf496b9f369cb0f342c3cc72fe8530cfe55f42c29",
+    "user/settings/packages_cleanup_rules_preview.tmpl": "429885746f0372adeca3a4e36ee17bf61e3a0354fe286714d04aa077020c3724",
+    "user/settings/profile.tmpl": "877b9dc97e0c7ee3769bf00765959009e91f30d064777387d4ac9433c5713e75",
+    "user/settings/repos.tmpl": "681852e5ffbf45b5d57070ce13830aebcd4d7777d810900b29775d1dac734b0f",
+    "user/settings/runner_create.tmpl": "bf93598ceffc69d581da69795b565fd2aa2a8deffe4bf3bac7b4ff7c7be8b058",
+    "user/settings/runner_details.tmpl": "d8131414c90440db65d70c9f9c56fd9ca45abcffe3a7d3b3f53b5867a3f42459",
+    "user/settings/runner_edit.tmpl": "7bb4d62fb5e9ffba34c8512d057b3706bb090f5008bb255d2f36b282299434c6",
+    "user/settings/runner_setup.tmpl": "bc8505104f108eef5d69972f320edfbde0b33b72a05c8ba001a6d8e6afeb3f45",
+    "user/settings/security/accountlinks.tmpl": "ed57eb1046683b6a22ab96405b3bfccd4353eb463dca5023c8f943f960874b01",
+    "user/settings/security/openid.tmpl": "42c4983521f8cd5b067557133e53bd12332f52c3c6b020a8834791c24b79208a",
+    "user/settings/security/security.tmpl": "a5fbae07bc6d439c451bcf2eaaa333d4dcfc358025918158c1f7bbc60fb7db8c",
+    "user/settings/security/twofa.tmpl": "7b43a4250f4e56f59a35f4f8b511f4f4183035fc92e7feba53656803ec3d886d",
+    "user/settings/security/twofa_enroll.tmpl": "fdd8187cd87d5c5ed07f78a49a7b5402c69b6f5c08fac5aa75f3ce307f94ea70",
+    "user/settings/security/webauthn.tmpl": "ef390d4470815f43e4c198c2c263d85e3c1d3351f1f15ee2de5bd1a3b7bbb7d1",
+    "user/settings/storage_overview.tmpl": "937c7c2516a6b888e1d1d643860f9a19c9df84276c2f87dd455dc72aea5f560c"
+  }
+}

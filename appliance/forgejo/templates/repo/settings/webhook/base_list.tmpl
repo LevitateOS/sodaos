@@ -1,8 +1,10 @@
+{{if .PersonalSettings}}{{template "repo/settings/webhook/base_list_body" .}}{{else}}{{template "repo/settings/webhook/base_list_body" (dict "ctxData" .)}}{{end}}
+{{define "repo/settings/webhook/base_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <h4 class="ui top attached header soda-webhook-list-header soda-p-heading">
-	{{.Title}}
+	{{if not $personal}}{{.Title}}{{end}}
 	<div class="ui right">
 		<div class="ui jump dropdown">
-			<div class="ui primary tiny button">{{ctx.Locale.Tr "repo.settings.add_webhook"}}</div>
+			<div class="ui primary tiny button soda-p-compact">{{ctx.Locale.Tr "repo.settings.add_webhook"}}</div>
 			{{template "repo/settings/webhook/link_menu" .}}
 		</div>
 	</div>
@@ -24,3 +26,5 @@
 		{{end}}
 	</div>
 </div>
+
+{{end}}{{end}}

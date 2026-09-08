@@ -2,7 +2,7 @@
 <div role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-native-forms soda-settings {{.pageClass}}" data-signed="true">
  <div class="ui container soda-page-container">
   <div class="soda-settings-bar">
-   <a class="soda-settings-identity" href="{{AppSubUrl}}/{{.ctxData.SignedUser.Name}}">
+   <a class="soda-settings-identity" {{if not .ctxData.HideNavbarLinks}}href="{{AppSubUrl}}/{{.ctxData.SignedUser.Name}}"{{end}}>
     {{ctx.AvatarUtils.Avatar .ctxData.SignedUser 40}}
     <span><strong>{{.ctxData.SignedUser.DisplayName}}</strong><small>@{{.ctxData.SignedUser.Name}}</small></span>
    </a>

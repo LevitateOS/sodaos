@@ -693,5 +693,5 @@ func requireForgejoTemplateCalls(t *testing.T, name string, required ...string) 
 }
 
 func withoutForgejoPresentationRoles(source string) string {
-	return regexp.MustCompile(` soda-p-(editor-container|form-host|form|title|heading|section|gap|toolbar)\b`).ReplaceAllString(source, "")
+	return regexp.MustCompile(` soda-p-(editor-container|form-host|form|title|heading|section|gap|toolbar|control|compact)\b`).ReplaceAllString(source, "")
 }

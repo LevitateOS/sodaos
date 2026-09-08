@@ -1,5 +1,6 @@
+{{$taskTitle := ctx.Locale.Tr "actions.runners"}}{{if eq .PageType "secrets"}}{{$taskTitle = ctx.Locale.Tr "secrets.secrets"}}{{else if eq .PageType "variables"}}{{$taskTitle = ctx.Locale.Tr "actions.variables"}}{{end}}
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/actions.tmpl (GPL-3.0-or-later); upstream SHA-256 3892f30b05a4d0743540a73b81f8a7ac23eb46da66a1c2b5f2c928e4056fefb7. */}}
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings actions")}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings actions" "title" $taskTitle)}}
 	<div class="user-setting-content">
 	{{if eq .PageType "secrets"}}
 		{{template "shared/secrets/add_list" .}}
