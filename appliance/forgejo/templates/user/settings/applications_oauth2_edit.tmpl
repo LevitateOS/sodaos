@@ -1,0 +1,7 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 1119c308d9540bb725559d41b9e747daad6e619e67ddbb86f274571ab9be2886. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--oauth2-edit applications")}}
+	<div class="user-setting-content soda-account-details soda-account-details--oauth2-edit">
+
+		{{template "user/settings/applications_oauth2_edit_form" .}}
+	</div>
+{{template "user/settings/layout_footer" .}}
