@@ -31,6 +31,8 @@
 .soda-settings .soda-settings-section:first-child { margin-top: 0; }
 .soda-settings .soda-settings-section > h2 { margin: 0; font: var(--soda-font-heading); }
 .soda-settings .soda-settings-section-body { min-width: 0; }
+/* Inset only the direct body: native nested body wrappers must not compound it. */
+.soda-settings .soda-settings-section > .soda-settings-section-body { padding-inline-start: 16px; }
 .soda-settings .soda-settings-editor { max-width: 720px; }
 .soda-settings .flex-list > .flex-item { background: transparent; border-radius: 0; border: 0; padding-block: 12px; gap: 16px; }
 .soda-settings .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
