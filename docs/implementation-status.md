@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+All current administrator layout callers are source-assessed. Admin artwork is now opt-in: account creation selects its distinct illustration; operational/configuration pages receive none. Redundant suppression flags were removed. Native admin verification remains pending.
+
 Administrator account creation now selects a distinct transparent identity-card illustration through an explicit presentation input. The generated asset and exact prompt are retained; focused administrator parity/presentation tests passed. Native admin capture remains pending.
 
 Administrator runner/Actions pages, configuration, OAuth application inventory, authentication-source creation/editing, account editing, user/repository/email/authentication-source lists, dashboard, OAuth credential editing, queue, scheduled-job, notice, self-check and stacktrace pages now explicitly suppress inherited home-dashboard decoration. Focused administrator source-parity/parse, native-boundary and shared-presentation tests passed. Native admin screenshots remain pending; other admin callers still require individual assessment.

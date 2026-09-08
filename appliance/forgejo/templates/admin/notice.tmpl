@@ -1,5 +1,5 @@
 {{/* Soda presentation of Forgejo 15.0.7 templates/admin/notice.tmpl; GPL-3.0-or-later. Upstream SHA-256: 5483e3fbd3133b12b8d1e901751e2a966a0340c2af572ca9176d52ed2b97b19f. */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin notice" "hideArtwork" true)}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin notice")}}
 	<div class="admin-setting-content soda-admin-monitoring soda-admin-monitoring--notice">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "admin.notices.system_notice_list"}} ({{ctx.Locale.Tr "admin.total" .Total}})

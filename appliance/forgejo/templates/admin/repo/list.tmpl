@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/repo/list.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: d5ec17847cadaf5ff50df1e8ccf755a6a1cb475cce26a53a57d0dcff83dacb00 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin" "hideArtwork" true)}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--repo-list">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "admin.repos.repo_manage_panel"}} ({{ctx.Locale.Tr "admin.total" .Total}})

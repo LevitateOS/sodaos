@@ -32,9 +32,8 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 					`class="ui container flex-container soda-page-container soda-admin-layout"`,
 					`class="ui container flex-container"`, 1)
 				contents = strings.Replace(contents,
-					"\t\t"+`{{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" .ctxData.Title "Description" "Manage Forgejo settings, identities, integrations, and service health." "Artwork" $artwork "Class" "soda-page-intro--compact"}}`+"\n",
+					"\t\t"+`{{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" .ctxData.Title "Description" "Manage Forgejo settings, identities, integrations, and service health." "Artwork" .artwork "Class" "soda-page-intro--compact"}}`+"\n",
 					"", 1)
-				contents = strings.Replace(contents, `		{{$artwork := "dashboard-papercraft.png"}}{{with .artwork}}{{$artwork = .}}{{end}}{{if or .hideArtwork (eq .pageClass "admin actions") (eq .pageClass "admin runners")}}{{$artwork = ""}}{{end}}`+"\n", "", 1)
 				return contents
 			},
 		},
