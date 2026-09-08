@@ -2,7 +2,7 @@
 
 ## Page illustration goal
 
-The [per-page checklist](page-illustration-checklist.md) inventories 207 current
+The [per-page checklist](page-illustration-checklist.md) inventories 206 current
 overrides/helpers and tracks shared-template page variants separately. Migration,
 fork, 404, discussion subscriptions and watched repositories now have distinct
 illustrations. Native forms, state, permissions and meaningful status text remain
@@ -42,7 +42,7 @@ enrollment capture remains unperformed. Focused shared-presentation tests passed
 Keys artwork was retained and verified on desktop/mobile; native SSH, GPG and
 principal subpanels were source-reviewed without added decoration. Applications landing artwork was retained and verified on desktop/mobile;
 OAuth editing and token creation now suppress inherited decoration; token
-creation desktop rendering was checked and focused shared-presentation tests
+creation initial desktop rendering was checked; restored presentation classes need a final capture and focused shared-presentation tests
 passed. Native OAuth edit verification remains pending; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused

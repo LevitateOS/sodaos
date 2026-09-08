@@ -1,5 +1,6 @@
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings applications" "hideArtwork" true)}}
-<div class="user-setting-content">
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/access_token_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--access-token applications" "hideArtwork" true)}}
+<div class="user-setting-content soda-account-details soda-account-details--access-token">
 	<h4 class="ui top attached header">
 		{{ctx.Locale.Tr "settings.generate_new_token"}}
 	</h4>
