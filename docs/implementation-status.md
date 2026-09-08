@@ -8,6 +8,10 @@ explicit browser-timer set; DOM tests preload JSDOM browser events/FormData befo
 React. Native Bun test mocks replace Vite+ test imports. Strict Cockpit type checks,
 all 60 tests and both builds passed with Bun 1.4.2 on macOS arm64. Initial timer/DOM
 compatibility failures and corrected logs are retained in `.artifacts/bun-typescript-port/`.
+Cockpit asset collection now uses Bun file reads, globbing and SHA-256 hashing;
+license metadata is checked before use. Both page builds explicitly minify output.
+The revised build, strict check and 60 tests passed locally; logs use the
+`cockpit-native-io-` prefix in the same retained directory.
 Root JS/MJS conversion, root runtime commands, browser emission/staging and final
 Node-free validation remain active work; this is not completion of the goal or native
 appliance proof. No installed journey or deployment ran.

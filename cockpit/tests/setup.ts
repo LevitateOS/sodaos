@@ -22,4 +22,3 @@ globalThis.ResizeObserver = class {
 };
 const { cleanup } = await import("@testing-library/react");
 afterEach(cleanup);
-

@@ -27,7 +27,7 @@ const stops: Array<() => void> = [];
 afterEach(() => {
   for (const stop of stops.splice(0)) stop();
   clock?.uninstall();
-  
+
 });
 async function ready() {
   const native = client();

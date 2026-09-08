@@ -1,21 +1,18 @@
 import { initSync, parse } from "es-module-lexer";
-import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 
 /** Check the actual installed file graph; only Cockpit's public base API is external. */
-export function packageInventory(root: string): Record<string, string> {
+export async function packageInventory(root: string): Promise<Record<string, string>> {
   initSync();
   const inventory: Record<string, string> = {};
-  for (const name of readdirSync(root, { recursive: true, encoding: "utf8" }).sort()) {
+  for (const name of [...new Bun.Glob("**/*").scanSync({ cwd: root, onlyFiles: true, dot: true })].sort()) {
     const path = resolve(root, name);
-    if (!statSync(path).isFile()) continue;
     if (/\.(?:tsx?|map|mjs)$|(?:^|\/)(?:node_modules|src|tests)(?:\/|$)/.test(name))
       throw new Error(`Non-runtime file: ${name}`);
-    const content = readFileSync(path);
-    inventory[name] = createHash("sha256").update(content).digest("hex");
+    const content = await Bun.file(path).bytes();
+    inventory[name] = new Bun.CryptoHasher("sha256").update(content).digest("hex");
     if (!/\.(?:html|css|js)$/.test(name)) continue;
-    const text = content.toString("utf8");
+    const text = new TextDecoder().decode(content);
     const references = name.endsWith(".html")
       ? [...text.matchAll(/(?:src|href)="([^"]+)"/g)].map((match) => match[1])
       : name.endsWith(".css")
@@ -33,7 +30,7 @@ export function packageInventory(root: string): Record<string, string> {
       if (reference.startsWith("/") || /^[a-z]+:/i.test(reference))
         throw new Error(`External runtime asset: ${name}: ${reference}`);
       const target = resolve(dirname(path), reference.replace(/[?#].*$/, ""));
-      if (relative(root, target).startsWith("..") || !statSync(target).isFile())
+      if (relative(root, target).startsWith("..") || !(await Bun.file(target).exists()))
         throw new Error(`Asset escapes package: ${name}: ${reference}`);
     }
     if (/@vite\/client|localhost:5173|react-refresh/.test(text))
