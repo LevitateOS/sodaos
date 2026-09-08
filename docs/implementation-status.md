@@ -1,5 +1,19 @@
 # Current handoff
 
+## Page illustration goal
+
+The [per-page checklist](page-illustration-checklist.md) inventories 203 current
+overrides/helpers and tracks page/caller assessment individually. Repository
+migration now uses a distinct generated history-transfer illustration; only its
+intro asset reference changed. RGBA checks and focused offline onboarding tests
+passed; actual 1440/390px light-theme captures were inspected, with evidence in
+the checklist. Local templates were reloaded; no migration or fixture mutation.
+Repository fork now also has distinct connected-notebook artwork, verified with
+focused onboarding tests and 1440/390px native light-theme captures. Migration
+progress retains native state visuals without extra decorative art. Other pages
+remain pending, starting with the 404 page. No blanket native or
+dark-theme acceptance is implied. Existing staged/unstaged work was preserved.
+
 ## Source versus installed state
 
 | Area | Current state |

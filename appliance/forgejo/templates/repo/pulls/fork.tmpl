@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new fork soda-page soda-onboarding soda-fork" data-signed="true">
 	<div class="ui container soda-page-container">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-fork-title" "Eyebrow" "Start from a shared foundation" "Title" (ctx.Locale.Tr "new_fork") "Description" "Create an independent repository while keeping its connection to the original." "Artwork" "new-repo-papercraft.png"}}
+		{{template "custom/soda/page_intro" dict "TitleID" "soda-fork-title" "Eyebrow" "Start from a shared foundation" "Title" (ctx.Locale.Tr "new_fork") "Description" "Create an independent repository while keeping its connection to the original." "Artwork" "fork-papercraft.png"}}
 		<form class="ui form soda-form" action="{{.Link}}" method="post">
 			<div class="soda-form-body" aria-labelledby="soda-fork-title">
 				<fieldset class="soda-form-section">

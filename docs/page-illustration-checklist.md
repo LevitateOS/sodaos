@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: repository fork — `repo/pulls/fork.tmpl`. It currently reuses New repository; inspect the native page and distinguish branching from importing or creating an empty repository.
+Next: 404 page — `status/404.tmpl`. Inspect the native error layout and assess a small wayfinding illustration while preserving the error code and recovery action.
 
 ## Per-template inventory
 
@@ -123,14 +123,14 @@ Next: repository fork — `repo/pulls/fork.tmpl`. It currently reuses New reposi
 | Pending | [`repo/issue/new.tmpl`](../appliance/forgejo/templates/repo/issue/new.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/view.tmpl`](../appliance/forgejo/templates/repo/issue/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Done | [`repo/migrate/migrate.tmpl`](../appliance/forgejo/templates/repo/migrate/migrate.tmpl) | `migrate-papercraft.png` | Dedicated history/import scene; desktop/mobile native captures inspected. See record below. |
-| Pending | [`repo/migrate/migrating.tmpl`](../appliance/forgejo/templates/repo/migrate/migrating.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/migrate/options.tmpl`](../appliance/forgejo/templates/repo/migrate/options.tmpl) | — | Not yet reviewed in this goal. |
+| No image | [`repo/migrate/migrating.tmpl`](../appliance/forgejo/templates/repo/migrate/migrating.tmpl) | Native loading/error visuals | Live progress, failure and retry/cancel controls already communicate operation state. Extra decorative art would compete with those signals; source reviewed, no operation launched. |
+| Partial — no image | [`repo/migrate/options.tmpl`](../appliance/forgejo/templates/repo/migrate/options.tmpl) | Native provider-form callers | Reusable inline mirror/LFS fields, not a page or introduction. Do not insert decorative artwork among native provider options; provider page assessment remains separate. |
 | Pending | [`repo/projects/list.tmpl`](../appliance/forgejo/templates/repo/projects/list.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/projects/new.tmpl`](../appliance/forgejo/templates/repo/projects/new.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/projects/view.tmpl`](../appliance/forgejo/templates/repo/projects/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/pulls/commits.tmpl`](../appliance/forgejo/templates/repo/pulls/commits.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/pulls/files.tmpl`](../appliance/forgejo/templates/repo/pulls/files.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Existing — verify | [`repo/pulls/fork.tmpl`](../appliance/forgejo/templates/repo/pulls/fork.tmpl) | `new-repo-papercraft.png` | Not yet reviewed in this goal. |
+| Done | [`repo/pulls/fork.tmpl`](../appliance/forgejo/templates/repo/pulls/fork.tmpl) | `fork-papercraft.png` | Independent-copy scene; desktop/mobile native captures inspected. See record below. |
 | Partial — trace caller | [`repo/pulls/status.tmpl`](../appliance/forgejo/templates/repo/pulls/status.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/pulls/tab_menu.tmpl`](../appliance/forgejo/templates/repo/pulls/tab_menu.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/pulls/trust.tmpl`](../appliance/forgejo/templates/repo/pulls/trust.tmpl) | — | Not yet reviewed in this goal. |
@@ -243,3 +243,11 @@ Next: repository fork — `repo/pulls/fork.tmpl`. It currently reuses New reposi
 - Local stock Forgejo template reload returned `Reloaded`. Focused offline `go test -count=1 -mod=readonly ./scripts -run TestForgejoOnboarding` passed.
 - Actual authorized screenshot-helper captures inspected: `.artifacts/screenshots/capture-LnR3TI/001.png` (1440×1000), `.artifacts/screenshots/capture-gYsMJg/001.png` (390×844). The new illustration displays cleanly on the fixture's light theme, stays within the mobile header, and does not cover provider controls. Baseline: `capture-QmgQHa/001.png`.
 - No migration submission or fixture/account change. Dark-theme rendering and provider-specific form states were not newly exercised. Template reload refreshes the local cache globally; these captures validate this page, not every unrelated override.
+
+### Repository fork
+
+- Decision: appropriate in the existing intro. Two notebooks connected by a branching ribbon show a new independent copy with a retained connection.
+- [Exact prompt/provenance](../assets/branding/forgejo/fork-art-prompt.md); selected transparent 1536×1024 PNG uses the same three style references as Migration and Settings.
+- Only the existing Artwork filename changed. Focused offline `TestForgejoOnboarding` tests passed; local templates reloaded.
+- Actual `/repo/fork/23` screenshots inspected using the authorized fixture: `.artifacts/screenshots/capture-Ja64Ea/001.png` (1440×1000) and `capture-fK2bfz/001.png` (390×844). Art is contained, cream surfaces remain intact, and native ownership/source/name/visibility/branch controls remain visible without overlap. Baseline: `capture-SBm2fy/001.png`.
+- No fork submitted and no fixture/account preferences changed. Dark appearance and POST validation were not exercised.
