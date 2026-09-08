@@ -22,6 +22,24 @@ import (
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
+// Read only the probe's anchored output markers, not echoed command text. Bash
+// bracketed-paste mode writes CSI + carriage return before command output; PTY
+// bytes are not already a rendered screen. Keep raw terminal bytes out of logs.
+func terminalProbeText(value string) string {
+	value = regexp.MustCompile("\\x1b\\[[0-?]*[ -/]*[@-~]").ReplaceAllString(value, "")
+	return strings.ReplaceAll(value, "\r", "\n")
+}
+
+func TestTerminalProbeNativeControlSequences(t *testing.T) {
+	text := "prompt$ printf '__SODA_SIZE__%s\\n' ...\r\n\x1b[?2004l\r__SODA_SIZE__37 103\r\n\x1b[?2004hprompt$ "
+	if !regexp.MustCompile(`(?m)^__SODA_SIZE__37 103$`).MatchString(terminalProbeText(text)) {
+		t.Fatal("native PTY marker was not recognized")
+	}
+	if regexp.MustCompile(`(?m)^__SODA_SIZE__`).MatchString(terminalProbeText("prompt$ printf '__SODA_SIZE__%s\\n' ...\r\n")) {
+		t.Fatal("echo was mistaken for native evidence")
+	}
+}
+
 func TestInstalledTerminalBoundary(t *testing.T) {
 	input := os.Getenv("SODA_TERMINAL_NATIVE_INPUT")
 	if input == "" {
@@ -109,11 +127,11 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		for output.Len() < 65536 {
 			frame, err := stream.Receive(deadline)
 			if err != nil || frame.Type != "output" {
-				t.Fatal("native output not confirmed")
+				t.Fatal("native output not confirmed", frame.Type, frame.Reason, "bytes", output.Len())
 			}
 			data, _ := base64.StdEncoding.DecodeString(frame.Data)
 			output.Write(data)
-			if found := pattern.FindStringSubmatch(output.String()); found != nil {
+			if found := pattern.FindStringSubmatch(terminalProbeText(output.String())); found != nil {
 				return found
 			}
 		}
@@ -132,7 +150,8 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		if err != nil || first.Type != "ready" {
 			t.Fatal("native launch not confirmed")
 		}
-		command(stream, `python3 -c 'import os,json; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid()}))'`)
+		t.Log("checking native account facts", a.Identity)
+		command(stream, `/usr/bin/python3 -c 'import os,json; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid()}))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
 		var actual struct {
 			UID    int
