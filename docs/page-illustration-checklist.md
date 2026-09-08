@@ -132,9 +132,9 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | No image | [`repo/pulls/commits.tmpl`](../appliance/forgejo/templates/repo/pulls/commits.tmpl) | Native PR title/tabs and commit table | Full wrapper reviewed. The PR identity and actual commit history are the subject, with no separate decorative intro. Source-based assessment; inspected public repository has no PRs. |
 | No image | [`repo/pulls/files.tmpl`](../appliance/forgejo/templates/repo/pulls/files.tmpl) | Native PR title/tabs and diff box | Full wrapper reviewed. File review needs space for actual differences, comments and viewed progress. No decorative image; source-based assessment without an existing PR fixture. |
 | Done | [`repo/pulls/fork.tmpl`](../appliance/forgejo/templates/repo/pulls/fork.tmpl) | `fork-papercraft.png` | Independent-copy scene; desktop/mobile native captures inspected. See record below. |
-| Partial — trace caller | [`repo/pulls/status.tmpl`](../appliance/forgejo/templates/repo/pulls/status.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/pulls/tab_menu.tmpl`](../appliance/forgejo/templates/repo/pulls/tab_menu.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/pulls/trust.tmpl`](../appliance/forgejo/templates/repo/pulls/trust.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`repo/pulls/status.tmpl`](../appliance/forgejo/templates/repo/pulls/status.tmpl) | — | Full helper reviewed; native pull view_content/pull caller located. Check states, missing required checks and target links are meaningful visuals; no decorative image. Native status rendering unverified. |
+| Partial — no image | [`repo/pulls/tab_menu.tmpl`](../appliance/forgejo/templates/repo/pulls/tab_menu.tmpl) | — | Full helper reviewed; conversation, commits and files callers traced. Navigation counts and addition/deletion bar already convey actual content; no decorative image. Native populated pull rendering remains unverified. |
+| Partial — no image | [`repo/pulls/trust.tmpl`](../appliance/forgejo/templates/repo/pulls/trust.tmpl) | — | Full helper reviewed; native pull view_content/pull callers located. Permission-gated deny/once/always/revoke decisions and warning must stay prominent; no decorative image. No trust action executed. |
 | No image | [`repo/release/list.tmpl`](../appliance/forgejo/templates/repo/release/list.tmpl) | Real release state, notes and downloads | Keep draft/prerelease/stable labels, verification, publisher, notes and assets primary. Full source reviewed; existing prerelease list captured at capture-id7a6e/001.png. |
 | No image | [`repo/release/new.tmpl`](../appliance/forgejo/templates/repo/release/new.tmpl) | Native release editor | Create/tag-only/draft/edit/publish variants need clear tag target, notes, attachments and prerelease choices. Decorative shipment/success imagery would suggest a state not yet established. Full source reviewed; no release submitted. |
 | No image | [`repo/release_tag_header.tmpl`](../appliance/forgejo/templates/repo/release_tag_header.tmpl) | Release/tag list toolbar | Both callers assessed; count tabs, conditional search/RSS/create and code-only submenu need no independent image. Full partial reviewed. |
@@ -782,3 +782,9 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 
 - Full `package/shared/list` inspected and traced to both owner branches in `user/overview/packages` and the native repository wrapper. Preserve native package-access checks and distinguish an empty registry from a filtered no-match result.
 - Existing owner registry artwork stays in its caller introduction. Adding artwork to this shared list would duplicate that art and impose it on repository content. No new image generated; no packages or settings changed. Documentation-only assessment, no tests rerun.
+
+### Pull-request shared status and navigation
+
+- Full status, trust and tab-menu overrides reviewed. Local conversation/commits/files tab callers traced; stock Forgejo 15.0.7 pull-content call sites confirm status/trust integration.
+- Preserve real check states, missing required contexts, trust warnings/permission-gated controls, tab counts and diff statistics. None needs decorative artwork. This call-site trace is not a new full audit of the upstream merge panel.
+- No accessible populated pull fixture was created, no checks triggered and no trust state changed. Native rendering remains unverified; documentation-only assessment, no tests rerun.
