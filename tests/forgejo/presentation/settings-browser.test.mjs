@@ -77,8 +77,22 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     for (const heading of await page.locator('.user-setting-content :is(.soda-settings-section > h2,.soda-settings-inventory-heading,.soda-p-heading,.ui.top.attached.header,.soda-profile-editor legend,.soda-form-section > legend)').all()) {
      if (await heading.isVisible()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px',path);
     }
+    for (const actions of await page.locator('.user-setting-content :is(.soda-settings-inventory-heading,.ui.top.attached.header) > .ui.right').all()) {
+     if (await actions.isVisible()) assert.equal(await actions.evaluate(el=>getComputedStyle(el).position),'static',path+' heading actions must remain in flow');
+    }
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),path);
    }
+  }
+  // The authorized empty fixture exercises feedback that native form CSS can hide.
+  for (const [path,selector,count] of [
+   ['keys','.ui.info.message',1], ['security','.ui.warning.message',2],
+   ['packages','.ui.info.message',1], ['packages','.ui.warning.message',1],
+   ['applications','.soda-empty--compact',1], ['hooks','.soda-empty--page',1],
+   ['organization','.soda-empty--page',1], ['repos','.soda-empty--page',1],
+  ]) {
+   await page.goto(origin+'/user/settings/'+path);
+   assert.equal(await page.locator(selector).count(),count,path);
+   for (const message of await page.locator(selector).all()) assert(await message.isVisible(),path);
   }
   await page.goto(origin+'/user/settings/account#password');await page.waitForSelector('[data-settings-editor][open]');assert(await page.locator('#old_password').isVisible());
   await page.goto(origin+'/user/settings/keys');await page.locator('#add-ssh-button').click();await page.waitForSelector('#add-ssh-key-panel:visible');

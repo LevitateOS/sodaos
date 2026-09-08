@@ -595,3 +595,25 @@ another inset. `account-settings.css` owns this layout; shared form styles own
 only the vertical heading spacing and must not reset its inline alignment.
 The native browser check enumerates every permitted settings-menu destination,
 verifying the inset, heading alignment and overflow instead of sampling three pages.
+
+
+Static guidance uses native `ui info message` / `ui warning message` with the
+`soda-notice` role. This opt-in keeps notices visible inside forms without exposing
+inactive native validation messages. Recovery and key-loss guidance precedes the
+relevant action. Account deletion retains its native danger message.
+
+Empty access-token, webhook, membership, repository and cleanup-rule inventories
+use the shared empty content partial only in the native empty branch. A title is
+optional when the translated explanatory sentence already supplies the message.
+Populated rows, permissions and actions remain native. Personal webhooks use a
+real toolbar instead of an empty heading. Inventory actions accompany section
+headings, stacking below on mobile; page-level actions use a left-aligned toolbar.
+Submissions follow their fields and guidance, including all four Appearance saves
+and Cargo/Chef actions. Native absolutely positioned header actions are returned
+to normal flow within personal settings to prevent narrow-screen overlap.
+
+Cargo's pinned English description is split into its context and consequence
+sentences, shown as separate info/warning notices before submission. Other locales
+(or unexpected sentence structures) retain the complete translated warning; no
+translation text is discarded or replaced by a guessed split. Existing locale
+catalogs and activation remain unchanged.

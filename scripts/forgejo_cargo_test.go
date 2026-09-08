@@ -9,7 +9,16 @@ import (
 
 type forgejoCargoLocale struct{}
 
+func (forgejoCargoLocale) Lang() string { return "en-US" }
+
+type forgejoCargoStrings struct{}
+
+func (forgejoCargoStrings) Split(s, sep string) []string { return strings.Split(s, sep) }
+
 func (forgejoCargoLocale) Tr(key string, args ...any) string {
+	if strings.HasSuffix(key, ".description") {
+		return "A special index Git repository is needed to use the Cargo registry. Using this option will (re-)create the repository and configure it automatically."
+	}
 	if len(args) == 0 {
 		return key
 	}
@@ -21,7 +30,8 @@ type forgejoCargoContext struct{ Locale forgejoCargoLocale }
 func TestForgejoCargoComposesNativeIndexBranches(t *testing.T) {
 	cargo := readForgejoTemplate(t, "package", "shared", "cargo.tmpl")
 	parsed, err := template.New("cargo").Funcs(template.FuncMap{
-		"ctx": func() forgejoCargoContext { return forgejoCargoContext{} },
+		"StringUtils": func() forgejoCargoStrings { return forgejoCargoStrings{} },
+		"ctx":         func() forgejoCargoContext { return forgejoCargoContext{} },
 	}).Parse(`{{define "cargo"}}` + cargo + `{{end}}`)
 	if err != nil {
 		t.Fatalf("parse Cargo settings override: %v", err)
@@ -50,6 +60,7 @@ func TestForgejoCargoComposesNativeIndexBranches(t *testing.T) {
 				`class="ui form soda-form"`,
 				`<fieldset class="soda-form-section">`,
 				`method="post"`,
+				`class="ui info message soda-notice"`, `class="ui warning message soda-notice"`,
 				`action="/forge/alice&amp;tools` + test.wantPath + `"`,
 				test.wantAction,
 				`packages.registry.documentation/Cargo/https://forgejo.org/docs/latest/user/packages/cargo/`,

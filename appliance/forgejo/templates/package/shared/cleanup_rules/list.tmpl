@@ -52,7 +52,7 @@
 				</div>
 			</div>
 		{{else}}
-			<div class="item">{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.none"}}</div>
+			<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-package" "Title" (ctx.Locale.Tr "packages.owner.settings.cleanuprules.none")}}</div>
 		{{end}}
 		</div>
 	</div>

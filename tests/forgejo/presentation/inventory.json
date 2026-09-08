@@ -844,12 +844,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "44069f7999814bd9de3f7e22dcc8bc36f7e3b90c2837eedfd89bff4eb8f7c2e4",
+      "beforeRoleHash": "070f76c62ae855c7bbe826294195c124ff040909d4fbb06587734740bceb8e39",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "section-headings-above-content"
+      "presentationReview": "settings-feedback-empty-states-and-actions"
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -857,12 +857,17 @@
       "owner": "custom",
       "callers": [
         "custom/explore_empty.tmpl",
+        "package/shared/cleanup_rules/list.tmpl",
         "package/shared/list.tmpl",
         "repo/settings/deploy_keys.tmpl",
+        "repo/settings/webhook/base_list.tmpl",
         "shared/blocked_users_list.tmpl",
         "user/dashboard/milestones.tmpl",
         "user/notification/notification_div.tmpl",
-        "user/notification/notification_subscriptions.tmpl"
+        "user/notification/notification_subscriptions.tmpl",
+        "user/settings/applications.tmpl",
+        "user/settings/organization.tmpl",
+        "user/settings/repos.tmpl"
       ],
       "nativeCalls": [],
       "roles": [
@@ -882,7 +887,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "91b2daddd839a1d308012136d8bd1cc3cf3c47c9496d2988ca275e975701d73d",
+      "beforeRoleHash": "9840ae1952c489b1d9bad177f44972d59f0072e83a60e9e25664f903cdb5863a",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -1892,11 +1897,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "afd4282ee474b2ade6e29de297ff709ae9cc0668015974aadc21c6b8c8ac9cff",
+      "beforeRoleHash": "d1adeba776a8a68716a701dfd82bab065fb4fab30efce865e567b5402b899126",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "settings-feedback-empty-states-and-actions"
     },
     {
       "template": "package/shared/cleanup_rules/edit.tmpl",
@@ -1974,12 +1980,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d801895ab651c308174afcbe63b0eb04ba3556a25fa7b092b52ce53937d3214d",
+      "beforeRoleHash": "885ddf06793f8e0777814c84ce8fa9b6fee03173bdfe64f663e62b503edbb1c1",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "settings-feedback-empty-states-and-actions"
     },
     {
       "template": "package/shared/cleanup_rules/preview.tmpl",
@@ -5111,13 +5117,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1f73108fac00a74e1ab4b9ad1e02bc8e163d12777cb6342104edf14d4ad98d0e",
+      "beforeRoleHash": "918af3e8f3609df89cac6c2cc9a9fabdaa57985682ab38c50ba5e06352b19f47",
       "upstreamCallers": [
         "admin/hooks.tmpl",
         "repo/settings/webhook/list.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
       "definedPartials": [
         "repo/settings/webhook/base_list_body"
       ]
@@ -7397,10 +7403,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "64db4c1c0b9772b738d98cdfcd3320b5f228cc11eba95e2f78c6a68f141adbb6",
+      "beforeRoleHash": "b46695136242db92d55ca45d84067eaf8e8b3c8028a74e347653e6162c01eb17",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -7655,8 +7661,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "d083ecb494ad1528ddfb7f640bc26b9e971ef284c1958dfa2e39a289db212c46",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "eeac413728b7539155909b47308cc2c0b800f40614ed5434f8f84d8b64604223",
       "taskComposition": "inventory"
     },
     {
@@ -7891,10 +7897,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f3058426517d734db853adb8b3024c3b239c91a348f20f8c20fb93df029de32",
+      "beforeRoleHash": "0e7988d9fc74f2f6b3f62d8c04cd711d52f53575a8adb6e5e449b7561a7a77aa",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
       "taskComposition": "inventory"
     },
     {
@@ -7991,10 +7997,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d8ee56720afbd2e141f38aeb6cb914e6d2103f4fd798b5e1e3691c6f831d22d2",
+      "beforeRoleHash": "924186130d73066a5fbc3b6af2efcbd40c1db98bc0b50f1905721ddf4847b2a6",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -8076,8 +8082,8 @@
         "base/paginate",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "646f9ff54640e641480347e622829ada41c98acd78d0a0afb394976740c5a1a2",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "81d78a525eec666d39ebda78730310c0ca50810d2a2170bc6338fdb7345808b3",
       "taskComposition": "inventory"
     },
     {
@@ -8399,8 +8405,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "section-headings-above-content",
-      "beforeRoleHash": "cf6ed75392cd14a7173499496ebedf936e169c7c3974842c7295561c1fdf6c47",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "f3e2701901a1b3a20b6b53e3e95b5e59e49ca11fc7960493363d61ae264ff2fe",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8441,8 +8447,8 @@
         "user/auth/webauthn_error",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "section-headings-above-content",
-      "beforeRoleHash": "4894cfb6e76fd61dcbdfe9fe918c3ce13b5156567357e1b6756ff90799397267",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "c8428d445e17a7277763f03c2b63d7831fefe244299692b16e1c87c9fcb75693",
       "taskComposition": "factor state and actions"
     },
     {

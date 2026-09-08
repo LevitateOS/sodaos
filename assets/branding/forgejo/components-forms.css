@@ -220,3 +220,7 @@
 .ui.form.soda-p-form fieldset { border: 0; padding-block: 0; }
 .ui.form.soda-p-form fieldset + fieldset > legend { border: 0; padding-top: 0; }
 /* Native presentation roles retain their hooks; button sizing is centralized. */
+
+/* Static guidance is always readable. Native form status messages remain gated
+   by their error/info/warning state; only explicitly authored notices opt in. */
+.ui.form .ui.message.soda-notice { display: block; }

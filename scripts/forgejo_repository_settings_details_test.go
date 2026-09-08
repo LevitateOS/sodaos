@@ -75,6 +75,10 @@ func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
 			_, page, _ = strings.Cut(page, `{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}`+"\n")
 			page = strings.TrimSuffix(page, "\n{{end}}{{end}}\n")
 			page = strings.Replace(page, `{{if not $personal}}{{.Title}}{{end}}`, `{{.Title}}`, 1)
+			page = strings.Replace(page, `{{if $personal}}<div class="soda-toolbar soda-settings-inventory-actions">{{else}}<h4 class="ui top attached header">{{end}}`, `<h4 class="ui top attached header">`, 1)
+			page = strings.Replace(page, `{{if $personal}}</div>{{else}}</h4>{{end}}`, `</h4>`, 1)
+			page = strings.Replace(page, `{{if and $personal (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Description" .Description}}</div>{{else}}`, ``, 1)
+			page = strings.Replace(page, "</div>{{end}}", "</div>", 1)
 		}
 
 		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(page))); got != tt.hash {

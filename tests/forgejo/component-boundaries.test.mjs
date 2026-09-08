@@ -22,6 +22,15 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
     }
 
+    await t.test('static guidance inside forms is visible without exposing validation messages', async () => {
+      for (const theme of ['light','dark']) {
+        await render(`<main class="soda-page"><div class="ui form"><div class="ui info message soda-notice">Context</div><div class="ui warning message soda-notice">Consequences</div><div class="ui error message">Inactive validation</div></div></main>`,theme);
+        assert(await page.locator('.info.message').isVisible());
+        assert(await page.locator('.warning.message').isVisible());
+        assert.equal(await page.locator('.error.message').isVisible(),false);
+      }
+    });
+
     await t.test('settings headings stay above their bodies at every width', async () => {
       for (const width of [1440, 900, 899, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 });

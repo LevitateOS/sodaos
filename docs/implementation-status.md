@@ -1,5 +1,34 @@
 # Current handoff
 
+## Settings feedback, empty inventories and action placement
+
+Revision `2026-09-08.23` presents SSH-disabled guidance as info, recovery/key-loss
+guidance as warnings, and preserves the account-deletion danger message. Static
+notices explicitly remain visible within native forms without exposing inactive
+validation messages. Cargo context and consequences are separate info/warning
+notices before its action in English; other translations retain their complete
+warning text. No locale-cache restart or catalog changes were needed.
+
+Access tokens, personal webhooks, organizations, repositories and cleanup rules
+now use shared empty-state presentation only when the native inventory is empty.
+Webhooks no longer render a blank heading. Section-level actions use heading rows
+that wrap on mobile; page-level actions use a left toolbar; submissions follow
+fields/guidance. This includes Appearance, enrollment and Cargo/Chef. Native
+absolute header-action positioning was removed within personal settings after
+the 320px visual review caught overlap on Cleanup rules.
+
+Go Forgejo checks, 15 component checks and 11 native settings checks passed.
+The native suite checks every permitted destination plus message/empty-state
+visibility and heading-action flow; component tests protect hidden validation.
+All 44 route/width layout audit states passed. Verified screenshots are under
+`.artifacts/settings-feedback/`; final Packages captures use `mobile-release/`
+and `desktop-release/`. Earlier capture folders include intermediate evidence.
+Representative native dark desktop/light mobile views were reviewed. Populated
+credentials, mutation journeys, foreign-language Cargo splitting and gated
+Actions/Storage remain outside native coverage. Existing shared webhook caller
+parity is protected; the unrelated merged-footer inventory hash mismatch remains
+recorded. Local template reload only; no submissions or appliance rollout.
+
 ## Shared settings inset across every destination
 
 Revision `2026-09-08.22` replaces the incomplete direct-section-body inset with

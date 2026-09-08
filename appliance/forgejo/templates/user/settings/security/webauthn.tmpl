@@ -25,7 +25,7 @@
 		{{end}}
 	</div>
 	<p>{{ctx.Locale.Tr "settings.webauthn_desc" "https://w3c.github.io/webauthn/#webauthn-authenticator"}}</p>
-	<p>{{ctx.Locale.Tr "settings.webauthn_key_loss_warning"}} {{ctx.Locale.Tr "settings.webauthn_alternative_tip"}}</p>
+	<p class="ui warning message soda-notice">{{ctx.Locale.Tr "settings.webauthn_key_loss_warning"}} {{ctx.Locale.Tr "settings.webauthn_alternative_tip"}}</p>
 	<div class="ui form soda-p-form">
 		<div class="required field">
 			<label for="nickname">{{ctx.Locale.Tr "settings.webauthn_nickname"}}</label>

@@ -67,7 +67,7 @@
 .soda-settings .soda-shared-runner > .ui.attached.segment:not(table) { border: 0; padding: 0; background: transparent; }
 .soda-settings .soda-shared-runner dl > .item { border: 0; }
 .soda-settings .soda-webhook-provider { margin-top: 16px; }
-.soda-settings-inventory-actions { justify-content: flex-end; }
+.soda-settings-inventory-actions { justify-content: flex-start; }
 .soda-settings-inventory-actions:empty { display: none; }
 
 /* Every section heading precedes its body; actions wrap below on mobile. */
@@ -85,4 +85,13 @@
 }
 .soda-settings .user-setting-content :is(.soda-settings-section > h2, .soda-settings-inventory-heading, .soda-p-heading, .ui.top.attached.header, .soda-profile-editor legend, .soda-form-section > legend) {
  margin-inline-start: calc(-1 * var(--soda-settings-body-inset));
+}
+
+/* One action row for native and overridden inventory headings. */
+.soda-settings .user-setting-content :is(.soda-settings-inventory-heading, .ui.top.attached.header):has(> .ui.right) {
+ display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.soda-settings .user-setting-content :is(.soda-settings-inventory-heading, .ui.top.attached.header) > .ui.right { float: none; position: static; inset: auto; height: auto; margin: 0; }
+@media (max-width: 899px) {
+ .soda-settings .user-setting-content :is(.soda-settings-inventory-heading, .ui.top.attached.header):has(> .ui.right) { flex-direction: column; align-items: flex-start; }
 }

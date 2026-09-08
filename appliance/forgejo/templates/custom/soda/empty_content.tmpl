@@ -1,5 +1,5 @@
 {{/* The caller owns the empty-state decision and any permitted actions. */}}
 {{with .Icon}}<div class="soda-empty-symbol" aria-hidden="true">{{svg . 32}}</div>{{end}}
 {{with .Eyebrow}}<p class="soda-empty-eyebrow">{{.}}</p>{{end}}
-<h2 class="soda-empty-title"{{with .TitleID}} id="{{.}}"{{end}}>{{.Title}}</h2>
+{{if .Title}}<h2 class="soda-empty-title"{{with .TitleID}} id="{{.}}"{{end}}>{{.Title}}</h2>{{end}}
 {{with .Description}}<p class="soda-empty-description">{{.}}</p>{{end}}
