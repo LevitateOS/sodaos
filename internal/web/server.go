@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
@@ -28,6 +29,8 @@ func New(c config.Config, db *store.Store) *Server {
 		w.Write([]byte("ok\n"))
 	})
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
+	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
+	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	s.authRoutes()
 	s.apiRoutes()
 	return s
@@ -50,6 +53,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+	if strings.HasPrefix(r.URL.Path, avatarPrefix) && (path.Clean(r.URL.Path) != r.URL.Path || r.URL.EscapedPath() != r.URL.Path) {
+		avatarError(w, r, http.StatusNotFound, "Avatar route not found.")
+		return
+	}
 	// Refuse malformed API paths as JSON instead of ServeMux's HTML canonical
 	// redirect. API callers must never follow a redirect into a page response.
 	if (r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/")) && path.Clean(r.URL.Path) != r.URL.Path {
