@@ -2,6 +2,7 @@
 <div role="main" aria-label="{{.ctxData.Title}}" class="page-content soda-page soda-native-forms soda-settings {{.pageClass}}" data-signed="true">
 	<div class="ui container soda-page-container">
 		{{$artwork := ""}}
+		{{if .artwork}}{{$artwork = .artwork}}{{end}}
 		{{if .ctxData.PageIsSettingsProfile}}{{$artwork = "settings-profile-papercraft.png"}}
 		{{else if .ctxData.PageIsSettingsAccount}}{{$artwork = "settings-account-papercraft.png"}}
 		{{else if .ctxData.PageIsSettingsAppearance}}{{$artwork = "settings-appearance-papercraft.png"}}

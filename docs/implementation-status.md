@@ -2,7 +2,7 @@
 
 ## Page illustration goal
 
-The [per-page checklist](page-illustration-checklist.md) inventories 203 current
+The [per-page checklist](page-illustration-checklist.md) inventories 204 current
 overrides/helpers and tracks shared-template page variants separately. Migration,
 fork, 404, discussion subscriptions and watched repositories now have distinct
 illustrations. Native forms, state, permissions and meaningful status text remain
@@ -18,7 +18,10 @@ is empty. Package version lists and the common detail shell were assessed withou
 added art to prioritize release selection, installation content and metadata;
 these are source decisions, not populated-page runtime evidence. Package settings and cleanup forms were assessed; six upstream settings callers
 were added explicitly to the inventory, with personal landing/add-rule desktop
-captures inspected. A personal registry-settings illustration is next; individual decisions and unexercised variants remain in the checklist.
+captures inspected. Personal registry settings now has its own maintenance illustration, scoped by an
+explicit landing-template artwork input; desktop/mobile captures and add-cleanup
+isolation were checked, and focused package/shared-boundary tests passed.
+Organization registry settings is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed

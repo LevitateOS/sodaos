@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: generate the personal registry-settings illustration, then assess organization registry settings separately. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: assess organization registry settings separately. Personal registry settings artwork is complete. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -222,6 +222,7 @@ Next: generate the personal registry-settings illustration, then assess organiza
 | Pending | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/layout_footer.tmpl`](../appliance/forgejo/templates/user/settings/layout_footer.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`user/settings/layout_head.tmpl`](../appliance/forgejo/templates/user/settings/layout_head.tmpl) | `settings-account-papercraft.png`, `settings-appearance-papercraft.png`, `settings-applications-papercraft.png`, `settings-keys-papercraft.png`, `settings-profile-papercraft.png`, `settings-security-papercraft.png` | Not yet reviewed in this goal. |
+| Done | [`user/settings/packages.tmpl`](../appliance/forgejo/templates/user/settings/packages.tmpl) | `settings-packages-papercraft.png` | Native landing-page content preserved; explicit artwork input excludes cleanup pages. |
 | Pending | [`user/settings/profile.tmpl`](../appliance/forgejo/templates/user/settings/profile.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/security/twofa_enroll.tmpl`](../appliance/forgejo/templates/user/settings/security/twofa_enroll.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -234,7 +235,7 @@ Upstream-only page callers traced from the running stock binary with `forgejo em
 
 | Status | Native page template / variant | Decision |
 | --- | --- | --- |
-| Generate | `user/settings/packages.tmpl` | Dedicated compact registry-maintenance scene appropriate; baseline captured. |
+| Done | `user/settings/packages.tmpl` (now overridden) | Registry-maintenance scene integrated; native desktop/mobile captures and cleanup-page isolation checked. |
 | Pending | `org/settings/packages.tmpl` | Separate organization registry-settings decision queued. |
 | No image | `user/settings/packages_cleanup_rules_edit.tmpl` — add | Long retention form; prioritize criteria. Native desktop capture inspected. |
 | No image | `user/settings/packages_cleanup_rules_edit.tmpl` — edit | Same criteria plus remove/preview actions; source-reviewed. |
@@ -345,3 +346,11 @@ Upstream-only page callers traced from the running stock binary with `forgejo em
 - Package-version settings retain association controls and the native deletion warning/modal without decoration, for both owner types. The cleanup list and Cargo are inline sections, not separate image destinations. Add/edit cleanup rules retain clear keep/remove semantics; previews retain exact counts and version rows without a decorative scene.
 - Native authorized helper captures inspected: `.artifacts/screenshots/capture-AyNtZk/001.png` for personal registry settings and `002.png` for add cleanup rule, both 1440×1000. The settings introduction has room for a compact scene. The lengthy cleanup form already extends below the viewport; no illustration is appropriate there. Edit/preview and organization states are source assessments, not runtime claims.
 - No forms submitted, keys generated, Cargo index initialized, cleanup rules created or package state changed. No source changes or tests required for these decisions. The next image must target only the settings landing page, not every page sharing its settings flag/layout.
+
+### Personal registry settings illustration
+
+- [Exact prompts/provenance](../assets/branding/forgejo/settings-packages-art-prompt.md). Robot adjusts the gear on a package organizer, distinguishing maintenance from public registry publishing. Initial RGB output rejected; built-in correction yielded visually inspected 1536×1024 RGBA with transparent corners.
+- Added the stock 15.0.7 personal settings landing template as an official override, changing only its layout call to supply artwork. The shared layout accepts that explicit input; existing artwork selection remains. Cleanup callers do not supply it, so they remain undecorated. Inventory now contains 204 overrides/helpers.
+- Focused offline `TestForgejoPackages` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed. Local templates reloaded.
+- Inspected native captures: `.artifacts/screenshots/capture-gzvM6u/001.png` (1440×1000 landing), `002.png` (add-cleanup isolation), and `capture-X8BBed/001.png` (390×844 landing). The image composites cleanly and fits beside the heading without overlap. Mobile settings navigation still precedes the form below the viewport. Baseline `capture-AyNtZk/001.png`.
+- No forms submitted or registry state changed. Dark theme, initialized Cargo, populated cleanup lists and edit/preview runtime states were not exercised.
