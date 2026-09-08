@@ -196,7 +196,15 @@ try {
     // click navigation waiter to one of those competing native navigations.
     await menu.locator('a[data-url="/user/logout"]').click({noWaitAfter: true});
     assert.equal((await response).status(), 200);
-    await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('#navbar a[href^="/user/login"]'));
+    stage = 'native anonymous landing after logout';
+    try {
+      await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('#navbar a[href^="/user/login"]'), null, {polling: 100});
+    } catch (error) {
+      result.logout_landing = await p.evaluate(() => ({atHome: location.pathname === '/', ready: document.readyState,
+        focused: document.hasFocus(), hidden: document.hidden,
+        login: !!document.querySelector('a[href*="/user/login"]'), logout: !!document.querySelector('a[data-url="/user/logout"]')}));
+      throw error;
+    }
   }
   async function oauth(index) {
     assert(!interrupted);
