@@ -23,7 +23,7 @@
 .soda-repo-work-items-toolbar .issue-list-new {
   flex: none;
   min-height: var(--soda-control-height);
-  padding: 11px 16px;
+  padding: 12px 16px;
   border-radius: var(--soda-control-radius);
 }
 
@@ -49,8 +49,8 @@
 }
 
 .soda-repo-work-items .soda-pinned-issues {
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .soda-repo-work-items .soda-pinned-issues .issue-card {
@@ -61,7 +61,7 @@
 }
 
 .soda-repo-work-items #issue-actions {
-  padding: 10px var(--soda-panel-inset);
+  padding: 8px var(--soda-panel-inset);
   border-inline: 1px solid var(--soda-page-edge);
   background: var(--soda-page-selected);
 }
@@ -72,11 +72,11 @@
 
 .soda-issue-template-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .soda-issue-template-list .soda-issue-template-card {
-  padding: 18px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius) !important;
   background: var(--soda-page-surface);
@@ -126,7 +126,7 @@
 /* Conversation, review tabs, commits, checks, and diff remain native fragments. */
 .soda-repo-thread-title .issue-title-header {
   margin-bottom: 16px;
-  padding: 18px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -139,7 +139,7 @@
 
 .soda-pull-tabs {
   width: 100% !important;
-  margin: 0 0 18px !important;
+  margin: 0 0 16px !important;
 }
 
 .soda-pull-tabs > .pull.tabular.menu {
@@ -212,7 +212,7 @@
 /* Compact milestone actions retain native tooltips and link-action handling. */
 .soda-milestone-detail-title {
   flex-wrap: wrap;
-  gap: 12px 18px;
+  gap: 12px 16px;
   margin-bottom: 16px;
 }
 
@@ -221,27 +221,6 @@
   align-items: center;
   gap: 4px;
   margin-left: auto;
-}
-
-.soda-milestone-detail-title .soda-milestone-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--soda-page-muted);
-  box-shadow: none;
-}
-
-.soda-milestone-detail-title .soda-milestone-action:is(:hover, :focus-visible) {
-  background: var(--soda-page-hover);
-  color: var(--soda-page-text);
 }
 
 /* Existing stock milestone leaves share stable native page classes. */
@@ -333,5 +312,5 @@
 :is(.soda-repo-issue-editor, .soda-code-compare) .issue-content-right > .divider {
   border: 0;
   height: 0;
-  margin-block: 20px;
+  margin-block: 16px;
 }

@@ -26,13 +26,13 @@
 
 .soda-projects-list .milestone-card {
 	list-style: none;
-	padding: 18px var(--soda-panel-inset);
+	padding: 16px var(--soda-panel-inset);
 }
 
 .soda-projects-list .milestone-header h3 {
 	margin: 0;
 	color: var(--soda-page-text);
-	font: 600 21px/1.4 "Fraunces Variable", Georgia, serif;
+	font: var(--soda-font-heading);
 }
 
 .soda-projects-list .milestone-header h3 a {
@@ -43,12 +43,12 @@
 	display: flex;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: 10px 16px;
-	margin-top: 14px;
+	gap: 8px 16px;
+	margin-top: 12px;
 }
 
 .soda-projects-view > .ui.container.padded {
-	padding-top: 22px !important;
+	padding-top: 24px !important;
 }
 
 .soda-projects-view #project-board {
@@ -68,13 +68,13 @@
 }
 
 .soda-project-board-page {
-	padding-bottom: 18px;
+	padding-bottom: 16px;
 	color: var(--soda-page-text);
 }
 
 .soda-project-board-header > .soda-project-board-toolbar h2 {
 	color: var(--soda-page-text);
-	font: 600 32px/1.25 "Fraunces Variable", Georgia, serif;
+	font: var(--soda-font-title);
 	letter-spacing: -.025em;
 }
 

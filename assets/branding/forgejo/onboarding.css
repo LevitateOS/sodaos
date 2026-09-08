@@ -11,7 +11,7 @@
   min-width: 0;
   min-height: 210px;
   margin: 0;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -25,7 +25,7 @@
 }
 
 .soda-migrate-chooser .migrate-entry > svg { width: 54px; height: 54px; color: var(--soda-page-link); }
-.soda-migrate-chooser .migrate-entry h3 { color: var(--soda-page-text); font: 600 22px/1.3 "Fraunces Variable", Georgia, serif; }
+.soda-migrate-chooser .migrate-entry h3 { color: var(--soda-page-text); font: var(--soda-font-heading); }
 .soda-migrate-chooser .migrate-entry .description { color: var(--soda-page-muted); line-height: 1.5; }
 
 /* Provider pages are unmodified upstream templates. This stable native root
@@ -34,13 +34,13 @@
   width: min(920px, calc(100% - 48px));
   /* Width already supplies gutters; native page-grid padding reaches 23%. */
   padding-inline: 0;
-  margin: 32px auto 48px;
+  margin: 32px auto 32px;
 }
 
 .repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.header,
 .repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.segment { border-color: var(--color-secondary); }
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.header { padding: 16px 18px; font: 600 25px/1.3 "Fraunces Variable", Georgia, serif; }
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.segment { padding: 22px 18px; }
+.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.header { padding: 16px 16px; font: var(--soda-font-heading); }
+.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.segment { padding: 24px 16px; }
 
 .soda-fork .soda-form { max-width: 920px !important; margin-inline: auto; }
 .soda-fork .soda-form-section .inline.field > label { color: var(--soda-page-text); }
@@ -50,14 +50,14 @@
    These selectors only adapt its stable replacement roots. */
 .page-content.repository:has(#repo_migrating) > .ui.container {
   width: min(920px, calc(100% - 48px)) !important;
-  margin-block: 32px 48px;
+  margin-block: 32px 32px;
 }
 
 .page-content.repository:has(#repo_migrating) .home {
-  padding: 24px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .page-content.repository:has(#repo_migrating) .home > .ui.page.grid {
@@ -94,7 +94,7 @@
 
 @media (max-width: 700px) {
   .soda-migrate-entries { grid-template-columns: 1fr; }
-  .repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid { width: calc(100% - 32px); margin-top: 18px; }
-  .page-content.repository:has(#repo_migrating) > .ui.container { width: calc(100% - 32px) !important; margin-top: 18px; }
-  .page-content.repository:has(#repo_migrating) .home { padding: 18px 16px; }
+  .repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid { width: calc(100% - 32px); margin-top: 16px; }
+  .page-content.repository:has(#repo_migrating) > .ui.container { width: calc(100% - 32px) !important; margin-top: 16px; }
+  .page-content.repository:has(#repo_migrating) .home { padding: 0; }
 }

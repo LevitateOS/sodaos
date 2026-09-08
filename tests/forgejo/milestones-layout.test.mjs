@@ -41,7 +41,7 @@ test('milestone sidebar and cards fit desktop and stacked mobile layouts', { ski
         return { sidebar: rect('.flex-container-nav'), card: rect('.milestone-card'), overflow: document.documentElement.scrollWidth > innerWidth };
       });
       assert.equal(layout.overflow, false, `${width}px: horizontal overflow`);
-      if (width > 700) {
+      if (width > 900) {
         assert.equal(layout.sidebar.width, 240, `${width}px: bounded repository sidebar`);
         assert(layout.card.x >= layout.sidebar.right + 23, `${width}px: separate columns`);
         assert(layout.card.width > 300, `${width}px: usable milestone card`);

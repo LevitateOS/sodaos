@@ -1,6 +1,6 @@
 /* Repository activity and commit-history presentation. Native Forgejo owns all data, charts and controls. */
 .soda-insights > .soda-page-container {
-  padding-top: 22px;
+  padding-top: 24px;
 }
 
 .soda-insights .flex-container-nav {
@@ -37,7 +37,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
 }
 
 .soda-insights .activity-header .dropdown .button,
@@ -88,7 +88,7 @@
 }
 
 .soda-insights-activity .horizontal.segments > a.segment {
-  padding: 18px 16px;
+  padding: 16px 16px;
   transition: background-color .15s ease;
 }
 
@@ -98,26 +98,26 @@
 
 .soda-insights-activity .horizontal.segments > a.segment strong {
   color: var(--soda-page-text);
-  font: 600 26px/1.2 "Fraunces Variable", Georgia, serif;
+  font: var(--soda-font-heading);
 }
 
 .soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart, #repo-recent-commits-chart) {
   min-height: 360px;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
 }
 
 .soda-insights-activity .divider.divider-text {
-  margin-top: 26px;
+  margin-top: 24px;
   color: var(--soda-page-text);
   font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
 }
 
 .soda-insights-activity .list .desc {
   margin: 0;
-  padding: 14px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--soda-page-edge);
   color: var(--soda-page-muted);
 }
@@ -137,7 +137,7 @@
 
 .soda-insights-graph #git-graph-heading {
   gap: 16px;
-  padding: 16px 18px;
+  padding: 16px 16px;
   border-bottom: 1px solid var(--soda-page-edge);
   background: var(--soda-page-surface);
 }

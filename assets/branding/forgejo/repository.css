@@ -1,7 +1,7 @@
 /* Repository presentation for stock Forgejo 15.0.7. The native templates own
    repository state, permissions, forms, scripts, and all workflow behavior. */
 .page-content:has(> .soda-repository-header) {
-  padding-bottom: 40px;
+  padding-bottom: 32px;
   color: var(--soda-page-text);
   font-family: Barlow, Arial, sans-serif;
 }
@@ -14,7 +14,7 @@
 /* Repository identity and native unit navigation. */
 .soda-repository-header {
   padding: 24px 0 0;
-  margin: 0 0 22px;
+  margin: 0 0 24px;
   background:
     radial-gradient(circle at 12% 0, color-mix(in srgb, var(--soda-page-selected) 72%, transparent) 0 13%, transparent 38%),
     linear-gradient(180deg, var(--soda-page-surface), var(--soda-page-canvas));
@@ -27,9 +27,9 @@
 
 .soda-repository-header .repo-header {
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   min-height: 74px;
-  padding: 0 0 18px;
+  padding: 0 0 16px;
 }
 
 .soda-repository-header .repo-header > .flex-item {
@@ -39,14 +39,14 @@
 .soda-repository-header .repo-header .flex-item-leading svg {
   width: 34px;
   height: 34px;
-  padding: 7px;
+  padding: 8px;
   color: var(--soda-page-link);
   background: var(--soda-page-selected);
   border-radius: 10px;
 }
 
 .soda-repository-eyebrow {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   color: var(--soda-page-muted);
   font: 500 10px/1.4 "IBM Plex Mono", monospace;
   letter-spacing: .1em;
@@ -78,14 +78,14 @@
 
 /* Keep the native repository button row as the stable Sodaspaces insertion seam. */
 .soda-repository-header .repo-header .repo-buttons {
-  gap: 7px;
+  gap: 8px;
   margin-left: auto;
 }
 
 .soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
   min-height: 36px;
   border-color: var(--soda-page-edge);
-  border-radius: 9px;
+  border-radius: var(--soda-control-radius);
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   box-shadow: none;
@@ -116,13 +116,13 @@
 }
 
 .soda-repository-header > overflow-menu > .overflow-menu-items {
-  gap: 3px;
+  gap: 4px;
 }
 
 .soda-repository-header > overflow-menu .item {
-  gap: 7px;
+  gap: 8px;
   margin: 0 !important;
-  padding: 13px 14px !important;
+  padding: 12px 12px !important;
   border: 0 !important;
   border-radius: 9px 9px 0 0 !important;
   color: var(--soda-page-muted) !important;
@@ -142,7 +142,7 @@
 
 .soda-repository-header > overflow-menu .ui.label {
   min-width: 21px;
-  padding: 4px 6px;
+  padding: 4px 4px;
   border: 0;
   border-radius: 999px;
   background: var(--soda-page-canvas);
@@ -174,13 +174,13 @@
   }
 
   .soda-repository-header {
-    padding-top: 18px;
+    padding-top: 16px;
   }
 
   .soda-repository-header .repo-header {
     align-items: flex-start;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
 
   .soda-repository-header .repo-header .repo-buttons {
@@ -191,6 +191,6 @@
   }
 
   .soda-repository-header > overflow-menu .item {
-    padding-inline: 11px !important;
+    padding-inline: 12px !important;
   }
 }
