@@ -68,6 +68,16 @@ account preference, fixture, provider, native stage or deployed VM was changed.
 All task commits were collected onto `main`; production staging and the Sodaspaces
 drawer remain separate unfinished integration work.
 
+`scripts/screenshot.mjs` is a small local capture helper: manual `--login` in a
+dedicated private profile, then viewport PNGs for supplied URLs. Fixture changes
+stay manual. It uses installed Chrome and existing Playwright; this development
+checkout links the preinstalled desktop package through ignored `node_modules/`.
+Verified two real guest preview captures at 390×844, interactive login-window
+open/close, and persistent test-cookie reuse across browser runs with a local
+temporary HTTP server (1440×1000 output). No real Forgejo login was submitted and
+no Forgejo fixtures, native installation or deployment were changed. Usage is in
+[screenshot capture](screenshot-capture.md#quick-local-page-screenshots).
+
 ## Shared Forgejo presentation components
 
 The local stock 15.0.7 preview uses small Go template partials for page intros,

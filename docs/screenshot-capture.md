@@ -1,6 +1,48 @@
 # Screenshot capture brief — later real evidence
 
-Adapted from `soda-os`'s handbook capture rules, not its old page list or release claims. No screenshots have been captured for this implementation. Do not add broken image links or substitute generated UI, mockups or the Forgejo component sheet for an installed product screenshot.
+Adapted from `soda-os`'s handbook capture rules, not its old page list or release claims. Local preview captures are separate from installed-product evidence. Do not add broken image links or substitute generated UI, mockups or the Forgejo component sheet for an installed product screenshot.
+
+## Quick local page screenshots
+
+Use Node.js, installed Google Chrome and the Playwright dependency already declared
+in `cockpit/package.json`. The helper uses a persistent browser context so mobile
+captures use the requested CSS viewport rather than cropping a desktop window.
+On the current development machine, ignored `node_modules/playwright` links to the
+already installed desktop runtime package; no package installation was needed.
+Other machines can use the existing Cockpit development dependencies or `NODE_PATH`
+pointing to an installed Playwright package directory.
+
+Log in once in its dedicated browser window, then press Enter in the terminal:
+
+```sh
+node scripts/screenshot.mjs --login http://localhost:3300/user/login
+```
+
+Choose “Remember me” if offered. The script keeps that browser profile in ignored
+`.local/screenshot-profile/`; it contains session cookies and stays private.
+It does not copy your normal browser's cookies or store a password in source.
+If the session expires, run `--login` again.
+
+Capture one or more URLs using that session:
+
+```sh
+node scripts/screenshot.mjs \
+  http://localhost:3300/ \
+  http://localhost:3300/user/settings
+
+node scripts/screenshot.mjs --width 390 --height 844 \
+  http://localhost:3300/explore/repos
+```
+
+Each run prints its PNG paths under a fresh `.artifacts/screenshots/capture-*`
+directory. Files are numbered in URL order. These are viewport screenshots,
+not full scrolling pages. `--wait 3000` gives JavaScript three extra seconds to
+settle. Inspect the result: a PNG can still show an expired login or an error page.
+
+Keep the dedicated profile closed between runs. Use `--profile DIR` for a separate
+guest/account profile, `--out DIR` for a new output directory, or `CHROME` for a
+different Chrome executable. Run `--help` for defaults. Fixtures are added and
+removed manually through Forgejo; the script has no fixture management.
 
 ## Conditions
 
