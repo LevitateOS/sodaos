@@ -435,7 +435,8 @@ presentation roles; `components-forms.css`, `components-settings.css`, intro,
 list, empty and toolbar sheets own their respective reusable structures.
 Family styles compose those structures and adapt specialized native canvases.
 
-Use `soda-p-form` on principal native forms, `soda-p-form-host` on an existing
+Use `soda-p-editor-container` for the shared repository editor width,
+`soda-p-form` on principal native forms, `soda-p-form-host` on an existing
 wrapper whose direct child is an unchanged native form partial, `soda-p-heading`
 or `soda-p-title` on headings, `soda-p-section` on open sections, and
 `soda-p-gap` on blank native dividers. Retain native classes and all form/script

@@ -20,7 +20,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "52967a2b0a5396d68c28ddde4cd04d14809b50840ab76d9ac2b861dc4228f45d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -44,7 +48,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e2250743a3bfd525cee19ec9381dbf5b6fd7d7d02232752dc6124f7659e2764d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -77,7 +85,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4e3df5c0667be0d00cea2ddfc81a3d70ffbdd520352fb6319b6a5b44ef44f93f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -104,7 +116,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "51892a601b1a8ee74800405799ade2f3585dcbe1eef581909210c5e54b1c5f66",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -139,7 +155,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "df427e5daff6c120d47a2641304d086ba006cf2105b1606521d3d49e58a5a00a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -171,7 +191,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0754c95ff020c8407c3bb813cbc55465faf3133491375415cf616b2975331c73",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -203,7 +227,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "5f9be5764a9cabb34ae2ebb966b00954a85285f636648d3be748fd1027418294",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -235,7 +263,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "043a7975cf11cc08ea5a84a63fd6ba6b84e4d0e5fd9d9927a686662e896e183e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -269,7 +301,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d4e0a6a094475e8772dea12ab4fd33708ab360719d9ab78a9bd3743fd78e2989",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -318,7 +354,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "041f94429efeb29cf2a0e1e3ec7c68e216bbc878692e0d94be1b2ba0081bc802",
       "upstreamCallers": [
         "admin/actions.tmpl",
@@ -365,7 +405,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c5afe1dadf84893d5c7d982f632b3c0db89da390014c87efe6447d0b46b453d4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -393,7 +437,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "03a57324dbd730ec40f2ebc22196c6c3651ef6defccb7cf0aa2ca18bee3b9ccb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -424,7 +472,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "86cf51543ac17e0030d2584e66900712e0f6f17ce780838fb2428e0a722ba213",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -454,7 +506,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ae2ea251e60d50157741a46fc7f4b3ca787e762f5cac93a3dec2008ff434aced",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -481,7 +537,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3444c24ebe16c4be4fac17d8f514d83f2b1b2f1d58b816df2b1b87b6e404f214",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -517,7 +577,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "387e9a7886aacfc951a8f808b4d38bcfb3d976e2981e5f615bcb7e26aecc30cb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -552,7 +616,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "edbaeb304f291f8ea7ee8386d9ce2ab0283170aeffa2672122556f7c35d7df87",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -587,7 +655,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2e2abfd4a298cddb01b645fc1d2b1d42d9f1a1d338a838248047208e3ce9aec8",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -619,7 +691,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8908e98678eb844eb4f3ce71ac107c31f1153576d657a7dffcf01b7be3939ad9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -646,7 +722,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "bc0e5778c4e6d5292213efe012dfddf23ba3094e060494691a13d3ddadf84131",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -672,7 +752,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "261c43680c78da23dae92ae6ff9d6b2fa01859c855f5b92cca49d53e9c8b9fa1",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -693,7 +777,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "24b791a3ffe6556a600a79ced30f3d3eb59f300fa0c7e1e551f454cdcfa7c99f",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
@@ -724,7 +812,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f834fe4ff56c13fe77b009b50bc40209a5c36296f6ab3b334f7fe0eaa151ccbc",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -746,7 +838,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d388a3891740b0ec667f907363c8db252d30e7f7ecb69a30efc955ba9fb02e75",
       "upstreamCallers": [
         "base/head.tmpl"
@@ -777,7 +873,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "91b2daddd839a1d308012136d8bd1cc3cf3c47c9496d2988ca275e975701d73d",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -798,7 +898,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "87aa8cd463786c85ddd3aafeceaaedb3a8e9c4fdb8e2332a174db0c2b8eaa03c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -832,7 +936,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d9a095c17292003553c4d7479d4fd984e6c09547362741b21026d5fbca33347c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -885,7 +993,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "554628eb1f910300b234304208822047e3de1be0f2fd5d827972f7ab9f1a339c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -920,7 +1032,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "eb0fd831928f328b7547c299aea94ec32550e62e8cfd0d0314cf77dfff2b2d6e",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -952,7 +1068,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ffdbbe3243f5edaabcd00ad166ae02e7b39cfcc64f7479b0e0ad25e8a6e54e52",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -984,7 +1104,17 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/002.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/002.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/002.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/002.png"
+        ]
+      },
       "beforeRoleHash": "8819a61ef314b0cbdd01c4fe83c30f8532543c2752a5c073441295ea7067d49c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1017,7 +1147,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "18852f21ae713cdb7fc15a2dd37021d83c975dfdfe3c3f20f2fcf2e687bcaf4f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1060,7 +1194,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "5e38c1293b121c29ccccaada2d112f19551e2a5396cea69c020f62b59141c451",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1100,7 +1238,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "bcf7fd2079bc84cd23abea573d051ebfe3af2bfb9df61e1367e1aa487a017e0d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1134,7 +1276,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e54c4235a0453d79f77563ed71b0dc1a53a7bbe17935d11f28d68599f03c5c51",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1171,7 +1317,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "6bc9cc00f16aa523176843b2d22f55a2b91fa6a0d0e13acdb1463b6aded1f4f2",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1211,7 +1361,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "fd2e835ea1d0bc5e7eba9f9b8f5e85afa95646b330094e1fd4332ce12de25063",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -1249,7 +1403,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "79b26814784ea081082974b2b03f206b26b6246fe9316c2a8de64886572554d7",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1284,7 +1442,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "60f878648b4f19cd4471cf1e128387700d3d10e5aa805f8aa4faa8b115a1a47e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1315,7 +1477,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2f3eeb43ecb79f0116389e51c642964aa5b299be561794b532cfddda0635e6f8",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1344,7 +1510,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2368fd349d4d2ba39466a8f4eafc2fa52c56fe4deaf497268907713aa5c847f3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1373,7 +1543,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e75df26fed6fe851c8ef81fed575d8aec8cb6212ad8f2bc10af0c172092bcec3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1401,7 +1575,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "79d81a7b78e7afff49c633143506f78f5cb3b85fca3f97dba85a100eb440d3fd",
       "upstreamCallers": [
         "org/settings/actions.tmpl",
@@ -1450,7 +1628,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8f64e500ccd6c8a635c716b18f0d462dbf9454f684129a1f7161fb767ab8cb7b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1493,7 +1675,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8bea03de22da72ad1f7ff08e6f9dd58b96ff7093295bbbfef51b8ff9a80b1b5d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1533,7 +1719,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "21d8980251e6c7d626445afd80a68c3768d3acee8fc8fbdf454f6996a85969d5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1573,7 +1763,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9c6f148e8ee47ac292213a07946b52361573fc37e7668747819955b8ded807d6",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1613,7 +1807,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "58ae37f9c2f9456afa1873200efe69dc253f53a96668af5a1cbd0cdbb8ccc72b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1653,7 +1851,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c5cffa2e5b72f4f1c29afc12f22d0dc5549b79feba398d0f9091450d45e2bb31",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1681,7 +1883,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "afd4282ee474b2ade6e29de297ff709ae9cc0668015974aadc21c6b8c8ac9cff",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
@@ -1716,7 +1922,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f437f0c592249b75d492f62a4cb89b57eff9037d295185fd98cdc9c5b2aa8089",
       "upstreamCallers": [
         "org/settings/packages_cleanup_rules_edit.tmpl",
@@ -1749,7 +1959,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f8fd5b26da0bf10b059b3ec634a27e8b9223b2f56bba1ae8dd0fdd548d1b00da",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
@@ -1778,7 +1992,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a03fa2ee8fb6bf6b2464e23ba8cd63a1c03b5bcc9c796e2e6f202b83f121a3b0",
       "upstreamCallers": [
         "org/settings/packages_cleanup_rules_preview.tmpl",
@@ -1823,7 +2041,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c058b086a809e3519e2bf0bd644792eecb4f3bb42466b017a1fac76a3ea31aa2",
       "upstreamCallers": [
         "repo/packages.tmpl"
@@ -1863,7 +2085,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "5f2ef641ba369af530c0f9abfea27b5c648c379c1dd8b89b15e9729dd6c18be4",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -1939,7 +2165,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d954584c1692d92b61786da53e33698b1aa0602244c918d5d200a7840fcbc3ed",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -1968,7 +2198,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "245d894049a52017aaed43741955f3cca1da42e8eaae9801c2d4df27b0627402",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2009,7 +2243,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0c2297b265231c75004cf4ae5ba8904e845e60e1718b4301023c471f9c47a8f2",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2045,7 +2283,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3fe918607abfb6a0fd3c5b7d6085d501d30d13e51254af0a9422039c3115e9e1",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2087,7 +2329,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4e15f9ddcc1bc68c180d7dd1dc616ffc918a731a3b4bdb94a5e261e4e17ecec5",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2115,7 +2361,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "07f6d8c3e8ec9973410a23f891df2355326be45b01c0ce2fe4ad000fc83619b7",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2141,7 +2391,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3076e5db6d7ff3e795af2e195cb6f46fbd10accab0b39e0f494f8f61847ee682",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2165,7 +2419,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "82005b007e9fd331aa0003120facc56445099df2208d311009e45ad352dcc440",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2193,7 +2451,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9c0e750d14e37085bfb257984427243422147aaee5a10d92a20ad0d4174508c8",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2223,7 +2485,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "26512fc646366b1d40022fcf4dd121e3e936d2e8220bb79773628ff2f5d114eb",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2248,7 +2514,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e2b20fc80c73d8cc6645d0466c16fc64ce60b17a3542914814f81cd4be9e355c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2282,7 +2552,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "b3b41c85f0791b6514072b39803fa81e1f04e1c37415ce1b25c41342560ff6d3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2322,7 +2596,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "00adf2447ddfbfc74d431f60ab451a7b39c9d62ecd108453ade78392f9ba9257",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2349,7 +2627,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "aca747c60f3b6a6b2f82aa9dc7a680f4f39806b36b69e9aecbfde584cb0be44b",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2374,7 +2656,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8267ce800b3ad77b1ed4dcb18f456f74f694ad5c4d89fcf2b54ebd8e6352b026",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2408,7 +2694,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "87ad5d17c860c314a01b4106be7c2fd6531cd0ecc476cbba6fdc7d2ddc482f90",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2433,7 +2723,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "13359ceaf69413bb0973765c03308e9929be230967147c9632b16dfde6477fdc",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2460,7 +2754,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "7acc6a70ca642b131aa6fdb69b11f24450578978f86ffcb9b9c1e8c13bab2ba3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2488,7 +2786,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "906cb21a94e0824b75d443c3b1dc4510354ad1af9a84c63bff97736e9a401667",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2522,7 +2824,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "87fd2662c14c00d1e4a92a4031a1b502a946bb3469c9e1074d37b95031e9f2b3",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2563,7 +2869,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a32fc91afb9463a3c514861330d22178bd2330d63c1bf9310d8fa416543980e7",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2601,7 +2911,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4cb43d7c7d465e7ca267f9fbfaee86848e23af119c194bcb9e34c5fe5b29828a",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2632,7 +2946,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "301e12979ef2eb75a3c0c191b544244fecbf82dd8915924b2bd9e5637282d2c6",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2665,7 +2983,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ab669888f5ec49112e37a7662d990b23e81011a1b47d2136b0ff9f1eecf312f3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2695,7 +3017,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "6e1b3796a8c6a4ae81d0639ac216e7208b72c33a2dc9fd09c582e5c2d6fefba3",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -2728,7 +3054,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "addbed1404de2f36a0ffb16a3f50750f42d337afeb6ef24ce8dbc3c0959b4131",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2764,7 +3094,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "39ae193da143a01cb7619716634b0e50d062600b32a7e9fbd30aac7392421af9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2799,7 +3133,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "49b472cc2dd97743b4baf1d729d4fb6a53a04ed67d63db245303de431b1c360c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2835,7 +3173,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "016ff105cd38a4d91e953750eeb659da42003841831caabc94f9aa6a64413290",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2864,7 +3206,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4c1c5739eaba7d7d1f36b7ed2f3942363bca5bc9b4fd7ba70afb7b7ef153e5e3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2890,7 +3236,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "1a57111dc9260250dfe695c1fbe22f115df08ba1dd283d3429f3c8dfab5b69ad",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2918,7 +3268,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "1ba9f4c605f19f12312037cc4c5337092129ea5b484d553ff5223001c976d465",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -2949,7 +3303,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f4e97ef29be84a2d67c772ffd91fcdce3b2709efdbed6c3deb8b30bc86f9b7cf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3031,7 +3389,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4980cb6811433066d7b0f7c9a60fdfb89ecd15402be01cd0edffd50810b8ac5d",
       "upstreamCallers": [
         "repo/flags.tmpl",
@@ -3079,7 +3441,17 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/003.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/003.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/003.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/003.png"
+        ]
+      },
       "beforeRoleHash": "441a8530c9b849660ba82159940ab60190f81af9105ed471f754bb0ae209b964",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3109,7 +3481,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f5bdcf511a5d501bc18bc238bae0e7c091fa4292c9a1f7f8fa915b084fa68a65",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3143,7 +3519,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8ba8b76ec7a3fb787aea47e6b0ee3add6f22fbe6074a9df27005b326df3ac0ef",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3183,7 +3563,17 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/004.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/004.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/004.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/004.png"
+        ]
+      },
       "beforeRoleHash": "0e65ef4c9cf280c79876d6ccff7160b5eb9ade8b7cf6e2726f36bbe39451ca30",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3219,7 +3609,17 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/005.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/005.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/005.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/005.png"
+        ]
+      },
       "beforeRoleHash": "a3007b6a01f4271da9f0d4610199e1233ceb96bac4ba16881fce9013d16e0aba",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3255,7 +3655,11 @@
         "conditional-fields",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f248d74c60a80cda0be7dbb9caa1c58ae437ca227b12f56b793f9740f9416e68",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3291,7 +3695,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f380417349773c9e11381b29d5a67007a7e80bf9d9909665a94b5869b92a20b5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3319,7 +3727,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "47be671364089dd0acf7f879139ef57889caa81a24442d69147b2a2ff92ad921",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -3347,7 +3759,17 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/007.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/007.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/007.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/007.png"
+        ]
+      },
       "beforeRoleHash": "eeae299657f247453ac6656366252732f8e6f175022a9e67c2d6d0f1003b5310",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3375,7 +3797,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "fd6b51d42cbb9645cba33aacf09dab592242036ad4e95cc9f1a417fede6a7f4b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3406,7 +3832,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "cf978fdc3523333c78a78f2c2e68314b632eb195d99d5591ea2efca736bc605a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3444,7 +3874,11 @@
         "conditional-fields",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "1e249456aedd27070c243b6a7b0ed37fcbda854de9eeaee868203e57bde49f4d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3464,7 +3898,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "da97275bdebdb9d6dc94e51da76339d6a91ce9b274b4bc2bc0d5892f3c33e85f",
       "upstreamCallers": [
         "repo/migrate/codebase.tmpl",
@@ -3498,7 +3936,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "93f257b6d8a6494018c90e0f037226f7593af23c1b32cce563ef272e7409fdfd",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3523,7 +3965,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0d9e87e962dba6860feccf6a1098d2d9bca84cfe7ef4f5f1f0fcfb584ff72d34",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3547,7 +3993,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "eca12daee0325073716d407ee9cf753197ec4bc84b6ba5691e2806e3350659c1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3575,7 +4025,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a0976547ff7f6b7bb0495473fcf41c5dfa10d874ed2f73d2824bd4dbde9647cf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3604,7 +4058,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "6abb03ed0b0a732dcdf57b4ec964284b9cc84473d99dfd84a0dbad985ea54b5d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3643,7 +4101,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "dc148707613627abc3f4521d1a47dd22401a9812d9f6d9002dcc7d9565ffac25",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3667,7 +4129,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ae12d9da71485a96309cfc952f92988d8527848e54cdb864979dae93c5920d20",
       "upstreamCallers": [
         "repo/commit_statuses.tmpl",
@@ -3695,7 +4161,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e967a4df3282839dfc3f08b36f6a93ab17daada326a7428f4bd507194c5a2668",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -3720,7 +4190,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a3b82448ff8ba57a6af875b47917bb97a6a3cb373d4b1062fe98925fcd2e59f8",
       "upstreamCallers": [
         "repo/issue/view_content/pull.tmpl"
@@ -3755,7 +4229,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "fb62cdce5d1a6a12bf7f7cc2e5691c45742d0c547342317beb7d7b7f549ca850",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3793,7 +4271,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "77cdc0492e7fbd006652a033f0d658c79ba3130979cd5c599fbc944132ef6257",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3826,7 +4308,11 @@
         "conditional-fields",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "837c2d235920c72769727aa3fd397fa2f0f656721d79cf7c667a810e798150f0",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -3852,7 +4338,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e732cd9125b923a4d54c3f2729f0b25e459306318f90bbab2e362cc9fda22b5d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3875,7 +4365,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ea5ddcab1c9d09ba5938897c5157f8f79b8acbe40604ddb736834536494e5511",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3907,7 +4401,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c3fe32cb1833fb6337adcba411d8e66e0f7648eb294df6dc42bed5275191525f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3941,7 +4439,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "044fa54c382a0c42e25838cd4d952f1de2dc541e8623934b48cf85b2826105bf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -3973,7 +4475,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c97ebd63802193262a68d7cf8c5d24857695aae39781ae6d16c1d619b333b243",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4003,7 +4509,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "5d31883389f573ba1dfe29cd9a0a240f3d2e70287c6a61bba7ffca71d6ea7eaa",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4030,7 +4540,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8423c3e708748d04fd57d8a95a5390300e917518444a914d2ed0e7353389c9db",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4080,7 +4594,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "548488e2d9b092643b1b7586d25a495fe945d2e653c1767233c250d452d10bec",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4112,7 +4630,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ffec31c77c3151d5a3192e54000450adbb0ee27ffdf46dfa43f63c76028d46e3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4138,7 +4660,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "601ef230c1e246b85539fb6f32f866e8fb45acf262e1fddde1ee9f9119242259",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4164,7 +4690,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3e01b869f72938aaa99d57ea53ccb407230ea7151248e895db67d6fc10550586",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4196,7 +4726,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a8d70a7eeaf47cf1a44ac22d44784ae089454dc812f6b6da8f5479290eb1957f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4227,7 +4761,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "df7ef096bb1700faf8f848cfbe9e23374cdbc1878bcc300d053ff985a969d24d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4262,7 +4800,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9a785460bdc89ed49511a0700232801d4fa6263f7792a39c1737c4fa974c6b05",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4293,7 +4835,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ad75022b2ab9dba5e9c13c876a99f1edd6a0b673166096ad98ff2cd96cc306ec",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4316,7 +4862,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "dcf4b3d535bd703e298ab072c674b18b6a601f19b6da0577d7bb3b3499b223eb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4339,7 +4889,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "bfd0fa4291c9c68aad621225b00fc484f0566526a8a31ea3eda6acdb5803e58e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4362,7 +4916,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0bdd839f3a9db2ce4ee6c9370563f3cb58ee09532224776fb92ed6b398d3a5cc",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4385,7 +4943,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "b4eb24a418ab9d58cb1bdcd9bb2a0b655067631fd95079757750c5197516eac1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4408,7 +4970,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "304182b7b4e50cd34d05f1ec8090afe97ec50a57a28eed91f94bef5c335e7d03",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4440,7 +5006,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "63af84a2bb3f25d7246cdeadb64a90b0de16704618a2f7b5a0b762d753f06df2",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4471,7 +5041,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "200027a136a07ffb5d9df48a66fdacd7b5b17a9ee626fa918e6a5b5553598484",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4495,7 +5069,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8f0439bf40433c0635135129727ee4ecfe246f5e11e7cb080a4487891ddba2a8",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4522,7 +5100,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "1f30d62b6334a388eaba234975e028a4fd10c891b5380f2baa6e0ef4956b0a21",
       "upstreamCallers": [
         "admin/hooks.tmpl",
@@ -4557,7 +5139,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "faa65a38907fcac618176e4143933fd43f92825b4da6ff3127ea7d76d998c2f9",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4580,7 +5166,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "472631b8414031feeaa39f8f134d55624e69fcb99e69b92508fe8cca222c3ce3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4608,7 +5198,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "b591397462844e94d90842cbf1eb5696030526cf945426344c924008928fd3de",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4641,7 +5235,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "cf15123402e20e1d33603e55664657b4ddf7e3486b60ac5198a4cdb931ab8aa9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4668,7 +5266,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a58ddb4469520479dbb8c56f64d7d000bc82a231ff3ec95273eba8f554827e1c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4698,7 +5300,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e93ffa125e9c12a7c0cbd9aa0e34d788f89eded337e9d5d6d60e6e7f9f9c17ea",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4724,7 +5330,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "70082822582bd5bc0c53c0d62b3f58abeb56c7d8b3941f2270c5f9c0c51a5ca2",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -4749,7 +5359,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3b2221a381097551b0aa0c1aa452e576597695684459ea625fd357999dba4f6e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4783,7 +5397,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "555a1674d87c659fc39910530eef173ea4462feacdfb40e464d629443edcbe43",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4810,7 +5428,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ed249a14b592052c380550399c0f742cb201b15d09042336645ac5a892f3b1f4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4836,7 +5458,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "7a5b7fa9afb05bcd47925b5a8385cb25a3e1a7371654fd3544c10f87e2ffd519",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4859,7 +5485,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d4819edd2ff53be377ccfbd4b3778fa70aa74ba085920d24d7bb74a85722b2f9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4885,7 +5515,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9d1264f20e6894802a5aeb14a1a6208d2fa3af432be0757f672f08079cad6123",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4916,7 +5550,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "b25f6f6fef69dfde12f8a2bfe1b55493b934d675a0112e90978b21cd268b347e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -4944,7 +5582,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e98c6ddf3e8a9c741c9ccd095caf42179320899e45561688dd22251dc98c780d",
       "upstreamCallers": [
         "admin/runners/create.tmpl",
@@ -4977,7 +5619,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3b99534421ff86ed4a991618462fc5cf27ec66d415e14e31d86719d69d8e85bc",
       "upstreamCallers": [
         "admin/runners/details.tmpl",
@@ -5009,7 +5655,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "1a2d21d092d7b9f7aae9637668e9522d9703e406b33b3baf58a524bbf9147203",
       "upstreamCallers": [
         "admin/runners/edit.tmpl",
@@ -5049,7 +5699,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a81ef9b4cea2a5c0a4ce032bf7a1f37562483d2b42ce5ca72ab47cc6eb440c43",
       "upstreamCallers": [
         "admin/actions.tmpl",
@@ -5077,7 +5731,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "32e0beff8fc45acbaba46ef1ba9954eda863de7333f4f9c04b96389badee4d0d",
       "upstreamCallers": [
         "admin/runners/setup.tmpl",
@@ -5109,7 +5767,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "4f8bf39599178e8c7bceba1f0940b5fcfdf43768e6a0e05f6861e655e1186944",
       "upstreamCallers": [
         "org/settings/blocked_users.tmpl",
@@ -5136,7 +5798,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "63972c7ee77bc7a354f9120ea2babe1d59908f162db4b425f3c9654e496c09a6",
       "upstreamCallers": [
         "org/settings/storage_overview.tmpl",
@@ -5172,7 +5838,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3cc76cfaee46cc811a558e0db168aba07aea04a1eff836bb4e51a0ce5e3ca58f",
       "upstreamCallers": [
         "org/settings/actions.tmpl",
@@ -5207,7 +5877,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f619ed6d73ff4062087e3e74c61e83ad0123593239bc9aab9e13296cbb523542",
       "upstreamCallers": [
         "admin/actions.tmpl",
@@ -5239,7 +5913,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "195d984c79b3edd9778bae0f628575656bcc665b6aef933293ecd7357ad5dad5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5265,7 +5943,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "db53d1abc9d171d46c19efc676692f1c6c026fc07d02a1a22f9a8a3446ac7e0e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5298,7 +5980,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "34e31a7616eb71aca5e26fba99dbfe3f8f3ed798d15490ba8cd7e384d7fc5aad",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5324,7 +6010,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "afa7737525fbed6f99bbffd9b3ccf31f9a5015ee16dc3b9f6999ae693f80a6a4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5358,7 +6048,11 @@
         "conditional-fields",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "5699ab7c55caf5f6b0d0c6f3e8165342c63e31ace382f4cabf46684c5b492ce5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5390,7 +6084,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2a45de15b60ba31da129044c10bf9c6bb2317bea7a0abfee76785fc8fe1dab89",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5417,7 +6115,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "898efaab9433bb5042c20fa2fb0be34e8b0f439f121484d9c4cdee31e6e50629",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5445,7 +6147,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ca6fa5f79b230a61004dfbe5730f338f4ade041b9f024f06fa10f831569a028b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5477,7 +6183,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a4d5ee8130353fb7416ad1470702b73363732895ce2c993a391430c2adc6d6b4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5510,7 +6220,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "83297dab704a36e2c32e4687dbdf4bccb5736f0fea0e656e28a988824ef08e11",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5548,7 +6262,17 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-login-light-desktop/001.png",
+          ".artifacts/forgejo-presentation/final-login-light-mobile/001.png",
+          ".artifacts/forgejo-presentation/final-login-dark-desktop/001.png",
+          ".artifacts/forgejo-presentation/final-login-dark-mobile/001.png"
+        ]
+      },
       "beforeRoleHash": "2c16689be8c78eb66c7e88e64878e43fd9233e77691c89ce92bb8a424bd0273a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5583,7 +6307,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "a7ae7b69c8cdaeab30e65910da764fcc7282c0ea90847f7203c012621f61338c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5609,7 +6337,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "73c2d050b6da1faa551b90324ea1fee1e718ec1d4428fe61f25fe82c025a1eb4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5644,7 +6376,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "626106cd372e01c4768e64822edc9f21350ab977440b22ae24e43c13bae5751e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5680,7 +6416,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "86995a13831448e0212eca5a694f9cbaf519c3005f16fb3276d80ca55cbd630f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5713,7 +6453,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0f0c345db8ecb80fa13a6b6ace3eab72287b79aa12b614ac10f2eafdd013be38",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5746,7 +6490,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "0f54356a1388e6cf57b3e9e68384bd8250618bc55028ec159ab20c5edd0126b2",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5775,7 +6523,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "44e0444b45f278639f9023d92588b48acdb87bf2b9305291e8faf2ff4adf39d1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5810,7 +6562,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "e4255ba5d015eabbebeac710a745c763638b178c7575cef2d82fd902505bcd8b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5855,7 +6611,17 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/001.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/001.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/001.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
+        ]
+      },
       "beforeRoleHash": "c52db97f959e0ca554ee1844a668bd5165f4e53282f7ead0ba140e189c27f03a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5898,7 +6664,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "024dea4b397e9a5843eb459b4805861881012ee88cc09e43aa3d7809908bc246",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5940,7 +6710,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "53ff1a61932955c4c175b82d11bec25b8a9d478b867487db2045bce1108eb249",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -5982,7 +6756,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "d25776fa046a54241a04d4c02060f19787947a441650eae55e4d7871c3763473",
       "upstreamCallers": [
         "user/notification/notification.tmpl"
@@ -6022,7 +6800,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "12d856a8d3bc1a5213b4858b42f8badd8c51037a5361e19df7d7d271d1a4a66c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6054,7 +6836,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9c14f62e957d7e65ca9508c1bfe9d685f14182bb496a5f25d9952e3f147571e5",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
@@ -6084,7 +6870,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "85701dab07509e053f67feaf177b91bc56e8bf10be5d40e8b0e3749f60e483e3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6114,7 +6904,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "8adf68cd15e613a6b51cc9be75d3135500613e9e4fa8023c0cd234b3574c262a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6157,7 +6951,17 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/008.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/008.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/008.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/008.png"
+        ]
+      },
       "beforeRoleHash": "c6536c90eb132197aed5362f0d36545ce51399a2c7402b2ec1a88c45a45281b3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6191,7 +6995,11 @@
         "populated",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "240644fbc9f48470551cb8cd50962995c05fb7e0b2ff2743061c63da545b2420",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6225,7 +7033,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "955afb2fe15ebe59da5579c9666fee4fa31c8dbcbd257fb1e602a2723e384732",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6258,7 +7070,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "f4691071bd84d3fc521ccdd6547d4b30de42b4cbf9817c3b0de201a6e2889611",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6289,7 +7105,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "c8cb7d403250e024078e853d8d5b890d65f4ba397aa8c7ef40b02bd191f8c82e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6314,7 +7134,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "b972d1d198e1cb46171f35a2e182391c92174c619fbf8c6903b666a220896981",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6345,7 +7169,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "6737c4b6e1f6a1437295a500dea3696a8a56bee1074a06e49e318623a1b85662",
       "upstreamCallers": [
         "org/settings/applications.tmpl",
@@ -6368,7 +7196,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2c106f2dbed49db6d902d7f361f3c217c0597e9de2bb6bdf28990a0e3d6a6521",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6395,7 +7227,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "15ca73e32e652169f38c3c2fd51b0877d024cd24b76f642638d32957bff4c26b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6428,7 +7264,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "dc8fd5dd9901e8f52dc2abc40fcdb3aecdf0436daa3f32d5ed251ce3509e0d22",
       "upstreamCallers": [
         "user/settings/actions.tmpl",
@@ -6483,7 +7323,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "3b54355c23e59f565fead728195a4f2b39249c1b9e0c454b628b3fffd575687b",
       "upstreamCallers": [
         "user/settings/actions.tmpl",
@@ -6526,7 +7370,11 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "2b825bf375edc4cc5fdb89fef78b37740bcba517627dd0c30b3961da22f6a844",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6551,7 +7399,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "144ecab59a5c737cd61287bdc6f1daf1ed0dff8f13b1fd3d0542f4555ac7af59",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6582,7 +7434,17 @@
         "empty",
         "populated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "representative captures",
+        "requiredStates": "not all verified",
+        "evidence": [
+          ".artifacts/forgejo-presentation/final-light-desktop/006.png",
+          ".artifacts/forgejo-presentation/final-light-mobile/006.png",
+          ".artifacts/forgejo-presentation/final-dark-desktop/006.png",
+          ".artifacts/forgejo-presentation/final-dark-mobile/006.png"
+        ]
+      },
       "beforeRoleHash": "53e8d1ac1f35054b0526a40b6f6681ebe7e05340ed7ad9e7e27db5b071a21f17",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6610,7 +7472,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "9a663af02bee86e8ac994432979806cbdd20e30dc277f55825c812cf35fa7669",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6639,7 +7505,11 @@
         "disabled",
         "conditional-fields"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "837c1d1be75dc8e08dfad642207dc12bfc9d50ab84e427c413fbb6e506ee5506",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
@@ -6678,7 +7548,11 @@
         "narrow",
         "long-content"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "69048eb397536c294f63bd89d4ee97246435922ba0e5d05aae85e61a83f44e07",
       "upstreamCallers": [
         "admin/hook_new.tmpl",
@@ -6706,7 +7580,11 @@
         "long-content",
         "permission-gated"
       ],
-      "verification": "pending",
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
       "beforeRoleHash": "ae8ff65faee65f7c904da0df2e6a0c4e638a786bcf66264c0192f13e22beb56a",
       "upstreamCallers": [
         "webhook/new/dingtalk.tmpl",

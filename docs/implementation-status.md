@@ -1,17 +1,40 @@
 # Current handoff
 
-## Presentation redesign implementation
+## Presentation redesign local candidate
 
-The 206-template presentation inventory and explicit role migration are authored,
-with shared spacing, typography, open-section and control contracts. Production
-intro/empty partials and the actual registry generate a local reference gallery.
-Existing exact upstream-body checks still recover the pinned sources after
-removing only the enumerated presentation roles; a separate inventory check
-compares all pre-role source bytes. No handlers, permissions or form submissions
-were changed. The redesign remains under local verification; it is not full
-visual acceptance or an appliance rollout. Owner/admin, organization, provider
-and first-run setup states still require authorized existing access/fixtures.
+Candidate `2026-09-08.3` is active only in the existing local Forgejo preview.
+The inventory accounts for all 206 overrides/helpers and their local/embedded
+15.0.7 callers across eight compositions. 125 templates select new explicit
+presentation roles; the remaining helpers/native structures use existing shared
+components or specialized family composition. Shared controls, typography,
+spacing, open sections and editor containers replace duplicated page rules.
+Native routes, inputs, permissions, CSRF and script hooks remain upstream-owned.
 
+Actual checks: focused `go test ./scripts -run TestForgejo` passed using the local
+toolchain and offline dependency settings; all 30 opt-in Node checks passed,
+including component states, native Explore overflow/navigation, notification
+lifecycle, milestone layout, gallery responsiveness and both sides of inventory
+coverage. The gallery uses production intro/empty partials and the real registry,
+with minimal native markup fixtures. It passed light/dark at 1440, 900, 390 and
+320px. Native template source was read through the running container's embedded
+resource export; no Forgejo source fork or rebuild was introduced.
+
+The local review package is `.artifacts/forgejo-presentation/review.html`, with
+light/dark galleries, a manifest and 36 verified native viewport captures across
+nine accessible routes at 1440×1000 and 390×844. Each final PNG has a sidecar with
+URL/status, landmark, revision, registry and stylesheet hashes, viewport/theme
+and browser errors. The signed-out account-settings redirect was rejected with
+no accepted image. Visual inspection caught and fixed primary-anchor text losing
+contrast; a focused regression check now covers it. Earlier `review-*` and
+`login-*` capture folders are superseded by the `final-*` candidate images.
+
+This is **not full visual acceptance**. Owner-only repository editors/settings,
+administrator pages, organization fixtures, setup/provider/authentication states,
+populated packages and specialized canvas/permission/interaction states remain
+unverified on native pages. No resources or permissions were created to fill
+those gaps, no forms were submitted, no saved preferences were changed, and no
+appliance rollout occurred. See `docs/forgejo-presentation-review.md` for the
+review entry points and precise evidence limits.
 
 ## Shared repository form presentation
 
