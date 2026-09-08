@@ -7,7 +7,10 @@ overrides/helpers and tracks shared-template page variants separately. Migration
 fork, 404, discussion subscriptions and watched repositories now have distinct
 illustrations. Native forms, state, permissions and meaningful status text remain
 upstream-owned. Migration progress and 413 retain concise native diagnostics
-without additional decorative art. Public contributor profiles are next.
+without additional decorative art. Public contributor profile tabs were also
+assessed without extra art: native identity, authored content and activity visuals
+take precedence, supported by desktop/mobile captures. Personal package registry
+is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed

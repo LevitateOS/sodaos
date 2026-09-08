@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: public contributor profile — `user/profile.tmpl`. Inspect whether generated artwork adds value alongside the person’s existing avatar, biography and repository content.
+Next: personal package registry — `user/overview/packages.tmpl`, individual-owner branch. Inspect the compact intro and generate a publishing/package scene if it improves the page.
 
 ## Per-template inventory
 
@@ -165,7 +165,7 @@ Next: public contributor profile — `user/profile.tmpl`. Inspect whether genera
 | Pending | [`repo/settings/webhook/new.tmpl`](../appliance/forgejo/templates/repo/settings/webhook/new.tmpl) | `repo/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/sub_menu.tmpl`](../appliance/forgejo/templates/repo/sub_menu.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/tag/list.tmpl`](../appliance/forgejo/templates/repo/tag/list.tmpl) | `repo/header`, `repo/release_tag_header` | Not yet reviewed in this goal. |
-| Partial — trace caller | [`repo/user_cards.tmpl`](../appliance/forgejo/templates/repo/user_cards.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`repo/user_cards.tmpl`](../appliance/forgejo/templates/repo/user_cards.tmpl) | Real user avatars | Avatar/name cards and pagination for profile followers/following and repository watchers. Preserve identity imagery; page-specific watcher assessment remains separate. |
 | Partial — trace caller | [`repo/view_file.tmpl`](../appliance/forgejo/templates/repo/view_file.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/view_list.tmpl`](../appliance/forgejo/templates/repo/view_list.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/watchers.tmpl`](../appliance/forgejo/templates/repo/watchers.tmpl) | `repo/header` | Not yet reviewed in this goal. |
@@ -208,10 +208,10 @@ Next: public contributor profile — `user/profile.tmpl`. Inspect whether genera
 | Existing — verify | [`user/dashboard/milestones.tmpl`](../appliance/forgejo/templates/user/dashboard/milestones.tmpl) | `milestones-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`user/notification/notification_div.tmpl`](../appliance/forgejo/templates/user/notification/notification_div.tmpl) | `notifications-papercraft.png` | Not yet reviewed in this goal. |
 | Done | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `subscriptions-papercraft.png`, `watching-papercraft.png` | Both page variants have separate integrated artwork and inspected native captures. |
-| Partial — trace caller | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | Native tab navigation | Shared across profile, package, code and project pages; only navigation/permission gates/counts. Art belongs to an assessed page intro, never this repeated tab strip. |
 | Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Pending | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
+| No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/appearance.tmpl`](../appliance/forgejo/templates/user/settings/appearance.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -233,6 +233,13 @@ Next: public contributor profile — `user/profile.tmpl`. Inspect whether genera
 | --- | --- | --- |
 | Done | `/notifications/subscriptions` (`Status == 1`) | Dedicated conversation-bookmark scene integrated; desktop/mobile captures inspected. |
 | Done | `/notifications/watching` (`Status == 2`) | Dedicated binoculars/repositories scene; desktop/mobile native captures inspected. |
+| No image | Contributor repositories | Actual avatar plus searchable repository list; a decorative header would delay browsing and compete with identity. |
+| No image | Contributor public activity | Native heatmap/feed already provide relevant visuals; a scene would push activity below the fold. |
+| No image | Contributor starred repositories | Personal selection list belongs directly below profile navigation; retain actual repository entries and truthful empty result. |
+| No image | Contributor followers | Preserve real people’s avatars and names; do not substitute a robot crowd, including in the empty state. |
+| No image | Contributor following | Same identity-card responsibility but a separate relationship list; no decorative scene above the people. |
+| No image | Contributor README overview | The contributor authors this content and may supply their own artwork. Source-reviewed; no generated illustration ahead of it. |
+| No image | Contributor watched repositories (stars-disabled navigation variant) | Source-reviewed profile list under the same identity shell; distinct from the separate `/notifications/watching` introduction. |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
 - [ ] Trace account, organization, repository and administrator shared layouts for native routes without leaf overrides.
@@ -281,3 +288,10 @@ Next: public contributor profile — `user/profile.tmpl`. Inspect whether genera
 - Focused offline shared presentation-boundary and notification-preview Go tests passed. Local templates reloaded.
 - Native screenshot-helper evidence inspected: `.artifacts/screenshots/capture-kRrPCS/001.png` (1440×1000 Watching), `capture-aNBSUP/001.png` (390×844 Watching), `capture-kRrPCS/002.png` (Subscriptions isolation check). Image, search and filter controls fit; the original truthful empty result remains. Baseline: `capture-Pe7Zti/002.png`.
 - No account/fixture/watch mutation. Populated repositories, dark appearance and filter interactions were not newly exercised.
+
+### Public contributor profile and tabs
+
+- Source inspected: `user/profile.tmpl` (all tab/visibility branches), `user/overview/header.tmpl` (conditional navigation and native counts), and `repo/user_cards.tmpl` (real avatar/name cards plus pagination). Caller search traced the navigation into packages, code and projects, which remain separate pending pages.
+- Decision: no generated image for the seven profile variants listed above. The large native identity card is already the main visual; repositories, an authored README, the activity heatmap/feed and actual social identities should receive the remaining space. Mobile captures confirm the identity card already consumes much of the first viewport.
+- Native screenshot-helper captures inspected: `.artifacts/screenshots/capture-v555UO/{001,002,003}.png` at 1440×1000 for Bob’s repository, activity and starred tabs; `capture-mmWzCs/{001,002,003,004}.png` at 390×844 for repository, activity, followers and following tabs. Real repository/activity content and empty star/social states were visible. No personal credential content was captured; the fixture’s public `.invalid` contact is test data.
+- README and stars-disabled variants are source-based decisions, not claimed runtime captures. No templates, assets, profile content or relationships changed. No tests/reload needed for this documentation-only assessment.
