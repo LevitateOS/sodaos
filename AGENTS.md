@@ -14,6 +14,14 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 ## Current execution boundary
 
+For local Forgejo page screenshots, use `scripts/screenshot.mjs` and read
+[docs/screenshot-capture.md](docs/screenshot-capture.md) for usage and login
+instructions. The development instance at `http://localhost:3300`
+(`sodaos-local-forgejo`) has the authorized `soda-screenshot` fixture account and
+its saved login in ignored `.local/screenshot-fixture-profile/`. Pass that path
+with `--profile`; it is separate from the default manual-login profile. The guide
+also records the private credential location for renewing this fixture session.
+
 The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; default routes remain HTMX. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not final-product/release acceptance. The missing console hook remains an explicit delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
 
 The user subsequently authorized local builds and automated tests for the U09

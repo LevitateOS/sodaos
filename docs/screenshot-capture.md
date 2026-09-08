@@ -4,6 +4,29 @@ Adapted from `soda-os`'s handbook capture rules, not its old page list or releas
 
 ## Quick local page screenshots
 
+### Existing development fixture login
+
+The local development container `sodaos-local-forgejo` at
+`http://localhost:3300` has the user-authorized, non-admin `soda-screenshot`
+fixture account. Its authenticated Chrome profile is already saved in ignored
+`.local/screenshot-fixture-profile/`. Reuse it directly from the repository root:
+
+```sh
+node scripts/screenshot.mjs --profile .local/screenshot-fixture-profile \
+  http://localhost:3300/ \
+  http://localhost:3300/user/settings
+```
+
+If the session expires, log in through Forgejo's normal login form using that
+same profile. The generated credential is retained privately in ignored
+`.local/screenshot-fixture/create-output.txt`; automation can read it internally
+to fill the form. Never print that file or expose the password in command
+arguments, logs or screenshots. Select “Remember me” and close the browser
+cleanly before capturing. This account and profile belong to this local
+development instance and may not exist in another checkout or on another machine.
+
+### Setup and manual login
+
 Use Node.js, installed Google Chrome and the Playwright dependency already declared
 in `cockpit/package.json`. The helper uses a persistent browser context so mobile
 captures use the requested CSS viewport rather than cropping a desktop window.
