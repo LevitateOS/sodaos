@@ -97,4 +97,3 @@ Remove the background from this image. Make the background transparent. Keep the
 ## Checks and integration
 
 All six selected outputs were visually inspected and copied unchanged into this directory. PNG dimensions, RGBA alpha and preservation of the twelve earlier illustrations were checked with read-only image metadata/hash inspection. Background pixels must be assessed using normal alpha compositing; RGB color hidden under zero alpha can look like a glow in viewers that ignore alpha. Native page placement and theme checks belong to the concurrent template integration task; this generation record does not claim those checks passed.
-
