@@ -8,6 +8,7 @@ Active goal: assess each page, decide whether art helps, record its scene prompt
 - `Existing — verify`: artwork exists; confirm that it fits this page and renders correctly.
 - `Generate`: distinct artwork is appropriate; prompt/output/integration/checks remain.
 - `Done`: appropriate artwork integrated and inspected, with evidence below.
+- `Integrated — verify`: asset and source are ready; native page verification remains pending.
 - `No image`: individually reviewed; record the concrete reason.
 - `Partial — trace caller`: not assumed to be a page; account for its actual page callers before closing.
 
@@ -17,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization package registry — `user/overview/packages.tmpl`, organization branch. Inspect an existing organization’s registry and choose a shared-distribution scene if appropriate.
+Next: package version lists and package detail pages. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -210,7 +211,7 @@ Next: organization package registry — `user/overview/packages.tmpl`, organizat
 | Done | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `subscriptions-papercraft.png`, `watching-papercraft.png` | Both page variants have separate integrated artwork and inspected native captures. |
 | Partial — no image | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | Native tab navigation | Shared across profile, package, code and project pages; only navigation/permission gates/counts. Art belongs to an assessed page intro, never this repeated tab strip. |
 | Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Variants — see below | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | Personal: `personal-packages-papercraft.png`; organization: none | Personal registry complete; organization registry pending. |
+| Variants — see below | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | Personal: `personal-packages-papercraft.png`; organization: `organization-packages-papercraft.png` | Personal complete; organization integrated, native verification pending. |
 | No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -230,7 +231,7 @@ Next: organization package registry — `user/overview/packages.tmpl`, organizat
 ## Additional page variants
 
 - [x] Personal package registry: dedicated wrapping scene integrated and native desktop/mobile captures inspected.
-- [ ] Organization package registry: separate branch pending.
+- [ ] Organization package registry: shared-shelf scene integrated; native verification pending.
 
 | Status | Page variant | Decision / evidence |
 | --- | --- | --- |
@@ -249,6 +250,13 @@ Next: organization package registry — `user/overview/packages.tmpl`, organizat
 - [ ] Distinguish new/edit/detail states where one template serves multiple page purposes.
 
 ## Completed page records
+
+### Organization package registry — integrated, native verification pending
+
+- Appropriate in the existing compact introduction. Sorting packages onto a shared shelf distinguishes the team collection from personal package wrapping. [Exact prompts and provenance](../assets/branding/forgejo/organization-packages-art-prompt.md).
+- Initial RGB checkerboard rejected; built-in cutout correction produced visually inspected 1536×1024 RGBA with transparent corners. Only the organization branch's Artwork field changed; native owner navigation and shared list remain intact.
+- Focused offline `TestForgejoPackages` tests passed, including personal/organization owner branches.
+- Read-only `/api/v1/orgs?limit=20` returned an empty list. No organization fixture was created, so native desktop/mobile verification remains pending and this page is not marked Done. Proceeding to independent pages.
 
 ### Repository migration chooser
 

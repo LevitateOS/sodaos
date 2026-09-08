@@ -12,7 +12,10 @@ assessed without extra art: native identity, authored content and activity visua
 take precedence, supported by desktop/mobile captures. The personal package
 registry now has a compact wrapping illustration, with focused package tests and
 native desktop/mobile empty-state captures checked. Organization package registry
-is next; individual decisions and unexercised variants remain in the checklist.
+has a distinct shared-shelf illustration and passing focused package tests;
+native verification is pending because the local public organization inventory
+is empty. Package version/detail pages are next; individual decisions and
+unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
