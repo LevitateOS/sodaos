@@ -767,13 +767,33 @@ of `bdbce8e` artifacts plus recorded configuration, not a wholesale install of t
 later probe/document revision. Full product/provider/aarch64 acceptance, console and
 laptop routing remain separate. All old/fresh fixtures and failures are retained.
 
+## Browser terminal plan
+
+The next concrete item is planned in the existing
+[Sodaspaces plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal), not
+another roadmap. Candidate: local terminal renderer, same-origin authenticated
+WebSocket and one fixed Unix-helper operation into an existing project account.
+Native PTY/account/owned-process teardown proof comes before UI wiring; Podman client
+exit is not assumed to terminate container exec. No private-key collection, automatic
+join/start, host shell, project-image replacement or durable terminal sessions.
+
+Inspected current API/session/helper/provisioning owners, upstream Podman v5.8.2
+exec source, terminal package metadata/types and Go WebSocket/PTY documentation.
+Research is retained in `.artifacts/research/terminal-plan-6206578/`; the initial
+Podman manual URL failed, then the correct `.md.in` source was retrieved. No native
+command, product test, build, dependency installation or deployed-state change ran.
+Only planning documentation and link/whitespace checks changed; the terminal remains
+unimplemented. Native helper changes and retained rollout need their applicable scope.
+
 ## Remaining work and permission boundary
 
 - Preserve the implemented security, native-page context and explicit-action
   regressions plus steps 5–6's bounded native delivery/access evidence. Keep read-only
   guard mode separate from explicitly bounded writes; future maintenance needs its
   own exact scope/current backup, not replay of the recorded cutover.
-- Existing-account terminal remains separate. Stop any approach that needs a fork.
+- Implement the [existing-account browser terminal](sodaspaces-plan.md#next-item-existing-account-browser-terminal)
+  in the planned native-boundary → protected transport → drawer → integrated-proof
+  order. Stop any approach that needs a fork.
 - Move Soda's local runner capacity/service configuration into operator-only settings
   in the unified native SodaOS/Forgejo interface, as subsequently selected by the
   user. Inspect official administrator extension points and reuse backing logic/tests;

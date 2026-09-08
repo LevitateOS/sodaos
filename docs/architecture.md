@@ -96,6 +96,8 @@ Joining is separate from native Git authorization. Later key rotation/revocation
 Linux offboarding and unrelated active-session termination are not automatically
 synchronized. The requested browser terminal uses the user's existing project-local
 account/home; opening it must not create, join, start a project or expose host root.
+Its [bounded implementation plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal)
+is separate from ordinary SSH access and does not collect private SSH keys.
 
 ## Shared resources and persistence
 

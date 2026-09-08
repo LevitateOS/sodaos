@@ -14,7 +14,9 @@ did not check repository access. Both fixes below are now source-implemented and
 locally tested, then delivered in the approved retained cutover. Deterministic race
 coverage remains handler/store evidence; installed observations have their own scope.
 
-**This implementation sequence is complete at its bounded x86_64 scope.** Existing-account terminal and independent acceptance obligations remain [separate follow-up](#follow-up-and-limits).
+**This implementation sequence is complete at its bounded x86_64 scope.** The next
+concrete item is the [existing-account browser terminal](#next-item-existing-account-browser-terminal).
+Runner settings and independent acceptance obligations remain [separate follow-up](#follow-up-and-limits).
 The read-only step-3 gate alone did not establish appliance installation, project
 access or retained-state cutover; those later results have distinct evidence.
 
@@ -547,12 +549,130 @@ below remain the maintenance contract, not permission to replay it.
 **Exit:** separately approved, rehearsed cutover plus matching native-browser/access
 observations. This does not accept the entire appliance or independent aarch64 work.
 
-## Follow-up and limits
+## Next item: existing-account browser terminal
 
-The requested **terminal** is a separate follow-up into the user's existing
-project-local account/home, with bounded PTY/transport and session lifetime. It is
-not required for initial SSH access and must not implicitly create, join, start a
-project or expose a host shell.
+**Planning only; no terminal endpoint, launcher or dependency is implemented yet.**
+Deliver one explicit **Open terminal** action for an existing member of a provisioned,
+running environment. Show the original project login and open its native login shell
+in its existing home. Keep the terminal inside the existing dialog, widened when
+needed, with connection status and Disconnect—not a new repository tab or browser IDE.
+Opening the drawer alone must never launch it.
+
+### One bounded candidate
+
+`native drawer → same-origin WebSocket → Go authorization → existing Unix helper →
+project-local PTY/login shell`
+
+- Use locally served **xterm.js plus its fit addon** for terminal rendering/resize,
+  not a homemade escape-sequence parser or a new component framework. Use
+  **coder/websocket** for Go's browser/helper streams. Pin reviewed dependencies and
+  ship exact upstream distribution assets/notices through existing build/stage owners;
+  no CDN, runtime download, root SPA or new frontend bundler.
+- Add one fixed helper operation, not a host command/socket proxy. Resolve the
+  container from trusted project state and verify labels/running status; execute by
+  the verified container ID. The backend supplies only stored login, stable actor ID
+  and bounded terminal controls—never caller-selected command, UID, privilege, cwd,
+  environment, host address or Podman flags.
+- A small fixed Python launcher owned/embedded by `internal/host/` runs via
+  `podman exec --interactive` using existing project Python. Validate the root-owned
+  `/var/lib/soda/accounts/<login>` identity marker and passwd entry; allocate a PTY,
+  initialize native groups, drop to the non-root account and execute its login shell
+  in its home with a clean environment. Input reaches only that PTY. No project-file
+  installation, image replacement, private key, password or new account is needed.
+- The launcher owns the shell lifetime and a bounded heartbeat lease over its private
+  framed stdin/stdout channel. Podman CLI exit/detach is **not** proof that container
+  exec ended. Closing a terminal must close its PTY and end its exact owned login
+  process, without signalling all processes for that UID or stopping the project.
+  Validate this before UI work; if the candidate cannot do it safely, stop and report
+  the concrete constraint rather than add a second backend or unrestricted socket.
+
+Source basis: today's helper buffers JSON under a global lock/short timeouts;
+`project-account` supplies identity markers and the image supplies Python. Inspected
+Podman v5.8.2 exec source permits detach; verify the actual target runtime before proof.
+Inspected xterm 6.0.0, fit 0.11.0 and coder/websocket v1.8.15 are candidates, not installed
+packages or substitute lockfiles. Research is linked from the handoff.
+
+### Authorization and connection lifetime
+
+- Proposed route: `GET /-/soda/api/environments/{id}/terminal`, WebSocket only.
+  Before upgrade require a valid Soda session, exact configured HTTPS Origin,
+  acceptable fetch metadata and own membership; reject query parameters. Native
+  WebSocket cannot send our custom actor/CSRF headers: its first bounded message must
+  supply `expected_user_id`, `repository_id`, `csrf_token`, rows and columns instead.
+  Verify those against the authenticated session and stored association before any
+  native call. Reuse shared checks, without weakening ordinary JSON API protection.
+- Before launch, require fresh acting-provider subject, actual user/repository consent
+  and current repository visibility through `visibleRepository`. Existing degraded
+  connection reads are **not shell-launch authority**. Operator/site-admin/repository-
+  owner status cannot substitute for own membership or select another person's login.
+  Preserve original membership login after a provider rename; mismatch/missing native
+  account/marker, UID 0, missing home, stopped or incomplete state means refusal, not repair.
+- This is Soda-authenticated web access, not an SSH-key-possession check. Direct
+  SSH/SCP/SFTP and their key policies remain unchanged; neither key changes nor native
+  Forgejo-only logout are claimed to atomically revoke the other access mechanisms.
+- After authorization accept only bounded input bytes, resize and close; return
+  terminal bytes and sanitized status. No bearer tickets in URLs/subprotocols, terminal
+  transcripts, keystroke/output logging, session recording or persisted reconnect state.
+  Disable terminal-driven clipboard writes, automatic link opening and page mutations;
+  manual user paste remains possible. Bound scrollback and clear it on invalidation.
+- Bound authentication wait, frames, dimensions, scrollback, queues and concurrent
+  connections; use backpressure. Allow one stream per Soda login-context/project,
+  rejecting duplicates rather than evicting a terminal. No quota-management subsystem.
+- Disconnect on explicit Close/Disconnect, stale page/blur/hidden/pagehide, shell exit,
+  transport loss, Soda logout/session rotation/expiry or service shutdown. Reuse the
+  existing explicit full-page reload rule; no reconnect/input replay on focus or BFCache.
+  Tell users that switching tabs/apps ends this browser connection. Keep native
+  beforeunload intact. Escape while terminal-focused goes to the shell; provide
+  `Ctrl+Shift+Enter` to focus Disconnect and retain normal dialog Escape elsewhere.
+- Bound lifetime to the earlier of Soda session expiry or two hours; use a 60-second
+  lost-peer lease, renewed only while local session/membership checks succeed. Soda
+  logout actively cancels matching pending/active streams; periodic local checks catch
+  missed invalidation within that lease. Test logout versus registration/spawn races.
+  No provider polling or global Linux revocation. Closing can interrupt foreground
+  work; completed commands and deliberately detached native workloads are not undone.
+
+### Implementation order and exit checks
+
+1. **Native boundary first — `internal/host/`.** Add the fixed launcher/stream path
+   outside the mutation lock and buffered timeout, with owned contexts/shutdown and
+   no new listener/capability. Focused tests plus an authorized native proof must show
+   correct UID/GID/groups, HOME/cwd, shared-tool profile, sudo boundary, TTY/resize/
+   Ctrl-C and exit. Missing/mismatched identity launches no shell. EOF/lost heartbeat/
+   helper loss must end the owned PTY/login process and preserve unrelated SSH/workloads.
+   **Do not proceed to UI while native ownership/teardown is unresolved.**
+2. **Protected transport — `internal/web/terminal.go` and existing auth/shutdown.**
+   Test actor/Origin/CSRF/consent/membership/provider denials with zero native calls;
+   then logout/spawn races, rotation, slow consumers, bad frames, duplicates and
+   shutdown. Keep only a small live-stream collection: no SQLite migration, jobs or
+   copied permissions. Prove Caddy upgrade/closure through the existing namespace,
+   without broader proxy routes or weaker TLS/CSP.
+3. **Drawer and packaging — existing hook/assets and one terminal module.** Load
+   on explicit use; show truthful connection/refusal states. Test keyboard escape,
+   resize, Unicode, paste, TUI Escape, stale/late events and no implicit launch/replay.
+   Stage exact local vendor assets/notices through production callers and update
+   inventories/conflict checks and API/developer guidance. Preserve native navigation,
+   forms and current drawer actions.
+4. **Integrated proof, then scoped delivery.** Extend the owned installed journey
+   with a separate terminal opt-in, never read-only mode. Use genuine OAuth, trusted
+   sandboxed browser, actual proxy/helper and two existing fixture accounts. Prove
+   identity/home, a retained run-owned file visible over SSH, interactive editing/
+   resize/Ctrl-C, each close path and unaffected ordinary SSH/unrelated sessions.
+   Observe actual process exits, not just socket closure. Run Go/race, DOM, packaging
+   and native-stage checks against exact bytes; keep aarch64 claims independent.
+
+**Done means:** a genuinely authenticated native-page terminal into the correct
+existing account, proven authorization/PTY lifetime and unchanged project identities,
+keys, memberships and ordinary access—not just a rendered prompt or mocked helper.
+
+**Execution boundary:** this plan authorizes no native action. Apply existing standing
+approval only to covered implementation/local tests; declare the exact fixture,
+helper/service changes, process effects and retained probe files and obtain any missing
+native grants. A later `soda-test` rollout needs fresh paired backups, affected-byte
+review and separate approval (including the newly changed helper). Do not restart or
+replace projects to deliver this feature. Browser HTTPS reachability is not laptop
+project-subnet/SSH routing proof. Runner settings and other remaining work stay separate.
+
+## Follow-up and limits
 
 **Runner configuration placement:** the user selected moving Soda's local runner
 capacity/service configuration from Cockpit into the unified SodaOS/Forgejo native
