@@ -910,13 +910,24 @@ mounting coordination and integrated proof, not a retained rollout or template f
 
 ## Remaining work and permission boundary
 
+The subsequent remaining-work planning pass inspected production helper routes and
+`soda-project@.service`, then reconciled the short list and immediate terminal exit
+checks. Documentation/link/whitespace checks only; no source behavior, dependency,
+build/test execution, target state or lifecycle permission changed in that pass.
+
 - Preserve the implemented security, native-page context and explicit-action
   regressions plus steps 5–6's bounded native delivery/access evidence. Keep read-only
   guard mode separate from explicitly bounded writes; future maintenance needs its
   own exact scope/current backup, not replay of the recorded cutover.
-- Implement the [existing-account browser terminal](sodaspaces-plan.md#next-item-existing-account-browser-terminal)
-  in the planned native-boundary → protected transport → drawer → integrated-proof
-  order. Stop any approach that needs a fork.
+- Finish native template mounting and genuine browser/proxy/helper proof for the
+  already implemented terminal source; do not restart its completed native-boundary
+  work. The template/layout agent owns the overrides and uses the component contract.
+- Follow the single [ordered remaining-work list](sodaspaces-plan.md#remaining-work--ordered):
+  terminal integration, basic Start/Stop, the explicit Destroy scope decision, runner
+  settings, operator/client gaps, whole-candidate validation and approved delivery.
+  Start/Stop have native systemd/Podman mechanisms but no current helper/API/UI controls;
+  deletion is still deferred. Planning these is not authorization for lifecycle or
+  destructive execution.
 - Move Soda's local runner capacity/service configuration into operator-only settings
   in the unified native SodaOS/Forgejo interface, as subsequently selected by the
   user. Inspect official administrator extension points and reuse backing logic/tests;

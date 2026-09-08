@@ -14,11 +14,76 @@ did not check repository access. Both fixes below are now source-implemented and
 locally tested, then delivered in the approved retained cutover. Deterministic race
 coverage remains handler/store evidence; installed observations have their own scope.
 
-**This implementation sequence is complete at its bounded x86_64 scope.** The next
-concrete item is the [existing-account browser terminal](#next-item-existing-account-browser-terminal).
-Runner settings and independent acceptance obligations remain [separate follow-up](#follow-up-and-limits).
+**The original delivery sequence is complete at its bounded x86_64 scope.**
+Current remaining work is ordered below. The terminal's backend/component are now
+source implemented; finish integration rather than planning or rebuilding them again.
 The read-only step-3 gate alone did not establish appliance installation, project
 access or retained-state cutover; those later results have distinct evidence.
+
+## Remaining work — ordered
+
+1. **Finish the native drawer and browser terminal together.** The other agent owns
+   all Forgejo overrides/layout; mount the implemented component through the
+   [existing contract](terminal-integration.md), preserving create/key/join/connection
+   actions. Validate the combined native page, real OAuth/proxy/helper and terminal
+   lifecycle against exact candidate bytes. See the immediate checks below.
+2. **Add basic Sodaspaces Start/Stop management.** Creation and joining already exist;
+   keep them working in the new drawer, not a second creation implementation. Start/
+   stop currently exist as native systemd/Podman mechanisms, **not helper/browser API
+   operations or drawer controls**. Add bounded helper/API operations and independent
+   component controls for the current authorized project administrator or explicit
+   Soda operator, not arbitrary site admins/members. Start the existing unit/container;
+   never recreate or repair. Warn that Stop interrupts everyone's shared workloads,
+   terminals and SSH. Make boot-start semantics explicit, preserve roots/accounts/keys/
+   installed tools/data, and prove stop/start persistence under exact native scope.
+3. **Settle Destroy scope before implementing deletion.** It remains deferred, not a
+   missing button over an existing safe operation. Decide authority, exact project
+   data/account/association removal, backup expectations and irreversible confirmation.
+   Keep Forgejo repository/data ownership separate; no implicit repository deletion,
+   automatic repair/rebuild or claimed rollback. If selected, implement and test only
+   that bounded contract with separately authorized disposable data; otherwise state
+   clearly that destruction is operator-managed/outside the product for this version.
+4. **Move runner settings into unified native operator settings.** Reuse backing
+   logic/tests and supported upstream hooks; keep Cockpit Runners until its replacement
+   works. Tailnet stays in Cockpit. Preserve the separate Soda operator and provider
+   authorities; this is not a repository-drawer feature.
+5. **Complete operator/client delivery gaps.** Finish console welcome installation/
+   interactive proof, intended laptop SSH/editor routes, actual Tailnet and both
+   provider-runner journeys. Existing infra/fixture evidence is not laptop/provider
+   acceptance. Use the existing feature and native-validation guides.
+6. **Complete whole-candidate validation and packaging closure.** Regress native
+   developer/admin workflows and Soda authorization; validate fresh and populated
+   x86_64 installs, persistence and approved maintenance. Finish branding, package/tool,
+   licensing and support-contract evidence, then independent native aarch64 acceptance.
+   Do not make optional support media or an unimplemented fallback a new gate.
+7. **Deliver approved milestones, then close acceptance.** For each retained rollout,
+   obtain current paired backups, exact affected-component approval, byte binding and
+   post-install checks. Preserve later writes and existing projects; old backups are
+   not lossless rollback. A terminal milestone may ship before later management work;
+   every delivered milestone still needs its relevant checks, not just a final sweep.
+
+### Immediate next step — finish what is already implemented
+
+- Coordinate only the mount node, immutable context fields, asset loading and dispose/
+  invalidation calls with the template agent. Do not modify their templates/layout or
+  auto-open the terminal. Verify existing create, join, key and connection actions
+  remain reachable and independently explicit in the replacement drawer.
+- Build/check/stage the merged candidate from a clean exact revision. Extend the
+  existing installed journey with an explicit terminal opt-in, using real OAuth,
+  trusted sandboxed Chromium, Caddy and the fixed helper. Check both existing users,
+  original login/home/profile, editing/Unicode/paste/resize/Ctrl-C, a run-owned file
+  visible over SSH, denials, logout/stale/BFCache/no-replay and actual owned-process
+  exit while unrelated access survives. Reuse the [native guide](native-validation.md)
+  and [terminal exit checks](#implementation-order-and-exit-checks), not another plan.
+- Record failures and exact passing bytes; fix reproduced gaps. **Exit:** the real
+  native-page feature works, existing drawer actions regress cleanly and evidence
+  identifies its scope. Local renderer/helper doubles alone do not close this step.
+  Declare exact fixture/service/process/file effects before native execution and get
+  any missing scope; retained deployment remains separately approved.
+
+This list is planning, not permission to stop retained environments, destroy data,
+change provider/network resources or deploy. Detail only the next item when it is
+ready to implement; no duplicate milestone register or generalized lifecycle system.
 
 ## Selected approach
 
@@ -701,8 +766,10 @@ the replacement works and its removal is coordinated. Tailnet stays in Cockpit.
 Repository ownership or arbitrary Forgejo site administration does not confer Soda
 operator authority. This is remaining work, not a delivered move or deployment grant.
 
-No lifecycle controls, resource charts, member-management screens, environment
-catalog, private-resource branching, generalized recovery or update platform.
+Basic Start/Stop controls are now planned in the remaining-work list, not implemented.
+Destruction still requires the explicit scope decision above. Resource charts,
+member-management screens, an environment catalog, private-resource branching,
+generalized recovery and an update platform remain outside this work.
 [Architecture](architecture.md), [integration](forgejo-frontend-integration.md),
 [deferred scope](deferred.md) and [licensing](licensing.md) remain authoritative.
 Stock Cockpit and its native integrations remain operator-only; providers own CI.
