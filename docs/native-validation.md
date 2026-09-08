@@ -147,6 +147,32 @@ General upstream service/error logging remains native. Native configuration and
 query-free OAuth request observations are recorded in the phase-5 handoff; old private
 journals/evidence are retained, not cleared or described as never having logged state.
 
+## Native terminal boundary probe — authored, not executed
+
+`internal/host/terminal_native_test.go::TestInstalledTerminalBoundary` is an opt-in
+product test, not browser proof or permission to open a shell. Build the matching-native
+`internal/host` test binary into a new ignored artifact path; invoke only that test on
+the explicitly approved fixture with `SODA_NATIVE_VALIDATE` equal to its hostname and
+`SODA_TERMINAL_NATIVE_INPUT` naming a private absolute JSON file. Input fields are
+`target`, `project`, and exactly two `accounts`, each with `login`, stable `identity`,
+expected native `uid`, `gid`, `home`, numeric supplementary `groups`, and `admin`.
+Obtain these expected values independently; do not infer them from terminal output.
+
+The root-only probe creates an exclusive marker and temporary 0600 Unix socket beside
+that 0600 file in its private directory. It runs the candidate helper in-process,
+without replacing/restarting the installed helper or touching project images/accounts/
+keys. It opens existing-account shells, checks identity/home/groups/TTY, resize,
+Ctrl-C and current sudo permissions, explicitly closes them and independently checks
+login-process disappearance. Native shell/sudo bookkeeping may write normal history/
+audit state; no transcripts or credentials are captured. Keep inputs, marker and
+result; an occupied run refuses replay. `terminal-proof.json` records only this scope.
+
+This authored probe does **not** close the whole native gate: independently observe
+lost-helper/lease teardown, unrelated SSH/workload survival and existing shared-tool
+profile behavior before UI wiring. The later genuine browser journey stays separate.
+No native target, process execution, service update or scope expansion is authorized
+by compiling the test or setting its opt-in variables.
+
 ## Read-only installed observations
 
 After separately authorized installation, inspect:

@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/levitateos/sodaos/internal/host"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -34,6 +38,24 @@ func run() error {
 		return err
 	}
 	defer listener.Close()
-	server := &http.Server{Handler: &host.Daemon{Config: c, Exec: host.Native{}}, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
-	return server.Serve(listener)
+	daemon := &host.Daemon{Config: c, Exec: host.Native{}}
+	server := &http.Server{Handler: daemon, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	done := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		daemon.CloseTerminals() // Includes hijacked streams, unlike HTTP Shutdown.
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdown)
+		close(done)
+	}()
+	err = server.Serve(listener)
+	stop()
+	<-done
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }

@@ -551,7 +551,10 @@ observations. This does not accept the entire appliance or independent aarch64 w
 
 ## Next item: existing-account browser terminal
 
-**Planning only; no terminal endpoint, launcher or dependency is implemented yet.**
+**Native-boundary source candidate implemented; native fixture proof pending.**
+The fixed launcher, private helper stream/client and shutdown handling have local Go
+and real unprivileged PTY tests. The public endpoint/UI remain unwired until the
+native gate below passes; xterm assets have not been added. See the [handoff](implementation-status.md#native-terminal-boundary-source).
 Deliver one explicit **Open terminal** action for an existing member of a provisioned,
 running environment. Show the original project login and open its native login shell
 in its existing home. Keep the terminal inside the existing dialog, widened when
@@ -589,8 +592,10 @@ project-local PTY/login shell`
 Source basis: today's helper buffers JSON under a global lock/short timeouts;
 `project-account` supplies identity markers and the image supplies Python. Inspected
 Podman v5.8.2 exec source permits detach; verify the actual target runtime before proof.
-Inspected xterm 6.0.0, fit 0.11.0 and coder/websocket v1.8.15 are candidates, not installed
-packages or substitute lockfiles. Research is linked from the handoff.
+Xterm 6.0.0 and fit 0.11.0 remain inspected candidates, not installed packages.
+Coder/websocket is now resolved/pinned in `go.mod`/`go.sum`, with its ISC text in
+`NOTICE`. These source facts are not native target evidence. Research is linked
+from the handoff.
 
 ### Authorization and connection lifetime
 

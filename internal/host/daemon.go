@@ -69,15 +69,23 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 }
 
 type Daemon struct {
-	Config Config
-	Exec   Executor
-	mu     sync.Mutex
+	Config         Config
+	Exec           Executor
+	mu             sync.Mutex
+	terminalMu     sync.Mutex
+	terminals      map[*http.Request]context.CancelFunc
+	terminalClosed bool
+	terminalWG     sync.WaitGroup
 }
 
 func (d *Daemon) podman(ctx context.Context, in []byte, args ...string) ([]byte, error) {
 	return d.Exec.Run(ctx, in, "/usr/bin/podman", args...)
 }
 func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/terminal" {
+		d.terminalHandler(w, r)
+		return
+	}
 	if r.Method != "POST" {
 		http.Error(w, "POST required", 405)
 		return

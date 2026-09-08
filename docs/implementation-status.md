@@ -6,6 +6,7 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus delivered **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback and separately approved retained cutover passed, with native browser and own-access observations. Both standalone frontends remain removed |
+| Browser terminal | Fixed native helper/launcher/client and local tests implemented; actual project PTY/teardown gate pending. No public terminal endpoint/UI or deployment yet |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Built `bdbce8e` dashboard/strict-config runners CLI, native hooks and namespaced proxy/config on `soda-test`; schema v5 and stock Forgejo 15.0.7. Unchanged helper/default project image/other native components retain prior `8b823db` provenance; old frontends are no longer served |
@@ -784,6 +785,33 @@ Podman manual URL failed, then the correct `.md.in` source was retrieved. No nat
 command, product test, build, dependency installation or deployed-state change ran.
 Only planning documentation and link/whitespace checks changed; the terminal remains
 unimplemented. Native helper changes and retained rollout need their applicable scope.
+
+## Native terminal boundary source
+
+Implemented the first source slice of the [terminal plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal):
+fixed embedded project-local Python PTY launcher, bounded private Unix WebSocket
+operation/client, immutable-container-ID/namespace checks, marker/account validation,
+credential dropping, framing/backpressure, heartbeat expiry and owned-shell teardown.
+Streaming does not hold the mutation lock or inherit the buffered RPC timeout. Helper
+shutdown now cancels and waits for pending/hijacked streams. No public API, drawer
+terminal, native service change or project-image modification was made.
+
+Coder/websocket v1.8.15 was genuinely resolved, without other dependency upgrades;
+its ISC license text is included in the already-bundled root NOTICE. Local full Go,
+focused host/command races and **49 Python build tests** passed. The new process tests
+exercise actual local PTYs, resize/Ctrl-C, EOF/final output, silent-peer expiry and
+slow-consumer cleanup with an unprivileged clean test shell; credential dropping is
+unit-tested, not native project proof. No host accounts were created. The opt-in
+`TestInstalledTerminalBoundary` is authored but skipped without private native input;
+it uses a temporary root-private helper, not an installed service replacement, and
+records only its bounded account/TTY/explicit-close scope. Lost-helper, unrelated
+SSH/workload preservation and full browser evidence remain separate required checks.
+
+Evidence: `.artifacts/research/terminal-native-163ccf9/`. No VM/installed/helper service,
+retained project, key, membership, routing or provider state changed. **Do not wire UI
+until the actual Rocky/Podman identity/PTY/teardown gate passes.** Next requires the
+applicable exact isolated-target native execution scope; retained `soda-test` rollout
+still needs separate approval and a current backup.
 
 ## Remaining work and permission boundary
 

@@ -69,6 +69,14 @@ and retained failures. Earlier source-preparation evidence is historical only.
 The [handoff](implementation-status.md) records exactly what ran. No notices have
 been newly packaged or installed by moving these notes.
 
+## Terminal transport dependency
+
+The native terminal source adds `github.com/coder/websocket`, pinned with real module
+checksums in `go.mod`/`go.sum`. Its v1.8.15 `LICENSE.txt` is ISC, not MIT; the verbatim
+copyright/permission/warranty text is included in root `NOTICE`, which the existing
+bundle already carries. No xterm distribution has been added yet. This records the
+new dependency's notice, not complete binary/runtime license closure or deployment.
+
 ## Upgrade research is not a deployment selection
 
 The prior v15/v16 comparison and release-note review remain evidence in H01 and the
