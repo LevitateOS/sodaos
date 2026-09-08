@@ -3,7 +3,10 @@
 This describes the **last recorded** isolated `soda-test` installation, not a live
 status check or permission to mutate it. Current source has neither standalone
 Soda frontend; the guest still has historical `8b823db` React preview/HTMX defaults.
-The Sodaspaces UI is not installed or implemented. See [handoff/evidence](implementation-status.md).
+The Sodaspaces UI is implemented and its separate isolated local browser journey
+passed, but it is not installed on this guest. The new fixture is recorded in the
+[handoff/evidence](implementation-status.md#isolated-local-sodaspaces-browser-execution);
+its permission does not extend to this retained VM.
 
 ## Target and state to preserve
 

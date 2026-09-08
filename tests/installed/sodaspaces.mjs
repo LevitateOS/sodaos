@@ -139,7 +139,8 @@ try {
           (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
         if (denied) {
           refusedRequest = true;
-          result.refused_hop = {same_origin: url.origin === origin.origin, method: request.method,
+          result.refused_hop = {same_origin: url.origin === origin.origin,
+            method: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(request.method) ? request.method : 'other',
             authorization: url.pathname === '/login/oauth/authorize'};
           await cdp.send('Fetch.failRequest', {requestId, errorReason: 'BlockedByClient'});
           return;

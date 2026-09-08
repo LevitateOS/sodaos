@@ -8,7 +8,8 @@ account, key or runtime wiring themselves.
 [Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. A read-only native drawer
-is authored; real browser proof and mutation controls remain pending.
+is implemented and passed its isolated local browser journey; actual-stage/delivery
+validation and mutation controls remain pending.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
 ## Topology
@@ -74,7 +75,7 @@ Native OAuth tokens are not native web sessions. Different ports do not isolate
 cookies. Root redirects to configured native Forgejo home; OAuth can return to a
 repository resolved by stored ID through the acting grant, never a supplied URL.
 Soda's expected-user header guards page/session consistency, not native browser
-session authenticity. Native-page wiring is authored but browser proof remains pending; native
+session authenticity. Native-page wiring passed the isolated local browser journey; native
 WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
 
 ## Projects and explicit joining

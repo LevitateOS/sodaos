@@ -19,16 +19,20 @@ export async function launchNativeBrowser(chromium, run, home) {
   const server = createServer();
   const ws = new WebSocketServer({server, maxPayload: 64 * 1024 * 1024});
   let child, browser, peer;
-  let closing = false;
-  const close = async () => {
-    if (closing) return;
-    closing = true;
+  let closing;
+  ws.on('error', () => peer?.terminate());
+  const close = () => closing ||= (async () => {
+    let shutdownTimer;
     try {
-      if (browser) {
-        const cdp = await browser.newBrowserCDPSession();
-        await cdp.send('Browser.close');
-      }
+      if (browser) await Promise.race([
+        (async () => {
+          const cdp = await browser.newBrowserCDPSession();
+          await cdp.send('Browser.close');
+        })(),
+        new Promise(resolve => { shutdownTimer = setTimeout(resolve, 2000); }),
+      ]);
     } catch { /* Pipe closure is expected during browser shutdown. */ }
+    finally { clearTimeout(shutdownTimer); }
     peer?.terminate();
     ws.close();
     server.close();
@@ -41,7 +45,7 @@ export async function launchNativeBrowser(chromium, run, home) {
       })]);
       clearTimeout(timer);
     }
-  };
+  })();
   try {
     await new Promise((resolve, reject) => {
       server.once('error', reject);
@@ -62,7 +66,12 @@ export async function launchNativeBrowser(chromium, run, home) {
     let pending = '';
     child.stdio[4].on('data', chunk => {
       pending += decoder.write(chunk);
-      if (pending.length > 64 * 1024 * 1024) { peer?.terminate(); return; }
+      if (pending.length > 64 * 1024 * 1024) {
+        pending = '';
+        peer?.terminate();
+        child.kill('SIGTERM');
+        return;
+      }
       let end;
       while ((end = pending.indexOf('\0')) !== -1) {
         const message = pending.slice(0, end);

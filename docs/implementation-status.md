@@ -5,7 +5,7 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | Four native hook/assets now implement the read-only context/drawer candidate; both standalone frontends remain removed. Native browser proof and mutation controls pending |
+| Soda UI source | Read-only hooks/drawer and real isolated x86_64 browser journey passed; actual-stage/delivery checks and mutation controls remain pending. Both standalone frontends remain removed |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
@@ -399,55 +399,53 @@ bounding set. Only new fixture paths were relabelled. Caddy retains just
 `NET_BIND_SERVICE` in the rootless namespace, with no-new-privileges; no host
 capability/security policy was changed. Failed containers were not removed.
 
-The first real journey passed trusted raw proxy path/version/asset/revalidation
-checks and sandboxed browser startup, then stopped on its own readiness assertion:
-an anonymous drawer's empty data region has zero height in native CSS. Separate
-sanitized native DOM observations confirmed a mounted button, visible dialog and
-sign-in, completed ARIA busy state and no page-script errors. The probe now waits
-for the visible drawer plus completed ARIA state, not a box on the empty region.
-Probe `ebab030` then passed anonymous/native-cookie-only contexts but failed during
-the first real OAuth sequence. The probe now records fixed route labels/status codes
-and precise OAuth substeps, never URLs/queries/bodies or exception text.
-Diagnostics at `5cbcdd8`/`fcedb04` showed real OAuth callback/repository return and
-session/provider/repository reads succeeding. The assertion was in the probe:
-Playwright route callbacks omit redirect hops, so its authorization counter and
-redirect guard did not run there. The probe now uses CDP Fetch on its exercised
-pages to inspect each hop before transmission; focused doubles test allowed and
-refused hops. Separate native DOM diagnosis observed the matching actor and real
-absent-environment state. Account switching/accessibility/BFCache and a complete
-journey are still pending; these failures are not a milestone pass.
+**Complete scoped journey passed at probe `dd793a2`**, against unchanged `31e73bf`
+backend/UI bytes. `browser-x/sodaspaces-run/result.json` records real BFCache
+restoration, both users' real OAuth returns, native-only/Soda-only transitions,
+identity mismatch/no premature environment reads, protected logout actor/CSRF
+denials, cookie scope, native unsaved-form preservation, keyboard/blur/explicit
+reload, Escape/backdrop/focus return and 360/1280-pixel light/dark layout. Raw
+proxy path/encoding denials and exact served asset hashes/conditional revalidation
+also passed. Only **absent** environment views were native (three observations);
+existing/running/stopped/incomplete views remain source/DOM fixtures in this run.
+No responses or sessions were faked. This is bounded browser integration evidence,
+not milestone/release acceptance or installed CoreOS/aarch64 validation.
 
-Probe `72a3c2b` passed the real first OAuth/absent state, cookie scope and protected
-logout denial checks, then failed its overly strict keyboard assertion. Native
-Chromium permits Tab to browser chrome (not background page controls); this correctly
-invalidates/clears Soda. Native close/focus-return events are asynchronous. The probe
-now permits that browser behavior while asserting no underlying-page focus, data
-clearing and explicit reload, and waits for the actual close-event focus return.
-Probes `e1c0c54`/`f3948c3` reached account switching after passing those checks and
-360/1280-pixel light/dark layout. Native logout diagnosis identified competing link
-and SSE navigations, not a Soda account error. Stock `SignOut` broadcasts logout;
-its notification/stopwatch workers navigate session tabs home. The probe now checks
-blur clearing before logout, waits for actual native sign-out without a competing
-click-navigation waiter, and explicitly revisits the repository if upstream took
-the old page away. Native workers, navigation and beforeunload remain unmodified.
+`artifact-binding.json` binds the running backend's `/proc/1/exe` hash to its local
+Go/VCS build and the four mounted/served UI hashes, with exact cached image IDs.
+Read-only inspection of Soda's own fresh schema-v5 database found zero projects,
+memberships and development keys. It did not inspect Forgejo's database. Services,
+all failed containers, private profiles, inputs and logs remain retained. No real
+stage/image build, installed checks, retained-state migration or cutover occurred.
 
-The next attempts (`0576e60`/`fb6f32e`) stopped before logout because Playwright
-forces both tabs focused/visible. Separate source-backed diagnostics reproduced
-this in both prepared browser channels; another CDP session disabling focus
-emulation does not undo Playwright's session override. The selected correction is
-a stock Chromium process attached with public `connectOverCDP({noDefaults:true})`,
-using a private Unix WebSocket/pipe rather than a TCP debugger. Sandbox/TLS stay
-normal; no synthetic events or upstream worker suppression. A real two-tab diagnostic
-with that launcher observed the background page unfocused/hidden and foreground
-page focused/visible. Full-journey re-execution with this launcher remains pending. Full native build/stage, installed checks,
-retained-state rehearsal and cutover remain unperformed.
+The failed attempts remain under `browser-*`/`logs/`, with their exact revisions.
+They exposed probe assumptions rather than requiring product/upstream changes:
+
+- Empty native data regions have no visible box; wait on dialog/ARIA readiness.
+- Playwright routes omit redirects; CDP Fetch guards every exercised-page hop.
+- Playwright forces pages focused/visible. Stock Chromium now attaches with public
+  `connectOverCDP({noDefaults:true})` through a private Unix socket/pipe, retaining
+  sandbox/TLS and real focus/visibility/BFCache rather than synthesizing events.
+- Native chrome/body focus transitions invalidate Soda; focus return is asynchronous.
+- Forgejo's stock logout broadcasts navigate session tabs home and its link action
+  posts `/-/fetch-redirect`. Only the exact navigation-only `redirect=/` form is
+  allowed. Workers, upstream navigation and native beforeunload stay unmodified.
+- BFCache history restoration needs a commit wait, not a fresh load-event wait.
+
+Final local checks passed: full uncached Go suite, 46 Node tests (43 DOM plus three
+probe/transport checks), 36 Python build fixtures, Node/bash syntax. Logs are under
+`logs/final-*`. Go used cached 1.26.7 with readonly/offline modules. No Cockpit
+retest, aggregate native-stage check or additional dependency install was implied.
+Subsequent transport cleanup/refusal hardening is source-tested; its final native
+rerun is recorded separately rather than relabelling the `dd793a2` result.
 
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring
   native-page context; no installed acceptance is inferred from local test results.
-- Implement/prove the supported native button/drawer/authenticated Soda connection,
-  then explicit create/join/key/connection controls and existing-account terminal.
+- Complete actual-stage/delivery validation of the read-only integration; its
+  isolated browser journey now passes. Keep mutation controls blocked until step 3's
+  exit, then implement explicit create/join/key/connection and the separate terminal.
   The verified template hook alone is not this integration. Stop if it needs a fork.
 - Rehearse exact candidate/config/grants/populated-state preservation before a
   separately approved cutover; finish fresh/populated native product proof and
@@ -458,12 +456,10 @@ retained-state rehearsal and cutover remain unperformed.
   [actual-artifact licensing/source obligations](licensing.md). Optional media and
   incomplete outside helper ports are not product gates.
 
-Local source builds/tests were authorized on this development machine. Existing
-fixture/reboot grants have been used; there is no new permission for deployment,
-restart, fixture creation, provider mutation, routing, destructive cleanup or other
-targets. Check actual liveness/addresses only within the applicable scope; recorded
-routes and agents are not promises of present availability. No new native actions
-or evidence inspection occurred during this documentation cleanup.
+Local source builds/tests and the exact new isolated fixture above are authorized.
+The retained VM's older fixture/reboot grants remain used; this does not authorize
+its restart/deployment/migration, unrelated provider mutation, routing, destructive
+cleanup or other targets. Recorded routes and agents are not promises of liveness.
 
 ## Documentation history
 

@@ -4,8 +4,9 @@ Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
 and [handoff](implementation-status.md). The read-only hook/drawer/context caller
 is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
-Complete authenticated native-page → Soda browser proof remains pending; source
-findings and DOM doubles are not that proof.
+The isolated x86_64 authenticated native-page → Soda browser journey now passes,
+including real tab/BFCache transitions. Actual-stage/install and existing-environment
+validation remain separate; source findings and DOM doubles are not native proof.
 
 ## Verified source surface
 
@@ -25,7 +26,8 @@ The inspected **15.0.7** source establishes:
 
 Staging supplies native themes/logos and the four Sodaspaces hook/assets under
 `gitea/templates/custom/` and `gitea/public/assets/`. This is authored delivery,
-not an installed/rendered native result. Forgejo's customized Fomantic subset has native
+not an installed appliance result. The four hook/assets have rendered in the
+isolated browser fixture, not through a full stage/install. Forgejo's customized Fomantic subset has native
 accessibility/initialization adaptations; it is not a standalone Soda component kit.
 Preserve native markup, scripts, form behavior and branding. The source reference
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact

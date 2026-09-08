@@ -2,18 +2,17 @@
 
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**. No new tab or standalone page.
-Both old Soda frontends and duplicate forge adapters are removed; the drawer and
-its complete authenticated native proof remain **incomplete**. The read-only
-hook/assets and context caller are now in source. Step 1 is underway:
-routing/configuration/scoped cookies and backend actor/return context are in source.
-Native-page wiring is authored; real browser/proxy proof remains pending. Step 2's
-backend repository reads/new-join checks are implemented. Step 3 source delivery
-is underway; native completion and steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+Both old Soda frontends and duplicate forge adapters are removed. The read-only
+hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
+pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
+Step 2's backend repository reads/new-join checks are implemented. Step 3 still
+needs real staged-payload/delivery validation; steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
-locally tested. Neither is deployed; browser/proxy proof remains pending.
+locally tested. Neither is deployed to the retained appliance; the isolated
+browser proof does not establish installed security or preserved-state migration.
 
-**Next milestone:** finish the native-page caller from steps 1–2 and deliver the
+**Next milestone:** finish actual-stage/delivery checks for the
 [read-only button/drawer in step 3](#3-deliver-the-read-only-button-and-drawer).
 Its implementation slices and completion checks are specified there; no new roadmap.
 
@@ -27,7 +26,7 @@ Its implementation slices and completion checks are specified there; no new road
   frontend and Cockpit's separate React/PatternFly stack remain intact.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
-  The routing foundation is authored/source-tested, not native proxy/browser proof.
+  The isolated browser journey now exercises this routing; appliance cutover is separate.
 - **Authority:** Forgejo owns identity, native sessions, permissions, Git keys,
   collaboration and administration. Soda owns its additional data and real
   environment/access integration—not copied roles or another password authority.
@@ -226,11 +225,12 @@ existing Linux accounts, keys, SSH sessions or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
-**Source underway, not native-accepted:** the hook/assets, identity/read caller and
-focused source tests and bounded packaging/conflict fixtures are implemented.
+**Browser journey passed; delivery exit incomplete:** the hook/assets, identity/read
+caller, focused source tests and bounded packaging/conflict fixtures are implemented.
 The [opt-in native journey](native-validation.md#read-only-sodaspaces-browser-probe)
-is authored but unexecuted;
-complete native proof for the caller from steps 1–2 and this drawer as one candidate. Commit hook/assets with
+passed in the specifically approved isolated local fixture, with real OAuth, tab
+transitions and BFCache. Only absent-environment views were native in that run.
+Actual-stage/delivery checks still gate completion. Commit hook/assets with
 source tests first, packaging with fixtures next, then the opt-in native journey.
 Run native proof only with its separate approval. Read-only UI source may proceed
 before that proof; do not mark the milestone complete or enable step-4 controls
