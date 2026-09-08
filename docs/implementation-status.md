@@ -11,9 +11,10 @@
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
 | Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
 
-Source removal is **not deployment**. No native image/stage build or installed
-retest of the removal commits occurred. The read-only Sodaspaces source caller is
-now authored, not installed or native-browser-proven. Root returns to configured Forgejo
+Source removal is **not retained-appliance deployment**. The later `ee8091a` native
+build/stage/export and isolated exported-payload browser journey passed as recorded
+below; `soda-test` remains unchanged. The read-only caller is proven only at that
+bounded scope, not for native create/join/access. Root returns to configured Forgejo
 home; OAuth can return to a freshly resolved repository under that origin using
 single-use stored context and the acting grant, never a caller-supplied URL.
 Schema v5 adds internal login cancellation contexts after v4's repository/expected-
@@ -488,10 +489,27 @@ outputs and failures remain retained. **Step 3's bounded x86_64 read-only exit i
 satisfied; step 4 is next.** This is not first-install/activation, retained-state
 migration/cutover, existing-project access, full product/release or aarch64 acceptance.
 
+## Access-action plan revision
+
+Documentation-only review after `afda2d9` reconciles the leading plan and API guide
+with the completed read-only build/export/browser evidence and standing testing
+approval. Step 4 now explicitly separates action-time identity checks, pending writes,
+late/stale results, confirmed versus uncertain outcomes and safe read-only observation
+without replay. Existing-member idempotency/degraded access and current-owner/new-join
+server authority remain intact. Step 5 extends the existing guarded native journey
+with bounded access requests on an isolated helper-backed target; neither retained
+browser fixture supplies provisioning or SSH proof. No new roadmap, backend contract,
+helper protocol, recovery subsystem or live cutover is implemented by this revision.
+
+Checks for this revision: documentation inspection passed (55 Markdown files,
+242 local relative links, 34 Markdown anchors, zero errors); diff-whitespace checks
+passed. No product tests, build, native execution, fixture mutation or data cleanup.
+
 ## Remaining work and permission boundary
 
-- Preserve the two implemented security fixes and regression coverage while wiring
-  native-page context; no installed acceptance is inferred from local test results.
+- Preserve the two implemented security fixes and native-page context regression
+  coverage while wiring explicit actions; no retained-appliance acceptance is inferred
+  from local test results.
 - Implement step 4's explicit stable-ID create, public-key save, join and own
   connection controls; the read-only step-3 gate passed at the bounded scope above.
   Existing-account terminal work remains separate.

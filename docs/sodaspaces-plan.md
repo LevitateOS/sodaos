@@ -41,8 +41,15 @@ Keep each slice coherent, with its focused tests and affected guide updates in t
 same change. The [API guide](dashboard-api.md) describes today's retained endpoints;
 planned changes here do not claim those contracts already exist. The two security
 fixes landed as separate backend/test commits, moving new-join authorization ahead
-of UI wiring. Preserve them while completing the native-page/read-only milestone;
-source tests and hidden buttons are not installed authentication or authorization proof.
+of UI wiring. Preserve them while adding explicit actions to the proven read-only
+caller; source tests and hidden buttons are not installed authorization proof.
+
+Standing implementation/testing approval covers routine planned local work, including
+isolated delivery tests; no repeated approval gate is needed for that scope. Record
+exact candidates, targets, private inputs, effects and retention before execution.
+Preserve all existing fixtures, projects, credentials and failed evidence. Unrelated
+provider/host-network changes and retained-appliance cutover remain outside that
+scope; this document itself grants no execution permission.
 
 ### 1. Establish the browser-to-backend contract
 
@@ -91,8 +98,9 @@ this contract, stop and explain the precise gap—no fork or substitute frontend
 #### OAuth callback and logout fix
 
 **Source-implemented:** schema v5, conditional finalization/cancellation and focused
-race/migration tests. Browser/proxy and installed rehearsal remain pending. The
-steps below record the selected contract, not permission for native execution.
+race/migration tests. The bounded isolated browser/proxy journey passed; deterministic
+callback/logout races remain handler/store evidence, not browser race proof. Retained-
+state rehearsal is still pending. The steps below record the selected contract.
 
 **Files:** `internal/web/{auth,api}.go`, `internal/store/{store,login,grants,migrations}.go`
 and their focused tests. Preserve the existing PKCE/state/cookie/actor/consent and
@@ -172,9 +180,10 @@ and no cross-project disclosure through alternate routes.
 #### Repository authorization fix
 
 **Source-implemented:** required repository lookup, direct-ID read boundaries and
-fresh new-join checks; focused denial/concurrency/degraded-access tests. Native UI,
-stable-ID creation and installed verification remain pending. The following steps
-record the implemented contract, not further execution permission.
+fresh new-join checks; focused denial/concurrency/degraded-access tests. The read-only
+native UI passed its bounded journey with absent views only. Stable-ID creation,
+mutation controls and helper-backed native access proof remain pending. The following
+steps record the implemented contract, not further execution permission.
 
 **Files:** the step-2 owners above plus `internal/web/provider.go` where its existing
 acting-grant handling is reused. No helper protocol, Linux account or permission
@@ -220,9 +229,10 @@ Assert helper-call and membership-write absence on every new-join denial. Preser
 original-login/idempotent/degraded own-member and explicit operator-read tests,
 CSRF/actor checks, concurrent joins, native failure and result-persistence failure.
 Run the full Go suite and focused web/store/Forgejo/config races for both fixes,
-plus affected documentation checks. Real browser/proxy/access proof still requires
-its separately approved scope; neither mocked helper success nor these fixes revoke
-existing Linux accounts, keys, SSH sessions or workloads.
+plus affected documentation checks. Read-only browser/proxy proof passed at the
+recorded scope; helper-backed native access proof remains step 5. Neither mocked
+helper success nor these fixes revoke existing Linux accounts, keys, SSH sessions
+or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
@@ -231,11 +241,10 @@ native build/aggregate checks, actual stage/export verification and the
 [opt-in native journey](native-validation.md#read-only-sodaspaces-browser-probe)
 against exported hooks/branding and the built dashboard image passed. OAuth, native
 tab transitions and BFCache were real; only absent-environment views were native.
-This is not appliance installation or existing-project/runtime acceptance. Commit hook/assets with
-source tests first, packaging with fixtures next, then the opt-in native journey.
-Run native proof only with its separate approval. Read-only UI source may proceed
-before that proof; do not mark the milestone complete or enable step-4 controls
-on fixture results alone.
+This is not appliance installation or existing-project/runtime acceptance. Hook/assets,
+source tests, packaging fixtures and the opt-in native journey landed in separate
+slices. This completed gate permits step-4 implementation, not a claim that mutation
+controls or native provisioning have passed.
 
 **New product source:** `appliance/forgejo/templates/custom/{header,footer}.tmpl`
 and `appliance/forgejo/public/assets/sodaspaces.{css,js}`. No new backend endpoint,
@@ -312,7 +321,9 @@ schema change, frontend build, component library or upstream executable is plann
 
 #### Packaging and conflict refusal
 
-**Source-implemented and fixture-tested; actual stage/install proof pending.**
+**Implemented and tested:** source/conflict fixtures, actual native stage/export and
+exported-payload browser checks passed at `ee8091a`. First-install/activation and
+retained-appliance delivery remain unproven by that run.
 
 - `scripts/stage.py` copies only the four files into
   `/var/lib/soda/forgejo/gitea/{templates/custom/,public/assets/}`. Keep readable
@@ -322,12 +333,12 @@ schema change, frontend build, component library or upstream executable is plann
   required ancestors, and requires all four files in the inventory. Do not whitelist
   arbitrary templates or Forgejo data. Update bundle fixtures, staged-path assertions
   in `tests/packaging/test_staging.py`, and applicable notices together.
-- Add exact hook/asset destination conflict refusal to `scripts/install-native.sh`
-  **before its first host write**; current ancestor checks alone do not prevent
-  overwriting an existing file. Refuse occupied destinations and symlinks rather than
-  merge/adopt operator hooks. Extend ownership/label handling narrowly for the new
+- Preserve `scripts/install-native.sh`'s implemented exact hook/asset destination
+  and unsafe-ancestor refusal **before its first host write**, with temporary-
+  filesystem preflight regressions. Refuse occupied destinations and symlinks rather
+  than merge/adopt operator hooks. Keep ownership/label handling narrow for the new
   readable template paths (current Forgejo UID/GID 1000), not recursive changes to
-  the mutable Forgejo tree. Author temporary-filesystem preflight tests.
+  the mutable Forgejo tree.
 - First-install remains first-install only. Existing-target delivery belongs to the
   reviewed rehearsal/cutover procedure: preserve custom files, require an explicit
   decision for conflicts, back up exact prior bytes and verify effective CustomPath,
@@ -336,12 +347,12 @@ schema change, frontend build, component library or upstream executable is plann
 
 #### Tests, native proof and completion
 
-- Add `scripts/sodaspaces_templates_test.go` for the two Soda templates and
+- Retain `scripts/sodaspaces_templates_test.go` for the two Soda templates and
   `tests/frontend/sodaspaces.test.mjs` for the actual script's DOM/fetch behavior.
   Use Node's test runner and the already-pinned Cockpit `jsdom` dependency, not a
-  root frontend manifest. Wire the JS test into `scripts/check-native.sh` and
-  document its standalone source-check command; the aggregate still requires a
-  clean revision and actual stage. Fixture context/dialog doubles are not upstream
+  root frontend manifest. `scripts/check-native.sh` runs `tests/frontend/*.test.mjs`;
+  preserve that wiring and the standalone source-check command. The aggregate requires
+  a clean revision and actual stage. Fixture context/dialog doubles are not upstream
   rendering, CSS, focus or native browser evidence.
 - Cover signed/anonymous/large/malformed IDs; missing rows/context; matching and
   mismatched actors; contextual login and Soda-only logout; malformed/oversized/HTML
@@ -349,8 +360,8 @@ schema change, frontend build, component library or upstream executable is plann
   environments; close/reopen/late reads; stale/BFCache reload gating; exact fragment;
   and no environment/key writes. Packaging fixtures exercise missing required files,
   extra templates, modes and pre-write conflict refusal, not just recipe strings.
-- Add opt-in `tests/installed/sodaspaces.mjs` using existing pinned Playwright. Under
-  explicit fixture/target permission, exercise actual stock Forgejo → Caddy → Go
+- Retain opt-in `tests/installed/sodaspaces.mjs` using existing pinned Playwright.
+  Within the applicable fixture/target scope, exercise actual stock Forgejo → Caddy → Go
   OAuth → safe repository return → drawer, anonymous and two-account transitions,
   native-only and Soda-only account changes, logout, BFCache/focus, keyboard/backdrop/
   Close, responsive themes and native form/navigation coexistence. Verify actual
@@ -358,13 +369,20 @@ schema change, frontend build, component library or upstream executable is plann
   borrowing, and protected logout's actor/CSRF behavior. Include actual proxy path/
   encoding checks and only focused native route smoke checks. Do not seed an
   authenticated session or call intercepted responses native proof.
-- Before that run, agree exact candidate/images, target and isolated private origin/
-  TLS trust, allowed users/repos/OAuth application/callback operations, database/key
-  copies, process starts/restarts and retention. Existing VM/fixture approvals are
-  exhausted. Use authorized existing tools, not a new support platform. New fixtures,
-  credential changes or retained-target deployment are not authorized by this plan.
-  The installed separate-origin/schema-v3 pairing cannot host this candidate through
-  casual live edits; follow [credential rehearsal](dashboard-credentials.md).
+- Carry forward the real-browser corrections, not the failed probe assumptions:
+  use `tests/installed/native-browser.mjs` with sandbox and fixture-only trusted TLS,
+  without Playwright's forced focus/visibility or synthetic BFCache events. Wait for
+  dialog/ARIA readiness and asynchronous focus return; browser chrome/body may own
+  focus while Soda must clear. Use history commit waits for real BFCache restoration.
+  Preserve stock logout's SSE navigation and exact native `POST /-/fetch-redirect`
+  body `redirect=%2F`; do not intercept its response or disable native workers,
+  navigation or beforeunload. CDP Fetch guards every redirect hop before transmission.
+- Record exact candidate/images, isolated origin/TLS, users/repos/OAuth operations,
+  private inputs, process effects and retention for each run under standing testing
+  approval. Use existing owned tools, not a new support platform. Preserve previous
+  fixtures and artifacts; do not adopt occupied paths. The installed separate-origin/
+  schema-v3 pairing cannot host this candidate through casual live edits; follow
+  [credential rehearsal](dashboard-credentials.md) before separate live cutover.
 - No environment creation/join/key save is needed for the first real OAuth proof.
   Record which existing-state views were native observations versus local fixtures;
   use existing environments only under explicit read scope. Preserve browser profiles
@@ -373,18 +391,28 @@ schema change, frontend build, component library or upstream executable is plann
 - **Exit:** source/template/DOM and real staged-payload checks pass, and the approved
   native run proves identity matching, safe OAuth return, stale-tab blocking and the
   read-only dialog without native navigation regressions. Record exact revision and
-  failures in the handoff. No such tests ran by writing this plan. Only then proceed
-  to step-4 mutation controls; step-5 integrated access proof and step-6 cutover remain
-  separate, as do the existing-account terminal and independent aarch64 acceptance.
+  failures in the handoff. This exit is satisfied at the bounded `ee8091a` scope above;
+  proceed to step-4 mutation controls. Step-5 integrated access proof and step-6 cutover
+  remain separate, as do the existing-account terminal and independent aarch64 acceptance.
 
 ### 4. Wire the explicit access actions
 
-**Files:** the small drawer script/templates and retained Go environment/key handlers.
+**Status:** not implemented. The read-only exit is complete; no new roadmap or
+frontend stack is needed. The [API guide](dashboard-api.md) still describes the
+current `{owner,repository}` create body, not the planned contract below.
 
-1. **Create shared environment:** change the existing POST to accept stable
-   `repository_id`, resolving the current human owner server-side. No organization-
-   owned creation or operator/admin impersonation. Preserve reservation-before-
-   provisioning, uniqueness and honest incomplete results. Creation does not join.
+**Files:** the existing drawer script/templates/styles, retained Go environment/key
+handlers and their focused tests. Keep the restricted helper and store as owners
+of native operations and legitimate Soda records.
+
+1. **Create shared environment:** change the existing POST to accept a canonical
+   decimal-string `repository_id`, rejecting the old owner/name body. Resolve through
+   the acting grant's fresh subject, actual user/repository consent and
+   `RepositoryByID`; require the current human owner server-side, independently of
+   advisory `can_create` or an earlier read. No organization-owned creation or
+   operator/admin impersonation. Preserve reservation-before-provisioning, unique
+   association by stable ID and honest incomplete results. Creation does not join.
+   Update the API guide and actual callers/tests in the implementation commit.
 2. **Save public key:** show registered development-key summaries; when needed,
    accept one public key through the retained key API. No private-key upload,
    native Git-key changes, key selector or automatic later propagation.
@@ -397,16 +425,64 @@ schema change, frontend build, component library or upstream executable is plann
    native Copy control and public host-key fingerprint. Stopped/unavailable state
    must not advertise a usable connection; an IP is not proof of client routing.
 
-**Exit:** handler/UI tests cover owner/non-owner, missing/bad keys, duplicate submits,
-concurrent reservations, incomplete native results and no false membership. Pending
-controls use truthful labels; close/reopen or a failed response never replays a
-mutation. Safely reread after completion or uncertainty; no jobs/recovery subsystem.
+#### Submission and result handling
+
+- Require an explicit action, a non-stale native document and matching page/session/
+  fresh-provider IDs before submission. Recheck the current session/provider on the
+  action path; after any asynchronous read, confirm the same active context before
+  dispatch. Send the expected actor and in-memory CSRF token on protected JSON writes.
+  The server still owns operation-specific authority; a client precheck is not
+  authorization or atomic native-session verification. Keep existing-member joins
+  idempotent with their original login and preserve degraded own-access API behavior.
+- Reuse fixed same-origin paths, redirect rejection, no-store, bounded streamed JSON
+  and field/association validation for the additional reads and write results. Render
+  text/values, not response HTML. Keep development keys separate from Forgejo Git keys;
+  saving a key neither joins nor changes an existing member's installed keys. Verify
+  the native Copy mechanism against the selected upstream source before wiring it.
+- Prevent duplicate dispatch while an action is pending, including close/reopen.
+  Keep Close usable and pending labels truthful. Read abort/generation handling must
+  not be mistaken for mutation cancellation: the server/helper may continue after
+  an abort, timeout, logout or page departure. Late results must not repopulate a
+  closed, stale, reopened or differently authenticated drawer.
+- Distinguish confirmed success, confirmed rejection and an uncertain outcome
+  (transport loss, unreadable response or native/result-persistence failure). Do not
+  optimistically add membership or advertise SSH. Never chain create → join or key
+  save → join; never replay a write on open, Refresh, reload or OAuth return.
+- After completion/uncertainty, use bounded read-only observation when context is
+  still valid; stale documents require explicit full-page reload first. Refresh keys,
+  repository reservation/detail or own connection as applicable, without polling.
+  A missing membership after helper/persistence failure is not proof that no Linux
+  account was created, nor permission to retry/repair. Keep unresolved native outcomes
+  explicit and direct them to operator inspection; no durable jobs, browser operation
+  journal, automatic compensation or generalized recovery subsystem.
+
+**Exit:** handler/UI tests cover current owner/non-owner/org/admin boundaries,
+rename/transfer and access loss between read and submit, malformed/large stable IDs,
+actor/CSRF/consent denial, missing/bad/duplicate keys, duplicate submits/concurrent
+reservations, incomplete native results and no false membership. Exercise stale/blur/
+BFCache, close/reopen, pending logout, delayed/malformed/lost responses and safe rereads
+with zero write replay. Preserve original-login idempotency and own-only connection
+access; stopped/unavailable/malformed connection data must not expose a usable Copy
+command. Source/helper doubles establish these branches, not actual SSH provisioning;
+step 5 supplies the helper-backed native evidence.
 
 ### 5. Validate the integrated native experience
 
-- Use the existing pinned browser tooling, not a new frontend dependency stack.
-  Add a focused native-page Sodaspaces journey and adapt retained connection probes
-  to the mounted API. Do not restore retired standalone browser journeys.
+- Extend the existing product-owned native-page journey using the pinned tooling
+  and proven browser launcher; adapt retained connection probes to the mounted API.
+  Keep the read-only mode's environment-write refusal. Add an explicit bounded access
+  mode/scenario allowing only the intended key/create/join requests for declared
+  fixture actors/repository/retained reservation. Preserve redirect-hop guards and
+  native navigation checks; do not broadly allow POSTs or substitute responses.
+  Do not restore retired standalone browser journeys or add a frontend stack.
+- Use a separately recorded isolated helper-backed target for access proof. Neither
+  retained local browser fixture has a helper, projects, memberships or development
+  keys; each recorded three absent observations, not existing/running/stopped/incomplete
+  native views. Bind the new run to the actual candidate backend/helper/project image
+  and delivered UI, private credentials, synthetic actors/repository and declared
+  client route. Preserve both earlier fixtures, all run-owned roots and failed results.
+  This is planned isolated testing under standing approval, not permission to connect
+  a browser fixture to the builder's unrestricted host socket or mutate `soda-test`.
 - Exercise real Forgejo → Soda OAuth → repository return → drawer, explicit owner
   create, two users' key/join/own-connection paths and actual SSH access. Cover native
   account switching, expiry/re-consent/logout, denied access and interrupted requests.
@@ -422,9 +498,13 @@ mutation. Safely reread after completion or uncertainty; no jobs/recovery subsys
   payload checks through their actual callers. Record revision, scope and failures
   in the [handoff](implementation-status.md); source passes are not installed proof.
 
-**Exit:** exact-candidate native-page and access evidence for this slice, with no
-native workflow/security regression hidden by mocked responses. Native execution
-and fixture/provider mutations require their own applicable authorization.
+**Exit:** exact-candidate native-page and access evidence for this slice: real
+reservation/provisioning, each user's explicit key/join, original own login, public
+host-key verification and actual own-key SSH from the recorded client. Record which
+state/failure views were real versus fixture-only; do not add lifecycle mutations just
+to fill a view matrix. No native workflow/security regression may be hidden by mocked
+responses. Apply standing approval within planned isolated testing; unrelated provider,
+host-network and retained-appliance actions still require separate scope.
 
 ### 6. Rehearse and cut over separately
 
@@ -461,8 +541,10 @@ Stock Cockpit and its native integrations remain operator-only; providers own CI
 Production `internal/host/` and `project-os/` own native behavior. Outside
 [support tools](native-support.md) invoke owned checks, not a second readiness gate.
 
-Local source checks were authorized; this plan grants no deployment, restart,
-new fixture, provider action, routing or cleanup permission. Only historical bounded
-**U08** proof is accepted—not Sodaspaces or final-product acceptance. Retained console,
+Standing implementation/testing approval covers planned local work and isolated
+delivery validation, not destructive cleanup, unrelated provider/host-network changes
+or silent retained-appliance cutover. Step 3's bounded x86_64 read-only exit passed;
+only historical **U08** has bounded native project-runtime acceptance. Neither is
+completed Sodaspaces access, final-product or aarch64 acceptance. Retained console,
 operator/provider, licensing, native-support and independent aarch64 obligations
 remain in the [handoff](implementation-status.md), not another expanded UI roadmap.

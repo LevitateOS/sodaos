@@ -4,8 +4,9 @@ The root React `dashboard/` and its duplicate Forgejo workflow adapters have bee
 removed. This guide describes the **retained Go source**, not an installed rollout
 or a completed Sodaspaces button/drawer. Native Forgejo owns collaboration/account/
 administration pages. The old Go/HTMX frontend is also removed. A native read-only
-hook/drawer caller is now authored; real browser/proxy proof and mutation controls
-remain pending.
+hook/drawer caller passed its bounded x86_64 build/stage/export and isolated
+exported-payload browser/proxy journey at `ee8091a`. Mutation controls and
+helper-backed native access proof remain pending.
 
 ## Browser namespace
 
@@ -14,10 +15,9 @@ Paths below are relative to that prefix: `/api/session` means
 `/-/soda/api/session`, and `/login` means `/-/soda/login`. The direct loopback
 backend still answers `/healthz` and redirects `/`; unprefixed API/login/callback
 paths are not aliases. Caddy forwards only the Soda prefix unchanged and leaves
-native Forgejo routes upstream-owned. This foundation is source-tested, not
-installed or a completed authenticated drawer. Actor-context guards and
-repository-bound OAuth return handling now exist in the backend; native-page
-context capture is authored, while the real browser/proxy round trip remains unproven.
+native Forgejo routes upstream-owned. Actor-context guards, repository-bound OAuth
+returns and native-page context capture passed the isolated read-only journey;
+this is not retained-appliance deployment or completed create/join/access proof.
 
 ## Expected actor
 
@@ -78,13 +78,17 @@ login without reinstallation or a new provider check. This does not continuously
 synchronize access or revoke existing Linux accounts after native permission changes.
 
 Repository-scoped reads and new-join authorization are implemented; the native
-button/drawer caller is authored and stable-ID creation remains pending. No shared native cookie
-or completed authenticated embedding is implied.
+read-only button/drawer caller passed its bounded native journey. Stable-ID creation
+remains planned in [step 4](sodaspaces-plan.md#4-wire-the-explicit-access-actions), not
+an accepted request body today. No shared native cookie is used.
 
 ## Browser/session/security contracts
 
 Both reviewed fixes—repository authorization and callback/logout cancellation—are
-implemented and locally source-tested, not deployed or browser/proxy validated.
+implemented and locally source-tested. The isolated read-only browser/proxy journey
+passed; new joins and deterministic callback/logout races retain their focused
+handler/store evidence. No retained-appliance deployment or native new-join proof
+is inferred.
 
 - `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
   `repository_id` and `expected_user_id` with the same positive-ID representation;
@@ -145,16 +149,18 @@ implemented and locally source-tested, not deployed or browser/proxy validated.
 The backend sees a Soda session and a declared page actor, **not Forgejo's live
 browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
-is unchanged. The authored drawer discards stale reads and requires reloading native page
-context on resume/BFCache restoration before exposing actions, then compare the
+is unchanged. The implemented drawer discards stale reads and requires reloading native page
+context on resume/BFCache restoration before exposing actions, then compares the
 page/session/provider IDs. The [read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
 invalidates on hidden/blurred/pagehide/restored documents and requires an explicit
 full native-page reload before further environment reads. It must not auto-reload
 away unsaved native form edits; another Soda fetch is not refreshed native context.
 An anonymous or mismatched page offers explicit sign-in,
 not automatic account switching or mutation replay. Native logout is not global
-Soda logout; do not claim atomic cross-system session revocation. Browser behavior
-still requires real verification; source DOM doubles do not establish it.
+Soda logout; do not claim atomic cross-system session revocation. The bounded native
+journey exercised real blur/BFCache and stock logout navigation while preserving
+native unsaved forms. Mutation-time behavior remains step-4 work, not inferred from
+read-only evidence.
 
 ## Retained callers, tests and packaging
 
@@ -172,8 +178,9 @@ create/join/reservation, key and persistence coverage. Negative route tests ensu
 retired forge adapters do not reach provider/helper operations. React-specific DOM
 and browser orchestration tests were removed with their callers; their historical
 source and U08 logs remain in Git/ignored evidence. Native SSH/Git/workload/lifecycle
-and Cockpit tests remain. Sodaspaces browser replacement coverage is pending, not
-inferred from historical React results.
+and Cockpit tests remain. Sodaspaces read-only browser coverage passed independently
+of historical React results; helper-backed native create/join/SSH coverage remains
+step 5.
 
 See [credential/migration constraints](dashboard-credentials.md),
 [current plan](sodaspaces-plan.md), [frontend integration](forgejo-frontend-integration.md)
