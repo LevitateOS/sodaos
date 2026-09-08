@@ -2,11 +2,11 @@
 <main aria-label="{{.Title}}" class="page-content user profile soda-page soda-profile" data-signed="{{.IsSigned}}">
 	<div class="ui container soda-page-container">
 		{{template "base/alert" .}}
-		<div class="ui stackable grid soda-profile-layout">
-			<div class="ui four wide column soda-profile-identity soda-profile-card-context">
+		<div class="soda-profile-layout">
+			<div class="soda-profile-identity soda-profile-card-context">
 				{{template "shared/user/profile_big_avatar" .}}
 			</div>
-			<div class="ui twelve wide column tw-mb-4 soda-profile-content">
+			<div class="soda-profile-content">
 				{{template "user/overview/header" .}}
 				{{if eq .TabName "activity"}}
 					{{if eq .SignedUserID .ContextUser.ID}}
@@ -43,7 +43,7 @@
 				{{else if eq .TabName "stars"}}
 					<div class="stars">
 						<div class="soda-toolbar soda-p-toolbar">{{template "shared/repo_search" .}}</div>
-						<div class="soda-list">{{template "explore/repo_list" .}}</div>
+						<div class="soda-list">{{template "custom/soda/profile_repositories" .}}</div>
 						{{template "base/paginate" .}}
 					</div>
 				{{else if eq .TabName "following"}}
@@ -61,7 +61,7 @@
 				{{else}}
 					<div class="soda-profile-repositories">
 						<div class="soda-toolbar soda-p-toolbar">{{template "shared/repo_search" .}}</div>
-						<div class="soda-list">{{template "explore/repo_list" .}}</div>
+						<div class="soda-list">{{template "custom/soda/profile_repositories" .}}</div>
 						{{template "base/paginate" .}}
 					</div>
 				{{end}}
@@ -70,19 +70,6 @@
 	</div>
 </main>
 
-<div class="ui g-modal-confirm delete modal" id="block-user">
-	<div class="header">
-		{{ctx.Locale.Tr "user.block_user"}}
-	</div>
-	<div class="content">
-		<p>{{ctx.Locale.Tr "user.block_user.detail"}}</p>
-		<ul>
-			<li>{{ctx.Locale.Tr "user.block_user.detail_1"}}</li>
-			<li>{{ctx.Locale.Tr "user.block_user.detail_2"}}</li>
-			<li>{{ctx.Locale.Tr "user.block_user.detail_3"}}</li>
-		</ul>
-	</div>
-	{{template "base/modal_actions_confirm" .}}
-</div>
+{{template "custom/soda/profile_block_dialog" .}}
 
 {{template "base/footer" .}}

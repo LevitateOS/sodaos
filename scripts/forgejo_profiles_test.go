@@ -25,11 +25,10 @@ func TestForgejoProfilesKeepNativePageWorkflows(t *testing.T) {
 		`template "user/heatmap" .`,
 		`template "user/dashboard/feeds" .`,
 		`template "shared/repo_search" .`,
-		`template "explore/repo_list" .`,
+		`template "custom/soda/profile_repositories" .`,
 		`template "repo/user_cards" .`,
 		`{{.ProfileReadme}}`,
-		`id="block-user"`,
-		`template "base/modal_actions_confirm" .`,
+		`template "custom/soda/profile_block_dialog" .`,
 	} {
 		if !strings.Contains(profile, marker) {
 			t.Errorf("profile override lost native boundary %q", marker)
@@ -38,7 +37,7 @@ func TestForgejoProfilesKeepNativePageWorkflows(t *testing.T) {
 	if strings.Count(profile, `{{.ProfileReadme}}`) != 2 {
 		t.Error("profile override must preserve both native plain and rendered readme branches")
 	}
-	if strings.Index(profile, `</main>`) > strings.Index(profile, `id="block-user"`) {
+	if strings.Index(profile, `</main>`) > strings.Index(profile, `{{template "custom/soda/profile_block_dialog" .}}`) {
 		t.Error("native block-user modal must remain outside the branded page root")
 	}
 }
@@ -51,9 +50,9 @@ func TestForgejoProfilesComposeNativeBranchesWithOriginalContext(t *testing.T) {
 		{{define "user/overview/header"}}header/{{.ContextUser.HomeLink}}{{end}}
 		{{define "user/heatmap"}}heatmap{{end}}{{define "user/dashboard/feeds"}}feeds{{end}}
 		{{define "shared/repo_search"}}search/{{.ContextUser.HomeLink}}{{end}}
-		{{define "explore/repo_list"}}repos/{{.ContextUser.HomeLink}}{{end}}
+		{{define "custom/soda/profile_repositories"}}repos/{{.ContextUser.HomeLink}}{{end}}
 		{{define "base/paginate"}}paginate{{end}}{{define "repo/user_cards"}}cards{{end}}
-		{{define "base/modal_actions_confirm"}}modal-actions{{end}}`
+		{{define "base/modal_actions_confirm"}}modal-actions{{end}}{{define "custom/soda/profile_block_dialog"}}modal-actions{{end}}`
 	parsed, err := template.New("profile").Funcs(template.FuncMap{
 		"AppSubUrl": func() string { return "/forge" },
 		"ctx":       func() forgejoProfilesContext { return forgejoProfilesContext{} },
@@ -88,6 +87,26 @@ func TestForgejoProfilesComposeNativeBranchesWithOriginalContext(t *testing.T) {
 	if strings.Contains(overview.String(), "repos//forge/alice") {
 		t.Errorf("overview profile branch rendered repository list:\n%s", overview.String())
 	}
+	// Activity data can be present even when private: the template is the guard.
+	base["TabName"] = "activity"
+	for _, private := range []bool{false, true} {
+		for _, admin := range []bool{false, true} {
+			for _, self := range []bool{false, true} {
+				contextUser["KeepActivityPrivate"] = private
+				base["IsAdmin"] = admin
+				base["SignedUserID"] = map[bool]int64{true: 7, false: 9}[self]
+				var activity bytes.Buffer
+				if err := parsed.ExecuteTemplate(&activity, "page", base); err != nil {
+					t.Fatal(err)
+				}
+				want := !private || admin || self
+				if strings.Contains(activity.String(), "heatmap") != want || strings.Contains(activity.String(), "feeds") != want {
+					t.Fatalf("activity privacy guard failed: private=%v admin=%v self=%v", private, admin, self)
+				}
+			}
+		}
+	}
+
 }
 
 func TestForgejoProfilesHeaderComposesNativeRoutes(t *testing.T) {

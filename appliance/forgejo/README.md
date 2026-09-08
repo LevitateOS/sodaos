@@ -549,7 +549,8 @@ Pronoun editing, its privacy control and public-profile display are omitted from
 Soda presentation. Personal/admin forms carry existing native values in hidden
 fields solely to avoid resetting data on unrelated saves. Forgejo's database,
 API and native locale catalogs remain upstream-owned. The attributed
-`shared/user/profile_big_avatar` override changes only that display fragment.
+`shared/user/profile_big_avatar` override retains native privacy gates and action hooks
+while composing the public identity header described below.
 
 
 The selected C — Tonal design uses tinted primary surfaces with blue text and
@@ -713,3 +714,26 @@ titles. The PR-only spacing adapter and repository list corner adapter are remov
 registry, long labels/branches, keyboard selection and unrelated-list protection.
 Its component gallery under `.artifacts/work-item-consistency/components/` is
 separate from real-route captures and their verification status.
+
+
+### Public contributor profiles
+
+Public profiles use one compact horizontal identity header (`soda-profile-masthead`),
+with a 72px portrait (56px below 700px), native account metadata and follower links.
+The five caller templates share this header across repositories, README, activity,
+people, projects, packages and code search. The existing native tab menu remains
+responsible for destinations and overflow. No sidebar, hero artwork or enclosing
+profile card is added. Native handler-selected default tabs remain unchanged.
+
+`profiles.css` owns this composition within `soda-profile-card-context`; the native
+HTMX target `profile-avatar-card` retains its identity through follow/unfollow morphs.
+The shared block dialog sits outside that target on every personal caller. Profile
+repository rows use `custom/soda/profile_repositories`, retaining native searches,
+filters, permissions, descriptions, topics and links, with metadata below the body.
+Other repository-list callers retain their existing presentation.
+
+Activity privacy, email visibility, organization visibility, moderation and admin
+conditions remain native. No invented pinned repositories or aggregate activity
+payload is fetched. Code search and package version pages remain capability/data
+ dependent. The read-only browser regression covers available profile destinations;
+private activity additionally has a source-rendered permission matrix in Go tests.

@@ -37,11 +37,12 @@ test('profile and appearance retain independent native save boundaries',async()=
  const links=[...nav.matchAll(/href="([^"]+)"/g)].map(m=>m[1]);assert.equal(links.length,new Set(links).size);
 });
 
-test('public profiles remove only pronoun display from the native partial',async()=>{
+test('public profile redesign keeps pronouns absent and native privacy/action contracts',async()=>{
  const actual=await readFile(new URL('shared/user/profile_big_avatar.tmpl',root),'utf8');
  assert(!actual.includes('GetPronouns'));
- const restored=actual.slice(actual.indexOf('\n')+1).replace('<span class="username">{{.ContextUser.Name}}</span>','<span class="username">{{.ContextUser.Name}} {{if .ContextUser.GetPronouns .IsSigned}} · {{.ContextUser.GetPronouns .IsSigned}}{{end}}</span>');
- assert.equal(createHash('sha256').update(restored).digest('hex'),actual.match(/upstream SHA-256 ([a-f0-9]{64})/)[1]);
+ for (const marker of ['{{if .IsHTMX}}','hx-swap="morph"','hx-target="#profile-avatar-card"','hx-indicator="#profile-avatar-card"','?action=follow','?action=unfollow','{{if .ShowUserEmail}}','{{if .Show}}','{{if and .Orgs .HasOrgsVisible}}','(or .Visibility.IsPublic (and ($.SignedUser) (or .Visibility.IsLimited (and (.HasMemberWithUserID ctx $.SignedUserID) .Visibility.IsPrivate) ($.IsAdmin))))','{{template "shared/user/actions_menu" .}}']) assert(actual.includes(marker),marker);
+ assert.equal((actual.match(/template "shared\/user\/actions_menu"/g)||[]).length,1);
+ assert(actual.includes('and .IsSigned (ne .SignedUserID .ContextUser.ID)'));
  const admin=await readFile(new URL('admin/user/edit.tmpl',root),'utf8');
  assert(!admin.includes('settings.pronouns'));
  assert(admin.includes('<input type="hidden" name="pronouns" value="{{.User.Pronouns}}">'));

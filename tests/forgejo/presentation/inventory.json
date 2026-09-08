@@ -829,7 +829,9 @@
       "composition": "repository-workspace",
       "owner": "custom",
       "callers": [],
-      "nativeCalls": [],
+      "nativeCalls": [
+        "custom/soda/guest_theme"
+      ],
       "roles": [
         "soda-presentation-revision"
       ],
@@ -844,12 +846,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3bb65130bf7abb9f92323053572e555fc40d88e69271be16e9f22b6eed28c7b0",
+      "beforeRoleHash": "2e0ad6176b3fbb2cce278ea07c8e9cd39753e05647991c509fb60d43414b1294",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -1073,6 +1075,64 @@
       "beforeRoleHash": "554628eb1f910300b234304208822047e3de1be0f2fd5d827972f7ab9f1a339c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/profile_block_dialog.tmpl",
+      "composition": "overview",
+      "owner": "profiles",
+      "callers": [
+        "org/projects/list.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "native hooks preserved; focused source checks",
+        "native": "see .artifacts/public-profile-redesign",
+        "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
+      },
+      "upstreamCallers": [],
+      "beforeRoleHash": "cd24899eada6d17f206a0d2bf3d3d76810a4368f6910520321653e0f6ed605a6",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
+    },
+    {
+      "template": "custom/soda/profile_repositories.tmpl",
+      "composition": "overview",
+      "owner": "profiles",
+      "callers": [
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/icon"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "native hooks preserved; focused source checks",
+        "native": "see .artifacts/public-profile-redesign",
+        "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
+      },
+      "upstreamCallers": [],
+      "beforeRoleHash": "49dd936325cc9a3673d76e9ecbfd9ec06cdcb1cb13495438593b75599eac28ff",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "custom/soda/theme_toggle.tmpl",
@@ -1530,8 +1590,14 @@
       "owner": "org",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "projects/list",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-org-projects",
@@ -1540,8 +1606,7 @@
         "soda-page",
         "soda-page-container",
         "soda-page-intro--compact",
-        "soda-profile-card-context",
-        "soda-user-projects-title"
+        "soda-profile-card-context"
       ],
       "states": [
         "light",
@@ -1554,9 +1619,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2f3eeb43ecb79f0116389e51c642964aa5b299be561794b532cfddda0635e6f8",
+      "beforeRoleHash": "120f4e7ff2ce44e21916887def2364650481c659ec45b6245df950eda9559a08",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "org/projects/new.tmpl",
@@ -6292,7 +6358,6 @@
       ],
       "nativeCalls": [
         "base/alert",
-        "shared/user/actions_menu",
         "shared/user/actions_menu"
       ],
       "roles": [],
@@ -6309,9 +6374,9 @@
         "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
         "native": "verified read-only public fixture profile capture; populated pronoun state covered by exact-native display delta"
       },
-      "presentationReview": "remove pronoun display; retain native profile actions",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained.",
       "upstreamCallers": [],
-      "beforeRoleHash": "40376730d1828cf90090bf7a477fbf5368958ccbe05ffc57ccfd6ca0fc264d11"
+      "beforeRoleHash": "4476d7f4d3f72490f5632c3c8212f461901106d96d40381b2e325ae0ed596759"
     },
     {
       "template": "shared/variables/variable_list.tmpl",
@@ -7004,10 +7069,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
         "shared/search/code/search",
-        "shared/search/code/search",
-        "base/footer"
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-code-search",
@@ -7033,9 +7102,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e4255ba5d015eabbebeac710a745c763638b178c7575cef2d82fd902505bcd8b",
+      "beforeRoleHash": "f9555000f6a8d234bd85edf6d7627248aaed64ec9f877ac8cccdbdcdf5cc909f",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/dashboard/dashboard.tmpl",
@@ -7318,8 +7388,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "package/shared/versionlist",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-package-versions",
@@ -7341,9 +7417,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "85701dab07509e053f67feaf177b91bc56e8bf10be5d40e8b0e3749f60e483e3",
+      "beforeRoleHash": "2fe2d1e95b094383450b8e3e3183d02b529b8105bacbb69ba55ebbf38bfe6ee2",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/overview/packages.tmpl",
@@ -7351,8 +7428,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "package/shared/list",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-packages",
@@ -7374,9 +7457,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8adf68cd15e613a6b51cc9be75d3135500613e9e4fa8023c0cd234b3574c262a",
+      "beforeRoleHash": "1fff8f869262d011c86f1a768a5d811ad1e1940b8dbc9214fb9c5b3afb3df2a6",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/profile.tmpl",
@@ -7384,18 +7468,18 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
-        "base/head",
         "base/alert",
-        "user/heatmap",
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "custom/soda/profile_block_dialog",
+        "custom/soda/profile_repositories",
+        "repo/user_cards",
+        "shared/repo_search",
+        "shared/user/profile_big_avatar",
         "user/dashboard/feeds",
-        "shared/repo_search",
-        "explore/repo_list",
-        "base/paginate",
-        "shared/repo_search",
-        "explore/repo_list",
-        "base/paginate",
-        "base/modal_actions_confirm",
-        "base/footer"
+        "user/heatmap",
+        "user/overview/header"
       ],
       "roles": [
         "soda-list",
@@ -7429,9 +7513,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/008.png"
         ]
       },
-      "beforeRoleHash": "c6536c90eb132197aed5362f0d36545ce51399a2c7402b2ec1a88c45a45281b3",
+      "beforeRoleHash": "ce37eec0342612a1b8d5561afb8c576c01cfb15847abd59b2f0391d415b7e8b9",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/settings/access_token_edit.tmpl",

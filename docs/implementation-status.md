@@ -1,5 +1,38 @@
 # Current handoff
 
+## Public contributor profile redesign
+
+Local presentation revision `2026-09-08.32` implements the approved compact
+horizontal identity header and open repository rows. All five public-profile
+callers share the same header, including personal projects, packages and code
+search. Native tab payloads/defaults, activity/email/organization privacy gates,
+follow/unfollow HTMX targets and permission-gated actions remain authoritative.
+The block confirmation is shared outside the morph target on each caller.
+Organization branches retain their previous compositions. No settings, backend,
+account data or appliance changes were made.
+
+Validation: focused `go test ./scripts -run TestForgejo` passed with local toolchain
+and offline module settings. Three settings source-contract tests and the embedded
+native-caller inventory check passed. The new read-only profile browser suite
+passed 13 tests (12 theme/width combinations across seven public destinations,
+320–1440px, plus keyboard opening of the native actions menu). The full inventory
+check still fails on the pre-existing `custom/footer.tmpl` hash mismatch; a separate
+scan confirmed that is the only hash mismatch. It was not silently rebaselined.
+
+Reviewed native captures are under `.artifacts/public-profile-redesign/review-*`:
+desktop light/dark repositories, public activity and empty packages; light mobile
+repositories, empty followers and projects; desktop starred repositories. Captures
+verify URL/status/landmark/revision/server stylesheet bytes/browser errors. The
+first captures under `verified/` and `final-*` are superseded: cached CSS produced
+stale rendering. `profiles.css?v=8` resolves it in the reviewed captures.
+
+Remaining evidence gaps: code search redirects in this fixture and is not accepted
+as a capture; profile README, populated people/organizations/badges/package versions,
+private/admin/self combinations and actual follow/block mutations were not exercised
+natively. Activity privacy has source-rendered permission-matrix coverage. These
+limits are not claims of complete native functional acceptance. Existing local
+preview only, using template reload; no service restart or deployment.
+
 ## Shared milestone, issue and pull-request rows
 
 Local revision `2026-09-08.31` gives milestone, issue and PR lists one shared
