@@ -93,7 +93,12 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
-  Cockpit React/PatternFly pages. The read-only hook/drawer/context caller passed
+  Cockpit React/PatternFly pages. Current hooks mount one complete management/
+  terminal component through a native dialog shell; the historical duplicate API
+  caller is removed. Local component/layout and full-payload fixture checks are not
+  combined native OAuth/helper proof or deployment. Close/stale context requires
+  full-page reload; no implicit terminal open or mutation replay.
+  The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
   explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,
   expected-actor API guards, schema-v5 login cancellation and OAuth repository/actor

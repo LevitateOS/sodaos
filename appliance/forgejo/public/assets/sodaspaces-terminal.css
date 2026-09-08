@@ -1,7 +1,7 @@
-/* Component-only styles. The template owner chooses dialog placement/width. */
-.soda-terminal { display: flex; flex-wrap: wrap; gap: .6rem; min-width: 0; }
-.soda-terminal > p { flex-basis: 100%; margin: 0; }
-.soda-terminal > button { font: inherit; padding: .4rem .7rem; }
-.soda-terminal-screen { flex-basis: 100%; min-width: 0; height: min(60vh, 36rem); min-height: 12rem; padding: .5rem; background: #000; }
+/* Terminal canvas only; shared site components own buttons and typography. */
+.soda-terminal { display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; margin-top: 8px; }
+.soda-terminal > h3 { flex-basis: 100%; margin: 0; font: var(--soda-font-heading, 600 24px/1.35 Georgia, serif); }
+.soda-terminal > p { flex-basis: 100%; margin: 0; font: var(--soda-font-meta); color: var(--soda-page-muted, var(--color-text-light)); }
+.soda-terminal-screen { flex-basis: 100%; min-width: 0; height: min(60vh, 36rem); min-height: 12rem; padding: 8px; background: #000; border-radius: 8px; }
 .soda-terminal-screen[hidden] { display: none; }
 .soda-terminal-screen .xterm { height: 100%; }

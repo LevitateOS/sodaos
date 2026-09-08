@@ -1,8 +1,9 @@
 # Drawer terminal integration contract
 
-The template/layout agent owns **all Forgejo overrides, navigation, dialog placement,
-width and existing drawer actions**. The terminal implementation does not discover or
-modify those nodes, auto-mount, intercept native navigation or replace beforeunload.
+The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
+dialog shell, which mounts `mountSodaspaces` once on explicit opening. It preserves
+native repository actions, forms, clipboard and beforeunload. Content and terminal
+modules do not discover or modify native navigation or auto-open a shell.
 There is no new tab, standalone UI, CDN or component framework.
 
 ## Complete drawer content (minimum controls)
@@ -12,16 +13,22 @@ There is no new tab, standalone UI, CDN or component framework.
 owns only content beneath that mount: Connect/Sign out, Create, Join, saved public
 keys/removal, key review/Apply, Start/Stop, SSH details/Copy, Refresh and the existing
 terminal component. It does not own a dialog, repository button, native selectors or
-Forgejo layout. Existing historical `sodaspaces.js` remains untouched; **do not run
-both callers in the same drawer**. The template owner should select this complete
-module for the replacement drawer, not duplicate its operation logic in templates.
+Forgejo layout. `sodaspaces.js` is now only the native dialog/context shell; its
+historical duplicate API/action implementation is removed. The hooks load the
+complete component, terminal styles and pinned xterm CSS. No second caller runs.
 
 Load `/assets/sodaspaces-drawer.css` and the terminal styles below. Mounting itself is
 inert; call the returned `.refresh()` on explicit drawer opening/Refresh to inspect
 state (reads only). Call `.dispose()` before removal/close/context replacement, or
 `.invalidate()` when native page/authentication context becomes stale. No remount to
 bypass the full-page reload rule after blur/hidden/BFCache or an uncertain operation.
-Do not promise cancellation of an already dispatched mutation when closing the UI.
+Closing also retires this page's mount: reopening offers explicit full-page reload,
+not another component that could evade terminal/uncertain-operation guards. Refresh
+cannot replace an opened/ended terminal. Do not promise cancellation of an already
+dispatched mutation when closing the UI. Anonymous page context may offer contextual
+OAuth; it never substitutes a session identity for the missing native actor hint.
+All mutations recheck the current Soda session before dispatch; the server remains
+the authority. JSON responses are MIME-checked and streaming-bounded to 64 KiB.
 
 Start/Stop includes a visible boot-start policy and explicit shared-impact confirmation.
 Key removal is saved preferences only; Review shows actual installed versus saved
@@ -101,7 +108,10 @@ runtime files. Native build/stage/bundle/install owners include the exact distri
 and both MIT notices, and refuse occupied component destinations. No template or
 layout override is installed by this module itself.
 
-Source tests use synthetic provider/session/helper/renderer inputs, not native-page
-acceptance. The earlier native PTY gate passed independently. Actual template mounting,
-whole-candidate native build/stage, real OAuth/proxy/browser proof and deployment remain
-separate work; this document does not authorize native execution or retained rollout.
+Template mounting is source implemented. Source tests use synthetic provider/session/
+helper inputs, not native-page acceptance. The opt-in `tests/frontend/drawer-layout.test.mjs`
+uses sandboxed Chromium and the real locked renderer/styles, but synthetic APIs/socket:
+its 16 light/dark, running/stopped, desktop/mobile combinations are local layout proof
+only. The earlier native PTY gate passed independently. Whole-candidate native build/
+stage, real combined OAuth/proxy/helper/browser proof and deployment remain separate
+work; this document does not authorize native execution or retained rollout.

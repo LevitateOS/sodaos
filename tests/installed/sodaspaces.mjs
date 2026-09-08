@@ -190,10 +190,17 @@ try {
     await p.locator('#sodaspaces-drawer').waitFor({state: 'visible'});
     // An unauthenticated/empty data region has zero height in native CSS.
     // Completion is its ARIA state, not whether that empty region has a box.
-    await p.waitForFunction(() => document.getElementById('sodaspaces-data')?.getAttribute('aria-busy') === 'false');
+    await p.waitForFunction(() => document.getElementById('sodaspaces-data')?.getAttribute('aria-busy') === 'false' || document.getElementById('sodaspaces-content')?.getAttribute('aria-busy') === 'false');
   }
   async function open(p = page) {
-    await p.locator('#sodaspaces-button').click();
+    if (!(await p.locator('#sodaspaces-drawer').isVisible())) await p.locator('#sodaspaces-button').click();
+    if (await p.locator('#sodaspaces-reload').isVisible()) {
+      // Closing now ends the whole drawer/terminal context. Exercise its explicit
+      // full-page reload rather than remounting a stale component in the probe.
+      await Promise.all([p.waitForEvent('domcontentloaded'), p.locator('#sodaspaces-reload').click()]);
+      await p.locator('#sodaspaces-button').waitFor({state: 'visible'});
+      if (!(await p.locator('#sodaspaces-drawer').isVisible())) await p.locator('#sodaspaces-button').click();
+    }
     await settled(p);
   }
   async function nativeLogin(p, index) {
@@ -258,9 +265,9 @@ try {
     assert.match(await page.locator('#sodaspaces-actor').innerText(), new RegExp(`ID ${input.users[index].id}\\)`));
     stage = journey + ': environment state';
     const state = await page.locator('#sodaspaces-status').innerText();
-    assert(/^(No shared environment\.|Environment (running\.|stopped\.|provisioning is incomplete\.|reserved;))/.test(state));
+    assert(/^(No shared environment\.|Environment (running\.|stopped\.)|Provisioning incomplete\.|Native state unavailable;)/.test(state));
     result.states.push(state.startsWith('No shared') ? 'absent' : state.startsWith('Environment running') ? 'running'
-      : state.startsWith('Environment stopped') ? 'stopped' : state.startsWith('Environment provisioning') ? 'incomplete' : 'live-status-unavailable');
+      : state.startsWith('Environment stopped') ? 'stopped' : state.startsWith('Provisioning incomplete') ? 'incomplete' : 'live-status-unavailable');
     if (await page.locator('#sodaspaces-connection').isVisible()) {
       const command = await page.locator('#sodaspaces-command').inputValue();
       const fingerprint = await page.locator('#sodaspaces-fingerprint').innerText();
@@ -333,10 +340,6 @@ try {
   await drawer.waitFor({state: 'hidden'});
   await page.waitForFunction(() => document.activeElement?.id === 'sodaspaces-button');
   await open();
-  if (chromeFocus) {
-    await page.locator('#sodaspaces-reload').click();
-    await settled();
-  }
   result.keyboard_chrome_invalidation = chromeFocus;
   stage = 'backdrop and automatic theme selection';
   await page.mouse.click(10, 400);
@@ -379,7 +382,7 @@ try {
   if (result.native_logout_navigation) await page.goto(repoURL + '#sodaspaces');
   else await page.locator('#sodaspaces-reload').click();
   await settled();
-  assert.match(await page.locator('#sodaspaces-status').innerText(), /identities do not match/);
+  assert.match(await page.locator('#sodaspaces-status').innerText(), /identities differ/);
   assert.equal(environmentReads, beforeSwitch);
   stage = 'second real OAuth repository return';
   await oauth(1);
@@ -389,7 +392,7 @@ try {
   await other.goto(repoURL);
   await open(other);
   await other.locator('#sodaspaces-sign-out').click();
-  await other.waitForFunction(() => document.getElementById('sodaspaces-status')?.textContent.includes('Signed out of Soda only'));
+  await other.waitForFunction(() => document.getElementById('sodaspaces-status')?.textContent.includes('Signed out of Soda, not Forgejo or Linux'));
   await page.bringToFront();
   await page.locator('#sodaspaces-reload').click();
   await page.locator('#sodaspaces-sign-in').waitFor({state: 'visible'});
@@ -431,7 +434,7 @@ try {
     await page.goto(repoURL);
     await open();
     stage = 'access fixture must initially have no reservation';
-    assert.equal(await page.locator('#sodaspaces-status').innerText(), 'No shared environment.');
+    assert.match(await page.locator('#sodaspaces-status').innerText(), /^No shared environment\./);
     result.access = {reservation_id: null, users: [], copy_native_paste: []};
     const permit = (index, route, body) => {
       assert(!accessWrite && !interrupted && !refusedRequest);

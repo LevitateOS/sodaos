@@ -53,7 +53,8 @@ and context menus delegate to native partials; scoped CSS only adapts their visu
 The guest preference script loads only on anonymous routes with a guest toggle.
 
 This extraction is live-mounted only in the existing local 15.0.7 preview.
-Production staging/verifier delivery is still pending. Shared presentation does
+Production staging/verifier now has an exact full-presentation inventory; an actual
+new candidate build and delivery remain pending. Shared presentation does
 not add handlers, authentication, permissions, a frontend build or a Lit dependency.
 Use Lit selectively when a new self-contained interaction warrants it; do not
 migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
@@ -212,16 +213,18 @@ Always show repository/environment context, the actual Soda acting identity and 
 | Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
 
 Closing synchronously invalidates stale reads/results, including before the browser's
-queued close event; it does not undo an in-flight native mutation. Reopen waits for
-an outstanding action, then offers a safe Refresh. Otherwise it reads actual state. Existing join is not later key propagation.
-Basic Start/Stop controls are now a planned follow-up in the
-[remaining-work list](sodaspaces-plan.md#remaining-work--ordered), not existing drawer
-operations. Destruction requires a separate scope decision; restart controls, resource
+queued close event; it does not undo an in-flight native mutation. Reopen requires
+explicit full-page reload, never remounting to evade an ended terminal or uncertain
+operation. Existing join is not later key propagation. The shell now mounts the
+complete management content: Start/Stop and reviewed own-key Apply are explicit
+source-implemented operations, still requiring scoped native persistence/revocation
+proof in the [remaining-work list](sodaspaces-plan.md#remaining-work--ordered). Destruction requires a separate scope decision; restart controls, resource
 charts, member administration and a browser IDE are not part of this slice. The existing-account terminal now has a protected backend and
 self-contained component in source, not deployed/native-page proof or a prerequisite
-for SSH. Its [mount/dispose contract](terminal-integration.md) leaves all template
-placement/layout with the separate override owner; no terminal-specific template
-changes or automatic opening are selected.
+for SSH. Its [mount/dispose contract](terminal-integration.md) is now used by the
+native dialog shell, loading the complete content and local terminal styles. Opening
+the drawer never opens a terminal. Local layout/renderer proof is not a combined
+native OAuth/helper journey.
 
 ## Integration limits
 

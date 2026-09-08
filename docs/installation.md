@@ -74,22 +74,22 @@ and explicit offline mode are not silently overridden by activation.
 
 ### Sodaspaces customization delivery
 
-**Merged-source packaging hold:** the combined Forgejo preview hooks now reference
-shared presentation partials/assets outside the bounded payload below. Staging refuses
-an incomplete frontend before creating rootfs. Complete the presentation packaging,
-exact destination/conflict guards and validation before a new appliance build/delivery;
-the historical installed payload is unchanged by this Git merge.
+The earlier merge's partial-payload hold is replaced in source by
+`internal/nativebuild/forgejo-payload.json`: an exact source/destination inventory
+shared by staging and the embedded Go verifier. It includes all 229 selected template
+overrides, shared presentation assets/fonts/notices, the mounted Sodaspaces content/
+terminal and five locked renderer/CSS/MIT-notice files, beneath
+`/var/lib/soda/forgejo/gitea/`. See the [mounting contract](terminal-integration.md).
+Adding an arbitrary template is still refused; expand the reviewed inventory explicitly.
+This source change has local fixture coverage, not a new native build/install proof.
 
-The source stage includes `templates/custom/{header,footer}.tmpl`,
-`public/assets/sodaspaces.{css,js}`, the independent `sodaspaces-terminal.{css,js}`
-component, `sodaspaces-drawer.{css,js}` independent complete control content, and five
-exact renderer/CSS/MIT-notice files under `public/assets/soda-terminal/`
-beneath `/var/lib/soda/forgejo/gitea/`, alongside existing branding. The terminal
-module does not alter templates/layout; see its [mounting contract](terminal-integration.md).
-The build fetches locked upstream distributions into its own `terminal-assets` output;
-staging verifies the file hashes again and never downloads at runtime. Files are 0644, new readable directories 0755; the installer
-applies Forgejo UID/GID 1000 to the exact new template paths. Bundle verification
-requires those exact files and source LICENSE/NOTICE; it rejects arbitrary templates.
+The build fetches locked terminal distributions into `terminal-assets` and verifies
+Forgejo 15.0.7's complete English catalog via `appliance/forgejo/locale.lock.json` before
+adding the Soda-only namespace into `forgejo-locales/locale_en-US.ini`. It never installs
+a partial replacement catalog or downloads at runtime. Stage checks locked renderer
+bytes again; bundle verification requires exact files, modes and LICENSE/NOTICE.
+Files are 0644, new readable directories 0755. The installer applies UID/GID 1000 only
+to the admitted new files/directories, not recursively to a mutable Forgejo tree.
 First-install preflight refuses occupied hook/asset destinations, including
 symlinks, before host writes. Resolve conflicts explicitly, never merge or overwrite
 operator hooks automatically. This is not an upgrade interface. Actual CustomPath,

@@ -818,7 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f834fe4ff56c13fe77b009b50bc40209a5c36296f6ab3b334f7fe0eaa151ccbc",
+      "beforeRoleHash": "0032106502290772254109fc2f01048f50ea1be7ba3df1bfe0369f14fe03335f",
+      "presentationReview": "mounted Sodaspaces content and terminal; preserved notification hook; local component proof only",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -844,12 +845,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8e69c9b65ac4c35ca3a43b9f83b1aba4bb3ec8f3f303e7b53a8fcbc858e32156",
+      "beforeRoleHash": "d0aa34586be8e0691f530308ad634391d676c4229aa7d400a6cff0082998960c",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "personal-settings-structural-overhaul; mounted Sodaspaces styles; local component proof only"
     },
     {
       "template": "custom/soda/empty_content.tmpl",

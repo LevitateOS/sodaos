@@ -26,7 +26,8 @@ This is the developer-facing **Sodaspaces addition**, not a replacement for nati
 Forgejo repository/collaboration controls or separate operator settings. It governs
 completion of the new drawer; the historical delivery slices below are not a complete
 current control checklist. Show only actions relevant to the observed state and actor,
-not every button at once. The other agent still owns all template overrides/layout.
+not every button at once. The established native hooks now mount the complete
+component through one dialog shell; the previous duplicate API caller is removed.
 
 | Control | Required behavior | Current implementation gap |
 | --- | --- | --- |
@@ -35,7 +36,7 @@ not every button at once. The other agent still owns all template overrides/layo
 | Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Saved-key removal and reviewed native apply/revoke are now source implemented; real new/old-key SSH proof pending |
 | Join environment | Provision the real account and keys, then record membership; show the original login | Implemented/proved; retain separate from create and key save |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Bounded helper/API/independent drawer controls are source implemented; native stop/start persistence proof pending |
-| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Backend/component included in complete independent drawer source; template mounting and combined browser proof pending |
+| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Backend/component included in complete independent drawer source; template mounting implemented; combined native browser proof pending |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -85,13 +86,15 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Finish the native drawer and browser terminal together.** The other agent owns
-   all Forgejo overrides/layout; mount the implemented component through the
+1. **Validate the mounted native drawer and browser terminal together.** The
+   established hooks now mount the complete content through the
    [existing contract](terminal-integration.md), preserving create/key/join/connection
-   actions. Validate the combined native page, real OAuth/proxy/helper and terminal
+   actions. Local component/layout checks are not native acceptance. Validate the
+   combined native page, real OAuth/proxy/helper and terminal
    lifecycle against exact candidate bytes. See the immediate checks below.
-2. **Complete the minimum environment/access controls above.** Add saved-key removal
-   and explicit own-project key apply/revoke, with real new/old-key SSH verification;
+2. **Prove the minimum environment/access controls above.** Saved-key removal
+   and explicit own-project key apply/revoke are implemented and mounted; obtain
+   exact native scope for real new/old-key SSH verification;
    do not treat a preferences update as revocation. Creation and joining already exist;
    retain them in the new drawer, not a second creation implementation. Start/Stop
    now have bounded helper/API/independent drawer source over the existing native
@@ -130,10 +133,11 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — finish what is already implemented
 
-- Coordinate only the mount node, immutable context fields, asset loading and dispose/
-  invalidation calls with the template agent. Do not modify their templates/layout or
-  auto-open the terminal. Verify existing create, join, key and connection actions
-  remain reachable and independently explicit in the replacement drawer.
+- The mount, immutable context hints, asset loading and disposal are integrated.
+  Preserve native forms/navigation, explicit terminal Open and mandatory full-page
+  reload after close/stale context. Packaging now uses the exact complete presentation
+  inventory and locked full English locale; source fixture checks are not a native
+  candidate stage. Verify all controls together against actual deployed bytes.
 - Build/check/stage the merged candidate from a clean exact revision. Extend the
   existing installed journey with an explicit terminal opt-in, using real OAuth,
   trusted sandboxed Chromium, Caddy and the fixed helper. Check both existing users,
@@ -708,9 +712,9 @@ are now source implemented, not deployed or genuinely browser-proven. See the [n
 proof](implementation-status.md#approved-native-terminal-fixture-proof) and
 [component contract](terminal-integration.md).
 
-**Parallel ownership:** another agent owns all Forgejo template overrides and layout.
-Do not wire this component deeply into the current design or edit those templates.
-The host supplies one mount node and immutable page/environment hints, loads local
+**Integration ownership:** the native dialog shell now mounts the complete content;
+operation logic stays out of templates and native navigation. The host supplies
+one mount node and immutable page/environment hints, loads local
 styles/module and disposes on close/context change. The component owns its explicit
 Open/Disconnect, renderer and stale lifecycle; no native DOM discovery or auto-mount.
 Deliver one explicit **Open terminal** action for an existing member of a provisioned,

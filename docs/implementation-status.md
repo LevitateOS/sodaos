@@ -1,5 +1,48 @@
 # Current handoff
 
+## Mounted Sodaspaces management and terminal in the established UI
+
+The native repository button/right dialog now mounts the complete control component
+through a single `sodaspaces.js` shell. Its historical duplicate API/action caller is
+removed. Connect/logout, create, saved-key add/remove, join, own-key review/Apply,
+Start/Stop, SSH/native Copy, Refresh and explicit terminal Open/Disconnect remain
+separate actions. Existing native forms/navigation/notification hooks are preserved.
+The drawer uses shared typography/tonal 44px buttons, responsive width and scoped
+terminal styles. It retires on close/stale context; reopening requires an explicit
+full-page reload rather than evading terminal or uncertain-operation guards. Refresh
+cannot remount a used terminal. Mutations recheck session identity before dispatch;
+JSON reads are MIME-checked and streaming-bounded to 64 KiB. No backend authority,
+provider rule, schema, lifecycle or key semantics changed in this UI integration.
+
+The merge's partial-payload packaging hold is resolved **in source**: staging and
+the compiled verifier share `internal/nativebuild/forgejo-payload.json` (357 exact
+entries, including 229 templates, presentation assets/fonts/notices and generated
+locale/terminal inputs). The installer refuses unsafe ancestors and occupied
+customization destinations, and chowns only admitted entries, not mutable data trees.
+Native build now verifies the locked complete upstream 15.0.7 English catalog before
+merging the Soda namespace; GPL/font/Soda/renderer notices remain paired with payloads.
+This is not a new native candidate build, exported bundle or installed frontend.
+
+Local checks passed: full Go suite; focused web/host/store/nativebuild races; 65 Node
+tests (two opt-in/export-dependent checks skipped); 60 Python build tests (one opt-in
+Caddy check skipped); shell/installed-probe syntax, documentation and whitespace.
+A separate opt-in sandboxed Chromium layout test passed all 16 combinations of
+1440/900/390/320 widths, light/dark and running/stopped, with real source styles and
+hash-verified xterm, native-form preservation, keyboard escape and reload behavior.
+Its APIs/WebSocket are synthetic: **not real Forgejo/OAuth/helper terminal proof**.
+Logs and screenshots: `.artifacts/ui-integration-c6df099/`. Initial failures are
+retained: presentation hook snapshots required explicit integration review, a closure
+test wrongly required stock `custom/extra_tabs`, and the actual-stage packaging suite
+refused to run without `SODA_STAGE` (zero tests; not a passing stage check).
+
+The existing installed journey was adapted to reload/retired-context semantics and
+current status text but was not executed. Combined native OAuth/proxy/helper/browser
+proof, full candidate build/check/stage and native Start/Stop persistence/new-key
+success/old-key refusal remain pending. No dependency install, service reload,
+VM/project/account/key/provider mutation, retained rollout or push occurred. The
+previous terminal-only fixture approval does not cover lifecycle/key mutations;
+obtain exact scope first. Destroy and operator runner relocation remain separate.
+
 ## Merge of Forgejo presentation and Sodaspaces work
 
 Merged remote `f838b80` with local `a652450`, preserving both histories, native
@@ -9,9 +52,9 @@ and credential-stripped; other `/-/soda/*` traffic retains same-origin API/OAuth
 credentials. No separate Soda browser origin or old schema/deployment state was restored.
 Both real upstream dependency/checksum sets and packaged license notices are retained.
 
-The merged hooks reference shared presentation templates/assets beyond the existing
-bounded appliance staging allowlist. `stage.py` now refuses that incomplete payload
-before creating rootfs; full presentation packaging/install validation is still needed.
+At this merge, the hooks referenced shared presentation templates/assets beyond the
+then-current bounded staging allowlist. Staging refused that incomplete payload.
+The source inventory above supersedes that hold; native delivery validation is still needed.
 This merge does not deploy the preview, mount the new management module or change any
 retained fixture/service/account/key. Imported preview evidence refers to its original
 workspace and is not newly executed evidence here.

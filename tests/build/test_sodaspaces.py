@@ -109,22 +109,17 @@ class SodaspacesPackaging(unittest.TestCase):
             shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
             (checkout / 'assets').symlink_to(ROOT / 'assets', target_is_directory=True)
             shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
-            # Actual merged hooks depend on unstaged presentation partials. Refuse
-            # before any rootfs write rather than produce a broken appliance.
-            with patch('sys.argv', ['stage.py', '--arch', 'x86_64']), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
-                with self.assertRaises(SystemExit) as refused:
-                    runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
-            self.assertEqual(refused.exception.code, 2)
-            self.assertFalse((checkout / '.artifacts/native/x86_64/rootfs').exists())
-            # Continue testing the bounded staging mechanics with dependency-free
-            # synthetic hooks, not a claim that the expanded frontend is packaged.
-            for hook in ('header', 'footer'):
-                (checkout / f'appliance/forgejo/templates/custom/{hook}.tmpl').write_text('synthetic hook')
+            (checkout / 'internal/nativebuild').mkdir(parents=True)
+            shutil.copyfile(ROOT / 'internal/nativebuild/forgejo-payload.json', checkout / 'internal/nativebuild/forgejo-payload.json')
+            for name in ('LICENSE', 'NOTICE'):
+                shutil.copyfile(ROOT / name, checkout / name)
             (checkout / 'cmd/soda-dashboard').mkdir(parents=True)
             build = checkout / '.artifacts/native/x86_64'
             (build / 'bin').mkdir(parents=True)
             (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
             (build / 'github-actions-runner').mkdir()
+            (build / 'forgejo-locales').mkdir()
+            (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             # Synthetic bytes and lock only inside this temporary checkout.
             (build / 'terminal-assets').mkdir()
             lock_path = checkout / 'appliance/terminal-assets.lock.json'
@@ -152,6 +147,12 @@ class SodaspacesPackaging(unittest.TestCase):
                     if parent == stage:
                         break
                     self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
+
+            for name, origin in json.loads((checkout / 'internal/nativebuild/forgejo-payload.json').read_text()).items():
+                original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
+                target = stage / PREFIX.removeprefix('rootfs/') / name
+                self.assertEqual(target.read_bytes(), original.read_bytes())
+                self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o644)
 
             for name in VENDOR_FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name

@@ -69,6 +69,11 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   branding attribution. HTMX and its matching license are removed from current
   source together; historical bundles/evidence still need their original notices.
 
+The full Forgejo presentation inventory now includes the selected 15.0.7 GPL text
+(`appliance/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
+family licenses, and the locked source metadata for the complete merged English
+catalog. This is source/fixture packaging, not final shipped-image license closure.
+
 Research evidence remains in `.artifacts/research/u01-d5b5065/` and
 `.artifacts/research/u01-8727233/`, with provenance, license texts, hash comparisons
 and retained failures. Earlier source-preparation evidence is historical only.

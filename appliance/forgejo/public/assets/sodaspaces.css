@@ -1,33 +1,22 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* Native dialog shell only; never opt a widget into .soda-page. */
 #sodaspaces-root [hidden] { display: none !important; }
 #sodaspaces-drawer:not([open]) { display: none; }
 #sodaspaces-drawer {
-  inset: 0 0 0 auto;
-  margin: 0;
-  width: min(28rem, 100vw);
-  min-width: 0;
-  max-width: 100vw;
-  height: 100dvh;
-  max-height: 100dvh;
-  padding: 0;
-  border-radius: 0;
-  color: var(--color-text);
-  background: var(--color-body);
+  inset: 0 0 0 auto; margin: 0; box-sizing: border-box;
+  width: min(60rem, 100vw); min-width: 0; max-width: 100vw;
+  height: 100dvh; max-height: 100dvh; padding: 0;
+  border: 0; border-left: 1px solid var(--soda-page-edge, var(--color-secondary)); border-radius: 0;
+  color: var(--soda-page-text, var(--color-text));
+  background: var(--soda-page-canvas, var(--color-body));
+  font: var(--soda-font-body, 400 16px/1.5 Barlow, Arial, sans-serif);
 }
-#sodaspaces-drawer .sodaspaces-panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+#sodaspaces-drawer::backdrop { background: rgb(0 0 0 / 40%); }
+#sodaspaces-drawer .sodaspaces-panel { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+#sodaspaces-drawer .sodaspaces-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--soda-page-edge, var(--color-secondary)); }
+#sodaspaces-drawer .sodaspaces-heading p { margin: 0; color: var(--soda-page-muted, var(--color-text-light)); font: var(--soda-font-meta); }
+#sodaspaces-title { margin: 0; font: var(--soda-font-heading, 600 24px/1.35 Georgia, serif); }
+#sodaspaces-drawer .sodaspaces-content { flex: 1; min-height: 0; overflow: auto; overflow-wrap: anywhere; padding: 24px; }
+#sodaspaces-drawer :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+@media (max-width: 600px) {
+  #sodaspaces-drawer .sodaspaces-content, #sodaspaces-drawer .sodaspaces-heading { padding: 16px; }
 }
-#sodaspaces-drawer header { flex-shrink: 0; justify-content: space-between; }
-#sodaspaces-title { margin: 0; font-size: 1.25rem; }
-#sodaspaces-drawer .content { flex: 1; overflow: auto; overflow-wrap: anywhere; }
-#sodaspaces-drawer .actions { flex-shrink: 0; flex-wrap: wrap; }
-#sodaspaces-loading { min-height: 3rem; }
-#sodaspaces-drawer section { margin-block: 1rem; }
-#sodaspaces-drawer textarea { resize: vertical; }
-#sodaspaces-drawer input, #sodaspaces-drawer textarea { width: 100%; min-width: 0; }
-#sodaspaces-result:empty { display: none; }
-#sodaspaces-drawer :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

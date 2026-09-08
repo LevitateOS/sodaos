@@ -7,7 +7,7 @@ import (
 )
 
 func TestSodaspacesPayloadRequiredAndReadable(t *testing.T) {
-	for _, name := range sodaspacesFiles {
+	for _, name := range forgejoFiles {
 		t.Run(name, func(t *testing.T) {
 			root := fixtureBundle(t)
 			p := filepath.Join(root, name)

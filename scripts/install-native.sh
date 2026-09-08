@@ -104,15 +104,10 @@ python3 - "$bundle/build-info.json" <<'PY'
 import json, stat, sys
 from pathlib import Path
 def check_destinations(root, files):
-    # Fixed first-install destinations, not a custom-template merge/adoption policy.
-    hooks = {'templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
-             'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',
-             'public/assets/sodaspaces-drawer.js', 'public/assets/sodaspaces-drawer.css',
-             'public/assets/soda-terminal/xterm.mjs', 'public/assets/soda-terminal/xterm.css',
-             'public/assets/soda-terminal/addon-fit.mjs', 'public/assets/soda-terminal/xterm.LICENSE',
-             'public/assets/soda-terminal/fit.LICENSE'}
-    protected = {'rootfs/var/lib/soda/forgejo/gitea/' + name for name in hooks}
+    # The verifier has already admitted only its compiled exact payload inventory.
+    # Refuse every occupied customization file, not only the old two hooks.
+    prefix = 'rootfs/var/lib/soda/forgejo/gitea/'
+    protected = {name for name in files if name.startswith(prefix)}
     for name in files:
         if not name.startswith('rootfs/'): continue
         parts = Path(name.removeprefix('rootfs/')).parts
@@ -144,9 +139,14 @@ find "$bundle/rootfs" -mindepth 1 -printf '/%P\0' | xargs -0 -r restorecon -F
 systemd-sysusers /etc/sysusers.d/soda.conf /etc/sysusers.d/soda-runners.conf
 systemd-tmpfiles --create /etc/tmpfiles.d/soda.conf /etc/tmpfiles.d/soda-runners.conf
 configure_network apply
-chown -R 1000:1000 /var/lib/soda/forgejo/gitea/public
-# Only the new exact template paths; never recursively adopt mutable Forgejo data.
-chown 1000:1000 /var/lib/soda/forgejo/gitea/templates{,/custom,/custom/header.tmpl,/custom/footer.tmpl}
+# Chown exact verified customization entries only, never unrelated mutable data.
+python3 - "$bundle/build-info.json" <<'PYOWNER'
+import json, os, sys
+prefix = 'rootfs/var/lib/soda/forgejo/gitea/'
+for name in json.load(open(sys.argv[1]))['Files']:
+    if name.startswith(prefix):
+        os.chown('/' + name.removeprefix('rootfs/'), 1000, 1000, follow_symlinks=False)
+PYOWNER
 # OCI image-ID saves need not preserve tag annotations. Restore precisely the
 # existing core references, from the verified config identity, without repulling.
 for image in project-os dashboard forgejo caddy; do

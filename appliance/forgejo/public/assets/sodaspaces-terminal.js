@@ -9,6 +9,24 @@ const renderer = async () => {
   return {Terminal, FitAddon};
 };
 
+// Shared by the two Soda API components; never accept HTML or unbounded bodies.
+export async function readSodaJSON(response) {
+  if (!/^application\/json(?:;|$)/i.test(response.headers.get('Content-Type') || '') || Number(response.headers.get('Content-Length')) > 65536) {
+    await response.body?.cancel(); throw Error('Invalid Soda response');
+  }
+  const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8', {fatal: true});
+  let size = 0, text = '';
+  try {
+    for (;;) {
+      const {done, value} = await reader.read(); if (done) break;
+      size += value.byteLength; if (size > 65536) throw Error('Oversized Soda response');
+      text += decoder.decode(value, {stream: true});
+    }
+    return JSON.parse(text + decoder.decode());
+  } catch (error) { await reader.cancel(); throw error; }
+  finally { reader.releaseLock(); }
+}
+
 // Third argument is the renderer loading seam for DOM unit tests; native page
 // integration uses only (mount, context). There is exactly one shipped renderer.
 export function mountTerminal(root, context, loadRenderer = renderer) {
@@ -22,10 +40,10 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
   let state = 'idle', socket, terminal, fit, observer, timer, request;
   let disposed = false, generation = 0;
   const box = doc.createElement('section'); box.className = 'soda-terminal';
-  const heading = doc.createElement('p'); heading.textContent = `Project terminal as ${login}`;
+  const heading = doc.createElement('h3'); heading.textContent = `Project terminal as ${login}`;
   const warning = doc.createElement('p'); warning.textContent = 'Switching tabs/apps disconnects this terminal. Closing can interrupt work; completed writes and detached workloads are not undone.';
-  const open = doc.createElement('button'); open.type = 'button'; open.textContent = 'Open terminal';
-  const disconnect = doc.createElement('button'); disconnect.type = 'button'; disconnect.textContent = 'Disconnect'; disconnect.disabled = true;
+  const open = doc.createElement('button'); open.type = 'button'; open.className = 'ui primary button'; open.textContent = 'Open terminal';
+  const disconnect = doc.createElement('button'); disconnect.type = 'button'; disconnect.className = 'ui basic button'; disconnect.textContent = 'Disconnect'; disconnect.disabled = true;
   const status = doc.createElement('p'); status.setAttribute('role', 'status'); status.textContent = 'Not connected.';
   const screen = doc.createElement('div'); screen.className = 'soda-terminal-screen'; screen.hidden = true;
   screen.setAttribute('aria-label', `Terminal for ${login}; Ctrl+Shift+Enter focuses Disconnect`);
@@ -68,13 +86,13 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
       const response = await win.fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': expectedUserId}, signal: request.signal});
       if (!live(n)) return;
       if (!response.ok) throw new Error('session');
-      const session = await response.json();
+      const session = await readSodaJSON(response);
       if (!live(n)) return;
       if (session.user?.id !== expectedUserId || typeof session.csrf_token !== 'string' || !session.csrf_token || session.forgejo_url !== win.location.origin) throw new Error('session');
       const details = await win.fetch(`/-/soda/api/environments/${environmentId}`, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': expectedUserId}, signal: request.signal});
       if (!live(n)) return;
       if (!details.ok) throw new Error('membership');
-      const own = await details.json();
+      const own = await readSodaJSON(details);
       if (!live(n)) return;
       if (own.environment?.id !== environmentId || own.environment.repository_id !== repositoryId || !own.environment.provisioned || own.login !== login) throw new Error('membership');
       const {Terminal, FitAddon} = await loadRenderer();
@@ -144,6 +162,7 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
   doc.addEventListener('visibilitychange', () => { if (doc.visibilityState === 'hidden') invalidate(); }, {signal: abort.signal});
   win.addEventListener('pageshow', event => { if (event.persisted) invalidate(); }, {signal: abort.signal});
   return {
+    get started() { return state !== 'idle'; },
     invalidate,
     disconnect: () => stop('Disconnected. Reload the repository page before opening another terminal.'),
     dispose() { if (disposed) return; stop('Disconnected.', true); disposed = true; abort.abort(); box.remove(); },

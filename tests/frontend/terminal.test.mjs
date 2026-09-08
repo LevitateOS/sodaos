@@ -16,7 +16,7 @@ function fixture(t, options = {}) {
   w.fetch = async (url, init) => {
     calls.push({url, init});
     if (options.fetch) return options.fetch(url, init);
-    return {ok: true, json: async () => url.endsWith('/session') ? {user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'} : {environment: {id: env, repository_id: '7', provisioned: true}, login: 'original-alice'}};
+    return new Response(JSON.stringify(url.endsWith('/session') ? {user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'} : {environment: {id: env, repository_id: '7', provisioned: true}, login: 'original-alice'}), {headers: {'Content-Type': 'application/json'}});
   };
   w.ResizeObserver = class {observe() {} disconnect() {}};
   w.WebSocket = class {
@@ -75,7 +75,7 @@ test('late session response cannot launch after invalidation', async t => {
   assert.equal(f.sockets.length, 0); assert.equal(f.terms.length, 0);
 });
 test('session or membership mismatch never opens transport', async t => {
-  const f = fixture(t, {fetch: async () => ({ok: true, json: async () => ({user: {id: '2'}})})});
+  const f = fixture(t, {fetch: async () => new Response(JSON.stringify({user: {id: '2'}}), {headers: {'Content-Type': 'application/json'}})});
   f.open.click(); await tick(); assert.equal(f.sockets.length, 0); assert(f.open.disabled);
 });
 test('Disconnect, keyboard escape and focus shortcut stay component-local', async t => {

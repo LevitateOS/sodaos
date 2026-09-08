@@ -67,9 +67,11 @@ and the shared palette are reused unchanged. Fonts retain their family OFL notic
 
 ## Scope and checks
 
-Only the isolated local preview was updated. Appliance staging does **not** yet
-ship these overrides/assets; template allowlisting, conflict refusal, full notice
-packaging and separately authorized deployment remain required before rollout.
+The original preview update was local only. Appliance staging/verifier now share
+`internal/nativebuild/forgejo-payload.json`, admitting the full selected presentation,
+mounted Sodaspaces content, fonts/notices and complete merged English locale. Exact
+ancestor/destination conflict refusal remains mandatory. Local fixture checks do not
+establish a new native build or separately authorized deployment.
 See the implementation handoff for actual checks and remaining validation.
 
 ## Presentation component contract
@@ -200,9 +202,10 @@ The login illustration is unchanged.
 
 ## Translation scaffold
 
-[i18n/](i18n/README.md) reserves Soda-only locale additions. It is not mounted or
-staged: complete native catalogs must be preserved when preparing Forgejo's
-replacement locale files. Translation of the custom pages remains future work.
+[i18n/](i18n/README.md) reserves Soda-only locale additions. Native build now verifies
+the complete 15.0.7 English catalog using `locale.lock.json`, merges only that
+namespace and stages the full replacement. Translation of the remaining custom
+copy remains future work; this is not evidence of a new installed catalog.
 
 `explore-papercraft.png` is a new standalone repository-explorer illustration,
 created with the built-in image generator. Prompt direction: three layered mint,
