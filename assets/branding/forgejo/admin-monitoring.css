@@ -60,6 +60,14 @@
   font-size: 17px;
 }
 
+/* Notices uses a direct unstackable table instead of the monitoring wrapper.
+   Keep its native columns within a scrollable viewport on narrow screens. */
+.soda-admin-monitoring--notice > .ui.table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .soda-admin-monitoring--notice > .ui.table tfoot th {
   background: var(--soda-page-canvas);
 }

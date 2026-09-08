@@ -104,13 +104,14 @@ distinct layouts; they share guest theme and shell rules while keeping their con
 
 ## Guest theme preference
 
-The guest icon button changes the home, login and public explorer appearance.
+The guest icon button changes the branded public page appearance, including
+home, login, explorer, repository, profile and secondary authentication pages.
 It initially follows the system color preference. An explicit light/dark choice is stored under
 `soda.login.theme:<AppSubUrl or />` in this origin's localStorage. Other tabs sync
 through storage events. Clearing the value restores system following; invalid
 values are ignored. Blocked storage still permits toggling for the current page.
-The head script loads only on anonymous home, sign-in/account-link and designed
-Explore routes, and applies the choice before guest content paints. Without JavaScript,
+The head script uses the same anonymous branded-route predicate as the toggle,
+and applies the choice before guest content paints. Without JavaScript,
 the light layout remains usable and the inactive toggle stays hidden.
 
 Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme CSS,
@@ -331,6 +332,21 @@ WebAuthn and prohibited-login presentation. These counts describe source composi
 not 155 independently exercised browser journeys. Native leaf templates remain
 upstream wherever a shared seam suffices; unchanged override copies are not shipped.
 
+The three-task expansion adds 183 override files relative to `a81bfae`; 201 template
+overrides/helpers are now present. File counts include shared fragments. Detailed
+adapters cover code browsing/editing/diffs, issue and pull workflows, milestones,
+releases/wiki/projects, Actions and runners, repository settings and webhooks,
+profiles/packages/migration, administrator monitoring, account and organization
+details, federated authentication and setup. Native source provenance and exact
+stock recovery checks accompany the adapted files. Full setup, consent and native
+workflow execution are not implied by source composition or local rendering.
+
+The additional `repository-*`, `workflow-details`, `admin-details`,
+`admin-monitoring`, `account-details`, `org-details`, `org-home`, `profiles`,
+`packages`, `onboarding`, `status`, `insights`, `federated-auth` and `forgejo-setup`
+stylesheets are registered by the shared header. Existing page, form, toolbar,
+tab, list and empty-state primitives remain the common presentation owners.
+
 `repository.css`, `account-settings.css`, `admin-org.css` and `auth.css` own only
 family presentation around the shared components. Native menus may overflow their
 containers; repository action rows wrap on mobile without clipping dropdowns.
@@ -342,7 +358,9 @@ is in `assets/branding/forgejo/settings-art-prompts.md`.
 
 `custom/soda/guest_theme` owns one presentation gate for the head script and native
 navbar toggle. Repository context uses `.Repository`, organization context uses
-`.Org`, and secondary auth uses native `.Link`. Stock 15.0.7 constructs that Link
+`.Org`, profile/overview context uses `.ContextUser`, and secondary auth uses native
+`.Link`. Setup uses `PageIsInstall` with its own body toggle and no duplicate navbar
+toggle. Stock 15.0.7 constructs that Link
 from `AppSubURL` plus the escaped URL path (without query state). Prohibited login
 retains `PageIsSignIn`, so its override supplies the body toggle, just as login does.
 Account themes remain native. Source parity hashes for the adapted wrappers and

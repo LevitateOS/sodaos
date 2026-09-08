@@ -11,6 +11,7 @@
 :is(
   .soda-form.ui.form,
   .soda-auth .ui.form,
+  .soda-federated-auth .ui.form,
   .soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.form:not(.ignore-dirty),
   .soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.attached.segment > .ui.form:not(.ignore-dirty)
 ) {

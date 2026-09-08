@@ -29,7 +29,14 @@ no setup-token, stale-creator or copied-permission fallback was restored.
 
 Broad supported stock 15.0.7 header/layout overrides now cover repository pages
 and settings, account settings, administrator and organization views, and nine
-secondary authentication wrappers. The shared native leaf forms/lists/scripts,
+secondary authentication wrappers. Three coordinated task teams added 183 template
+override files from the `a81bfae` baseline, including 141 during the final authoring
+sprint; the source now contains 201 overrides/helpers. The added detailed families
+include code/edit/diff/history, issues/pulls/milestones, releases/wiki/projects,
+Actions/runners/webhooks, storage and access lists, profiles/packages/imports,
+administrator monitoring, account/security, organization/team, federated auth,
+and setup pages. These are template-file counts, including shared partials, not
+independently exercised workflows. The shared native leaf forms/lists/scripts,
 permissions and handlers remain upstream-owned. The page-marker adapter reaches
 whole native pages from their shared header/helper; it is not a widget root.
 Common settings sidebars/cards have one CSS owner. Principal native forms use a
@@ -45,11 +52,21 @@ escaping, theme placement, artwork selection and CSS boundaries. Stock preview
 `reload-templates` succeeded. Initial browser checks covered all 11 account
 sidebar pages at desktop/390px, all 16 administrator sidebar pages at 390px,
 and 12 repository sections at desktop/390px. One narrow native stacktrace overflow
-and clipped-popup risks were found and corrected; final integration checks follow
-below. Registration/recovery views remain truthfully disabled by the existing
-preview configuration. MFA, activation, consent, form POSTs and populated
-organization/team contexts were not executed or fabricated. No fixture, account
-preference, provider, native stage or deployed VM was changed.
+and clipped-popup risks were found and corrected. After combining all three teams,
+the full focused Go suite and all seven guest-theme JavaScript tests passed.
+Final browser checks exercised 27 distinct pages at 390px and 1654px, plus all ten
+native migration-provider forms at 390px, with no page-level horizontal overflow
+after correcting the direct system-notices table. The native file editor mounted
+CodeMirror and retained its commit form; a desktop release page was visually
+checked. Browser viewport overrides were reset. The owner code-search URL
+redirected to the profile under the existing configuration, so that route remains
+source-tested only. Registration/recovery remain truthfully disabled. Setup,
+MFA, activation, consent, POSTs, populated packages/organization teams/project
+boards, Actions dispatch and fullscreen logs were not executed or fabricated.
+Guest light/dark navigation was checked earlier and returned to light; no native
+account preference, fixture, provider, native stage or deployed VM was changed.
+All task commits were collected onto `main`; production staging and the Sodaspaces
+drawer remain separate unfinished integration work.
 
 ## Shared Forgejo presentation components
 

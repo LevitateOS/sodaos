@@ -37,6 +37,11 @@ func TestForgejoRepositoryIssuePagesKeepNativeWorkflows(t *testing.T) {
 			`class="field {{if .Err_Title}}error{{end}}"`, `class="field {{if .Err_Deadline}}error{{end}}"`,
 			`id="clear-date"`, `template "shared/combomarkdowneditor"`, `"MarkdownPreviewUrl"`, `"EasyMDE" true`,
 		},
+		"repo/issue/milestones.tmpl": {
+			`{{range .Milestones}}`, `class="milestone-card"`,
+			`{{if and (or $.CanWriteIssues $.CanWritePulls) (not $.Repository.IsArchived)}}`,
+			`data-url="{{$.RepoLink}}/milestones/delete"`, `template "base/modal_actions_confirm" .`,
+		},
 		"repo/issue/milestone_issues.tmpl": {
 			`{{if not .Repository.IsArchived}}`, `{{if or .CanWriteIssues .CanWritePulls}}`,
 			`data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/open"`,
