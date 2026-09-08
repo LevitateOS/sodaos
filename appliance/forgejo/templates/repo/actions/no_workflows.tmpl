@@ -1,6 +1,6 @@
 {{/* Adapted from Forgejo 15.0.7 templates/repo/actions/no_workflows.tmpl (GPL-3.0-or-later); upstream SHA-256 91b7fc0d341981a988ef5ee4d31a4c4e5ff16eeea4bf1405c9114c86819609f4. Presentation changes only. */}}
 <div class="empty-placeholder soda-empty soda-code-no-workflows">
-	{{svg "octicon-no-entry" 48}}
+	<img src="{{AssetUrlPrefix}}/soda/forgejo/workflows-papercraft.png" width="180" height="120" alt="">
 	<h2 class="soda-empty-title">{{ctx.Locale.Tr "actions.runs.no_workflows"}}</h2>
 	{{if and .CanWriteCode .CanWriteActions}}
 		<p class="soda-empty-description">{{ctx.Locale.Tr "actions.runs.no_workflows.help_write_access" "https://forgejo.org/docs/latest/user/actions/quick-start/" "https://forgejo.org/docs/latest/admin/runner-installation/"}}</p>

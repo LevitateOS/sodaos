@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+Repository Actions no-workflows state now selects a distinct transparent workflow-tile illustration; native permission-specific guidance is preserved. Populated/filtered run lists, dispatch and log viewer remain undecorated. Focused body-parity/shared-presentation tests passed. The attempted native Actions capture returned 404; artwork rendering remains unverified.
+
 Public registration now has a distinct transparent welcome-folder illustration, gated to enabled standalone registration. Exact prompt and original output are retained. Focused authentication/shared-presentation tests passed. Native guest desktop/mobile screenshots confirm disabled registration excludes the image; enabled registration rendering remains unverified because the local instance disables registration.
 
 All current administrator layout callers are source-assessed. Admin artwork is now opt-in: account creation selects its distinct illustration; operational/configuration pages receive none. Redundant suppression flags were removed. Native admin verification remains pending.
