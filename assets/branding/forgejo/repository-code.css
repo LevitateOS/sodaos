@@ -436,7 +436,7 @@
   border: 0;
   background: transparent;
 }
-.soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; }
+.soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; white-space: nowrap; flex: none; }
 .soda-repo-sidebar #language-stats { border-top: 1px solid var(--soda-page-edge); padding-top: 16px; }
 .soda-repo-sidebar #language-stats > ul { padding: 12px 0; }
 .soda-repo-sidebar #language-stats > ul > li { margin: 6px 0; }
