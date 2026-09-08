@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: blocked-user settings, then trace remaining personal settings routes. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: verify existing profile-settings artwork on the native page, then account and appearance settings. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -233,6 +233,14 @@ Next: blocked-user settings, then trace remaining personal settings routes. Pers
 
 ## Additional page variants
 
+| Status | Personal settings route | Decision / remaining work |
+| --- | --- | --- |
+| No image | `/user/settings/blocked_users` | Actual identities, block dates and unblock actions; native empty-state desktop capture inspected. |
+| Pending | `/user/settings/actions/runners` | Conditional on Actions; native caller/layout still needs review. |
+| Pending | `/user/settings/actions/secrets` | Conditional on Actions; native caller/layout still needs review. |
+| Pending | `/user/settings/actions/variables` | Conditional on Actions; native caller/layout still needs review. |
+| Pending | `/user/settings/storage_overview` | Conditional on quotas; native caller/layout still needs review. |
+
 | Status | Personal repository settings variant | Decision |
 | --- | --- | --- |
 | No image | `user/settings/repos.tmpl` — standard inventory | Repository type, owner/name, size and fork origin are the relevant visual information. Preserve compact rows. |
@@ -289,7 +297,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 | Pending | `/settings/actions/runners` | Native Actions runners |
 | Pending | `/settings/actions/secrets` | Native Actions secrets |
 | Pending | `/settings/actions/variables` | Native Actions variables |
-| Pending | `/settings/blocked_users` | Blocked users |
+| No image | `/settings/blocked_users` | Organization blocked users: actual identities, search and block/unblock controls take priority; source-reviewed. |
 | Pending | `/settings/storage_overview` | Storage overview, when quotas are enabled |
 | Pending | `/settings/delete` | Organization deletion confirmation |
 
@@ -415,3 +423,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - No image for this inventory: repository type icons, size, name and fork origin supply precise context. In the directory branch, the difference between registered repositories and unadopted directories, and available adopt/delete actions, is the primary information. Keep confirmation modals focused on the named directory. Empty states retain the same undecorated layout.
 - Native `/user/settings/repos` desktop capture inspected at `.artifacts/screenshots/capture-2Mi7ht/001.png` (1440×1000). The authorized fixture owns no repositories; no populated or adoption-enabled runtime evidence is claimed. Those decisions are based on source review.
 - No repository, directory, permissions or configuration changed. No new asset or override needed; no tests or reload required for this documentation-only assessment.
+
+### Blocked users and personal navbar coverage
+
+- Read complete native personal and organization blocked-user templates, shared blocked-user list and personal settings navbar through the running binary's read-only embedded viewer.
+- No decorative image on either blocked-user page: the real avatar/name and block date identify the account affected by each unblock action. Organization settings additionally has native user search and a block button; those controls and the organization identity remain the relevant context. Empty states retain concise native feedback without invented character scenes.
+- Native personal empty-state screenshot inspected: `.artifacts/screenshots/capture-1OqIQs/001.png` (1440×1000). Organization and populated states are source-based assessments, not runtime claims. No blocks/unblocks or other account mutations performed; no source changes or tests needed.
+- Personal navbar coverage now explicitly includes conditional Actions runners/secrets/variables and quota storage overview. Profile/account/appearance/security/applications/keys remain covered by existing pending or verify entries; registry/hooks/memberships/repository inventory have individual records above. Navbar inspection does not prove complete coverage of hidden subroutes.

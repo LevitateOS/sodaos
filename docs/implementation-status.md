@@ -29,7 +29,10 @@ webhook/shared-boundary tests passing. Personal organization memberships now has
 desktop/mobile empty-state captures checked and stock membership content verified
 unchanged after the layout call. Personal repository settings was assessed without artwork to prioritize its
 repository/directory inventory and permission-dependent confirmations; native
-empty-state desktop capture was inspected. Blocked-user settings is next; individual decisions and unexercised variants remain in the checklist.
+empty-state desktop capture was inspected. Personal and organization blocked-user pages were assessed without decorative
+art; personal empty-state capture was inspected. Conditional personal Actions
+and storage routes are explicitly queued. Existing profile artwork verification
+is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
