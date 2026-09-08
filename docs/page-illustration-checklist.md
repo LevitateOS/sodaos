@@ -176,11 +176,11 @@ Next: the 15 additional upstream administrator layout callers listed below; reso
 | No image | [`repo/wiki/search.tmpl`](../appliance/forgejo/templates/repo/wiki/search.tmpl) | Wiki reader search dropdown | Caller traced through the reader HTMX target. Result titles/snippets or explicit no-results feedback need no decorative image; full fragment reviewed. |
 | Done | [`repo/wiki/start.tmpl`](../appliance/forgejo/templates/repo/wiki/start.tmpl) | `wiki-welcome-papercraft.png` | Robot opens blank reference book in dedicated welcome state; native translated text and writer/mirror gate preserved. Desktop/mobile inspected; see evidence below. |
 | No image | [`repo/wiki/view.tmpl`](../appliance/forgejo/templates/repo/wiki/view.tmpl) | Authored document, sidebar and footer | Reader includes author/history, search, table of contents, format warnings and Unicode escape controls. Preserve authored visual hierarchy. Full source reviewed including sidebar/footer edit and delete controls; populated native page not captured. |
-| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Personal, organization and repository pages assessed without artwork; admin owner layout remains pending. |
-| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Personal, organization and repository pages assessed without artwork; admin owner layout remains pending. |
-| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal, organization and repository pages assessed without artwork; admin owner layout remains pending. |
+| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
+| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
+| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
 | Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Personal caller reviewed; status table needs no art. Other owner pages remain pending. |
-| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal, organization and repository pages assessed without artwork; admin owner layout remains pending. |
+| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
 | Partial — trace caller | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Personal caller reviewed; inline list and add/edit dialogs need no art. Other owner pages remain pending. |
@@ -660,7 +660,7 @@ Read-only enumeration of Forgejo 15.0.7 embedded admin templates found these 15 
 
 | Status | Upstream template | Remaining work |
 | --- | --- | --- |
-| Pending | `admin/actions.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Integrated — verify | `admin/actions.tmpl` | Full stock wrapper reviewed; delegates to previously assessed runner/variable forms and status tables. No decorative art; shared layout suppresses fallback for exact admin actions/runners page classes. Native admin capture pending. |
 | Pending | `admin/config_settings.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/hook_new.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/hooks.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
@@ -669,9 +669,9 @@ Read-only enumeration of Forgejo 15.0.7 embedded admin templates found these 15 
 | Pending | `admin/org/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/packages/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/repo/unadopted.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/runners/create.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/runners/details.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/runners/edit.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/runners/setup.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Integrated — verify | `admin/runners/create.tmpl` | Full stock wrapper reviewed; delegates to previously assessed runner/variable forms and status tables. No decorative art; shared layout suppresses fallback for exact admin actions/runners page classes. Native admin capture pending. |
+| Integrated — verify | `admin/runners/details.tmpl` | Full stock wrapper reviewed; delegates to previously assessed runner/variable forms and status tables. No decorative art; shared layout suppresses fallback for exact admin actions/runners page classes. Native admin capture pending. |
+| Integrated — verify | `admin/runners/edit.tmpl` | Full stock wrapper reviewed; delegates to previously assessed runner/variable forms and status tables. No decorative art; shared layout suppresses fallback for exact admin actions/runners page classes. Native admin capture pending. |
+| Integrated — verify | `admin/runners/setup.tmpl` | Full stock wrapper reviewed; delegates to previously assessed runner/variable forms and status tables. No decorative art; shared layout suppresses fallback for exact admin actions/runners page classes. Native admin capture pending. |
 | Pending | `admin/stats.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/user/view.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
