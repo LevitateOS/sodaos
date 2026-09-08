@@ -1,0 +1,18 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content organization repository projects view-project soda-page soda-org-projects soda-org-projects-view" data-signed="{{.IsSigned}}">
+	{{if .ContextUser.IsOrganization}}
+		{{template "org/header" .}}
+	{{else}}
+		{{template "shared/user/org_profile_avatar" .}}
+		<div class="ui container soda-page-container tw-mb-4">
+			{{template "user/overview/header" .}}
+		</div>
+	{{end}}
+	<div class="ui container soda-page-container">
+		{{template "custom/soda/page_intro" dict "TitleID" "soda-project-board-title" "Eyebrow" "Project board" "Title" .Title "Description" "Track the work and move it forward together." "Class" "soda-page-intro--compact"}}
+	</div>
+	<div class="ui container fluid padded">
+		{{template "projects/view" .}}
+	</div>
+</div>
+{{template "base/footer" .}}

@@ -1,0 +1,26 @@
+{{template "base/head" .}}
+{{if .ContextUser.IsOrganization}}
+	<div role="main" aria-label="{{.Title}}" class="page-content organization projects soda-page soda-org-projects soda-org-projects-list" data-signed="{{.IsSigned}}">
+		{{template "org/header" .}}
+		<div class="ui container soda-page-container">
+			{{template "custom/soda/page_intro" dict "TitleID" "soda-org-projects-title" "Eyebrow" "Plan together" "Title" .Title "Description" "Organize work across repositories in one shared view." "Class" "soda-page-intro--compact"}}
+			{{template "projects/list" .}}
+		</div>
+	</div>
+{{else}}
+	<div role="main" aria-label="{{.Title}}" class="page-content user profile soda-page soda-org-projects soda-org-projects-list" data-signed="{{.IsSigned}}">
+		<div class="ui container soda-page-container">
+			<div class="ui stackable grid">
+				<div class="ui four wide column">
+					{{template "shared/user/profile_big_avatar" .}}
+				</div>
+				<div class="ui twelve wide column tw-mb-4">
+					{{template "user/overview/header" .}}
+					{{template "custom/soda/page_intro" dict "TitleID" "soda-user-projects-title" "Eyebrow" "Plan the work" "Title" .Title "Description" "Keep related repositories and tasks together." "Class" "soda-page-intro--compact"}}
+					{{template "projects/list" .}}
+				</div>
+			</div>
+		</div>
+	</div>
+{{end}}
+{{template "base/footer" .}}
