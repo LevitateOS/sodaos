@@ -405,8 +405,11 @@ an anonymous drawer's empty data region has zero height in native CSS. Separate
 sanitized native DOM observations confirmed a mounted button, visible dialog and
 sign-in, completed ARIA busy state and no page-script errors. The probe now waits
 for the visible drawer plus completed ARIA state, not a box on the empty region.
+Probe `ebab030` then passed anonymous/native-cookie-only contexts but failed during
+the first real OAuth sequence. The probe now records fixed route labels/status codes
+and precise OAuth substeps, never URLs/queries/bodies or exception text.
 OAuth/account switching/accessibility/BFCache proof is still pending at this point;
-this failure is not a product pass. Full native build/stage, installed checks,
+these failures are not a product pass. Full native build/stage, installed checks,
 retained-state rehearsal and cutover remain unperformed.
 
 ## Remaining work and permission boundary

@@ -145,6 +145,14 @@ try {
   await context.addInitScript(() => {
     window.addEventListener('pageshow', event => { window.sodaspacesProbeRestored = event.persisted; });
   });
+  // Retain only fixed route labels/status codes, never URLs, queries or bodies.
+  result.http = [];
+  const observedRoutes = new Set(['/user/login', '/login/oauth/authorize', '/login/oauth/grant',
+    '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
+  context.on('response', response => {
+    const pathname = new URL(response.url()).pathname;
+    if (observedRoutes.has(pathname) && result.http.length < 128) result.http.push({route: pathname, status: response.status()});
+  });
   const page = await context.newPage();
   const repoURL = origin.origin + input.repository_path;
   const drawer = page.locator('#sodaspaces-drawer');
@@ -180,17 +188,22 @@ try {
   async function oauth(index) {
     assert(!interrupted);
     const before = authorizations;
+    const journey = stage;
+    stage = journey + ': authorization navigation';
     await page.locator('#sodaspaces-sign-in').click();
     await Promise.race([
       page.waitForURL(url => url.pathname === input.repository_path && url.hash === '#sodaspaces'),
       page.locator('#authorize-app').waitFor({state: 'visible'}),
     ]);
+    stage = journey + ': native consent';
     if (await page.locator('#authorize-app').isVisible()) {
       assert.equal(await page.locator('input[name="client_id"]').inputValue(), input.oauth_client_id);
       assert(!interrupted);
       await page.locator('#authorize-app').click();
     }
+    stage = journey + ': safe repository return';
     await page.waitForURL(url => url.origin === origin.origin && url.pathname === input.repository_path && url.hash === '#sodaspaces');
+    stage = journey + ': drawer identity and state';
     await settled();
     assert(authorizations > before);
     assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[index].id);
@@ -316,7 +329,9 @@ try {
     assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
   }
   assert(!refusedRequest && !interrupted);
-} catch {
+} catch (error) {
+  if (result) result.failure_kind = error?.name === 'TimeoutError' ? 'timeout'
+    : error?.name === 'AssertionError' ? 'assertion' : 'other';
   failure = true; // Never print Playwright errors/URLs/input bodies or credentials.
 } finally {
   try { await context?.close(); } catch { failure = true; }
