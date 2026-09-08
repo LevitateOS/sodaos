@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization project list, creation/edit and board pages; inspect their separate planning workflows. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: repository project list, creation/edit and board wrappers; complete the remaining shared project callers. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -63,9 +63,9 @@ Next: organization project list, creation/edit and board pages; inspect their se
 | Partial — trace caller | [`org/header.tmpl`](../appliance/forgejo/templates/org/header.tmpl) | — | Not yet reviewed in this goal. |
 | No image | [`org/home.tmpl`](../appliance/forgejo/templates/org/home.tmpl) | `org/header` | Organization identity, authored README, repositories and real member avatars take priority; source-reviewed. |
 | No image | [`org/member/members.tmpl`](../appliance/forgejo/templates/org/member/members.tmpl) | `org/header` | Actual avatars, roles, visibility and owner-only security indicators take priority; source-reviewed. |
-| Pending | [`org/projects/list.tmpl`](../appliance/forgejo/templates/org/projects/list.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Pending | [`org/projects/new.tmpl`](../appliance/forgejo/templates/org/projects/new.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
-| Pending | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
+| No image | [`org/projects/list.tmpl`](../appliance/forgejo/templates/org/projects/list.tmpl) | Native owner identity and project summaries | Organization/personal variants assessed. Keep real project descriptions, open/closed counts and search primary; personal empty list inspected at capture-bepvu4/001.png. Organization/populated variants source-only. |
+| Integrated — verify | [`org/projects/new.tmpl`](../appliance/forgejo/templates/org/projects/new.tmpl) | `new-project-papercraft.png`, creation only | Personal creation verified at desktop/mobile; organization capture and edit-state capture pending. Edit uses no artwork. |
+| No image | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | Native project columns and issue cards | Personal/organization board wrappers and full shared board source reviewed. Drag/drop columns, card previews, counts and column dialogs already provide the meaningful visuals; preserve working space. Native board capture unavailable without an existing project. |
 | Partial — trace caller | [`org/settings/layout_head.tmpl`](../appliance/forgejo/templates/org/settings/layout_head.tmpl) | `org/header` | Registry/cleanup callers assessed; remaining settings routes explicitly queued below. No shared artwork decision imposed on callers. |
 | No image | [`org/team/invite.tmpl`](../appliance/forgejo/templates/org/team/invite.tmpl) | Real organization avatar | Invitation card identifies organization, team and inviter before the join action; decoration could imply already-confirmed membership. Full template source reviewed; no invitation available for native capture. |
 | No image | [`org/team/members.tmpl`](../appliance/forgejo/templates/org/team/members.tmpl) | `org/header` | Actual member identities, owner controls and pending invitations take priority. Source-reviewed. |
@@ -81,9 +81,9 @@ Next: organization project list, creation/edit and board pages; inspect their se
 | No image | [`package/shared/versionlist.tmpl`](../appliance/forgejo/templates/package/shared/versionlist.tmpl) | `user/overview/package_versions` | Search, sort, container tag filter, version rows and pagination; no independent decorative header. Source assessment. |
 | No image | [`package/view.tmpl`](../appliance/forgejo/templates/package/view.tmpl) | `user/overview/header` | Package/version identity, protocol content, files and metadata take priority; source assessment below. |
 | Pending | [`post-install.tmpl`](../appliance/forgejo/templates/post-install.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`projects/list.tmpl`](../appliance/forgejo/templates/projects/list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`projects/new.tmpl`](../appliance/forgejo/templates/projects/new.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`projects/view.tmpl`](../appliance/forgejo/templates/projects/view.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`projects/list.tmpl`](../appliance/forgejo/templates/projects/list.tmpl) | Organization/personal wrappers assessed | Full partial reviewed; repository wrapper assessment remains. No independent partial artwork. |
+| Partial — trace caller | [`projects/new.tmpl`](../appliance/forgejo/templates/projects/new.tmpl) | Organization/personal wrappers assessed | Full partial reviewed; repository wrapper assessment remains. No independent partial artwork. |
+| Partial — trace caller | [`projects/view.tmpl`](../appliance/forgejo/templates/projects/view.tmpl) | Organization/personal wrappers assessed | Full partial reviewed; repository wrapper assessment remains. No independent partial artwork. |
 | Partial — trace caller | [`repo/actions/dispatch.tmpl`](../appliance/forgejo/templates/repo/actions/dispatch.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/actions/list.tmpl`](../appliance/forgejo/templates/repo/actions/list.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/actions/list_inner.tmpl`](../appliance/forgejo/templates/repo/actions/list_inner.tmpl) | — | Not yet reviewed in this goal. |
@@ -583,3 +583,9 @@ Organization settings routes discovered in the native navbar (each still needs i
 ## Team creation and invitation assessment
 
 New-team creation gets its own member-card assembly scene, recorded in [new-team-art-prompt.md](../assets/branding/forgejo/new-team-art-prompt.md). The `PageIsOrgTeamsNew` branch supplies artwork to the existing intro; edit and protected Owners-team forms receive none. All repository scope, administrative/general access, unit permission matrix, disabled units, update/delete controls and native form markup remain intact. The source parity/parse test and shared presentation boundary test passed. Selected PNG was visually inspected and has RGBA transparency. Native organization screenshots remain pending; no organization or invitation was created. Invitation uses its real organization avatar and explicit join action without decorative art.
+
+## Personal/organization project workflow
+
+Creation uses a robot placing the first card on a paper planning board; exact prompt and transparency edit are in [new-project-art-prompt.md](../assets/branding/forgejo/new-project-art-prompt.md). Selected image is RGBA 1536×1024, alpha 0–254. Only the existing wrapper intro changes; shared title/description/template/card-preview fields and native form actions are untouched. `PageIsEditProjects` excludes art during editing. Personal native creation was inspected at 1440×1000 (`capture-4gebxg/001.png`) and 390×844 (`capture-HnZ2xF/001.png`), using the authorized fixture and `--scroll-top`; transparent composition is clean and the form remains reachable. Baseline creation is `capture-bepvu4/002.png`. No project was submitted. Organization creation and edit-state rendering remain pending existing accessible data.
+
+Personal empty project list was inspected at `capture-bepvu4/001.png`; organization/personal list source and full board source were reviewed, including write/archive gating, open/close/delete, sorting/search, authored descriptions, column colors/defaults, issue cards and dialogs. These operational pages need no additional illustration. Organization project context and shared presentation tests passed; `git diff --check` passed. Repository wrappers remain next.

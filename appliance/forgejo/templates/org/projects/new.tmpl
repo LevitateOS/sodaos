@@ -3,7 +3,8 @@
 	{{template "shared/user/org_profile_avatar" .}}
 	<div class="ui container soda-page-container">
 		{{template "user/overview/header" .}}
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-new-project-title" "Eyebrow" "Shape the work" "Title" .Title "Description" "Organize related work with a project board." "Class" "soda-page-intro--compact"}}
+		{{$artwork := ""}}{{if not .PageIsEditProjects}}{{$artwork = "new-project-papercraft.png"}}{{end}}
+		{{template "custom/soda/page_intro" dict "TitleID" "soda-new-project-title" "Eyebrow" "Shape the work" "Title" .Title "Description" "Organize related work with a project board." "Class" "soda-page-intro--compact" "Artwork" $artwork}}
 		{{template "projects/new" .}}
 	</div>
 </div>
