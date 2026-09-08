@@ -1,0 +1,15 @@
+{{/* Soda presentation override of Forgejo 15.0.7 org/settings/layout_head.tmpl. */}}
+{{template "base/head" .ctxData}}
+<div role="main" aria-label="{{.ctxData.Title}}" class="page-content {{.pageClass}} soda-page soda-org-settings soda-native-forms" data-signed="true">
+	{{template "org/header" .ctxData}}
+	<div class="ui container flex-container soda-page-container soda-org-settings-layout">
+		{{template "org/settings/navbar" .ctxData}}
+		<div class="flex-container-main">
+			{{template "base/alert" .ctxData}}
+			{{/* block: org-setting-content */}}
+
+{{if false}}{{/* to make html structure "likely" complete to prevent IDE warnings */}}
+		</div>
+	</div>
+</div>
+{{end}}

@@ -384,9 +384,16 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 			wantClass:  "soda-theme-toggle",
 		},
 		{
+			name:       "prohibited sign in",
+			templateID: "prohibit-login",
+			definition: `{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "prohibit-login"}}` + readForgejoTemplate(t, "user", "auth", "prohibit_login.tmpl") + `{{end}}`,
+			data:       map[string]any{"PageIsSignIn": true},
+			wantClass:  "soda-guest-theme-toggle",
+		},
+		{
 			name:       "guest explorer hook",
 			templateID: "custom/extra_links",
-			definition: `{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "custom/extra_links"}}` + readForgejoTemplate(t, "custom", "extra_links.tmpl") + `{{end}}`,
+			definition: `{{define "custom/soda/guest_theme"}}` + readForgejoTemplate(t, "custom", "soda", "guest_theme.tmpl") + `{{end}}{{define "custom/soda/theme_toggle"}}` + theme + `{{end}}{{define "custom/extra_links"}}` + readForgejoTemplate(t, "custom", "extra_links.tmpl") + `{{end}}`,
 			data:       map[string]any{"PageIsExploreRepositories": true},
 			wantClass:  "soda-guest-theme-toggle",
 		},
@@ -414,10 +421,11 @@ func TestForgejoThemeToggleIsSingletonAtEachPlacement(t *testing.T) {
 
 func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 	functions := template.FuncMap{
+		"dict":           forgejoTemplateDict,
 		"AppSubUrl":      func() string { return "/forge" },
 		"AssetUrlPrefix": func() string { return "/forge/assets" },
 	}
-	definition := `{{define "custom/header"}}` + readForgejoTemplate(t, "custom", "header.tmpl") + `{{end}}`
+	definition := `{{define "custom/soda/theme_toggle"}}{{end}}{{define "custom/soda/guest_theme"}}` + readForgejoTemplate(t, "custom", "soda", "guest_theme.tmpl") + `{{end}}{{define "custom/header"}}` + readForgejoTemplate(t, "custom", "header.tmpl") + `{{end}}`
 	parsed, err := template.New("custom-header").Funcs(functions).Parse(definition)
 	if err != nil {
 		t.Fatalf("parse custom header: %v", err)
@@ -434,6 +442,11 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 		{name: "guest repositories", data: map[string]any{"PageIsExploreRepositories": true}, wantScript: true},
 		{name: "guest people", data: map[string]any{"PageIsExploreUsers": true}, wantScript: true},
 		{name: "guest organizations", data: map[string]any{"PageIsExploreOrganizations": true}, wantScript: true},
+		{name: "guest repository", data: map[string]any{"Repository": true}, wantScript: true},
+		{name: "guest organization", data: map[string]any{"Org": true}, wantScript: true},
+		{name: "guest recovery under subpath", data: map[string]any{"Link": "/forge/user/forgot_password"}, wantScript: true},
+		{name: "recovery on wrong subpath", data: map[string]any{"Link": "/user/forgot_password"}},
+		{name: "signed recovery", data: map[string]any{"IsSigned": true, "Link": "/forge/user/reset_password"}},
 		{name: "signed explorer", data: map[string]any{"IsSigned": true, "PageIsExploreRepositories": true}},
 		{name: "unrelated guest page", data: map[string]any{}},
 	}
@@ -451,7 +464,7 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 			if count := strings.Count(output, `login-theme.js`); count > 1 {
 				t.Errorf("custom header rendered guest theme script %d times:\n%s", count, output)
 			}
-			if !strings.Contains(output, `/soda/forgejo/components.css?v=3`) {
+			if !strings.Contains(output, `/soda/forgejo/components.css?v=4`) {
 				t.Errorf("custom header lost the shared component stylesheet:\n%s", output)
 			}
 		})
@@ -608,6 +621,41 @@ func TestForgejoPagesComposeSharedPresentationWithNativeBoundaries(t *testing.T)
 	}
 	if templateCalls(notifications)["base/head"] || templateCalls(notifications)["base/footer"] {
 		t.Error("notification_div.tmpl must remain a fragment for native notification swaps")
+	}
+}
+
+func TestForgejoNativeFormAdapterSelectsMainFormsOnly(t *testing.T) {
+	path := filepath.Join("..", "assets", "branding", "forgejo", "components-forms.css")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	css := string(contents)
+	for _, required := range []string{
+		".soda-form.ui.form",
+		".soda-auth .ui.form",
+		".soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.form:not(.ignore-dirty)",
+		".soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.attached.segment > .ui.form:not(.ignore-dirty)",
+		"& .selection.dropdown > .default.text",
+		"& .dropdown .menu > .item:hover",
+		"& .primary.button:active",
+	} {
+		if !strings.Contains(css, required) {
+			t.Errorf("shared form stylesheet lost the positive form scope %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		".soda-native-forms .ui.form",
+		".soda-native-forms dialog .ui.form",
+		".soda-native-forms table .ui.form",
+		".soda-native-forms .flex-item .ui.form",
+	} {
+		if strings.Contains(css, forbidden) {
+			t.Errorf("shared form stylesheet includes broad or compact-form scope %q", forbidden)
+		}
+	}
+	if count := strings.Count(css, ".soda-auth .ui.form"); count != 1 {
+		t.Errorf("native form roots must have one declaration owner, found %d", count)
 	}
 }
 

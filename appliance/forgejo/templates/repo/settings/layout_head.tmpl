@@ -1,0 +1,14 @@
+{{template "base/head" .ctxData}}
+<div role="main" aria-label="{{.ctxData.Title}}" class="page-content soda-page soda-repository-settings soda-native-forms {{.pageClass}}" data-signed="{{if .ctxData.IsSigned}}true{{else}}false{{end}}">
+	{{template "repo/header" .ctxData}}
+	<div class="ui container flex-container soda-settings-layout">
+		{{template "repo/settings/navbar" .ctxData}}
+		<div class="flex-container-main">
+			{{template "base/alert" .ctxData}}
+			{{/* block: repo-setting-content */}}
+
+{{if false}}{{/* to make html structure "likely" complete to prevent IDE warnings */}}
+		</div>
+	</div>
+</div>
+{{end}}

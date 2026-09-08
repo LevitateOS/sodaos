@@ -56,7 +56,10 @@ Soda pages compose a small, opt-in presentation vocabulary around native Forgejo
 templates. `.soda-page` establishes the shared palette, typography, navigation and
 footer treatment; include `data-signed="true"` or `"false"` so account and guest
 theme selection remain distinct. `.soda-page-container` supplies the common content
-width. Page stylesheets should contain only layout or presentation specific to that
+width. Where native pages share only a header or an empty helper hook,
+`.soda-page-marker[data-signed]` opts the enclosing `.page-content` and its
+navbar/footer into that same full-page shell without copying every leaf template.
+This marker is also forbidden inside widgets or the future drawer. Page stylesheets should contain only layout or presentation specific to that
 page.
 
 The partials under `templates/custom/soda/` accept fixed presentation data:
@@ -77,7 +80,8 @@ Each responsibility has one CSS owner:
 | `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer and page focus. `.soda-page-container` owns content width. |
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
-| `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets. |
+| `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog and `ignore-dirty` settings action/search forms retain native sizing. One native CSS nesting block owns both callers. |
+| `components-settings.css` | Shared account/repository/organization/administrator sidebar, active/hover states and native attached content cards. |
 | `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
@@ -316,3 +320,35 @@ inputs, dropdowns, advanced disclosure and submit actions; `create.css` only
 adapts template-unit spacing and the native template search. Reuses the repository-folder
 artwork. Local UI checks exercised expanded options and narrow layout; no
 repository creation or appliance deployment was performed.
+
+## Broad native page families
+
+The stock 15.0.7 repository header/settings seam now reaches 65 full-page templates;
+account settings reaches 23; administrator and organization seams reach 58 (33 admin,
+8 organization pages, 17 organization settings). Nine secondary authentication
+wrappers add registration, recovery/reset/change-password, activation, TOTP/scratch,
+WebAuthn and prohibited-login presentation. These counts describe source composition,
+not 155 independently exercised browser journeys. Native leaf templates remain
+upstream wherever a shared seam suffices; unchanged override copies are not shipped.
+
+`repository.css`, `account-settings.css`, `admin-org.css` and `auth.css` own only
+family presentation around the shared components. Native menus may overflow their
+containers; repository action rows wrap on mobile without clipping dropdowns.
+Forms retain native handler URLs, security fields, permissions, state, scripts and
+semantic danger controls. Narrow auth grids explicitly clear native percentage
+padding before constraining width. The settings intro selects the six new
+`settings-*-papercraft.png` assets using upstream `PageIsSettings*` flags; provenance
+is in `assets/branding/forgejo/settings-art-prompts.md`.
+
+`custom/soda/guest_theme` owns one presentation gate for the head script and native
+navbar toggle. Repository context uses `.Repository`, organization context uses
+`.Org`, and secondary auth uses native `.Link`. Stock 15.0.7 constructs that Link
+from `AppSubURL` plus the escaped URL path (without query state). Prohibited login
+retains `PageIsSignIn`, so its override supplies the body toggle, just as login does.
+Account themes remain native. Source parity hashes for the adapted wrappers and
+focused component/render tests live under `scripts/forgejo_*_test.go`.
+
+These additions are mounted in the existing isolated local preview only. They do
+not stage or deploy to the appliance, run setup, exercise authentication factors,
+change fixtures, or implement the Sodaspaces drawer. Current browser evidence and
+remaining limitations are recorded in the implementation handoff.

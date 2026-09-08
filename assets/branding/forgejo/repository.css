@@ -1,0 +1,484 @@
+/* Repository presentation for stock Forgejo 15.0.7. The native templates own
+   repository state, permissions, forms, scripts, and all workflow behavior. */
+.page-content:has(> .soda-repository-header) {
+  padding-bottom: 56px;
+  color: var(--soda-page-text);
+  font-family: Barlow, Arial, sans-serif;
+}
+
+.page-content:has(> .soda-repository-header) > .ui.container:not(.soda-repository-header) {
+  width: min(1120px, calc(100% - 48px)) !important;
+  margin-inline: auto;
+}
+
+/* Repository identity and native unit navigation. */
+.soda-repository-header {
+  padding: 30px 0 0;
+  margin: 0 0 28px;
+  background:
+    radial-gradient(circle at 12% 0, color-mix(in srgb, var(--soda-page-selected) 72%, transparent) 0 13%, transparent 38%),
+    linear-gradient(180deg, var(--soda-page-surface), var(--soda-page-canvas));
+  border-bottom: 1px solid var(--soda-page-edge);
+}
+
+.soda-repository-header > .ui.container {
+  width: min(1120px, calc(100% - 48px)) !important;
+}
+
+.soda-repository-header .repo-header {
+  align-items: center;
+  gap: 24px;
+  min-height: 74px;
+  padding: 0 0 24px;
+}
+
+.soda-repository-header .repo-header > .flex-item {
+  min-width: 0;
+}
+
+.soda-repository-header .repo-header .flex-item-leading svg {
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  color: var(--soda-page-link);
+  background: var(--soda-page-selected);
+  border-radius: 10px;
+}
+
+.soda-repository-eyebrow {
+  margin-bottom: 3px;
+  color: var(--soda-page-muted);
+  font: 500 10px/1.4 "IBM Plex Mono", monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.soda-repository-header .repo-header .flex-item-title {
+  color: var(--soda-page-text);
+  font: 600 clamp(20px, 3vw, 27px)/1.2 "Fraunces Variable", Georgia, serif;
+  overflow-wrap: anywhere;
+}
+
+.soda-repository-header .repo-header .flex-item-title a.muted {
+  color: var(--soda-page-text) !important;
+}
+
+.soda-repository-header .repo-header .flex-item-title a:first-child {
+  color: var(--soda-page-muted) !important;
+  font-weight: 450;
+}
+
+.soda-repository-header .repo-header .flex-item-trailing .ui.label {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 999px;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-muted);
+  box-shadow: none;
+}
+
+/* Keep the native repository button row as the stable Sodaspaces insertion seam. */
+.soda-repository-header .repo-header .repo-buttons {
+  gap: 7px;
+  margin-left: auto;
+}
+
+.soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive) {
+  min-height: 36px;
+  border-color: var(--soda-page-edge);
+  border-radius: 9px;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+
+.soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):hover {
+  border-color: var(--soda-page-link);
+  color: var(--soda-page-link);
+}
+
+.soda-repository-header .fork-flag {
+  margin: -12px 0 18px;
+  color: var(--soda-page-muted);
+}
+
+.soda-repository-header > overflow-menu {
+  min-height: 48px;
+  margin: 0 auto !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.soda-repository-header > overflow-menu > .overflow-menu-items {
+  gap: 3px;
+}
+
+.soda-repository-header > overflow-menu .item {
+  gap: 7px;
+  margin: 0 !important;
+  padding: 13px 14px !important;
+  border: 0 !important;
+  border-radius: 9px 9px 0 0 !important;
+  color: var(--soda-page-muted) !important;
+  font-weight: 600;
+}
+
+.soda-repository-header > overflow-menu .item:hover {
+  background: var(--soda-page-hover) !important;
+  color: var(--soda-page-link) !important;
+}
+
+.soda-repository-header > overflow-menu .active.item {
+  background: var(--soda-page-selected) !important;
+  color: var(--soda-page-link) !important;
+  box-shadow: inset 0 -3px var(--soda-page-action) !important;
+}
+
+.soda-repository-header > overflow-menu .ui.label {
+  min-width: 21px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--soda-page-canvas);
+  color: inherit;
+}
+
+.soda-repository-header > .tabs.divider {
+  display: none;
+}
+
+/* Shared native panels, headings, and actions across repository routes. */
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) :is(.ui.segment,.ui.segments,.ui.table) {
+  border-color: var(--soda-page-edge);
+  box-shadow: none;
+}
+
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) > .ui.container > .ui.top.attached.header {
+  margin-top: 24px;
+  padding: 18px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
+}
+
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) > .ui.container > .ui.attached.segment {
+  padding: var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) .ui.bottom.attached.segment,
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) .ui.attached.segment:last-child {
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+.page-content:has(> .soda-repository-header) :is(.ui.primary.button,.primary.button):not(.basic) {
+  border-color: transparent;
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-action);
+  color: var(--soda-page-on-action);
+  box-shadow: none;
+}
+
+.page-content:has(> .soda-repository-header) :is(.ui.primary.button,.primary.button):not(.basic):hover {
+  background: var(--soda-page-action-hover);
+}
+
+.page-content:has(> .soda-repository-header) .ui.basic.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+
+/* Code, files, repository overview, clone controls, and compact history links. */
+.page-content.repository.file .repo-description {
+  margin-bottom: 16px;
+  color: var(--soda-page-muted);
+  font-size: 16px;
+}
+
+.page-content.repository.file .repo-description .description {
+  color: var(--soda-page-text);
+}
+
+.page-content.repository.file .repo-topics .repo-topic {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 999px;
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+
+.page-content.repository.file .repository-summary {
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.file .repository-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 16px var(--soda-panel-inset);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.file .repository-menu .item {
+  color: var(--soda-page-muted) !important;
+}
+
+.page-content.repository.file .repository-menu .item:is(:hover,.active) {
+  color: var(--soda-page-link) !important;
+}
+
+.page-content.repository.file .repo-button-row {
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.page-content.repository.file :is(.file-header,.code-search,.non-diff-file-content) {
+  border-color: var(--soda-page-edge) !important;
+  background: var(--soda-page-surface) !important;
+}
+
+.page-content.repository.file .file-header {
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0 !important;
+}
+
+.page-content.repository.file :is(.file-view,.repo-file-view,.non-diff-file-content) {
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+.page-content.repository.file .markup {
+  color: var(--soda-page-text);
+}
+
+/* Repository issue and pull-request indexes and conversation pages. */
+.page-content.repository.issue-list .list-header-issues {
+  gap: 12px;
+  padding: 18px var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.issue-list .list-header-issues .ui.menu {
+  margin: 0;
+}
+
+.page-content.repository.issue-list #issue-filters {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.issue-list #issue-list {
+  border: 1px solid var(--soda-page-edge);
+  border-top: 0;
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.issue-list #issue-list > .flex-item {
+  padding: 20px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+}
+
+.page-content.repository.issue-list #issue-list .flex-item-title {
+  font-size: 17px;
+}
+
+.page-content.repository.issue-list #issue-list .flex-item-title a {
+  color: var(--soda-page-text);
+}
+
+.page-content.repository.view.issue .issue-title-header,
+.page-content.repository.view.issue .pull.tabs .menu {
+  border-color: var(--soda-page-edge);
+}
+
+.page-content.repository.view.issue .issue-title-header h1 {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.page-content.repository.view.issue :is(.comment-list .comment,.timeline-item .comment) {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.page-content.repository.view.issue .comment .header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-hover);
+}
+
+.page-content.repository.view.issue .issue-content-right .ui.segment {
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+}
+
+/* Commits, branches, tags, and releases retain native tables and actions. */
+.page-content.repository.commits .commit-table {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.commits #commits-table :is(th,td) {
+  border-color: var(--soda-page-edge);
+}
+
+.page-content.repository.branches .ui.attached.table.segment,
+.page-content.repository.tags .ui.attached.table.segment {
+  overflow: auto;
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.branches table td,
+.page-content.repository.tags table td {
+  padding-block: 18px;
+  border-color: var(--soda-page-edge);
+}
+
+.page-content.repository.tags .release-tag-name a {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.page-content.repository.releases #release-list {
+  margin: 0;
+  padding: 0;
+}
+
+.page-content.repository.releases #release-list > li {
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 24px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.releases #release-list .release-title-wrap h4 a {
+  color: var(--soda-page-text);
+  font: 600 22px/1.35 "Fraunces Variable", Georgia, serif;
+}
+
+.page-content.repository.releases #release-list details.download {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+}
+
+/* Secondary repository tools reuse the same native side-navigation treatment. */
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) .flex-container-nav > .ui.vertical.menu,
+.page-content.repository.actions .actions-menu {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) .flex-container-nav > .ui.vertical.menu .item,
+.page-content.repository.actions .actions-menu .item {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+
+.page-content:has(> .soda-repository-header):not(.soda-repository-settings) .flex-container-nav > .ui.vertical.menu .active.item,
+.page-content.repository.actions .actions-menu .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+
+.page-content.repository.wiki .wiki-content-parts > .file-view {
+  padding: var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.page-content.repository.packages .package-list,
+.page-content.repository.projects .board,
+.page-content.repository.actions .action-list {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+/* Repository settings: preserve native sections and actions within a clearer frame. */
+.soda-repository-settings.soda-page {
+  padding-bottom: 56px;
+}
+
+.soda-repository-settings .soda-settings-layout {
+  width: min(1120px, calc(100% - 48px)) !important;
+  align-items: flex-start;
+  gap: 26px;
+}
+
+.soda-repository-settings .soda-settings-layout > .flex-container-nav {
+  position: sticky;
+  top: 20px;
+}
+
+.soda-repository-settings .flex-container-main,
+.soda-repository-settings .repo-setting-content {
+  min-width: 0;
+}
+
+.soda-repository-settings .repo-setting-content .flex-list > .flex-item {
+  padding: 18px 0;
+  border-color: var(--soda-page-edge);
+}
+
+@media (max-width: 700px) {
+  .page-content:has(> .soda-repository-header) > .ui.container:not(.soda-repository-header),
+  .soda-repository-header > .ui.container,
+  .soda-repository-settings .soda-settings-layout {
+    width: calc(100% - 32px) !important;
+  }
+
+  .soda-repository-header {
+    padding-top: 22px;
+  }
+
+  .soda-repository-header .repo-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .soda-repository-header .repo-header .repo-buttons {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .soda-repository-header > overflow-menu .item {
+    padding-inline: 11px !important;
+  }
+
+  .page-content.repository.file .repo-button-row,
+  .page-content.repository.issue-list .list-header-issues {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-content.repository.releases #release-list > li {
+    padding: 20px 16px;
+  }
+
+  .soda-repository-settings .soda-settings-layout {
+    flex-direction: column;
+  }
+
+  .soda-repository-settings .soda-settings-layout > .flex-container-nav {
+    position: static;
+    width: 100%;
+  }
+}

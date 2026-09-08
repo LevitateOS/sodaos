@@ -25,6 +25,32 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Expanded native Forgejo branding
+
+Broad supported stock 15.0.7 header/layout overrides now cover repository pages
+and settings, account settings, administrator and organization views, and nine
+secondary authentication wrappers. The shared native leaf forms/lists/scripts,
+permissions and handlers remain upstream-owned. The page-marker adapter reaches
+whole native pages from their shared header/helper; it is not a widget root.
+Common settings sidebars/cards have one CSS owner. Principal native forms use a
+positive structural adapter; nested dialog/table/row-action and settings search
+forms keep native sizing. Guest theme routes share one presentation gate.
+Six new settings illustrations from the separate art task are mapped by native
+page flags, preserving its asset/provenance commits and earlier artwork.
+
+Local source tests passed with the existing offline Go toolchain and readonly
+modules (`go test -count=1 -mod=readonly ./scripts -run TestForgejo`). These check
+native template composition, permission seams, exact-stock recovery hashes,
+escaping, theme placement, artwork selection and CSS boundaries. Stock preview
+`reload-templates` succeeded. Initial browser checks covered all 11 account
+sidebar pages at desktop/390px, all 16 administrator sidebar pages at 390px,
+and 12 repository sections at desktop/390px. One narrow native stacktrace overflow
+and clipped-popup risks were found and corrected; final integration checks follow
+below. Registration/recovery views remain truthfully disabled by the existing
+preview configuration. MFA, activation, consent, form POSTs and populated
+organization/team contexts were not executed or fabricated. No fixture, account
+preference, provider, native stage or deployed VM was changed.
+
 ## Shared Forgejo presentation components
 
 The local stock 15.0.7 preview uses small Go template partials for page intros,

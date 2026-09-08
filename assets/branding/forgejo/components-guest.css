@@ -1,4 +1,4 @@
-body:has(:is(.soda-home, .soda-login, .soda-page[data-signed="false"])) {
+body:has(:is(.soda-home, .soda-login, :is(.soda-page, .soda-page-marker)[data-signed="false"])) {
   --soda-guest-canvas: var(--soda-light-canvas);
   --soda-guest-surface: var(--soda-light-surface);
   --soda-guest-text: var(--soda-light-text);
@@ -15,7 +15,7 @@ body:has(:is(.soda-home, .soda-login, .soda-page[data-signed="false"])) {
   color-scheme: light;
 }
 
-html[data-soda-login-theme="dark"] body:has(:is(.soda-home, .soda-login, .soda-page[data-signed="false"])) {
+html[data-soda-login-theme="dark"] body:has(:is(.soda-home, .soda-login, :is(.soda-page, .soda-page-marker)[data-signed="false"])) {
   --soda-guest-canvas: var(--soda-dark-canvas);
   --soda-guest-surface: var(--soda-dark-surface);
   --soda-guest-text: var(--soda-dark-text);

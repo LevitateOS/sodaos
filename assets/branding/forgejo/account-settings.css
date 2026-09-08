@@ -1,0 +1,66 @@
+/* Account settings compose Forgejo's native 15.0.7 templates inside the Soda page shell. */
+.soda-settings {
+	padding-top: 42px;
+}
+
+.soda-settings .soda-settings-layout {
+	align-items: flex-start;
+	gap: 32px;
+}
+
+.soda-settings .flex-container-nav {
+	flex: 0 0 226px;
+}
+
+.soda-settings .flex-container-main {
+	min-width: 0;
+}
+
+.soda-settings .user-setting-content {
+	width: 100%;
+}
+
+.soda-settings .user-setting-content :is(.flex-item-body, .flex-text-body, .text.light-3) {
+	color: var(--soda-page-muted) !important;
+}
+
+.soda-settings .user-setting-content .flex-list > .flex-item,
+.soda-settings .user-setting-content .ui.list > .item {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-settings .user-setting-content .flex-item-title,
+.soda-settings .user-setting-content .ui.list > .item .content {
+	color: var(--soda-page-text);
+}
+
+@media (max-width: 900px) {
+	.soda-settings {
+		padding-top: 30px;
+	}
+
+	.soda-settings .soda-settings-layout {
+		flex-direction: column;
+		gap: 24px;
+	}
+
+	.soda-settings .flex-container-nav {
+		width: 100%;
+		flex-basis: auto;
+	}
+
+	.soda-settings .flex-container-nav > .ui.vertical.menu {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.soda-settings .flex-container-nav > .ui.vertical.menu > .header.item {
+		grid-column: 1 / -1;
+	}
+}
+
+@media (max-width: 540px) {
+	.soda-settings .flex-container-nav > .ui.vertical.menu {
+		display: block;
+	}
+}

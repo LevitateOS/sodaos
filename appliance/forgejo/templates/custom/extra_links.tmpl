@@ -1,7 +1,5 @@
-{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations) (not .IsSigned)}}
-			{{template "custom/soda/theme_toggle" dict}}
-{{end}}
+{{template "custom/soda/guest_theme" (dict "Page" . "Placement" "navbar")}}
 
-{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations .PageIsNews) .IsSigned}}
+{{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations .PageIsNews .Repository .Org .PageIsUserSettings .PageIsAdmin) .IsSigned}}
   <a class="soda-account-appearance" href="{{AppSubUrl}}/user/settings/appearance" aria-label="{{ctx.Locale.Tr "settings.manage_themes"}}" title="{{ctx.Locale.Tr "settings.manage_themes"}}">{{svg "octicon-paintbrush" 21}}</a>
 {{end}}
