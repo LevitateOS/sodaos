@@ -86,15 +86,16 @@
   min-height: 36px;
   border-color: var(--soda-page-edge);
   border-radius: 9px;
-  /* Counter labels attach directly to the action's right edge. */
-  &:has(+ .ui.label) {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   box-shadow: none;
+}
+
+/* Native controls enforce their radius with !important. Fork may place its
+   dialog between the action and counter, so target the labeled group itself. */
+.soda-repository-header .repo-buttons .ui.labeled.button > .ui.button {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 
 .soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow):hover {
