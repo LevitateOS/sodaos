@@ -234,7 +234,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 
 ## Retained source and assets
 
-Preserve both Cockpit pages **and their backing logic/tests**, not just their appearance. Providers own CI workflows, scheduling, registration authority and results; Soda manages local capacity.
+Preserve both Cockpit pages **and their backing logic/tests**, not just their appearance, until an explicitly coordinated replacement. The user subsequently selected moving Soda's runner capacity/service configuration into operator-only settings in the unified native SodaOS/Forgejo interface. This is remaining work: inspect official administrator extension points, reuse the backing logic/tests and keep the Cockpit Runners page until its replacement works. Tailnet remains in Cockpit. Do not revive a standalone dashboard or equate Forgejo site administration with Soda operator authority. Providers own CI workflows, scheduling, registration authority and results; Soda manages local capacity.
 
 The predecessor repository is separate. Do not modify it, close its issues or import its separately reserved Updates platform as part of this work. Preserve attribution and licenses. Canonical branding in `assets/` must not be casually regenerated or removed; adapt installation paths in staging source where necessary.
 

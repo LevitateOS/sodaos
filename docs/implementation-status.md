@@ -774,6 +774,12 @@ laptop routing remain separate. All old/fresh fixtures and failures are retained
   guard mode separate from explicitly bounded writes; future maintenance needs its
   own exact scope/current backup, not replay of the recorded cutover.
 - Existing-account terminal remains separate. Stop any approach that needs a fork.
+- Move Soda's local runner capacity/service configuration into operator-only settings
+  in the unified native SodaOS/Forgejo interface, as subsequently selected by the
+  user. Inspect official administrator extension points and reuse backing logic/tests;
+  retain the Cockpit Runners page until a working replacement and coordinated removal.
+  Tailnet stays in Cockpit; provider authority and the Soda operator boundary remain
+  unchanged. This decision is documentation-only so far, not implementation/deployment.
 - Finish full fresh/populated product and independent native aarch64 acceptance;
   scoped x86_64 delivery/browser/SSH results are not final-product acceptance.
 - Complete console delivery/interactive proof, Tailnet and both providers' real

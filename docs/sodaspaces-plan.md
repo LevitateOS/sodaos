@@ -554,6 +554,17 @@ project-local account/home, with bounded PTY/transport and session lifetime. It 
 not required for initial SSH access and must not implicitly create, join, start a
 project or expose a host shell.
 
+**Runner configuration placement:** the user selected moving Soda's local runner
+capacity/service configuration from Cockpit into the unified SodaOS/Forgejo native
+interface, as operator-only settings—not the repository Sodaspaces drawer or a
+revived standalone dashboard. Inspect supported native administrator extension points
+before implementation; no Forgejo fork or copied permission authority. Provider-owned
+registration authority, workflows, scheduling and results remain upstream-owned.
+Reuse the existing backing logic/tests and preserve the Cockpit Runners page until
+the replacement works and its removal is coordinated. Tailnet stays in Cockpit.
+Repository ownership or arbitrary Forgejo site administration does not confer Soda
+operator authority. This is remaining work, not a delivered move or deployment grant.
+
 No lifecycle controls, resource charts, member-management screens, environment
 catalog, private-resource branching, generalized recovery or update platform.
 [Architecture](architecture.md), [integration](forgejo-frontend-integration.md),
