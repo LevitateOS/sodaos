@@ -565,7 +565,8 @@ try {
             const frame = JSON.parse(payload);
             if (frame.type !== 'output') return;
             wire = (wire + Buffer.from(frame.data, 'base64').toString('utf8')).slice(-16384);
-            const line = wire.split('\n').find(s => s.startsWith(marker + ':'));
+            const normalized = wire.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replaceAll('\r', '');
+            const line = normalized.split('\n').find(s => s.startsWith(marker + ':'));
             if (line) facts = JSON.parse(line.slice(marker.length + 1).trim());
           } catch { /* A frame can end partway through the fact line. */ }
         });
@@ -580,27 +581,32 @@ try {
       await screen.focus();
       await page.keyboard.insertText(command);
       await page.keyboard.press('Enter');
+      stage = `terminal user ${index}: structured native shell facts`;
       const deadline = Date.now() + 15000;
       while (!facts && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
       assert(facts && facts.uid > 0 && facts.login === input.users[index].login && facts.tty);
       assert.equal(facts.home, `/home/${input.users[index].login}`);
       assert.equal(facts.cwd, facts.home);
       assert.equal(sockets, 1);
+      result.terminals.push({actor: input.users[index].id, ...facts, socket_closed: false, refresh_did_not_reconnect: false});
+      stage = `terminal user ${index}: native Escape and focus escape`;
       await page.keyboard.press('Escape');
       assert(await drawer.isVisible());
       await page.keyboard.press('Control+Shift+Enter');
       assert(await page.getByRole('button', {name: 'Disconnect', exact: true}).evaluate(e => e === document.activeElement));
+      stage = `terminal user ${index}: explicit disconnect`;
       await page.getByRole('button', {name: 'Disconnect', exact: true}).click();
       const closeDeadline = Date.now() + 10000;
       while (!closed && Date.now() < closeDeadline) await new Promise(resolve => setTimeout(resolve, 100));
       assert(closed);
+      stage = `terminal user ${index}: no reconnect after Refresh`;
       await page.locator('#sodaspaces-refresh').click();
       await settled();
       assert.equal(sockets, 1);
       assert(!(await page.getByRole('button', {name: 'Open terminal', exact: true}).count()));
       page.off('websocket', observe);
       wire = '';
-      result.terminals.push({actor: input.users[index].id, ...facts, socket_closed: true, refresh_did_not_reconnect: true});
+      Object.assign(result.terminals.at(-1), {socket_closed: true, refresh_did_not_reconnect: true});
       // Host-side process disappearance must be independently checked, not inferred
       // from this socket closure or from shell facts alone.
     }
