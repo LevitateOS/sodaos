@@ -687,3 +687,16 @@ fixtures. `repository-settings-browser.test.mjs` checks seven widths including
 table containment. Gallery output and component captures are ignored artifacts,
 not native repository screenshots. Native owner-only, provider, credential,
 mirror and mutation coverage must be recorded separately in the handoff.
+
+
+Milestone list items use `custom/soda/milestone_row` for both global and repository
+callers. `milestones.css` owns the explicit `soda-milestone-row` presentation:
+uniform transparent rows, 24px vertical padding, one separator between items,
+20px sans-serif titles, compact Markdown previews, aligned native deadlines and
+progress/counts, and stacked mobile metadata. Keyboard focus reveals the full
+preview when it contains links; the detail page keeps its full native Markdown.
+Repository edit/close/reopen/delete actions retain native permission/archive
+gates and handlers. Global items remain read-only. Page heading, filters,
+navigation, pagination and empty states are outside this partial and unchanged.
+Native project collections also reuse `milestone-card`; their existing styles
+are explicitly excluded from the new row role to avoid changing those lists.

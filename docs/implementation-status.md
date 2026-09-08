@@ -1,5 +1,34 @@
 # Current handoff
 
+## Milestone list items
+
+Local revision `2026-09-08.30` applies the approved uniform-canvas row design to
+milestone items only. Global and repository lists share one small row partial:
+compact sans-serif titles, repository identity where applicable, two-line rich
+text previews, aligned native deadlines/progress/counts and quiet separators
+between complete items. Mobile metadata stacks inside its row. Focused embedded
+links expand the preview; full native Markdown remains on the milestone detail.
+Tracked time, updated/closed dates, no-deadline state, completeness and gated
+repository actions remain native. Page headings, search/filter/navigation,
+pagination and empty states are unchanged, protected by before/after boundary
+hashes. Native project lists retain their existing reused milestone-card styles.
+
+Go Forgejo source checks and focused item-boundary/layout checks passed. The
+component check covers light/dark at 1440/1100/1024/900/768/700/390/320px, including
+long descriptions and keyboard reveal. Read-only native layout checks covered
+12 populated repository views (two open lists and one closed list at four widths),
+with no overflow and uniform backgrounds. The global screenshot fixture has no
+milestones, so its populated native view remains unverified. No fixture or
+repository mutation was used to manufacture coverage.
+
+Verified capture attempts were rejected because the existing preview returns
+404 for `/assets/sodaspaces.js`. Diagnostic desktop/mobile captures made through
+`scripts/screenshot.mjs` are under `.artifacts/milestone-rows/`, separately labeled
+and not accepted verified screenshots. The missing asset is outside this
+item-only change. The previously known footer inventory hash mismatch also
+remains; the updated 236-entry inventory preserves that unresolved mismatch.
+Activation used local template reload only; no appliance changes or restart.
+
 ## Repository settings consistency overhaul
 
 Local revision `2026-09-08.29` replaces the repository-settings sidebar with
