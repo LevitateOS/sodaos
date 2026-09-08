@@ -155,7 +155,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/user/login', '/login/oauth/authorize', '/login/oauth/grant',
+  const observedRoutes = new Set(['/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
@@ -196,7 +196,7 @@ try {
     // click navigation waiter to one of those competing native navigations.
     await menu.locator('a[data-url="/user/logout"]').click({noWaitAfter: true});
     assert.equal((await response).status(), 200);
-    await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('a[href="/user/login"]'));
+    await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('#navbar a[href^="/user/login"]'));
   }
   async function oauth(index) {
     assert(!interrupted);
