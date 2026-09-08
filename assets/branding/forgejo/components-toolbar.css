@@ -179,8 +179,15 @@
   background: var(--soda-page-canvas) !important;
 }
 
+/* Native overflow-menu observes its own width and reparents overflowing tabs.
+   Keep that width independent of the currently visible items, including room
+   for its reserved overflow button; content-sized flex boxes oscillate. */
+.soda-tabs:has(> overflow-menu) {
+  width: 420px;
+}
+
 .soda-tabs > .secondary-nav {
-  width: auto !important;
+  width: 100% !important;
   min-width: 0 !important;
   max-width: 100%;
   height: 100%;
@@ -192,6 +199,8 @@
 .soda-tabs > .secondary-nav > .overflow-menu-items {
   height: 100%;
   gap: 2px;
+  /* Leave the native handler's trailing button reservation at the end. */
+  justify-content: flex-start !important;
 }
 
 .soda-tabs > .item,

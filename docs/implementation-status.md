@@ -78,6 +78,31 @@ temporary HTTP server (1440×1000 output). No real Forgejo login was submitted a
 no Forgejo fixtures, native installation or deployment were changed. Usage is in
 [screenshot capture](screenshot-capture.md#quick-local-page-screenshots).
 
+## Explore tab overflow correction
+
+The Explore tab wrapper now has a bounded 420px width (capped by the existing
+100% maximum), with the native overflow-menu filling it rather than sizing to
+visible children. Tabs align to the start so Forgejo's trailing overflow-button
+reservation is not consumed by centering. This removes the ResizeObserver feedback
+loop that repeatedly moved Organizations into/out of the popup. Native navigation,
+visibility, overflow logic and keyboard handling remain unchanged; no custom JS.
+The shared toolbar stylesheet cache version is bumped.
+
+Read-only local Chrome checks on all three real anonymous Explore routes passed
+at 1440, 768, 700, 390 and 320px, then back at 1440px. The new opt-in
+`tests/forgejo/explore-overflow.test.mjs` waits for native initialization/fonts and
+checks no child reparenting over 700ms after settling, no page overflow, all three
+wide-screen links, narrow-screen popup visibility/destination and Escape dismissal.
+With pre-fix CSS intercepted in the isolated browser, the same observation found
+14 child mutations in 700ms; fixed pages had zero. An initial test attempted Escape
+before the popup's deferred focus; focusing the menu item first corrected that test
+race. Run with `SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/explore-overflow.test.mjs`.
+The milestone layout regression and offline readonly focused Go Forgejo suite also
+passed; `git diff --check` passed. No login, data writes, service/template reload,
+new dependency or deployment occurred. Local live-mounted CSS can be hard-refreshed;
+the header cache-version change awaits the next template reload. Authenticated-only
+extra tabs and translated labels were not newly exercised.
+
 ## Shared Forgejo presentation components
 
 The local stock 15.0.7 preview uses small Go template partials for page intros,
