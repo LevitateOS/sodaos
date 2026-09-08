@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal storage overview and its native usage/cleanup subpages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization general settings and its remaining page variants. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -254,7 +254,7 @@ Next: personal storage overview and its native usage/cleanup subpages. Enrollmen
 | No image | `/user/settings/actions/runners` | Runner names, UUIDs, labels, ownership and live status are the relevant visuals; source-reviewed. |
 | No image | `/user/settings/actions/secrets` | Names, masked values and edit controls; no decorative scene. Source-reviewed. |
 | No image | `/user/settings/actions/variables` | Exact names/values and mutation controls; no decorative scene. Source-reviewed. |
-| Pending | `/user/settings/storage_overview` | Conditional on quotas; native caller/layout still needs review. |
+| No image | `/user/settings/storage_overview` | Native quota bars, subject totals and exceeded-limit indicators are the page visuals; source-reviewed. |
 
 | Status | Personal repository settings variant | Decision |
 | --- | --- | --- |
@@ -313,7 +313,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 | Pending | `/settings/actions/secrets` | Native Actions secrets |
 | Pending | `/settings/actions/variables` | Native Actions variables |
 | No image | `/settings/blocked_users` | Organization blocked users: actual identities, search and block/unblock controls take priority; source-reviewed. |
-| Pending | `/settings/storage_overview` | Storage overview, when quotas are enabled |
+| No image | `/settings/storage_overview` | Organization quota bars/totals/status are the relevant visuals; source-reviewed. |
 | Pending | `/settings/delete` | Organization deletion confirmation |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
@@ -522,3 +522,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Create: no image for a two-property form. Setup: no image ahead of the one-time credential warning, UUID/token and copyable configuration/daemon command. Edit: no image beside properties and the token-regeneration choice. Details: preserve actual active/idle/offline indicators, ownership, labels, version and task run/status/repository/commit history as the visual information.
 - These four decisions are source-based. Actions was not enabled and no runner or token was created to manufacture a screenshot. Registration/setup commands were read as source only, not executed. Other owner layouts remain pending; shared partial rows retain that distinction.
 - No source changes or tests needed for these assessments.
+
+### Personal and organization storage overview
+
+- Read both native owner wrappers and the complete `shared/quota_overview.tmpl` from the running binary. Each page uses its existing owner settings layout and the same quota renderer, with owner-specific explanatory text.
+- No generated illustration for either owner. Quota group/rule names, used/limit values, native acceptable/exceeded icons, colored subject bars and expandable per-subject totals directly explain storage. Additional decoration would compete with those meaningful visuals.
+- No separate cleanup link or cleanup subpage appears in these inspected templates; no such route is inferred. Quota-disabled and empty-group cases retain the same source layout without invented state graphics.
+- Source-based assessment only: the fixture navbar did not expose quota storage and no configuration was changed to enable it. No usage, quota, file or account mutation performed; no runtime quota rendering or passing runtime validation claimed. No source changes/tests needed.
