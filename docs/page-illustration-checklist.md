@@ -479,4 +479,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Focused offline shared-presentation test passed; local templates reloaded. Initial token-creation desktop capture (before restoring its existing presentation classes) inspected at `.artifacts/screenshots/capture-Adtqrc/001.png` (1440×1000): no artwork, resource and scope controls visible. No token generated.
 - OAuth edit has source evidence only: no existing fixture application is available, and none was created. Native edit verification remains pending. Secret regeneration/display, form submission and mobile token rendering were not exercised.
 
-- Follow-up diff review caught accidental replacement of existing token-page presentation classes while reading stock content. Restored those classes and attribution; final native capture remains pending.
+- Follow-up diff review caught accidental replacement of existing token-page presentation classes while reading stock content. Restored those classes and attribution; final native captures are recorded below.
+
+### Final token creation capture after presentation restoration
+
+- Re-ran the focused shared-presentation test successfully and reloaded local templates after restoring existing token-page classes.
+- Inspected `.artifacts/screenshots/capture-Rtrb3T/001.png` (1440×1000) and `capture-GCYOXS/001.png` (390×844), using `--scroll-top`. Decorative artwork is absent; desktop resource boundaries and permission rows retain their original Soda styling. Mobile header/navigation fit; the form remains below the viewport. These supersede the earlier token-page capture for final presentation evidence.
+- No token name, scope, resource selection or account state changed; no token generated. Native OAuth edit verification remains pending independently.

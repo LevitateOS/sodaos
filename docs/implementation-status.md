@@ -42,7 +42,7 @@ enrollment capture remains unperformed. Focused shared-presentation tests passed
 Keys artwork was retained and verified on desktop/mobile; native SSH, GPG and
 principal subpanels were source-reviewed without added decoration. Applications landing artwork was retained and verified on desktop/mobile;
 OAuth editing and token creation now suppress inherited decoration; token
-creation initial desktop rendering was checked; restored presentation classes need a final capture and focused shared-presentation tests
+creation final desktop/mobile rendering was checked after restoring its existing presentation classes and focused shared-presentation tests
 passed. Native OAuth edit verification remains pending; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
