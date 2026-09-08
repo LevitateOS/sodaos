@@ -194,7 +194,12 @@ try {
     const menu = p.locator('details').filter({has: p.locator('a[data-url="/user/logout"]')});
     await menu.locator('summary').click();
     assert(!interrupted);
-    await Promise.all([p.waitForURL(url => url.pathname !== input.repository_path), menu.locator('a[data-url="/user/logout"]').click()]);
+    const response = p.waitForResponse(res => new URL(res.url()).pathname === '/user/logout' && res.request().method() === 'POST');
+    // Native SSE and the link action both navigate on logout. Do not attach a
+    // click navigation waiter to one of those competing native navigations.
+    await menu.locator('a[data-url="/user/logout"]').click({noWaitAfter: true});
+    assert.equal((await response).status(), 200);
+    await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('a[href="/user/login"]'));
   }
   async function oauth(index) {
     assert(!interrupted);
@@ -308,16 +313,21 @@ try {
   stage = 'second guarded native page';
   const other = await guardedPage();
   await other.goto(repoURL);
+  await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
+  assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
+  assert.equal(environmentReads, beforeSwitch);
   stage = 'native logout in second page';
   await nativeLogout(other);
   stage = 'native second-account login';
   await nativeLogin(other, 1);
   stage = 'return to stale native page';
   await page.bringToFront();
-  await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
-  assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
   assert.equal(environmentReads, beforeSwitch);
-  await page.locator('#sodaspaces-reload').click();
+  // Forgejo's native logout broadcast may already have navigated this tab home.
+  // Do not suppress its worker/events or pretend it retained the old document.
+  result.native_logout_navigation = new URL(page.url()).pathname !== input.repository_path;
+  if (result.native_logout_navigation) await page.goto(repoURL + '#sodaspaces');
+  else await page.locator('#sodaspaces-reload').click();
   await settled();
   assert.match(await page.locator('#sodaspaces-status').innerText(), /identities do not match/);
   assert.equal(environmentReads, beforeSwitch);

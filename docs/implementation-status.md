@@ -422,7 +422,14 @@ logout denial checks, then failed its overly strict keyboard assertion. Native
 Chromium permits Tab to browser chrome (not background page controls); this correctly
 invalidates/clears Soda. Native close/focus-return events are asynchronous. The probe
 now permits that browser behavior while asserting no underlying-page focus, data
-clearing and explicit reload, and waits for the actual close-event focus return. Full native build/stage, installed checks,
+clearing and explicit reload, and waits for the actual close-event focus return.
+Probes `e1c0c54`/`f3948c3` reached account switching after passing those checks and
+360/1280-pixel light/dark layout. Native logout diagnosis identified competing link
+and SSE navigations, not a Soda account error. Stock `SignOut` broadcasts logout;
+its notification/stopwatch workers navigate session tabs home. The probe now checks
+blur clearing before logout, waits for actual native sign-out without a competing
+click-navigation waiter, and explicitly revisits the repository if upstream took
+the old page away. Native workers, navigation and beforeunload remain unmodified. Full native build/stage, installed checks,
 retained-state rehearsal and cutover remain unperformed.
 
 ## Remaining work and permission boundary
