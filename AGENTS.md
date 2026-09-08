@@ -30,6 +30,15 @@ no builder appliance installation, retained VM/project mutation, global trust or
 host-network/security-policy change, unrelated provider mutation or cleanup is
 implied. See `docs/implementation-status.md` for actual execution and failures.
 
+The user subsequently gave standing implementation/testing approval for this
+planned work. Native x86_64 build/check/export and the new isolated delivery fixture
+at `.artifacts/delivery-ee8091a/` passed for `ee8091a`; the build/worktree/export are
+retained under `.artifacts/stage-validation-ee8091a/` and `.artifacts/worktrees/`.
+Step 3's bounded read-only exit is satisfied; step 4's explicit access actions are
+next. Routine local implementation/testing does not need repeated permission.
+Preserve retained data, credentials, fixtures and evidence; standing testing approval
+is not an instruction to erase them or silently perform appliance cutover.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
@@ -63,8 +72,8 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The read-only hook/drawer/context caller passed
-  its isolated local x86_64 browser journey; actual-stage/delivery checks and mutation
-  controls remain pending. Source has same-origin `/-/soda/` routing/scoped cookies,
+  its native x86_64 build/stage/export and isolated exported-payload browser checks;
+  explicit mutation controls remain next. Source has same-origin `/-/soda/` routing/scoped cookies,
   expected-actor API guards, schema-v5 login cancellation and OAuth repository/actor
   context. The actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and

@@ -5,8 +5,9 @@ Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 and [handoff](implementation-status.md). The read-only hook/drawer/context caller
 is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
 The isolated x86_64 authenticated native-page → Soda browser journey now passes,
-including real tab/BFCache transitions. Actual-stage/install and existing-environment
-validation remain separate; source findings and DOM doubles are not native proof.
+including real tab/BFCache transitions. Native x86_64 stage/export checks and a
+browser run using exported UI/branding and the built dashboard image also passed at
+`ee8091a`. Appliance install and existing-environment validation remain separate.
 
 ## Verified source surface
 

@@ -5,7 +5,7 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | Read-only hooks/drawer and real isolated x86_64 browser journey passed; actual-stage/delivery checks and mutation controls remain pending. Both standalone frontends remain removed |
+| Soda UI source | Step-3 read-only source, real x86_64 build/stage/export checks and exported-payload browser journey passed at `ee8091a`; step-4 mutation controls are next. Both standalone frontends remain removed |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
@@ -443,13 +443,58 @@ browser/tool identity and probe source hashes are retained separately. Both full
 passes observed real BFCache. Documentation checks covered 55 Markdown files,
 240 local links and 33 anchors with no errors; whitespace checks passed.
 
+## Read-only native stage and exported delivery closure
+
+The user gave standing implementation/testing approval for this planned work.
+Executed the production `scripts/build-native.sh x86_64` and
+`scripts/check-native.sh x86_64` in a fresh clean detached `ee8091a` worktree at
+`.artifacts/worktrees/stage-ee8091a/`. Both exited 0. This built all native commands,
+Cockpit, Tea, project/dashboard images and the four OCI archives, fetched locked
+runner inputs, staged and sealed the actual payload. No placeholder stage was used.
+
+The aggregate verified that exact stage before/after checks: Go suite, 46 Node
+tests, Cockpit TypeScript and 60 tests, 36 build fixtures and **11 actual-stage
+checks** passed. Separate uncached web/store/Forgejo/config/nativebuild races passed.
+The exported bundle at `.artifacts/stage-validation-ee8091a/export/x86_64/` verified
+before and after browser use. A mistaken first verifier invocation at the bundle
+root failed with exit 127; its log remains. The correct `tools/soda-artifacts`
+invocations passed. No source/product correction or dependency-baseline edit was
+needed. Actual mutable package resolution is recorded by the build; the new project
+image is not granted the older installed runtime's lifecycle/SSH/workload acceptance.
+
+A **new** retained local delivery fixture, `.artifacts/delivery-ee8091a/`, used the
+export's readonly templates/assets/branding and Caddy recipe, stock Forgejo/Caddy
+images matching exported OCI config IDs, and the **built dashboard image at its
+configured UID 2000**, read-only root with no capabilities. Rootless shared network/
+user namespaces and only `127.0.0.1:32443` published; no builder appliance install.
+Fixture-only configuration, new native users/repository/OAuth client and TLS were
+initialized through native CLI/official APIs. No helper is connected. The previous
+local fixture and retained `soda-test` installation/projects were untouched.
+
+The exact `ee8091a` product-owned browser journey exited 0 against that delivered
+payload: both users' real OAuth/consent/identity/cookie/logout flows, real native
+blur/stale-tab and BFCache restoration, native unsaved form preservation, keyboard/
+backdrop/focus and responsive light/dark rendering passed. Native `soda-auto` default
+and its served stylesheet were separately verified against the export. Three native
+environment observations were **absent**, not running/stopped/incomplete proof.
+Executed backend `/proc/1/exe` matches the exported binary; runtime image IDs match
+exported OCI configs. Read-only Soda database inspection found fresh schema v5 and
+zero projects, memberships and development keys; no Forgejo database inspection.
+
+Evidence: `.artifacts/stage-validation-ee8091a/` (build/check/race/export logs and
+manifest) and `.artifacts/delivery-ee8091a/` (private native result, artifact/image/UID/
+port/theme bindings, inputs and profiles). Both fixtures' services, all worktrees,
+outputs and failures remain retained. **Step 3's bounded x86_64 read-only exit is
+satisfied; step 4 is next.** This is not first-install/activation, retained-state
+migration/cutover, existing-project access, full product/release or aarch64 acceptance.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring
   native-page context; no installed acceptance is inferred from local test results.
-- Complete actual-stage/delivery validation of the read-only integration; its
-  isolated browser journey now passes. Keep mutation controls blocked until step 3's
-  exit, then implement explicit create/join/key/connection and the separate terminal.
+- Implement step 4's explicit stable-ID create, public-key save, join and own
+  connection controls; the read-only step-3 gate passed at the bounded scope above.
+  Existing-account terminal work remains separate.
   The verified template hook alone is not this integration. Stop if it needs a fork.
 - Rehearse exact candidate/config/grants/populated-state preservation before a
   separately approved cutover; finish fresh/populated native product proof and
@@ -460,10 +505,11 @@ passes observed real BFCache. Documentation checks covered 55 Markdown files,
   [actual-artifact licensing/source obligations](licensing.md). Optional media and
   incomplete outside helper ports are not product gates.
 
-Local source builds/tests and the exact new isolated fixture above are authorized.
-The retained VM's older fixture/reboot grants remain used; this does not authorize
-its restart/deployment/migration, unrelated provider mutation, routing, destructive
-cleanup or other targets. Recorded routes and agents are not promises of liveness.
+Standing implementation/testing approval now covers this planned work; local native
+build/stage/export and isolated delivery testing proceeded under it. Preserve all
+retained roots, credentials and evidence. It is not an instruction to erase data,
+change unrelated provider/host-network resources or silently cut over `soda-test`.
+Recorded routes and agents are not promises of liveness.
 
 ## Documentation history
 

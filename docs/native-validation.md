@@ -28,7 +28,8 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 
 `tests/installed/sodaspaces.mjs` is opt-in. The real isolated local journey passed;
 exact revisions, failures and scope are in the [handoff](implementation-status.md).
-This is not full step-3 delivery, installed appliance or release acceptance.
+The exported-payload run at `ee8091a` also passed step 3's bounded x86_64 delivery
+checks. This is not installed appliance, project-runtime or release acceptance.
 It uses stock 15.0.7, the candidate's served CSS/JS, real native forms and OAuth,
 then read-only drawer states. It never seeds cookies/sessions, substitutes responses,
 creates repositories/environments, joins or installs keys. Protective request

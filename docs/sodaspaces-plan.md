@@ -5,16 +5,17 @@ Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 Both old Soda frontends and duplicate forge adapters are removed. The read-only
 hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
 pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
-Step 2's backend repository reads/new-join checks are implemented. Step 3 still
-needs real staged-payload/delivery validation; steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+Step 2's backend repository reads/new-join checks are implemented. Step 3's bounded
+x86_64 exit passed at `ee8091a`: real native build/stage/export and an exported-payload
+browser journey. Steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
 locally tested. Neither is deployed to the retained appliance; the isolated
 browser proof does not establish installed security or preserved-state migration.
 
-**Next milestone:** finish actual-stage/delivery checks for the
-[read-only button/drawer in step 3](#3-deliver-the-read-only-button-and-drawer).
-Its implementation slices and completion checks are specified there; no new roadmap.
+**Next milestone:** [step 4's explicit access actions](#4-wire-the-explicit-access-actions).
+The read-only step-3 gate passed at the recorded local x86_64 scope; this does not
+establish appliance installation, project access or retained-state cutover.
 
 ## Selected approach
 
@@ -225,12 +226,12 @@ existing Linux accounts, keys, SSH sessions or workloads.
 
 ### 3. Deliver the read-only button and drawer
 
-**Browser journey passed; delivery exit incomplete:** the hook/assets, identity/read
-caller, focused source tests and bounded packaging/conflict fixtures are implemented.
-The [opt-in native journey](native-validation.md#read-only-sodaspaces-browser-probe)
-passed in the specifically approved isolated local fixture, with real OAuth, tab
-transitions and BFCache. Only absent-environment views were native in that run.
-Actual-stage/delivery checks still gate completion. Commit hook/assets with
+**Bounded x86_64 exit passed at `ee8091a`:** source/DOM/conflict tests, production
+native build/aggregate checks, actual stage/export verification and the
+[opt-in native journey](native-validation.md#read-only-sodaspaces-browser-probe)
+against exported hooks/branding and the built dashboard image passed. OAuth, native
+tab transitions and BFCache were real; only absent-environment views were native.
+This is not appliance installation or existing-project/runtime acceptance. Commit hook/assets with
 source tests first, packaging with fixtures next, then the opt-in native journey.
 Run native proof only with its separate approval. Read-only UI source may proceed
 before that proof; do not mark the milestone complete or enable step-4 controls

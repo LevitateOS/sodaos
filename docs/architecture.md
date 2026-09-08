@@ -8,8 +8,8 @@ account, key or runtime wiring themselves.
 [Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. A read-only native drawer
-is implemented and passed its isolated local browser journey; actual-stage/delivery
-validation and mutation controls remain pending.
+is implemented and passed native x86_64 build/stage and isolated exported-payload
+browser checks; explicit mutation controls remain next.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
 ## Topology

@@ -22,7 +22,7 @@ helper, flag, commit or report grants execution permission.
 | `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. Support adds verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
 | `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. The bundle carries only the verifier as a transport utility, not an installed program. |
-| Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; new native-page coverage remains pending. |
+| Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at the handoff's bounded local scope. |
 
 Reuse and licensing are recorded in [native support notices](native-support-notices.md). The predecessor checkout and `scripts/test-vm.sh` remain separate and preserved.
 
