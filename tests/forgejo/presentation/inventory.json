@@ -844,12 +844,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c8036f2e8513a29f950df757766de5d47887cb9ff9b6344cf55eb053655f1440",
+      "beforeRoleHash": "9e5730a96a35e76eca868eed554c8501b2298864e1fe2dbcd1597a2aba035dcb",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "tonal-empty-page-and-section-states"
+      "presentationReview": "section-headings-above-content"
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -7114,10 +7114,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "24b5f287ad1dea68331db4ecb35ebe1193d755a567e18c1dafc3a2b6912c3cf6",
+      "beforeRoleHash": "6c7ee4ffd89b96f8dd6ac43dd5ac55fda3ea568aa94c2409bf14b6c765f6c4f3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "section-headings-above-content",
       "taskComposition": "explanation and controls"
     },
     {
@@ -7184,10 +7184,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a2a35f397c94710a0d6851d7c8f18ad9740798faa1d3d6d35d394b6a742fd0a6",
+      "beforeRoleHash": "4f884955d74eeedbffacc3cd79ae45486afaf29e2c0f73b01d8fcb7634415617",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "section-headings-above-content",
       "taskComposition": "preference rows"
     },
     {
@@ -8241,8 +8241,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "46efe8eb464a0b4cd4a58d132e07bc9b2db3fcacb29fd9e6563df17841c5d421",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "fb5854c9d74bae7beb51e778477259874baac0a97b02ee843c4e2a775786bbe5",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8282,8 +8282,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "95e0c5b5e0e3a512509f6cc897dfadbda039951f6c0583d52a698fba875b6c8e",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "f0cfec1648a865ec574ef359ed62446c0720078d305542a97af914bdc1c0f747",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8317,10 +8317,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "40321809bbc142461b89bef49c5a242f3b35af6ce6ad7abe409ffe8b2d07d06e",
+      "beforeRoleHash": "4287e4c9c18ecc83c412c6937af6f8b2faf73dce5bf3aece027db77efa7a91b4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "section-headings-above-content",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8399,8 +8399,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "3095ceab57d395dfaf2009446fd49ecb99654c6a99dc7a7c66e00c8aa05ab8de",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "cf6ed75392cd14a7173499496ebedf936e169c7c3974842c7295561c1fdf6c47",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8441,8 +8441,8 @@
         "user/auth/webauthn_error",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "62598ec064e31cc252d08320ef000e6e5ed915ee32510a4d110434a2b99ec58c",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "4894cfb6e76fd61dcbdfe9fe918c3ce13b5156567357e1b6756ff90799397267",
       "taskComposition": "factor state and actions"
     },
     {

@@ -502,7 +502,7 @@ native destination and capability gate, including mandatory enrollment hiding
 ordinary navigation. Personal, Access & integrations, and Resources use Soda
 locale keys; native controls and warnings retain native translations.
 
-`account-settings.css` owns this shell, menus, open explanation/control sections
+`account-settings.css` owns this shell, menus, open sections with headings above their bodies
 and the 900px transition. `account-details.css` owns the portrait/editor grid,
 preference rows and credential/editor compositions. Shared presentation owns
 fonts, spacing and control roles. `soda-p-form` explicitly styles nested native
@@ -576,3 +576,13 @@ use the compact composition. These are open surfaces without enclosing cards or
 dividers. Native callers own empty conditions, translations and permitted actions;
 never add a create action to a naturally empty state such as Blocked users.
 Blocked-user lists and deploy-key sections now select these roles explicitly.
+
+
+Heading placement follows one rule: page titles precede the page, section headings
+precede their content, and introductory descriptions stay beneath the heading.
+Personal settings no longer use a left-hand explanation column or the obsolete
+`soda-settings-explained` role. `.soda-settings-section` owns a single-column
+composition with a 12px heading/body gap and 32px between sections at every width.
+Inventory actions remain beside headings on desktop and stack below on mobile.
+Content grids (portrait/editor, checklists and native label/value data) are not
+section-title columns and retain their task-specific arrangements.

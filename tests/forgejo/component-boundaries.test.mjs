@@ -22,6 +22,20 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
     }
 
+    await t.test('settings headings stay above their bodies at every width', async () => {
+      for (const width of [1440, 900, 899, 390, 320]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await render(`<main class="soda-page soda-settings"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></main>`);
+        const placement = await page.evaluate(() => {
+          const heading = document.querySelector('.soda-settings-section > h2').getBoundingClientRect();
+          const body = document.querySelector('.soda-settings-section-body').getBoundingClientRect();
+          return { above: heading.bottom <= body.top, aligned: Math.abs(heading.left - body.left) < 1, fits: document.documentElement.scrollWidth <= innerWidth };
+        });
+        assert.deepEqual(placement, { above: true, aligned: true, fits: true });
+      }
+      await page.setViewportSize({ width: 1654, height: 1000 });
+    });
+
     await t.test('page and compact empty states stay open and fit narrow layouts', async () => {
       for (const theme of ['light', 'dark']) {
         for (const width of [1440, 390, 320]) {

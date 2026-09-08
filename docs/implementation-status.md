@@ -1,5 +1,25 @@
 # Current handoff
 
+## Consistent section heading placement
+
+Revision `2026-09-08.19` removes personal settings explanation/title columns.
+Account, Appearance and all Security subpartials use one column: heading, then
+body, with a 12px gap and shared section spacing. The obsolete explained role
+and responsive exception were removed. Inventory heading actions stack below
+on mobile. Repository/organization/admin section titles already precede their
+content; their navigation and technical data grids remain unchanged. Native
+forms, notices, enrollment state and submission boundaries are preserved.
+
+Go Forgejo checks and 14 focused component checks passed, including heading/body
+placement at 1440/900/899/390/320px. All 11 native settings browser checks passed,
+including native heading placement, navigation and editor behavior. The obsolete
+blocked-users row selector now accepts its dedicated empty state. Verified screenshots of Account, Appearance,
+Security and Keys are under `.artifacts/section-headings/`; representative dark
+desktop and light mobile images were reviewed. Gallery fixtures use the same
+section roles. The known merged-footer inventory hash mismatch remains outside
+this change. Activation used only the existing local preview template reload;
+no account mutations or appliance rollout.
+
 ## Empty page and section presentation
 
 Local revision `2026-09-08.18` introduces a centered open empty-page treatment

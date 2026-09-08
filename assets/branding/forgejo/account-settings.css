@@ -27,11 +27,10 @@
 .soda-settings-disclosure { margin-block: 16px; }
 .soda-settings-disclosure > summary { color: var(--soda-page-link); cursor: pointer; min-height: 44px; padding-block: 12px; }
 .soda-settings-disclosure-body { margin-top: 12px; }
-.soda-settings .soda-settings-section { margin-block: 32px; min-width: 0; }
+.soda-settings .soda-settings-section { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin-block: 32px; min-width: 0; }
 .soda-settings .soda-settings-section:first-child { margin-top: 0; }
 .soda-settings .soda-settings-section > h2 { margin: 0; font: var(--soda-font-heading); }
 .soda-settings .soda-settings-section-body { min-width: 0; }
-.soda-settings-explained { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; }
 .soda-settings .soda-settings-editor { max-width: 720px; }
 .soda-settings .flex-list > .flex-item { background: transparent; border-radius: 0; border: 0; padding-block: 12px; gap: 16px; }
 .soda-settings .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
@@ -50,7 +49,6 @@
  .soda-settings-destinations { display: block; }
  .soda-settings-nav.is-enhanced .soda-settings-destinations { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: min(340px,calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; padding: 8px; }
  .soda-settings-nav.is-enhanced .soda-settings-menu, .soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { position: static; display: grid; width: auto; border: 0; box-shadow: none; padding: 0; }
- .soda-settings-explained { grid-template-columns: minmax(0,1fr); gap: 12px; }
  .soda-settings #soda-settings-title { margin-bottom: 24px; }
  .soda-settings-bar:has(.soda-settings-nav:not(.is-enhanced)) { display: block; }
 }
@@ -71,3 +69,9 @@
 .soda-settings .soda-webhook-provider { margin-top: 16px; }
 .soda-settings-inventory-actions { justify-content: flex-end; }
 .soda-settings-inventory-actions:empty { display: none; }
+
+/* Every section heading precedes its body; actions wrap below on mobile. */
+@media (max-width: 899px) {
+ .soda-settings .soda-settings-inventory-heading { flex-direction: column; align-items: flex-start; }
+ .soda-settings .soda-settings-inventory-heading > .ui.right { margin-left: 0; }
+}

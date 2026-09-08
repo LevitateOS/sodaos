@@ -2,7 +2,7 @@
 
 {{/* No account links, no way to add account links: Menu will not be shown. */}}
 {{if or .AccountLinks .OrderedOAuth2Names}}
-<section class="soda-settings-section soda-settings-explained">
+<section class="soda-settings-section">
 <h2>
 	{{ctx.Locale.Tr "settings.manage_account_links"}}
 	{{if .OrderedOAuth2Names}}

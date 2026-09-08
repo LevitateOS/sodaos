@@ -59,6 +59,9 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     const [response]=await Promise.all([page.waitForNavigation(),nav.locator(`a[href="${path}"]`).click()]);
     assert.equal(response.status(),200); assert.equal(new URL(page.url()).pathname,path);
     assert(await page.locator('#soda-settings-title').isVisible());
+    for (const section of await page.locator('.soda-settings-section:has(> h2)').all()) {
+     assert(await section.evaluate(el=>{ const title=el.querySelector(':scope > h2'); const body=title.nextElementSibling; return !body || title.getBoundingClientRect().bottom <= body.getBoundingClientRect().top; }), 'section heading must precede its body');
+    }
    }
   }
   await page.goto(origin+'/user/settings/account#password');await page.waitForSelector('[data-settings-editor][open]');assert(await page.locator('#old_password').isVisible());
@@ -68,7 +71,7 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
   await page.goto(origin+'/user/settings/applications/tokens/new');
   for (const select of await page.locator('.access-token-select').all()) assert(await select.evaluate(el=>el.getBoundingClientRect().height>=44));
   await page.goto(origin+'/user/settings/blocked_users');
-  assert.equal(await page.locator('.soda-blocked-users > .flex-item').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+  assert.equal(await page.locator('.soda-blocked-users > :is(.flex-item, .soda-empty)').first().evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
   await page.goto(origin+'/user/settings#avatar-settings');
   assert(await page.locator('[data-url$="/avatar/delete"]').evaluate(el=>el.getBoundingClientRect().height>=44));
   assert.deepEqual(errors,[]);
