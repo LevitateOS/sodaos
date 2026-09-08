@@ -267,14 +267,15 @@ try {
   for (let i = 0; i < 8; i++) {
     await page.keyboard.press('Tab');
     const focus = await drawer.evaluate(node => ({inside: node.contains(document.activeElement),
-      chrome: !document.hasFocus() && document.activeElement === document.body,
+      chrome: document.activeElement === document.body,
       stale: !document.getElementById('sodaspaces-reload').hidden,
       cleared: document.getElementById('sodaspaces-actor').textContent === ''}));
-    // Native Chromium permits browser-chrome focus, never background form focus.
+    // Chromium's chrome/body focus transition can briefly report hasFocus true.
+    // Require actual blur clearing there, and never allow background form focus.
     assert(focus.inside || focus.chrome);
     if (focus.chrome) { chromeFocus = true; assert(focus.stale && focus.cleared); }
   }
-  if (!await page.evaluate(() => document.hasFocus())) await page.keyboard.press('Tab');
+  if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Tab');
   assert(await drawer.evaluate(node => node.contains(document.activeElement)));
   stage = 'Escape and asynchronous focus return';
   await page.keyboard.press('Escape');
