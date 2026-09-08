@@ -702,7 +702,8 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 
 ### Approved login illustration verification
 
-- Retain the existing `login-papercraft.png` welcome/workstation scene. It is approved historical artwork with a different robot face; preserve it rather than regenerate it to match newer assets. New assets continue to use the dashboard identity reference.
+- Replacement verified on native localhost login at 1440×1000 in `.artifacts/screenshots/capture-G86HFA/001.png`: matching robot and clean transparent edges beside the unchanged form. The previous guest profile served a cached old image; a fresh guest profile verified the replacement. No form submitted. PNG-only change; no automated tests rerun.
+- Updated `login-papercraft.png` at the user's request to match the dashboard robot: navy face, cyan eyes, blue ears and no antenna. The welcome/workstation composition remains. Exact prompt and generation provenance are in `assets/branding/forgejo/login-art-prompt.md`. Earlier captures below show the superseded robot.
 - Full wrapper and Forgejo 15.0.7 `signin_inner` reviewed: internal-sign-in, password, remember-me, CAPTCHA, OAuth delegate, registration and recovery branches remain native. Delegated provider bodies were not re-audited here.
 - Native guest captures inspected: `.artifacts/screenshots/capture-l1irJf/001.png` (1440×1000) displays the complete scene beside the form; `.artifacts/screenshots/capture-qkriM7/001.png` (390×844) displays the complete form with artwork intentionally hidden by `login.css`. No clipped fields or image detected in these captures.
 - This verifies standalone login presentation only; account-linking/provider/error branches remain unobserved. No login submitted or credentials entered. Documentation-only change, no tests rerun.
