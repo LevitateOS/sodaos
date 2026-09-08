@@ -710,6 +710,7 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 
 ### Approved Explore illustration verification
 
+- User-requested replacement of `orgs-papercraft.png` matches both robots to the dashboard identity while retaining the collaborative workspace scene. Built-in generation prompts and provenance: `assets/branding/forgejo/orgs-art-prompt.md`. PNG verified as 1536×1024 RGBA with alpha 0–254. Native guest desktop capture `.artifacts/screenshots/capture-qglOdu/001.png` inspected: updated artwork fits with clean transparent edges. Previously recorded empty-state button-text defect persists, unrelated to this image replacement. No templates or CSS changed; automated tests not rerun for the PNG replacement.
 - Retain the existing repository/code-folder, people and organization-workspace illustrations. Reviewed all three Explore wrappers, people/organization branches, native navbar delegation and custom empty-state branches. Empty states need no second generated image beneath the existing page artwork.
 - Native desktop captures inspected: `.artifacts/screenshots/capture-0c67pa/001.png` repositories, `002.png` people and `003.png` organizations. Matching mobile captures: `.artifacts/screenshots/capture-nhV5sL/001.png` through `003.png` at 390×844. Each header image fits without clipping; directory/empty-state content stays separate.
 - Desktop `capture-0c67pa/004.png`, requested at `/explore/code`, displays the repository directory. It is not code-search verification; that row remains Integrated — verify.
