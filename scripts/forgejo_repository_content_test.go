@@ -122,7 +122,6 @@ func TestForgejoRepositoryContentStylesStayScoped(t *testing.T) {
 		".soda-wiki-editor",
 		".soda-wiki-revisions",
 		".soda-release-list",
-		".soda-release-editor",
 		".soda-wiki-view",
 	} {
 		if !strings.Contains(css, marker) {

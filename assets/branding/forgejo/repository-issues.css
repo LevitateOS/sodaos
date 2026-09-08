@@ -263,12 +263,6 @@
   accent-color: var(--soda-page-action);
 }
 
-.soda-milestone-editor .soda-milestone-form {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
 
 .soda-milestone-editor .soda-milestone-form .field.error :is(input,textarea) {
   border-color: var(--color-error-border);

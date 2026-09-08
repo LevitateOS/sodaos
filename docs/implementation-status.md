@@ -1,5 +1,24 @@
 # Current handoff
 
+## Shared repository form presentation
+
+Issue/PR composers and milestone, project, release and wiki forms now opt into
+the existing shared form controls. Repository creation/editor pages share their
+container width, open heading treatment, explanatory copy and divider spacing
+in `components-forms.css`. Removed competing wiki/release/project layout rules
+and file-editor header/commit-choice cards rather than layering another theme.
+Native templates, form actions, field names, editor internals and gates are unchanged.
+
+Focused Forgejo checks passed after updating the stylesheet-ownership assertion
+for release forms; the initial stale assertion failure was resolved by moving
+ownership, not changing the native-body checks. New-issue desktop capture was
+inspected (`.artifacts/screenshots/capture-cfXgkj/`); browser measurements verified
+1440px/390px widths without horizontal overflow and one issue form. The separate
+manual screenshot profile was signed out: milestone/release captures showed login
+and wiki/project showed 404 (`capture-xXavbV`), not successful form evidence.
+Remaining permission-restricted forms and dark rendering need native visual review.
+Local templates reloaded for CSS versions only; no submissions or deployment.
+
 ## Reduce decorative cards and dividers
 
 Shared toolbar, list, empty-state and form-section frames are removed. Native

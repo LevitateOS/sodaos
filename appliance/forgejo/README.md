@@ -102,6 +102,11 @@ Prefer open sections over enclosing cards. Use gaps for section separation;
 reserve borders for controls, data rows, alerts and surfaces that need a boundary.
 Removing a decorative divider must preserve its spacing.
 
+Repository issue/PR, milestone, project, release, wiki and file-editor forms
+share layout and control presentation in `components-forms.css`. Page styles
+should retain only specialized editor behavior; avoid reintroducing per-page
+widths, header cards or independent form-control scales.
+
 Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
 list rows use 16px vertical padding, and section gaps generally use 16–24px.
 Use the shared components before adding page-specific spacing; preserve readable

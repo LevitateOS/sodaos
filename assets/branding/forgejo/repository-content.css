@@ -23,10 +23,6 @@
 .soda-wiki-start h2,
 .soda-wiki-pages > .ui.container > h2,
 .soda-wiki-revisions h2,
-.soda-wiki-editor > .ui.container > .ui.header {
-	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
-}
 
 .soda-wiki-start p {
 	margin: 12px auto 18px;
@@ -63,27 +59,8 @@
 	font: 400 12px/1.5 "IBM Plex Mono", monospace;
 }
 
-.soda-wiki-editor > .ui.container {
-	max-width: 960px !important;
-	padding-top: 24px;
-}
 
-.soda-wiki-editor > .ui.container > .ui.header {
-	margin-bottom: 0;
-	padding: 16px var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
-	background: var(--soda-page-surface);
-	font-size: 24px;
-}
 
-.soda-wiki-editor > .ui.container > form {
-	padding: var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-top: 0;
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-}
 
 .soda-wiki-editor > .ui.container > form > .help {
 	margin: -6px 0 16px;
@@ -118,21 +95,8 @@
 	font-family: "Fraunces Variable", Georgia, serif;
 }
 
-.soda-release-editor > .ui.container {
-	padding-top: 24px;
-}
 
-.soda-release-editor > .ui.container > form {
-	padding: 0;
-	border: 0;
-	border-radius: 0;
-	background: transparent;
-}
 
-.soda-release-editor > .ui.container > h2 {
-	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
-}
 
 .soda-wiki-view .repo-button-row {
 	gap: 12px;

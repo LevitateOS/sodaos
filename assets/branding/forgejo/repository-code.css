@@ -1,6 +1,6 @@
 /* Stock Forgejo code workflows. Native editors, diffs, polling and actions retain
    their own behavior; these adapters use the established Soda primitives. */
-.soda-code :is(.repo-editor-header,.soda-code-finder,.soda-code-branch-picker) {
+.soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
   gap: 12px;
   padding: 16px var(--soda-panel-inset);
   border: 1px solid var(--soda-page-edge);
@@ -202,13 +202,16 @@
   color: var(--soda-page-text);
 }
 .soda-code-editor .quick-pull-choice {
-  padding: 16px;
-  margin-block: 16px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-canvas);
+  padding: 0;
+  margin-block: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .soda-code-editor .repo-editor-header {
+  padding: 0;
+  border: 0;
+  background: transparent;
   margin-bottom: 16px;
 }
 .soda-code-editor .repo-editor-header .breadcrumb {
@@ -381,7 +384,7 @@
 }
 
 @media (max-width: 700px) {
-  .soda-code :is(.repo-editor-header,.soda-code-finder,.soda-code-branch-picker) {
+  .soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
     padding: 16px;
   }
   .soda-code-editor #editor-bar { flex-wrap: wrap; }
