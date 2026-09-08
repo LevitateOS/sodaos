@@ -380,7 +380,7 @@ try {
   stage = 'real back-forward restoration';
   await open();
   await page.goto(origin.origin + '/');
-  await page.goBack();
+  await page.goBack({waitUntil: 'commit'});
   result.bfcache_restored = await page.evaluate(() => window.sodaspacesProbeRestored === true);
   if (result.bfcache_restored) {
     // An open dialog is retained by BFCache, but its private data must not be.
