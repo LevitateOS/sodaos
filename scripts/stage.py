@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Stage existing native build outputs plus configuration; does not build or install."""
-import argparse, os, platform, shutil
+import argparse, hashlib, json, os, platform, shutil
 from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
@@ -71,7 +71,8 @@ for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
 # Original Sodaspaces hooks/assets; no upstream template tree or frontend build.
 for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'):
+             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
+             'public/assets/sodaspaces-terminal.css', 'public/assets/sodaspaces-terminal.js'):
     target = copy(source / 'appliance/forgejo' / name,
                   '/var/lib/soda/forgejo/gitea/' + name, 0o644)
     # mkdir inherits a private builder umask. These public paths must be readable
@@ -80,6 +81,14 @@ for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
         if parent == stage:
             break
         parent.chmod(0o755)
+# Exact local upstream distributions; no runtime/CDN fetch or template coupling.
+for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text()):
+    for asset in item['files']:
+        src = build / 'terminal-assets' / asset['file']
+        if hashlib.sha256(src.read_bytes()).hexdigest() != asset['sha256']:
+            p.error('terminal asset differs from locked upstream bytes')
+        target = copy(src, '/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/' + asset['file'], 0o644)
+        target.parent.chmod(0o755)
 copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)

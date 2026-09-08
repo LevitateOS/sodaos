@@ -1,5 +1,6 @@
 """Production staging/preflight in temporary filesystems; never host installation."""
 import ast
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-         'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js')
+         'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
+         'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css')
+VENDOR_FILES = tuple('public/assets/soda-terminal/' + f['file'] for item in json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text()) for f in item['files'])
 PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
 
@@ -104,12 +107,22 @@ class SodaspacesPackaging(unittest.TestCase):
             (checkout / 'scripts').mkdir()
             shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
             (checkout / 'assets').symlink_to(ROOT / 'assets', target_is_directory=True)
-            (checkout / 'appliance').symlink_to(ROOT / 'appliance', target_is_directory=True)
+            shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
             (checkout / 'cmd/soda-dashboard').mkdir(parents=True)
             build = checkout / '.artifacts/native/x86_64'
             (build / 'bin').mkdir(parents=True)
             (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
             (build / 'github-actions-runner').mkdir()
+            # Synthetic bytes and lock only inside this temporary checkout.
+            (build / 'terminal-assets').mkdir()
+            lock_path = checkout / 'appliance/terminal-assets.lock.json'
+            lock = json.loads(lock_path.read_text())
+            for item in lock:
+                for asset in item['files']:
+                    data = ('synthetic asset ' + asset['file']).encode()
+                    (build / 'terminal-assets' / asset['file']).write_bytes(data)
+                    asset['sha256'] = hashlib.sha256(data).hexdigest()
+            lock_path.write_text(json.dumps(lock))
             for page in ('tailscale', 'runners'):
                 (checkout / 'cockpit/dist' / f'soda-{page}').mkdir(parents=True)
             previous = os.umask(0o077)
@@ -127,6 +140,12 @@ class SodaspacesPackaging(unittest.TestCase):
                     if parent == stage:
                         break
                     self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
+
+            for name in VENDOR_FILES:
+                p = stage / PREFIX.removeprefix('rootfs/') / name
+                self.assertEqual(p.read_bytes(), ('synthetic asset ' + Path(name).name).encode())
+                self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
+                self.assertEqual(stat.S_IMODE(p.parent.stat().st_mode), 0o755)
 
     def test_original_source_notices_in_metadata(self):
         module = runpy.run_path(str(ROOT / 'scripts/native-build-info.py'))
@@ -166,10 +185,10 @@ class SodaspacesPackaging(unittest.TestCase):
             return os.stat_result(values)
         with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'stat', root_owned):
             root = Path(tmp)
-            payload = [PREFIX + name for name in FILES]
+            payload = [PREFIX + name for name in FILES + VENDOR_FILES]
             check(root, payload)
             self.assertEqual(list(root.iterdir()), [])
-            for name in FILES:
+            for name in FILES + VENDOR_FILES:
                 target = root / PREFIX.removeprefix('rootfs/') / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text('operator bytes')

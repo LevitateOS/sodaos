@@ -38,6 +38,7 @@ type Session struct {
 	CSRF string
 	// Internal cancellation boundary, never serialized as browser identity.
 	ContextID string
+	Expires   int64 // earlier of session/login-context expiry; never serialized as credentials
 }
 
 func Open(path string) (*Store, error) { return open(path, nil) }
@@ -183,7 +184,7 @@ func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf
 }
 func (s *Store) Session(ctx context.Context, token string) (Session, error) {
 	var v Session
-	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf,sessions.context_id FROM sessions JOIN users ON users.id=sessions.user_id JOIN login_contexts c ON c.id=sessions.context_id WHERE sessions.token=? AND sessions.expires>? AND c.expires>?`, hash(token), time.Now().Unix(), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF, &v.ContextID)
+	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf,sessions.context_id,MIN(sessions.expires,c.expires) FROM sessions JOIN users ON users.id=sessions.user_id JOIN login_contexts c ON c.id=sessions.context_id WHERE sessions.token=? AND sessions.expires>? AND c.expires>?`, hash(token), time.Now().Unix(), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF, &v.ContextID, &v.Expires)
 	return v, err
 }
 func (s *Store) DeleteSession(ctx context.Context, token string) error {

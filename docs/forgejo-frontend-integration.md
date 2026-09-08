@@ -97,8 +97,11 @@ Closing synchronously invalidates stale reads/results, including before the brow
 queued close event; it does not undo an in-flight native mutation. Reopen waits for
 an outstanding action, then offers a safe Refresh. Otherwise it reads actual state. Existing join is not later key propagation.
 Start/stop/restart/delete, resource charts, member administration and a browser IDE
-are not needed here. The separately requested existing-account terminal remains a
-follow-up, not a prerequisite for SSH access.
+are not needed here. The existing-account terminal now has a protected backend and
+self-contained component in source, not deployed/native-page proof or a prerequisite
+for SSH. Its [mount/dispose contract](terminal-integration.md) leaves all template
+placement/layout with the separate override owner; no terminal-specific template
+changes or automatic opening are selected.
 
 ## Integration limits
 

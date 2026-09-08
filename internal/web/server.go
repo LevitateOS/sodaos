@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
@@ -13,12 +14,16 @@ import (
 )
 
 type Server struct {
-	Config        config.Config
-	Store         *store.Store
-	Forgejo       *forgejo.Client
-	Host          *host.Client
-	mux           *http.ServeMux
-	providerLocks providerLocks
+	Config         config.Config
+	Store          *store.Store
+	Forgejo        *forgejo.Client
+	Host           *host.Client
+	mux            *http.ServeMux
+	providerLocks  providerLocks
+	terminalMu     sync.Mutex
+	terminals      map[terminalKey]*browserTerminal
+	terminalClosed bool
+	terminalWG     sync.WaitGroup
 }
 
 func New(c config.Config, db *store.Store) *Server {

@@ -143,7 +143,12 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 	if oldErr == nil {
 		oldSession = old.Value
 	}
+	s.terminalMu.Lock()
 	login, err := s.Store.ConsumeOAuth(r.Context(), state, oldSession)
+	if err == nil {
+		s.cancelTerminals("", oldSession)
+	}
+	s.terminalMu.Unlock()
 	if err != nil {
 		http.Error(w, "Sign-in expired or was already used.", 400)
 		return

@@ -179,7 +179,13 @@ func (s *Server) apiLogout(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if !decodeAPIObject(w, r, &struct{}{}) {
 		return
 	}
-	if err := s.Store.EndLoginContext(r.Context(), v.ContextID); err != nil {
+	s.terminalMu.Lock()
+	err := s.Store.EndLoginContext(r.Context(), v.ContextID)
+	if err == nil {
+		s.cancelTerminals(v.ContextID, "")
+	}
+	s.terminalMu.Unlock()
+	if err != nil {
 		jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Could not end this session.")
 		return
 	}

@@ -74,8 +74,11 @@ been newly packaged or installed by moving these notes.
 The native terminal source adds `github.com/coder/websocket`, pinned with real module
 checksums in `go.mod`/`go.sum`. Its v1.8.15 `LICENSE.txt` is ISC, not MIT; the verbatim
 copyright/permission/warranty text is included in root `NOTICE`, which the existing
-bundle already carries. No xterm distribution has been added yet. This records the
-new dependency's notice, not complete binary/runtime license closure or deployment.
+bundle already carries. Xterm 6.0.0 and fit 0.11.0 are now pinned in
+`appliance/terminal-assets.lock.json` with real archive/file integrity. The native
+build fetches their exact ES-module/CSS distributions and stages both verbatim MIT
+notices beside them; no CDN or runtime download is used. This records dependency
+notices, not complete binary/runtime license closure or deployment.
 
 ## Upgrade research is not a deployment selection
 

@@ -38,8 +38,11 @@ func main() {
 	server := &http.Server{Addr: c.Listen, Handler: app, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	stopped := make(chan struct{})
 	go func() {
+		defer close(stopped)
 		<-ctx.Done()
+		app.CloseTerminals()
 		shutdown, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		server.Shutdown(shutdown)
@@ -48,4 +51,6 @@ func main() {
 		slog.Error("HTTP server stopped", "error", err)
 		os.Exit(1)
 	}
+	stop()
+	<-stopped
 }

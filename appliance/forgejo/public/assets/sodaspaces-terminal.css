@@ -1,0 +1,7 @@
+/* Component-only styles. The template owner chooses dialog placement/width. */
+.soda-terminal { display: flex; flex-wrap: wrap; gap: .6rem; min-width: 0; }
+.soda-terminal > p { flex-basis: 100%; margin: 0; }
+.soda-terminal > button { font: inherit; padding: .4rem .7rem; }
+.soda-terminal-screen { flex-basis: 100%; min-width: 0; height: min(60vh, 36rem); min-height: 12rem; padding: .5rem; background: #000; }
+.soda-terminal-screen[hidden] { display: none; }
+.soda-terminal-screen .xterm { height: 100%; }

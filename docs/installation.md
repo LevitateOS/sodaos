@@ -69,11 +69,15 @@ Activation applies file ownership for the unprivileged dashboard, retains operat
 
 ### Sodaspaces customization delivery
 
-The source stage includes only `templates/custom/{header,footer}.tmpl` and
-`public/assets/sodaspaces.{css,js}` beneath `/var/lib/soda/forgejo/gitea/`, alongside
-existing branding. Files are 0644, new readable directories 0755; the installer
+The source stage includes `templates/custom/{header,footer}.tmpl`,
+`public/assets/sodaspaces.{css,js}`, the independent `sodaspaces-terminal.{css,js}`
+component and five exact renderer/CSS/MIT-notice files under `public/assets/soda-terminal/`
+beneath `/var/lib/soda/forgejo/gitea/`, alongside existing branding. The terminal
+module does not alter templates/layout; see its [mounting contract](terminal-integration.md).
+The build fetches locked upstream distributions into its own `terminal-assets` output;
+staging verifies the file hashes again and never downloads at runtime. Files are 0644, new readable directories 0755; the installer
 applies Forgejo UID/GID 1000 to the exact new template paths. Bundle verification
-requires the four files and source LICENSE/NOTICE; it rejects arbitrary templates.
+requires those exact files and source LICENSE/NOTICE; it rejects arbitrary templates.
 First-install preflight refuses occupied hook/asset destinations, including
 symlinks, before host writes. Resolve conflicts explicitly, never merge or overwrite
 operator hooks automatically. This is not an upgrade interface. Actual CustomPath,

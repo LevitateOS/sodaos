@@ -6,7 +6,7 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus delivered **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback and separately approved retained cutover passed, with native browser and own-access observations. Both standalone frontends remain removed |
-| Browser terminal | Fixed native helper/launcher/client passed bounded x86_64 existing-account/PTY/teardown and SSH-preservation proof. Public terminal endpoint/UI remain unimplemented; installed helper unchanged |
+| Browser terminal | Native helper passed bounded x86_64 PTY/teardown/SSH-preservation proof. Protected browser transport and independent drawer terminal component/locked renderer packaging are source implemented and locally tested. Template mounting, genuine combined browser proof and deployment remain pending; installed helper unchanged |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Built `bdbce8e` dashboard/strict-config runners CLI, native hooks and namespaced proxy/config on `soda-test`; schema v5 and stock Forgejo 15.0.7. Unchanged helper/default project image/other native components retain prior `8b823db` provenance; old frontends are no longer served |
@@ -865,6 +865,48 @@ Final local regressions passed: full uncached Go suite, host/command race tests,
 suite skips the explicitly opted-in native probe. Only the native package test
 binaries were built/transferred; no whole-appliance build/stage/export, renderer
 dependency installation or deployment ran during this proof.
+
+## Protected browser terminal and independent drawer component
+
+Implemented `internal/web/terminal.go`: exact-origin/query/subprotocol/fetch guards,
+pre-upgrade session/own-membership checks, bounded first-message actor/repository/CSRF,
+fresh acting-provider consent/visibility, original membership login, one pending/live
+slot per login-context/project and bounded frame/queue/write/lifetime handling. Native
+dispatch and lease renewal serialize with local logout/rotation; pending authorization
+is cancelled too. Session reads now expose their existing minimum expiry internally
+(no migration). Shutdown closes hijacked streams before DB shutdown. No browser
+heartbeat, automatic join/start/reconnect or copied provider authority was added.
+
+The self-contained `sodaspaces-terminal.js`/CSS component supplies explicit Open and
+Disconnect, local lazy xterm/fit, bounded Unicode input/output, suppressed OSC clipboard/
+link/title actions and full-page stale/reload behavior. It neither discovers nor edits
+Forgejo markup. **The other agent owns all template overrides/layout**; the small
+[mount/dispose contract](terminal-integration.md) is the only integration surface.
+Existing hook templates, navigation and original drawer implementation were untouched.
+Host template mounting remains intentionally unwired, not a second standalone UI.
+
+Actual npm archive integrity and per-file hashes pin xterm 6.0.0/fit 0.11.0. Native
+build/stage/bundle/first-install source now carries seven new component/distribution/
+MIT-notice files, verifies upstream hashes and refuses occupied exact destinations.
+This adds no bundler/CDN/runtime download or arbitrary-template adoption. Local
+fetches wrote only ignored `.artifacts/browser-terminal/vendor`.
+
+Local full Go, focused web/host/store/command/nativebuild races, **104 Node tests**
+(including standalone DOM/renderer doubles) and **51 Python build tests** passed.
+New server cases exercise malformed first auth, actor/association/CSRF/provider and
+pre-upgrade denials with zero helper calls, original login, duplicate refusal, pending
+and active logout/shutdown, OAuth rotation, logout during fresh authority, and bad
+controls/browser-heartbeat refusal. DOM cases cover inert mounting, Unicode, scoped
+keyboard handling, stale/late events, disposal and bounded renderer backlog. Packaging
+tests exercise the real stage/preflight in synthetic temporary trees; they are not a
+new real native-stage result. Evidence: `.artifacts/browser-terminal/`.
+
+No VM/installed service, retained project, account/key/provider or routing action ran
+in this source turn. No template override was changed, whole-appliance bundle built,
+Chromium/native OAuth journey executed or deployment performed. Real combined
+browser/proxy/helper lifecycle proof and native candidate delivery remain required;
+prior native-only proof is not public endpoint acceptance. Continue the documented
+mounting coordination and integrated proof, not a retained rollout or template fork.
 
 ## Remaining work and permission boundary
 

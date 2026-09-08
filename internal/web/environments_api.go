@@ -21,6 +21,7 @@ import (
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 func (s *Server) environmentRoutes() {
+	s.mux.HandleFunc("/api/environments/{id}/terminal", s.apiTerminal)
 	s.mux.HandleFunc("/api/environments", s.apiProtected(s.apiEnvironments, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}", s.apiProtected(s.apiEnvironment, "GET"))
 	s.mux.HandleFunc("/api/environments/{id}/join", s.apiProtected(s.apiJoinEnvironment, "POST"))

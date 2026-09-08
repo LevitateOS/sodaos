@@ -551,12 +551,20 @@ observations. This does not accept the entire appliance or independent aarch64 w
 
 ## Next item: existing-account browser terminal
 
-**Native boundary passed bounded x86_64 fixture proof; public transport/UI next.**
+**Native boundary proved; protected transport/component source implemented.**
 The fixed launcher and private helper stream/client passed actual existing-account,
 PTY/profile, EOF/lease/owned-helper-loss and independent SSH-preservation checks on
-`soda-native-spaces-658f2af`, with no installed helper replacement. The public endpoint
-and UI remain unwired; xterm assets have not been added. See the [proof and remaining
-scope](implementation-status.md#approved-native-terminal-fixture-proof).
+`soda-native-spaces-658f2af`, with no installed helper replacement. Protected browser
+transport, a self-contained terminal component and pinned local renderer packaging
+are now source implemented, not deployed or genuinely browser-proven. See the [native
+proof](implementation-status.md#approved-native-terminal-fixture-proof) and
+[component contract](terminal-integration.md).
+
+**Parallel ownership:** another agent owns all Forgejo template overrides and layout.
+Do not wire this component deeply into the current design or edit those templates.
+The host supplies one mount node and immutable page/environment hints, loads local
+styles/module and disposes on close/context change. The component owns its explicit
+Open/Disconnect, renderer and stale lifecycle; no native DOM discovery or auto-mount.
 Deliver one explicit **Open terminal** action for an existing member of a provisioned,
 running environment. Show the original project login and open its native login shell
 in its existing home. Keep the terminal inside the existing dialog, widened when
@@ -594,7 +602,8 @@ project-local PTY/login shell`
 Source basis: today's helper buffers JSON under a global lock/short timeouts;
 `project-account` supplies identity markers and the image supplies Python. Inspected
 Podman v5.8.2 exec source permits detach; verify the actual target runtime before proof.
-Xterm 6.0.0 and fit 0.11.0 remain inspected candidates, not installed packages.
+Xterm 6.0.0 and fit 0.11.0 are locked upstream distributions for the local renderer;
+archive and extracted file hashes live in `appliance/terminal-assets.lock.json`.
 Coder/websocket is now resolved/pinned in `go.mod`/`go.sum`, with its ISC text in
 `NOTICE`. These source facts are not native target evidence. Research is linked
 from the handoff.

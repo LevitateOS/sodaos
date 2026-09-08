@@ -106,7 +106,11 @@ from pathlib import Path
 def check_destinations(root, files):
     # Fixed first-install destinations, not a custom-template merge/adoption policy.
     hooks = {'templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'}
+             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
+             'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',
+             'public/assets/soda-terminal/xterm.mjs', 'public/assets/soda-terminal/xterm.css',
+             'public/assets/soda-terminal/addon-fit.mjs', 'public/assets/soda-terminal/xterm.LICENSE',
+             'public/assets/soda-terminal/fit.LICENSE'}
     protected = {'rootfs/var/lib/soda/forgejo/gitea/' + name for name in hooks}
     for name in files:
         if not name.startswith('rootfs/'): continue

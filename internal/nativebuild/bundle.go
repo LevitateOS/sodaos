@@ -34,6 +34,13 @@ var sodaspacesFiles = []string{
 	"rootfs/var/lib/soda/forgejo/gitea/templates/custom/footer.tmpl",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.css",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.js",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.js",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.css",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.mjs",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.css",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/addon-fit.mjs",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.LICENSE",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/fit.LICENSE",
 }
 
 func allowedPayload(p string) bool {

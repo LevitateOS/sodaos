@@ -36,6 +36,46 @@ they differ. Explicit Soda logout also uses the expected **Soda** actor and CSRF
 it does not sign out Forgejo or Linux. The retained connection probe checks its
 supplied fixture username against bootstrap before using the actor ID.
 
+The terminal WebSocket is the sole transport-specific exception: browsers cannot
+send custom actor/CSRF headers on upgrade. Its first bounded message carries those
+values instead; ordinary JSON API guards are unchanged.
+
+## Terminal WebSocket — source implemented, delivery pending
+
+`GET /api/environments/{id}/terminal` requires WebSocket, with no query string (even
+bare `?`), subprotocol bearer value or cross-origin upgrade. Require a valid Soda
+session, exact configured HTTPS Origin and compatible fetch metadata; own membership
+and provisioned state are checked before upgrade. No operator/site-admin/owner bypass.
+
+The first text frame (within 5 seconds, at most 4096 bytes, strict JSON) is:
+
+```json
+{"expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
+```
+
+Rows are 2–300, columns 2–500. Verify actor, association and the same Origin/CSRF check
+used by JSON mutations, then fresh acting-provider identity, actual user/repository
+consent and repository visibility. Degraded reads cannot launch. Only the stored
+original membership login reaches the helper. Post-upgrade authorization failure
+closes with sanitized 1008 status, not provider errors or credentials.
+
+Then accept only text JSON `input` with base64 `data` (1–16384 decoded bytes), `resize`
+with bounded rows/columns, or `close`, with no extra fields. Browser heartbeats are
+forbidden. Return `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
+`closed`/`reason` frames. Total frames are limited to 32768 bytes; queues/write waits
+are bounded. No command, environment, UID, host address or Podman flags select launch.
+
+One pending/active stream per login-context/project; global cap 64, no eviction.
+Lifetime ends at the earlier of session/context expiry or two hours. Every 15 seconds
+check peer responsiveness and local session/membership before renewing the native
+60-second lease. Logout/OAuth rotation cancel pending/active streams, serialized
+against dispatch; shutdown closes hijacked streams before DB shutdown. No transcript,
+provider polling, reconnect/replay, join/start or global Linux/SSH revocation.
+
+See the [component contract](terminal-integration.md) for independent template/layout
+ownership and full-page stale/reload rules. Genuine browser and combined native
+delivery proof remain pending; this endpoint is not installed on retained targets.
+
 ## Retained operations
 
 | Endpoint | Behavior |

@@ -7,13 +7,10 @@ import (
 )
 
 func TestSodaspacesPayloadRequiredAndReadable(t *testing.T) {
-	for _, name := range []string{
-		"templates/custom/header.tmpl", "templates/custom/footer.tmpl",
-		"public/assets/sodaspaces.css", "public/assets/sodaspaces.js",
-	} {
+	for _, name := range sodaspacesFiles {
 		t.Run(name, func(t *testing.T) {
 			root := fixtureBundle(t)
-			p := filepath.Join(root, "rootfs/var/lib/soda/forgejo/gitea", name)
+			p := filepath.Join(root, name)
 			if err := os.Chmod(p, 0600); err != nil {
 				t.Fatal(err)
 			}
