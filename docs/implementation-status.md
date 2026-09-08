@@ -1,5 +1,18 @@
 # Current handoff
 
+## Avatar editor refinement
+
+The profile avatar disclosure now aligns its source and upload fields without
+native indentation, uses a single native file-selector boundary, compact help
+text and a borderless explicit delete action. Upload constraints, source choices,
+form handlers and delete hooks are unchanged. This is active only in the existing
+local preview at presentation `2026-09-08.11`; templates were reloaded without a
+container restart. The Go Forgejo checks, four source/inventory checks and ten
+settings browser checks passed. Verified dark desktop and light 320px captures
+were visually reviewed under `.artifacts/avatar-refinement/final-{desktop,mobile}/`;
+an earlier 390px capture was also reviewed. No upload or deletion was submitted.
+The earlier comprehensive review package below predates this focused refinement.
+
 ## Personal settings structural overhaul — local review candidate
 
 The approved personal-settings overhaul is implemented through Forgejo 15.0.7

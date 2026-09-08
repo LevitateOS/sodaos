@@ -229,9 +229,16 @@ func TestForgejoAccountDetailsCSSIsScoped(t *testing.T) {
 			t.Errorf("account detail stylesheet lost %q", marker)
 		}
 	}
-	for _, forbidden := range []string{"display: none", "overflow: hidden", ".ui.red", ".danger.button", "button {", "input:disabled"} {
+	for _, forbidden := range []string{"display: none", "overflow: hidden", ".ui.red", "input:disabled"} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("account detail stylesheet contains behavior-sensitive rule %q", forbidden)
+		}
+	}
+	// Avatar actions and the native file-selector button are intentionally styled.
+	// Keep those exceptions scoped to the editor, never generic button rules.
+	for _, line := range strings.Split(css, "\n") {
+		if (strings.Contains(line, ".danger.button") || strings.Contains(line, "button {")) && !strings.HasPrefix(strings.TrimSpace(line), "#avatar-settings ") {
+			t.Errorf("unscoped avatar button rule: %s", line)
 		}
 	}
 }
