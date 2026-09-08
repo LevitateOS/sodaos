@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization home, members and teams outside settings; assess their page introductions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization team list, team member/repository detail, and team creation/invitation. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -61,8 +61,8 @@ Next: organization home, members and teams outside settings; assess their page i
 | Pending | [`moderation/new_abuse_report.tmpl`](../appliance/forgejo/templates/moderation/new_abuse_report.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`org/create.tmpl`](../appliance/forgejo/templates/org/create.tmpl) | `new-org-papercraft.png` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`org/header.tmpl`](../appliance/forgejo/templates/org/header.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`org/home.tmpl`](../appliance/forgejo/templates/org/home.tmpl) | `org/header` | Not yet reviewed in this goal. |
-| Pending | [`org/member/members.tmpl`](../appliance/forgejo/templates/org/member/members.tmpl) | `org/header` | Not yet reviewed in this goal. |
+| No image | [`org/home.tmpl`](../appliance/forgejo/templates/org/home.tmpl) | `org/header` | Organization identity, authored README, repositories and real member avatars take priority; source-reviewed. |
+| No image | [`org/member/members.tmpl`](../appliance/forgejo/templates/org/member/members.tmpl) | `org/header` | Actual avatars, roles, visibility and owner-only security indicators take priority; source-reviewed. |
 | Pending | [`org/projects/list.tmpl`](../appliance/forgejo/templates/org/projects/list.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`org/projects/new.tmpl`](../appliance/forgejo/templates/org/projects/new.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
@@ -232,6 +232,14 @@ Next: organization home, members and teams outside settings; assess their page i
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+| Status | Organization home/member variant | Decision |
+| --- | --- | --- |
+| No image | Home with rendered or plain README | Organization-authored content may provide its own imagery; no competing illustration. |
+| No image | Home without README | Native organization identity, repository list and conditional member/team sidebar supply context. |
+| No image | Public-only members | Real avatars/names and membership visibility are the visual information. |
+| No image | Internal/owner member view | Real roles, owner-visible two-factor status and membership actions take priority. |
+| No image | Leave/remove member confirmations | Named person/organization and exact confirmation text; no decoration. |
 
 | Status | Organization runner page | Decision |
 | --- | --- | --- |
@@ -558,3 +566,9 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Runners list: native status/labels/ownership table is the visual information. Secrets list: names and masked values. Variables list: exact configuration values. Each retains its native dialogs without extra images.
 - Runner creation, setup, editing and detail decisions are individually listed above. They use the previously fully reviewed shared forms/token instructions/status-history content under organization identity; no replacement runner authority or execution is implied.
 - Source evidence only; no organization/runner/secret/variable/application was created, modified or captured. Other owner contexts remain pending independently. No source edits/tests required.
+
+### Organization home and members
+
+- Inspected complete current `org/home.tmpl` and `org/member/members.tmpl`, including README plain/rendered states, visibility-conditioned member/team sidebar, repository creation/migration links and member-role/security/action branches.
+- Home needs no illustration above its real organization header and authored README/repository content. Members needs no illustration despite its existing compact title: real people, roles and public/private status are the relevant visual content. Owner-only two-factor status stays meaningful and native; it is not replaced by an illustrative security symbol.
+- Per-variant decisions are recorded above. All are source assessments; no organization fixture or populated member screenshot is claimed. No membership, visibility, role, README or repository change performed. No source edits/tests needed.
