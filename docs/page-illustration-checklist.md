@@ -830,3 +830,9 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 - Compared all current `.tmpl` files under `appliance/forgejo/templates` against linked checklist entries: **206 actual files, zero missing entries, zero stale file links**. This verifies file coverage, not every upstream route or native state.
 - Full repository header reviewed; local callers traced across code, issues, pulls, wiki, projects, releases, Actions, settings, migration and contextual errors. No additional decorative image belongs in its identity/navigation strip.
 - All local file entries now have an artwork assessment. Integrated — verify entries still require native rendering checks; previous no-image source decisions do not imply runtime coverage. Restricted administrator/organization/setup/Actions/registration states remain outstanding.
+
+### Accumulated-change regression check
+
+- Checked all literal papercraft references in current overrides: 34 distinct referenced illustration filenames, all present in the workspace. This is file-existence evidence, not visual verification.
+- Ran `go test ./scripts -run TestForgejo -count=1`. Initial run exposed three stale account-detail parity normalizers for the intentional hideArtwork input (token editing, OAuth editing, two-factor enrollment). Added exact one-occurrence normalization only for those three fixtures; retained original native-body hashes.
+- Re-ran the same Forgejo-focused suite: passed. No runtime page or security state changed. Outstanding native artwork captures still require the requested accessible test states.

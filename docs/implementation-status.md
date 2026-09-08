@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+The accumulated Forgejo-focused scripts suite passes (`go test ./scripts -run TestForgejo -count=1`) after correcting three stale parity normalizers for intentional artwork suppression. All 34 literal illustration references resolve to local assets. Native restricted-page rendering remains outstanding; neither check establishes that visual evidence.
+
 Repository Actions no-workflows state now selects a distinct transparent workflow-tile illustration; native permission-specific guidance is preserved. Populated/filtered run lists, dispatch and log viewer remain undecorated. Focused body-parity/shared-presentation tests passed. The attempted native Actions capture returned 404; artwork rendering remains unverified.
 
 Public registration now has a distinct transparent welcome-folder illustration, gated to enabled standalone registration. Exact prompt and original output are retained. Focused authentication/shared-presentation tests passed. Native guest desktop/mobile screenshots confirm disabled registration excludes the image; enabled registration rendering remains unverified because the local instance disables registration.

@@ -54,6 +54,10 @@ func TestForgejoAccountDetailOverridesMatchStock1507(t *testing.T) {
 					`<form class="ui form" action="{{.Link}}/theme" method="post">`,
 				})
 			}
+			switch fixture.path {
+			case "access_token_edit.tmpl", "applications_oauth2_edit.tmpl", "security/twofa_enroll.tmpl":
+				edits = append(edits, [2]string{` "hideArtwork" true)}}`, `)}}`})
+			}
 			for _, edit := range edits {
 				if count := strings.Count(restored, edit[0]); count != 1 {
 					t.Fatalf("%s has %d occurrences of presentation edit %q, want 1", fixture.path, count, edit[0])
