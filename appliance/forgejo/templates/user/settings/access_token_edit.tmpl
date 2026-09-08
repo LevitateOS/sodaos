@@ -1,12 +1,9 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/access_token_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42. */}}
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--access-token applications" "hideArtwork" true)}}
-<div class="user-setting-content soda-account-details soda-account-details--access-token">
-	<h4 class="ui top attached header soda-p-heading">
-		{{ctx.Locale.Tr "settings.generate_new_token"}}
-	</h4>
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--access-token applications" "title" (ctx.Locale.Tr "settings.generate_new_token") "parentURL" (printf "%s/user/settings/applications" AppSubUrl) "parentTitle" (ctx.Locale.Tr "settings.applications"))}}
+<div class="user-setting-content soda-settings-editor soda-account-details soda-account-details--access-token">
 
 	<div class="ui attached bottom segment soda-p-section">
-		<form id="scoped-access-form" class="ui form" action="{{.Link}}" method="post">
+		<form id="scoped-access-form" class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<div class="required field {{if .Err_Name}}error{{end}}">
 				<label for="name">{{ctx.Locale.Tr "settings.token_name"}}</label>
 				<input id="name" name="name" value="{{.name}}" {{if eq .Autofocus "name"}}autofocus{{end}} required maxlength="255">
@@ -55,7 +52,7 @@
 						<div class="ui small fluid action left icon input tw-mb-3">
 							<input type="search" name="repo_search" spellcheck="false" {{if eq .Autofocus "search"}}autofocus{{end}} placeholder="{{ctx.Locale.Tr "search.repo_kind"}}" value="{{.repo_search}}">
 							<i class="icon">{{svg "octicon-search" 16}}</i>
-							<button class="ui small icon button" aria-label="{{ctx.Locale.Tr "search.search"}}" type="submit" name="set_page" value="1" formnovalidate="true" formmethod="get">
+							<button class="ui small icon button soda-p-control" aria-label="{{ctx.Locale.Tr "search.search"}}" type="submit" name="set_page" value="1" formnovalidate="true" formmethod="get">
 								{{svg "octicon-search" 16}}
 							</button>
 						</div>
@@ -69,7 +66,7 @@
 									<div class="text truncate">
 										{{.FullName}}
 									</div>
-									<button class="ui primary button tw-ml-2 tw-my-1 tiny" type="submit" aria-label="{{ctx.Locale.Tr "repo.editor.add" .FullName}}" formnovalidate="true" name="add_selected_repo" value="{{.FullName}}" formmethod="get">
+									<button class="ui primary button tw-ml-2 tw-my-1 tiny soda-p-compact" type="submit" aria-label="{{ctx.Locale.Tr "repo.editor.add" .FullName}}" formnovalidate="true" name="add_selected_repo" value="{{.FullName}}" formmethod="get">
 										{{ctx.Locale.Tr "add"}}
 									</button>
 								{{end}}
@@ -132,7 +129,7 @@
 									<div class="text tw-text-nowrap"> <!-- nowrap, !truncate, ensures that this can be fully seen and ensures this side of the control has an appropriate min-width -->
 										{{.FullName}}
 									</div>
-									<button class="ui button tw-ml-2 tw-my-1 tiny" type="submit" aria-label="{{ctx.Locale.Tr "settings.access_token.remove" .FullName}}" formnovalidate="true" name="remove_selected_repo" value="{{.FullName}}" formmethod="get">
+									<button class="ui button tw-ml-2 tw-my-1 tiny soda-p-compact" type="submit" aria-label="{{ctx.Locale.Tr "settings.access_token.remove" .FullName}}" formnovalidate="true" name="remove_selected_repo" value="{{.FullName}}" formmethod="get">
 										{{ctx.Locale.Tr "remove"}}
 									</button>
 								{{end}}
@@ -171,7 +168,7 @@
 					</div>
 				{{end}}
 			</div>
-			<button id="scoped-access-submit" class="ui primary button">
+			<button id="scoped-access-submit" class="ui primary button soda-p-control">
 				{{ctx.Locale.Tr "settings.generate_token"}}
 			</button>
 		</form>

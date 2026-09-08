@@ -1,0 +1,6 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/packages_cleanup_rules_preview.tmpl (GPL-3.0-or-later); upstream SHA-256 429885746f0372adeca3a4e36ee17bf61e3a0354fe286714d04aa077020c3724. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user packages admin")}}
+	<div class="user-setting-content">
+		{{template "package/shared/cleanup_rules/preview" .}}
+	</div>
+{{template "user/settings/layout_footer" .}}

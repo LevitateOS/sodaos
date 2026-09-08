@@ -1,0 +1,6 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/runner_details.tmpl (GPL-3.0-or-later); upstream SHA-256 d8131414c90440db65d70c9f9c56fd9ca45abcffe3a7d3b3f53b5867a3f42459. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings runners")}}
+<div class="user-setting-content">
+	{{template "shared/actions/runner_details" .}}
+</div>
+{{template "user/settings/layout_footer" .}}

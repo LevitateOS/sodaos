@@ -21,11 +21,11 @@
 					{{if $isBuiltin}}
 						<span class="ui basic label" data-tooltip-content="{{ctx.Locale.Tr "settings.oauth2_application_locked"}}">{{ctx.Locale.Tr "locked"}}</span>
 					{{else}}
-						<a href="{{$.Link}}/oauth2/{{.ID}}" class="ui primary tiny button">
+						<a href="{{$.Link}}/oauth2/{{.ID}}" class="ui primary tiny button soda-p-compact">
 							{{svg "octicon-pencil" 16 "tw-mr-1"}}
 							{{ctx.Locale.Tr "settings.oauth2_application_edit"}}
 						</a>
-						<button class="ui red tiny button delete-button" data-modal-id="remove-gitea-oauth2-application"
+						<button class="ui red tiny button delete-button soda-p-compact" data-modal-id="remove-gitea-oauth2-application"
 								data-url="{{$.Link}}/oauth2/{{.ID}}/delete">
 							{{svg "octicon-trash" 16 "tw-mr-1"}}
 							{{ctx.Locale.Tr "settings.delete_key"}}
@@ -48,11 +48,8 @@
 	</div>
 </div>
 
-<div class="ui attached bottom segment soda-p-section">
-	<h5 class="ui top header">
-		{{ctx.Locale.Tr "settings.create_oauth2_application"}}
-	</h5>
-	<form class="ui form soda-form ignore-dirty" action="{{.Link}}/oauth2" method="post">
+<details class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.create_oauth2_application"}}</summary><div class="soda-settings-editor soda-settings-disclosure-body">
+	<form class="ui form soda-form ignore-dirty soda-p-form" action="{{.Link}}/oauth2" method="post">
 		<div class="field {{if .Err_AppName}}error{{end}}">
 			<label for="application-name">{{ctx.Locale.Tr "settings.oauth2_application_name"}}</label>
 			<input id="application-name" name="application_name" value="{{.application_name}}" required maxlength="255">
@@ -67,8 +64,10 @@
 				<input type="checkbox" name="confidential_client" checked>
 			</div>
 		</div>
-		<button class="ui primary button">
+		<button class="ui primary button soda-p-control">
 			{{ctx.Locale.Tr "settings.create_oauth2_application_button"}}
 		</button>
 	</form>
 </div>
+
+</details>

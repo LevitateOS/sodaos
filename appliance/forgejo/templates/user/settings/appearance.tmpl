@@ -3,9 +3,10 @@
 	<div class="user-setting-content soda-account-details soda-account-details--appearance">
 
 		<!-- Theme -->
-		<h4 class="ui top attached header soda-p-heading">
+		
+<section class="soda-settings-section soda-settings-explained soda-settings-preference"><h2>
 			{{ctx.Locale.Tr "settings.manage_themes"}}
-		</h4>
+		</h2><div class="soda-settings-section-body">
 		<div class="ui attached segment soda-p-section">
 			<div class="ui email list">
 				<div class="item">
@@ -35,18 +36,21 @@
 					</div>
 
 				<div class="field">
-					<button class="ui primary button">{{ctx.Locale.Tr "settings.update_theme"}}</button>
+					<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "settings.update_theme"}}</button>
 				</div>
 			</form>
 			</div>
 		</div>
 
 		<!-- Language -->
-		<h4 class="ui top attached header soda-p-heading">
+		
+</div></section>
+
+<section class="soda-settings-section soda-settings-explained soda-settings-preference"><h2>
 			{{ctx.Locale.Tr "settings.language.title"}}
-		</h4>
+		</h2><div class="soda-settings-section-body">
 		<div class="ui attached segment soda-p-section">
-			<form class="ui form" action="{{.Link}}/language" method="post">
+			<form class="ui form soda-p-form" action="{{.Link}}/language" method="post">
 				<div class="tw-mb-4">
 					{{ctx.Locale.Tr "settings.language.description"}}
 				</div>
@@ -62,21 +66,25 @@
 						</div>
 					</div>
 				</div>
+				<div class="field">
+					<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "settings.update_language"}}</button>
+				</div>
+			
 				<div class="tw-mb-4">
 					{{ctx.Locale.Tr "settings.language.localization_project" "https://forgejo.org/docs/next/contributor/localization/"}}
 				</div>
-				<div class="field">
-					<button class="ui primary button">{{ctx.Locale.Tr "settings.update_language"}}</button>
-				</div>
-			</form>
+</form>
 		</div>
 
 		<!-- Hints -->
-		<h4 class="ui top attached header soda-p-heading">
+		
+</div></section>
+
+<section class="soda-settings-section soda-settings-explained soda-settings-preference"><h2>
 			{{ctx.Locale.Tr "settings.hints"}}
-		</h4>
+		</h2><div class="soda-settings-section-body">
 		<div class="ui attached segment soda-p-section">
-			<form class="ui form" action="{{.Link}}/hints" method="post">
+			<form class="ui form soda-p-form" action="{{.Link}}/hints" method="post">
 				<div class="inline field">
 					<div class="ui checkbox" data-tooltip-content="{{ctx.Locale.Tr "settings.additional_repo_units_hint_description"}}">
 						<input name="enable_repo_unit_hints" type="checkbox" {{if $.SignedUser.EnableRepoUnitHints}}checked{{end}}>
@@ -84,20 +92,23 @@
 					</div>
 				</div>
 				<div class="field">
-					<button class="ui primary button">{{ctx.Locale.Tr "settings.update_hints"}}</button>
+					<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "settings.update_hints"}}</button>
 				</div>
 			</form>
 		</div>
 
 		<!-- Shown comment event types -->
-		<h4 class="ui top attached header soda-p-heading">
+		
+</div></section>
+
+<section class="soda-settings-section soda-settings-explained soda-settings-preference"><h2>
 			{{ctx.Locale.Tr "settings.hidden_comment_types"}}
-		</h4>
+		</h2><div class="soda-settings-section-body">
 		<div class="ui attached segment soda-p-section">
 			<p class="help">
 				{{ctx.Locale.Tr "settings.hidden_comment_types_description"}}
 			</p>
-			<form class="ui form" action="{{.Link}}/hidden_comments" method="post">
+			<form class="ui form soda-p-form" data-settings-checklist action="{{.Link}}/hidden_comments" method="post">
 				<div class="inline field">
 					<div class="ui checkbox" data-tooltip-content="{{ctx.Locale.Tr "settings.hidden_comment_types.ref_tooltip"}}">
 						<input name="reference" type="checkbox" {{if(call .IsCommentTypeGroupChecked "reference")}}checked{{end}}>
@@ -184,9 +195,11 @@
 					</div>
 				</div>
 				<div class="field">
-					<button class="ui primary button">{{ctx.Locale.Tr "save"}}</button>
+					<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "save"}}</button>
 				</div>
 			</form>
 		</div>
+</div></section>
+
 	</div>
 {{template "user/settings/layout_footer" .}}

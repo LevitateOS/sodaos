@@ -1,8 +1,10 @@
+{{if .PersonalSettings}}{{template "shared/actions/runner_create_body" .}}{{else}}{{template "shared/actions/runner_create_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/actions/runner_create_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <div class="runner-container soda-shared-runner soda-shared-runner-create">
-	<h4 class="ui top attached header soda-p-heading">
+	{{if not $personal}}<h4 class="ui top attached header soda-p-heading">
 		{{ctx.Locale.Tr "actions.runners.create_runner.title"}}
-	</h4>
-	<form class="ui form attached segment" action="{{.Link}}" method="post">
+	</h4>{{end}}
+	<form class="ui form attached segment soda-p-form" action="{{.Link}}" method="post">
 		<fieldset>
 			<legend>{{ctx.Locale.Tr "actions.runners.create_runner.properties_fieldset"}}</legend>
 			<div class="form-field">
@@ -20,3 +22,5 @@
 		</div>
 	</form>
 </div>
+
+{{end}}{{end}}

@@ -1,5 +1,9 @@
+{{$personal := .PersonalSettings}}
+{{if $personal}}{{template "package/shared/cleanup_rules/edit_body" .}}{{else}}{{template "package/shared/cleanup_rules/edit_body" (dict "ctxData" .)}}{{end}}
+{{define "package/shared/cleanup_rules/edit_body"}}
+{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <section class="soda-package-section soda-package-cleanup-edit">
-<h4 class="ui top attached header soda-package-section-heading">{{if .IsEditRule}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.edit"}}{{else}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.add"}}{{end}}</h4>
+{{if not $personal}}<h4 class="ui top attached header soda-package-section-heading">{{if .IsEditRule}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.edit"}}{{else}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.add"}}{{end}}</h4>{{end}}
 <div class="ui attached segment soda-package-section-body soda-p-section">
 	<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 		<input name="id" type="hidden" value="{{.CleanupRule.ID}}">
@@ -72,3 +76,5 @@
 	</form>
 </div>
 </section>
+
+{{end}}{{end}}

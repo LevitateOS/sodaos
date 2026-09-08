@@ -1,0 +1,6 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/runner_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 7bb4d62fb5e9ffba34c8512d057b3706bb090f5008bb255d2f36b282299434c6. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings runners" "title" (ctx.Locale.Tr "actions.runners.edit_runner.title" .Runner.Name) "parentURL" (printf "%s/user/settings/actions/runners" AppSubUrl) "parentTitle" (ctx.Locale.Tr "actions.runners"))}}
+	<div class="user-setting-content soda-settings-editor">
+		{{template "shared/actions/runner_edit" (dict "PersonalSettings" true "ctxData" .)}}
+	</div>
+{{template "user/settings/layout_footer" .}}
