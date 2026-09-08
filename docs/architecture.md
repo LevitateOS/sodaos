@@ -8,9 +8,10 @@ account, key or runtime wiring themselves.
 [Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. A read-only native drawer
-is implemented and passed native x86_64 build/stage and isolated exported-payload
-browser checks. Explicit create/key/join/connection controls are now source-implemented
-and locally tested; helper-backed native access proof remains next.
+was implemented and passed native x86_64 build/stage and isolated exported-payload
+browser checks. The complete mounted management/terminal UI now has bounded native
+x86_64 OAuth, Create/Join, lifecycle, key-revocation and SSH/PTY/transfer proof on the
+isolated fixture; retained delivery and broader product acceptance remain separate.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
 ## Topology
@@ -36,7 +37,8 @@ Do not rename persistent records or roots simply because the UI is called Sodasp
 
 The backend also renders [original robot avatars](avatars.md) from embedded SVG
 parts using Forgejo's supported provider setting. Only the avatar namespace is
-proxied on the Forgejo origin; broader Sodaspaces API/OAuth routing remains pending.
+public and credential-stripped on the Forgejo origin. Protected Sodaspaces API/OAuth
+and terminal routes share that origin under `/-/soda/` with their normal credentials.
 
 ## Authority and identity
 

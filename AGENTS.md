@@ -61,6 +61,15 @@ all four roots, memberships, credentials and unchanged native components were pr
 See the handoff and `.artifacts/cutover-c007eb6/` for exact bytes, fresh backups and
 remaining scope. No further deployment, lifecycle or target is implied.
 
+The subsequent integrated E2E request authorized build/check and scoped native
+execution on `soda-native-spaces-658f2af`. Backed-up affected-component delivery,
+real browser terminals, Stop/Start persistence, temporary-key rotation/revocation
+and fresh Create/Join/SSH checks passed there. Two projects are now retained in
+that fixture; originals and all later writes/keys/evidence must survive. The
+client used management forwarding, not laptop routing. See the leading handoff
+for exact tested bytes, failed probes and the public-mode packaging correction.
+This does not authorize further targets, deletion or a `soda-test` rollout.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.

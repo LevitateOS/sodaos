@@ -218,13 +218,14 @@ explicit full-page reload, never remounting to evade an ended terminal or uncert
 operation. Existing join is not later key propagation. The shell now mounts the
 complete management content: Start/Stop and reviewed own-key Apply are explicit
 source-implemented operations, still requiring scoped native persistence/revocation
-proof in the [remaining-work list](sodaspaces-plan.md#remaining-work--ordered). Destruction requires a separate scope decision; restart controls, resource
+proof at each new delivery target. That proof now passed on the isolated x86_64
+fixture; see the [remaining-work list](sodaspaces-plan.md#remaining-work--ordered). Destruction requires a separate scope decision; restart controls, resource
 charts, member administration and a browser IDE are not part of this slice. The existing-account terminal now has a protected backend and
-self-contained component in source, not deployed/native-page proof or a prerequisite
+self-contained mounted component with bounded isolated native-page proof, not a prerequisite
 for SSH. Its [mount/dispose contract](terminal-integration.md) is now used by the
 native dialog shell, loading the complete content and local terminal styles. Opening
-the drawer never opens a terminal. Local layout/renderer proof is not a combined
-native OAuth/helper journey.
+the drawer never opens a terminal. Local layout/renderer tests remain distinct from
+the separately recorded passed native OAuth/helper journeys in the handoff.
 
 ## Integration limits
 

@@ -1,5 +1,61 @@
 # Current handoff
 
+## Integrated native E2E passed — bounded isolated x86_64 fixture
+
+Installed application/helper candidate `2aa4960` passed the real integrated
+existing-project management journey and fresh Create/Join journey with test source
+`1c02fb5`. This is bounded first-product integration evidence, not retained delivery,
+whole-appliance/operator/provider/aarch64 or release acceptance. `soda-test` was not
+contacted. The original fixture project and all earlier inputs/failures remain.
+
+- `browser-g` passed actual TLS/native Forgejo OAuth/two identities, BFCache,
+  original-login browser terminals and Escape/Disconnect/no-reconnect, explicit
+  Stop with a live terminal, disabled boot start, same-container Start, restored
+  boot policy, persistent home marker, account/group/host-key/key-file preservation,
+  actual nonowner lifecycle denial, temporary-key replacement and explicit removal.
+  New key B authenticated; removed A failed **public-key authentication**, while
+  already authenticated A and Bob SSH sessions survived. Both temporary saved keys
+  were then explicitly removed/applied through the UI; original key rows and managed
+  files are preserved. No original saved key was deleted.
+- A single new public run-owned repository `/alice/soda-e2e-1c02fb5` was created
+  through Alice's actual native form. `browser-access` passed owner Create,
+  nonowner denial, each user's explicit key Save/Join, own connection and native
+  Copy/real paste. New project `p9568a9ea83a6c84e66c6b975`, CID
+  `cfdaa1def67a97b37c4af5c5b61b851aeb3a328caf6b2b8a8ac21d72ded86748`, is retained.
+  The product-owned `developer-access.py` passed independent SSH/PTY/SCP/SFTP,
+  UID-map, owner/nonowner sudo and cross-user authentication-denial checks. The
+  client used explicit management-SSH forwarding, **not direct/laptop routing proof**;
+  the script now accepts a private SSH configuration and records that distinction.
+- Final independent observations bind the actual running backend/helper and all
+  368 custom-file bytes. Original users/key rows/grant-key check and original managed
+  key files match preflight/backup. Schema5 integrity/FKs pass; counts are users2,
+  keys2, projects2, memberships4, sessions9/grants9 after legitimate auth transitions.
+  Both projects are running/boot-enabled on the unchanged original project-image
+  default. Earlier process observations independently confirmed terminal shell
+  disappearance; socket closure alone was not the evidence.
+
+Evidence: `.artifacts/e2e-2aa4960/`, including the fresh paired guest/local backup,
+all browser profiles/results, new client files/transfers, native observations and
+failed runs. Preserve new home markers and both project roots. No reboot, host
+routing, provider job, original-key deletion, project-image replacement or retained
+rollout occurred. Old backups are not lossless rollback over the new repository,
+project, auth transitions or later writes.
+
+Retained failures matter: D/F used a stale client IP after native Start changed it
+from `10.90.0.2` to `.3`; the helper/UI correctly exposed the new address. The probe
+now compares the current CID-bound address with the drawer and uses a separately
+pinned host-key alias, without changing routes. G observed `.3` then `.4` and passed.
+E failed before management at real back-forward restoration; it is not a passed run.
+B's native PTY parser failure and both pre-write maintenance refusals remain below.
+
+Final mode verification also found a packaging discrepancy: 11 legacy theme/logo
+adaptations inherited private-checkout 0600 modes in the bundle, while the reviewed
+fixture maintenance installed public files as 0644. All bytes match; the explicit
+mode differences are retained in `final-check-reviewed.json`, not hidden as exact
+mode equivalence. Source staging now normalizes only its run-owned public adaptation
+files/directories, with a private-checkout regression test. The corrected packaging
+still needs a clean native build/check; no new application behavior was introduced.
+
 ## Integrated E2E execution started — isolated fixture only
 
 The user authorized proceeding with E2E testing after the explicit build/native

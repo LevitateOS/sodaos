@@ -117,7 +117,10 @@ browser result, an independently operator-verified public project host key and
 client-local private keys. Its private `target.json` has `target`, `revision`,
 `project_id`, `subnet`, `browser_result`, `host_key_file` and ordered `users` matching
 the browser result. Each user declares `id`, `login`, `key_file`, `administrator`
-(first user true, second false). `SODA_NATIVE_VALIDATE` must match `target`. All input
+(first user true, second false). An optional restricted `ssh_config_file` selects
+an explicitly approved client transport (for example management-SSH forwarding).
+That mode records no direct-route proof; original-key pinning, forced public-key
+authentication and separate connections remain mandatory for SSH/SCP/SFTP/denials. `SODA_NATIVE_VALIDATE` must match `target`. All input
 files are absolute restricted regular files; no host-key scan or trust bypass occurs.
 It records actual client hostname/architecture and script hash, tests project-IP SSH,
 PTY, SCP/SFTP, owner/nonowner sudo and cross-user key denial, and retains its own new

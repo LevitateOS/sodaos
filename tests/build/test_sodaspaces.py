@@ -107,7 +107,9 @@ class SodaspacesPackaging(unittest.TestCase):
             checkout = Path(tmp)
             (checkout / 'scripts').mkdir()
             shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
-            (checkout / 'assets').symlink_to(ROOT / 'assets', target_is_directory=True)
+            shutil.copytree(ROOT / 'assets', checkout / 'assets')
+            for asset in (checkout / 'assets').rglob('*'):
+                asset.chmod(0o700 if asset.is_dir() else 0o600)
             shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
             (checkout / 'internal/nativebuild').mkdir(parents=True)
             shutil.copyfile(ROOT / 'internal/nativebuild/forgejo-payload.json', checkout / 'internal/nativebuild/forgejo-payload.json')
@@ -139,6 +141,8 @@ class SodaspacesPackaging(unittest.TestCase):
             finally:
                 os.umask(previous)
             stage = build / 'rootfs'
+            for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
+                self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name
                 self.assertEqual(p.read_bytes(), (checkout / 'appliance/forgejo' / name).read_bytes())

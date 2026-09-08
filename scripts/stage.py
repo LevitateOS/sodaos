@@ -69,6 +69,10 @@ for name in ['logo.svg', 'favicon.svg']:
     shutil.copy2(source / 'assets/branding/source/soda-symbol.svg', images / name)
 for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
+# copytree/copy2 preserve checkout modes (a private worktree may be 0700/0600).
+# Normalize only this run-owned public adaptation, never canonical source assets.
+for target in custom.rglob('*'):
+    target.chmod(0o755 if target.is_dir() else 0o644)
 # Exact reviewed presentation payload: templates, local assets, fonts/notices and
 # generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
 payload = json.loads((source / 'internal/nativebuild/forgejo-payload.json').read_text())

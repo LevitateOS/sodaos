@@ -112,6 +112,9 @@ Template mounting is source implemented. Source tests use synthetic provider/ses
 helper inputs, not native-page acceptance. The opt-in `tests/frontend/drawer-layout.test.mjs`
 uses sandboxed Chromium and the real locked renderer/styles, but synthetic APIs/socket:
 its 16 light/dark, running/stopped, desktop/mobile combinations are local layout proof
-only. The earlier native PTY gate passed independently. Whole-candidate native build/
-stage, real combined OAuth/proxy/helper/browser proof and deployment remain separate
-work; this document does not authorize native execution or retained rollout.
+only. Separately, native candidate `2aa4960` passed the real combined OAuth/proxy/
+helper/browser terminal and management journeys on the isolated x86_64 fixture,
+with independent shell-disappearance and SSH key-revocation observations. See the
+leading [handoff](implementation-status.md) for exact evidence and the public-mode
+packaging correction. Retained delivery and broader operator/provider/aarch64
+acceptance remain separate; this document grants no execution or rollout permission.

@@ -16,7 +16,10 @@ coverage remains handler/store evidence; installed observations have their own s
 
 **The original delivery sequence is complete at its bounded x86_64 scope.**
 Current remaining work is ordered below. The terminal's backend/component are now
-source implemented; finish integration rather than planning or rebuilding them again.
+source implemented and mounted. Integrated existing-project management and fresh
+Create/Join/SSH journeys now passed on the isolated x86_64 fixture; see the leading
+[handoff](implementation-status.md) for exact bytes, failures and limits. Finish
+packaging correction/delivery rather than rebuilding these controls again.
 The read-only step-3 gate alone did not establish appliance installation, project
 access or retained-state cutover; those later results have distinct evidence.
 
@@ -33,10 +36,10 @@ component through one dialog shell; the previous duplicate API caller is removed
 | --- | --- | --- |
 | Connect to Soda / Sign out | Forgejo OAuth, explicit acting account, honest local versus native logout boundary | Existing auth/API; preserve access to these actions in the replacement drawer |
 | Create environment | Human repository owner explicitly creates one shared environment; creation never joins | Implemented/proved in original drawer; retain in replacement |
-| Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Saved-key removal and reviewed native apply/revoke are now source implemented; real new/old-key SSH proof pending |
+| Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Bounded native replacement/revocation and unrelated-session survival passed with temporary keys; original keys retained |
 | Join environment | Provision the real account and keys, then record membership; show the original login | Implemented/proved; retain separate from create and key save |
-| Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Bounded helper/API/independent drawer controls are source implemented; native stop/start persistence proof pending |
-| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Backend/component included in complete independent drawer source; template mounting implemented; combined native browser proof pending |
+| Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
+| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Mounted component passed real native OAuth/PTY/disconnect/no-reconnect plus independent process-disappearance checks |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -86,15 +89,21 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Validate the mounted native drawer and browser terminal together.** The
+1. **Close packaging and delivery of the validated native drawer.** The bounded
+   integrated x86_64 journeys passed at the handoff's exact scope. Normalize the
+   legacy public-asset staging modes and run a clean build/check before selecting
+   a delivery candidate; no retained rollout is implied. The
    established hooks now mount the complete content through the
    [existing contract](terminal-integration.md), preserving create/key/join/connection
    actions. Local component/layout checks are not native acceptance. Validate the
    combined native page, real OAuth/proxy/helper and terminal
    lifecycle against exact candidate bytes. See the immediate checks below.
-2. **Prove the minimum environment/access controls above.** Saved-key removal
+2. **Preserve the proved minimum environment/access controls above.** Bounded
+   native Stop/Start and temporary-key replacement/revocation passed, along with
+   fresh Create/Join/SSH. Distinct operator/provider and broader acceptance remain
+   separate. Saved-key removal
    and explicit own-project key apply/revoke are implemented and mounted; obtain
-   exact native scope for real new/old-key SSH verification;
+   exact new native scope for any further key/lifecycle changes;
    do not treat a preferences update as revocation. Creation and joining already exist;
    retain them in the new drawer, not a second creation implementation. Start/Stop
    now have bounded helper/API/independent drawer source over the existing native
@@ -131,7 +140,7 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    not lossless rollback. A terminal milestone may ship before later management work;
    every delivered milestone still needs its relevant checks, not just a final sweep.
 
-### Immediate next step — finish what is already implemented
+### Immediate next step — packaging correction and scoped delivery
 
 - The mount, immutable context hints, asset loading and disposal are integrated.
   Preserve native forms/navigation, explicit terminal Open and mandatory full-page
