@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization applications and Actions pages, including runner subpages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization home, members and teams outside settings; assess their page introductions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -176,11 +176,11 @@ Next: organization applications and Actions pages, including runner subpages. En
 | Partial — trace caller | [`repo/wiki/search.tmpl`](../appliance/forgejo/templates/repo/wiki/search.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/wiki/start.tmpl`](../appliance/forgejo/templates/repo/wiki/start.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/wiki/view.tmpl`](../appliance/forgejo/templates/repo/wiki/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
-| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
-| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
+| Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Personal and organization pages assessed without artwork; repository/admin owner layouts remain pending. |
+| Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Personal and organization pages assessed without artwork; repository/admin owner layouts remain pending. |
+| Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal and organization pages assessed without artwork; repository/admin owner layouts remain pending. |
 | Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Personal caller reviewed; status table needs no art. Other owner pages remain pending. |
-| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal page assessed without artwork; other owner layouts remain to be assessed. |
+| Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal and organization pages assessed without artwork; repository/admin owner layouts remain pending. |
 | Partial — trace caller | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Personal caller reviewed; inline list and add/edit dialogs need no art. Other owner pages remain pending. |
@@ -233,6 +233,13 @@ Next: organization applications and Actions pages, including runner subpages. En
 
 ## Additional page variants
 
+| Status | Organization runner page | Decision |
+| --- | --- | --- |
+| No image | `org/settings/runners_create.tmpl` | Two-property creation form beneath organization identity. |
+| No image | `org/settings/runners_setup.tmpl` | One-time token and setup commands take priority. |
+| No image | `org/settings/runners_edit.tmpl` | Properties and token regeneration need direct attention. |
+| No image | `org/settings/runners_details.tmpl` | Native runner status, metadata and organization task history supply visuals. |
+
 | Status | Personal runner page | Decision |
 | --- | --- | --- |
 | No image | `user/settings/runner_create.tmpl` | Short name/description form; keep creation direct without a second visual section. |
@@ -244,7 +251,7 @@ Next: organization applications and Actions pages, including runner subpages. En
 | --- | --- | --- |
 | No image | Personal OAuth grants section and revoke confirmation | App names, authorization dates and revoke action; no additional decoration within the applications landing page. |
 | No image | Shared OAuth create form and application-delete confirmation | Name, redirect URIs, confidentiality choice and exact deletion notice; owner page supplies any header art. |
-| Pending | `org/settings/applications_oauth2_edit.tmpl` | Credential form traced; organization page rendering remains unverified. |
+| No image | `org/settings/applications_oauth2_edit.tmpl` | Organization identity plus credential/redirect form; no additional art. Source assessment, runtime unverified. |
 | Pending | `admin/applications/list.tmpl` | Shared list/create caller traced; admin layout/page decision remains pending. |
 | Pending | `admin/applications/oauth2_edit.tmpl` | Shared credential form traced; admin layout/page decision remains pending. |
 
@@ -308,10 +315,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 | No image | `/settings` | Organization identity/avatar already supplies visual context; prioritize profile, visibility and permission fields. |
 | No image | `/settings/hooks` | Organization identity plus native endpoint/status list; new/edit provider controls remain undecorated. Source-reviewed. |
 | No image | `/settings/labels` | Real label colors, names, counts and editing previews are the visual content; source-reviewed. |
-| Pending | `/settings/applications` | OAuth applications, when enabled |
-| Pending | `/settings/actions/runners` | Native Actions runners |
-| Pending | `/settings/actions/secrets` | Native Actions secrets |
-| Pending | `/settings/actions/variables` | Native Actions variables |
+| No image | `/settings/applications` | Organization identity plus actual app names/client IDs and creation controls; source-reviewed. |
+| No image | `/settings/actions/runners` | Actual runner status/labels and registration controls; source-reviewed under organization identity. |
+| No image | `/settings/actions/secrets` | Secret names, masked values and mutation dialogs; source-reviewed under organization identity. |
+| No image | `/settings/actions/variables` | Exact names/values and mutation dialogs; source-reviewed under organization identity. |
 | No image | `/settings/blocked_users` | Organization blocked users: actual identities, search and block/unblock controls take priority; source-reviewed. |
 | No image | `/settings/storage_overview` | Organization quota bars/totals/status are the relevant visuals; source-reviewed. |
 | No image | `/settings/delete` | Warning and exact organization-name confirmation take priority; no decorative image in page or modal. |
@@ -543,3 +550,11 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Labels: no extra art in the page, new/edit dialogs or deletion confirmation. Actual rendered labels, colors, descriptions, counts and color selectors convey the task. Preserve exclusive/archive controls and their warnings. The empty-label template-loader include remains native; no claim that its downstream controls were newly exercised.
 - Organization webhooks: no additional introduction below the existing organization identity header. Endpoint URLs and native last-status dots are the relevant list visuals. New/edit wrappers use the previously reviewed provider dispatcher and form/history structure; keep those controls and deletion confirmation undecorated. This does not close unreviewed provider-specific partials or other owner pages.
 - These decisions are source-based only. No organization fixture, label, webhook or delivery was created/changed. No source changes or tests required; native organization rendering remains unavailable.
+
+### Organization applications and Actions
+
+- Inspected exact stock organization Actions dispatch and all four organization runner wrappers through the embedded viewer; rechecked the organization settings layout. Application list/edit wrappers were read in the earlier OAuth caller audit and use this same layout.
+- Application list/create: no added illustration below the real organization header; client identity and configuration controls are the focus. OAuth edit: no decoration beside credentials, regeneration and redirect settings. Unlike the personal edit wrapper, this organization layout never selected applications artwork, so no suppression change is necessary.
+- Runners list: native status/labels/ownership table is the visual information. Secrets list: names and masked values. Variables list: exact configuration values. Each retains its native dialogs without extra images.
+- Runner creation, setup, editing and detail decisions are individually listed above. They use the previously fully reviewed shared forms/token instructions/status-history content under organization identity; no replacement runner authority or execution is implied.
+- Source evidence only; no organization/runner/secret/variable/application was created, modified or captured. Other owner contexts remain pending independently. No source edits/tests required.
