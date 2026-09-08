@@ -19,6 +19,7 @@ Options:
   --width N        Screenshot width (default: 1440)
   --height N       Screenshot height (default: 1000)
   --wait N         Extra settling time in milliseconds (default: 1500)
+  --scroll-top     Scroll to the page top after settling, before capture
   --local-css      Use this checkout's Soda CSS on localhost:3300; server templates stay unchanged
   --help           Show this help
 
@@ -33,6 +34,7 @@ async function main() {
     options: {
       login: { type: 'boolean' }, help: { type: 'boolean' },
       'local-css': { type: 'boolean' },
+      'scroll-top': { type: 'boolean' },
       profile: { type: 'string', default: path.join(root, '.local/screenshot-profile') },
       out: { type: 'string' },
       width: { type: 'string', default: '1440' },
@@ -147,6 +149,7 @@ async function main() {
         }
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(Number(values.wait));
+        if (values['scroll-top']) await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
         await page.screenshot({ path: filename });
       } catch {
         throw new Error(`Capture ${index + 1} failed. Earlier captures remain in ${output}`);

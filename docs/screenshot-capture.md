@@ -61,6 +61,8 @@ Each run prints its PNG paths under a fresh `.artifacts/screenshots/capture-*`
 directory. Files are numbered in URL order. These are viewport screenshots,
 not full scrolling pages. `--wait 3000` gives JavaScript three extra seconds to
 settle. Inspect the result: a PNG can still show an expired login or an error page.
+Use `--scroll-top` to inspect the header when native autofocus scrolls to a form
+field. This scrolls after settling; it does not disable focus or change the page.
 
 Keep the dedicated profile closed between runs. Use `--profile DIR` for a separate
 guest/account profile, `--out DIR` for a new output directory, or `CHROME` for a

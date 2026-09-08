@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: verify existing profile-settings artwork on the native page, then account and appearance settings. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: verify existing account-settings artwork, then appearance settings. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -225,7 +225,7 @@ Next: verify existing profile-settings artwork on the native page, then account 
 | Existing — verify | [`user/settings/layout_head.tmpl`](../appliance/forgejo/templates/user/settings/layout_head.tmpl) | `settings-account-papercraft.png`, `settings-appearance-papercraft.png`, `settings-applications-papercraft.png`, `settings-keys-papercraft.png`, `settings-profile-papercraft.png`, `settings-security-papercraft.png` | Not yet reviewed in this goal. |
 | Done | [`user/settings/organization.tmpl`](../appliance/forgejo/templates/user/settings/organization.tmpl) | `settings-organizations-papercraft.png` | Distinct membership-card scene; desktop/mobile empty-state captures checked. |
 | Done | [`user/settings/packages.tmpl`](../appliance/forgejo/templates/user/settings/packages.tmpl) | `settings-packages-papercraft.png` | Native landing-page content preserved; explicit artwork input excludes cleanup pages. |
-| Pending | [`user/settings/profile.tmpl`](../appliance/forgejo/templates/user/settings/profile.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| Done | [`user/settings/profile.tmpl`](../appliance/forgejo/templates/user/settings/profile.tmpl) | `settings-profile-papercraft.png` via layout | Existing portrait-frame artwork retained; native desktop/mobile header captures inspected. |
 | Pending | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/security/twofa_enroll.tmpl`](../appliance/forgejo/templates/user/settings/security/twofa_enroll.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`webhook/new.tmpl`](../appliance/forgejo/templates/webhook/new.tmpl) | — | Not yet reviewed in this goal. |
@@ -430,3 +430,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - No decorative image on either blocked-user page: the real avatar/name and block date identify the account affected by each unblock action. Organization settings additionally has native user search and a block button; those controls and the organization identity remain the relevant context. Empty states retain concise native feedback without invented character scenes.
 - Native personal empty-state screenshot inspected: `.artifacts/screenshots/capture-1OqIQs/001.png` (1440×1000). Organization and populated states are source-based assessments, not runtime claims. No blocks/unblocks or other account mutations performed; no source changes or tests needed.
 - Personal navbar coverage now explicitly includes conditional Actions runners/secrets/variables and quota storage overview. Profile/account/appearance/security/applications/keys remain covered by existing pending or verify entries; registry/hooks/memberships/repository inventory have individual records above. Navbar inspection does not prove complete coverage of hidden subroutes.
+
+### Existing profile settings artwork
+
+- Read the full profile override, including profile/privacy fields and the separate avatar upload/delete section. Retain the approved portrait-frame illustration selected by `PageIsSettingsProfile`; it identifies profile editing without replacing the actual avatar control. Original prompt and alpha provenance remain in `settings-art-prompts.md`. No asset or native template changed.
+- Native desktop capture inspected: `.artifacts/screenshots/capture-Q1c7e7/001.png` (1440×1000). Image is contained beside the intro; profile fields stay separate. Initial mobile capture `capture-6HUSt7/001.png` shows native autofocus scrolling to the username field, so it is form evidence, not header evidence.
+- Added optional `--scroll-top` to the authorized screenshot helper and documented it. Default behavior remains unchanged. The flag scrolls after settling without disabling autofocus or changing native DOM/content. Actual 390×844 run inspected at `capture-gmGqrm/001.png`: header illustration fits without overlap. Successful run validates the added capture option; no synthetic tests added.
+- No profile, privacy, avatar or account preference was changed. Dark theme, avatar upload/delete, validation errors and reverse-proxy/rename-disabled variants were not exercised. Those source branches retain the same decorative header and native controls.
