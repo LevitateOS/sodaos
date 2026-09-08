@@ -1,0 +1,1465 @@
+{
+  "$schema": "https://cdn.hopjs.net/npm/@dicebear/schema@1.5.1/dist/definition.min.json",
+  "meta": {
+    "creator": {
+      "name": "SodaOS contributors"
+    },
+    "source": {
+      "name": "Soda robot v1",
+      "url": "https://github.com/levitateos/sodaos"
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "canvas": {
+    "width": 256,
+    "height": 256,
+    "elements": [
+      {
+        "type": "element",
+        "name": "rect",
+        "attributes": {
+          "x": "0",
+          "y": "0",
+          "width": "256",
+          "height": "256",
+          "rx": "0",
+          "fill": {
+            "type": "color",
+            "name": "background"
+          }
+        }
+      },
+      {
+        "type": "component",
+        "name": "earcaps"
+      },
+      {
+        "type": "component",
+        "name": "head"
+      },
+      {
+        "type": "component",
+        "name": "face"
+      },
+      {
+        "type": "component",
+        "name": "eyes"
+      },
+      {
+        "type": "component",
+        "name": "mouth"
+      },
+      {
+        "type": "component",
+        "name": "accessory"
+      }
+    ]
+  },
+  "colors": {
+    "background": {
+      "values": [
+        "#f6f3ee",
+        "#e8efff",
+        "#dff4ea",
+        "#fff0df",
+        "#bfdbfe",
+        "#dbeafe",
+        "#1b2332",
+        "#0d1117"
+      ]
+    },
+    "accent": {
+      "values": [
+        "#155eef",
+        "#087c65",
+        "#f59e0b",
+        "#60a5fa"
+      ]
+    }
+  },
+  "components": {
+    "earcaps": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "round": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "47",
+                    "cy": "135",
+                    "r": "20",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "47",
+                    "cy": "135",
+                    "r": "14",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "2"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "47",
+                    "cy": "135",
+                    "r": "20",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "47",
+                    "cy": "135",
+                    "r": "14",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "2"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "pill": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "29",
+                    "y": "111",
+                    "width": "29",
+                    "height": "48",
+                    "rx": "14",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "path",
+                  "attributes": {
+                    "d": "M39 121V149",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "3",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "29",
+                    "y": "111",
+                    "width": "29",
+                    "height": "48",
+                    "rx": "14",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "path",
+                  "attributes": {
+                    "d": "M39 121V149",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "3",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "stacked": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "24",
+                    "y": "119",
+                    "width": "23",
+                    "height": "32",
+                    "rx": "8",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "37",
+                    "y": "108",
+                    "width": "24",
+                    "height": "54",
+                    "rx": "10",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#172554",
+                    "stroke-width": "2"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "24",
+                    "y": "119",
+                    "width": "23",
+                    "height": "32",
+                    "rx": "8",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "37",
+                    "y": "108",
+                    "width": "24",
+                    "height": "54",
+                    "rx": "10",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#172554",
+                    "stroke-width": "2"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "window": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "26",
+                    "y": "110",
+                    "width": "35",
+                    "height": "50",
+                    "rx": "16",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "35",
+                    "y": "121",
+                    "width": "9",
+                    "height": "28",
+                    "rx": "4",
+                    "fill": "#fff7e8"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "26",
+                    "y": "110",
+                    "width": "35",
+                    "height": "50",
+                    "rx": "16",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "35",
+                    "y": "121",
+                    "width": "9",
+                    "height": "28",
+                    "rx": "4",
+                    "fill": "#fff7e8"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "disc": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "46",
+                    "cy": "135",
+                    "r": "21",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "44",
+                    "cy": "135",
+                    "r": "9",
+                    "fill": "#172554"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "44",
+                    "cy": "135",
+                    "r": "4",
+                    "fill": "#5ef3d2"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "46",
+                    "cy": "135",
+                    "r": "21",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "44",
+                    "cy": "135",
+                    "r": "9",
+                    "fill": "#172554"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "circle",
+                  "attributes": {
+                    "cx": "44",
+                    "cy": "135",
+                    "r": "4",
+                    "fill": "#5ef3d2"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "vents": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {},
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "26",
+                    "y": "112",
+                    "width": "35",
+                    "height": "46",
+                    "rx": "11",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "path",
+                  "attributes": {
+                    "d": "M36 125V145M43 125V145",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "3",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "element",
+              "name": "g",
+              "attributes": {
+                "transform": "translate(256 0) scale(-1 1)"
+              },
+              "children": [
+                {
+                  "type": "element",
+                  "name": "rect",
+                  "attributes": {
+                    "x": "26",
+                    "y": "112",
+                    "width": "35",
+                    "height": "46",
+                    "rx": "11",
+                    "fill": {
+                      "type": "color",
+                      "name": "accent"
+                    },
+                    "stroke": "#fff7e8",
+                    "stroke-width": "3"
+                  }
+                },
+                {
+                  "type": "element",
+                  "name": "path",
+                  "attributes": {
+                    "d": "M36 125V145M43 125V145",
+                    "fill": "none",
+                    "stroke": "#172554",
+                    "stroke-width": "3",
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "head": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "round": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M128 43a85 85 0 1 1 0 170a85 85 0 1 1 0-170Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M128 43a85 85 0 1 1 0 170a85 85 0 1 1 0-170Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "wide": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M84 57H172Q211 57 211 101V163Q211 207 167 207H89Q45 207 45 163V101Q45 57 84 57Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M84 57H172Q211 57 211 101V163Q211 207 167 207H89Q45 207 45 163V101Q45 57 84 57Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "tall": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 43H165Q202 43 202 82V172Q202 215 163 215H93Q54 215 54 172V82Q54 43 91 43Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 43H165Q202 43 202 82V172Q202 215 163 215H93Q54 215 54 172V82Q54 43 91 43Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "chamfer": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M90 49H166Q175 49 182 56L205 80Q210 87 210 97V170Q210 181 202 189L184 207Q177 214 165 214H91Q79 214 72 207L54 189Q46 181 46 170V97Q46 87 51 80L74 56Q81 49 90 49Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M90 49H166Q175 49 182 56L205 80Q210 87 210 97V170Q210 181 202 189L184 207Q177 214 165 214H91Q79 214 72 207L54 189Q46 181 46 170V97Q46 87 51 80L74 56Q81 49 90 49Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "pear": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M128 45Q183 45 197 90Q214 124 207 164Q200 211 128 217Q56 211 49 164Q42 124 59 90Q73 45 128 45Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M128 45Q183 45 197 90Q214 124 207 164Q200 211 128 217Q56 211 49 164Q42 124 59 90Q73 45 128 45Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "helmet": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M78 55Q128 38 178 55Q205 67 208 101L202 177Q197 210 164 210H92Q59 210 54 177L48 101Q51 67 78 55Z",
+                "fill": "#dcd5cc",
+                "transform": "translate(0 4)"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M78 55Q128 38 178 55Q205 67 208 101L202 177Q197 210 164 210H92Q59 210 54 177L48 101Q51 67 78 55Z",
+                "fill": "#fff7e8",
+                "stroke": "#172554",
+                "stroke-width": "2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 68Q128 57 165 68",
+                "fill": "none",
+                "stroke": "#ffffff",
+                "stroke-width": "3",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "face": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "rounded": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "65",
+                "y": "94",
+                "width": "126",
+                "height": "92",
+                "rx": "32",
+                "fill": "#172554"
+              }
+            }
+          ]
+        },
+        "oval": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "ellipse",
+              "attributes": {
+                "cx": "128",
+                "cy": "139",
+                "rx": "64",
+                "ry": "47",
+                "fill": "#172554"
+              }
+            }
+          ]
+        },
+        "wide": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "62",
+                "y": "100",
+                "width": "132",
+                "height": "81",
+                "rx": "28",
+                "fill": "#172554"
+              }
+            }
+          ]
+        },
+        "squircle": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M91 94H165Q193 94 193 124V153Q193 184 164 184H92Q63 184 63 153V124Q63 94 91 94Z",
+                "fill": "#172554"
+              }
+            }
+          ]
+        },
+        "shield": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M96 96H160Q192 96 192 128V148Q189 178 128 188Q67 178 64 148V128Q64 96 96 96Z",
+                "fill": "#172554"
+              }
+            }
+          ]
+        },
+        "arched": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M65 127Q65 90 128 90Q191 90 191 127V158Q191 184 164 184H92Q65 184 65 158Z",
+                "fill": "#172554"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "eyes": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "dots": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "103",
+                "cy": "130",
+                "r": "8",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "153",
+                "cy": "130",
+                "r": "8",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "ovals": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "ellipse",
+              "attributes": {
+                "cx": "103",
+                "cy": "130",
+                "rx": "7",
+                "ry": "13",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "ellipse",
+              "attributes": {
+                "cx": "153",
+                "cy": "130",
+                "rx": "7",
+                "ry": "13",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "capsules": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "97",
+                "y": "115",
+                "width": "12",
+                "height": "28",
+                "rx": "6",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "147",
+                "y": "115",
+                "width": "12",
+                "height": "28",
+                "rx": "6",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "happy": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M94 133Q103 115 112 133",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "6",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M144 133Q153 115 162 133",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "6",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "wink": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M94 133Q103 117 112 133",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "6",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            },
+            {
+              "type": "element",
+              "name": "ellipse",
+              "attributes": {
+                "cx": "153",
+                "cy": "130",
+                "rx": "7",
+                "ry": "12",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "rings": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "103",
+                "cy": "130",
+                "r": "10",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5"
+              }
+            },
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "153",
+                "cy": "130",
+                "r": "10",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5"
+              }
+            }
+          ]
+        },
+        "squares": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "94",
+                "y": "121",
+                "width": "18",
+                "height": "18",
+                "rx": "5",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "144",
+                "y": "121",
+                "width": "18",
+                "height": "18",
+                "rx": "5",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "curious": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "103",
+                "cy": "130",
+                "r": "8",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "ellipse",
+              "attributes": {
+                "cx": "153",
+                "cy": "128",
+                "rx": "8",
+                "ry": "13",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "relaxed": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M94 128Q103 136 112 128",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "6",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M144 128Q153 136 162 128",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "6",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "glints": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "93",
+                "y": "125",
+                "width": "20",
+                "height": "10",
+                "rx": "5",
+                "fill": "#5ef3d2"
+              }
+            },
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "143",
+                "y": "125",
+                "width": "20",
+                "height": "10",
+                "rx": "5",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "mouth": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "smile": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M118 157Q128 169 138 157",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "smallSmile": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M122 160Q128 166 134 160",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "sideSmile": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M119 163Q132 166 138 156",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "flat": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M121 161H135",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "5",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "open": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "121",
+                "y": "153",
+                "width": "14",
+                "height": "16",
+                "rx": "7",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "grin": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M115 155H141Q139 171 128 171Q117 171 115 155Z",
+                "fill": "#5ef3d2"
+              }
+            }
+          ]
+        },
+        "wave": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M116 160Q122 166 128 160Q134 154 140 160",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "4",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        },
+        "tinyO": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "128",
+                "cy": "161",
+                "r": "5",
+                "fill": "none",
+                "stroke": "#5ef3d2",
+                "stroke-width": "4"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "accessory": {
+      "width": 256,
+      "height": 256,
+      "variants": {
+        "plain": {
+          "elements": []
+        },
+        "bar": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "116",
+                "y": "64",
+                "width": "24",
+                "height": "9",
+                "rx": "4",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            }
+          ]
+        },
+        "button": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "circle",
+              "attributes": {
+                "cx": "128",
+                "cy": "70",
+                "r": "7",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                },
+                "stroke": "#172554",
+                "stroke-width": "1"
+              }
+            }
+          ]
+        },
+        "stripe": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "123",
+                "y": "52",
+                "width": "10",
+                "height": "29",
+                "rx": "5",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            }
+          ]
+        },
+        "badge": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "114",
+                "y": "59",
+                "width": "28",
+                "height": "22",
+                "rx": "6",
+                "fill": "#dcd5cc"
+              }
+            },
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "118",
+                "y": "63",
+                "width": "20",
+                "height": "12",
+                "rx": "4",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            }
+          ]
+        },
+        "chevron": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M114 59H142L133 75Q128 81 123 75Z",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            }
+          ]
+        },
+        "double": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "114",
+                "y": "66",
+                "width": "11",
+                "height": "9",
+                "rx": "4",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            },
+            {
+              "type": "element",
+              "name": "rect",
+              "attributes": {
+                "x": "131",
+                "y": "66",
+                "width": "11",
+                "height": "9",
+                "rx": "4",
+                "fill": {
+                  "type": "color",
+                  "name": "accent"
+                }
+              }
+            }
+          ]
+        },
+        "band": {
+          "elements": [
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M81 85Q86 53 128 53Q170 53 175 85",
+                "fill": "none",
+                "stroke": "#172554",
+                "stroke-width": "9",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            },
+            {
+              "type": "element",
+              "name": "path",
+              "attributes": {
+                "d": "M81 84Q87 55 128 55Q169 55 175 84",
+                "fill": "none",
+                "stroke": {
+                  "type": "color",
+                  "name": "accent"
+                },
+                "stroke-width": "5",
+                "stroke-linecap": "round",
+                "stroke-linejoin": "round"
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
