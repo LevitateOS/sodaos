@@ -30,7 +30,10 @@ test('native probe guards every paused redirect before transmission', async () =
     request: {url: 'https://fixture.invalid/login/oauth/authorize?client_id=synthetic-client', method: 'GET'}});
   assert.equal(scope.authorizations, 1);
   assert.equal(calls.at(-1).method, 'Fetch.continueRequest');
+  await paused({requestId: 'native-logout-redirect', request: {url: 'https://fixture.invalid/-/fetch-redirect', method: 'POST', postData: 'redirect=%2F'}});
+  assert.equal(calls.at(-1).method, 'Fetch.continueRequest');
   for (const [url, method] of [['https://outside.invalid/', 'GET'],
+    ['https://fixture.invalid/-/fetch-redirect', 'POST'],
     ['https://fixture.invalid/-/soda/api/environments', 'POST'],
     ['https://fixture.invalid/login/oauth/authorize?client_id=wrong', 'GET']]) {
     scope.refusedRequest = false;

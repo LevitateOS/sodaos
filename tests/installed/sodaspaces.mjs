@@ -132,8 +132,10 @@ try {
     cdp.on('Fetch.requestPaused', async ({requestId, request}) => {
       try {
         const url = new URL(request.url);
+        // Native logout's link action posts this fixed navigation-only form.
+        const logoutRedirect = request.method === 'POST' && url.pathname === '/-/fetch-redirect' && request.postData === 'redirect=%2F';
         const denied = url.origin !== origin.origin ||
-          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname)) ||
+          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname) && !logoutRedirect) ||
           (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
         if (denied) {
           refusedRequest = true;
@@ -157,7 +159,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
+  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
