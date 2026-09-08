@@ -38,6 +38,11 @@
   border-color: var(--soda-page-edge);
 }
 
+.soda-repo-work-items-filters #issue-filters {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
 .soda-repo-work-items .soda-repo-issue-list > #issue-list {
   border-top: 0;
   border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
@@ -162,6 +167,16 @@
   box-shadow: none;
 }
 
+.soda-repo-thread-content .comment .header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-hover);
+}
+
+.soda-repo-thread .issue-content-right .ui.segment {
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+}
+
 .soda-commit-status-panel .commit-status-header {
   border-color: var(--soda-page-edge);
   background: var(--soda-page-hover);
@@ -185,6 +200,7 @@
 
 .soda-pull-files-container {
   width: min(1440px, calc(100% - 48px)) !important;
+  margin-inline: auto !important;
 }
 
 .soda-pull-diff .diff-file-box {

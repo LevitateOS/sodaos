@@ -59,8 +59,8 @@ theme selection remain distinct. `.soda-page-container` supplies the common cont
 width. Where native pages share only a header or an empty helper hook,
 `.soda-page-marker[data-signed]` opts the enclosing `.page-content` and its
 navbar/footer into that same full-page shell without copying every leaf template.
-This marker is also forbidden inside widgets or the future drawer. Page stylesheets should contain only layout or presentation specific to that
-page.
+This marker is also forbidden inside widgets or the future drawer. Page
+stylesheets should contain only layout or presentation specific to that page.
 
 The partials under `templates/custom/soda/` accept fixed presentation data:
 
@@ -72,16 +72,19 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
   `.soda-empty` wrapper and renders any permitted actions.
 - `theme_toggle` accepts an optional `Class`. It preserves the single hidden
   `#soda-theme-toggle` hook used by the guest-theme script.
+- `guest_theme` accepts the native `Page` context and a fixed `Placement` of
+  `head` or `navbar`. It shares the anonymous route gate between the script and
+  navbar toggle; native sign-in/home/setup wrappers own their local toggle.
 
 Each responsibility has one CSS owner:
 
 | Owner | Contract |
 | --- | --- |
-| `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer and page focus. `.soda-page-container` owns content width. |
+| `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer, button-local primary action color variables and page focus. `.soda-page-container` owns content width. |
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog and `ignore-dirty` settings action/search forms retain native sizing. One native CSS nesting block owns both callers. |
-| `components-settings.css` | Shared account/repository/organization/administrator sidebar, active/hover states and native attached content cards. |
+| `components-settings.css` | Shared account/repository/organization/administrator sidebar, active/hover states and native attached content cards. Panel padding excludes native tables; nested row/dialog forms are not cards. |
 | `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
@@ -90,6 +93,24 @@ Each responsibility has one CSS owner:
 Explore navigation delegates to native `explore/navbar`, including its overflow
 behavior and visibility gates. Native menus, search forms and field markup stay
 upstream-owned; these are CSS adapters, not replacement interactive controls.
+
+Family adapters also have explicit owners. `repository.css` owns repository
+identity/navigation and ordinary content width; native `.fluid` views retain their
+wider canvas. Code, issues, releases/wiki and settings details belong to their
+named family files. `projects.css` owns shared project lists and boards across
+repository, user and organization contexts. `packages.css` and `code-search.css`
+each cover their own feature. `admin.css` and `organization.css` own their
+respective shells; their detail files own specialized content. Webhooks,
+configuration lists, quota disclosure, runner details and moderation each have a
+named owner. `.soda-profile-card-context` opts native profile-card callers into
+one shared style owner, independently of profile page layout.
+Do not restore the retired `admin-org.css` or `workflow-details.css` aggregators.
+
+Shared form controls use low-specificity type exclusions so native focus and
+validation states can win. Principal forms that are nested outside the stable
+settings boundary opt in explicitly with `.soda-form`; do not widen the adapter
+to all descendant forms. Lists, code canvases, board scrollers and native tables
+need their own structure; a generic card or form renderer would obscure it.
 
 `.soda-page` is a **full-page opt-in**, not a widget primitive: putting it inside a
 repository drawer would restyle the surrounding navbar/footer. A future drawer
@@ -332,8 +353,8 @@ WebAuthn and prohibited-login presentation. These counts describe source composi
 not 155 independently exercised browser journeys. Native leaf templates remain
 upstream wherever a shared seam suffices; unchanged override copies are not shipped.
 
-The three-task expansion adds 183 override files relative to `a81bfae`; 201 template
-overrides/helpers are now present. File counts include shared fragments. Detailed
+The three-task expansion added 183 override files relative to `a81bfae`, reaching
+201 template overrides/helpers at `82379b4`. File counts include shared fragments. Detailed
 adapters cover code browsing/editing/diffs, issue and pull workflows, milestones,
 releases/wiki/projects, Actions and runners, repository settings and webhooks,
 profiles/packages/migration, administrator monitoring, account and organization
@@ -341,14 +362,12 @@ details, federated authentication and setup. Native source provenance and exact
 stock recovery checks accompany the adapted files. Full setup, consent and native
 workflow execution are not implied by source composition or local rendering.
 
-The additional `repository-*`, `workflow-details`, `admin-details`,
-`admin-monitoring`, `account-details`, `org-details`, `org-home`, `profiles`,
-`packages`, `onboarding`, `status`, `insights`, `federated-auth` and `forgejo-setup`
-stylesheets are registered by the shared header. Existing page, form, toolbar,
-tab, list and empty-state primitives remain the common presentation owners.
-
-`repository.css`, `account-settings.css`, `admin-org.css` and `auth.css` own only
-family presentation around the shared components. Native menus may overflow their
+The follow-up [component audit](../../docs/forgejo-components-audit.md) removes
+dead and competing adapters and records the current owner map. The shared header
+registers the scoped feature files; existing page, form, toolbar, tab, list and
+empty-state primitives remain the common presentation owners. Shared runner,
+webhook, configuration and moderation leaves have their own cross-context files.
+Native menus may overflow their
 containers; repository action rows wrap on mobile without clipping dropdowns.
 Forms retain native handler URLs, security fields, permissions, state, scripts and
 semantic danger controls. Narrow auth grids explicitly clear native percentage
@@ -366,7 +385,8 @@ retains `PageIsSignIn`, so its override supplies the body toggle, just as login 
 Account themes remain native. Source parity hashes for the adapted wrappers and
 focused component/render tests live under `scripts/forgejo_*_test.go`.
 
-These additions are mounted in the existing isolated local preview only. They do
-not stage or deploy to the appliance, run setup, exercise authentication factors,
-change fixtures, or implement the Sodaspaces drawer. Current browser evidence and
-remaining limitations are recorded in the implementation handoff.
+The expanded baseline is mounted in the existing isolated local preview. Audit
+changes from another worktree can be reviewed using the documented `--local-css`
+capture mode without reloading server templates. These overrides do not stage or
+deploy to the appliance or implement the Sodaspaces drawer. Current browser
+evidence and remaining limitations are recorded in the implementation handoff.

@@ -131,6 +131,15 @@ body:has(.soda-page, .soda-page-marker) :is(a,button,input,textarea,summary,[tab
   outline-offset: 3px;
 }
 
+/* Native actions keep their sizing, outline, loading and disabled behavior.
+   Bind action colors on the button only; labels/charts/status colors stay native. */
+body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.buttons > .button, .button.primary):not(:is(.red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black)) {
+  --color-primary: var(--soda-page-action);
+  --color-primary-hover: var(--soda-page-action-hover);
+  --color-primary-active: var(--soda-page-action-pressed);
+  --color-primary-contrast: var(--soda-page-on-action);
+}
+
 :is(.soda-page, .page-content:has(.soda-page-marker)) {
   flex: 1;
   padding-bottom: 56px;

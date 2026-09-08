@@ -19,7 +19,6 @@ var forgejo1507FederatedTemplateHashes = map[string]string{
 	"grant_error.tmpl":            "0b5bc97171fcbb17d5845fe746740ccc7d4d5d31769c50790b3f16f64dffb775",
 	"link_account.tmpl":           "b6e0a3fa0a8863728d12d4ab423058e5afd48e40f6b59152fed3be56c3ef9382",
 	"signin_openid.tmpl":          "87e3143f01da17f6d94df704af1b0955a97be44f2705ce4d9448a05f59492234",
-	"finalize_openid.tmpl":        "c63e30989450511eb0345857f9858b73d58875e259f259390008f0adefe60e2c",
 	"signup_openid_connect.tmpl":  "64aa53ed32f1143f59504282951655ef21690730b7c86fbe56a11d91803b9b3c",
 	"signup_openid_register.tmpl": "73acde87ce6e08565278aecb064ed78fbdd5d87e809610458ed2b03df6149488",
 }
@@ -65,14 +64,6 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 			`	{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}{{template "custom/soda/theme_toggle" (dict "Class" "soda-theme-toggle")}}{{end}}
 `,
 			``,
-		},
-	},
-	"finalize_openid.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
-`, ``},
-		{
-			`class="page-content user signin soda-page soda-federated-auth soda-federated-auth--openid-finalize" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
-			`class="page-content user signin"`,
 		},
 	},
 	"signup_openid_connect.tmpl": {
@@ -136,7 +127,6 @@ func TestForgejoFederatedAuthPreservesNativeSecurityAndDelegation(t *testing.T) 
 		"grant_error.tmpl":            {`{{if .IsRepo}}{{template "repo/header" .}}{{end}}`},
 		"link_account.tmpl":           {`{{template "user/auth/signup_inner" .}}`, `{{template "user/auth/signin_inner" .}}`},
 		"signin_openid.tmpl":          {`action="{{.Link}}" method="post"`, `{{template "user/auth/webauthn_error" .}}`},
-		"finalize_openid.tmpl":        {`{{template "user/auth/finalize_openid_navbar" .}}`, `action="{{.Link}}" method="post"`},
 		"signup_openid_connect.tmpl":  {`{{template "user/auth/signup_openid_navbar" .}}`, `action="{{.Link}}" method="post"`},
 		"signup_openid_register.tmpl": {`{{template "user/auth/signup_openid_navbar" .}}`, `{{template "user/auth/captcha" .}}`, `action="{{.Link}}" method="post"`},
 	}
@@ -164,7 +154,7 @@ func TestForgejoFederatedAuthOverridesParseWithNativeSeams(t *testing.T) {
 		{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}{{define "base/alert"}}{{end}}
 		{{define "repo/header"}}{{end}}{{define "custom/soda/theme_toggle"}}{{end}}
 		{{define "user/auth/signup_inner"}}{{end}}{{define "user/auth/signin_inner"}}{{end}}
-		{{define "user/auth/webauthn_error"}}{{end}}{{define "user/auth/finalize_openid_navbar"}}{{end}}
+		{{define "user/auth/webauthn_error"}}{{end}}
 		{{define "user/auth/signup_openid_navbar"}}{{end}}{{define "user/auth/captcha"}}{{end}}`
 	for name := range forgejo1507FederatedTemplateHashes {
 		t.Run(name, func(t *testing.T) {

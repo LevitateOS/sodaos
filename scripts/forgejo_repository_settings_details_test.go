@@ -82,12 +82,12 @@ func TestForgejoRepositorySettingsDetailStylesStayScoped(t *testing.T) {
 	}
 	css := string(contents)
 	for _, required := range []string{
+		".soda-repository-settings .soda-settings-layout",
 		".soda-repo-settings-detail",
 		".soda-repo-settings-units",
 		".soda-repo-settings-protected-branch",
 		".soda-repo-settings-tags",
 		".soda-repo-settings-branches",
-		".soda-shared-runner",
 	} {
 		if !strings.Contains(css, required) {
 			t.Errorf("detail stylesheet lost scoped family %q", required)
@@ -96,6 +96,25 @@ func TestForgejoRepositorySettingsDetailStylesStayScoped(t *testing.T) {
 	for _, forbidden := range []string{"body ", "#navbar", ".ui.form {", ".ui.red.button"} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("detail stylesheet contains broad selector %q", forbidden)
+		}
+	}
+}
+
+func TestForgejoSharedRunnerStylesStayWithSharedPartial(t *testing.T) {
+	path := filepath.Join("..", "assets", "branding", "forgejo", "runners.css")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	css := string(contents)
+	for _, required := range []string{".soda-shared-runner", ".soda-shared-runner .runner-list", ".soda-shared-runner dl > .item"} {
+		if !strings.Contains(css, required) {
+			t.Errorf("runner stylesheet lost shared partial scope %q", required)
+		}
+	}
+	for _, forbidden := range []string{"body ", "#navbar", ".ui.form {", ".ui.red.button"} {
+		if strings.Contains(css, forbidden) {
+			t.Errorf("runner stylesheet contains broad selector %q", forbidden)
 		}
 	}
 }

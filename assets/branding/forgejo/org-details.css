@@ -1,5 +1,25 @@
 /* Native team and membership details reuse the Soda shell, intro and forms. */
 .soda-org-details .soda-org-details-intro { margin-top: 28px; }
+.soda-org-details :is(.ui.attached.segment, .ui.attached.header, .ui.attached.table) {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+.soda-org-details .ui.top.attached.header { border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0; }
+.soda-org-details .ui.bottom.attached:is(.header, .segment) { border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius); }
+.soda-org-details .flex-list > .flex-item { padding-block: 20px; border-color: var(--soda-page-edge); }
+.soda-org-details.organization.members .list {
+  padding: var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-org-details.organization.members .list > .divider { border-color: var(--soda-page-edge); }
+.soda-org-details.teams :is(.ui.top.attached.header > a, .team-name) {
+  color: var(--soda-page-text) !important;
+  font-family: Barlow, sans-serif;
+}
 .soda-org-details .soda-form > .ui.segment > fieldset {
   min-width: 0;
   margin: 24px 0;
@@ -12,7 +32,7 @@
 .soda-org-details .soda-form fieldset > label { display: block; margin-block: 16px; }
 .soda-org-details .soda-form fieldset > label > .help { display: block; margin-top: 6px; }
 .soda-org-details .optionmatrix :is(th, td) { padding: 14px; border-color: var(--soda-page-edge); }
-.soda-org-details.teams .flex-list > .flex-item { padding-block: 18px; border-color: var(--soda-page-edge); }
+.soda-org-details.teams .flex-list > .flex-item { padding-block: 18px; }
 .soda-org-details.teams .ui.attached.segment.members { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; }
 .soda-org-details.organization.members .actions {
   display: flex;

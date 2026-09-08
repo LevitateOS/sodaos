@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestForgejoPackagesCodeSearchKeepsNativeSearchContext(t *testing.T) {
+func TestForgejoCodeSearchKeepsNativeSearchContext(t *testing.T) {
 	definition := `
 		{{define "base/head"}}head{{end}}
 		{{define "base/footer"}}footer{{end}}
@@ -98,6 +98,9 @@ func TestForgejoPackagesOwnerPagesRetainOrganizationAndUserBranches(t *testing.T
 					if strings.Contains(output, tc.absent) {
 						t.Errorf("%s %s page crossed owner branch with %q:\n%s", tt.name, tc.name, tc.absent, output)
 					}
+					if got, want := strings.Contains(output, "soda-profile-card-context"), !tc.org; got != want {
+						t.Errorf("%s %s shared profile-card marker presence = %t, want %t:\n%s", tt.name, tc.name, got, want, output)
+					}
 				})
 			}
 		})
@@ -166,14 +169,19 @@ func TestForgejoPackagesStylesStayScoped(t *testing.T) {
 		t.Fatalf("read package stylesheet: %v", err)
 	}
 	css := string(contents)
-	for _, want := range []string{".soda-explore-code", ".soda-code-search", ".soda-packages", ".soda-package-view", ".soda-package-settings", ".soda-package-cleanup-list", ".soda-package-cleanup-edit", ".soda-package-preview-table"} {
+	for _, want := range []string{".soda-packages", ".soda-package-view", ".soda-package-settings", ".soda-package-cleanup-list", ".soda-package-cleanup-edit", ".soda-package-preview-table"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("package stylesheet lacks scoped owner %q", want)
 		}
 	}
-	for _, forbidden := range []string{"\nbody {", "#navbar", ".page-footer"} {
+	for _, forbidden := range []string{"\nbody {", "#navbar", ".page-footer", ".soda-code-search", ".soda-project-board", ".soda-shared-project-list"} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("package stylesheet reaches shared shell with %q", forbidden)
+		}
+	}
+	for _, want := range []string{"display: block", "max-width: 100%", "overflow-x: auto"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("package preview table lost effective overflow rule %q", want)
 		}
 	}
 }

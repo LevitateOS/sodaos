@@ -1,38 +1,5 @@
-/* Package and code-search layout only. Shared shell, intro, toolbar, list and form
-   controls remain owned by the component stylesheets. */
-.soda-explore-code .soda-toolbar--plain {
-	margin-bottom: 14px;
-}
-
-.soda-code-search {
-	min-width: 0;
-}
-
-.soda-code-search > .ui.form {
-	margin: 0 0 22px;
-	padding: 20px var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-}
-
-.soda-code-search > .ui.user.list {
-	margin: 0;
-	padding: var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-}
-
-.soda-code-search > .ui.user.list:empty {
-	display: none;
-}
-
-.soda-code-search .breadcrumb,
-.soda-code-search .text.grey,
-.soda-code-search relative-time {
-	color: var(--soda-page-muted) !important;
-}
+/* Package layout only. Shared shell, intro, toolbar, list and form controls remain
+   owned by the component stylesheets. */
 
 .soda-packages .soda-page-intro--compact {
 	margin: 22px 0;
@@ -187,6 +154,8 @@
 }
 
 .soda-package-preview-table {
+	display: block;
+	max-width: 100%;
 	overflow-x: auto;
 	border-color: var(--soda-page-edge) !important;
 	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius) !important;
@@ -201,56 +170,6 @@
 
 .soda-package-cleanup-edit .soda-form > .field:last-child {
 	margin-bottom: 0;
-}
-
-/* Native project-board layout and drag/drop state remain upstream-owned. */
-.soda-project-board-page {
-	padding-bottom: 24px;
-	color: var(--soda-page-text);
-}
-
-.soda-project-board-header > .soda-project-board-toolbar h2 {
-	color: var(--soda-page-text);
-	font: 600 32px/1.25 "Fraunces Variable", Georgia, serif;
-	letter-spacing: -.025em;
-}
-
-.soda-project-board-toolbar > .ui.menu {
-	border-color: var(--soda-page-edge);
-	border-radius: var(--soda-control-radius);
-	background: var(--soda-page-surface);
-	box-shadow: none;
-}
-
-.soda-project-board-description {
-	margin-bottom: 20px;
-	padding: 20px var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-}
-
-.soda-project-board-description:empty {
-	display: none;
-}
-
-.soda-project-board .project-column {
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
-	box-shadow: none;
-}
-
-.soda-project-board .project-column-header,
-.soda-project-board .project-column-title {
-	color: inherit;
-}
-
-.soda-project-board .issue-card {
-	border-color: var(--soda-page-edge);
-	border-radius: var(--soda-control-radius);
-	background: var(--soda-page-canvas);
-	box-shadow: none;
 }
 
 @media (max-width: 700px) {
@@ -279,9 +198,5 @@
 	.soda-package-cleanup-edit .soda-form .field:last-child > :is(button, a) {
 		width: 100%;
 		margin: 0 0 8px;
-	}
-
-	.soda-project-board-header > .soda-project-board-toolbar h2 {
-		font-size: 26px;
 	}
 }

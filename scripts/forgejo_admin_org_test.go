@@ -120,30 +120,29 @@ func TestForgejoAdminOrganizationCompositionBoundaries(t *testing.T) {
 }
 
 func TestForgejoAdminOrganizationStylesStayFamilyScoped(t *testing.T) {
-	path := filepath.Join("..", "assets", "branding", "forgejo", "admin-org.css")
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
+	styles := []struct {
+		name    string
+		markers []string
+	}{
+		{name: "admin.css", markers: []string{".soda-admin-layout", ".soda-admin .admin-setting-content", "var(--soda-page-surface)", "@media (max-width: 700px)"}},
+		{name: "organization.css", markers: []string{".soda-org-settings-layout", ".page-content.organization:has(.soda-org-header)", "> .ui.container:not(.fluid)", "var(--soda-page-surface)", "@media (max-width: 700px)"}},
 	}
-	css := string(contents)
-	for _, marker := range []string{
-		".soda-admin-layout",
-		".soda-org-settings-layout",
-		".page-content.organization:has(.soda-org-header)",
-		"var(--soda-page-surface)",
-		"@media (max-width: 700px)",
-	} {
-		if !strings.Contains(css, marker) {
-			t.Errorf("administrator/organization stylesheet lost %q", marker)
+	for _, style := range styles {
+		path := filepath.Join("..", "assets", "branding", "forgejo", style.name)
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
 		}
-	}
-	for _, forbidden := range []string{
-		".ui.red.button {",
-		".danger.button {",
-		".delete-button {",
-	} {
-		if strings.Contains(css, forbidden) {
-			t.Errorf("stylesheet must preserve native destructive control styling; found broad selector %q", forbidden)
+		css := string(contents)
+		for _, marker := range style.markers {
+			if !strings.Contains(css, marker) {
+				t.Errorf("%s lost %q", style.name, marker)
+			}
+		}
+		for _, forbidden := range []string{".ui.red.button {", ".danger.button {", ".delete-button {"} {
+			if strings.Contains(css, forbidden) {
+				t.Errorf("%s must preserve native destructive control styling; found broad selector %q", style.name, forbidden)
+			}
 		}
 	}
 }
@@ -159,6 +158,8 @@ func TestForgejoSettingsComponentKeepsNativeBoundaries(t *testing.T) {
 		`:is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu`,
 		`details.item > summary`,
 		`:is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header`,
+		`> .ui.attached.segment:not(table)`,
+		`:is(.soda-config-heading, .soda-webhook-heading).ui.header`,
 		`var(--soda-page-selected)`,
 	} {
 		if !strings.Contains(css, marker) {
@@ -171,6 +172,9 @@ func TestForgejoSettingsComponentKeepsNativeBoundaries(t *testing.T) {
 		".danger.button",
 		".delete-button",
 		"body:has(",
+		".soda-config-list > .flex-list",
+		".soda-blocked-users > .flex-item",
+		".soda-quota-overview details.stats",
 	} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("shared settings stylesheet exceeds its navigation/card contract with %q", forbidden)

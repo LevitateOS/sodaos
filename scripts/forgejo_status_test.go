@@ -86,7 +86,7 @@ func TestForgejoStatus500RetainsUpstreamPanicFallback(t *testing.T) {
 	}
 
 	css := readForgejoAssetFile(t, "status.css")
-	for _, want := range []string{".soda-status-card", ".soda-status-card .error-code", ".soda-status-version"} {
+	for _, want := range []string{".soda-status-card", ".soda-status-card .error-code", ".soda-status-version", "grid-template-columns: minmax(0, 1fr)"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("status CSS missing scoped rule %q", want)
 		}

@@ -1,5 +1,22 @@
 /* Native Forgejo administration diagnostics. Shared components own the page
    shell and form controls; these rules only arrange monitoring content. */
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child,
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child > form {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child > form :is(label, button) {
+  white-space: normal !important;
+}
+
+.soda-admin.monitor .admin-setting-content .ui.relaxed.divided.list :is(.content, .header, .description, code) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .soda-admin-monitoring .soda-monitoring-table {
   padding: 0;
   overflow-x: auto;
@@ -107,6 +124,11 @@
 }
 
 @media (max-width: 700px) {
+  .soda-admin.monitor .admin-setting-content > .tw-flex:first-child > :is(.tw-flex-1, form) {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
   .soda-admin-monitoring .soda-monitoring-table .ui.table :is(th, td) {
     padding: 12px;
   }

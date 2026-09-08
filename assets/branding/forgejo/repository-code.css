@@ -29,6 +29,18 @@
 .soda-code #repo-find-file-table td { padding: 14px 20px; }
 .soda-code .repo-button-row.soda-toolbar { justify-content: space-between; }
 .soda-code .repo-button-row.soda-toolbar > .button-sequence { flex-wrap: wrap; }
+.soda-code-browser .repo-description {
+  margin-bottom: 16px;
+  color: var(--soda-page-muted);
+  font-size: 16px;
+}
+.soda-code-browser .repo-description .description { color: var(--soda-page-text); }
+.soda-code-browser .repo-topics .repo-topic {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 999px;
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
 .soda-code-summary.ui.segments {
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
@@ -42,7 +54,11 @@
   border-color: var(--soda-page-edge);
   background: var(--soda-page-surface);
 }
-.soda-code-summary .repository-menu .item { font: 500 14px/1.6 Barlow,Arial,sans-serif; }
+.soda-code-summary .repository-menu .item {
+  color: var(--soda-page-muted) !important;
+  font: 500 14px/1.6 Barlow,Arial,sans-serif;
+}
+.soda-code-summary .repository-menu .item:is(:hover,.active) { color: var(--soda-page-link) !important; }
 .soda-code-summary #language-stats > ul { padding: 16px 24px; }
 .soda-code-ref-selector .branch-dropdown-button {
   min-height: var(--soda-control-height);
@@ -101,14 +117,64 @@
 }
 .soda-code-files.ui.table tr.entry:hover { background: var(--soda-page-hover); }
 .soda-code-files .name a.muted { color: var(--soda-page-text); }
-.soda-code-file .file-header { padding: 18px 22px; gap: 12px; }
+.soda-code-browser .code-search,
+.soda-code-file,
+.soda-code-file .file-header {
+  border-color: var(--soda-page-edge) !important;
+  background: var(--soda-page-surface) !important;
+}
+.soda-code-file .file-header {
+  padding: 18px 22px;
+  gap: 12px;
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0 !important;
+}
 .soda-code-file .file-actions { gap: 6px; }
+.soda-code-file,
+.soda-code-file :is(.file-view,.repo-file-view) {
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+.soda-code .markup { color: var(--soda-page-text); }
 .soda-code-commits-heading.ui.header { flex-wrap: wrap; gap: 12px; }
+.soda-code-browser:is(.commits,.branches,.tags) > .ui.container > .ui.top.attached.header {
+  margin-top: 24px;
+  padding: 18px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  font: 600 20px/1.4 "Fraunces Variable",Georgia,serif;
+  box-shadow: none;
+}
+.soda-code-browser.branches > .ui.container > .ui.attached.segment:not(.table) {
+  padding: var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
 .soda-code-history.ui.segment {
   background: var(--soda-page-surface);
   border-color: var(--soda-page-edge);
 }
 .soda-code-history #commits-table :is(th,td) { padding-block: 16px; }
+.soda-code-browser.commits .commit-table {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-browser.commits #commits-table :is(th,td) { border-color: var(--soda-page-edge); }
+.soda-code-browser:is(.branches,.tags) .ui.attached.table.segment {
+  overflow: auto;
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-browser:is(.branches,.tags) table td {
+  padding-block: 18px;
+  border-color: var(--soda-page-edge);
+}
+.soda-code-browser.tags .release-tag-name a {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable",Georgia,serif;
+}
 .soda-code-commit-search .ui.action.input > input {
   min-height: var(--soda-control-height);
   background: var(--soda-page-canvas);
@@ -261,6 +327,21 @@
   padding: 18px var(--soda-panel-inset);
   border-color: var(--soda-page-edge);
 }
+.soda-code-actions .actions-menu {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+.soda-code-actions .actions-menu .item {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+.soda-code-actions .actions-menu .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
 .soda-code-actions #repo-action-view {
   width: min(1400px,calc(100% - 48px));
   margin-inline: auto;
@@ -305,6 +386,10 @@
   }
   .soda-code-editor #editor-bar { flex-wrap: wrap; }
   .soda-code-editor #editor-bar .switch > .item { padding-inline: 8px; }
+  .soda-code-browser .repo-button-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .soda-code-branch-picker > .dropdown { width: 100%; }
   .soda-code-branch-picker > .dropdown > .menu {
     max-width: calc(100vw - 64px);

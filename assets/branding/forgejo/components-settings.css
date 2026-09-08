@@ -70,7 +70,7 @@
 	box-shadow: none;
 }
 
-:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.attached.segment {
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.attached.segment:not(table) {
 	padding: var(--soda-panel-inset);
 }
 
@@ -86,8 +86,18 @@
 	border-color: var(--soda-page-edge);
 }
 
+/* Native configuration and webhook headings can carry an action control. */
+:is(.soda-config-heading, .soda-webhook-heading).ui.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
 @media (max-width: 540px) {
 	:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
 		font-size: 19px;
 	}
+
 }

@@ -1,0 +1,32 @@
+/* Native secrets and variables lists retain Forgejo forms, modal hooks, and
+   permission gates. Shared settings cards own their surrounding surfaces. */
+.soda-config-list > .flex-list > .flex-item {
+	gap: 16px;
+	padding-block: 20px;
+	border-color: var(--soda-page-edge);
+}
+
+.soda-config-list .flex-item-title {
+	color: var(--soda-page-text);
+	font-size: 17px;
+}
+
+.soda-config-list .flex-item-body {
+	color: var(--soda-page-muted);
+	overflow-wrap: anywhere;
+}
+
+.soda-config-list .flex-item-trailing {
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+@media (max-width: 700px) {
+	.soda-config-list .flex-item {
+		flex-wrap: wrap;
+	}
+
+	.soda-config-list .flex-item-trailing {
+		margin-left: auto;
+	}
+}

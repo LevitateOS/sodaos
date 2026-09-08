@@ -63,21 +63,25 @@ func TestForgejoRepositoryStylesStayScopedToNativePages(t *testing.T) {
 	css := string(contents)
 	for _, scope := range []string{
 		`.page-content:has(> .soda-repository-header)`,
+		`.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid)`,
 		`.soda-repository-header .repo-header .repo-buttons`,
-		`.page-content.repository.file`,
-		`.page-content.repository.issue-list`,
-		`.page-content.repository.view.issue`,
-		`.page-content.repository.commits`,
-		`.page-content.repository.branches`,
-		`.page-content.repository.tags`,
-		`.page-content.repository.releases`,
-		`.soda-repository-settings .soda-settings-layout`,
+		`:is(.ui.primary.button,.primary.button):not(.basic)`,
+		`.ui.basic.button:not(.red)`,
 	} {
 		if !strings.Contains(css, scope) {
 			t.Errorf("repository stylesheet lost page-family scope %q", scope)
 		}
 	}
-	for _, forbidden := range []string{"body:has(", "#navbar", ".page-footer"} {
+	for _, forbidden := range []string{
+		"body:has(", "#navbar", ".page-footer",
+		".page-content.repository.file", ".page-content.repository.issue-list",
+		".page-content.repository.view.issue", ".page-content.repository.commits",
+		".page-content.repository.branches", ".page-content.repository.tags",
+		".page-content.repository.releases", ".page-content.repository.wiki",
+		".page-content.repository.projects", ".page-content.repository.actions",
+		":not(.soda-repository-settings)",
+		"background: var(--soda-page-action)", "background: var(--soda-page-action-hover)",
+	} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("repository stylesheet took over shared shell selector %q", forbidden)
 		}

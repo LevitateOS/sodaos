@@ -25,6 +25,67 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Expanded component audit
+
+Audited the `82379b4` expansion across all 201 template overrides/helpers and
+38 linked CSS files. The [audit](forgejo-components-audit.md) and
+[composition contract](../appliance/forgejo/README.md#presentation-component-contract)
+record the resulting boundaries. Shared controls now preserve native focus/error
+states; button-local theme variables give native primary actions one color owner.
+Settings table padding is separate from card padding. Ordinary repository/org
+width rules exclude fluid canvases; the bounded pull-files canvas is centered.
+Repository-context status pages constrain their grid instead of expanding native
+navigation beyond mobile width.
+
+Repository, administrator, organization, projects, packages/code search, shared
+runner/configuration/quota/webhook/moderation adapters now have explicit owners;
+competing old rules and the mixed admin/workflow aggregators are removed. Native
+profile-card callers opt in through a component marker. Two nested principal
+settings forms opt in explicitly, preserving compact row/dialog/search forms.
+The migrating wrapper derives guest state from native `.IsSigned`. The unused
+`finalize_openid` override is removed. There are still 201 template files (one
+removed, one native OAuth-list override added), four Soda partials and 45 CSS
+files; all CSS files are registered exactly once. No Lit dependency was added.
+
+Executed locally for this audit:
+
+- Offline readonly `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1
+  -mod=readonly ./scripts -run TestForgejo` passed, covering 96 top-level tests
+  plus their native composition/hash/security cases. Earlier runs exposed stale
+  CSS-owner/cache-version assertions; those were corrected to the new contracts.
+- The combined guest-theme, Explore overflow, milestone layout and component
+  boundary JavaScript run passed all 18 reported tests. The new boundary suite
+  covers eight cases, including light/dark focus/errors and native button states,
+  table padding, fluid widths, narrow error pages, compact-form isolation, profile
+  reuse and horizontally reachable package table columns. The error-border,
+  table-padding, fluid-width and status-grid tests reproduced pre-fix failures.
+  The boundary suite passed again after centering the bounded pull-files canvas.
+- Read-only stock 15.0.7 embedded/source inspection retained native hooks and
+  confirmed the unreachable OpenID template and anonymous migration route. Exact
+  upstream commit: `d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`.
+- Captured and inspected 40 candidate CSS screenshots using
+  `scripts/screenshot.mjs --local-css`, at 390px and 1654px, plus ten initial
+  mobile baseline captures. Candidate captures cover account settings, public
+  repository/list/release/wiki/project/activity/profile/package views, migration
+  selection, pull files, branches/commits, error pages and guest sign-in/disabled
+  registration/recovery notices. Evidence is retained under ignored
+  `.artifacts/screenshots/audit-candidate-*`, `audit-final-*` and
+  `audit-pull-files-centered/`. The latter recapture verifies the final wide canvas.
+- Screenshot helper syntax, CSS registry/file correspondence and
+  `git diff --check` passed. Existing development dependencies were reused.
+
+The preview binds `/Users/vince/Projects/sodaos`, not this audit worktree. The
+capture option substitutes only candidate Soda CSS in the isolated browser;
+native server templates/scripts remain unchanged. New form/profile class markers,
+the migration guest flag and removed unused override have source/caller-test
+evidence only and await applying/reloading the templates. Missing quota/Actions
+routes produced native errors, and global code search redirected to Explore;
+those captures are not evidence of those workflows. The non-admin fixture cannot
+exercise administrator/owner-only settings. Populated project boards, package
+cleanup, provider authentication, native POST/error responses and appliance
+staging/deployment were not newly exercised. No fixtures, account preferences,
+credentials, service lifecycle or provider resources were changed.
+
 ## Expanded native Forgejo branding
 
 Broad supported stock 15.0.7 header/layout overrides now cover repository pages

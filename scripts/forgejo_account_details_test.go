@@ -48,6 +48,12 @@ func TestForgejoAccountDetailOverridesMatchStock1507(t *testing.T) {
 					`<div class="user-setting-content">`,
 				},
 			}
+			if fixture.path == "appearance.tmpl" {
+				edits = append(edits, [2]string{
+					`<form class="ui form soda-form" action="{{.Link}}/theme" method="post">`,
+					`<form class="ui form" action="{{.Link}}/theme" method="post">`,
+				})
+			}
 			for _, edit := range edits {
 				if count := strings.Count(restored, edit[0]); count != 1 {
 					t.Fatalf("%s has %d occurrences of presentation edit %q, want 1", fixture.path, count, edit[0])
@@ -58,6 +64,34 @@ func TestForgejoAccountDetailOverridesMatchStock1507(t *testing.T) {
 				t.Errorf("%s differs from pristine Forgejo 15.0.7 outside attributed page/content classes: got %s, want %s", fixture.path, got, fixture.sha)
 			}
 		})
+	}
+}
+
+func TestForgejoOAuthApplicationListKeepsNativeFormsAndActions(t *testing.T) {
+	const upstreamHash = "fef3276344cd83d2df9a074ff37eafb320b2835de59d951add2601672d53c761"
+	const notice = "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_list.tmpl (GPL-3.0-or-later); upstream SHA-256 " + upstreamHash + ". */}}\n"
+	contents := readForgejoAccountDetailTemplate(t, "applications_oauth2_list.tmpl")
+	if !strings.HasPrefix(contents, notice) {
+		t.Fatal("OAuth application list lost exact Forgejo version, license, or pristine-source attribution")
+	}
+	const branded = `<form class="ui form soda-form ignore-dirty" action="{{.Link}}/oauth2" method="post">`
+	const stock = `<form class="ui form ignore-dirty" action="{{.Link}}/oauth2" method="post">`
+	restored := strings.TrimPrefix(contents, notice)
+	if count := strings.Count(restored, branded); count != 1 {
+		t.Fatalf("OAuth application list has %d principal form adapters, want 1", count)
+	}
+	restored = strings.Replace(restored, branded, stock, 1)
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(restored))); got != upstreamHash {
+		t.Fatalf("OAuth application list differs from pristine Forgejo 15.0.7 beyond its principal form class: got %s, want %s", got, upstreamHash)
+	}
+	for _, marker := range []string{
+		`{{range .Applications}}`, `{{if $isBuiltin}}`, `data-modal-id="remove-gitea-oauth2-application"`,
+		`data-url="{{$.Link}}/oauth2/{{.ID}}/delete"`, `{{template "base/modal_actions_confirm" .}}`,
+		`name="application_name"`, `name="redirect_uris"`, `name="confidential_client"`,
+	} {
+		if !strings.Contains(contents, marker) {
+			t.Errorf("OAuth application list lost native marker %q", marker)
+		}
 	}
 }
 

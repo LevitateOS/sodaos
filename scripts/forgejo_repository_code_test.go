@@ -3,6 +3,7 @@ package scripts
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -83,5 +84,47 @@ func TestForgejoCodeEditorsKeepExplicitFormAndNativeRoot(t *testing.T) {
 		if !strings.Contains(contents, `data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`) {
 			t.Errorf("%s: missing explicit guest/signed presentation", name)
 		}
+	}
+}
+
+func TestForgejoCodeAndWorkflowStylesUsePositiveFamilyMarkers(t *testing.T) {
+	files := map[string][]string{
+		"repository-code.css": {
+			".soda-code-browser .repo-description", ".soda-code-summary",
+			".soda-code-file", ".soda-code-browser:is(.branches,.tags)",
+			".soda-code-browser:is(.commits,.branches,.tags)", ".soda-code-actions .actions-menu",
+		},
+		"webhooks.css": {
+			".soda-webhook-heading .dropdown", ".soda-webhook-list", ".soda-webhook-history", ".soda-webhook-events",
+		},
+		"moderation.css": {
+			".soda-moderation > .ui.page.grid", ".soda-moderation .soda-form", ".soda-blocked-users",
+		},
+		"configuration.css": {
+			".soda-config-list > .flex-list > .flex-item", ".soda-config-list .flex-item-trailing",
+		},
+		"quota.css": {
+			".soda-quota-overview details.stats", ".soda-quota-overview details.stats ul li",
+		},
+	}
+	for name, markers := range files {
+		contents, err := os.ReadFile("../assets/branding/forgejo/" + name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		css := string(contents)
+		for _, marker := range markers {
+			if !strings.Contains(css, marker) {
+				t.Errorf("%s lost positive family marker %q", name, marker)
+			}
+		}
+		for _, forbidden := range []string{"body:has(", "#navbar", ".page-footer"} {
+			if strings.Contains(css, forbidden) {
+				t.Errorf("%s exceeds its family boundary with %q", name, forbidden)
+			}
+		}
+	}
+	if _, err := os.Stat("../assets/branding/forgejo/workflow-details.css"); !os.IsNotExist(err) {
+		t.Error("workflow-details.css should be split among its actual page and component owners")
 	}
 }

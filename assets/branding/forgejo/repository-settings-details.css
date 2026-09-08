@@ -1,4 +1,24 @@
 /* Detail presentation for exact Forgejo 15.0.7 repository settings leaves. */
+.soda-repository-settings.soda-page {
+	padding-bottom: 56px;
+}
+
+.soda-repository-settings .soda-settings-layout {
+	width: min(1120px, calc(100% - 48px)) !important;
+	align-items: flex-start;
+	gap: 26px;
+}
+
+.soda-repository-settings .soda-settings-layout > .flex-container-nav {
+	position: sticky;
+	top: 20px;
+}
+
+.soda-repository-settings .flex-container-main,
+.soda-repository-settings .repo-setting-content {
+	min-width: 0;
+}
+
 .soda-repo-settings-detail {
 	min-width: 0;
 }
@@ -114,62 +134,17 @@
 	border-bottom: 0;
 }
 
-.soda-shared-runner > .ui.top.attached.header {
-	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
-}
-
-.soda-shared-runner > :is(.ui.attached.segment, .ui.attached.table.segment) {
-	border-color: var(--soda-page-edge);
-	background: var(--soda-page-surface);
-	box-shadow: none;
-}
-
-.soda-shared-runner .runner-list :is(th, td) {
-	border-color: var(--soda-page-edge);
-}
-
-.soda-shared-runner dl > .item {
-	display: grid;
-	grid-template-columns: minmax(130px, .4fr) minmax(0, 1fr);
-	gap: 12px 24px;
-	padding: 14px 0;
-	border-bottom: 1px solid var(--soda-page-edge);
-}
-
-.soda-shared-runner dl > .item:last-child {
-	border-bottom: 0;
-}
-
-.soda-shared-runner dl dt {
-	color: var(--soda-page-muted);
-	font: 600 12px/1.5 "IBM Plex Mono", monospace;
-}
-
-.soda-shared-runner pre {
-	overflow-x: auto;
-	padding: 16px;
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-control-radius);
-	background: var(--soda-page-canvas);
-}
-
-.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) {
-	border-color: var(--soda-page-edge);
-	background: var(--soda-page-surface);
-}
-
-.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) > .ui.list > .item {
-	padding-block: 16px;
-	border-color: var(--soda-page-edge);
-}
-
-.soda-repository-settings :is(.soda-webhook-list-header, .soda-webhook-history-header) {
-	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
-}
-
 @media (max-width: 700px) {
+	.soda-repository-settings .soda-settings-layout {
+		width: calc(100% - 32px) !important;
+		flex-direction: column;
+	}
+
+	.soda-repository-settings .soda-settings-layout > .flex-container-nav {
+		position: static;
+		width: 100%;
+	}
+
 	.soda-repo-settings-detail .flex-item {
 		align-items: flex-start !important;
 		flex-wrap: wrap;
@@ -189,8 +164,4 @@
 		margin-top: 10px;
 	}
 
-	.soda-shared-runner dl > .item {
-		grid-template-columns: 1fr;
-		gap: 5px;
-	}
 }

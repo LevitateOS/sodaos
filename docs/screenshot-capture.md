@@ -67,6 +67,25 @@ guest/account profile, `--out DIR` for a new output directory, or `CHROME` for a
 different Chrome executable. Run `--help` for defaults. Fixtures are added and
 removed manually through Forgejo; the script has no fixture management.
 
+### Reviewing CSS from an isolated worktree
+
+The running preview may bind another checkout. `--local-css` serves this
+checkout's Soda stylesheets to the capture browser in its `custom/header.tmpl`
+order, including added or removed files. It accepts only `http://localhost:3300`
+capture URLs and cannot be combined with `--login`:
+
+```sh
+node scripts/screenshot.mjs --local-css \
+  --profile /absolute/path/to/existing/.local/screenshot-fixture-profile \
+  --width 390 --height 844 http://localhost:3300/user/settings
+```
+
+This changes only the capture browser's CSS. Native server HTML, scripts, account
+preferences and the live checkout remain unchanged. Label these as candidate CSS
+captures; they do not prove that edited templates rendered on the server. If the
+profile or existing Playwright dependency lives in another checkout, use its
+absolute `--profile` path and `NODE_PATH` as needed. No profile copy is necessary.
+
 ## Conditions
 
 Use an explicitly authorized matching-native installation/browser and disposable representative identities, projects and repositories. Hide tokens, private keys, passwords, authentication URLs, personal email, private repository names and sensitive terminal details **before capture**. Do not crop away a warning or alter a control to imply a capability.

@@ -30,7 +30,7 @@ func TestForgejoProjectBoardKeepsNativeBehaviorHooks(t *testing.T) {
 }
 
 func TestForgejoProjectBoardStylesDoNotOwnDragState(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", "assets", "branding", "forgejo", "packages.css"))
+	contents, err := os.ReadFile(filepath.Join("..", "assets", "branding", "forgejo", "projects.css"))
 	if err != nil {
 		t.Fatalf("read package stylesheet: %v", err)
 	}

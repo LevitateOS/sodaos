@@ -3,6 +3,8 @@ package scripts
 import (
 	"bytes"
 	"html/template"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -33,6 +35,10 @@ func TestForgejoSharedProjectsPreserveNativeOwnershipAndForms(t *testing.T) {
 			t.Errorf("shared project list lost native contract %q", marker)
 		}
 	}
+	ownerList := readForgejoTemplate(t, "org", "projects", "list.tmpl")
+	if !strings.Contains(ownerList, "soda-profile-card-context") {
+		t.Error("user project list lost the shared profile-card component marker")
+	}
 
 	form := readForgejoTemplate(t, "projects", "new.tmpl")
 	for _, marker := range []string{
@@ -50,6 +56,33 @@ func TestForgejoSharedProjectsPreserveNativeOwnershipAndForms(t *testing.T) {
 	} {
 		if !strings.Contains(form, marker) {
 			t.Errorf("shared project form lost native contract %q", marker)
+		}
+	}
+}
+
+func TestForgejoSharedProjectsHaveOneStyleOwner(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "assets", "branding", "forgejo", "projects.css"))
+	if err != nil {
+		t.Fatalf("read project styles: %v", err)
+	}
+	css := string(contents)
+	for _, want := range []string{
+		".soda-shared-project-list", ".soda-projects-list", ".soda-project-board-page",
+		".soda-project-board .project-column", ".soda-project-board .issue-card",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("project stylesheet lacks scoped owner %q", want)
+		}
+	}
+	for _, name := range []string{"packages.css", "profiles.css", "repository-content.css"} {
+		other, err := os.ReadFile(filepath.Join("..", "assets", "branding", "forgejo", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		for _, escaped := range []string{".soda-shared-project-list", ".soda-projects-list", ".soda-project-board"} {
+			if strings.Contains(string(other), escaped) {
+				t.Errorf("%s still owns project selector %q", name, escaped)
+			}
 		}
 	}
 }

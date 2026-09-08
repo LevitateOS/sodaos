@@ -1,5 +1,5 @@
 {{template "base/head" .}}
-<div role="main" aria-label="{{.Title}}" class="page-content repository soda-page soda-onboarding soda-migrating" data-signed="true">
+<div role="main" aria-label="{{.Title}}" class="page-content repository soda-page soda-onboarding soda-migrating" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{template "repo/header" .}}
 	<div class="ui container soda-page-container">
 		{{template "custom/soda/page_intro" dict "TitleID" "soda-migrating-title" "Eyebrow" "Repository migration" "Title" "Repository migration" "Description" "Import progress and results for this repository." "Class" "soda-page-intro--compact"}}
