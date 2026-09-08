@@ -26,5 +26,13 @@
   "engines": {
     "node": "24.20.0"
   },
-  "packageManager": "pnpm@11.25.0"
+  "packageManager": "bun@1.4.0",
+  "trustedDependencies": [
+    "@parcel/watcher"
+  ],
+  "scripts": {
+    "build": "vp build",
+    "typecheck": "tsc --noEmit",
+    "test": "vp test --run"
+  }
 }

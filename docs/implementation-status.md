@@ -1,5 +1,28 @@
 # Current handoff
 
+## Cockpit package management — Bun
+
+Cockpit now pins Bun 1.4.0, with a generated `cockpit/bun.lock` migrated from
+pnpm and `bun run build`, `bun run typecheck`, and `bun run test` commands.
+All 287 locked package names/versions are preserved. The explicit
+`@parcel/watcher` install-script allowance moves to `trustedDependencies`;
+the pnpm lock/workspace configuration is removed. Native build/check callers,
+input collection, bundle allowlist/tool metadata and installation instructions
+now use Bun. Older retained bundles keep their matching original verifiers.
+
+This is a package-manager migration. Vite+/TypeScript and the pinned Node runtime
+remain; converting authored JS/MJS sources and test runners is separate work.
+A fresh Bun frozen install, strict TypeScript check, all 60 Cockpit tests and both
+page builds passed locally on macOS arm64. The isolated validation copy/build log
+is retained under `.artifacts/bun-migration/`. Its initial build lacked the sibling
+branding assets; copying those assets fixed resolution. The remaining build warning
+is the intentionally external native `../base1/cockpit.js` script. Metadata fixture
+checks passed (two tests; optional Caddy check skipped), as did shell syntax and
+whitespace checks. Six focused Go bundle/input checks passed with Go 1.27.1
+on macOS; the initial default-cache attempt was sandbox-denied and the broader
+retry was interrupted without a result. No native appliance build, installed
+validation or deployment.
+
 ## CoreOS product strategy — documentation only
 
 Recorded the user's custom CoreOS-based distro direction in the
