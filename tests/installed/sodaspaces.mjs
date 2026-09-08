@@ -205,9 +205,13 @@ try {
     await page.waitForURL(url => url.origin === origin.origin && url.pathname === input.repository_path && url.hash === '#sodaspaces');
     stage = journey + ': drawer identity and state';
     await settled();
+    stage = journey + ': observed authorization';
     assert(authorizations > before);
+    stage = journey + ': native actor';
     assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[index].id);
+    stage = journey + ': displayed Soda actor';
     assert.match(await page.locator('#sodaspaces-actor').innerText(), new RegExp(`ID ${input.users[index].id}\\)`));
+    stage = journey + ': environment state';
     const state = await page.locator('#sodaspaces-status').innerText();
     assert(/^(No shared environment\.|Environment (running\.|stopped\.|provisioning is incomplete\.|reserved;))/.test(state));
     result.states.push(state.startsWith('No shared') ? 'absent' : state.startsWith('Environment running') ? 'running'
