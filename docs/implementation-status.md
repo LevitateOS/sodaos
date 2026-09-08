@@ -436,8 +436,12 @@ Final local checks passed: full uncached Go suite, 46 Node tests (43 DOM plus th
 probe/transport checks), 36 Python build fixtures, Node/bash syntax. Logs are under
 `logs/final-*`. Go used cached 1.26.7 with readonly/offline modules. No Cockpit
 retest, aggregate native-stage check or additional dependency install was implied.
-Subsequent transport cleanup/refusal hardening is source-tested; its final native
-rerun is recorded separately rather than relabelling the `dd793a2` result.
+Transport cleanup/refusal hardening also passed the full native journey at
+`2d6a2b3`: `browser-y/sodaspaces-run/result.json` and its exit record. The final
+`artifact-binding-final.json` ties that probe to unchanged product bytes; prepared
+browser/tool identity and probe source hashes are retained separately. Both full
+passes observed real BFCache. Documentation checks covered 55 Markdown files,
+240 local links and 33 anchors with no errors; whitespace checks passed.
 
 ## Remaining work and permission boundary
 
