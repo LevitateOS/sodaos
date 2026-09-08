@@ -16,8 +16,9 @@ has a distinct shared-shelf illustration and passing focused package tests;
 native verification is pending because the local public organization inventory
 is empty. Package version lists and the common detail shell were assessed without
 added art to prioritize release selection, installation content and metadata;
-these are source decisions, not populated-page runtime evidence. Package settings
-are next; individual decisions and unexercised variants remain in the checklist.
+these are source decisions, not populated-page runtime evidence. Package settings and cleanup forms were assessed; six upstream settings callers
+were added explicitly to the inventory, with personal landing/add-rule desktop
+captures inspected. A personal registry-settings illustration is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed

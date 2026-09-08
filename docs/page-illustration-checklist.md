@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: package settings and owner registry settings, including cleanup rules and Cargo controls. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: generate the personal registry-settings illustration, then assess organization registry settings separately. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -72,11 +72,11 @@ Next: package settings and owner registry settings, including cleanup rules and 
 | Pending | [`org/team/new.tmpl`](../appliance/forgejo/templates/org/team/new.tmpl) | `org/header` | Not yet reviewed in this goal. |
 | Pending | [`org/team/repositories.tmpl`](../appliance/forgejo/templates/org/team/repositories.tmpl) | `org/header` | Not yet reviewed in this goal. |
 | Pending | [`org/team/teams.tmpl`](../appliance/forgejo/templates/org/team/teams.tmpl) | `org/header` | Not yet reviewed in this goal. |
-| Pending | [`package/settings.tmpl`](../appliance/forgejo/templates/package/settings.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Partial — trace caller | [`package/shared/cargo.tmpl`](../appliance/forgejo/templates/package/shared/cargo.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`package/shared/cleanup_rules/edit.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/edit.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`package/shared/cleanup_rules/list.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`package/shared/cleanup_rules/preview.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/preview.tmpl) | — | Not yet reviewed in this goal. |
+| No image | [`package/settings.tmpl`](../appliance/forgejo/templates/package/settings.tmpl) | `org/header`, `user/overview/header` | Repository association and version deletion need package identity and clear warnings, not a decorative header; both owner branches source-reviewed. |
+| No image | [`package/shared/cargo.tmpl`](../appliance/forgejo/templates/package/shared/cargo.tmpl) | — | Inline initialize/rebuild controls and explanatory text within owner registry settings; no independent image. |
+| No image | [`package/shared/cleanup_rules/edit.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/edit.tmpl) | — | Add/edit retention form: keep/remove criteria and actions take priority; no decorative art. |
+| No image | [`package/shared/cleanup_rules/list.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/list.tmpl) | — | Inline rule summaries and add/edit/preview controls; owner settings header owns any artwork. |
+| No image | [`package/shared/cleanup_rules/preview.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/preview.tmpl) | — | Affected-version count and six-column results table are the meaningful visuals; no artwork. |
 | Partial — trace caller | [`package/shared/list.tmpl`](../appliance/forgejo/templates/package/shared/list.tmpl) | — | Not yet reviewed in this goal. |
 | No image | [`package/shared/versionlist.tmpl`](../appliance/forgejo/templates/package/shared/versionlist.tmpl) | `user/overview/package_versions` | Search, sort, container tag filter, version rows and pagination; no independent decorative header. Source assessment. |
 | No image | [`package/view.tmpl`](../appliance/forgejo/templates/package/view.tmpl) | `user/overview/header` | Package/version identity, protocol content, files and metadata take priority; source assessment below. |
@@ -230,6 +230,20 @@ Next: package settings and owner registry settings, including cleanup rules and 
 
 ## Additional page variants
 
+Upstream-only page callers traced from the running stock binary with `forgejo embedded view`:
+
+| Status | Native page template / variant | Decision |
+| --- | --- | --- |
+| Generate | `user/settings/packages.tmpl` | Dedicated compact registry-maintenance scene appropriate; baseline captured. |
+| Pending | `org/settings/packages.tmpl` | Separate organization registry-settings decision queued. |
+| No image | `user/settings/packages_cleanup_rules_edit.tmpl` — add | Long retention form; prioritize criteria. Native desktop capture inspected. |
+| No image | `user/settings/packages_cleanup_rules_edit.tmpl` — edit | Same criteria plus remove/preview actions; source-reviewed. |
+| No image | `org/settings/packages_cleanup_rules_edit.tmpl` — add | Same shared retention fields under organization navigation; source-reviewed. |
+| No image | `org/settings/packages_cleanup_rules_edit.tmpl` — edit | Existing-rule editing and removal; source-reviewed. |
+| No image | `user/settings/packages_cleanup_rules_preview.tmpl` | Exact affected versions and count, including zero-result text; source-reviewed. |
+| No image | `org/settings/packages_cleanup_rules_preview.tmpl` | Same preview table under organization navigation; source-reviewed. |
+
+
 - [x] Personal package registry: dedicated wrapping scene integrated and native desktop/mobile captures inspected.
 - [ ] Organization package registry: shared-shelf scene integrated; native verification pending.
 
@@ -324,3 +338,10 @@ Next: package settings and owner registry settings, including cleanup rules and 
 - Focused offline `TestForgejoPackages` tests passed; local templates reloaded.
 - Native `/bob/-/packages` screenshot-helper captures inspected: `.artifacts/screenshots/capture-idaJqm/001.png` (1440×1000), `capture-xqKhxu/001.png` (390×844). The illustration fits the introduction without overlapping identity/navigation/text. Desktop shows the unchanged truthful empty registry and documentation link. Baseline `capture-4tPRwq/001.png`.
 - No packages, account preferences or fixtures changed. Populated registry, dark appearance and package operations were not exercised; this is illustration/layout evidence.
+
+### Package settings and cleanup pages
+
+- Inspected complete package settings, Cargo and all three cleanup overrides. Read the six native user/organization settings callers directly from the running Forgejo binary via its read-only `embedded view` command, rather than assuming they were absent because no leaf override exists.
+- Package-version settings retain association controls and the native deletion warning/modal without decoration, for both owner types. The cleanup list and Cargo are inline sections, not separate image destinations. Add/edit cleanup rules retain clear keep/remove semantics; previews retain exact counts and version rows without a decorative scene.
+- Native authorized helper captures inspected: `.artifacts/screenshots/capture-AyNtZk/001.png` for personal registry settings and `002.png` for add cleanup rule, both 1440×1000. The settings introduction has room for a compact scene. The lengthy cleanup form already extends below the viewport; no illustration is appropriate there. Edit/preview and organization states are source assessments, not runtime claims.
+- No forms submitted, keys generated, Cargo index initialized, cleanup rules created or package state changed. No source changes or tests required for these decisions. The next image must target only the settings landing page, not every page sharing its settings flag/layout.
