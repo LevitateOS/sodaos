@@ -213,3 +213,8 @@
 @media (max-width: 700px) {
   .soda-p-editor-container.ui.container { width: calc(100% - 32px) !important; }
 }
+/* Explicit open fieldsets and actions also cover native nested settings forms.
+   These roles avoid changing native dirty-form and panel behavior. */
+.ui.form.soda-p-form fieldset { border: 0; padding-block: 0; }
+.soda-p-control.ui.button { min-height: var(--soda-control-height); border-radius: var(--soda-control-radius); padding: 8px 16px; font: var(--soda-font-body); }
+.soda-p-compact.ui.button { min-height: 36px; border-radius: var(--soda-control-radius); padding: 8px 12px; }

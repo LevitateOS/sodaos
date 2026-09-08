@@ -1,30 +1,38 @@
-# Soda translation scaffold
+# Soda translations
 
-`en-US.ini` reserves the `[soda]` namespace for Soda-owned text. It is intentionally
-empty. Add other language files only when translation work is selected.
-Existing templates and JavaScript remain unchanged and continue using their current
-English copy and native Forgejo translations.
+`en-US.ini` contains Soda-owned additions in `[soda]`. Existing controls and
+warnings retain native translations. Untranslated Soda additions use Forgejo's
+English fallback; existing native languages and JSON catalogs remain untouched.
 
-These files are **additions**, not deployable replacement catalogs. Forgejo 15.0.7
-loads a custom locale file ahead of its built-in equivalent without merging keys.
-Do not mount this directory directly into the running container.
+These additions are **not a deployable replacement catalog**. Forgejo 15.0.7
+loads a custom INI ahead of its embedded equivalent without merging its keys.
+Never mount this directory directly into a running instance.
 
-When localization is implemented:
+For the authorized local preview, extract the exact existing image's English INI
+with `forgejo embedded view options/locale/locale_en-US.ini`, then run:
 
-1. Read the exact selected Forgejo version's built-in `options/locale/locale_*.ini`.
-2. Combine each native catalog with the corresponding Soda additions in an ignored
-   generated output directory, rejecting duplicate keys rather than silently
-   replacing native translations. Keep native catalogs out of authored source.
-3. Deliver the complete files to `<CustomPath>/options/locale/locale_<language>.ini`
-   (`/data/gitea/options/locale/` in our preview), with matching upstream notices.
-4. Use `ctx.Locale.Tr "soda.<key>"` in templates and pass translated JavaScript
-   labels through data attributes. Keep native strings on their existing keys.
-5. Restart the selected instance to load locales in production mode, then check
-   native translations, Soda translations, fallback behavior and text wrapping.
+```sh
+python3 scripts/forgejo-locales.py \
+  --native .artifacts/forgejo-presentation/upstream/locale_en-US.ini \
+  --out .artifacts/personal-settings/locales/locale_en-US.ini
+```
 
-No merge script, staging integration, locale mount, translations or restart are
-part of this scaffold. JSON catalogs under `options/locale_next/` also exist in
-Forgejo 15; this scaffold uses INI for simple text additions.
+The standard-library helper validates the complete native input and rejects
+repeated keys and namespace collisions. It concatenates the original INI bytes
+without reserializing native values, interpolation, escapes or translation keys.
+Native JSON catalogs under `options/locale_next/` remain under native ownership.
+Generated native catalogs belong under ignored `.artifacts/`, with Forgejo's
+GPL-3.0-or-later attribution, never in authored source.
 
-Verified source: [locale loading](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/translation/translation.go)
+Use `ctx.Locale.Tr "soda.<key>"` in templates. JavaScript uses rendered labels
+rather than maintaining a parallel translation dictionary.
+
+The complete generated English catalog was copied to the existing preview's
+`/data/gitea/options/locale/locale_en-US.ini` and activated with the single
+user-authorized restart. The existing image, configuration and data volume were
+retained. Further locale changes require another authorized activation; template
+reloads do not refresh production locale caches. Appliance staging is separate.
+
+Verified upstream source:
+[locale loading](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/translation/translation.go)
 and [custom file precedence](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/assetfs/layered.go).

@@ -1,0 +1,50 @@
+{{/* Adapted from Forgejo 15.0.7 user/settings/navbar (GPL-3.0-or-later). Native destinations and visibility gates retained. */}}
+{{if not .HideNavbarLinks}}
+<nav class="soda-settings-nav" aria-label="{{ctx.Locale.Tr "user.settings"}}">
+<button type="button" class="soda-settings-current" aria-expanded="true" aria-controls="soda-settings-destinations">{{.Title}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-destinations" class="soda-settings-destinations">
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-personal">{{ctx.Locale.Tr "soda.nav_personal"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-personal" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "soda.nav_personal"}}</span>
+<a href="{{AppSubUrl}}/user/settings" {{if .PageIsSettingsProfile}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.profile"}}</a>
+<a href="{{AppSubUrl}}/user/settings/account" {{if .PageIsSettingsAccount}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.account"}}</a>
+<a href="{{AppSubUrl}}/user/settings/appearance" {{if .PageIsSettingsAppearance}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.appearance"}}</a>
+<a href="{{AppSubUrl}}/user/settings/blocked_users" {{if .PageIsBlockedUsers}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.blocked_users"}}</a>
+</div></section>
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-access">{{ctx.Locale.Tr "soda.nav_access"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-access" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "soda.nav_access"}}</span>
+<a href="{{AppSubUrl}}/user/settings/security" {{if .PageIsSettingsSecurity}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.security"}}</a>
+<a href="{{AppSubUrl}}/user/settings/keys" {{if .PageIsSettingsKeys}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.ssh_gpg_keys"}}</a>
+<a href="{{AppSubUrl}}/user/settings/applications" {{if .PageIsSettingsApplications}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.applications"}}</a>
+{{if not DisableWebhooks}}
+<a href="{{AppSubUrl}}/user/settings/hooks" {{if .PageIsSettingsHooks}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.hooks"}}</a>
+{{end}}
+{{if .EnableActions}}
+<span class="soda-settings-menu-label">{{ctx.Locale.Tr "actions.actions"}}</span>
+<a href="{{AppSubUrl}}/user/settings/actions/runners" {{if .PageIsSharedSettingsRunners}}aria-current="page"{{end}}>{{ctx.Locale.Tr "actions.runners"}}</a>
+{{end}}
+{{if .EnableActions}}
+<a href="{{AppSubUrl}}/user/settings/actions/secrets" {{if .PageIsSharedSettingsSecrets}}aria-current="page"{{end}}>{{ctx.Locale.Tr "secrets.secrets"}}</a>
+{{end}}
+{{if .EnableActions}}
+<a href="{{AppSubUrl}}/user/settings/actions/variables" {{if .PageIsSharedSettingsVariables}}aria-current="page"{{end}}>{{ctx.Locale.Tr "actions.variables"}}</a>
+{{end}}
+</div></section>
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-resources">{{ctx.Locale.Tr "soda.nav_resources"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-resources" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "soda.nav_resources"}}</span>
+<a href="{{AppSubUrl}}/user/settings/organization" {{if .PageIsSettingsOrganization}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.organization"}}</a>
+<a href="{{AppSubUrl}}/user/settings/repos" {{if .PageIsSettingsRepos}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.repos"}}</a>
+{{if .EnablePackages}}
+<a href="{{AppSubUrl}}/user/settings/packages" {{if .PageIsSettingsPackages}}aria-current="page"{{end}}>{{ctx.Locale.Tr "packages.title"}}</a>
+{{end}}
+{{if .EnableQuota}}
+<a href="{{AppSubUrl}}/user/settings/storage_overview" {{if .PageIsStorageOverview}}aria-current="page"{{end}}>{{ctx.Locale.Tr "settings.storage_overview"}}</a>
+{{end}}
+</div></section>
+</div></nav>
+{{end}}

@@ -189,7 +189,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   box-shadow: none !important;
   margin-block: 0 24px;
 }
-.soda-p-heading.ui.header, .soda-p-title {
+.soda-p-heading, .soda-p-title {
   padding: 0 !important;
   margin-block: 24px 16px;
   border: 0 !important;
@@ -200,7 +200,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   overflow-wrap: anywhere;
 }
 .soda-p-title { font: var(--soda-font-title); }
-.soda-p-heading.ui.header:first-child, .soda-p-title:first-child { margin-top: 0; }
+.soda-p-heading:first-child, .soda-p-title:first-child { margin-top: 0; }
 .soda-p-gap.divider:empty {
   height: 0;
   margin-block: 24px !important;

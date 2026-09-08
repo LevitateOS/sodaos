@@ -1,61 +1,71 @@
-/* Account settings compose Forgejo's native 15.0.7 templates inside the Soda page shell. */
-.soda-settings {
-	padding-top: 32px;
+/* Personal settings: one identity/navigation row, then an open task canvas. */
+.soda-settings { padding-top: 16px; }
+.soda-settings > .ui.container.soda-page-container { width: 100% !important; max-width: min(1168px, 100%) !important; margin-top: 0; padding-inline: 24px; margin-inline: auto !important; }
+.soda-settings-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.soda-settings-identity { display: flex; align-items: center; gap: 12px; color: var(--soda-page-text); min-width: 0; }
+.soda-settings-identity img { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.soda-settings-identity > span { min-width: 0; overflow-wrap: anywhere; }
+.soda-settings-identity strong, .soda-settings-identity small { display: block; }
+.soda-settings-identity small { color: var(--soda-page-muted); font-size: 14px; }
+.soda-settings-layout, .soda-settings .flex-container-main, .soda-settings .user-setting-content { min-width: 0; width: 100%; }
+.soda-settings #soda-settings-title { font-size: 32px; line-height: 1.2; margin: 0 0 24px; }
+.soda-settings-parent { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.soda-settings-nav { position: relative; flex: none; }
+.soda-settings-destinations { display: flex; gap: 8px; }
+.soda-settings-nav-group { position: relative; }
+.soda-settings-nav button { font: inherit; color: var(--soda-page-muted); background: transparent; border: 0; border-radius: var(--soda-control-radius); min-height: 44px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+.soda-settings-nav button:hover, .soda-settings-nav button[aria-expanded=true], .soda-settings-nav .is-current > button { color: var(--soda-page-link); background: var(--soda-page-hover); }
+.soda-settings-nav :is(button, a):focus-visible, .soda-settings-disclosure > summary:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 2px; }
+.soda-settings-menu { display: grid; gap: 4px; padding: 8px; }
+.soda-settings-menu a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: 8px; color: var(--soda-page-text); }
+.soda-settings-menu a:hover, .soda-settings-menu a[aria-current] { background: var(--soda-page-hover); color: var(--soda-page-link); }
+.soda-settings-menu a[aria-current] { font-weight: 600; }
+.soda-settings-menu-label, .soda-settings-group-label { color: var(--soda-page-muted); padding: 8px 12px 0; font-size: 14px; }
+.soda-settings-nav .soda-settings-current, .soda-settings-group-label { display: none; }
+.soda-settings-nav.is-enhanced .soda-settings-menu { position: absolute; top: calc(100% + 4px); right: 0; width: 264px; z-index: 30; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; box-shadow: 0 8px 24px #0002; }
+.soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { display: none; }
+.soda-settings-disclosure { margin-block: 16px; }
+.soda-settings-disclosure > summary { color: var(--soda-page-link); cursor: pointer; min-height: 44px; padding-block: 12px; }
+.soda-settings-disclosure-body { margin-top: 12px; }
+.soda-settings .soda-settings-section { margin-block: 32px; min-width: 0; }
+.soda-settings .soda-settings-section:first-child { margin-top: 0; }
+.soda-settings .soda-settings-section > h2 { margin: 0; font: 600 21px/1.35 "Fraunces Variable", Georgia, serif; }
+.soda-settings .soda-settings-section-body { min-width: 0; }
+.soda-settings-explained { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; }
+.soda-settings .soda-settings-editor { max-width: 720px; }
+.soda-settings .flex-list > .flex-item { border: 0; padding-block: 12px; gap: 16px; }
+.soda-settings .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 899px) {
+ .soda-settings { padding-top: 12px; }
+ .soda-settings > .ui.container.soda-page-container { padding-inline: 16px; }
+ .soda-settings-bar { gap: 12px; margin-bottom: 16px; }
+ .soda-settings-identity strong { font-size: 14px; }
+ .soda-settings-identity { gap: 8px; }
+ .soda-settings-identity img { width: 32px; height: 32px; }
+ .soda-settings-nav { flex: 0 1 auto; min-width: 0; }
+ .soda-settings-nav .soda-settings-current { display: flex; max-width: 180px; text-align: left; }
+ .soda-settings-nav .soda-settings-nav-trigger { display: none; }
+ .soda-settings-group-label { display: block; }
+ .soda-settings-nav.is-enhanced .soda-settings-current[aria-expanded=false] + .soda-settings-destinations { display: none; }
+ .soda-settings-destinations { display: block; }
+ .soda-settings-nav.is-enhanced .soda-settings-destinations { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: min(340px,calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; padding: 8px; }
+ .soda-settings-nav.is-enhanced .soda-settings-menu, .soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { position: static; display: grid; width: auto; border: 0; box-shadow: none; padding: 0; }
+ .soda-settings-explained { grid-template-columns: minmax(0,1fr); gap: 12px; }
+ .soda-settings #soda-settings-title { margin-bottom: 24px; }
+ .soda-settings-bar:has(.soda-settings-nav:not(.is-enhanced)) { display: block; }
 }
-
-.soda-settings .soda-settings-layout {
-	align-items: flex-start;
-	gap: 24px;
-}
-
-.soda-settings .flex-container-nav {
-	flex: 0 0 var(--soda-sidebar-width);
-}
-
-.soda-settings .flex-container-main {
-	min-width: 0;
-}
-
-.soda-settings .user-setting-content {
-	width: 100%;
-}
-
-.soda-settings .user-setting-content :is(.flex-item-body, .flex-text-body, .text.light-3) {
-	color: var(--soda-page-muted) !important;
-}
-
-.soda-settings .user-setting-content .flex-list > .flex-item,
-.soda-settings .user-setting-content .ui.list > .item {
-	border-color: var(--soda-page-edge);
-}
-
-.soda-settings .user-setting-content .flex-item-title,
-.soda-settings .user-setting-content .ui.list > .item .content {
-	color: var(--soda-page-text);
-}
-
-@media (max-width: 900px) {
-	.soda-settings {
-		padding-top: 24px;
-	}
-
-	.soda-settings .soda-settings-layout {
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.soda-settings .flex-container-nav {
-		width: 100%;
-		flex-basis: auto;
-	}
-
-	.soda-settings .flex-container-nav > .ui.vertical.menu {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.soda-settings .flex-container-nav > .ui.vertical.menu > .header.item {
-		grid-column: 1 / -1;
-	}
-}
-
+/* Shared-section adapters only inside the personal settings composition. Native
+   attached segments elsewhere keep their existing independent contracts. */
+.soda-settings-section-body > .ui.attached.segment:not(table) { padding: 0; margin: 0 0 16px; width: 100%; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.soda-settings .soda-settings-section-body > .ui.attached.segment:last-child { margin-bottom: 0; }
+.soda-settings .soda-settings-section-body > .ui.form { max-width: 720px; }
+.soda-settings .soda-factor-state { font-weight: 600; font-size: 18px; color: var(--soda-page-text); }
+.soda-settings .soda-settings-inventory-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 32px 0 16px; }
+.soda-settings .soda-settings-inventory-heading:first-child { margin-top: 0; }
+.soda-settings .soda-settings-inventory-heading > .ui.right { float: none; margin-left: auto; }
+.soda-settings .ui.list > .item { border: 0; }
+/* Native .email.list forces a separator on every item, including its first row. */
+.soda-settings .ui.email.list > .item, .soda-account-details--account .ui.list > .item { border: 0; }
+.soda-settings .soda-shared-runner > .ui.attached.segment:not(table) { border: 0; padding: 0; background: transparent; }
+.soda-settings .soda-shared-runner dl > .item { border: 0; }
+.soda-settings .soda-webhook-provider { margin-top: 16px; }

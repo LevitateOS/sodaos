@@ -119,8 +119,8 @@ Each responsibility has one CSS owner:
 | `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer, button-local primary action color variables and page focus. `.soda-page-container` owns content width. |
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
-| `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog and `ignore-dirty` settings action/search forms retain native sizing. One native CSS nesting block owns both callers. |
-| `components-settings.css` | Shared account/repository/organization/administrator sidebar, active/hover states and native attached content cards. Panel padding excludes native tables; nested row/dialog forms are not cards. |
+| `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
+| `components-settings.css` | Shared repository/organization/administrator sidebar and open settings sections. Personal settings use their own compact identity/navigation row. Panel padding excludes native tables; nested row/dialog forms are not cards. |
 | `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
@@ -490,3 +490,48 @@ padded native canvases retain their separate gutter contract. The native
 `repository-container.test.mjs` regression compares Code, Projects, Issues and
 Releases at desktop/mobile widths so family-specific padding cannot silently
 return on those routes.
+
+
+## Personal settings structural contract
+
+Personal settings use the native `user/settings/layout_head` / `layout_footer`
+seam with one identity/navigation row and one page title. The account avatar,
+display name and username come from `SignedUser`. `navbar.tmpl` retains every
+native destination and capability gate, including mandatory enrollment hiding
+ordinary navigation. Personal, Access & integrations, and Resources use Soda
+locale keys; native controls and warnings retain native translations.
+
+`account-settings.css` owns this shell, menus, open explanation/control sections
+and the 900px transition. `account-details.css` owns the portrait/editor grid,
+preference rows and credential/editor compositions. Shared presentation owns
+fonts, spacing and control roles. `soda-p-form` explicitly styles nested native
+principal forms; `soda-p-control` and `soda-p-compact` provide 44px and 36px action
+sizes without removing native behavior classes. Native enforced container width
+and max-width require two documented `!important` rules here to prevent double
+gutters; the shell uses 1120px usable content plus 24px desktop / 16px mobile gutters.
+
+Profile keeps one identity/address/privacy form and a separate sibling avatar
+form. Account keeps independent email/password/deletion handlers, with password
+on its native page and a Security link to `account#password`. Appearance keeps
+all four saves. Token selection, key verification, WebAuthn, runner configuration,
+quota and webhook dispatch remain native. Child titles move into the shell;
+shared cleanup/runner adapters explicitly rebind native root context and suppress
+only personal duplicate headings. Other callers retain their headers and data.
+
+`personal-settings.js` only enhances navigation, disclosure visibility and focus.
+There is one DOM copy of every destination. Without JavaScript the grouped links
+and optional editors remain expanded. Ambiguous server errors open every editor;
+fragment links reveal the addressed editor. No submission interception, autosave,
+account preference writes or substitute authentication state is introduced.
+
+The test-only presentation inventory records all overrides/native callers and
+reviewed structural changes. `settings-native-contracts.json` records native
+15.0.7 form controls and capability conditions, separately from presentation
+hashes. Existing native gate tests and explicit shared-root rendering checks
+remain required. The gallery uses production navigation and the actual CSS
+registry with minimal native form, preference, security and inventory fixtures.
+It is component evidence, not native-route acceptance.
+
+See `i18n/README.md` for complete English catalog generation and the scoped local
+activation. Generated catalogs, gallery and screenshots stay in ignored
+`.artifacts/`. No appliance staging or deployment is part of this redesign.

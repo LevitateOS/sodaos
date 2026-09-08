@@ -1,25 +1,22 @@
 {{template "base/head" .ctxData}}
-<div role="main" aria-label="{{.ctxData.Title}}" class="page-content soda-page soda-native-forms soda-settings {{.pageClass}}" data-signed="true">
-	<div class="ui container soda-page-container">
-		{{$artwork := ""}}
-		{{if .artwork}}{{$artwork = .artwork}}{{end}}
-		{{if .ctxData.PageIsSettingsProfile}}{{$artwork = "settings-profile-papercraft.png"}}
-		{{else if .ctxData.PageIsSettingsAccount}}{{$artwork = "settings-account-papercraft.png"}}
-		{{else if .ctxData.PageIsSettingsAppearance}}{{$artwork = "settings-appearance-papercraft.png"}}
-		{{else if .ctxData.PageIsSettingsSecurity}}{{$artwork = "settings-security-papercraft.png"}}
-		{{else if .ctxData.PageIsSettingsKeys}}{{$artwork = "settings-keys-papercraft.png"}}
-		{{else if .ctxData.PageIsSettingsApplications}}{{$artwork = "settings-applications-papercraft.png"}}{{end}}
-		{{if .hideArtwork}}{{$artwork = ""}}{{end}}
-		{{template "custom/soda/page_intro" (dict "TitleID" "soda-settings-title" "Eyebrow" "Account settings" "Title" .ctxData.Title "Description" "Manage your profile, sign-in options, developer access, and account preferences." "Artwork" $artwork "Class" "soda-page-intro--compact")}}
-		<div class="flex-container soda-settings-layout">
-			{{template "user/settings/navbar" .ctxData}}
-			<div class="flex-container-main">
-				{{template "base/alert" .ctxData}}
-				{{/* block: user-setting-content */}}
-
-{{if false}}{{/* to make html structure "likely" complete to prevent IDE warnings */}}
-			</div>
-		</div>
-	</div>
+<div role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-native-forms soda-settings {{.pageClass}}" data-signed="true">
+ <div class="ui container soda-page-container">
+  <div class="soda-settings-bar">
+   <a class="soda-settings-identity" href="{{AppSubUrl}}/{{.ctxData.SignedUser.Name}}">
+    {{ctx.AvatarUtils.Avatar .ctxData.SignedUser 40}}
+    <span><strong>{{.ctxData.SignedUser.DisplayName}}</strong><small>@{{.ctxData.SignedUser.Name}}</small></span>
+   </a>
+   {{template "user/settings/navbar" .ctxData}}
+  </div>
+  <div class="soda-settings-layout">
+   <div class="flex-container-main">
+    {{template "base/alert" .ctxData}}
+    {{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
+    <h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>
+    {{/* block: user-setting-content */}}
+{{if false}}
+   </div>
+  </div>
+ </div>
 </div>
 {{end}}
