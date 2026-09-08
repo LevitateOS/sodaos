@@ -25,6 +25,21 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
+## Notification bell quick-view investigation (not implemented)
+
+The [integration guide](forgejo-frontend-integration.md#notification-bell-quick-view-investigation)
+records source findings for stock 15.0.7 (`d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`).
+JSON notification APIs do not accept the ordinary web session, but the existing
+`/notifications?div-only=true` HTML-fragment route does; Forgejo already ships HTMX.
+The recommended candidate is a supported compact template branch loaded with native
+HTMX, not a Soda Go/API proxy. Native unread results include pinned entries, so
+strictly-unread-only semantics need a decision rather than silently filtering a page.
+Anonymous local GET checks confirmed API 401, native fragment login redirect and
+HTMX-aware 204/HX-Redirect. No existing credentials, authenticated requests, state
+mutations, UI implementation, builds/tests, service reloads or deployment occurred.
+`git diff --check` passed. Authenticated rendering and candidate interaction checks
+remain unperformed; investigation is not implementation acceptance.
+
 ## Expanded native Forgejo branding
 
 Broad supported stock 15.0.7 header/layout overrides now cover repository pages
