@@ -18,8 +18,8 @@ coverage remains handler/store evidence; installed observations have their own s
 **The original delivery sequence is complete only at its bounded technical x86_64
 scope, not UX acceptance.** The user rejected the modal management-form layout,
 blocked left-hand native page and focus-loss terminal termination. Those are product
-failures despite the recorded native passes. Current product source and the installed
-fixture still implement that rejected behavior. The correction below governs the next
+failures despite the recorded native passes. The installed fixture still implements
+that rejected behavior; the first source layout slice is described below. The correction below governs the next
 work; the older delivery/terminal sections retain the previous implementation and
 its evidence, not permission to reintroduce that UX. See the leading
 [handoff](implementation-status.md) for exact bytes, failures and limits.
@@ -28,7 +28,12 @@ its evidence, not permission to reintroduce that UX. See the leading
 
 The drawer is where the developer does their work, not an onboarding panel pointing
 them elsewhere for development. These layout requirements are user-selected;
-implementation and acceptance are pending:
+full implementation and acceptance are pending. The first source slice now has a
+non-modal resizable aside, full-height Terminal/Environment/Access views and same-
+component focus/Hide continuity. Local DOM and 16 synthetic layout cases passed;
+real native page reflow, multiple terminal sessions, navigation/network reattachment
+and browser-only onboarding/Git remain unimplemented or unverified. Nothing deployed.
+See the [current component contract](terminal-integration.md).
 
 - **Non-modal desktop split view**, initially approximately half native Soda/Forgejo
   page and half Sodaspaces, with an adjustable divider. No dimmed backdrop, inert
@@ -147,9 +152,9 @@ Forgejo repository/collaboration controls or separate operator settings. It gove
 completion of the new drawer; the historical delivery slices below are not a complete
 current control checklist. Show only actions relevant to the observed state and actor,
 not every button at once. The established native hooks now mount the complete
-component through one modal dialog shell; the previous duplicate API caller is removed.
-Replace that shell/layout and terminal lifetime under the correction above while
-retaining the legitimate existing operation owners.
+component through one non-modal aside shell; the previous duplicate API caller is
+removed. The layout is a first source slice, not complete native session continuity.
+Retain the legitimate existing operation owners.
 
 | Control | Required behavior | Current implementation gap |
 | --- | --- | --- |
@@ -159,7 +164,7 @@ retaining the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach existing sessions without replay; separate hiding from ending | Current single-stream component ends on blur/close and requires reload; multiple tabs and bounded reattachment are unimplemented |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach existing sessions without replay; separate hiding from ending | Current single-stream component survives focus/view/Hide changes, but not navigation/reload or transport loss; multiple sessions and bounded reattachment are unimplemented |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -292,8 +297,8 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   native helper. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
   native-page/workspace split view, scoped native styling and vanilla JavaScript
-  using the JSON API. This is the revised selection; source still uses a modal
-  browser `<dialog>` until the correction is implemented.
+  using the JSON API. The first aside/view-tab source slice is implemented and locally
+  tested; genuine native route reflow and complete session continuity are pending.
   Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
   through a drawer-local root; `.soda-page` activates a full-page shell and must not
   wrap the drawer.

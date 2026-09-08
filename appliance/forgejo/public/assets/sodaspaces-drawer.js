@@ -14,7 +14,7 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
   const node = (tag, text, parent = box) => { const n = doc.createElement(tag); if (text) n.textContent = text; parent.append(n); return n; };
   const status = node('p', 'Refresh to inspect your shared environment.'); status.setAttribute('role', 'status');
   const outcome = node('p'); outcome.setAttribute('role', 'status');
-  node('p', 'Shared resources, explicit actions. Closing does not undo work already sent.');
+  const explanation = node('p', 'Shared resources, explicit actions. Hiding does not undo work already sent.');
   const actor = node('p');
   const connect = node('a', 'Connect to Soda');
   connect.className = 'ui primary button';
@@ -47,8 +47,32 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
   for (const b of [save, apply, start]) b.className = 'ui primary button';
   stop.className = 'ui button danger';
   const context = node('p'); context.className = 'soda-spaces-context'; box.prepend(context);
-  box.insertBefore(terminalMount, life); box.insertBefore(connection, life);
-  const ownLogin = node('p'); ownLogin.className = 'soda-spaces-context'; box.insertBefore(ownLogin, terminalMount);
+  const ownLogin = node('p'); ownLogin.className = 'soda-spaces-context';
+  const tabs = node('div'); tabs.className = 'soda-spaces-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Workspace views');
+  const setup = node('section'), access = node('section');
+  setup.append(explanation, connect, buttons, life); access.append(connection, keySection);
+  const summary = node('div'); summary.className = 'soda-spaces-summary'; summary.append(context, actor, ownLogin, status, outcome);
+  const views = [['terminal', 'Terminal', terminalMount], ['environment', 'Environment', setup], ['access', 'Access', access]];
+  let selected = 'environment', chosen = false;
+  const select = name => {
+    selected = name;
+    for (const [key, , panel, tab] of views) {
+      panel.hidden = key !== name; tab.setAttribute('aria-selected', String(key === name)); tab.tabIndex = key === name ? 0 : -1;
+    }
+  };
+  for (const view of views) {
+    const [key, label, panel] = view, tab = button(label, tabs); view.push(tab);
+    tab.id = 'sodaspaces-tab-' + key; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'sodaspaces-view-' + key);
+    panel.id = 'sodaspaces-view-' + key; panel.className = 'soda-spaces-view'; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id);
+    tab.addEventListener('click', () => {chosen = true; select(key);}, {signal: lifetime.signal});
+    tab.addEventListener('keydown', e => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault(); const i = views.indexOf(view);
+      const next = e.key === 'Home' ? 0 : e.key === 'End' ? views.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + views.length) % views.length;
+      chosen = true; select(views[next][0]); views[next][3].focus();
+    }, {signal: lifetime.signal});
+  }
+  box.replaceChildren(tabs, terminalMount, setup, access, summary); select(selected);
   for (const [name, element] of Object.entries({data: box, status, result: outcome, actor, repository: context, login: ownLogin, 'sign-in': connect, 'sign-out': signOut, refresh: refreshButton, reload, create, join, keys: keySection, 'key-list': keyList, 'public-key': publicKey, 'save-key': save, connection, command: sshCommand, fingerprint: hostFingerprint, copy})) element.id = 'sodaspaces-' + name;
   let session, environment, detail, keyPreview, terminal, readController;
   let busy = false, stale = false, disposed = false, uncertain = false, terminalUsed = false, epoch = 0;
@@ -119,7 +143,9 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
       keySection.hidden = false;
       for (const k of saved.items) {
         const li = node('li', k.fingerprint + ' ', keyList), remove = button('Remove saved key', li);
-        remove.addEventListener('click', () => mutate(`/api/me/development-keys/${k.id}`, {}, 'Saved key removed. Existing project SSH access is unchanged until explicitly applied.', 'DELETE'), {signal: lifetime.signal});
+        remove.addEventListener('click', () => {
+          if (!remove.disabled && !remove.closest('[hidden]')) mutate(`/api/me/development-keys/${k.id}`, {}, 'Saved key removed. Existing project SSH access is unchanged until explicitly applied.', 'DELETE');
+        }, {signal: lifetime.signal});
       }
       join.hidden = !detail.environment.provisioned || !!detail.login || !running || saved.items.length === 0;
       if (!detail.login) node('p', saved.items.length ? 'Start must be requested from the project administrator when stopped; then explicitly Join.' : 'Save your public key, then explicitly Join when the environment is running.', keyList);
@@ -141,6 +167,7 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
         copy.setAttribute('data-clipboard-target', '#sodaspaces-command');
         if (!terminalUsed) terminal = terminalFactory(terminalMount, {expectedUserId, repositoryId, environmentId: environment.id, login: detail.login});
         else node('p', 'The terminal session ended. Reload the repository page before opening another terminal.', terminalMount);
+        if (!chosen) select('terminal');
       }
     } catch (e) {
       if (!active(n)) return;
@@ -221,8 +248,7 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
   });
   // Forgejo's native delegated clipboard handler owns copy/tooltip behavior.
   // The target is unique, readonly and removed on reset/stale context.
-  win.addEventListener('blur', invalidate, {signal: lifetime.signal}); win.addEventListener('pagehide', invalidate, {signal: lifetime.signal});
-  doc.addEventListener('visibilitychange', () => {if (doc.visibilityState === 'hidden') invalidate();}, {signal: lifetime.signal});
+  win.addEventListener('pagehide', invalidate, {signal: lifetime.signal});
   win.addEventListener('pageshow', e => {if (e.persisted) invalidate();}, {signal: lifetime.signal});
   reset(); signOut.hidden = true; updateBusy();
   return {refresh, invalidate, dispose() {if (disposed) return; invalidate(); disposed = true; lifetime.abort(); box.remove();}};

@@ -1,5 +1,59 @@
 # Current handoff
 
+## Workspace step 1 — first source/layout slice, not native delivery
+
+Under the user's instruction to start the four implementation steps, replaced the
+modal shell with a non-modal aside and a desktop 50/50 native-page/workspace split.
+A pointer/keyboard separator adjusts width between 35–65%; narrow screens use the
+full workspace with Hide returning to the native page. There is no backdrop,
+outside-click dismissal, inert native page or focus trap. Native routing, forms,
+notifications and beforeunload remain untouched. Source scopes native body/container
+widths, but actual Forgejo page-specific reflow still requires browser validation.
+
+Terminal, Environment and Access **view tabs** now separate management/SSH forms from
+the full-height terminal. These are not multiple terminal sessions yet. All three
+frontend layers no longer retire on window blur/hidden visibility. Hide/reopen and
+view changes retain the same component/socket without new reads, commands or native
+mutations. End terminal is explicitly separate. Keyboard tabs, separator and terminal
+focus escape are covered. Footer structural inventory was reviewed; notification
+markup is unchanged and its hash was calculated from the actual changed template.
+
+**Remaining work is significant:** the backend still owns a single request-bound
+PTY per context/project, with its existing two-hour/session expiry limit. Actual
+pagehide/BFCache, transport loss and Refresh still end the terminal; there is no
+server-detached 30-minute grace, multiple terminal tabs, navigation restoration or
+command replay. Those are step 2, not a claim made by retaining a live browser
+mount. Browser-only joining, Forgejo-key reuse and outbound Git setup (step 3) are
+unchanged; no new keys, scopes or provider resources were created. Combined native
+workflow proof (step 4) has not run. Installed fixtures remain unchanged.
+
+Checks actually run on this first source slice:
+
+- 54 frontend Node tests passed; one opt-in layout test skipped in that invocation.
+  Includes late terminal readiness not stealing focus from the native pane and
+  refusal of synthetic hidden-view key deletion / terminal-launch clicks.
+- Separately, the sandboxed Chromium layout test passed all 16 combinations of
+  1440/900/390/320 widths, light/dark and running/stopped synthetic states. Real
+  locked xterm/CSS, synthetic HTTP/WebSocket and a native-form stand-in—not actual
+  Forgejo/OAuth/helper proof. It checks full-height canvas, half-width desktop,
+  editable left form, pointer-click non-dismissal, keyboard resize, view changes
+  and same-socket Hide/reopen. Desktop/mobile captures were visually inspected.
+- Go tests passed for `./scripts` and `./internal/nativebuild` (the latter cached).
+- Presentation inventory passed; embedded upstream-caller test skipped because its
+  optional local export was absent. Seven Sodaspaces Python packaging fixtures passed.
+
+Logs/screenshots: `.artifacts/workspace-d57f128/`, with final layout captures in
+`layout-1788897855045/`. Visual review of an earlier 320px capture caught the Access
+label painting beneath Hide despite the initial layout test passing. The tab strip
+now has a separate clipped width; a new non-overlap assertion and all 16 browser
+cases passed, and the corrected narrow capture was inspected. Earlier captures are
+retained, not relabeled as final. Documentation link/
+anchor inspection passed (94 files, 563 links, 70 anchors, zero errors) and
+`git diff --check` passed. No dependency installation, native build/export, real fixture
+journey, service/container/account/key mutation, deployment or push. This is a
+reviewable first implementation slice, not acceptance of all four steps. Preserve
+all existing native evidence and both retained isolated projects.
+
 ## Product UX rejected — workspace correction is next, not delivery
 
 After using the installed fixture, the user rejected immediate terminal termination

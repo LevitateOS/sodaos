@@ -10,9 +10,11 @@ configuration, client reachability and acceptance limits.
 
 **Workspace correction pending:** this guide still describes today's API. The user
 rejected modal/focus-loss terminal behavior and mandatory manual SSH setup for browser
-development. The [leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
-requires a usable split view and revised session lifetime; browser-only joining and
-Forgejo-key integration are not implemented API capabilities yet. Do not infer new
+development. The first source split-view slice retains a live mount/socket across
+focus, view and Hide changes, without changing this backend API. The
+[leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
+still requires real session reattachment; browser-only joining and Forgejo-key
+integration are not implemented API capabilities yet. Do not infer new
 reattachment/key endpoints, consent or provider mutations from that plan.
 
 ## Browser namespace
@@ -255,12 +257,16 @@ no runtime failure matrix or whole-product acceptance is inferred.
 The backend sees a Soda session and a declared page actor, **not Forgejo's live
 browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
-is unchanged. The implemented drawer discards stale reads and requires reloading native page
-context on resume/BFCache restoration before exposing actions, then compares the
-page/session/provider IDs. The [read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
-invalidates on hidden/blurred/pagehide/restored documents and requires an explicit
-full native-page reload before further environment reads. It must not auto-reload
-away unsaved native form edits; another Soda fetch is not refreshed native context.
+is unchanged. The source workspace now retains its mount/socket on focus/visibility
+and Hide changes; those are not authentication loss. Actual pagehide/BFCache still
+retires the document's component and requires explicit reload. The initial native
+page/session/provider IDs are compared, and each mutation rechecks the current Soda
+session/provider. Another Soda fetch is not fresh native-session authentication;
+show the actual Soda actor and do not promise atomic native-only logout. Never
+auto-reload away unsaved native forms. The historical
+[read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
+used a stronger blur/hidden teardown rule which the user rejected; its passing
+checks are not proof of the revised interaction.
 An anonymous or mismatched page offers explicit sign-in,
 not automatic account switching or mutation replay. Native logout is not global
 Soda logout; do not claim atomic cross-system session revocation. The bounded native
@@ -271,7 +277,8 @@ native proof inferred from that read-only run.
 The drawer separately rechecks session/provider identity on each explicit action,
 then sends one protected POST. Create never joins; key save never joins or propagates
 keys to existing memberships. Pending actions disable duplicate submission and Soda
-logout; Close remains usable and invalidates rendering, not native execution. A lost,
+logout; Hide remains usable and retains rendering/state without cancelling native
+execution. Actual component disposal invalidates rendering but does not undo writes. A lost,
 malformed or failed native/persistence response is not success or proof of no effects.
 Safe rereads do not replay writes. Uncertain create/join remains blocked in that
 document pending operator inspection; there is no persistent browser operation journal

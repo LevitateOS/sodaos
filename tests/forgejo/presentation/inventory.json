@@ -818,8 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0032106502290772254109fc2f01048f50ea1be7ba3df1bfe0369f14fe03335f",
-      "presentationReview": "mounted Sodaspaces content and terminal; preserved notification hook; local component proof only",
+      "beforeRoleHash": "27344134df7f6cd780b07eeb0defbac8db57f446c137a308bc3e9f0a43449789",
+      "presentationReview": "non-modal workspace aside, keyboard/pointer divider and Hide; notification markup unchanged; source and synthetic layout proof only",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],

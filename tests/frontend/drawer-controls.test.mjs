@@ -36,7 +36,12 @@ function fixture(t, extra = {}) {
   };
   Object.defineProperty(w.navigator, 'clipboard', {value: {writeText: async text => {state.copied = text;}}});
   const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (_mount, ctx) => {const t = {ctx, dispose() {this.disposed = true;}, invalidate() {this.stale = true;}}; terminals.push(t); return t;});
-  const button = text => [...root.querySelectorAll('button')].find(b => b.textContent === text);
+  const button = text => {
+    const b = [...root.querySelectorAll('button')].find(b => b.textContent === text);
+    const panel = b?.closest('[role=tabpanel]');
+    if (panel) root.querySelector('#' + panel.getAttribute('aria-labelledby')).click();
+    return b;
+  };
   t.after(() => {api.dispose(); dom.window.close();});
   return {w, root, api, calls, state, terminals, button};
 }
@@ -44,6 +49,23 @@ test('standalone mount is inert; refresh only reads and preserves native nodes',
   const f = fixture(t); assert.equal(f.calls.length, 0); await f.api.refresh();
   assert(f.calls.every(c => c.method === 'GET')); assert.equal(f.terminals.length, 1); assert.equal(f.terminals[0].ctx.environmentId, env);
   await f.api.refresh(); assert(f.terminals[0].disposed); assert(f.w.document.getElementById('native'));
+});
+test('view tabs and app switches retain terminal and dispatch no reads or writes', async t => {
+  const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
+  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]').textContent, 'Terminal');
+  f.button('Access').click(); assert(!f.root.querySelector('#sodaspaces-view-access').hidden);
+  f.button('Environment').click(); f.button('Terminal').click();
+  f.w.dispatchEvent(new f.w.Event('blur')); f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  assert.equal(f.calls.length, count); assert.equal(f.terminals.length, 1); assert(!f.terminals[0].disposed);
+  f.button('Terminal').dispatchEvent(new f.w.KeyboardEvent('keydown', {key: 'ArrowRight', cancelable: true}));
+  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]').textContent, 'Environment');
+  assert.equal(f.w.document.activeElement.textContent, 'Environment');
+});
+test('hidden access view cannot remove a key through a synthetic click', async t => {
+  const f = fixture(t); await f.api.refresh();
+  assert(f.root.querySelector('#sodaspaces-view-access').hidden);
+  f.root.querySelector('#sodaspaces-key-list button').click(); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
 });
 test('create never implicitly joins, saves keys or starts', async t => {
   const f = fixture(t, {absent: true}); await f.api.refresh(); f.button('Create environment').click(); await tick();
@@ -82,7 +104,7 @@ test('unknown mutation outcome blocks replay, not safe refresh or logout', async
 });
 test('stale page closes terminal and cannot refresh/replay on focus', async t => {
   const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
-  f.w.dispatchEvent(new f.w.Event('blur')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
+  f.w.dispatchEvent(new f.w.Event('pagehide')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
   assert.equal(f.calls.length, count); assert(f.terminals[0].disposed); assert(f.button('Refresh status').disabled);
   assert(f.w.document.getElementById('native'));
 });

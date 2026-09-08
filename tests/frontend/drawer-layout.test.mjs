@@ -51,18 +51,20 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); origin = `http://127.0.0.1:${server.address().port}`;
   t.after(() => new Promise(resolve => server.close(resolve)));
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
-  const out = path.join(root, '.artifacts/ui-integration-c6df099/layout-' + Date.now()); await mkdir(out, {recursive: true, mode: 0o700});
+  const out = path.join(root, '.artifacts/workspace-d57f128/layout-' + Date.now()); await mkdir(out, {recursive: true, mode: 0o700});
   for (const width of [1440, 900, 390, 320]) for (const theme of ['light', 'dark']) for (const state of [true, false]) {
     running = state;
     const page = await browser.newPage({viewport: {width, height: 900}, colorScheme: theme});
     page.on('pageerror', e => errors.push(e.message));
     await page.addInitScript(() => {
       // Renderer transport double only. No native terminal or service is contacted.
+      window.fixtureSocketCount = 0;
+      window.fixtureClosedCount = 0;
       window.WebSocket = class {
         readyState = 0; bufferedAmount = 0;
-        constructor() { setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 0); }
+        constructor() { window.fixtureSocketCount++; setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 0); }
         send(data) { if (JSON.parse(data).csrf_token) setTimeout(() => { this.onmessage?.({data: '{"type":"ready"}'}); this.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('Renderer fixture only — no native shell'.replace('—', '-'))})}); }, 0); }
-        close() { this.readyState = 3; this.onclose?.(); }
+        close() { window.fixtureClosedCount++; this.readyState = 3; this.onclose?.(); }
       };
     });
     await page.goto(origin); await page.evaluate(theme => document.documentElement.style.colorScheme = theme, theme);
@@ -70,7 +72,9 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
     await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     assert.match(await page.locator('#sodaspaces-status').innerText(), state ? /running/ : /stopped/);
     const metrics = await page.locator('#sodaspaces-drawer').evaluate(dialog => ({width: dialog.getBoundingClientRect().width, overflow: dialog.scrollWidth > dialog.clientWidth, heights: [...dialog.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => b.getBoundingClientRect().height)}));
-    assert(metrics.width <= width); assert(!metrics.overflow); assert(metrics.heights.every(h => h === 44), JSON.stringify(metrics));
+    assert.equal(metrics.width, width > 800 ? width / 2 : width); assert(!metrics.overflow); assert(metrics.heights.every(h => h === 44), JSON.stringify(metrics));
+    const tabbar = await page.getByRole('tablist').boundingBox(), hide = await page.locator('#sodaspaces-close').boundingBox();
+    assert(tabbar.x + tabbar.width <= hide.x, 'view tabs must not overlap Hide, including at 320px');
     assert.equal(await page.locator('#native-edit').inputValue(), 'unsaved fixture');
     assert.equal(await page.locator('#sodaspaces-drawer .soda-page').count(), 0);
     if (state) {
@@ -80,12 +84,29 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       assert.equal(await page.locator('.xterm-helper-textarea').evaluate(el => getComputedStyle(el).padding), '0px');
       await page.keyboard.press('Escape'); assert(await page.locator('#sodaspaces-drawer').isVisible());
       await page.keyboard.press('Control+Shift+Enter');
-      assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Disconnect');
+      assert.equal(await page.evaluate(() => document.activeElement.textContent), 'End terminal');
+      const canvas = await page.locator('.soda-terminal-screen').boundingBox();
+      assert(canvas.height > 650, JSON.stringify(canvas));
+      if (width > 800) {
+        await page.locator('#native-edit').fill('editing native page while developing');
+        await page.locator('#native').click();
+        assert(await page.locator('#sodaspaces-drawer').isVisible());
+        await page.locator('#sodaspaces-divider').focus(); await page.keyboard.press('ArrowLeft');
+        assert.equal(await page.locator('#sodaspaces-divider').getAttribute('aria-valuenow'), '55');
+        await page.keyboard.press('ArrowRight');
+      }
+      await page.getByRole('tab', {name: 'Access', exact: true}).click();
+      await page.locator('#sodaspaces-command').waitFor();
+      await page.getByRole('tab', {name: 'Terminal', exact: true}).click();
+      assert.equal(await page.evaluate(() => window.fixtureSocketCount), 1);
+      assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
     }
     await page.screenshot({path: path.join(out, `${width}-${theme}-${state ? 'running' : 'stopped'}.png`)});
     await page.locator('#sodaspaces-close').click(); await page.locator('#sodaspaces-button').click();
-    await page.getByRole('button', {name: 'Reload repository page', exact: true}).waitFor();
-    assert.equal(await page.locator('.soda-terminal').count(), 0);
+    await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    assert.equal(await page.locator('.soda-terminal').count(), state ? 1 : 0);
+    assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
+    if (state) assert.equal(await page.evaluate(() => window.fixtureSocketCount), 1);
     await page.close();
   }
   assert.deepEqual(writes, []); assert.deepEqual(errors, []);

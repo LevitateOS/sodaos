@@ -59,16 +59,35 @@ test('explicit auth, local renderer, original login and Unicode input/output', a
   socket.message({type: 'output', data: Buffer.from('世界').toString('base64')});
   assert.equal(Buffer.from(f.terms[0].writes[0]).toString(), '世界');
 });
-for (const event of ['blur', 'pagehide', 'pageshow', 'visibilitychange']) {
+for (const event of ['pagehide', 'pageshow']) {
   test(`${event} invalidates, clears scrollback and never reconnects`, async t => {
     const f = fixture(t), socket = await ready(f);
-    if (event === 'visibilitychange') {Object.defineProperty(f.w.document, 'visibilityState', {value: 'hidden'}); f.w.document.dispatchEvent(new f.w.Event(event));}
-    else {const e = new f.w.Event(event); if (event === 'pageshow') Object.defineProperty(e, 'persisted', {value: true}); f.w.dispatchEvent(e);}
+    const e = new f.w.Event(event); if (event === 'pageshow') Object.defineProperty(e, 'persisted', {value: true}); f.w.dispatchEvent(e);
     assert(f.terms[0].disposed); assert.equal(socket.readyState, 3); assert(f.open.disabled);
     socket.message({type: 'output', data: 'YWJj'}); f.w.dispatchEvent(new f.w.Event('focus')); f.open.click(); await tick();
     assert.equal(f.sockets.length, 1); assert.equal(f.terms[0].writes.length, 0);
   });
 }
+test('app and browser visibility changes keep the same transport and renderer', async t => {
+  const f = fixture(t), socket = await ready(f);
+  f.w.dispatchEvent(new f.w.Event('blur'));
+  Object.defineProperty(f.w.document, 'visibilityState', {value: 'hidden'});
+  f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  socket.message({type: 'output', data: 'YWJj'});
+  assert.equal(socket.readyState, 1); assert(!f.terms[0].disposed);
+  assert.equal(Buffer.from(f.terms[0].writes[0]).toString(), 'abc');
+  f.w.dispatchEvent(new f.w.Event('focus')); assert.equal(f.sockets.length, 1);
+});
+test('late terminal readiness does not steal focus from native page controls', async t => {
+  const f = fixture(t); f.open.click(); await tick(); await tick();
+  const native = f.w.document.getElementById('native'); native.focus();
+  f.sockets[0].open(); f.sockets[0].message({type: 'ready'});
+  assert.equal(f.w.document.activeElement, native); assert(!f.terms[0].disposed);
+});
+test('hidden terminal view cannot start a shell through a synthetic click', async t => {
+  const f = fixture(t); f.root.hidden = true; f.open.click(); await tick();
+  assert.equal(f.calls.length, 0); assert.equal(f.sockets.length, 0);
+});
 test('late session response cannot launch after invalidation', async t => {
   let release; const f = fixture(t, {fetch: () => new Promise(resolve => {release = resolve;})});
   f.open.click(); f.api.invalidate(); release({ok: true, json: async () => ({})}); await tick();

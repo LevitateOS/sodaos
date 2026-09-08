@@ -14,8 +14,6 @@ async function fixture(t, options = {}) {
   const w = dom.window, doc = w.document;
   const $ = n => doc.getElementById('sodaspaces-' + n);
   Object.assign($('root').dataset, {subUrl: '', signed: 'true', userId: '1', repositoryId: '7', ...options.context});
-  w.HTMLDialogElement.prototype.showModal = function () {this.open = true;};
-  w.HTMLDialogElement.prototype.close = function () {this.open = false; this.dispatchEvent(new w.Event('close'));};
   const calls = [];
   w.fetch = async (url, init) => {
     calls.push({url, ...init});
@@ -51,31 +49,47 @@ test('anonymous page offers explicit contextual OAuth without substituting Soda 
 test('only exact OAuth fragment opens, and large IDs stay strings', async t => {
   const contexts = [];
   const f = await fixture(t, {hash: '#sodaspaces', context: {userId: '9007199254740993'}, mount: (_root, context) => {contexts.push(context); return {refresh() {}, dispose() {}};}});
-  assert(f.$('drawer').open); assert.equal(contexts[0].expectedUserId, '9007199254740993');
+  assert(!f.$('drawer').hidden); assert.equal(contexts[0].expectedUserId, '9007199254740993');
 });
-for (const event of ['blur', 'pagehide', 'bfcache', 'close', 'cancel', 'backdrop']) {
+for (const event of ['pagehide', 'bfcache']) {
   test(event + ' disposes before reopening, without bypassing full-page reload', async t => {
     let disposed = 0, mounted = 0;
     const f = await fixture(t, {mount: () => {mounted++; return {refresh() {}, dispose() {disposed++;}};}}); await f.open();
-    if (event === 'close') f.$('close').click();
-    else if (event === 'cancel') f.$('drawer').dispatchEvent(new f.w.Event('cancel'));
-    else if (event === 'backdrop') f.$('drawer').click();
-    else if (event === 'bfcache') f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow', {persisted: true}));
+    if (event === 'bfcache') f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow', {persisted: true}));
     else f.w.dispatchEvent(new f.w.Event(event));
-    assert.equal(disposed, 1); f.$('drawer').close(); await f.open();
+    assert.equal(disposed, 1); f.$('close').click(); await f.open();
     assert.equal(mounted, 1); assert(f.button('Reload repository page'));
     assert.equal(f.doc.getElementById('native-edit').value, 'dirty');
   });
 }
-test('late fetch after close cannot repaint or dispatch another request', async t => {
+test('late fetch after document departure cannot repaint or dispatch another request', async t => {
   let release;
   const f = await fixture(t, {fetch: () => new Promise(resolve => {release = resolve;})});
-  f.$('button').click(); f.$('close').click(); await f.open();
+  f.$('button').click(); f.w.dispatchEvent(new f.w.Event('pagehide')); f.$('close').click(); await f.open();
   release(json({user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: f.w.location.origin})); await tick();
   assert.equal(f.calls.length, 1); assert(f.button('Reload repository page')); assert(!f.button('Create environment'));
+});
+test('non-modal native interaction, blur and hide/reopen preserve one mounted component', async t => {
+  let mounted = 0, disposed = 0, refreshed = 0;
+  const f = await fixture(t, {mount: () => {mounted++; return {refresh() {refreshed++;}, dispose() {disposed++;}};}});
+  await f.open();
+  assert.equal(f.$('drawer').tagName, 'ASIDE'); assert(!f.doc.querySelector('[inert], [aria-modal=true]'));
+  f.doc.getElementById('native-edit').focus(); f.doc.getElementById('native-edit').value = 'still editable';
+  f.doc.getElementById('native').click(); f.$('drawer').click();
+  f.w.dispatchEvent(new f.w.Event('blur')); f.doc.dispatchEvent(new f.w.Event('visibilitychange'));
+  assert(!f.$('drawer').hidden); assert(f.doc.body.classList.contains('sodaspaces-open'));
+  f.$('close').click(); assert(f.$('drawer').hidden); assert(!f.doc.body.classList.contains('sodaspaces-open'));
+  await f.open(); assert.equal(mounted, 1); assert.equal(refreshed, 1); assert.equal(disposed, 0);
+  assert.equal(f.doc.getElementById('native-edit').value, 'still editable');
+});
+test('workspace separator supports keyboard resizing without native navigation', async t => {
+  const f = await fixture(t); await f.open();
+  f.$('divider').dispatchEvent(new f.w.KeyboardEvent('keydown', {key: 'ArrowLeft', bubbles: true, cancelable: true}));
+  assert.equal(f.$('divider').getAttribute('aria-valuenow'), '55');
+  assert.equal(f.doc.body.style.getPropertyValue('--soda-space-width'), '55vw');
 });
 test('interior clicks, initial pageshow and focus preserve the current drawer', async t => {
   const f = await fixture(t); await f.open(); const count = f.calls.length;
   f.$('content').click(); f.w.dispatchEvent(new f.w.Event('focus')); f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow'));
-  assert(f.$('drawer').open); assert.equal(f.calls.length, count); assert(f.button('Create environment'));
+  assert(!f.$('drawer').hidden); assert.equal(f.calls.length, count); assert(f.button('Create environment'));
 });

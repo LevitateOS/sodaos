@@ -1,128 +1,111 @@
 # Drawer terminal integration contract
 
-**Current source contract below, not the selected future UX.** The user rejected its
-modal blocking, management-form layout and blur/close teardown. The next change is a
-non-modal native-page/workspace split with full-content terminal tabs and bounded
-same-process reattachment; see the [product correction](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
-None of those changes is implemented yet. Preserve actual authorization and native
-ownership while deliberately replacing the old mounting/lifetime expectations and
-tests; do not treat old blur-termination passes as acceptance of the new workflow.
+## Workspace layout slice — source, not deployed
 
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
-dialog shell, which mounts `mountSodaspaces` once on explicit opening. It preserves
-native repository actions, forms, clipboard and beforeunload. Content and terminal
-modules do not discover or modify native navigation or auto-open a shell.
-There is no new tab, standalone UI, CDN or component framework.
+shell mounting `mountSodaspaces` once on explicit opening. The shell now uses a
+**non-modal aside**, not `showModal`, a backdrop or outside-click dismissal.
+Desktop starts at half width; a pointer/keyboard separator adjusts it between
+35–65 percent. Native body/container widths adapt, without replacing navigation,
+forms, notifications or beforeunload. Below 800px the workspace fills the viewport;
+Hide returns to the native page. Real native route/pane-width compatibility still
+needs validation; the synthetic layout fixture is not that proof.
 
-## Complete drawer content (minimum controls)
+The content has Terminal, Environment and Access view tabs with roving keyboard
+focus. Management and SSH forms are no longer above the terminal. The terminal
+fills its available panel; its renderer observes resize and tab/hide restoration.
+There is still **one terminal**, not multiple session tabs or an implemented `+`.
+Those require the next protected session-lifetime change.
 
-`/assets/sodaspaces-drawer.js` now exports `mountSodaspaces(mountNode, context)` with
-`context = {expectedUserId, repositoryId}` (canonical native-page string hints). It
-owns only content beneath that mount: Connect/Sign out, Create, Join, saved public
-keys/removal, key review/Apply, Start/Stop, SSH details/Copy, Refresh and the existing
-terminal component. It does not own a dialog, repository button, native selectors or
-Forgejo layout. `sodaspaces.js` is now only the native dialog/context shell; its
-historical duplicate API/action implementation is removed. The hooks load the
-complete component, terminal styles and pinned xterm CSS. No second caller runs.
+**Focus/visibility changes and Hide/reopen retain the same component and socket.**
+They do not fetch again, provision, restart or replay anything. Pending operations
+remain guarded in that same component; hiding is not cancellation. End terminal is
+a separate action. No outside click dismisses the pane and no focus trap blocks the
+native page. Escape inside xterm remains shell input; Ctrl+Shift+Enter focuses End
+terminal. The complete component retains the existing action-time session/provider
+checks and uncertain-mutation guard.
 
-Load `/assets/sodaspaces-drawer.css` and the terminal styles below. Mounting itself is
-inert; call the returned `.refresh()` on explicit drawer opening/Refresh to inspect
-state (reads only). Call `.dispose()` before removal/close/context replacement, or
-`.invalidate()` when native page/authentication context becomes stale. No remount to
-bypass the full-page reload rule after blur/hidden/BFCache or an uncertain operation.
-Closing also retires this page's mount: reopening offers explicit full-page reload,
-not another component that could evade terminal/uncertain-operation guards. Refresh
-cannot replace an opened/ended terminal. Do not promise cancellation of an already
-dispatched mutation when closing the UI. Anonymous page context may offer contextual
-OAuth; it never substitutes a session identity for the missing native actor hint.
-All mutations recheck the current Soda session before dispatch; the server remains
-the authority. JSON responses are MIME-checked and streaming-bounded to 64 KiB.
+**Important remaining limits:** pagehide/BFCache still retire this page's component.
+Reload/navigation, lost transport, authorization loss and the backend's earlier-of-
+session-expiry/two-hour limit still end the terminal. Refresh still disposes the
+existing renderer and cannot remount a used terminal. Hiding currently retains a
+live socket, not a server-detached session; the proposed 30-minute retention deadline
+is **not implemented**. Do not deploy this slice as completed session continuity.
 
-Start/Stop includes a visible boot-start policy and explicit shared-impact confirmation.
-Key removal is saved preferences only; Review shows actual installed versus saved
-fingerprints, then Apply makes the separate native change, with last-key confirmation.
-A malformed/uncertain mutation response blocks further mutation replay, not safe reads
-or explicit Soda logout. Native failures never become automatic repair/recreation.
+## Complete content boundary
 
-The complete module embeds `mountTerminal` itself. Only use the standalone terminal
-surface below when the template owner already supplies equivalent drawer controls;
-do not mount two terminal components for the same displayed environment.
+```js
+import {mountSodaspaces} from '/assets/sodaspaces-drawer.js';
+const controls = mountSodaspaces(mountNode, {expectedUserId, repositoryId});
+controls.refresh(); // explicit initial read; mounting alone is inert
+```
 
-## Small terminal-only mounting surface
+IDs are canonical native-page string hints, not authentication. An anonymous page
+can omit `expectedUserId` for explicit contextual OAuth, never to borrow a Soda
+identity. The module owns only its mount: authentication, Create/Join, current saved
+public-key lifecycle, Start/Stop, own SSH details/native Copy and terminal controls.
+The shell owns visibility/width; native Forgejo owns routing and all its workflows.
 
-Load these local styles through the template owner's supported asset hook:
+Call `controls.invalidate()` on confirmed stale context, and `controls.dispose()`
+before real removal/context replacement. **Do not dispose merely to hide the drawer
+or switch a view.** Disposal aborts reads and clears content, not dispatched native
+mutations. A malformed/uncertain mutation result blocks further mutation replay but
+permits safe reads and explicit Soda logout. No automatic repair/recreation.
 
-- `/assets/soda-terminal/xterm.css`
-- `/assets/sodaspaces-terminal.css`
+JSON reads are MIME-checked, streaming-bounded to 64 KiB, same-origin/no-store and
+redirect-rejecting. Actions freshly check Soda/session/provider identity; the server
+remains the authorization boundary. No browser-selected Linux identity or privileges.
+Native-only logout in another tab is not atomic Soda/SSH logout; the interface shows
+its actual Soda actor rather than treating browser focus as authentication.
 
-Import `/assets/sodaspaces-terminal.js` using a native module script, then mount once
-inside the desired drawer content area:
+## Terminal-only mounting surface
+
+The complete component embeds this itself; never mount a second terminal for the
+same current context/project (the backend rejects duplicate streams).
 
 ```js
 import {mountTerminal} from '/assets/sodaspaces-terminal.js';
 const terminal = mountTerminal(mountNode, {
-  expectedUserId: nativePageUserId,
-  repositoryId: nativePageRepositoryId,
-  environmentId: selectedEnvironment.id,
-  login: ownEnvironmentDetails.login,
+  expectedUserId, repositoryId, environmentId, login,
 });
 ```
 
-IDs are canonical decimal **strings**, except the environment's `p` + 24 hex ID.
-Page user/repository IDs are consistency hints, not authentication. Obtain environment
-ID and original own login from the existing protected Soda environment API; no template
-access to Soda sessions, credentials or copied permissions is needed. Do not supply a
-fresh provider rename instead of the stored membership login. The module independently
-rechecks its Soda session and environment association/login before connecting.
+Resolve environment and original own membership login through the protected API,
+not a provider rename or caller-supplied privilege. Mounting starts nothing. Only
+explicit Open loads the local renderer, authorizes and opens the existing account's
+shell; it never creates, joins, starts or repairs a project. `invalidate`,
+`disconnect`, `dispose` and the `started` getter retain their existing API.
 
-Mounting makes **no request and launches nothing**. The component supplies its own
-Open terminal, warning, status, terminal screen and Disconnect. Only the explicit Open
-button fetches session/context, loads the pinned renderer and opens a WebSocket. It
-never creates, joins, starts or repairs a project. Do not auto-click or invoke it from
-page load, drawer opening, focus or restored browser history.
+Load `/assets/sodaspaces{,-drawer,-terminal}.css` and
+`/assets/soda-terminal/xterm.css`. The renderer is lazy-loaded from local
+`/assets/soda-terminal/{xterm,addon-fit}.mjs`; no CDN or frontend framework is added.
+Keep xterm-specific styles scoped, so native form rules do not corrupt its textarea.
+Browser cookies remain HttpOnly; actor/CSRF travels only in the bounded first socket
+frame. No credential or terminal transcript belongs in logs. Terminal-driven OSC
+clipboard/title/hyperlink actions are consumed; manual paste remains possible.
+Scrollback, input/output, frames, queues and authorization waits stay bounded.
 
-- Call `terminal.dispose()` **before closing/removing the drawer or replacing its
-  environment/repository/account context**. It closes transport, clears renderer data,
-  removes only its own subtree and unregisters its listeners.
-- Call `terminal.invalidate()` when the host detects stale native-page/authentication
-  context, or before local logout. Active/pending Soda logout is independently enforced
-  by the backend. `terminal.disconnect()` ends this component without removing it.
-- An ended/stale component requires full-page reload, not remount/reconnect/replay to
-  evade the rule. The module also invalidates on window blur, hidden/pagehide and
-  persisted pageshow. Do not reconnect on focus or BFCache.
-- While terminal-focused, Escape belongs to the shell. Let its key handler run before
-  interpreting Escape as dialog closure (do not swallow it in a document capture
-  handler). Ctrl+Shift+Enter focuses Disconnect. Normal native dialog Escape outside
-  the screen remains the template owner's responsibility.
+`internal/web/terminal.go` owns protected transport, context/project slots,
+authorization, logout/rotation and shutdown. `internal/host/` owns native launch,
+process supervision and independent safety lease. Those backend contracts are
+unchanged in this layout slice. Closing a socket is not independent proof of process
+cleanup, and ending a terminal does not undo completed writes or stop all detached
+native workloads. See the [API](dashboard-api.md) and
+[remaining workspace work](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
 
-The renderer is lazy-loaded from `/assets/soda-terminal/{xterm,addon-fit}.mjs`; browser
-cookies remain HttpOnly, and authentication travels only in the bounded first socket
-message. No terminal data, CSRF, cookie, query or transcript belongs in logs. OSC
-clipboard/title/hyperlink actions are consumed; no link addon is installed. Manual
-user paste works through xterm. Scrollback, input/output buffers and frame sizes are
-bounded. Disconnect text does not claim that closing a browser socket proves native
-process cleanup or undoes completed writes/detached workloads.
+## Packaging and evidence
 
-## Source and evidence boundary
+Existing native build/stage/verification/install owners retain exact local payloads,
+renderer locks and MIT notices; unsafe or occupied installation paths still refuse.
+The footer's structural inventory review now records the aside/divider/Hide change
+and preservation of notification markup. No new dependency or native target action.
 
-`internal/web/terminal.go` owns the public protected route, live context/project slots,
-logout/rotation/shutdown and periodic local authorization/peer checks. `internal/host/`
-owns the fixed native operation and independent project lease. See the
-[API contract](dashboard-api.md) and [terminal plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal).
-
-`appliance/terminal-assets.lock.json` pins actual npm archive integrity and each shipped
-upstream file hash; `scripts/fetch-terminal.py` writes build artifacts, not source or
-runtime files. Native build/stage/bundle/install owners include the exact distributions
-and both MIT notices, and refuse occupied component destinations. No template or
-layout override is installed by this module itself.
-
-Template mounting is source implemented. Source tests use synthetic provider/session/
-helper inputs, not native-page acceptance. The opt-in `tests/frontend/drawer-layout.test.mjs`
-uses sandboxed Chromium and the real locked renderer/styles, but synthetic APIs/socket:
-its 16 light/dark, running/stopped, desktop/mobile combinations are local layout proof
-only. Separately, native candidate `2aa4960` passed the real combined OAuth/proxy/
-helper/browser terminal and management journeys on the isolated x86_64 fixture,
-with independent shell-disappearance and SSH key-revocation observations. See the
-leading [handoff](implementation-status.md) for exact evidence and the public-mode
-packaging correction. Retained delivery and broader operator/provider/aarch64
-acceptance remain separate; this document grants no execution or rollout permission.
+Local DOM tests cover view/focus/hide preservation, keyboard controls, no replay,
+action-time denial and old genuine-page-departure retirement. The opt-in
+`tests/frontend/drawer-layout.test.mjs` passed 16 desktop/mobile/theme/state cases
+with sandboxed Chromium, real locked xterm and **synthetic APIs/socket/native form**.
+It tests half-width geometry, native-form interaction, keyboard resizing, full-height
+canvas, tab changes and same-socket Hide/reopen. It is not real Forgejo navigation,
+OAuth, process-continuity or native account/Git evidence. See the leading
+[handoff](implementation-status.md) for actual runs and held work. Earlier installed
+`2aa4960` journeys remain evidence only for their old product bytes and behavior.

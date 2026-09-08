@@ -1,13 +1,14 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{if .Repository}}{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
 <div id="sodaspaces-root" hidden data-sub-url="{{AppSubUrl}}" data-repository-id="{{.Repository.ID}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" data-user-id="{{if .IsSigned}}{{.SignedUserID}}{{end}}">
-	<button id="sodaspaces-button" type="button" class="ui primary button" aria-haspopup="dialog" aria-expanded="false" aria-controls="sodaspaces-drawer">{{svg "octicon-terminal" 16}} Sodaspaces</button>
-	<dialog id="sodaspaces-drawer" aria-labelledby="sodaspaces-title">
+	<button id="sodaspaces-button" type="button" class="ui primary button" aria-expanded="false" aria-controls="sodaspaces-drawer">{{svg "octicon-terminal" 16}} Sodaspaces</button>
+	<aside id="sodaspaces-drawer" hidden aria-labelledby="sodaspaces-title">
+		<div id="sodaspaces-divider" role="separator" tabindex="0" aria-label="Workspace width" aria-orientation="vertical" aria-controls="sodaspaces-drawer" aria-valuemin="35" aria-valuemax="65" aria-valuenow="50"></div>
 		<div class="sodaspaces-panel">
-			<header class="sodaspaces-heading"><div><p>Shared development</p><h2 id="sodaspaces-title">Sodaspaces</h2></div><button id="sodaspaces-close" type="button" class="ui basic button" autofocus>Close</button></header>
+			<header class="sodaspaces-heading"><h2 id="sodaspaces-title">Sodaspaces</h2><button id="sodaspaces-close" type="button" class="ui basic button" aria-label="Hide workspace">Hide</button></header>
 			<div id="sodaspaces-content" class="sodaspaces-content"></div>
 		</div>
-	</dialog>
+	</aside>
 </div>
 <script type="module" src="{{AppSubUrl}}/assets/sodaspaces.js"></script>
 {{end}}{{end}}
