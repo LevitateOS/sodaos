@@ -31,7 +31,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           const body = document.querySelector('.soda-settings-section-body').getBoundingClientRect();
           return { above: heading.bottom <= body.top, inset: getComputedStyle(document.querySelector('.soda-settings-section-body')).paddingInlineStart, fits: document.documentElement.scrollWidth <= innerWidth };
         });
-        assert.deepEqual(placement, { above: true, inset: '16px', fits: true });
+        assert.deepEqual(placement, { above: true, inset: '40px', fits: true });
       }
       await page.setViewportSize({ width: 1654, height: 1000 });
     });

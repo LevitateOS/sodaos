@@ -2,7 +2,7 @@
 
 ## Settings body inset
 
-Local revision `2026-09-08.20` adds a 16px inline-start inset to direct settings
+Local revision `2026-09-08.21` uses the requested 40px inline-start inset to direct settings
 section bodies, leaving titles flush. Nested native body wrappers do not compound
 the padding; the Security password section now explicitly selects the body role.
 Go Forgejo checks and all 14 component checks passed, including the inset and

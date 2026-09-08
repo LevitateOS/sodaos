@@ -587,5 +587,5 @@ Inventory actions remain beside headings on desktop and stack below on mobile.
 Content grids (portrait/editor, checklists and native label/value data) are not
 section-title columns and retain their task-specific arrangements.
 
-Settings section bodies use a 16px inline-start inset below flush headings. Apply
+Settings section bodies use a 40px inline-start inset below flush headings. Apply
 it only to the direct body so nested native wrappers do not add repeated padding.
