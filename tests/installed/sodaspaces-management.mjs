@@ -21,7 +21,8 @@ export async function exerciseManagement({page, input, request, authenticate, se
     return key;
   }));
   assert.notEqual(keys[0], keys[1]);
-  const sshArgs = (user, key) => ['-F', request.ssh_config, '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ControlMaster=no', '-o', 'ControlPath=none', '-o', 'IdentityAgent=none', '-o', 'IdentitiesOnly=yes', '-o', 'PreferredAuthentications=publickey', ...(key ? ['-i', key] : []), 'soda-e2e-' + user];
+  let projectIP;
+  const sshArgs = (user, key) => ['-F', request.ssh_config, ...(user==='host'?[]:['-o','HostName='+projectIP]), '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ControlMaster=no', '-o', 'ControlPath=none', '-o', 'IdentityAgent=none', '-o', 'IdentitiesOnly=yes', '-o', 'PreferredAuthentications=publickey', ...(key ? ['-i', key] : []), 'soda-e2e-' + user];
   function ssh(user, key, program) {
     try {
       return execFileSync('ssh', [...sshArgs(user,key), 'python3', '-'], {input: program, encoding:'utf8', timeout:30000, maxBuffer:65536, stdio:['pipe','pipe','pipe']});
@@ -35,7 +36,15 @@ export async function exerciseManagement({page, input, request, authenticate, se
   function snapshot(running) {
     const code = `import subprocess,json,hashlib\nfrom pathlib import Path\np=${JSON.stringify(request.project)}\ncid=subprocess.check_output(['podman','--remote=false','inspect','--format','{{.ID}}','soda-'+p],text=True).strip()\nassert cid==${JSON.stringify(request.cid)}\nr=subprocess.check_output(['podman','--remote=false','inspect','--format','{{.State.Running}}',cid],text=True).strip()\nboot=subprocess.check_output(['systemctl','show','soda-project@'+p+'.service','--property=UnitFileState','--value'],text=True).strip()\nassert r==${JSON.stringify(running ? 'true':'false')} and boot==${JSON.stringify(running?'enabled':'disabled')}\nresult={'cid':cid,'image':subprocess.check_output(['podman','--remote=false','inspect','--format','{{.Image}}',cid],text=True).strip()}\n`;
     const guest = "import json,hashlib,os; from pathlib import Path; names=['/etc/passwd','/etc/group','/etc/ssh/ssh_host_ed25519_key.pub','/etc/ssh/authorized_keys/alice','/etc/ssh/authorized_keys/bob','/var/lib/soda/accounts/alice','/var/lib/soda/accounts/bob']; print(json.dumps({n:[hashlib.sha256(Path(n).read_bytes()).hexdigest(),Path(n).stat().st_uid,Path(n).stat().st_gid,Path(n).stat().st_mode] for n in names},sort_keys=True))";
-    return JSON.parse(ssh('host', null, code + (running ? `result['files']=json.loads(subprocess.check_output(['podman','--remote=false','exec',cid,'python3','-I','-c',${JSON.stringify(guest)}],text=True))\n` : '') + 'print(json.dumps(result))\n'));
+    const observed=JSON.parse(ssh('host', null, code + (running ? `result['files']=json.loads(subprocess.check_output(['podman','--remote=false','exec',cid,'python3','-I','-c',${JSON.stringify(guest)}],text=True))\nresult['ip']=subprocess.check_output(['podman','--remote=false','inspect','--format','{{(index .NetworkSettings.Networks "soda-projects").IPAddress}}',cid],text=True).strip()\n` : '') + 'print(json.dumps(result))\n'));
+    if(running) {
+      assert.match(observed.ip,/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/);
+      assert(observed.ip.split('.').every(n=>Number(n)<=255));
+      projectIP=observed.ip;
+      (evidence.observed_addresses ??= []).push(projectIP);
+      delete observed.ip; // Mutable current endpoint, not persistent root identity.
+    }
+    return observed;
   }
   async function action(route, body, control, method='POST') {
     permit(0, route, body, method);
@@ -100,6 +109,7 @@ export async function exerciseManagement({page, input, request, authenticate, se
   await authenticate(0);
   const before=snapshot(true);
   result.before=before;
+  assert.equal(await page.locator('#sodaspaces-command').inputValue(),'ssh alice@'+projectIP);
   // Persist a new exact run-owned home marker; never alter existing files.
   const name='.soda-e2e-'+Date.now();
   const create=`from pathlib import Path\np=Path.home()/${JSON.stringify(name)}\np.mkdir(mode=0o700)\n(p/'marker').write_text('persistent E2E marker\\n')\nprint(p.name)\n`;
@@ -122,6 +132,7 @@ export async function exerciseManagement({page, input, request, authenticate, se
   stage('management: stable state after Start');
   result.started=snapshot(true);
   assert.deepEqual(result.started,before);
+  assert.equal(await page.locator('#sodaspaces-command').inputValue(),'ssh alice@'+projectIP);
   stage('management: SSH availability and home persistence after Start');
   const readyUntil=Date.now()+30000;
   for (;;) {

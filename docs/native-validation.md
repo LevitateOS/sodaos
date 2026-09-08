@@ -207,7 +207,11 @@ The private management JSON has exactly `target`, `project`, `cid`, `ssh_config`
 `key_a`, `key_a_public`, `key_b`, `key_b_public`, `original_alice`, `original_bob`.
 All file references are absolute restricted regular files. The trusted SSH config
 must define pinned `soda-e2e-host`, `soda-e2e-alice` and `soda-e2e-bob` aliases for
-this declared fixture and existing project. Root SSH only observes state; every
+this declared fixture and existing project. Project aliases must use an independently
+verified `HostKeyAlias` pin, not a stale IP-key entry: the probe overrides HostName
+with the current CID-bound native address and compares it with the drawer's SSH
+command. Podman can change that address on Start; it is not a persistent identity.
+Root SSH only observes state; every
 lifecycle/key mutation goes through the actual protected browser UI/API, with
 single-use actor/path/body/method-bound request admission. Private keys stay on the
 client and never enter browser inputs. Management forwarding is not laptop routing
