@@ -5,7 +5,35 @@ width and existing drawer actions**. The terminal implementation does not discov
 modify those nodes, auto-mount, intercept native navigation or replace beforeunload.
 There is no new tab, standalone UI, CDN or component framework.
 
-## Small mounting surface
+## Complete drawer content (minimum controls)
+
+`/assets/sodaspaces-drawer.js` now exports `mountSodaspaces(mountNode, context)` with
+`context = {expectedUserId, repositoryId}` (canonical native-page string hints). It
+owns only content beneath that mount: Connect/Sign out, Create, Join, saved public
+keys/removal, key review/Apply, Start/Stop, SSH details/Copy, Refresh and the existing
+terminal component. It does not own a dialog, repository button, native selectors or
+Forgejo layout. Existing historical `sodaspaces.js` remains untouched; **do not run
+both callers in the same drawer**. The template owner should select this complete
+module for the replacement drawer, not duplicate its operation logic in templates.
+
+Load `/assets/sodaspaces-drawer.css` and the terminal styles below. Mounting itself is
+inert; call the returned `.refresh()` on explicit drawer opening/Refresh to inspect
+state (reads only). Call `.dispose()` before removal/close/context replacement, or
+`.invalidate()` when native page/authentication context becomes stale. No remount to
+bypass the full-page reload rule after blur/hidden/BFCache or an uncertain operation.
+Do not promise cancellation of an already dispatched mutation when closing the UI.
+
+Start/Stop includes a visible boot-start policy and explicit shared-impact confirmation.
+Key removal is saved preferences only; Review shows actual installed versus saved
+fingerprints, then Apply makes the separate native change, with last-key confirmation.
+A malformed/uncertain mutation response blocks further mutation replay, not safe reads
+or explicit Soda logout. Native failures never become automatic repair/recreation.
+
+The complete module embeds `mountTerminal` itself. Only use the standalone terminal
+surface below when the template owner already supplies equivalent drawer controls;
+do not mount two terminal components for the same displayed environment.
+
+## Small terminal-only mounting surface
 
 Load these local styles through the template owner's supported asset hook:
 

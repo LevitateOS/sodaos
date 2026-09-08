@@ -6,6 +6,7 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus delivered **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback and separately approved retained cutover passed, with native browser and own-access observations. Both standalone frontends remain removed |
+| Minimum management controls | Start/Stop, own saved-key removal and reviewed native key apply/revoke, plus independent complete drawer content, are source implemented. Native lifecycle/SSH rotation and integrated delivery still pending |
 | Browser terminal | Native helper passed bounded x86_64 PTY/teardown/SSH-preservation proof. Protected browser transport and independent drawer terminal component/locked renderer packaging are source implemented and locally tested. Template mounting, genuine combined browser proof and deployment remain pending; installed helper unchanged |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
@@ -908,17 +909,66 @@ browser/proxy/helper lifecycle proof and native candidate delivery remain requir
 prior native-only proof is not public endpoint acceptance. Continue the documented
 mounting coordination and integrated proof, not a retained rollout or template fork.
 
+## Minimum management controls — source implementation
+
+Added restricted `/lifecycle` and `/access-keys` helper operations, protected public
+routes and own saved-key deletion. Lifecycle validates the existing isolated container
+and selected project unit before `systemctl enable/disable --now`, then verifies the
+same container and actual running/boot-enabled state. **Start enables host-boot start;
+Stop disables it and interrupts all project sessions/workloads.** No recreate, direct
+Podman stop competing with systemd, desired-state DB copy or automatic repair. Current
+project administration requires fresh authority; the configured Soda operator is a
+separate permitted authority. Stop invalidates that project's browser terminals.
+
+Own-key preview/apply always requires existing membership and fresh user/repository
+consent, with no operator bypass or caller-selected login. Saved removal is own-user
+SQL only and explicitly does not change existing access. Applying the reviewed set
+checks both saved fingerprints and the exact native file revision; last-key removal
+requires explicit confirmation. The fixed embedded Python reuses the existing marker/
+account validator, locks the root-owned dedicated key directory, refuses unsafe paths/
+files/noncanonical data and atomically replaces only that account's managed file.
+It changes no groups, accounts, homes, unrelated files or authenticated sessions. No
+project image/file installation or key propagation to other projects was added.
+Canonical root edits in the dedicated managed file are visible in the complete preview;
+explicit Apply confirms their inclusion/removal, not hidden drift repair. Noncanonical
+annotations/options refuse, and edits after preview fail revision checking. Native
+failure/partial results remain uncertain, not claimed as rollback or successful revoke.
+
+`mountSodaspaces` in the new independent `sodaspaces-drawer.js`/CSS provides the complete
+minimum content: OAuth connect/local logout, explicit create/join, own public keys and
+removal/review/apply, confirmed Start/Stop, actual SSH details/Copy/Refresh and the
+existing terminal component. It is inert until `.refresh()` and owns only its supplied
+mount. **All Forgejo templates/layout remain with the other agent**; none were edited.
+Use the [mount contract](terminal-integration.md), not both old/new callers in one drawer.
+The historical caller stays unchanged for existing integration/evidence. Packaging
+source includes the two new assets and occupied-destination refusal.
+
+No schema migration or new dependency. Local tests exercise Go authorization/operation
+boundaries, real atomic file writes in owned temporary directories with mocked root
+metadata, and DOM/API/renderer doubles. These are not native lifecycle/key-possession
+proof. Native Stop/Start, new/removed-key SSH, merged template/browser/proxy/helper,
+whole-candidate native build/stage and installed delivery remain outstanding. No VM,
+installed service, retained project/account/key/provider or route action was executed
+in this source pass. Evidence and exact local check results are under
+`.artifacts/management-72ce126/`: full Go tests and focused web/host/store/nativebuild
+races passed; 114 Node tests and 56 Python build tests passed; document links,
+installation-shell syntax and whitespace checks passed. The assembled embedded Python
+was also exercised locally as an unprivileged refusal (no host account/file changes).
+These checks did not run installed/native tests, SSH key possession or a full appliance
+build/stage. Destruction remains an explicit unimplemented decision.
+
 ## Remaining work and permission boundary
 
 The remaining-work plan now has an explicit [minimum user-controls contract](sodaspaces-plan.md#minimum-end-to-end-user-controls),
-not just an engineering task list. Source inspection confirmed saved-key handling is
-currently add/list plus join-time installation: removal and later project apply/revoke
-are missing. The user-requested revision selects those bounded own-account actions
+not just an engineering task list. At the planning checkpoint saved-key handling was
+add/list plus join-time installation; the source implementation above now adds removal
+and later explicit project apply/revoke, with native validation still outstanding. The user-requested revision selects those bounded own-account actions
 alongside Start/Stop, with real SSH verification; automatic synchronization, global
 session revocation/offboarding and destructive execution remain outside that scope.
 The deferral guide was narrowed accordingly. Template/layout ownership is unchanged.
-Documentation/link/whitespace checks only; no source behavior, dependencies, builds,
-product tests, native target state or execution permissions changed in this pass.
+That earlier planning pass ran documentation/link/whitespace checks only; it changed
+no source behavior, dependencies, native target state or execution permissions. The
+subsequent source pass and its local tests are recorded above.
 
 - Preserve the implemented security, native-page context and explicit-action
   regressions plus steps 5–6's bounded native delivery/access evidence. Keep read-only
@@ -930,9 +980,10 @@ product tests, native target state or execution permissions changed in this pass
 - Follow the single [ordered remaining-work list](sodaspaces-plan.md#remaining-work--ordered):
   terminal integration, minimum access/lifecycle controls (including explicit own-key
   apply/revoke and Start/Stop), the Destroy scope decision, runner settings, operator/
-  client gaps, whole-candidate validation and approved delivery. Start/Stop have native
-  systemd/Podman mechanisms but no current helper/API/UI controls; saved-key removal/
-  later apply are unimplemented and deletion is still deferred. Planning these is not authorization for lifecycle or
+  client gaps, whole-candidate validation and approved delivery. Start/Stop and explicit
+  own-key updates now have helper/API/independent content implementations; native
+  lifecycle/key-possession validation and template mounting remain, and deletion is
+  still deferred. Planning these is not authorization for lifecycle or
   destructive execution.
 - Move Soda's local runner capacity/service configuration into operator-only settings
   in the unified native SodaOS/Forgejo interface, as subsequently selected by the

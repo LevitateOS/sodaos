@@ -71,7 +71,8 @@ Activation applies file ownership for the unprivileged dashboard, retains operat
 
 The source stage includes `templates/custom/{header,footer}.tmpl`,
 `public/assets/sodaspaces.{css,js}`, the independent `sodaspaces-terminal.{css,js}`
-component and five exact renderer/CSS/MIT-notice files under `public/assets/soda-terminal/`
+component, `sodaspaces-drawer.{css,js}` independent complete control content, and five
+exact renderer/CSS/MIT-notice files under `public/assets/soda-terminal/`
 beneath `/var/lib/soda/forgejo/gitea/`, alongside existing branding. The terminal
 module does not alter templates/layout; see its [mounting contract](terminal-integration.md).
 The build fetches locked upstream distributions into its own `terminal-assets` output;

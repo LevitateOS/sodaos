@@ -76,6 +76,46 @@ See the [component contract](terminal-integration.md) for independent template/l
 ownership and full-page stale/reload rules. Genuine browser and combined native
 delivery proof remain pending; this endpoint is not installed on retained targets.
 
+## Explicit lifecycle and own SSH key updates — source, not installed proof
+
+All ordinary actor/Origin/CSRF/strict JSON protections apply. These routes reject
+query parameters and never accept caller-selected Linux identities, targets or flags.
+
+- Lifecycle GET returns `environment` and `boot_enabled`. POST accepts
+  `{"action":"start"}` or `{"action":"stop","confirm_stop":true}`. Current project
+  administration is freshly resolved through the acting grant; the explicitly
+  configured Soda operator is a distinct permitted authority. Ordinary members or
+  arbitrary site administrators cannot stop/start. Require a provisioned project,
+  existing isolated container and the selected project unit path with no drop-ins.
+  As with creation, the installed root-owned project unit is trusted configuration;
+  this is not a byte attestation against arbitrary host-root edits.
+  Start enables the unit for host boot and starts it; Stop disables boot start and
+  stops it, interrupting everyone's sessions/workloads. No desired-state DB copy,
+  recreate/repair or automatic rollback. Confirm the same container ID and actual
+  resulting running/boot state. Partial/unconfirmed results are 502 and need inspection.
+- Access-keys GET requires own existing membership and fresh user/repository consent/
+  visibility, without operator bypass. Return `login`, native file SHA256 `revision`,
+  `installed_fingerprints`, `saved_fingerprints` and `applied:false`. The target is the
+  original marker-bound non-root account in a running project. Refuse unsafe paths,
+  ownership, symlinks/hardlinks, options/comments/noncanonical key files; no adoption.
+- Access-keys POST accepts that `revision`, the exact reviewed `saved_fingerprints`
+  array (including empty `[]`) and `confirm_empty:true` only when removing the last
+  managed keys. A changed saved set returns 409 before helper execution. The server
+  supplies actual current own saved public keys, never caller key material or login.
+  The helper checks the managed file revision before atomic replacement and verifies
+  the result. A changed native revision, failed write or uncertain response is not a
+  success/retry grant; refresh and inspect. Return `applied:true` only on confirmed
+  file update. This is not proof of new-key possession/client SSH reachability.
+
+The dedicated root-owned `/etc/ssh/authorized_keys/<login>` file is the existing
+Soda-managed key set. Preview exposes its complete canonical fingerprint set, including
+canonical root edits present before preview; explicit Apply confirms exactly which
+entries are removed. Changes after preview refuse by revision. Noncanonical/operator
+annotations or unsafe metadata refuse rather than being merged. Other accounts,
+home files, projects, privileges and authenticated SSH sessions are untouched. Saved
+key deletion affects future joins only; explicitly apply to each chosen existing
+project. Neither operation revokes Forgejo Git keys, OAuth or browser terminal access.
+
 ## Retained operations
 
 | Endpoint | Behavior |
@@ -84,6 +124,9 @@ delivery proof remain pending; this endpoint is not installed on retained target
 | `POST /api/session/logout` | `{}`; cancel this Soda login context, its pending OAuth and session/grant; expire both Soda cookies; not global Forgejo/Linux logout |
 | `GET/PATCH /api/me/preferences` | Soda-only display name; PATCH `{display_name}` |
 | `GET/POST /api/me/development-keys` | Own development-access public keys; POST `{public_key}`; not native Git key management |
+| `DELETE /api/me/development-keys/{key}` | `{}`; own saved key only; `existing_project_access_changed:false`. No native key removal or session termination |
+| `GET/POST /api/environments/{id}/lifecycle` | Source implemented: observed running/boot-enabled state; explicit authorized Start/Stop of existing unit/container, never recreate |
+| `GET/POST /api/environments/{id}/access-keys` | Source implemented: own managed-file preview and explicit compare-and-swap of saved keys into that existing account |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
 | `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
 | `POST /api/environments` | `{"repository_id":"ID"}`; canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |

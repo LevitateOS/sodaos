@@ -32,10 +32,10 @@ not every button at once. The other agent still owns all template overrides/layo
 | --- | --- | --- |
 | Connect to Soda / Sign out | Forgejo OAuth, explicit acting account, honest local versus native logout boundary | Existing auth/API; preserve access to these actions in the replacement drawer |
 | Create environment | Human repository owner explicitly creates one shared environment; creation never joins | Implemented/proved in original drawer; retain in replacement |
-| Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Add/list and join-time installation exist; saved-key removal and later project apply/revoke are missing |
+| Manage my development SSH keys | Show fingerprints; add/remove own saved public keys; explicitly apply the saved set, including removals, to own existing project access | Saved-key removal and reviewed native apply/revoke are now source implemented; real new/old-key SSH proof pending |
 | Join environment | Provision the real account and keys, then record membership; show the original login | Implemented/proved; retain separate from create and key save |
-| Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Native mechanisms exist; helper/API/UI controls are missing |
-| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Backend/component source implemented; template mounting and combined browser proof pending |
+| Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Bounded helper/API/independent drawer controls are source implemented; native stop/start persistence proof pending |
+| Open terminal / Disconnect | Explicit existing-account shell; clear on disconnect/stale page, no reconnect/replay | Backend/component included in complete independent drawer source; template mounting and combined browser proof pending |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -47,8 +47,8 @@ terminal/SSH, Git, mise and Podman workflows. No automatic create → join → s
 
 ### Explicit development-key lifecycle — required, not automatic synchronization
 
-Close the missing workflow with a bounded own-account action, not a cross-project
-reconciler. Saved-key removal excludes that key from future joins; it must **not**
+The workflow now has a bounded own-account source implementation, not a cross-project
+reconciler. Native key-rotation/revocation proof is still required. Saved-key removal excludes that key from future joins; it must **not**
 claim that existing project access has been revoked. Let an existing member explicitly
 apply their current saved key set to their own trusted project/account association,
 showing additions/removals by fingerprint and confirming removal of the last key.
@@ -94,12 +94,12 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    and explicit own-project key apply/revoke, with real new/old-key SSH verification;
    do not treat a preferences update as revocation. Creation and joining already exist;
    retain them in the new drawer, not a second creation implementation. Start/Stop
-   currently exist as native systemd/Podman mechanisms, **not helper/browser API
-   operations or drawer controls**. Add bounded helper/API operations and independent
+   now have bounded helper/API/independent drawer source over the existing native
+   systemd/Podman mechanisms. Validate these operations and independent
    component controls for the current authorized project administrator or explicit
    Soda operator, not arbitrary site admins/members. Start the existing unit/container;
    never recreate or repair. Warn that Stop interrupts everyone's shared workloads,
-   terminals and SSH. Make boot-start semantics explicit, preserve roots/accounts/keys/
+   terminals and SSH. Start enables host-boot start; Stop disables it. Preserve roots/accounts/keys/
    installed tools/data, and prove stop/start persistence under exact native scope.
    Check the full minimum-controls journey, not just newly added buttons.
 3. **Settle Destroy scope before implementing deletion.** It remains deferred, not a
@@ -832,7 +832,8 @@ the replacement works and its removal is coordinated. Tailnet stays in Cockpit.
 Repository ownership or arbitrary Forgejo site administration does not confer Soda
 operator authority. This is remaining work, not a delivered move or deployment grant.
 
-Basic Start/Stop controls are now planned in the remaining-work list, not implemented.
+Basic Start/Stop and explicit own-key controls are now source implemented; integrated
+native proof and delivery remain in the remaining-work list.
 Destruction still requires the explicit scope decision above. Resource charts,
 member-management screens, an environment catalog, private-resource branching,
 generalized recovery and an update platform remain outside this work.

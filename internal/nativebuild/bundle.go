@@ -36,6 +36,8 @@ var sodaspacesFiles = []string{
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.js",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.js",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.css",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-drawer.js",
+	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-drawer.css",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.mjs",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.css",
 	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/addon-fit.mjs",

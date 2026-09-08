@@ -1,0 +1,91 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {mountSodaspaces} from '../../appliance/forgejo/public/assets/sodaspaces-drawer.js';
+const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
+const {JSDOM} = require('jsdom');
+const env = 'p0123456789abcdef01234567', fp = 'SHA256:' + 'A'.repeat(43);
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+function fixture(t, extra = {}) {
+  const dom = new JSDOM('<button id="native">Native action</button><main></main>', {url: 'https://forge.test/alice/repo', pretendToBeVisual: true});
+  const w = dom.window, root = w.document.querySelector('main'), calls = [], terminals = [];
+  const state = {running: true, member: true, admin: true, absent: false, saved: [fp], installed: [fp], ...extra};
+  w.fetch = async (url, init) => {
+    calls.push({url, ...init});
+    if (extra.fetch) {const value = await extra.fetch(url, init); if (value) return value;}
+    let body;
+    if (init.method !== 'GET') {
+      const input = JSON.parse(init.body);
+      if (url.endsWith('/api/session/logout')) return {ok: true, status: 204};
+      if (url.endsWith('/api/environments')) body = {id: env, repository_id: '7', provisioned: true};
+      else if (url.endsWith('/join')) body = {login: 'alice'};
+      else if (url.endsWith('/lifecycle')) body = {environment: {id: env, running: input.action === 'start'}, boot_enabled: input.action === 'start'};
+      else if (url.endsWith('/access-keys')) body = {applied: true, login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: input.saved_fingerprints};
+      else if (init.method === 'DELETE') body = {removed: true, existing_project_access_changed: false};
+      else body = {items: []};
+    }
+    else if (url.endsWith('/api/session')) body = {user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'};
+    else if (url.endsWith('/api/forgejo/me')) body = {id: '1'};
+    else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: env, repository_id: '7'}]};
+    else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((f, i) => ({id: String(i + 1), fingerprint: f}))};
+    else if (url.endsWith('/lifecycle')) body = {environment: {id: env, running: state.running}, boot_enabled: state.running};
+    else if (url.endsWith('/access-keys')) body = {login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: state.installed, saved_fingerprints: state.saved};
+    else if (url.endsWith('/connection')) body = {login: 'alice', connection: {environment: {id: env, running: true, ip: '10.89.0.2'}, fingerprint: fp}};
+    else body = {environment: {id: env, repository_id: '7', provisioned: true}, observed: {id: env, running: state.running}, login: state.member ? 'alice' : '', environment_administrator: state.admin, native_unavailable: false};
+    return {ok: true, status: 200, json: async () => body};
+  };
+  Object.defineProperty(w.navigator, 'clipboard', {value: {writeText: async text => {state.copied = text;}}});
+  const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (_mount, ctx) => {const t = {ctx, dispose() {this.disposed = true;}, invalidate() {this.stale = true;}}; terminals.push(t); return t;});
+  const button = text => [...root.querySelectorAll('button')].find(b => b.textContent === text);
+  t.after(() => {api.dispose(); dom.window.close();});
+  return {w, root, api, calls, state, terminals, button};
+}
+test('standalone mount is inert; refresh only reads and preserves native nodes', async t => {
+  const f = fixture(t); assert.equal(f.calls.length, 0); await f.api.refresh();
+  assert(f.calls.every(c => c.method === 'GET')); assert.equal(f.terminals.length, 1); assert.equal(f.terminals[0].ctx.environmentId, env);
+  await f.api.refresh(); assert(f.terminals[0].disposed); assert(f.w.document.getElementById('native'));
+});
+test('create never implicitly joins, saves keys or starts', async t => {
+  const f = fixture(t, {absent: true}); await f.api.refresh(); f.button('Create environment').click(); await tick();
+  const writes = f.calls.filter(c => c.method !== 'GET'); assert.equal(writes.length, 1); assert(writes[0].url.endsWith('/api/environments'));
+  assert.deepEqual(JSON.parse(writes[0].body), {repository_id: '7'});
+});
+test('Stop requires explicit shared-impact confirmation and Start is separate', async t => {
+  const f = fixture(t); await f.api.refresh(); f.button('Stop').click(); assert(f.calls.every(c => c.method === 'GET'));
+  f.root.querySelector('input[type=checkbox]').checked = true; f.button('Stop').click(); await tick();
+  const write = f.calls.find(c => c.method === 'POST'); assert.deepEqual(JSON.parse(write.body), {action: 'stop', confirm_stop: true}); assert(f.terminals[0].stale);
+});
+test('saved-key removal truthfully does not dispatch a native apply', async t => {
+  const f = fixture(t); await f.api.refresh(); f.button('Remove saved key').click(); await tick();
+  const writes = f.calls.filter(c => c.method !== 'GET'); assert.equal(writes.length, 1); assert.equal(writes[0].method, 'DELETE'); assert(!writes[0].url.endsWith('/access-keys'));
+  assert.match(f.root.textContent, /Existing project SSH access is unchanged/);
+});
+test('review then explicit Apply confirms last-key removal', async t => {
+  const f = fixture(t, {saved: []}); await f.api.refresh(); f.button('Review this project’s SSH keys').click(); await tick();
+  f.button('Apply reviewed saved keys to this project').click(); assert(f.calls.every(c => c.method === 'GET'));
+  f.root.querySelectorAll('input[type=checkbox]')[1].checked = true; f.button('Apply reviewed saved keys to this project').click(); await tick();
+  const write = f.calls.find(c => c.method === 'POST'); assert.deepEqual(JSON.parse(write.body), {revision: 'a'.repeat(64), saved_fingerprints: [], confirm_empty: true});
+});
+test('private-key paste is refused before request dispatch', async t => {
+  const f = fixture(t); await f.api.refresh(); f.root.querySelector('textarea').value = '-----BEGIN OPENSSH PRIVATE KEY-----'; f.button('Save public key').click();
+  assert(f.calls.every(c => c.method === 'GET')); assert.match(f.root.textContent, /Never upload a private key/);
+});
+test('nonadministrator has no lifecycle controls; nonmember joins separately', async t => {
+  const f = fixture(t, {admin: false, member: false}); await f.api.refresh(); assert(f.button('Start').closest('fieldset').hidden); assert(!f.button('Join environment').hidden);
+  f.button('Join environment').click(); await tick(); assert.equal(f.calls.filter(c => c.method !== 'GET').length, 1); assert(f.calls.find(c => c.method === 'POST').url.endsWith('/join'));
+});
+test('unknown mutation outcome blocks replay, not safe refresh or logout', async t => {
+  const f = fixture(t, {absent: true, fetch: async (url, init) => init.method === 'POST' && url.endsWith('/api/environments') ? {ok: false, status: 502} : null});
+  await f.api.refresh(); f.button('Create environment').click(); await tick(); await f.api.refresh();
+  assert(f.button('Create environment').disabled); assert.match(f.root.textContent, /Outcome unconfirmed/);
+  f.button('Sign out of Soda').click(); await tick(); assert(f.calls.some(c => c.url.endsWith('/api/session/logout')));
+});
+test('stale page closes terminal and cannot refresh/replay on focus', async t => {
+  const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
+  f.w.dispatchEvent(new f.w.Event('blur')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
+  assert.equal(f.calls.length, count); assert(f.terminals[0].disposed); assert(f.button('Refresh status').disabled);
+  assert(f.w.document.getElementById('native'));
+});
+test('copy uses own displayed login/IP without changing native access', async t => {
+  const f = fixture(t); await f.api.refresh(); f.button('Copy SSH connection').click(); await tick(); assert.equal(f.state.copied, 'ssh alice@10.89.0.2'); assert(f.calls.every(c => c.method === 'GET'));
+});

@@ -15,7 +15,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 FILES = ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
          'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
-         'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css')
+         'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',
+         'public/assets/sodaspaces-drawer.js', 'public/assets/sodaspaces-drawer.css')
 VENDOR_FILES = tuple('public/assets/soda-terminal/' + f['file'] for item in json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text()) for f in item['files'])
 PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 

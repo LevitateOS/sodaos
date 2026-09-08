@@ -181,6 +181,11 @@ var containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 const terminalInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
 
 func (d *Daemon) terminalContainer(ctx context.Context, id string) (string, error) {
+	return d.projectContainer(ctx, id, true)
+}
+
+// Native lifecycle may inspect stopped containers, never missing/replacement ones.
+func (d *Daemon) projectContainer(ctx context.Context, id string, requireRunning bool) (string, error) {
 	if !projectID.MatchString(id) {
 		return "", errors.New("invalid project")
 	}
@@ -204,7 +209,7 @@ func (d *Daemon) terminalContainer(ctx context.Context, id string) (string, erro
 		return "", errors.New("invalid terminal inspection")
 	}
 	owner, e := strconv.ParseInt(v.Owner, 10, 64)
-	if !containerID.MatchString(v.ID) || !v.Running || v.Project != id || e != nil || owner <= 0 || v.Privileged || v.Userns != "private" || !terminalIDMap(v.Mappings.UIDMap) || !terminalIDMap(v.Mappings.GIDMap) {
+	if !containerID.MatchString(v.ID) || (requireRunning && !v.Running) || v.Project != id || e != nil || owner <= 0 || v.Privileged || v.Userns != "private" || !terminalIDMap(v.Mappings.UIDMap) || !terminalIDMap(v.Mappings.GIDMap) {
 		return "", errors.New("terminal target not ready or isolated")
 	}
 	return v.ID, nil

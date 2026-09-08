@@ -147,6 +147,38 @@ General upstream service/error logging remains native. Native configuration and
 query-free OAuth request observations are recorded in the phase-5 handoff; old private
 journals/evidence are retained, not cleared or described as never having logged state.
 
+## Minimum management controls — native proof still required
+
+The helper/API/independent drawer source adds explicit Start/Stop and own-key preview/
+apply/removal. Local Go, temporary-filesystem Python and DOM doubles are not proof of
+those actions on an appliance. Before execution declare the exact fixture/project,
+users, helper/API binaries, boot-enablement changes, temporary SSH public-key inputs
+and retained run-owned files; obtain any missing lifecycle/access-mutation scope.
+No previous terminal-only approval is silently expanded into stopping a shared project.
+
+Use the existing installed access/state journeys and real browser integration, not a
+second readiness harness. Observe current unit/container ID, image, account/marker/
+host-key identities and later writes first. Prove explicit Stop stops the same unit/
+container and disables host-boot start; Start reenables/starts that existing container,
+retaining accounts, keys, tools and data. A stopped/unknown state must never trigger
+implicit creation, restart, account repair or operation replay. Test current-owner,
+nonowner/member and distinct operator authority and shared-impact confirmation.
+
+For key rotation, retain original inputs/evidence, add a declared replacement public
+key, preview/confirm the native update and prove actual new-key SSH with its private
+key remaining on the client. Explicitly remove/apply the intended old test key and
+verify *authentication refusal*, not transport/routing failure. Confirm another user's
+access, already authenticated sessions, home/files, membership and privilege state
+survive. Test stale preview/saved-set/last-key guards and truthful uncertain outcomes;
+do not manufacture ambiguous native drift or delete unrelated keys as a probe fixture.
+Destroy remains outside this proof and requires its own selected contract and approval.
+
+The template owner mounts `mountSodaspaces` through the
+[component contract](terminal-integration.md). Preserve real native OAuth, TLS, forms,
+clipboard and BFCache; source component tests or injected browser state do not replace
+that integrated proof. Any retained deployment still needs current paired backups and
+its exact affected-component scope, including the changed helper.
+
 ## Native terminal boundary probe
 
 `internal/host/terminal_native_test.go::TestInstalledTerminalBoundary` is an opt-in

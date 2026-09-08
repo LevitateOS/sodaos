@@ -50,6 +50,7 @@ func (s *Server) apiRoutes() {
 	s.mux.HandleFunc("/api/session/logout", s.apiProtected(s.apiLogout, http.MethodPost))
 	s.mux.HandleFunc("/api/me/preferences", s.apiProtected(s.apiPreferences, http.MethodGet, http.MethodPatch))
 	s.mux.HandleFunc("/api/me/development-keys", s.apiProtected(s.apiKeys, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/me/development-keys/{key}", s.apiProtected(s.apiRemoveDevelopmentKey, http.MethodDelete))
 	s.forgejoRoutes()
 	s.environmentRoutes()
 	notFound := func(w http.ResponseWriter, r *http.Request) {

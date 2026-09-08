@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/crypto/ssh"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -86,6 +86,10 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.terminalHandler(w, r)
 		return
 	}
+	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
+		http.Error(w, "invalid native operation path", 400)
+		return
+	}
 	if r.Method != "POST" {
 		http.Error(w, "POST required", 405)
 		return
@@ -94,15 +98,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r.Body = http.MaxBytesReader(w, r.Body, 65536)
 	decode := func(v any) error {
-		dec := json.NewDecoder(r.Body)
-		dec.DisallowUnknownFields()
-		if err := dec.Decode(v); err != nil {
-			return err
-		}
-		if err := dec.Decode(new(any)); err != io.EOF {
-			return errors.New("one object required")
-		}
-		return nil
+		return strictjson.Decode(r.Body, v)
 	}
 	// Serialize the small native mutations; this is not a persistent workflow engine.
 	d.mu.Lock()
@@ -128,6 +124,16 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var in Create
 		if err = decode(&in); err == nil {
 			out, err = d.connection(ctx, in.ID)
+		}
+	case "/lifecycle":
+		var in Lifecycle
+		if err = decode(&in); err == nil {
+			out, err = d.lifecycle(ctx, in)
+		}
+	case "/access-keys":
+		var in AccessKeys
+		if err = decode(&in); err == nil {
+			out, err = d.accessKeys(ctx, in)
 		}
 	case "/account":
 		var in Account

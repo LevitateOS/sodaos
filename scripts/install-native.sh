@@ -108,6 +108,7 @@ def check_destinations(root, files):
     hooks = {'templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
              'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
              'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',
+             'public/assets/sodaspaces-drawer.js', 'public/assets/sodaspaces-drawer.css',
              'public/assets/soda-terminal/xterm.mjs', 'public/assets/soda-terminal/xterm.css',
              'public/assets/soda-terminal/addon-fit.mjs', 'public/assets/soda-terminal/xterm.LICENSE',
              'public/assets/soda-terminal/fit.LICENSE'}

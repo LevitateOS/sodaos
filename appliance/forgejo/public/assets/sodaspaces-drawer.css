@@ -1,0 +1,9 @@
+/* Content only. The template owner chooses the shell, drawer and navigation. */
+.soda-spaces-controls { display: grid; gap: .8rem; min-width: 0; }
+.soda-spaces-controls > p { margin: 0; }
+.soda-spaces-controls fieldset { min-width: 0; padding: .7rem; }
+.soda-spaces-controls button, .soda-spaces-controls textarea { font: inherit; }
+.soda-spaces-controls button { margin: .2rem; padding: .35rem .6rem; }
+.soda-spaces-controls textarea { display: block; width: 100%; box-sizing: border-box; }
+.soda-spaces-controls code, .soda-spaces-controls li, .soda-spaces-controls p { overflow-wrap: anywhere; }
+.soda-spaces-controls [hidden] { display: none !important; }

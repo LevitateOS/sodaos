@@ -72,7 +72,8 @@ for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
 # Original Sodaspaces hooks/assets; no upstream template tree or frontend build.
 for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
              'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
-             'public/assets/sodaspaces-terminal.css', 'public/assets/sodaspaces-terminal.js'):
+             'public/assets/sodaspaces-terminal.css', 'public/assets/sodaspaces-terminal.js',
+             'public/assets/sodaspaces-drawer.css', 'public/assets/sodaspaces-drawer.js'):
     target = copy(source / 'appliance/forgejo' / name,
                   '/var/lib/soda/forgejo/gitea/' + name, 0o644)
     # mkdir inherits a private builder umask. These public paths must be readable

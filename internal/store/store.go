@@ -116,6 +116,15 @@ func (s *Store) AddKey(ctx context.Context, uid int64, public, fingerprint strin
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO keys(user_id,public,fingerprint) VALUES(?,?,?)`, uid, public, fingerprint)
 	return err
 }
+func (s *Store) RemoveKey(ctx context.Context, uid, id int64) (bool, error) {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM keys WHERE user_id=? AND id=?`, uid, id)
+	if err != nil {
+		return false, err
+	}
+	n, err := result.RowsAffected()
+	return n == 1, err
+}
+
 func (s *Store) Keys(ctx context.Context, uid int64) ([]Key, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id,public,fingerprint FROM keys WHERE user_id=? ORDER BY id`, uid)
 	if err != nil {
