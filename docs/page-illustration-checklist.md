@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal repository settings list and its native variants. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: blocked-user settings, then trace remaining personal settings routes. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -233,6 +233,13 @@ Next: personal repository settings list and its native variants. Personal regist
 
 ## Additional page variants
 
+| Status | Personal repository settings variant | Decision |
+| --- | --- | --- |
+| No image | `user/settings/repos.tmpl` — standard inventory | Repository type, owner/name, size and fork origin are the relevant visual information. Preserve compact rows. |
+| No image | `user/settings/repos.tmpl` — directory inventory with adoption/deletion enabled | Registered repositories and unadopted directories must remain visually distinguishable beside their permission-gated actions. |
+| No image | Adopt pre-existing repository confirmation | Exact directory and confirmation text take priority; no decorative image. |
+| No image | Delete pre-existing repository confirmation | Preserve the directory-specific warning and action without added decoration. |
+
 | Status | Personal webhook variant | Decision |
 | --- | --- | --- |
 | Done | `/user/settings/hooks` | Dedicated connection illustration in list introduction. |
@@ -401,3 +408,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Focused offline `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
 - Native captures inspected: `.artifacts/screenshots/capture-3Mk8rM/001.png` (1440×1000) and `capture-rAjYlf/001.png` (390×844), baseline `capture-m6PFNf/001.png`. Image fits the introduction without overlapping text and preserves the truthful no-memberships result. Mobile navigation remains ahead of the list below the viewport.
 - No organization created or membership changed. Populated membership list, leave modal/action and dark theme were not exercised.
+
+### Personal repository settings
+
+- Inspected the full native `user/settings/repos.tmpl` through the running stock binary's read-only embedded viewer. This is a repository inventory rather than collaboration/transfer management. Both main branches and their permission-dependent confirmation modals are now explicit checklist entries.
+- No image for this inventory: repository type icons, size, name and fork origin supply precise context. In the directory branch, the difference between registered repositories and unadopted directories, and available adopt/delete actions, is the primary information. Keep confirmation modals focused on the named directory. Empty states retain the same undecorated layout.
+- Native `/user/settings/repos` desktop capture inspected at `.artifacts/screenshots/capture-2Mi7ht/001.png` (1440×1000). The authorized fixture owns no repositories; no populated or adoption-enabled runtime evidence is claimed. Those decisions are based on source review.
+- No repository, directory, permissions or configuration changed. No new asset or override needed; no tests or reload required for this documentation-only assessment.

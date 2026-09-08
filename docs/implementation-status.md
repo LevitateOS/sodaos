@@ -27,7 +27,9 @@ organization settings routes are now explicitly queued. Personal webhooks now ha
 desktop/mobile and new-form isolation captures were inspected, with focused
 webhook/shared-boundary tests passing. Personal organization memberships now has a distinct card scene, with native
 desktop/mobile empty-state captures checked and stock membership content verified
-unchanged after the layout call. Personal repository settings is next; individual decisions and unexercised variants remain in the checklist.
+unchanged after the layout call. Personal repository settings was assessed without artwork to prioritize its
+repository/directory inventory and permission-dependent confirmations; native
+empty-state desktop capture was inspected. Blocked-user settings is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
