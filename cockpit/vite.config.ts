@@ -87,9 +87,4 @@ export default defineConfig({
     ignorePatterns: ["vendor/**", "dist/**", "node_modules/**"],
   },
   fmt: { ignorePatterns: ["vendor/**", "dist/**", "node_modules/**", "soda-*/manifest.json"] },
-  test: {
-    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.ts"],
-    environment: "node",
-    setupFiles: ["./tests/setup.ts"],
-  },
 });

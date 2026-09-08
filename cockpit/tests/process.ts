@@ -1,4 +1,4 @@
-import { vi } from "vite-plus/test";
+import { vi } from "bun:test";
 import type { CockpitProcess } from "../src/cockpit/types";
 
 export function pendingProcess() {
@@ -9,11 +9,11 @@ export function pendingProcess() {
     resolve = yes;
     reject = no;
   });
-  const process = Object.assign(promise, {
-    input: vi.fn((_data: string) => process as CockpitProcess),
+  const process: CockpitProcess = Object.assign(promise, {
+    input: vi.fn((_data: string) => process),
     stream: vi.fn((callback: (chunk: string) => void) => {
       emit = callback;
-      return process as CockpitProcess;
+      return process;
     }),
     close: vi.fn((reason?: string) => reject({ problem: reason })),
   });

@@ -1,5 +1,5 @@
 import type { AuthenticationMessage } from "./types";
-import { test } from "vite-plus/test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { authenticationStream } from "./stream";
 

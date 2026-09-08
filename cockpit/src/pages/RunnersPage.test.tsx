@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
 import assert from "node:assert/strict";
-import { test, expect, vi } from "vite-plus/test";
+import { test, expect, vi } from "bun:test";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { RunnersPage } from "./RunnersPage";
 import { createRunnersStore } from "../runners/store";
@@ -27,7 +26,7 @@ const data: ListResponse = {
 const fixtureRunner = data.runners[0];
 assert.ok(fixtureRunner);
 async function ready() {
-  const invoke = vi.fn<Invoke>().mockResolvedValue(data);
+  const invoke = vi.fn<(...args: Parameters<Invoke>) => ReturnType<Invoke>>().mockResolvedValue(data);
   render(<RunnersPage store={createRunnersStore(invoke as Invoke)} forgejoURL="https://forgejo.example.test" />);
   await screen.findByText("1 local runner; 1 listening; 1 configured slot.");
   return invoke;
@@ -246,7 +245,7 @@ test("Stop names the in-flight operation and preserves successful mutation plus 
 });
 
 test("a failure arriving after leaving the page does not start another native read", async () => {
-  const invoke = vi.fn<Invoke>().mockResolvedValue(data);
+  const invoke = vi.fn<(...args: Parameters<Invoke>) => ReturnType<Invoke>>().mockResolvedValue(data);
   const { unmount } = render(<RunnersPage store={createRunnersStore(invoke as Invoke)} />);
   await screen.findByText("1 local runner; 1 listening; 1 configured slot.");
   let fail!: (error: Error) => void;

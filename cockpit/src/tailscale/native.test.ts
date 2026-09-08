@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test, expect, vi } from "vite-plus/test";
+import { test, expect, vi } from "bun:test";
 import type { HttpRequest, SpawnOptions } from "../cockpit/types";
 import type { AuthenticationMessage } from "./types";
 import { pendingProcess } from "../../tests/process";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vite-plus/test";
+import { test } from "bun:test";
 
 import { createPayload, forgejoBrowserURL, providerURL, statusText, successMessage } from "./ui";
 

@@ -18,11 +18,13 @@
     "react-dom": "18.3.1",
     "sass": "1.104.0",
     "vite-plus": "0.3.0",
-    "zustand": "5.0.15"
+    "zustand": "5.0.15",
+    "@sinonjs/fake-timers": "15.4.0",
+    "@types/sinonjs__fake-timers": "15.0.1"
   },
   "scripts": {
-    "build": "vp build",
-    "typecheck": "tsc --noEmit",
-    "test": "vp test --run"
+    "build": "bun build/build.ts",
+    "typecheck": "bun --bun ../node_modules/typescript/bin/tsc --noEmit",
+    "test": "bun test --preload ./tests/setup.ts ./src"
   }
 }

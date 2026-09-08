@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { test, expect } from "vite-plus/test";
+import { test, expect } from "bun:test";
 import { render, screen, within } from "@testing-library/react";
 import { CockpitPageTemplate } from "./CockpitPageTemplate";
 import { DiagnosticAlert } from "../molecules/DiagnosticAlert";

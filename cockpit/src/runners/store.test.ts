@@ -1,4 +1,5 @@
-import { test, expect, vi } from "vite-plus/test";
+import { waitFor } from "@testing-library/dom";
+import { test, expect, vi } from "bun:test";
 import { createRunnersStore } from "./store";
 import type { Invoke, ListResponse, Registration } from "./types";
 
@@ -9,10 +10,10 @@ const empty: ListResponse = {
   total_capacity: 0,
 };
 async function ready() {
-  const invoke = vi.fn<Invoke>().mockResolvedValue(empty);
+  const invoke = vi.fn<(...args: Parameters<Invoke>) => ReturnType<Invoke>>().mockResolvedValue(empty);
   const store = createRunnersStore(invoke as Invoke);
   const stop = store.getState().start();
-  await vi.waitFor(() => expect(store.getState().operation).toBeNull());
+  await waitFor(() => expect(store.getState().operation).toBeNull());
   return { store, invoke, stop };
 }
 test("instances own independent dialogs and provider choices; close/reopen resets the task", async () => {
@@ -58,7 +59,7 @@ test("exact removal confirmation is enforced by the action without rendering", a
   expect(invoke).toHaveBeenCalledTimes(1);
   invoke.mockResolvedValueOnce({ ok: true });
   expect(store.getState().remove("one")).toBe(true);
-  await vi.waitFor(() => expect(store.getState().operation).toBeNull());
+  await waitFor(() => expect(store.getState().operation).toBeNull());
   expect(invoke).toHaveBeenCalledWith("remove", { id: "one" });
   stop();
 });
@@ -104,7 +105,7 @@ test("retired continuations neither publish state nor start native readback, inc
   const command = store.getState().changeListener("stop", "one");
   stop();
   const stopAgain = store.getState().start();
-  await vi.waitFor(() => expect(store.getState().operation).toBeNull());
+  await waitFor(() => expect(store.getState().operation).toBeNull());
   const state = store.getState();
   fail(new Error("late failure"));
   await command;

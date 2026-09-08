@@ -1,12 +1,14 @@
-// @vitest-environment jsdom
+import { install } from "@sinonjs/fake-timers";
 import assert from "node:assert/strict";
-import { afterEach, test, expect, vi } from "vite-plus/test";
+import { beforeEach, afterEach, test, expect, vi } from "bun:test";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { StrictMode } from "react";
 import { TailscalePage } from "./TailscalePage";
 import { createTailscaleStore } from "../tailscale/store";
 import type { Snapshot, AuthenticationMessage } from "../tailscale/types";
 import type { NativeTailscale } from "../tailscale/types";
+let clock: ReturnType<typeof install>;
+beforeEach(() => { clock = install({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] }); });
 const connected: Snapshot = {
   status: {
     BackendState: "Running",
@@ -25,7 +27,6 @@ const connected: Snapshot = {
   prefs: {},
 };
 function setup(snapshot = connected) {
-  vi.useFakeTimers();
   let visibility = () => {};
   const cockpit = {
     hidden: false,
@@ -58,7 +59,7 @@ const flush = async () => {
     await Promise.resolve();
   });
 };
-afterEach(() => vi.useRealTimers());
+afterEach(() => { clock?.uninstall();  });
 test.each([
   [{ BackendState: "NeedsLogin" }, "Not signed in", "Sign in", false],
   [
@@ -103,7 +104,7 @@ test("opening connected page refreshes Forgejo once and polling preserves native
   fireEvent.change(screen.getByLabelText("Exit node"), { target: { value: "100.64.0.2" } });
   fireEvent.click(screen.getByLabelText("Advertise as an exit node"));
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(9000);
+    await clock.tickAsync(9000);
   });
   expect(native.refreshForgejo).toHaveBeenCalledTimes(1);
   expect((screen.getByLabelText("Exit node") as HTMLSelectElement).value).toBe("100.64.0.2");
@@ -125,13 +126,13 @@ test("Cockpit navigation closes hidden-page work, reopens native state, and remo
   act(app.visibility);
   const reads = app.native.read.mock.calls.length;
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(9000);
+    await clock.tickAsync(9000);
   });
   expect(app.native.read).toHaveBeenCalledTimes(reads);
   expect(app.native.close).toHaveBeenCalled();
   app.cockpit.hidden = false;
   act(app.visibility);
-  expect(app.onReopen).toHaveBeenCalledOnce();
+  expect(app.onReopen).toHaveBeenCalledTimes(1);
   app.unmount();
   expect(app.cockpit.removeEventListener).toHaveBeenCalledWith(
     "visibilitychange",
@@ -174,7 +175,7 @@ test("reopening pending authentication recovers native URL and later connection 
   expect(screen.getByRole("link", { name: "https://login.tailscale.com/a/pending" })).toBeTruthy();
   app.native.read.mockResolvedValue(connected);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
+    await clock.tickAsync(3000);
   });
   expect(screen.getByText("Connected")).toBeTruthy();
   expect(screen.queryByRole("link", { name: /login.tailscale.com\/a\// })).toBeNull();
@@ -188,9 +189,9 @@ test("Forgejo refresh failure keeps enrollment connected and is not retried by p
     screen.getByText(/Tailscale connected, but Forgejo could not refresh.*service failed/),
   ).toBeTruthy();
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(9000);
+    await clock.tickAsync(9000);
   });
-  expect(app.native.refreshForgejo).toHaveBeenCalledOnce();
+  expect(app.native.refreshForgejo).toHaveBeenCalledTimes(1);
   app.native.refreshForgejo.mockResolvedValue(undefined);
   fireEvent.click(screen.getByRole("button", { name: "Retry Forgejo address refresh" }));
   await flush();
@@ -203,14 +204,14 @@ test("native failure clears stale device facts and disables controls; polling ca
   await flush();
   app.native.read.mockRejectedValueOnce({ message: "daemon unavailable" });
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
+    await clock.tickAsync(3000);
   });
   expect(screen.getByText("Tailscale state unavailable")).toBeTruthy();
   expect(screen.getByText("daemon unavailable")).toBeTruthy();
   expect(screen.getByText("Device list unavailable.")).toBeTruthy();
   expect((screen.getByLabelText("Exit node") as HTMLSelectElement).disabled).toBe(true);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
+    await clock.tickAsync(3000);
   });
   expect(screen.getByText("Connected")).toBeTruthy();
   expect(screen.queryByText("daemon unavailable")).toBeNull();
@@ -235,7 +236,7 @@ test("pending reads do not overlap and hidden initial pages perform no reads", a
       }),
   );
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(15000);
+    await clock.tickAsync(15000);
   });
   expect(app.native.read).toHaveBeenCalledTimes(2);
   await act(async () => {
@@ -286,7 +287,7 @@ test("a pre-save poll cannot replace the selection with its old preferences", as
       }),
   );
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
+    await clock.tickAsync(3000);
   });
   fireEvent.change(screen.getByLabelText("Exit node"), { target: { value: "100.64.0.2" } });
   fireEvent.click(
@@ -328,13 +329,13 @@ test("effect replay closes the old adapter and constructs a new one without repl
   expect(factory).toHaveBeenCalledTimes(2);
   assert.ok(instances[0]);
   assert.ok(instances[1]);
-  expect(instances[0].close).toHaveBeenCalledOnce();
+  expect(instances[0].close).toHaveBeenCalledTimes(1);
   expect(instances[1].close).not.toHaveBeenCalled();
   expect(app.native.signIn).not.toHaveBeenCalled();
   expect(app.native.selectExitNode).not.toHaveBeenCalled();
   expect(screen.getByText("Connected")).toBeTruthy();
   view.unmount();
-  expect(instances[1].close).toHaveBeenCalledOnce();
+  expect(instances[1].close).toHaveBeenCalledTimes(1);
 });
 
 test("successful polling does not erase an unresolved settings failure", async () => {
@@ -349,7 +350,7 @@ test("successful polling does not erase an unresolved settings failure", async (
   await flush();
   expect(screen.getByText("Could not save exit-node settings")).toBeTruthy();
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
+    await clock.tickAsync(3000);
   });
   expect(screen.getByText("Could not save exit-node settings")).toBeTruthy();
 });

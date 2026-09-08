@@ -1,5 +1,5 @@
 import type { Status } from "./types";
-import { test } from "vite-plus/test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { connectionState, exitNodeChoices, exitNodeApproval, authenticationURL } from "./status";
 

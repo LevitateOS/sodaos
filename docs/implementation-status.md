@@ -1,5 +1,17 @@
 # Current handoff
 
+## Bun-native migration in progress — Cockpit
+
+Cockpit now builds through Vite's programmatic API under Bun and runs its 60
+tests with `bun:test`. Async polling tests use pinned Sinon fake timers with an
+explicit browser-timer set; DOM tests preload JSDOM browser events/FormData before
+React. Native Bun test mocks replace Vite+ test imports. Strict Cockpit type checks,
+all 60 tests and both builds passed with Bun 1.4.2 on macOS arm64. Initial timer/DOM
+compatibility failures and corrected logs are retained in `.artifacts/bun-typescript-port/`.
+Root JS/MJS conversion, root runtime commands, browser emission/staging and final
+Node-free validation remain active work; this is not completion of the goal or native
+appliance proof. No installed journey or deployment ran.
+
 ## Root Bun workspace and TypeScript scaffolding
 
 The root `package.json` now owns Bun 1.4.2, shared script/test dependencies and
