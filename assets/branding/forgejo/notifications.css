@@ -12,23 +12,17 @@
 .soda-notifications .notifications-buttons button { width:40px; height:40px; border-radius:9px; color:var(--soda-page-muted); }
 .soda-notifications .notifications-buttons button:hover { background:var(--soda-page-canvas); color:var(--soda-page-link); }
 .soda-notifications .ui.tab.segment { padding:0; background:transparent; border:0; box-shadow:none; }
-@media (max-width:700px) {
- .soda-notifications #notification_table .notifications-item { gap:10px; }
- .soda-notifications .notifications-link { flex-basis:calc(100% - 32px); }
- .soda-notifications .notifications-updated { margin-left:26px; flex:1; }
- .soda-notifications .notifications-bottom-row { font-size:16px; }
-}
 /* Keep available row actions discoverable without requiring hover. */
 .soda-notifications #notification_table .notifications-buttons,
 .soda-notifications #notification_table .notifications-updated { display:flex !important; }
 @media (max-width:700px) {
- .soda-notifications #notification_table .notifications-item { display:grid !important; grid-template-columns:20px minmax(0,1fr) auto; align-items:start; }
+ .soda-notifications #notification_table .notifications-item { display:grid !important; grid-template-columns:20px minmax(0,1fr) auto; align-items:start; gap:10px; }
  .soda-notifications #notification_table .notifications-link { grid-column:2 / 4; }
  .soda-notifications #notification_table .notifications-updated { grid-column:2; margin:0; align-self:center; }
  .soda-notifications #notification_table .notifications-buttons { grid-column:3; }
+ .soda-notifications .notifications-bottom-row { font-size:16px; }
 }
 /* Subscription state and ordering share the primary toolbar. */
 .soda-subscriptions-toolbar { justify-content:flex-start; }
 .soda-subscriptions-toolbar > .ui.menu { margin:0 0 0 auto; gap:10px; }
 .soda-subscriptions-toolbar > .ui.menu > .dropdown > .icon { margin:0; }
-.soda-subscriptions-toolbar > .switch:first-child + a { margin-left:auto; }

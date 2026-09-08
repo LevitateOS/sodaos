@@ -38,6 +38,10 @@ explicit CSS classes for page shells, toolbars, form sections and native list ro
 receive their original context; caller templates retain permission decisions,
 translations, form fields and notification replacement hooks. Components accept
 plain presentation values, with normal template escaping and native asset prefixes.
+The [component audit](forgejo-components-audit.md) records ownership and remaining
+validation limits. The page shell is not an embeddable drawer root. Explore tabs
+and context menus delegate to native partials; scoped CSS only adapts their visuals.
+The guest preference script loads only on anonymous routes with a guest toggle.
 
 This extraction is live-mounted only in the existing local 15.0.7 preview.
 Production staging/verifier delivery is still pending. Shared presentation does

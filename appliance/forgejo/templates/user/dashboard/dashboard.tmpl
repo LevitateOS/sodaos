@@ -9,7 +9,7 @@
         {{template "base/alert" .}}
         <div class="soda-dashboard-heading soda-toolbar soda-toolbar--plain">
           <div><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
-          {{template "user/dashboard/navbar" .}}
+          <div class="soda-context-switcher">{{template "user/dashboard/navbar" .}}</div>
         </div>
         {{template "user/heatmap" .}}
         {{if .Feeds}}{{template "user/dashboard/feeds" .}}{{else}}{{template "user/dashboard/guide" .}}{{end}}

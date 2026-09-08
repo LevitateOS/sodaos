@@ -70,16 +70,33 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
 - `theme_toggle` accepts an optional `Class`. It preserves the single hidden
   `#soda-theme-toggle` hook used by the guest-theme script.
 
-`.soda-toolbar` adapts native search, filter and context controls; `.soda-tabs`
-marks a native menu or switch as tabs, and `.soda-toolbar-action` marks an action.
-`.soda-list` adapts existing native result rows without replacing their rendering.
-Forms opt in with `.soda-form` on the native `.ui.form`; `.soda-form-section`
-groups a fieldset, heading, fields and help text.
+Each responsibility has one CSS owner:
+
+| Owner | Contract |
+| --- | --- |
+| `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer and page focus. `.soda-page-container` owns content width. |
+| `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
+| `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
+| `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets. |
+| `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
+| `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
+| `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
+
+`.soda-toolbar-action--primary` explicitly selects a filled toolbar action.
+Explore navigation delegates to native `explore/navbar`, including its overflow
+behavior and visibility gates. Native menus, search forms and field markup stay
+upstream-owned; these are CSS adapters, not replacement interactive controls.
+
+`.soda-page` is a **full-page opt-in**, not a widget primitive: putting it inside a
+repository drawer would restyle the surrounding navbar/footer. A future drawer
+must use its own local root and native or explicitly scoped semantic variables.
+Do not add page classes merely to borrow another page's styling. See the
+[component audit](../../docs/forgejo-components-audit.md) for the reviewed boundaries.
 
 Callers retain native handlers, context, permission gates, translations, IDs,
 forms and scripts. The partials do not accept arbitrary template names, raw HTML or
 caller-provided HTML slots. The public marketing hero and branded login remain
-distinct layouts; they share only the guest theme control and its CSS primitives.
+distinct layouts; they share guest theme and shell rules while keeping their content layouts separate.
 
 ## Guest theme preference
 
@@ -88,7 +105,8 @@ It initially follows the system color preference. An explicit light/dark choice 
 `soda.login.theme:<AppSubUrl or />` in this origin's localStorage. Other tabs sync
 through storage events. Clearing the value restores system following; invalid
 values are ignored. Blocked storage still permits toggling for the current page.
-The head script applies the choice before guest content paints. Without JavaScript,
+The head script loads only on anonymous home, sign-in/account-link and designed
+Explore routes, and applies the choice before guest content paints. Without JavaScript,
 the light layout remains usable and the inactive toggle stays hidden.
 
 Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme CSS,
@@ -285,15 +303,16 @@ do not blindly rerun it. No non-fixture repository writes or deployment.
 `user/notification/notification_div.tmpl` and `notification_subscriptions.tmpl`
 customize the stock 15.0.7 wrappers. Keep notification IDs, sequence/data hooks
 and native forms intact: Forgejo refreshes the notification partial after actions.
-`notifications.css` supplies the separate toolbar, visible row actions, responsive
-rows and translated empty-state presentation. Dedicated artwork provenance lives
+`notifications.css` supplies notification metadata, visible row actions and
+responsive row placement; shared toolbar/list/empty files own the common visuals. Dedicated artwork provenance lives
 in `assets/branding/forgejo/notifications-art-prompt.md`. Existing local fixtures
 were used for read/unread and empty-state checks; original states were restored.
 
 ### New Repository
 
 `repo/create.tmpl` adapts the native 15.0.7 wrapper and composes the unchanged
-creation partials and permission gates. `create.css` styles fieldsets, inputs,
-dropdowns, advanced disclosure and submit action. Reuses the repository-folder
+creation partials and permission gates. `components-forms.css` owns fieldsets,
+inputs, dropdowns, advanced disclosure and submit actions; `create.css` only
+adapts template-unit spacing and the native template search. Reuses the repository-folder
 artwork. Local UI checks exercised expanded options and narrow layout; no
 repository creation or appliance deployment was performed.

@@ -19,7 +19,7 @@
 				{{if and (eq .Status 1)}}
 					<form class="{{if not $notificationUnreadCount}}tw-hidden{{end}}" action="{{AppSubUrl}}/notifications/purge" method="post">
 						<div>
-							<button class="primary button soda-toolbar-action" title="{{ctx.Locale.Tr "notification.mark_all_as_read"}}">
+							<button class="primary button soda-toolbar-action soda-toolbar-action--primary" title="{{ctx.Locale.Tr "notification.mark_all_as_read"}}">
 								{{svg "octicon-checklist"}}
 							</button>
 						</div>
@@ -27,8 +27,8 @@
 				{{end}}
 			</div>
 		</div>
-		<div class="tw-p-0">
-			<div id="notification_table" class="soda-list">
+		<div class="tw-p-0 soda-list">
+			<div id="notification_table">
 				{{if not .Notifications}}
                     <div class="soda-empty soda-empty--inset">
                       {{$emptyTitle := ctx.Locale.Tr "notification.no_read"}}

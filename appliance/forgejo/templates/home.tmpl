@@ -8,7 +8,7 @@
 		</a>
 		<nav aria-label="Main navigation" class="soda-home-links">
 			<a href="{{AppSubUrl}}/explore/repos">Explore repositories</a>
-			{{template "custom/soda/theme_toggle" (dict "Class" "soda-home-theme")}}
+			{{template "custom/soda/theme_toggle" dict}}
 			<a class="soda-home-nav-signin" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "sign_in"}} <span aria-hidden="true">→</span></a>
 		</nav>
 	</header>

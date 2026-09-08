@@ -4,14 +4,20 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
 const source = readFileSync(new URL('../../assets/branding/forgejo/login-theme.js', import.meta.url), 'utf8');
-function page({stored = null, dark = false, blocked = false, prefix = ''} = {}) {
+function page({stored = null, dark = false, blocked = false, prefix = '', buttonPresent = true} = {}) {
   const events = {}, clicks = {}, systemEvents = {}, attributes = {};
+  let domReady = false;
   const root = {dataset: {theme: 'forgejo-auto'}};
   const button = {hidden: true, setAttribute: (key, value) => { attributes[key] = value; }, addEventListener: (key, fn) => {clicks[key] = fn;}};
   const system = {matches: dark, addEventListener: (key, fn) => {systemEvents[key] = fn;}};
   const storage = new Map([[`soda.login.theme:${prefix || '/'}`, stored]]);
   runInNewContext(source, {
-    document: {documentElement: root, currentScript: {dataset: {appSubUrl: prefix}}, getElementById: () => button, addEventListener: (key, fn) => {events[key] = fn;}},
+    document: {
+      documentElement: root,
+      currentScript: {dataset: {appSubUrl: prefix}},
+      getElementById: () => domReady && buttonPresent ? button : null,
+      addEventListener: (key, fn) => {events[key] = (...args) => {domReady = true; return fn(...args);};},
+    },
     window: {matchMedia: () => system, addEventListener: (key, fn) => {events[key] = fn;}},
     localStorage: {getItem: key => {if (blocked) throw Error('blocked'); return storage.get(key);}, setItem: (key, value) => {if (blocked) throw Error('blocked'); storage.set(key, value);}},
   });
@@ -30,12 +36,20 @@ test('explicit preference wins over the system', () => {
   assert.equal(p.root.dataset.sodaLoginTheme, 'light');
 });
 test('toggle persists the next mode and exposes its next action', () => {
-  const p = page(); p.events.DOMContentLoaded(); p.clicks.click();
+  const p = page();
+  assert.equal(p.button.hidden, true);
+  p.events.DOMContentLoaded(); p.clicks.click();
   assert.equal(p.storage.get('soda.login.theme:/'), 'dark');
   assert.equal(p.attributes['aria-label'], 'Switch to light theme');
   assert.equal(p.button.hidden, false);
   p.clicks.click();
   assert.equal(p.attributes['aria-label'], 'Switch to dark theme');
+});
+test('pages without a guest toggle still apply the pre-paint preference safely', () => {
+  const p = page({dark: true, buttonPresent: false});
+  assert.equal(p.root.dataset.sodaLoginTheme, 'dark');
+  p.events.DOMContentLoaded();
+  assert.deepEqual(p.clicks, {});
 });
 test('blocked storage still allows an in-memory choice', () => {
   const p = page({blocked: true}); p.events.DOMContentLoaded(); p.clicks.click();

@@ -2,20 +2,12 @@
 .soda-dashboard-art { display: block; width: 330px; max-width: 100%; height: 258px; object-fit: contain; margin-inline: auto; }
 .soda-dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
 .soda-dashboard-feed, .soda-dashboard-sidebar { min-width: 0; }
-.soda-dashboard h2 { color: var(--soda-page-text); font: 600 26px/1.25 "Fraunces Variable", Georgia, serif; letter-spacing: -.025em; margin: 0 0 8px; }
-.soda-dashboard-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
-.soda-dashboard-heading > .secondary-nav { margin: 0 0 0 auto; }
-.soda-dashboard-heading .secondary-nav > .ui.menu { justify-content: flex-end; }
-.soda-dashboard-heading .secondary-nav .ui.dropdown.jump > .menu { left: auto; right: 0; }
+.soda-dashboard-heading h2, .soda-dashboard-discover h2 { color: var(--soda-page-text); font: 600 26px/1.25 "Fraunces Variable", Georgia, serif; letter-spacing: -.025em; margin: 0 0 8px; }
+.soda-dashboard-heading { justify-content: space-between; gap: 16px; }
 .soda-dashboard-heading p { margin: 0; color: var(--soda-page-muted); font-size: 16px; }
-.soda-dashboard :is(#empty-feed, #dashboard-repo-list) { background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 14px; }
-.soda-dashboard #activity-feed .flex-item-main { min-width: 0; overflow-wrap: anywhere; line-height: 1.6; }
+.soda-dashboard #dashboard-repo-list { background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius); }
+.soda-dashboard #activity-feed > .flex-item > .flex-item-main { line-height: 1.6; }
 .soda-dashboard #activity-feed relative-time { color: var(--soda-page-muted); font-size: 12px; }
-.soda-dashboard a { color: var(--soda-page-link); }
-.soda-dashboard #empty-feed { padding: 44px 28px !important; }
-.soda-dashboard #empty-feed > svg { box-sizing: content-box; color: var(--soda-page-link); width: 34px; height: 34px; padding: 20px; background: var(--soda-page-canvas); border: 1px solid var(--soda-page-edge); border-radius: 24px 24px 24px 8px; margin-bottom: 22px; transform: rotate(-5deg); }
-.soda-dashboard #empty-feed .help { max-width: 440px; margin: 16px auto 24px; color: var(--soda-page-muted); font: 400 16px/1.6 Barlow, sans-serif; }
-.soda-dashboard #empty-feed > div { line-height: 2; }
 .soda-dashboard #dashboard-repo-list { width: 100%; padding: 16px; margin: 0; }
 .soda-dashboard #dashboard-repo-list .tabs-with-labels { margin: 0 0 16px; gap: 4px; }
 .soda-dashboard #dashboard-repo-list .tabs-with-labels .item { margin: 0; padding: 10px 8px; color: var(--soda-page-muted); font-weight: 600; }
@@ -26,7 +18,7 @@
 .soda-dashboard #dashboard-repo-list .repos-filter .item { padding-inline: 9px; color: var(--soda-page-muted); }
 .soda-dashboard #dashboard-repo-list .repos-filter .active.item { color: var(--soda-page-link); border-color: var(--soda-page-link); }
 .soda-dashboard #dashboard-repo-list .repo-owner-name-list { border-radius: 0 0 8px 8px; }
-.soda-dashboard-discover { margin-top: 22px; padding: 24px; border: 1px solid var(--soda-page-edge); border-radius: 14px; background: light-dark(#eef5ed, #152a28); }
+.soda-dashboard-discover { margin-top: 22px; padding: 24px; border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius); background: light-dark(#eef5ed, #152a28); }
 .soda-dashboard-discover > svg { color: var(--soda-page-link); margin-bottom: 14px; }
 .soda-dashboard-discover h2 { font-size: 23px; }
 .soda-dashboard-discover p { color: var(--soda-page-muted); font-size: 15px; line-height: 1.6; margin: 10px 0 18px; }
@@ -35,7 +27,6 @@
 @media (max-width: 700px) {
   .soda-dashboard-art { height: 230px; }
   .soda-dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .soda-dashboard #empty-feed { padding: 32px 20px !important; }
 }
 
 /* Omit the native heatmap separator within the dashboard feed. */

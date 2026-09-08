@@ -27,45 +27,67 @@ no setup-token, stale-creator or copied-permission fallback was restored.
 
 ## Shared Forgejo presentation components
 
-The local stock 15.0.7 preview now uses shared Go template partials for page intros,
-empty content and the guest theme button. Explicit page, toolbar/tab/action, form
-section and native-list CSS replaces inheritance from unrelated dashboard/issues
-page classes. Explore, dashboard, issues/pulls, milestones, notifications and both
-creation forms compose the same presentation rules; home/login share the guest
-control while retaining their separate layouts. Watching search joins its primary
-toolbar. The redundant Explore toolbar stylesheet and dead form wrappers are removed.
-[Composition contract](../appliance/forgejo/README.md#presentation-component-contract).
+The local stock 15.0.7 preview uses small Go template partials for page intros,
+empty content and the guest theme button. The component audit separates page
+shell/tokens, intro, toolbar/native controls, forms, list/pagination, empty feedback
+and guest theme/shell ownership. Page files retain only their specific metadata
+and layout. Explore now delegates navigation, visibility and overflow to native
+`explore/navbar`; context-switcher CSS has an explicit wrapper. All list callers
+use the same wrapper contract. Search selectors cannot reach nested dialog buttons;
+filled actions use the selected theme's action colors. Login no longer decorates
+Forgejo's loader pseudo-element. Guest theme listeners load only on anonymous
+routes with a guest toggle.
 
-Native partials, fields, permission gates, translations, asset prefixes and
-notification replacement hooks remain upstream-owned. No Lit dependency or frontend
-build was added; Lit is reserved for a new self-contained interactive feature when
-needed. The drawer/authenticated integration and production staging remain pending.
+[Composition contract](../appliance/forgejo/README.md#presentation-component-contract)
+and [full audit](forgejo-components-audit.md). `.soda-page` is a full-page shell,
+not a root for the future drawer. Home/login keep distinct content layouts; the
+native dashboard Vue widget, milestone cards and notification row actions retain
+bounded page adapters. The original extraction is recorded in `ce4129c`.
 
-Executed on this development machine:
+Native forms, permission gates, translations, asset prefixes and notification
+replacement hooks remain upstream-owned. Exact embedded 15.0.7 source comparison
+found no unexplained behavior divergence in issues, milestones, notifications,
+subscriptions or organization creation. The documented historical research mirror
+is absent on this machine; the audit used `forgejo embedded view` from the existing
+stock preview. No Lit dependency or frontend build was added. The authenticated
+drawer and production staging remain pending.
 
-- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -mod=readonly ./scripts -run 'TestForgejo'`
-  passed with Go 1.27.1 darwin/arm64. Includes real shared-partial rendering,
-  translation/contextual escaping, subpath assets and native composition boundaries;
-  this is not the locked native toolchain or a full Go/native build check.
-- `node --test tests/forgejo/login-theme.test.mjs`: all six tests passed.
-- Reloaded templates only in existing `sodaos-local-forgejo`. Chrome rendered all
-  twelve signed-in route variants at 1654px and 390px without horizontal overflow;
-  all shared intro artwork loaded. Final narrow checks covered the corrected tab
-  order, watching/subscriptions and both form cards. Native search/no-results and
-  advanced disclosure worked; shared toolbar control heights measured 44px.
-- Guest home/login and all three directories rendered at 780px light and 480px dark
-  without horizontal overflow. The shared theme button changed appearance/labels
-  and persisted across navigation. Browser viewport overrides were reset afterward.
-- All thirteen linked component/page CSS responses matched source bytes. Changed
-  guide links/component anchor and `git diff --check` passed.
+Executed for this audit on the development machine:
 
-No fixture records, account preferences, providers, dependencies, appliance stage
-or deployed VM were changed. Notification POST/live replacement, creation POST/error
-journeys and signed-in light appearance were not newly exercised; their source
-boundaries were checked. One unavailable avatar inside native context-menu content
-was observed; no Soda intro artwork was missing. Existing native acceptance scope
-is unchanged. Custom introductory copy remains English pending the existing i18n
-work; native translated labels remain native.
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1 -mod=readonly ./scripts -run 'TestForgejo'`
+  passed with Go 1.27.1 darwin/arm64. Tests render real Soda partials/callers with
+  native seams stubbed, including creation permission branches, guest route gates,
+  singleton placement, escaping, subpaths and Explore delegation. This is not a
+  locked native toolchain or a full Go/native build check.
+- `node --test tests/forgejo/login-theme.test.mjs`: all seven tests passed, now
+  including actual head timing before the toggle exists and a no-toggle case.
+- Reloaded templates only in existing `sodaos-local-forgejo`. All twelve signed-in
+  route variants rendered at 1654px and 390px without horizontal overflow; shared
+  intro artwork loaded and search inputs measured 44px. Native Explore overflow
+  opened its Organizations menu item and navigated successfully. The syntax dialog
+  opened/closed normally; its nested Cancel button matches zero toolbar rules even
+  before Forgejo reparents the dialog. The personal context menu stayed within 390px.
+- Notification bulk action uses dark action blue with white text; list wrappers and
+  twenty visible native rows were verified without submitting actions. Expanded
+  native repository initialization/advanced controls fit at 390px; organization
+  fieldsets and required input remained intact.
+- Guest home/login and all three directories rendered at measured 480px in both
+  light/dark modes without overflow. Each page had one toggle (40px; login 44px),
+  persisted the choice across navigation and kept native `data-theme`. Login's
+  idle submit has no authored `::after`. Unrelated password recovery loaded no guest
+  script or theme attribute. Both browser viewport overrides were reset afterward.
+- All sixteen linked component/page CSS responses matched source bytes. Changed
+  guide file links and `git diff --check` passed.
+
+No fixture records, native account preferences, providers, dependencies, appliance
+stage or deployed VM were changed. The guest local choice was restored. Native
+notification POST/live replacement, creation POST/server-error and transient
+loading/disabled journeys were not newly exercised; source contracts were reviewed.
+Signed-in light appearance and organization/team context menus were not exercised
+(the local account has no organization context). Template overrides still require
+exact-version review and browser checks on upgrades. This is bounded local preview
+validation, not production or final-product acceptance. Custom introductory copy
+remains English pending the existing i18n work.
 
 ## Local New Organization preview
 

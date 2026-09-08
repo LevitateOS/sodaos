@@ -11,7 +11,9 @@ its authenticated integration are **not implemented**. All steps below are pendi
   native helper. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo, two small custom-template hooks, browser `<dialog>`,
   scoped native styling and vanilla JavaScript using `fetch` with the JSON API.
-  Reuse Soda's [template partials and shared CSS](../appliance/forgejo/README.md#presentation-component-contract).
+  Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
+  through a drawer-local root; `.soda-page` activates a full-page shell and must not
+  wrap the drawer.
   Lit is an option for a new self-contained interactive feature, including the
   drawer, when that feature justifies it. No Lit dependency or frontend build is
   added by the presentation extraction; vanilla JavaScript remains the current

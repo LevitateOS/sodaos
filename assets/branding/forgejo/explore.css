@@ -1,4 +1,4 @@
-/* Directory metadata and native search layout; shared visuals live in components*.css. */
+/* Directory metadata only; native navigation/search adapters belong to the toolbar. */
 .soda-explore .flex-item-leading { padding-top: 3px; }
 .soda-explore .flex-item-body { font-size: 15px; line-height: 1.6; margin-top: 6px; }
 .soda-explore .flex-item-body:last-child { font-size: 12px; }
@@ -7,16 +7,7 @@
 .soda-explore-people .flex-item-title a { color: var(--soda-page-link); }
 .soda-explore-people .flex-item-body:last-child { font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .soda-explore-people .flex-item-leading img { border-radius: 14px; }
-.soda-explore .explore-relevancy-note { background: var(--soda-page-surface); color: var(--soda-page-muted); border: 1px solid var(--soda-page-edge); box-shadow: none; border-radius: var(--soda-control-radius); }
-.soda-explore .explore-relevancy-note a { color: var(--soda-page-link); }
-.soda-explore-toolbar > .soda-tabs { width: auto !important; min-width: 0 !important; overflow-x: auto; overflow-y: hidden; }
-.soda-explore-tabs { display: flex; flex-wrap: nowrap; width: max-content; height: 100%; gap: 2px; }
-.soda-explore-toolbar > :is(.filter.menu,.list-header) { display: flex; flex: 1; min-width: 280px; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; }
-.soda-explore-toolbar .list-header-search { flex: 1; margin: 0; min-width: 0; gap: 12px; }
-.soda-explore-toolbar .list-header-search .input { width: 100%; }
 @media (max-width: 700px) {
   .soda-explore .flex-item-header { flex-wrap: wrap; gap: 8px; }
   .soda-explore .flex-item-trailing { flex-wrap: wrap; }
-  .soda-explore-toolbar > :is(.filter.menu,.list-header) { flex-basis: 100%; min-width: 0; }
-  .soda-explore-toolbar .list-header { flex-wrap: wrap; }
 }

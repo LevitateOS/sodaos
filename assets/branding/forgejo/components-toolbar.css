@@ -1,5 +1,5 @@
 /* Native controls keep their names, IDs, classes and initialization. These adapters
-   apply only inside an explicit Soda toolbar or form. */
+   apply only to explicit Soda toolbar, tab, context-switcher and search roots. */
 .soda-toolbar {
   display: flex;
   align-items: center;
@@ -12,10 +12,6 @@
   border-radius: var(--soda-panel-radius);
 }
 
-.soda-toolbar > * {
-  order: 0;
-}
-
 .soda-toolbar--plain {
   padding: 0;
   border: 0;
@@ -26,10 +22,10 @@
   display: none;
 }
 
-.soda-toolbar > .filter.menu {
+.soda-toolbar > :is(.filter.menu,.list-header) {
   display: flex;
   flex: 1;
-  min-width: 0;
+  min-width: 280px;
   align-items: center;
   gap: 12px;
   margin: 0;
@@ -47,52 +43,75 @@
 .soda-toolbar > .explore-relevancy-note {
   flex-basis: 100%;
   margin: 0;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-muted);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  box-shadow: none;
 }
+
+.soda-toolbar > .explore-relevancy-note a { color: var(--soda-page-link); }
 
 .soda-toolbar .list-header-search {
   display: flex;
   flex: 1;
-  min-width: 180px;
+  min-width: 0;
   max-width: none;
   width: auto;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
+  margin: 0;
 }
 
-.soda-toolbar > .ui.secondary.menu {
+.soda-toolbar .list-header-search .input {
+  width: 100%;
+}
+
+.soda-toolbar > .ui.secondary.menu:not(.filter) {
   margin: 0;
   gap: 10px;
   align-items: center;
 }
 
-.soda-toolbar .secondary-nav {
+.soda-context-switcher {
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.soda-context-switcher .secondary-nav {
+  max-width: 100%;
   background: transparent !important;
   border: 0 !important;
   margin: 0;
 }
 
-.soda-toolbar .secondary-nav > .ui.menu {
+.soda-context-switcher .secondary-nav > .ui.menu {
+  max-width: 100%;
   margin: 0;
   gap: 10px;
   background: transparent;
+  justify-content: flex-end;
 }
 
-.soda-toolbar .secondary-nav > .ui.menu > .item {
+.soda-context-switcher .secondary-nav > .ui.menu > .item {
   padding: 0;
   margin: 0;
 }
 
-.soda-toolbar .secondary-nav .jump > .text {
+.soda-context-switcher .secondary-nav .jump > .text {
+  min-width: 0;
   gap: 8px;
 }
 
-.soda-toolbar .secondary-nav .avatar {
+.soda-context-switcher .secondary-nav .avatar {
   width: 24px;
   height: 24px;
   border-radius: 6px;
 }
 
-.soda-toolbar .secondary-nav .ui.dropdown.jump > .menu {
+.soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
   left: auto;
   right: 0;
   min-width: 270px;
@@ -102,7 +121,7 @@
   box-shadow: 0 12px 32px #0002;
 }
 
-.soda-toolbar .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
+.soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
   margin: 0;
   padding: 12px 10px 16px;
   color: var(--soda-page-muted);
@@ -112,14 +131,14 @@
   letter-spacing: .08em;
 }
 
-.soda-toolbar .secondary-nav .jump .scrolling.menu {
+.soda-context-switcher .secondary-nav .jump .scrolling.menu {
   background: transparent;
   border: 0;
   margin: 0;
   padding: 0;
 }
 
-.soda-toolbar .secondary-nav .ui.dropdown.jump .menu > .item {
+.soda-context-switcher .secondary-nav .ui.dropdown.jump .menu > .item {
   border: 0;
   border-radius: 8px;
   padding: 12px 10px !important;
@@ -128,24 +147,25 @@
   gap: 10px;
 }
 
-.soda-toolbar .secondary-nav .right.menu {
+.soda-context-switcher .secondary-nav .right.menu {
   gap: 4px;
   flex-wrap: wrap;
 }
 
-.soda-toolbar .secondary-nav .right.menu > .item {
+.soda-context-switcher .secondary-nav .right.menu > .item {
   border-radius: 8px;
   color: var(--soda-page-muted);
 }
 
-.soda-toolbar .secondary-nav .right.menu > .active.item {
+.soda-context-switcher .secondary-nav .right.menu > .active.item {
   background: var(--soda-page-surface);
   color: var(--soda-page-link);
 }
 
-/* Explicit tabs also cover native .switch and Explore's scrolling nav. */
-.soda-toolbar .soda-tabs {
+/* Tabs own both native switches and the unchanged Explore overflow-menu. */
+.soda-tabs {
   display: flex;
+  min-width: 0;
   flex: none;
   align-self: center;
   box-sizing: border-box;
@@ -159,7 +179,23 @@
   background: var(--soda-page-canvas) !important;
 }
 
-.soda-toolbar .soda-tabs .item {
+.soda-tabs > .secondary-nav {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.soda-tabs > .secondary-nav > .overflow-menu-items {
+  height: 100%;
+  gap: 2px;
+}
+
+.soda-tabs > .item,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .item {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -175,12 +211,13 @@
   box-shadow: none;
 }
 
-.soda-toolbar .soda-tabs .active.item {
+.soda-tabs > .active.item,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .active.item {
   background: var(--soda-page-selected) !important;
   color: var(--soda-page-link) !important;
 }
 
-.soda-toolbar :is(#repo-search-form,.list-header-search) input[type="search"] {
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > input[type="search"] {
   box-sizing: border-box;
   height: var(--soda-control-height);
   min-height: var(--soda-control-height);
@@ -193,12 +230,12 @@
   box-shadow: none;
 }
 
-.soda-toolbar input::placeholder {
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > input::placeholder {
   color: var(--soda-page-muted) !important;
   opacity: 1;
 }
 
-.soda-toolbar :is(#repo-search-form,.list-header-search) .button {
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > .button {
   display: grid;
   place-items: center;
   width: var(--soda-control-height);
@@ -227,7 +264,7 @@
   color: var(--soda-page-muted);
 }
 
-.soda-toolbar > .ui.menu > .dropdown, .soda-toolbar .secondary-nav .ui.dropdown.jump, .soda-toolbar #repo-search-form > .dropdown, .soda-toolbar .list-header summary.options {
+.soda-toolbar > .ui.menu > .dropdown, .soda-context-switcher .secondary-nav .ui.dropdown.jump, .soda-toolbar #repo-search-form > .dropdown, .soda-toolbar .list-header summary.options {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -244,28 +281,39 @@
   box-shadow: none;
 }
 
-.soda-toolbar .dropdown > .dropdown.icon, .soda-toolbar .jump > .text > .dropdown.icon {
+.soda-toolbar .dropdown > .dropdown.icon, .soda-context-switcher .jump > .text > .dropdown.icon {
   margin: 0 0 0 4px;
   color: var(--soda-page-muted);
 }
 
-.soda-toolbar .dropdown :is(.menu,.content) {
+.soda-toolbar > .ui.menu > .dropdown > .menu,
+.soda-toolbar #repo-search-form > .dropdown > .menu,
+.soda-toolbar .list-header > .dropdown > .content,
+.soda-context-switcher .ui.dropdown.jump > .menu {
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
 }
 
-.soda-toolbar .dropdown :is(.menu,.content) :is(a,.item) {
+.soda-toolbar > .ui.menu > .dropdown > .menu > :is(a,.item),
+.soda-toolbar #repo-search-form > .dropdown > .menu > :is(a,.item),
+.soda-toolbar .list-header > .dropdown > .content > :is(a,.item),
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item {
   color: var(--soda-page-text);
 }
 
-.soda-toolbar .dropdown .menu > .active.item {
+.soda-toolbar > .ui.menu > .dropdown > .menu > .active.item,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .active.item,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .active.item {
   color: var(--soda-page-link) !important;
   background: var(--soda-page-selected) !important;
 }
 
-.soda-toolbar .dropdown .menu > .item:hover {
+.soda-toolbar > .ui.menu > .dropdown > .menu > .item:hover,
+.soda-toolbar #repo-search-form > .dropdown > .menu > .item:hover,
+.soda-toolbar .list-header > .dropdown > .content > .item:hover,
+.soda-context-switcher .ui.dropdown.jump .scrolling.menu > .item:hover {
   background: var(--soda-page-hover);
 }
 
@@ -283,102 +331,36 @@
   box-shadow: none;
 }
 
-.soda-toolbar .soda-toolbar-action.primary {
-  color: var(--soda-page-link);
+.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary {
+  border-color: transparent;
+  background: var(--soda-page-action);
+  color: var(--soda-page-on-action) !important;
 }
 
-.soda-toolbar :is(.soda-tabs .item,.button,.show-modal,summary.options):hover {
+.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary:hover {
+  background: var(--soda-page-action-hover) !important;
+  color: var(--soda-page-on-action) !important;
+}
+
+.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary:active {
+  background: var(--soda-page-action-pressed) !important;
+}
+
+.soda-tabs > .item:hover,
+.soda-tabs > .secondary-nav > .overflow-menu-items > .item:hover,
+.soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > .button:hover,
+.soda-toolbar .list-header-search > .show-modal:hover,
+.soda-toolbar .soda-toolbar-action:not(.soda-toolbar-action--primary):hover,
+.soda-toolbar .list-header summary.options:hover {
   color: var(--soda-page-link) !important;
   background: var(--soda-page-hover) !important;
 }
 
-.soda-toolbar :is(.dropdown.jump,#repo-search-form > .dropdown,summary.options):hover {
+.soda-toolbar > .ui.menu > .dropdown:hover,
+.soda-context-switcher .secondary-nav .ui.dropdown.jump:hover,
+.soda-toolbar #repo-search-form > .dropdown:hover,
+.soda-toolbar .list-header summary.options:hover {
   border-color: var(--soda-page-link);
-}
-
-.soda-toolbar :is(a,button,input,summary,.dropdown):focus-visible {
-  outline: 2px solid var(--soda-page-link);
-  outline-offset: 3px;
-}
-
-.soda-form.ui.form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search),textarea,.selection.dropdown) {
-  width: 100%;
-  min-height: 46px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-canvas);
-  color: var(--soda-page-text);
-  font: 400 16px/1.5 Barlow,sans-serif;
-  box-shadow: none;
-}
-
-.soda-form.ui.form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search) {
-  padding: 10px 14px;
-}
-
-.soda-form.ui.form textarea {
-  padding: 12px 14px;
-  min-height: 100px;
-  resize: vertical;
-}
-
-.soda-form.ui.form input:is([type="checkbox"],[type="radio"]) {
-  accent-color: var(--soda-page-link);
-}
-
-.soda-form.ui.form :is(input,textarea):focus {
-  border-color: var(--soda-page-link);
-}
-
-.soda-form.ui.form :is(input,textarea,button,.dropdown):focus-visible {
-  outline: 2px solid var(--soda-page-link);
-  outline-offset: 3px;
-}
-
-.soda-form.ui.form .selection.dropdown > .text {
-  color: var(--soda-page-text);
-}
-
-.soda-form.ui.form .selection.dropdown > .default.text {
-  color: var(--soda-page-muted);
-}
-
-.soda-form.ui.form .dropdown .menu {
-  border-color: var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-surface);
-}
-
-.soda-form.ui.form .dropdown .menu > .item {
-  border-color: var(--soda-page-edge);
-  color: var(--soda-page-text);
-}
-
-.soda-form.ui.form .dropdown .menu > .item:hover {
-  background: var(--soda-page-canvas);
-}
-
-.soda-form.ui.form .primary.button {
-  min-height: 48px;
-  padding: 12px 24px;
-  border: 0;
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-light-action);
-  color: white;
-  font: 600 16px/1.5 Barlow,sans-serif;
-  box-shadow: none;
-}
-
-.soda-form.ui.form .primary.button:hover {
-  background: var(--soda-light-action-hover);
-}
-
-.soda-form.ui.form .primary.button:active {
-  background: var(--soda-light-action-pressed);
-}
-
-.soda-form.ui.form .field.error input {
-  border-color: var(--color-error-border);
 }
 
 @media (max-width: 700px) {
@@ -391,8 +373,9 @@
     padding: 0;
   }
 
-  .soda-toolbar > :is(.list-header-search,.filter.menu) {
+  .soda-toolbar > :is(.list-header-search,.filter.menu,.list-header) {
     flex-basis: 100%;
+    min-width: 0;
   }
 
   .soda-toolbar #repo-search-form {
@@ -403,23 +386,33 @@
     flex-basis: 100% !important;
   }
 
-  .soda-toolbar > .ui.secondary.menu {
+  .soda-toolbar > .ui.secondary.menu:not(.filter) {
     flex-wrap: wrap;
   }
 
-  .soda-toolbar .secondary-nav > .ui.menu > .item {
+  .soda-context-switcher {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump {
+    max-width: 100%;
+  }
+
+  .soda-context-switcher .secondary-nav > .ui.menu > .item {
     align-self: flex-start;
     max-width: 100%;
   }
 
-  .soda-toolbar .secondary-nav .ui.dropdown.jump > .menu {
+  .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
     min-width: min(270px, calc(100vw - 32px));
     left: 0;
     right: auto;
-  }
-
-  .soda-form.ui.form .primary.button {
-    width: 100%;
   }
 
 }
