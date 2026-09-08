@@ -844,12 +844,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8e69c9b65ac4c35ca3a43b9f83b1aba4bb3ec8f3f303e7b53a8fcbc858e32156",
+      "beforeRoleHash": "c8036f2e8513a29f950df757766de5d47887cb9ff9b6344cf55eb053655f1440",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "tonal-empty-page-and-section-states"
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -858,6 +858,8 @@
       "callers": [
         "custom/explore_empty.tmpl",
         "package/shared/list.tmpl",
+        "repo/settings/deploy_keys.tmpl",
+        "shared/blocked_users_list.tmpl",
         "user/dashboard/milestones.tmpl",
         "user/notification/notification_div.tmpl",
         "user/notification/notification_subscriptions.tmpl"
@@ -4504,9 +4506,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c97ebd63802193262a68d7cf8c5d24857695aae39781ae6d16c1d619b333b243",
+      "beforeRoleHash": "27b73a1835b17531ee64dbd46680cae895939589707ec1208bd27e3995b63a9f",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "tonal-empty-page-and-section-states"
     },
     {
       "template": "repo/settings/githook_edit.tmpl",
@@ -5829,11 +5832,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4f8bf39599178e8c7bceba1f0940b5fcfdf43768e6a0e05f6861e655e1186944",
+      "beforeRoleHash": "e7bcc5a79353b528c3c7bfe862bfb61e285b47ef09c3b49ce562ed6e375a49a6",
       "upstreamCallers": [
         "org/settings/blocked_users.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "tonal-empty-page-and-section-states"
     },
     {
       "template": "shared/quota_overview.tmpl",

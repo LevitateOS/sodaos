@@ -1,5 +1,25 @@
 # Current handoff
 
+## Empty page and section presentation
+
+Local revision `2026-09-08.18` introduces a centered open empty-page treatment
+for Blocked users and a compact left-aligned treatment for deploy-key sections.
+Shared empty-state icons use a tonal circular accent; inset notification states
+also use the compact composition. Existing native messages, conditions, populated
+rows and permitted actions remain unchanged. The gallery includes both variants.
+
+Go Forgejo checks and 13 focused component checks passed, including both themes
+at 1440/390/320px. Verified native Blocked users screenshots were visually reviewed
+in dark desktop and light mobile under `.artifacts/empty-states/`. Deploy-key and
+organization caller states were source-checked, not captured with an owner session.
+The inventory native-caller check passes, but the full inventory check exposes a
+pre-existing `custom/footer.tmpl` hash mismatch from the merged Sodaspaces work;
+that unrelated baseline was not silently approved. All changed template hashes
+match their reviewed entries. The merged header also referenced an unstaged
+`sodaspaces.css`: its existing source was copied into the ignored local public
+asset directory to resolve the capture 404. No service restart, account/resource
+mutation or appliance rollout occurred.
+
 ## Merge of Forgejo presentation and Sodaspaces work
 
 Merged remote `f838b80` with local `a652450`, preserving both histories, native

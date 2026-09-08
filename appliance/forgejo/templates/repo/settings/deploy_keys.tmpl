@@ -66,7 +66,7 @@
 					{{end}}
 				</div>
 			{{else}}
-				{{ctx.Locale.Tr "repo.settings.no_deploy_keys"}}
+				<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.settings.no_deploy_keys")}}</div>
 			{{end}}
 		</div>
 	</div>

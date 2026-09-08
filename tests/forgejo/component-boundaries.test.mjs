@@ -22,6 +22,26 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
     }
 
+    await t.test('page and compact empty states stay open and fit narrow layouts', async () => {
+      for (const theme of ['light', 'dark']) {
+        for (const width of [1440, 390, 320]) {
+          await page.setViewportSize({ width, height: 1000 });
+          await render(`<main class="soda-page"><section class="soda-empty soda-empty--page"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no blocked users.</h2></section><section class="soda-empty soda-empty--compact"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no deploy keys yet.</h2></section></main>`, theme);
+          const state = await page.evaluate(() => {
+            const full = document.querySelector('.soda-empty--page');
+            const compact = document.querySelector('.soda-empty--compact');
+            return { border: getComputedStyle(full).borderTopWidth,
+              background: getComputedStyle(full).backgroundColor,
+              fullIcon: full.querySelector('.soda-empty-symbol').getBoundingClientRect().width,
+              compactIcon: compact.querySelector('.soda-empty-symbol').getBoundingClientRect().width,
+              fits: document.documentElement.scrollWidth <= innerWidth };
+          });
+          assert.deepEqual(state, { border: '0px', background: 'rgba(0, 0, 0, 0)', fullIcon: 80, compactIcon: 48, fits: true });
+        }
+      }
+      await page.setViewportSize({ width: 1654, height: 1000 });
+    });
+
     await t.test('form focus and errors survive the shared input cascade in both themes', async () => {
       for (const theme of ['light', 'dark']) {
         await render(`<main class="soda-page"><form class="ui form soda-form">

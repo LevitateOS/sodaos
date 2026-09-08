@@ -52,7 +52,11 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 		{"repo/commit_header.tmpl", "83e7c16cf1701969474fe47c62c9f86c717d1611e0373c5b50ac48534f13a194", [][2]string{{"class=\"soda-code-commit-heading ui top attached header clearing segment tw-relative commit-header", "class=\"ui top attached header clearing segment tw-relative commit-header"}}},
 		{"repo/clone_buttons.tmpl", "909f391790b470a2156f0747dd3cb77da5a6702d41f675a3bc4394ea6e30f0bf", [][2]string{{"class=\"js-clone-url soda-code-clone-url\"", "class=\"js-clone-url\""}}},
 		{"repo/diff/box.tmpl", "6a252c2fb44ea9c1dfa0b4b9d22335598b96d560b6bdc8d6285314ba36723eb4", [][2]string{{"<div class=\"soda-code-diff\">", "<div>"}}},
-		{"shared/blocked_users_list.tmpl", "a677d1c59c5c158916f007da2a43161f5b4f615e75a540e8e75d38b92ea385e8", [][2]string{{"class=\"flex-list soda-blocked-users\"", "class=\"flex-list\""}}},
+		{"shared/blocked_users_list.tmpl", "a677d1c59c5c158916f007da2a43161f5b4f615e75a540e8e75d38b92ea385e8", [][2]string{{"class=\"flex-list soda-blocked-users\"", "class=\"flex-list\""}, {`<div class="soda-empty soda-empty--page">
+			{{template "custom/soda/empty_content" dict "Icon" "octicon-shield-check" "Title" (ctx.Locale.Tr "settings.blocked_users_none")}}
+		</div>`, `<div class="flex-item">
+			<span class="text grey italic">{{ctx.Locale.Tr "settings.blocked_users_none"}}</span>
+		</div>`}}},
 		{"shared/quota_overview.tmpl", "c408c33f3919a7a90724320b35b750b79261adff505fd1b6f2a1b9a4fd8909d1", [][2]string{{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-quota-overview\"", "class=\"ui attached segment\""}}},
 	}
 	for _, tc := range cases {

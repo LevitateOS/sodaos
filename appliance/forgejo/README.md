@@ -566,3 +566,13 @@ Native joined internal edges stay square. Explore's desktop tab allowance is
 448px to accommodate the 44px overflow trigger; native tab measurement and menu
 behavior remain intact. The 320px header retains the canonical 128px logo with
 44px mobile actions and reduced gaps instead of undersized targets.
+
+
+Empty states share `custom/soda/empty_content` and `components-empty.css`.
+Use `soda-empty--page` for an empty destination (centered icon/message with a
+bounded breathing space), and `soda-empty--compact` for a section inside a working
+page (smaller icon and left-aligned heading). Existing `soda-empty--inset` callers
+use the compact composition. These are open surfaces without enclosing cards or
+dividers. Native callers own empty conditions, translations and permitted actions;
+never add a create action to a naturally empty state such as Blocked users.
+Blocked-user lists and deploy-key sections now select these roles explicitly.
