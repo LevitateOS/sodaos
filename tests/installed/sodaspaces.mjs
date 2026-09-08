@@ -137,6 +137,8 @@ try {
           (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
         if (denied) {
           refusedRequest = true;
+          result.refused_hop = {same_origin: url.origin === origin.origin, method: request.method,
+            authorization: url.pathname === '/login/oauth/authorize'};
           await cdp.send('Fetch.failRequest', {requestId, errorReason: 'BlockedByClient'});
           return;
         }
@@ -155,7 +157,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
+  const observedRoutes = new Set(['/', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
@@ -201,7 +203,8 @@ try {
       await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('#navbar a[href^="/user/login"]'), null, {polling: 100});
     } catch (error) {
       result.logout_landing = await p.evaluate(() => ({atHome: location.pathname === '/', ready: document.readyState,
-        focused: document.hasFocus(), hidden: document.hidden,
+        focused: document.hasFocus(), hidden: document.hidden, protocol: location.protocol,
+        blocked: document.body.innerText.includes('ERR_BLOCKED_BY_CLIENT'), aborted: document.body.innerText.includes('ERR_ABORTED'),
         login: !!document.querySelector('a[href*="/user/login"]'), logout: !!document.querySelector('a[data-url="/user/logout"]')}));
       throw error;
     }

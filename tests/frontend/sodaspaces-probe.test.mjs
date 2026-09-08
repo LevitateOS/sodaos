@@ -20,7 +20,7 @@ test('native probe guards every paused redirect before transmission', async () =
     async send(method, params) { calls.push({method, params}); },
   };
   const scope = {URL, origin: new URL('https://fixture.invalid'), input: {oauth_client_id: 'synthetic-client'},
-    writes: new Set(['/user/login']), refusedRequest: false, interrupted: false,
+    writes: new Set(['/user/login']), result: {}, refusedRequest: false, interrupted: false,
     authorizations: 0, environmentReads: 0,
     context: {async newPage() { return page; }, async newCDPSession(p) { assert.equal(p, page); return cdp; }}};
   assert.equal(await runInNewContext(probe.slice(start, end) + '\nguardedPage()', scope), page);
