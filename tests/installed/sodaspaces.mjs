@@ -305,10 +305,14 @@ try {
   stage = 'native-only account switch and stale tab';
   await open();
   const beforeSwitch = environmentReads;
+  stage = 'second guarded native page';
   const other = await guardedPage();
   await other.goto(repoURL);
+  stage = 'native logout in second page';
   await nativeLogout(other);
+  stage = 'native second-account login';
   await nativeLogin(other, 1);
+  stage = 'return to stale native page';
   await page.bringToFront();
   await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
   assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
@@ -364,7 +368,8 @@ try {
   assert(!refusedRequest && !interrupted);
 } catch (error) {
   if (result) result.failure_kind = error?.name === 'TimeoutError' ? 'timeout'
-    : error?.name === 'AssertionError' ? 'assertion' : 'other';
+    : error?.name === 'AssertionError' ? 'assertion'
+      : error?.message?.includes('strict mode violation') ? 'ambiguous_locator' : 'other';
   failure = true; // Never print Playwright errors/URLs/input bodies or credentials.
 } finally {
   try { await context?.close(); } catch { failure = true; }
