@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: verify existing appearance-settings artwork and its native preferences layout. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: security settings and two-factor enrollment; verify existing artwork and assess subpage inheritance. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -215,7 +215,7 @@ Next: verify existing appearance-settings artwork and its native preferences lay
 | No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Done | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `settings-account-papercraft.png` via layout | Existing mailbox/account scene retained; native desktop/mobile introduction inspected. |
-| Pending | [`user/settings/appearance.tmpl`](../appliance/forgejo/templates/user/settings/appearance.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| Done | [`user/settings/appearance.tmpl`](../appliance/forgejo/templates/user/settings/appearance.tmpl) | `settings-appearance-papercraft.png` via layout | Existing swatch scene retained; native desktop/mobile introduction verified. |
 | Pending | [`user/settings/applications.tmpl`](../appliance/forgejo/templates/user/settings/applications.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | — | Not yet reviewed in this goal. |
@@ -444,3 +444,9 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-ZmbJ3J/001.png` (1440×1000) and `capture-Tn2wG8/001.png` (390×844). Art fits beside the heading and remains distinct from the forms. Desktop password fields are empty; the displayed email belongs to the authorized test fixture. Mobile navigation still precedes the forms below the viewport.
 - Existing prompt/provenance stays in `settings-art-prompts.md`; no asset/template change or regeneration. No tests/reload needed for this verification-only work.
 - No passwords entered, emails sent/changed, notifications changed or deletion attempted. Disabled-password, pending activation, deletion-disabled, validation-error and dark-theme states were not exercised; their source conditions remain native.
+
+### Existing appearance settings artwork
+
+- Read the complete appearance override: theme and language choices, repository-unit hints and hidden comment-event groups. The approved swatch scene directly represents visual preferences; retain it in the introduction without duplicating art within the individual forms. Original prompt/provenance remains in `settings-art-prompts.md`.
+- Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-WrtaPc/001.png` (1440×1000) and `capture-vGSLyp/001.png` (390×844). The swatch illustration fits beside the heading; theme/language controls remain separate. Mobile settings navigation precedes the forms below the viewport.
+- No asset, template, theme, language, hints or comment preferences changed. No tests/reload needed for verification-only work. Light rendering with the fixture's follow-system preference was observed; dark rendering, dropdown interaction and submitted preferences were not exercised.

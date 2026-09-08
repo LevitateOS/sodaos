@@ -35,7 +35,8 @@ and storage routes are explicitly queued. Existing profile artwork was retained 
 screenshot helper now has an optional `--scroll-top` flag, exercised to inspect
 headers after native form autofocus; default capture behavior is unchanged.
 Account artwork was retained and verified on desktop/mobile, with native forms
-left untouched. Appearance artwork verification is next; individual decisions and unexercised variants remain in the checklist.
+left untouched. Appearance swatch artwork was also retained and verified on desktop/mobile,
+without changing saved preferences. Security and enrollment are next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
