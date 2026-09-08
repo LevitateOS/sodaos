@@ -53,9 +53,9 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | Partial — trace caller | [`custom/soda/notification_preview.tmpl`](../appliance/forgejo/templates/custom/soda/notification_preview.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`custom/soda/page_intro.tmpl`](../appliance/forgejo/templates/custom/soda/page_intro.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`custom/soda/theme_toggle.tmpl`](../appliance/forgejo/templates/custom/soda/theme_toggle.tmpl) | — | Not yet reviewed in this goal. |
-| Existing — verify | [`explore/code.tmpl`](../appliance/forgejo/templates/explore/code.tmpl) | `explore-papercraft.png` | Not yet reviewed in this goal. |
-| Existing — verify | [`explore/repos.tmpl`](../appliance/forgejo/templates/explore/repos.tmpl) | `explore-papercraft.png` | Not yet reviewed in this goal. |
-| Existing — verify | [`explore/users.tmpl`](../appliance/forgejo/templates/explore/users.tmpl) | `orgs-papercraft.png`, `users-papercraft.png` | Not yet reviewed in this goal. |
+| Integrated — verify | [`explore/code.tmpl`](../appliance/forgejo/templates/explore/code.tmpl) | `explore-papercraft.png` | Retain approved discovery artwork shared with repository Explore; no replacement of approved art. Full wrapper and shared search/results reviewed. Native /explore/code displays repository directory instead; code-search rendering remains pending. |
+| Done | [`explore/repos.tmpl`](../appliance/forgejo/templates/explore/repos.tmpl) | `explore-papercraft.png` | Retain approved code-folder discovery scene. Full wrapper reviewed; populated repository directory artwork inspected at desktop/mobile. Native search/list/pagination delegates preserved. |
+| Done | [`explore/users.tmpl`](../appliance/forgejo/templates/explore/users.tmpl) | `orgs-papercraft.png`, `users-papercraft.png` | Retain distinct approved people and organization scenes. Both wrapper branches reviewed; populated people and empty organization artwork inspected at desktop/mobile. Organization empty-state primary button has invisible text, recorded separately. |
 | Existing — verify | [`home.tmpl`](../appliance/forgejo/templates/home.tmpl) | `home-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`install.tmpl`](../appliance/forgejo/templates/install.tmpl) | `home-papercraft.png` | Not yet reviewed in this goal. |
 | No image | [`moderation/new_abuse_report.tmpl`](../appliance/forgejo/templates/moderation/new_abuse_report.tmpl) | — | A serious reporting form should prioritize category, required remarks, validation and cancel/submit controls. Full template including missing-content disabled gate reviewed; no decorative image. No report submitted; native form capture unperformed. |
@@ -706,3 +706,11 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 - Full wrapper and Forgejo 15.0.7 `signin_inner` reviewed: internal-sign-in, password, remember-me, CAPTCHA, OAuth delegate, registration and recovery branches remain native. Delegated provider bodies were not re-audited here.
 - Native guest captures inspected: `.artifacts/screenshots/capture-l1irJf/001.png` (1440×1000) displays the complete scene beside the form; `.artifacts/screenshots/capture-qkriM7/001.png` (390×844) displays the complete form with artwork intentionally hidden by `login.css`. No clipped fields or image detected in these captures.
 - This verifies standalone login presentation only; account-linking/provider/error branches remain unobserved. No login submitted or credentials entered. Documentation-only change, no tests rerun.
+
+### Approved Explore illustration verification
+
+- Retain the existing repository/code-folder, people and organization-workspace illustrations. Reviewed all three Explore wrappers, people/organization branches, native navbar delegation and custom empty-state branches. Empty states need no second generated image beneath the existing page artwork.
+- Native desktop captures inspected: `.artifacts/screenshots/capture-0c67pa/001.png` repositories, `002.png` people and `003.png` organizations. Matching mobile captures: `.artifacts/screenshots/capture-nhV5sL/001.png` through `003.png` at 390×844. Each header image fits without clipping; directory/empty-state content stays separate.
+- Desktop `capture-0c67pa/004.png`, requested at `/explore/code`, displays the repository directory. It is not code-search verification; that row remains Integrated — verify.
+- Separate observed defect: organization empty-state primary button text is invisible on the desktop capture, consistent with the previously recorded issue/PR button-text defect. This artwork check does not claim that button styling is correct or fixed.
+- No source changes, actions submitted or new assets needed; documentation-only verification. Remaining queue: home/setup, creation pages, dashboard/notifications and shared callers.
