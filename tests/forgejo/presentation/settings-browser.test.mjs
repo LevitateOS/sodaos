@@ -45,6 +45,20 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    });
   }
+  // Follow real links: visibility/focus checks alone miss a pointerdown race.
+  for (const width of [1440,390]) {
+   await page.setViewportSize({width,height:1000});
+   for (const [group,destination] of [[0,'account'],[0,'appearance'],[0,'blocked_users'],[1,'security'],[2,'repos'],[0,'']]) {
+    await page.goto(origin+'/user/settings');
+    const nav=page.locator('.soda-settings-nav');
+    await page.waitForSelector('.soda-settings-nav.is-enhanced');
+    await (width<900 ? nav.locator('.soda-settings-current') : nav.locator('.soda-settings-nav-trigger').nth(group)).click();
+    const path='/user/settings'+(destination ? '/'+destination : '');
+    const [response]=await Promise.all([page.waitForNavigation(),nav.locator(`a[href="${path}"]`).click()]);
+    assert.equal(response.status(),200); assert.equal(new URL(page.url()).pathname,path);
+    assert(await page.locator('#soda-settings-title').isVisible());
+   }
+  }
   await page.goto(origin+'/user/settings/account#password');await page.waitForSelector('[data-settings-editor][open]');assert(await page.locator('#old_password').isVisible());
   await page.goto(origin+'/user/settings/keys');await page.locator('#add-ssh-button').click();await page.waitForSelector('#add-ssh-key-panel:visible');
   await page.waitForFunction(()=>document.activeElement?.id==='ssh-key-title');

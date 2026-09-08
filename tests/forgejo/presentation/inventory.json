@@ -843,7 +843,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a3f04a7701b8b87ae2f1a56175877b0d846f4711db7a624b985c16341504800c",
+      "beforeRoleHash": "aa0620aeb9d02d270f0a1f898b9756e0b53a6354ab90c01f523299309a397c31",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -7743,7 +7743,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2826b40c979778a52006a922eebe763da60302f24d5085ff9ee9e78cd47edefd",
+      "beforeRoleHash": "00cac88f147afc73f54ce3e7b6c3ad4140215f8d0dec8bc6d5f18fa71e17388c",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "personal-settings-structural-overhaul",

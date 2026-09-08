@@ -1,5 +1,16 @@
 # Current handoff
 
+## Settings menu link activation fix
+
+A native pointer-click reproduction showed focusout closing the settings menu
+before its destination link received focus, cancelling navigation. The handler
+now checks `relatedTarget` instead of the transient `document.activeElement`.
+Local presentation `2026-09-08.14` is active via template reload. Eleven settings
+browser checks passed, now including twelve real link navigations across all
+three menu groups at desktop/mobile widths with HTTP status, URL and page-heading
+assertions. The Go Forgejo suite and four source/inventory checks also passed.
+No account data was submitted or changed.
+
 ## Clickable avatar and modal dialog
 
 The actual profile portrait now opens the native avatar form in a browser modal

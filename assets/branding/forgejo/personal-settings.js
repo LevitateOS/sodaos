@@ -45,7 +45,11 @@ if (settings) {
         close(); if (focused) trigger?.focus();
       }
     });
-    nav.addEventListener('focusout', () => queueMicrotask(() => { if (!nav.contains(document.activeElement)) close(); }));
+    // During focusout activeElement can still be body. Use the destination:
+    // hiding the menu before the link receives focus cancels its pointer click.
+    nav.addEventListener('focusout', event => {
+      if (!nav.contains(event.relatedTarget)) close();
+    });
     mobile.addEventListener('change', close);
   }
   const hasErrors = settings.querySelector('.ui.error.message, .ui.negative.message, .field.error');
