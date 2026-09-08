@@ -1,0 +1,9 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content ui {{if .IsRepo}}repository{{end}} soda-page soda-status" data-signed="{{.IsSigned}}">
+	{{if .IsRepo}}{{template "repo/header" .}}{{end}}
+	<div class="ui container center soda-page-container soda-status-card">
+		<h1 class="error-code">413</h1>
+		<p>{{ctx.Locale.Tr "error413"}}</p>
+	</div>
+</div>
+{{template "base/footer" .}}

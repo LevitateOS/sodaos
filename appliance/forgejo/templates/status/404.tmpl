@@ -1,0 +1,11 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content ui {{if .IsRepo}}repository{{end}} soda-page soda-status" data-signed="{{.IsSigned}}">
+	{{if .IsRepo}}{{template "repo/header" .}}{{end}}
+	<div class="ui container center soda-page-container soda-status-card">
+		<h1 class="error-code">404</h1>
+		<p>{{if .NotFoundPrompt}}{{.NotFoundPrompt}}{{else}}{{ctx.Locale.Tr "error404"}}{{end}}</p>
+		{{if .NotFoundGoBackURL}}<a class="ui primary button" href="{{.NotFoundGoBackURL}}">{{ctx.Locale.Tr "go_back"}}</a>{{end}}
+		{{if .ShowFooterVersion}}<p class="soda-status-version">{{ctx.Locale.Tr "admin.config.app_ver"}}: {{AppVerNoMetadata}}</p>{{end}}
+	</div>
+</div>
+{{template "base/footer" .}}
