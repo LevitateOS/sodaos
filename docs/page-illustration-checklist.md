@@ -18,14 +18,14 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: administrator pages; authentication, Actions and remaining shared callers still require assessment. Track the issue/PR create-button text visibility defect observed in capture-h1PW7Q separately from artwork decisions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: administrator landing page and remaining admin callers; resolve unconditional inherited dashboard artwork before closing the admin batch. Authentication, Actions and remaining shared callers still require assessment. Track the issue/PR create-button text visibility defect observed in capture-h1PW7Q separately from artwork decisions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
 | Status | Template / page entry | Current artwork or caller | Decision / evidence |
 | --- | --- | --- | --- |
-| Pending | [`admin/applications/list.tmpl`](../appliance/forgejo/templates/admin/applications/list.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
-| Pending | [`admin/applications/oauth2_edit.tmpl`](../appliance/forgejo/templates/admin/applications/oauth2_edit.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
+| Integrated — verify | [`admin/applications/list.tmpl`](../appliance/forgejo/templates/admin/applications/list.tmpl) | `admin/layout_head` | Shared OAuth application inventory/create caller reviewed. Do not add another image; current inherited dashboard art needs an explicit page decision after reviewing the admin landing page. Source assessment only; current fixture is non-admin. |
+| Integrated — verify | [`admin/applications/oauth2_edit.tmpl`](../appliance/forgejo/templates/admin/applications/oauth2_edit.tmpl) | `admin/layout_head` | Focused client configuration/credential form should have no decorative art. Current inherited dashboard image must be suppressed before closing this item; leaf reviewed, shared form previously assessed. Source assessment only; current fixture is non-admin. |
 | Pending | [`admin/auth/edit.tmpl`](../appliance/forgejo/templates/admin/auth/edit.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/auth/list.tmpl`](../appliance/forgejo/templates/admin/auth/list.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/auth/new.tmpl`](../appliance/forgejo/templates/admin/auth/new.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
@@ -33,10 +33,10 @@ Next: administrator pages; authentication, Actions and remaining shared callers 
 | Pending | [`admin/cron.tmpl`](../appliance/forgejo/templates/admin/cron.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/dashboard.tmpl`](../appliance/forgejo/templates/admin/dashboard.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/emails/list.tmpl`](../appliance/forgejo/templates/admin/emails/list.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
-| Existing — verify | [`admin/layout_head.tmpl`](../appliance/forgejo/templates/admin/layout_head.tmpl) | `dashboard-papercraft.png` | Not yet reviewed in this goal. |
+| Integrated — verify | [`admin/layout_head.tmpl`](../appliance/forgejo/templates/admin/layout_head.tmpl) | `dashboard-papercraft.png` inherited by every caller | Audit found unconditional home-dashboard artwork across administration, including credential editors and queue diagnostics. Unfinished: review remaining callers, scope artwork to appropriate pages, and suppress it on focused editors/diagnostics. Existing image is not verified as appropriate for this entire layout. |
 | Pending | [`admin/notice.tmpl`](../appliance/forgejo/templates/admin/notice.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
-| Pending | [`admin/queue.tmpl`](../appliance/forgejo/templates/admin/queue.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
-| Pending | [`admin/queue_manage.tmpl`](../appliance/forgejo/templates/admin/queue_manage.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
+| Integrated — verify | [`admin/queue.tmpl`](../appliance/forgejo/templates/admin/queue.tmpl) | `admin/layout_head` | Actual queue types, worker counts and pending counts provide the useful visual information. No decorative art is appropriate; unconditional inherited dashboard image still needs suppression. Full leaf reviewed. Source assessment only; current fixture is non-admin. |
+| Integrated — verify | [`admin/queue_manage.tmpl`](../appliance/forgejo/templates/admin/queue_manage.tmpl) | `admin/layout_head` | Actual queue counts, removal control and maximum-worker form need focused diagnostics. No decorative art is appropriate; unconditional inherited dashboard image still needs suppression. Full leaf reviewed. Source assessment only; current fixture is non-admin. |
 | Pending | [`admin/repo/list.tmpl`](../appliance/forgejo/templates/admin/repo/list.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/self_check.tmpl`](../appliance/forgejo/templates/admin/self_check.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`admin/stacktrace.tmpl`](../appliance/forgejo/templates/admin/stacktrace.tmpl) | `admin/layout_head` | Not yet reviewed in this goal. |
