@@ -844,12 +844,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "070f76c62ae855c7bbe826294195c124ff040909d4fbb06587734740bceb8e39",
+      "beforeRoleHash": "ab6e62812bfa24468c0fdc833ea02c50cebfd8b0a73a1a6b40c476699782fdf4",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "settings-feedback-empty-states-and-actions"
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -858,16 +858,27 @@
       "callers": [
         "custom/explore_empty.tmpl",
         "package/shared/cleanup_rules/list.tmpl",
+        "package/shared/cleanup_rules/preview.tmpl",
         "package/shared/list.tmpl",
         "repo/settings/deploy_keys.tmpl",
         "repo/settings/webhook/base_list.tmpl",
+        "shared/actions/runner_list.tmpl",
         "shared/blocked_users_list.tmpl",
+        "shared/secrets/add_list.tmpl",
+        "shared/variables/variable_list.tmpl",
         "user/dashboard/milestones.tmpl",
         "user/notification/notification_div.tmpl",
         "user/notification/notification_subscriptions.tmpl",
+        "user/settings/access_token_edit.tmpl",
         "user/settings/applications.tmpl",
+        "user/settings/applications_oauth2_list.tmpl",
+        "user/settings/grants_oauth2.tmpl",
+        "user/settings/keys_gpg.tmpl",
+        "user/settings/keys_principal.tmpl",
+        "user/settings/keys_ssh.tmpl",
         "user/settings/organization.tmpl",
-        "user/settings/repos.tmpl"
+        "user/settings/repos.tmpl",
+        "user/settings/security/webauthn.tmpl"
       ],
       "nativeCalls": [],
       "roles": [
@@ -2016,12 +2027,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a071c1f7f10e74df1a035f8e269b06780f6cb0c03641aa8c421ffd3ab0635649",
+      "beforeRoleHash": "70bfe0e651d0b98960b1e6c32d1d84cb867c9717fc1e7819f67394263fdd3188",
       "upstreamCallers": [
         "org/settings/packages_cleanup_rules_preview.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "package/shared/cleanup_rules/preview_body"
       ]
@@ -5117,13 +5128,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "918af3e8f3609df89cac6c2cc9a9fabdaa57985682ab38c50ba5e06352b19f47",
+      "beforeRoleHash": "9f934bfb7a902d8c25b8470c81fad0770a390f202f5748355dbab922aa929de5",
       "upstreamCallers": [
         "admin/hooks.tmpl",
         "repo/settings/webhook/list.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "repo/settings/webhook/base_list_body"
       ]
@@ -5765,12 +5776,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a81ef9b4cea2a5c0a4ce032bf7a1f37562483d2b42ce5ca72ab47cc6eb440c43",
+      "beforeRoleHash": "95163de51d65dc6e46f3addfea9701180b24dfd993a36f4f59fad9e78a36f0cc",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     },
     {
       "template": "shared/actions/runner_setup.tmpl",
@@ -5797,13 +5809,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "03569d874a091fbee14ee6efb0dea829b2d92f88af54b43ff4ee5a7c6997326c",
+      "beforeRoleHash": "6ea080bb22e23c80e7449a19e48ac921983decf138bb10eb8e640346c65e6ab1",
       "upstreamCallers": [
         "admin/runners/setup.tmpl",
         "org/settings/runners_setup.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "shared/actions/runner_setup_body"
       ]
@@ -5912,11 +5924,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3cc76cfaee46cc811a558e0db168aba07aea04a1eff836bb4e51a0ce5e3ca58f",
+      "beforeRoleHash": "51087e394e00e180d69ec0fd9f12b0819346338bf0507b5cc567eca7930df51e",
       "upstreamCallers": [
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     },
     {
       "template": "shared/variables/variable_list.tmpl",
@@ -5951,12 +5964,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f619ed6d73ff4062087e3e74c61e83ad0123593239bc9aab9e13296cbb523542",
+      "beforeRoleHash": "bd582b81f83db4dc9b960dccf7efb2e54dc4c868086367c996032532440c7c7d",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     },
     {
       "template": "status/404.tmpl",
@@ -7072,10 +7086,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4826761db766a04ed34f296e2399924ae4484be74077eb465a75905c437db8a6",
+      "beforeRoleHash": "1f9c373199723624cfa2fbcdc7499dfa8faa2f67eeff74b4eeba6956ced6ba43",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -7152,8 +7166,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "e472bebd78aa4bde0ba4b6e74adb1dcd6fc6406e99124806e6ee7a678782fff0",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "75674b52750235ba070938ff3fffb24983ed6060fe65013cfae95d5a0e8630c2",
       "taskComposition": "native operations"
     },
     {
@@ -7316,12 +7330,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c9911dd789bc737aeeaa0874837fadf51ce9729c76715f975678bae97af787f6",
+      "beforeRoleHash": "57978774ab22720c3dc9269275dbd8ffc0db44aca5993968189d56d3cd96587f",
       "upstreamCallers": [
         "org/settings/applications.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "user/settings/applications_oauth2_list_body"
       ],
@@ -7403,10 +7417,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b46695136242db92d55ca45d84067eaf8e8b3c8028a74e347653e6162c01eb17",
+      "beforeRoleHash": "4b524d0089e485273bf2688970026b071ff06b03d0d1e81c31ef207a4bea26ee",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -7472,8 +7486,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "29aebedafe4d3210e38070f9b14137a191071432a822451695a8d2d88b13402f",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "4baeec7c3e1a826d7072cb79574cbc2654998021ae720d06a7bf12dd17b7018d",
       "taskComposition": "inventory"
     },
     {
@@ -7579,8 +7593,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "79817dbd32d062b04552712a30d326c0e07b0cc8636fdcc06b9fadce15ac0b28",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "50be7820b9de680e7ae522fd041181303b78873639a022fb2fcc17201e4ec166",
       "taskComposition": "inventory"
     },
     {
@@ -7620,8 +7634,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "140401919a7616a204a4d003bce09119d53075c1eae478e2bd7bbf38c171acc4",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "3c365be0b88339617ecfdb3285b7e83602e096a168ec02135d5301f76da19917",
       "taskComposition": "inventory"
     },
     {
@@ -7661,8 +7675,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "settings-feedback-empty-states-and-actions",
-      "beforeRoleHash": "eeac413728b7539155909b47308cc2c0b800f40614ed5434f8f84d8b64604223",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "64d755ae7c202474447bead75c3bbd93a3912021f9da821fc3899377ef984388",
       "taskComposition": "inventory"
     },
     {
@@ -8447,8 +8461,8 @@
         "user/auth/webauthn_error",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "settings-feedback-empty-states-and-actions",
-      "beforeRoleHash": "c8428d445e17a7277763f03c2b63d7831fefe244299692b16e1c87c9fcb75693",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "898e7e7ad92cf5dd273fe6043ea6bdc700fa7360d8d7826e2a49b322a6884809",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8537,7 +8551,8 @@
       ],
       "roles": [
         "soda-p-gap",
-        "soda-webhook-events"
+        "soda-webhook-events",
+        "soda-p-heading"
       ],
       "states": [
         "light",
@@ -8551,7 +8566,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ae8ff65faee65f7c904da0df2e6a0c4e638a786bcf66264c0192f13e22beb56a",
+      "beforeRoleHash": "c7da33a659c28d1e84bc9c2201e91beaa18d35f94c6bf0f58ffd813be10bdb5c",
       "upstreamCallers": [
         "webhook/new/dingtalk.tmpl",
         "webhook/new/discord.tmpl",
@@ -8567,7 +8582,8 @@
         "webhook/new/telegram.tmpl",
         "webhook/new/wechatwork.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     },
     {
       "template": "shared/user/profile_big_avatar.tmpl",

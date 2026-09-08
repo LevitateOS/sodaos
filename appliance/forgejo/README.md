@@ -89,8 +89,8 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
 - `page_intro` requires `TitleID` and `Title`; `Eyebrow`, `Description`, `Artwork`
   and `Class` are optional. `Artwork` is a filename below the Soda Forgejo asset
   directory and is decorative.
-- `empty_content` requires `Title`; `Icon`, `Eyebrow`, `Description` and `TitleID`
-  are optional. The caller decides that the native result is empty, owns the
+- `empty_content` accepts `Title`, `Icon`, `Eyebrow`, `Description` and `TitleID`.
+  Provide a title or descriptive message. The caller decides that the native result is empty, owns the
   `.soda-empty` wrapper and renders any permitted actions.
 - `theme_toggle` accepts an optional `Class`. It preserves the single hidden
   `#soda-theme-toggle` hook used by the guest-theme script.
@@ -595,6 +595,10 @@ another inset. `account-settings.css` owns this layout; shared form styles own
 only the vertical heading spacing and must not reset its inline alignment.
 The native browser check enumerates every permitted settings-menu destination,
 verifying the inset, heading alignment and overflow instead of sampling three pages.
+Shared native section headers, including nested headers, and form legends use
+the same 24px heading token at every width. Disclosure summaries use the shared
+button typography. Icon inputs reserve 40px on the icon side; ordinary field
+padding must not override native icon clearance.
 
 
 Static guidance uses native `ui info message` / `ui warning message` with the
@@ -611,6 +615,18 @@ headings, stacking below on mobile; page-level actions use a left-aligned toolba
 Submissions follow their fields and guidance, including all four Appearance saves
 and Cargo/Chef actions. Native absolutely positioned header actions are returned
 to normal flow within personal settings to prevent narrow-screen overlap.
+
+Key, WebAuthn, authorized/owned OAuth and token repository-selection inventories
+use the same compact empty-state role. State the absence explicitly; when native
+copy only explains the inventory, use the existing localized “No results” title
+above that guidance. Empty authorized OAuth content must not
+claim that access has already been granted. Personal Actions secrets, variables
+and runners opt in through explicit context adapters; other callers retain their
+native empty branches. Runner setup's last-chance credential guidance is a static
+warning in personal settings. An empty personal cleanup preview omits its blank
+heading and table, while populated and nonpersonal previews remain native.
+Personal webhook event groups use open fieldsets with their native legends and
+controls, without nested decorative boxes.
 
 Cargo's pinned English description is split into its context and consequence
 sentences, shown as separate info/warning notices before submission. Other locales

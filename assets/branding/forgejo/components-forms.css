@@ -120,9 +120,13 @@
     box-shadow: none;
   }
 
-  & input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search) {
+  & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search)) {
     padding: 8px 12px;
   }
+
+  /* Reserve native inline-icon space after applying standard field padding. */
+  & .ui.icon.input:not(.left) > input { padding-inline-end: 40px; }
+  & .ui.left.icon.input > input { padding-inline-start: 40px; }
 
   & select { padding: 8px 12px; }
 
@@ -182,9 +186,6 @@
       padding: 0;
     }
 
-    & .soda-form-section > legend {
-      font-size: 21px;
-    }
 
     & .primary.button {
       width: 100%;

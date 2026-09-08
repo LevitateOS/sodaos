@@ -77,7 +77,7 @@ func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
 			page = strings.Replace(page, `{{if not $personal}}{{.Title}}{{end}}`, `{{.Title}}`, 1)
 			page = strings.Replace(page, `{{if $personal}}<div class="soda-toolbar soda-settings-inventory-actions">{{else}}<h4 class="ui top attached header">{{end}}`, `<h4 class="ui top attached header">`, 1)
 			page = strings.Replace(page, `{{if $personal}}</div>{{else}}</h4>{{end}}`, `</h4>`, 1)
-			page = strings.Replace(page, `{{if and $personal (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Description" .Description}}</div>{{else}}`, ``, 1)
+			page = strings.Replace(page, `{{if and $personal (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" .Description}}</div>{{else}}`, ``, 1)
 			page = strings.Replace(page, "</div>{{end}}", "</div>", 1)
 		}
 
@@ -158,6 +158,16 @@ func TestForgejoSharedRunnerDetailsRetain1507Source(t *testing.T) {
 				recovered = strings.Replace(recovered, `{{if not $personal}}{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}{{end}}`, `{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}`, 1)
 				recovered = strings.Replace(recovered, `{{if not $personal}}`, "", 1)
 				recovered = strings.Replace(recovered, `</h4>{{end}}`, `</h4>`, 1)
+			}
+			if name == "runner_list.tmpl" {
+				recovered = strings.Replace(recovered, `{{if $personal}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-play" "Title" (ctx.Locale.Tr "actions.runners.none")}}</div>{{else}}<div class="tw-flex tw-p-4">
+			{{ctx.Locale.Tr "actions.runners.none"}}
+		</div>{{end}}`, `<div class="tw-flex tw-p-4">
+			{{ctx.Locale.Tr "actions.runners.none"}}
+		</div>`, 1)
+			}
+			if name == "runner_setup.tmpl" {
+				recovered = strings.Replace(recovered, `<p{{if $personal}} class="ui warning message soda-notice"{{end}}>`, `<p>`, 1)
 			}
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(recovered)))
 			if got != upstreamHash {

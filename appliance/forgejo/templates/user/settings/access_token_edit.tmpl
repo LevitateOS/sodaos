@@ -58,7 +58,7 @@
 						</div>
 
 						{{if eq (len .Repos) 0}}
-							{{ctx.Locale.Tr "settings.access_token.no_repositories_found"}}
+							<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-repo" "Description" (ctx.Locale.Tr "settings.access_token.no_repositories_found")}}</div>
 						{{else}}
 							<div class="tw-grid tw-items-center" style="grid-template-columns: min-content 1fr min-content;">
 								{{range .Repos}}
@@ -118,9 +118,7 @@
 					<div class="tw-flex-1">
 						<h5>{{ctx.Locale.TrPluralString (len .SelectedRepos) "settings.access_token.selected_repositories" (len .SelectedRepos)}}</h5>
 						{{if eq (len .SelectedRepos) 0}}
-							<div class="tw-my-2">
-								{{ctx.Locale.Tr "settings.access_token.no_repositories_selected"}}
-							</div>
+							<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-repo" "Description" (ctx.Locale.Tr "settings.access_token.no_repositories_selected")}}</div>
 						{{else}}
 							<div class="tw-grid tw-items-center tw-auto-rows-min" style="grid-template-columns: min-content 1fr min-content;">
 								{{range .SelectedRepos}}
@@ -143,9 +141,7 @@
 				<label>
 					{{ctx.Locale.Tr "settings.select_permissions"}}
 				</label>
-				<p class="activity meta">
-					<p>{{ctx.Locale.Tr "settings.access_token_desc" (printf "%s/api/swagger" AppSubUrl) "https://forgejo.org/docs/latest/user/token-scope/"}}</p>
-				</p>
+				<p class="activity meta">{{ctx.Locale.Tr "settings.access_token_desc" (printf "%s/api/swagger" AppSubUrl) "https://forgejo.org/docs/latest/user/token-scope/"}}</p>
 
 				{{range .Categories}}
 					<div class="field tw-pl-1 tw-pb-1 access-token-category">

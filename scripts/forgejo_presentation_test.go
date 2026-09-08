@@ -17,7 +17,7 @@ func TestForgejoPresentationGallery(t *testing.T) {
 	}
 	header := readForgejoTemplate(t, "custom/header.tmpl")
 	links := regexp.MustCompile(`<link[^>]+>`).FindAllString(header, -1)
-	registry := strings.ReplaceAll(strings.Join(links, "\n"), "{{AssetUrlPrefix}}", "http://localhost:3300/assets")
+	registry := strings.NewReplacer("{{AssetUrlPrefix}}", "http://localhost:3300/assets", "{{AppSubUrl}}", "http://localhost:3300").Replace(strings.Join(links, "\n"))
 	fixtures, err := os.ReadFile("../tests/forgejo/presentation/gallery.tmpl")
 	if err != nil {
 		t.Fatal(err)

@@ -4,7 +4,7 @@
 <div class="soda-settings-section-body">
 	{{template "user/auth/webauthn_error" .}}
 	<div class="flex-list">
-{{if not .WebAuthnCredentials}}<p>{{ctx.Locale.Tr "settings.webauthn"}}: 0</p>{{end}}
+{{if not .WebAuthnCredentials}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>{{end}}
 		{{range .WebAuthnCredentials}}
 			<div class="flex-item">
 				<div class="flex-item-leading">

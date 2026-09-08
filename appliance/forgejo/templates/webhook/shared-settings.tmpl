@@ -2,7 +2,7 @@
 {{$isNew:=or .PageIsSettingsHooksNew .PageIsAdminDefaultHooksNew .PageIsAdminSystemHooksNew}}
 <div class="field">
 	<fieldset class="event type soda-webhook-events">
-		<legend>{{ctx.Locale.Tr "repo.settings.event_desc"}}</legend>
+		<legend class="soda-p-heading">{{ctx.Locale.Tr "repo.settings.event_desc"}}</legend>
 		<label>
 			<input name="events" type="radio" value="push_only" {{if or $isNew .Webhook.PushOnly}}checked{{end}}>
 			{{ctx.Locale.Tr "repo.settings.event_push_only"}}

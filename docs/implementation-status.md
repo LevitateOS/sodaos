@@ -1,5 +1,46 @@
 # Current handoff
 
+## Personal settings consistency review
+
+Local revision `2026-09-08.26` consolidates native and nested section headings on
+the shared 24px token at every width, retaining the 40px body inset and 44px
+controls. Shared form padding now preserves inline search-icon clearance.
+Disclosure summaries use button typography. Personal webhook event fieldsets are
+open, with the main legend aligned to the section-heading column.
+
+SSH/GPG/principal, WebAuthn, authorized/owned OAuth and token repository-selector
+empty inventories now use shared empty-state presentation. Generic explanatory
+copy is accompanied by an explicit localized empty-result title; empty authorized
+OAuth no longer claims access has been granted. Personal Actions secrets,
+variables and runners select the same treatment through explicit context
+adapters, preserving other shared callers. Runner setup's last-chance credential
+guidance becomes a personal-settings warning. Empty personal cleanup previews
+omit their blank heading and empty table. Native controls, populated branches,
+form handlers, capability gates and submission boundaries remain intact.
+
+Go Forgejo source checks passed. The final component/gallery/repository-container
+run passed 26 checks; the native personal-settings suite passed 11, enumerating
+all 11 permitted destinations at 1440/390/320px and exercising navigation across
+the 900px transition, avatar focus/fallback, key/password editors, empty notices,
+token repository selection and custom webhook events. The three settings source
+contract checks and embedded native caller inventory check pass. All 229 inventory
+entries were inspected for hash mismatches: only the previously recorded merged
+`custom/footer.tmpl` mismatch remains, so the full inventory suite is still not
+green. Changed templates have reviewed hashes and caller mappings.
+
+Verified full-page native screenshots for all 11 landing pages and three child
+editors are in `.artifacts/settings-consistency-pass/release-desktop/` (dark,
+1440×1000) and `release-mobile/` (light, 390×844). Visual review covered the full
+pages, with an independent desktop review. Earlier directories contain interim
+captures. The production-derived gallery was regenerated separately; its registry
+renderer now resolves both native asset URL prefixes. Evidence is local-only.
+
+Actions/Storage, enrolled/mandatory factors, providers, populated credentials,
+existing cleanup-rule previews and mutation/error submission journeys remain
+access- or mutation-dependent native coverage gaps. No resources, credentials or
+preferences were created/changed to manufacture coverage. Activation used native
+template reloads in `sodaos-local-forgejo`; no service restart or appliance rollout.
+
 ## Settings feedback, empty inventories and action placement
 
 Revision `2026-09-08.23` presents SSH-disabled guidance as info, recovery/key-loss

@@ -98,6 +98,44 @@ func TestForgejoPersonalAdaptersKeepNativeRootContext(t *testing.T) {
 	}
 }
 
+func TestForgejoPersonalActionsUseScopedEmptyStatesAndWarning(t *testing.T) {
+	personalActions := readForgejoTemplate(t, "user/settings/actions.tmpl")
+	for _, call := range []string{
+		`{{template "shared/secrets/add_list" (dict "PersonalSettings" true "ctxData" .)}}`,
+		`{{template "shared/actions/runner_list" (dict "PersonalSettings" true "ctxData" .)}}`,
+		`{{template "shared/variables/variable_list" (dict "PersonalSettings" true "ctxData" .)}}`,
+	} {
+		if !strings.Contains(personalActions, call) {
+			t.Errorf("personal Actions caller lacks scoped adapter %q", call)
+		}
+	}
+
+	for _, fixture := range []struct {
+		path, body, empty string
+	}{
+		{"shared/secrets/add_list.tmpl", "shared/secrets/add_list_body", `ctx.Locale.Tr "secrets.none"`},
+		{"shared/actions/runner_list.tmpl", "shared/actions/runner_list_body", `ctx.Locale.Tr "actions.runners.none"`},
+		{"shared/variables/variable_list.tmpl", "shared/variables/variable_list_body", `ctx.Locale.Tr "actions.variables.none"`},
+	} {
+		source := readForgejoTemplate(t, fixture.path)
+		for _, marker := range []string{
+			`{{if .PersonalSettings}}`,
+			`{{define "` + fixture.body + `"}}`,
+			`{{if $personal}}<div class="soda-empty soda-empty--compact">`,
+			fixture.empty,
+		} {
+			if !strings.Contains(source, marker) {
+				t.Errorf("%s lacks personal-only empty-state marker %q", fixture.path, marker)
+			}
+		}
+	}
+
+	runnerSetup := readForgejoTemplate(t, "shared/actions/runner_setup.tmpl")
+	if !strings.Contains(runnerSetup, `<p{{if $personal}} class="ui warning message soda-notice"{{end}}>{{ctx.Locale.Tr "actions.runners.runner_setup.last_chance_copying_token"}}</p>`) {
+		t.Error("personal runner setup lacks its static last-chance warning")
+	}
+}
+
 type forgejoSettingsFixtureLocale struct{}
 
 func (forgejoSettingsFixtureLocale) Tr(key string, args ...any) string { return key }

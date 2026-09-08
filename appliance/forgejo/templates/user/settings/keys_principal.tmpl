@@ -12,9 +12,9 @@
 	</h2>
 	<div class="ui attached segment soda-p-section">
 		<div class="flex-list">
-			<div class="flex-item">
+			{{if not .Principals}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" (ctx.Locale.Tr "settings.principal_desc")}}</div>{{else}}<div class="flex-item">
 				{{ctx.Locale.Tr "settings.principal_desc"}}
-			</div>
+			</div>{{end}}
 			{{range .Principals}}
 				<div class="flex-item">
 					<div class="flex-item-leading">

@@ -11,7 +11,7 @@
 {{if $personal}}</div>{{else}}</h4>{{end}}
 <div class="ui attached segment soda-webhook-list soda-p-section">
 	<div class="ui list">
-		{{if and $personal (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Description" .Description}}</div>{{else}}<div class="item">
+		{{if and $personal (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" .Description}}</div>{{else}}<div class="item">
 			{{.Description}}
 		</div>{{end}}
 		{{range .Webhooks}}

@@ -22,6 +22,17 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
     }
 
+    await t.test('native form icons retain clearance and section headings share type', async () => {
+      for (const theme of ['light','dark']) for (const width of [1440,390,320]) {
+        await page.setViewportSize({width,height:1000});
+        await render(`<main class="soda-page soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,theme);
+        for (const heading of await page.locator('h4,legend').all()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px');
+        assert.equal(await page.locator('.left.input input').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px');
+        assert.equal(await page.locator('.input:not(.left) input').evaluate(el=>getComputedStyle(el).paddingInlineEnd),'40px');
+      }
+      await page.setViewportSize({width:1654,height:1000});
+    });
+
     await t.test('static guidance inside forms is visible without exposing validation messages', async () => {
       for (const theme of ['light','dark']) {
         await render(`<main class="soda-page"><div class="ui form"><div class="ui info message soda-notice">Context</div><div class="ui warning message soda-notice">Consequences</div><div class="ui error message">Inactive validation</div></div></main>`,theme);

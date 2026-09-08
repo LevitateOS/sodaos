@@ -1,4 +1,6 @@
 {{/* Adapted from Forgejo 15.0.7 templates/shared/variables/variable_list.tmpl (GPL-3.0-or-later); upstream SHA-256 53adaccdeba06289d589f2d0da64e1acc382febd598c84043305302c7e88091d. Presentation changes only. */}}
+{{if .PersonalSettings}}{{template "shared/variables/variable_list_body" .}}{{else}}{{template "shared/variables/variable_list_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/variables/variable_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <h4 class="ui top attached header soda-config-heading soda-p-heading">
 	{{ctx.Locale.Tr "actions.variables.management"}}
 	<div class="ui right">
@@ -55,7 +57,7 @@
 		{{end}}
 	</div>
 	{{else}}
-		{{ctx.Locale.Tr "actions.variables.none"}}
+		{{if $personal}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-pencil" "Title" (ctx.Locale.Tr "actions.variables.none")}}</div>{{else}}{{ctx.Locale.Tr "actions.variables.none"}}{{end}}
 	{{end}}
 </div>
 
@@ -90,3 +92,4 @@
 	</form>
 </div>
 
+{{end}}{{end}}

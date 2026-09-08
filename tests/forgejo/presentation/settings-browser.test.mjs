@@ -75,7 +75,10 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     assert.equal(response.status(),200);assert.equal(new URL(page.url()).pathname,path);
     assert.equal(await page.locator('.user-setting-content').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px',path);
     for (const heading of await page.locator('.user-setting-content :is(.soda-settings-section > h2,.soda-settings-inventory-heading,.soda-p-heading,.ui.top.attached.header,.soda-profile-editor legend,.soda-form-section > legend)').all()) {
-     if (await heading.isVisible()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px',path);
+     if (await heading.isVisible()) {
+      assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px',path);
+      assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px',path+' section heading type');
+     }
     }
     for (const actions of await page.locator('.user-setting-content :is(.soda-settings-inventory-heading,.ui.top.attached.header) > .ui.right').all()) {
      if (await actions.isVisible()) assert.equal(await actions.evaluate(el=>getComputedStyle(el).position),'static',path+' heading actions must remain in flow');
@@ -87,12 +90,34 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
   for (const [path,selector,count] of [
    ['keys','.ui.info.message',1], ['security','.ui.warning.message',2],
    ['packages','.ui.info.message',1], ['packages','.ui.warning.message',1],
-   ['applications','.soda-empty--compact',1], ['hooks','.soda-empty--page',1],
+   ['applications','.soda-empty--compact',3], ['hooks','.soda-empty--page',1],
    ['organization','.soda-empty--page',1], ['repos','.soda-empty--page',1],
   ]) {
    await page.goto(origin+'/user/settings/'+path);
    assert.equal(await page.locator(selector).count(),count,path);
    for (const message of await page.locator(selector).all()) assert(await message.isVisible(),path);
+   for (const state of await page.locator('.soda-empty').all()) {
+    assert(await state.locator('.soda-empty-title').isVisible(),path+' must state that the inventory is empty');
+   }
+  }
+  for (const width of [1440,390,320]) {
+   await page.setViewportSize({width,height:1000});
+   let response=await page.goto(origin+'/user/settings/applications/tokens/new?resource=repo-specific');
+   assert.equal(response.status(),200);
+   assert(await page.locator('#repo-selector-wrapper').isVisible());
+   assert.equal(await page.locator('#repo-selector .soda-empty--compact').count(),2);
+   assert.equal(await page.locator('.activity.meta').count(),1);
+   assert((await page.locator('.activity.meta').innerText()).length>0);
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+   response=await page.goto(origin+'/user/settings/hooks/forgejo/new');
+   assert.equal(response.status(),200);
+   await page.locator('input[name="events"][value="choose_events"]').check();
+   assert.equal(await page.locator('.soda-webhook-events').evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
+   assert.equal(await page.locator('.soda-webhook-events > legend').evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px');
+   for (const group of await page.locator('.soda-webhook-events .simple-grid').all()) {
+    if(await group.isVisible()) assert.equal(await group.evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
+   }
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   }
   await page.goto(origin+'/user/settings/account#password');await page.waitForSelector('[data-settings-editor][open]');assert(await page.locator('#old_password').isVisible());
   await page.goto(origin+'/user/settings/keys');await page.locator('#add-ssh-button').click();await page.waitForSelector('#add-ssh-key-panel:visible');
