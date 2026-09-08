@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: team creation/edit and invitation pages; inspect their distinct form states. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization project list, creation/edit and board pages; inspect their separate planning workflows. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -67,9 +67,9 @@ Next: team creation/edit and invitation pages; inspect their distinct form state
 | Pending | [`org/projects/new.tmpl`](../appliance/forgejo/templates/org/projects/new.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`org/settings/layout_head.tmpl`](../appliance/forgejo/templates/org/settings/layout_head.tmpl) | `org/header` | Registry/cleanup callers assessed; remaining settings routes explicitly queued below. No shared artwork decision imposed on callers. |
-| Pending | [`org/team/invite.tmpl`](../appliance/forgejo/templates/org/team/invite.tmpl) | — | Not yet reviewed in this goal. |
+| No image | [`org/team/invite.tmpl`](../appliance/forgejo/templates/org/team/invite.tmpl) | Real organization avatar | Invitation card identifies organization, team and inviter before the join action; decoration could imply already-confirmed membership. Full template source reviewed; no invitation available for native capture. |
 | No image | [`org/team/members.tmpl`](../appliance/forgejo/templates/org/team/members.tmpl) | `org/header` | Actual member identities, owner controls and pending invitations take priority. Source-reviewed. |
-| Pending | [`org/team/new.tmpl`](../appliance/forgejo/templates/org/team/new.tmpl) | `org/header` | Not yet reviewed in this goal. |
+| Integrated — verify | [`org/team/new.tmpl`](../appliance/forgejo/templates/org/team/new.tmpl) | `new-team-papercraft.png` on creation only | Robot assembles member cards in a shared holder. Edit/Owners-team permission forms need no illustration. Native capture pending existing accessible organization. |
 | No image | [`org/team/repositories.tmpl`](../appliance/forgejo/templates/org/team/repositories.tmpl) | `org/header` | Exact repository membership and bulk access controls take priority. Source-reviewed. |
 | No image | [`org/team/teams.tmpl`](../appliance/forgejo/templates/org/team/teams.tmpl) | `org/header` | Team cards already show real members and counts; no added header art. Source-reviewed. |
 | No image | [`package/settings.tmpl`](../appliance/forgejo/templates/package/settings.tmpl) | `org/header`, `user/overview/header` | Repository association and version deletion need package identity and clear warnings, not a decorative header; both owner branches source-reviewed. |
@@ -579,3 +579,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Team list: no additional artwork. Real member avatars, team names and member/repository counts define each card; owner create/join and member leave actions remain clear. Team members: no decoration beside actual identities, owner-only add/remove controls, last-owner protection and pending email invitations. Team repositories: no decoration beside exact access membership, owner-only search/add/remove and all-repository restrictions.
 - Leave/remove confirmations and add-all/remove-all repository dialogs remain text/action focused with no independent image. Empty lists keep their native feedback.
 - Source-based decisions only. No organization/team fixture, invitation, membership or repository association changed. Native team screenshots remain unavailable; no source changes/tests required. Creation/edit and invitation pages remain pending separately.
+
+## Team creation and invitation assessment
+
+New-team creation gets its own member-card assembly scene, recorded in [new-team-art-prompt.md](../assets/branding/forgejo/new-team-art-prompt.md). The `PageIsOrgTeamsNew` branch supplies artwork to the existing intro; edit and protected Owners-team forms receive none. All repository scope, administrative/general access, unit permission matrix, disabled units, update/delete controls and native form markup remain intact. The source parity/parse test and shared presentation boundary test passed. Selected PNG was visually inspected and has RGBA transparency. Native organization screenshots remain pending; no organization or invitation was created. Invitation uses its real organization avatar and explicit join action without decorative art.

@@ -2,7 +2,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content organization new team soda-page soda-org-details" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{template "org/header" .}}
-	<div class="ui container soda-page-container soda-org-details-intro">{{template "custom/soda/page_intro" dict "TitleID" "soda-org-detail-title" "Title" .Title "Class" "soda-page-intro--compact"}}</div>
+	<div class="ui container soda-page-container soda-org-details-intro">{{$artwork := ""}}{{if .PageIsOrgTeamsNew}}{{$artwork = "new-team-papercraft.png"}}{{end}}{{template "custom/soda/page_intro" dict "TitleID" "soda-org-detail-title" "Title" .Title "Class" "soda-page-intro--compact" "Artwork" $artwork}}</div>
 	<div class="ui container">
 		<div class="ui grid">
 			<div class="column">

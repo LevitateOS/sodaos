@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+Team creation now has a distinct transparent member-card illustration, gated to the creation state. Editing permissions and invitation acceptance retain focused native content. Native markup parity/parse and shared presentation tests passed; organization screenshots remain pending an accessible existing organization. The checklist advances to organization projects.
+
 The [per-page checklist](page-illustration-checklist.md) inventories 206 current
 overrides/helpers and tracks shared-template page variants separately. Migration,
 fork, 404, discussion subscriptions and watched repositories now have distinct
