@@ -9,7 +9,7 @@
 .soda-notifications .notifications-top-row { color:var(--soda-page-muted); font:400 12px/1.6 "IBM Plex Mono",monospace; }
 .soda-notifications .notifications-bottom-row { color:var(--soda-page-text); font:600 18px/1.5 Barlow,sans-serif; }
 .soda-notifications .notifications-updated { color:var(--soda-page-muted); font:400 13px/1.5 Barlow,sans-serif; }
-.soda-notifications .notifications-buttons button { width:40px; height:40px; border-radius:9px; color:var(--soda-page-muted); }
+.soda-notifications .notifications-buttons button { width:44px; height:44px; border-radius:var(--soda-button-radius); color:var(--soda-page-muted); }
 .soda-notifications .notifications-buttons button:hover { background:var(--soda-page-canvas); color:var(--soda-page-link); }
 .soda-notifications .ui.tab.segment { padding:0; background:transparent; border:0; box-shadow:none; }
 /* Keep available row actions discoverable without requiring hover. */

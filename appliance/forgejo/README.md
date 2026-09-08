@@ -443,8 +443,9 @@ or `soda-p-title` on headings, `soda-p-section` on open sections, and
 attributes. Existing `soda-form`, `soda-toolbar`, `soda-list` and `soda-empty`
 contracts remain valid; do not add a second implementation of them.
 
-Spacing uses 4/8/12/16/24/32px. Inputs retain an 8px radius; buttons use a 6px radius and 500-weight 14px labels, with 44px standard,
-36px compact and 40px icon targets (44px for coarse pointers). Internal edges
+Spacing uses 4/8/12/16/24/32px. Inputs retain an 8px radius; buttons use a 6px
+radius and 600-weight 14px labels. Standard, compact and icon actions all use
+44px targets, including native mini/tiny/small classes. Internal edges
 of joined repository controls are square even when a native modal lies between
 the action and count. Page and section typography use shared font tokens with
 the existing Fraunces, Barlow and IBM Plex Mono families. Ordinary content is
@@ -505,8 +506,8 @@ locale keys; native controls and warnings retain native translations.
 and the 900px transition. `account-details.css` owns the portrait/editor grid,
 preference rows and credential/editor compositions. Shared presentation owns
 fonts, spacing and control roles. `soda-p-form` explicitly styles nested native
-principal forms; `soda-p-control` and `soda-p-compact` provide 44px and 36px action
-sizes without removing native behavior classes. Native enforced container width
+principal forms; `soda-p-control` and `soda-p-compact` retain their presentation
+roles with the same shared 44px action size, preserving native behavior classes. Native enforced container width
 and max-width require two documented `!important` rules here to prevent double
 gutters; the shell uses 1120px usable content plus 24px desktop / 16px mobile gutters.
 
@@ -548,9 +549,20 @@ API and native locale catalogs remain upstream-owned. The attributed
 `shared/user/profile_big_avatar` override changes only that display fragment.
 
 
-The shared button design uses transparent neutral surfaces with fine borders,
-Soda blue for primary actions, 12px horizontal padding and no decorative shadow.
-Introductory/empty actions, principal forms, repository toolbars and native basic
-buttons use the same button tokens. Native semantic danger/success variants and
-loading/disabled behavior remain intact. The native overflow-menu trigger is
-excluded from generic sizing because its own measurement controls tab overflow.
+The selected C — Tonal design uses tinted primary surfaces with blue text and
+fine blue borders, transparent neutral actions, and 14px horizontal padding with
+no decorative shadow. Button-local tokens preserve the canonical page palette.
+`components-buttons.css` owns appearance and dimensions for introductory/empty
+actions, principal forms, repository toolbars and native basic buttons. Bounded
+`!important` height, padding and font declarations defeat native mini/tiny/small,
+compact and utility size rules; page-family CSS must not redefine those sizes.
+Native explicit danger/success variants and loading/disabled behavior remain
+intact. Soda danger actions use red text with a tinted hover surface.
+
+Icons, joined count labels, native overflow triggers and adjoining single-value
+inputs share the 44px height. Principal-form single-value fields also align at
+44px; textareas and multiple-selection controls retain growing content areas.
+Native joined internal edges stay square. Explore's desktop tab allowance is
+448px to accommodate the 44px overflow trigger; native tab measurement and menu
+behavior remain intact. The 320px header retains the canonical 128px logo with
+44px mobile actions and reduced gaps instead of undersized targets.

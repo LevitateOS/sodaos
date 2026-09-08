@@ -89,14 +89,6 @@
   margin-left: auto;
 }
 
-.soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
-  min-height: 36px;
-  border-color: var(--soda-page-edge);
-  border-radius: var(--soda-button-radius);
-  background: var(--soda-page-surface);
-  color: var(--soda-page-text);
-  box-shadow: none;
-}
 
 /* Native controls enforce their radius with !important. Fork may place its
    dialog between the action and counter, so target the labeled group itself. */
@@ -105,10 +97,6 @@
   border-bottom-right-radius: 0 !important;
 }
 
-.soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow):hover {
-  border-color: var(--soda-page-link);
-  color: var(--soda-page-link);
-}
 
 .soda-repository-header .fork-flag {
   margin: -12px 0 16px;

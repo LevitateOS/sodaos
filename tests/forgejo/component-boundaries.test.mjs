@@ -76,12 +76,23 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           const style=await page.locator('#'+id).evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderTopLeftRadius,font:getComputedStyle(el).fontSize}));
           assert.equal(style.height,44);assert.equal(style.radius,'6px');assert.equal(style.font,'14px');
         }
-        assert.equal(await page.locator('#compact').evaluate(el=>el.getBoundingClientRect().height),36);
+        assert.equal(await page.locator('#compact').evaluate(el=>el.getBoundingClientRect().height),44);
         for (const id of ['neutral','basic-neutral']) assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
         await page.locator('#neutral').hover();
         await page.waitForFunction(()=>getComputedStyle(document.querySelector('#neutral')).backgroundColor!=='rgba(0, 0, 0, 0)');
         assert.equal(await page.locator('#joined-first').evaluate(el=>getComputedStyle(el).borderTopRightRadius),'0px');
         assert.equal(await page.locator('#joined-last').evaluate(el=>getComputedStyle(el).borderTopLeftRadius),'0px');
+      }
+    });
+
+    await t.test('native size classes and adjoining inputs share the selected 44px size', async () => {
+      const variants=['ui mini button','ui tiny button','ui small compact button','ui basic button','button secondary','btn','ui icon button','soda-p-compact ui button','soda-icon-action'];
+      for (const theme of ['light','dark']) {
+        await render(`<main class="soda-page soda-settings">${variants.map((cls,i)=>`<button id="size-${i}" class="${cls}">Action</button>`).join('')}<form class="ui form soda-p-form"><input id="single-value"><div id="single-selection" class="ui selection dropdown"><span class="text">English</span></div></form><div class="ui labeled button"><button id="watch" class="ui tiny button">Watch</button><a id="counter" class="ui basic label">24</a></div></main>`,theme);
+        for (const el of await page.locator('[id]').all()) {
+          assert.equal(await el.evaluate(e=>e.getBoundingClientRect().height),44,await el.getAttribute('id'));
+        }
+        for (const el of await page.locator('button').all()) assert.equal(await el.evaluate(e=>getComputedStyle(e).fontSize),'14px');
       }
     });
 
@@ -161,7 +172,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     await t.test('primary action colors preserve native button states in both themes', async () => {
       for (const theme of ['light', 'dark']) {
         await render(`<main class="soda-page">
-          <div id="action-color" style="background:var(--soda-page-action)"></div>
+          <div id="action-color" style="background:var(--soda-button-primary-bg)"></div>
           <div id="red-color" style="background:var(--color-red)"></div>
           <div id="green-color" style="background:var(--color-green)"></div>
           <div id="transparent-color" style="background:transparent"></div>
@@ -193,7 +204,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
             }];
           })));
         for (const id of ['settings-primary', 'form-primary', 'repository-primary', 'tiny-primary', 'disabled-primary', 'loading-primary']) {
-          assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the Soda action color`);
+          assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the selected tonal primary`);
         }
         assert.equal(states['anchor-primary'].color, states['form-primary'].color, 'primary anchor text remains legible');
         assert.notEqual(states['anchor-primary'].color, states['anchor-primary'].background);
@@ -205,8 +216,8 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         assert.equal(states['loading-primary'].cursor, 'default');
         assert.equal(states['red-primary'].background, states['red-color'].background);
         assert.equal(states['positive-primary'].background, states['green-color'].background);
-        assert.equal(states['basic-primary'].background, states['transparent-color'].background);
-        assert.notEqual(states['basic-primary'].background, states['action-color'].background);
+        assert.equal(states['basic-primary'].background, states['action-color'].background);
+        assert.notEqual(states['basic-primary'].color, states['basic-primary'].background);
       }
     });
 
@@ -217,7 +228,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           <div class="actions button-row"><button id="shared-follow" class="primary button">Follow</button></div>
         </div></aside>
         <div id="profile-surface" style="background:var(--soda-page-surface)"></div>
-        <div id="profile-action" style="background:var(--soda-page-action)"></div>
+        <div id="profile-action" style="background:var(--soda-button-primary-bg)"></div>
       </div>`);
       const colors = await page.evaluate(() => Object.fromEntries(
         [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).backgroundColor])));

@@ -1,26 +1,36 @@
 # Current handoff
 
-## Shared button redesign
+## Selected tonal buttons — uniform 44px sizing
 
-Local presentation `2026-09-08.16` uses a shared button stylesheet and tokens:
-6px corners, 14px medium-weight labels, tighter horizontal padding and transparent
-neutral surfaces. Primary actions retain Soda blue; native danger/success,
-loading, disabled and selected behavior remains. Forms, toolbars and introductory
-page actions now share these tokens; competing repository-wide primary/basic
-adapters and pill/shadow treatments were removed. Input radii remain 8px and
-native joined edges stay square. Native overflow-menu trigger sizing is excluded
-because Forgejo measures that control to place tabs.
+Local presentation `2026-09-08.17` implements the user's selected C — Tonal,
+44px design, superseding revision .16's mixed sizes. Primary actions use tinted
+surfaces and blue text; neutral actions are open. Shared buttons use 6px corners,
+600-weight 14px labels and 14px horizontal padding. Native mini/tiny/small/compact
+classes, icon actions, count labels and adjoining single-value controls all align
+at 44px. Competing form, repository, home and administration button declarations
+were removed. Native semantic colors, loading/disabled behavior and joined edges
+remain. Single-value principal-form fields align with actions; multiline and
+multiple-selection controls retain growing areas. The narrow header now fits
+44px targets at 320px without shrinking the canonical logo.
 
-The Go Forgejo checks passed. The broad browser run passed 39 checks (two native
-session tests deliberately skipped); the separate settings run passed eleven.
-Final targeted component checks passed eleven, including native basic buttons,
-primary/neutral type and dimensions, joined edges and semantic/loading/disabled
-states. The gallery now includes a button reference using the production registry.
-Native Appearance, repository toolbar and Keys captures were reviewed in dark
-desktop and light mobile under `.artifacts/button-redesign/`; component images
-`buttons-{light,dark}.png` are fixtures, not real routes. Conditional admin/provider
-and mutation journeys remain outside this read-only review. No preferences or
-account data were submitted, and no appliance rollout occurred.
+Go Forgejo source checks passed. The full browser suite passed 39 checks with two
+opt-in native session tests skipped; the dedicated native settings suite passed
+11, including menu navigation, avatar dialog/focus and no-JavaScript behavior.
+The final focused component suite passed 12 checks, including the additional
+native-size and adjoining-input assertion. A read-only native audit recorded
+1,298 control measurements across 13 routes, light/dark and 1440/900/390/320px
+(104 page states), with no size failures, horizontal overflow or browser errors.
+
+Final verified real-route captures are under `.artifacts/tonal44/release-desktop/`
+and `release-mobile/`: Appearance, repository code, issue creation, Keys and
+Explore. Representative final desktop/mobile captures were visually reviewed.
+The production-derived gallery remains `.artifacts/forgejo-presentation/`;
+`.artifacts/button-options/` is the separate design-choice comparison, not native
+route evidence. Check logs and dimensional evidence are in `.artifacts/tonal44/`.
+Admin/provider/conditional and populated credential states, long translations
+and submission journeys remain unverified natively. No account data or preferences
+were submitted. Activation used local template reloads only; no container restart
+or appliance rollout occurred.
 
 ## Pronouns removed from Soda presentation
 

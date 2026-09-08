@@ -20,15 +20,20 @@ body:has(.soda-page, .soda-page-marker, .soda-login) {
   --soda-control-height: 44px;
   --soda-control-radius: 8px;
   --soda-button-radius: 6px;
-  --soda-font-button: 500 14px/20px Barlow, Arial, sans-serif;
+  --soda-button-primary-text: light-dark(var(--soda-light-link), #85b6ff);
+  --soda-button-primary-bg: var(--soda-page-selected);
+  --soda-button-primary-border: color-mix(in srgb, var(--soda-button-primary-text) 45%, transparent);
+  --soda-button-primary-hover: color-mix(in srgb, var(--soda-button-primary-bg), var(--soda-button-primary-text) 15%);
+  --soda-button-danger: light-dark(#b42318, #ff958a);
+  --soda-font-button: 600 14px/20px Barlow, Arial, sans-serif;
   --soda-space-1: 4px;
   --soda-space-2: 8px;
   --soda-space-3: 12px;
   --soda-space-4: 16px;
   --soda-space-6: 24px;
   --soda-space-8: 32px;
-  --soda-control-compact: 36px;
-  --soda-control-icon: 40px;
+  --soda-control-compact: 44px;
+  --soda-control-icon: 44px;
   --soda-sidebar-width: 240px;
   --soda-font-title: 600 32px/1.25 "Fraunces Variable", Georgia, serif;
   --soda-font-heading: 600 24px/1.35 "Fraunces Variable", Georgia, serif;
@@ -122,8 +127,8 @@ body:has(.soda-page, .soda-page-marker) :is(#soda-theme-toggle,.soda-account-app
 body:has(.soda-page, .soda-page-marker) .soda-account-appearance {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: var(--soda-control-height);
+  height: var(--soda-control-height);
   border-radius: 50%;
 }
 
@@ -249,4 +254,13 @@ body:has(.soda-login) {
   --soda-page-muted: var(--soda-guest-muted);
   --soda-page-edge: var(--soda-guest-edge);
   --soda-page-link: var(--soda-guest-link);
+}
+
+/* Keep all mobile header actions at 44px without shrinking the canonical logo. */
+@media (max-width: 700px) {
+ body:has(.soda-page, .soda-page-marker) #navbar { padding-inline: 16px; }
+ body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 128px; margin-right: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar .navbar-left { gap: 4px; }
+ body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right { padding: 0; gap: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
 }

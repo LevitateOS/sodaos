@@ -109,7 +109,7 @@
   }
 
   /* Type exclusions must not outrank native focus/error states. */
-  & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search), textarea, select, .selection.dropdown) {
+  & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search), textarea, select, .selection.dropdown) {
     width: 100%;
     min-height: var(--soda-control-height);
     border: 1px solid var(--soda-page-edge);
@@ -120,11 +120,19 @@
     box-shadow: none;
   }
 
-  & input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search) {
+  & input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search) {
     padding: 8px 12px;
   }
 
   & select { padding: 8px 12px; }
+
+  /* Single-value inputs align with the selected 44px action size. Native
+     multiple selections and textareas still grow to fit their content. */
+  & :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, .selection.dropdown:not(.multiple)) {
+    box-sizing: border-box;
+    height: var(--soda-control-height);
+  }
+  & .selection.dropdown:not(.multiple) { padding-block: 8px; }
 
   & textarea {
     min-height: 100px;
@@ -163,14 +171,6 @@
     background: var(--soda-page-canvas);
   }
 
-  & .primary.button {
-    min-height: var(--soda-control-height);
-    padding: 8px 12px;
-    border: 0;
-    border-radius: var(--soda-button-radius);
-    font: var(--soda-font-button);
-    box-shadow: none;
-  }
 
   & .field.error :is(input, textarea, select, .selection.dropdown),
   & :is(input, textarea, select, .selection.dropdown).error {
@@ -219,5 +219,4 @@
    These roles avoid changing native dirty-form and panel behavior. */
 .ui.form.soda-p-form fieldset { border: 0; padding-block: 0; }
 .ui.form.soda-p-form fieldset + fieldset > legend { border: 0; padding-top: 0; }
-.soda-p-control.ui.button { min-height: var(--soda-control-height); border-radius: var(--soda-button-radius); padding: 8px 12px; font: var(--soda-font-button); }
-.soda-p-compact.ui.button { min-height: 36px; border-radius: var(--soda-button-radius); padding: 8px 12px; }
+/* Native presentation roles retain their hooks; button sizing is centralized. */

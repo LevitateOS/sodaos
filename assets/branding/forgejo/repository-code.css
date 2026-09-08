@@ -60,15 +60,6 @@
 }
 .soda-code-summary .repository-menu .item:is(:hover,.active) { color: var(--soda-page-link) !important; }
 .soda-code-summary #language-stats > ul { padding: 16px 16px; }
-.soda-code-ref-selector .branch-dropdown-button {
-  min-height: var(--soda-control-height);
-  padding-inline: 12px;
-  border-radius: var(--soda-button-radius);
-  border-color: var(--soda-page-edge);
-  background: var(--soda-page-canvas);
-  color: var(--soda-page-text);
-  font-family: Barlow,Arial,sans-serif;
-}
 .soda-code-ref-selector .ui.dropdown > .menu {
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);

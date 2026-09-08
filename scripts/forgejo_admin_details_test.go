@@ -205,7 +205,6 @@ func TestForgejoAdminDetailsCSSIsScopedAndResponsive(t *testing.T) {
 	css := string(contents)
 	for _, selector := range []string{
 		".soda-admin-details--config .admin-dl-horizontal",
-		".soda-admin-details--dashboard table .primary.button",
 		".soda-admin-details--auth-edit #ldap-group-options",
 		".soda-admin-details--applications .flex-list > .flex-item",
 		".soda-admin-details--oauth2-edit > .ui.attached.form",

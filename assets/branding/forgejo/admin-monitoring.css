@@ -53,8 +53,8 @@
 .soda-admin-monitoring--cron button[name="op"] {
   display: inline-grid;
   place-items: center;
-  min-width: 36px;
-  min-height: 36px;
+  min-width: var(--soda-control-height);
+  min-height: var(--soda-control-height);
   border-radius: var(--soda-button-radius);
 }
 

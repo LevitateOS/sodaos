@@ -70,25 +70,15 @@
   justify-content: center;
   gap: 12px;
   min-height: var(--soda-control-height);
-  font: 600 15px/1.4 Barlow, sans-serif;
+  font: var(--soda-font-button);
 }
 
-.soda-empty-actions .soda-empty-primary {
-  border-radius: var(--soda-button-radius);
-  padding: 8px 12px;
-  color: var(--soda-page-on-action);
-  background: var(--soda-page-action);
-}
 
-.soda-empty-actions .soda-empty-primary:hover {
-  background: var(--soda-page-action-hover);
-}
 
 .soda-empty-actions .soda-empty-secondary {
   color: var(--soda-page-link);
 }
 
-.soda-empty-actions .soda-empty-primary:active { background: var(--soda-page-action-pressed); }
 
 @media (max-width: 700px) {
   .soda-empty { padding: 24px 16px; }

@@ -183,7 +183,7 @@
    Keep that width independent of the currently visible items, including room
    for its reserved overflow button; content-sized flex boxes oscillate. */
 .soda-tabs:has(> overflow-menu) {
-  width: 420px;
+  width: 448px;
 }
 
 .soda-tabs > .secondary-nav {
@@ -326,34 +326,7 @@
   background: var(--soda-page-hover);
 }
 
-.soda-toolbar .soda-toolbar-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--soda-control-height);
-  padding: 0 12px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-button-radius);
-  background: var(--soda-page-canvas);
-  color: var(--soda-page-text);
-  font: var(--soda-font-button);
-  box-shadow: none;
-}
-
-.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary {
-  border-color: transparent;
-  background: var(--soda-page-action);
-  color: var(--soda-page-on-action) !important;
-}
-
-.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary:hover {
-  background: var(--soda-page-action-hover) !important;
-  color: var(--soda-page-on-action) !important;
-}
-
-.soda-toolbar .soda-toolbar-action.soda-toolbar-action--primary:active {
-  background: var(--soda-page-action-pressed) !important;
-}
+/* Toolbar action appearance and dimensions live in components-buttons.css. */
 
 .soda-tabs > .item:hover,
 .soda-tabs > .secondary-nav > .overflow-menu-items > .item:hover,
@@ -448,15 +421,6 @@
   border-radius: var(--soda-button-radius) !important;
   font: var(--soda-font-button);
 }
-.repo-button-row.soda-toolbar :is(.button-sequence > .ui.button, .branch-dropdown-button, .clone-panel > .ui.button):not(.primary) {
-  background: var(--soda-page-canvas) !important;
-  border-color: var(--soda-page-edge);
-  color: var(--soda-page-text) !important;
-  box-shadow: none;
-}
-.repo-button-row.soda-toolbar :is(.button-sequence > .ui.button, .branch-dropdown-button, .clone-panel > .ui.button):not(.primary):hover {
-  background: var(--soda-page-hover) !important;
-}
 .repo-button-row.soda-toolbar .button-sequence {
   align-items: center;
   gap: 8px;
@@ -475,7 +439,6 @@
 }
 .repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input) {
   flex-shrink: 0;
-  border: 1px solid var(--soda-page-edge);
   border-radius: 0 !important;
 }
 .repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input):first-child {
@@ -487,6 +450,7 @@
 }
 .repo-button-row.soda-toolbar .clone-panel > input {
   /* Native action inputs prohibit shrinking; clone text may truncate. */
+  border: 1px solid var(--soda-page-edge);
   flex: 1 1 0 !important;
   min-width: 0;
   font: 400 13px/1.5 "IBM Plex Mono", monospace !important;

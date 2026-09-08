@@ -81,19 +81,7 @@
 	border-color: var(--soda-page-edge);
 }
 
-.soda-admin-details--dashboard table .primary.button {
-	min-height: 38px;
-	padding: 8px 12px;
-	border: 0;
-	border-radius: var(--soda-button-radius);
-	background: var(--soda-page-action);
-	color: var(--soda-page-on-action);
-	font-weight: 600;
-}
 
-.soda-admin-details--dashboard table .primary.button:hover {
-	background: var(--soda-page-action-hover);
-}
 
 /* Large identity and authentication forms use the shared native-form adapter.
    These local rules handle only their page-specific grouping and action rows. */
