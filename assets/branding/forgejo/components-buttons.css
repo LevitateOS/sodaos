@@ -1,0 +1,52 @@
+/* Shared button appearance. Native classes still own loading, disabled,
+   colored semantic actions and dropdown behavior. Family files own placement. */
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.button, .ui.basic.button, button.button, a.button):where(:not(.labeled:has(> .button), .overflow-menu-button)) {
+ --border-radius: var(--soda-button-radius);
+ --button-min-height: 44px;
+ --button-padding-inline: 12px;
+ min-height: var(--button-min-height);
+ padding: 8px 12px;
+ border-radius: var(--soda-button-radius);
+ font: var(--soda-font-button);
+ text-shadow: none;
+ box-shadow: none;
+}
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.button, .ui.basic.button, button.button, a.button):is(.mini, .tiny, .small, .compact, .soda-p-compact) {
+ --button-min-height: 36px;
+ min-height: var(--button-min-height);
+ padding-block: 6px;
+}
+/* Neutral controls should not compete with a page's primary action. */
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.button, .ui.basic.button, button.button, a.button):not(:where(.primary, .red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black, .danger, .loading, .overflow-menu-button, .labeled:has(> .button))) {
+ --color-button: transparent;
+ --color-hover: var(--soda-page-hover);
+ --color-active: var(--soda-page-selected);
+ --color-text-light: var(--soda-page-text);
+ background: transparent;
+ border: 1px solid var(--soda-page-edge);
+ color: var(--soda-page-text);
+ &:hover, &:focus-visible { background: var(--soda-page-hover); border-color: var(--soda-page-muted); }
+ &:active, &.active, &[aria-pressed=true] { background: var(--soda-page-selected); border-color: var(--soda-page-link); color: var(--soda-page-link); }
+}
+/* Joined native groups keep square internal edges. */
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons > .button { border-radius: 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons:not(.vertical) > .button:first-child { border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius); }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons:not(.vertical) > .button:last-child { border-radius: 0 var(--soda-button-radius) var(--soda-button-radius) 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons.vertical > .button:first-child { border-radius: var(--soda-button-radius) var(--soda-button-radius) 0 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons.vertical > .button:last-child { border-radius: 0 0 var(--soda-button-radius) var(--soda-button-radius); }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons > .button:only-child { border-radius: var(--soda-button-radius); }
+@media (pointer: coarse) {
+ :where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.button, .ui.basic.button, button.button, a.button):is(.mini, .tiny, .small, .compact, .icon, .soda-p-compact) { min-height: 44px; }
+}
+
+/* Native primary variants keep their outline, loading and disabled behavior.
+   Bind action colors on the button only; labels/charts/status colors stay native. */
+body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.buttons > .button, .button.primary):not(:is(.red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black)) {
+  --color-primary: var(--soda-page-action);
+  --color-primary-hover: var(--soda-page-action-hover);
+  --color-primary-active: var(--soda-page-action-pressed);
+  --color-primary-contrast: var(--soda-page-on-action);
+  /* Native primary anchors also match the page's ordinary-link rule. */
+  &:is(a):not(.basic) { color: var(--soda-page-on-action); }
+}
+

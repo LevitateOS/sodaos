@@ -19,7 +19,7 @@ test('production reference compositions retain native controls across themes and
         await page.locator('#title').focus();
         assert.notEqual(await page.locator('#title').evaluate(el => getComputedStyle(el).outlineStyle),'none');
         assert(await page.locator('#disabled').isDisabled());
-        assert(await page.locator('button[disabled]').isDisabled());
+        for (const button of await page.locator('button[disabled]').all()) assert(await button.isDisabled());
         await page.locator('summary').first().click();
         assert(await page.locator('#branch').isVisible());
         const layout=await page.locator('.soda-editor-layout').evaluate(el => ({cols:getComputedStyle(el).gridTemplateColumns.split(' ').length}));

@@ -18,8 +18,8 @@ html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { displ
 .soda-home h1 { font: 600 clamp(44px, 5.2vw, 78px)/1.03 "Fraunces Variable", Georgia, serif; letter-spacing: -.045em; color: var(--soda-guest-text); margin: 0 0 24px; }
 .soda-home-lede { max-width: 440px; font-size: 19px; line-height: 1.6; color: var(--soda-guest-muted); margin: 0 0 24px; }
 .soda-home-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
-.soda-home-actions a { display: inline-flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 52px; border-radius: 999px; padding: 12px 16px; font-size: 16px; font-weight: 600; }
-.soda-home-actions .soda-home-primary { background: var(--soda-guest-action); color: var(--soda-guest-on-action); min-width: 156px; box-shadow: inset 0 1px 0 #ffffff33, 0 4px 12px #155eef22; }
+.soda-home-actions a { display: inline-flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; border-radius: var(--soda-button-radius); padding: 8px 12px; font: var(--soda-font-button); }
+.soda-home-actions .soda-home-primary { background: var(--soda-guest-action); color: var(--soda-guest-on-action); min-width: 156px; box-shadow: none; }
 .soda-home-actions .soda-home-primary:hover { background: var(--soda-guest-action-hover); }
 .soda-home-actions .soda-home-primary:active { background: var(--soda-guest-action-pressed); }
 .soda-home-actions .soda-home-secondary { color: var(--soda-guest-text); border: 1px solid var(--soda-guest-edge); }

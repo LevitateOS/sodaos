@@ -1,5 +1,27 @@
 # Current handoff
 
+## Shared button redesign
+
+Local presentation `2026-09-08.16` uses a shared button stylesheet and tokens:
+6px corners, 14px medium-weight labels, tighter horizontal padding and transparent
+neutral surfaces. Primary actions retain Soda blue; native danger/success,
+loading, disabled and selected behavior remains. Forms, toolbars and introductory
+page actions now share these tokens; competing repository-wide primary/basic
+adapters and pill/shadow treatments were removed. Input radii remain 8px and
+native joined edges stay square. Native overflow-menu trigger sizing is excluded
+because Forgejo measures that control to place tabs.
+
+The Go Forgejo checks passed. The broad browser run passed 39 checks (two native
+session tests deliberately skipped); the separate settings run passed eleven.
+Final targeted component checks passed eleven, including native basic buttons,
+primary/neutral type and dimensions, joined edges and semantic/loading/disabled
+states. The gallery now includes a button reference using the production registry.
+Native Appearance, repository toolbar and Keys captures were reviewed in dark
+desktop and light mobile under `.artifacts/button-redesign/`; component images
+`buttons-{light,dark}.png` are fixtures, not real routes. Conditional admin/provider
+and mutation journeys remain outside this read-only review. No preferences or
+account data were submitted, and no appliance rollout occurred.
+
 ## Pronouns removed from Soda presentation
 
 Personal profile editing, the pronoun privacy checkbox, administrator user editing

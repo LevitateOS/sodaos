@@ -23,7 +23,7 @@
 }
 :is(#avatar-settings, #avatar-dialog) input[type=file]::file-selector-button {
  min-height: 44px; margin-right: 8px; padding: 8px 12px;
- border: 1px solid var(--soda-page-edge); border-radius: var(--soda-control-radius);
+ border: 1px solid var(--soda-page-edge); border-radius: var(--soda-button-radius);
  background: var(--soda-page-surface); color: var(--soda-page-text);
  font: inherit; cursor: pointer;
 }

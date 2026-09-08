@@ -16,6 +16,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
   try {
     const page = await browser.newPage({ viewport: { width: 1654, height: 1000 } });
     async function render(markup, theme = 'light') {
+      await page.mouse.move(1600,990);
       await page.setContent(`<link rel="stylesheet" href="${origin}/assets/css/index.css">
         <link rel="stylesheet" href="${origin}/assets/css/theme-forgejo-${theme}.css">
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
@@ -61,11 +62,27 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         const controls = await page.locator('[id]').evaluateAll(els => els.map(el => ({id:el.id,height:el.getBoundingClientRect().height,top:getComputedStyle(el).borderTopRightRadius,left:getComputedStyle(el).borderTopLeftRadius})));
         for (const c of controls) assert.equal(c.height,44,`${theme}/${width}: ${c.id}`);
         for (const id of ['protocol','url','copy']) assert.equal(controls.find(c=>c.id===id).top,'0px');
-        assert.equal(controls.find(c=>c.id==='more').top,'8px');
-        assert.equal(controls.find(c=>c.id==='protocol').left,'8px');
+        assert.equal(controls.find(c=>c.id==='more').top,'6px');
+        assert.equal(controls.find(c=>c.id==='protocol').left,'6px');
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false, `${theme}/${width}: toolbar overflow`);
       }
       await page.setViewportSize({width:1654,height:1000});
+    });
+
+    await t.test('shared buttons use compact type and quiet secondary surfaces', async () => {
+      for (const theme of ['light','dark']) {
+        await render(`<main class="soda-page"><button id="basic-neutral" class="ui basic button">Add file</button><button id="neutral" class="ui button">Cancel</button><a id="secondary" class="button secondary" href="#">Add file</a><button id="primary" class="ui primary button">Save</button><button id="compact" class="ui compact button">Filter</button><div class="ui buttons"><button id="joined-first" class="ui button">One</button><button id="joined-last" class="ui button">Two</button></div><form class="ui form soda-p-form"><button id="form-save" class="primary button">Save profile</button></form></main>`, theme);
+        for (const id of ['basic-neutral','neutral','secondary','primary','form-save']) {
+          const style=await page.locator('#'+id).evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderTopLeftRadius,font:getComputedStyle(el).fontSize}));
+          assert.equal(style.height,44);assert.equal(style.radius,'6px');assert.equal(style.font,'14px');
+        }
+        assert.equal(await page.locator('#compact').evaluate(el=>el.getBoundingClientRect().height),36);
+        for (const id of ['neutral','basic-neutral']) assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+        await page.locator('#neutral').hover();
+        await page.waitForFunction(()=>getComputedStyle(document.querySelector('#neutral')).backgroundColor!=='rgba(0, 0, 0, 0)');
+        assert.equal(await page.locator('#joined-first').evaluate(el=>getComputedStyle(el).borderTopRightRadius),'0px');
+        assert.equal(await page.locator('#joined-last').evaluate(el=>getComputedStyle(el).borderTopLeftRadius),'0px');
+      }
     });
 
     await t.test('settings panels do not give native tables panel padding', async () => {

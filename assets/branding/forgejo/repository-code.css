@@ -63,7 +63,7 @@
 .soda-code-ref-selector .branch-dropdown-button {
   min-height: var(--soda-control-height);
   padding-inline: 12px;
-  border-radius: var(--soda-control-radius);
+  border-radius: var(--soda-button-radius);
   border-color: var(--soda-page-edge);
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);

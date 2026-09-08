@@ -29,7 +29,7 @@
 }
 
 .soda-status-card > .ui.primary.button {
-  border-radius: var(--soda-control-radius);
+  border-radius: var(--soda-button-radius);
 }
 
 .soda-status-version {

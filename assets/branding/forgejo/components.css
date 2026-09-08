@@ -19,6 +19,8 @@ body:has(.soda-page, .soda-page-marker, .soda-login) {
   --soda-panel-inset: 16px;
   --soda-control-height: 44px;
   --soda-control-radius: 8px;
+  --soda-button-radius: 6px;
+  --soda-font-button: 500 14px/20px Barlow, Arial, sans-serif;
   --soda-space-1: 4px;
   --soda-space-2: 8px;
   --soda-space-3: 12px;
@@ -145,16 +147,6 @@ body:has(.soda-page, .soda-page-marker) :is(a,button,input,textarea,summary,[tab
   outline-offset: 3px;
 }
 
-/* Native actions keep their sizing, outline, loading and disabled behavior.
-   Bind action colors on the button only; labels/charts/status colors stay native. */
-body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.buttons > .button, .button.primary):not(:is(.red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black)) {
-  --color-primary: var(--soda-page-action);
-  --color-primary-hover: var(--soda-page-action-hover);
-  --color-primary-active: var(--soda-page-action-pressed);
-  --color-primary-contrast: var(--soda-page-on-action);
-  /* Native primary anchors also match the page's ordinary-link rule. */
-  &:is(a):not(.basic) { color: var(--soda-page-on-action); }
-}
 
 :is(.soda-page, .page-content:has(.soda-page-marker)) {
   flex: 1;
@@ -224,7 +216,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   min-height: var(--soda-control-icon);
   padding: 8px;
   border: 0;
-  border-radius: var(--soda-control-radius);
+  border-radius: var(--soda-button-radius);
   background: transparent;
   color: var(--soda-page-muted);
 }

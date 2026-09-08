@@ -92,7 +92,7 @@
 .soda-repository-header .repo-header .repo-buttons .ui.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
   min-height: 36px;
   border-color: var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
+  border-radius: var(--soda-button-radius);
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   box-shadow: none;
@@ -158,20 +158,6 @@
 
 .soda-repository-header > .tabs.divider {
   display: none;
-}
-
-/* Repository-wide native action colors. */
-.page-content:has(> .soda-repository-header) :is(.ui.primary.button,.primary.button):not(.basic):not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
-  border-color: transparent;
-  border-radius: var(--soda-control-radius);
-  box-shadow: none;
-}
-
-.page-content:has(> .soda-repository-header) .ui.basic.button:not(.red):not(.negative):not(.green):not(.positive):not(.orange):not(.yellow) {
-  border-color: var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  color: var(--soda-page-text);
-  box-shadow: none;
 }
 
 @media (max-width: 700px) {

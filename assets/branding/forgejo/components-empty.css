@@ -74,8 +74,8 @@
 }
 
 .soda-empty-actions .soda-empty-primary {
-  border-radius: 999px;
-  padding: 12px 16px;
+  border-radius: var(--soda-button-radius);
+  padding: 8px 12px;
   color: var(--soda-page-on-action);
   background: var(--soda-page-action);
 }

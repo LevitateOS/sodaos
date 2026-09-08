@@ -65,8 +65,6 @@ func TestForgejoRepositoryStylesStayScopedToNativePages(t *testing.T) {
 		`.page-content:has(> .soda-repository-header)`,
 		`.page-content:has(> .soda-repository-header) > .ui.container:not(.fluid)`,
 		`.soda-repository-header .repo-header .repo-buttons`,
-		`:is(.ui.primary.button,.primary.button):not(.basic)`,
-		`.ui.basic.button:not(.red)`,
 	} {
 		if !strings.Contains(css, scope) {
 			t.Errorf("repository stylesheet lost page-family scope %q", scope)

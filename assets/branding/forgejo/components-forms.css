@@ -165,10 +165,10 @@
 
   & .primary.button {
     min-height: var(--soda-control-height);
-    padding: 8px 16px;
+    padding: 8px 12px;
     border: 0;
-    border-radius: var(--soda-control-radius);
-    font: 600 16px/1.5 Barlow, sans-serif;
+    border-radius: var(--soda-button-radius);
+    font: var(--soda-font-button);
     box-shadow: none;
   }
 
@@ -219,5 +219,5 @@
    These roles avoid changing native dirty-form and panel behavior. */
 .ui.form.soda-p-form fieldset { border: 0; padding-block: 0; }
 .ui.form.soda-p-form fieldset + fieldset > legend { border: 0; padding-top: 0; }
-.soda-p-control.ui.button { min-height: var(--soda-control-height); border-radius: var(--soda-control-radius); padding: 8px 16px; font: var(--soda-font-body); }
-.soda-p-compact.ui.button { min-height: 36px; border-radius: var(--soda-control-radius); padding: 8px 12px; }
+.soda-p-control.ui.button { min-height: var(--soda-control-height); border-radius: var(--soda-button-radius); padding: 8px 12px; font: var(--soda-font-button); }
+.soda-p-compact.ui.button { min-height: 36px; border-radius: var(--soda-button-radius); padding: 8px 12px; }

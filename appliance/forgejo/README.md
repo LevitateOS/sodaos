@@ -116,7 +116,8 @@ Each responsibility has one CSS owner:
 
 | Owner | Contract |
 | --- | --- |
-| `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer, button-local primary action color variables and page focus. `.soda-page-container` owns content width. |
+| `components-buttons.css` | Shared button type, shape, neutral surfaces, native primary palette binding and joined-group edges. Native colored, loading, disabled and overflow behavior remains upstream. |
+| `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer and page focus. `.soda-page-container` owns content width. |
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
@@ -442,7 +443,7 @@ or `soda-p-title` on headings, `soda-p-section` on open sections, and
 attributes. Existing `soda-form`, `soda-toolbar`, `soda-list` and `soda-empty`
 contracts remain valid; do not add a second implementation of them.
 
-Spacing uses 4/8/12/16/24/32px. Controls use an 8px radius, with 44px standard,
+Spacing uses 4/8/12/16/24/32px. Inputs retain an 8px radius; buttons use a 6px radius and 500-weight 14px labels, with 44px standard,
 36px compact and 40px icon targets (44px for coarse pointers). Internal edges
 of joined repository controls are square even when a native modal lies between
 the action and count. Page and section typography use shared font tokens with
@@ -545,3 +546,11 @@ Soda presentation. Personal/admin forms carry existing native values in hidden
 fields solely to avoid resetting data on unrelated saves. Forgejo's database,
 API and native locale catalogs remain upstream-owned. The attributed
 `shared/user/profile_big_avatar` override changes only that display fragment.
+
+
+The shared button design uses transparent neutral surfaces with fine borders,
+Soda blue for primary actions, 12px horizontal padding and no decorative shadow.
+Introductory/empty actions, principal forms, repository toolbars and native basic
+buttons use the same button tokens. Native semantic danger/success variants and
+loading/disabled behavior remain intact. The native overflow-menu trigger is
+excluded from generic sizing because its own measurement controls tab overflow.

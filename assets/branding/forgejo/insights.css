@@ -44,10 +44,10 @@
 .soda-insights #flow-select-refs-dropdown {
   min-height: var(--soda-control-height);
   border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
+  border-radius: var(--soda-button-radius);
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);
-  font: 600 14px/1.4 Barlow, Arial, sans-serif;
+  font: var(--soda-font-button);
 }
 
 .soda-insights .activity-header .dropdown .menu,
