@@ -31,12 +31,17 @@ function fixture(t, extra = {}) {
     else if (url.endsWith('/lifecycle')) body = {environment: {id: env, running: state.running}, boot_enabled: state.running};
     else if (url.endsWith('/access-keys')) body = {login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: state.installed, saved_fingerprints: state.saved};
     else if (url.endsWith('/connection')) body = {login: 'alice', connection: {environment: {id: env, running: true, ip: '10.89.0.2'}, fingerprint: fp}};
-    else body = {environment: {id: env, repository_id: '7', provisioned: true}, observed: {id: env, running: state.running}, login: state.member ? 'alice' : '', environment_administrator: state.admin, native_unavailable: false};
-    return {ok: true, status: 200, json: async () => body};
+    else body = {environment: {id: env, repository_id: '7', provisioned: true}, observed: {id: env, running: state.running}, login: state.member ? 'alice' : '', environment_administrator: state.admin, native_unavailable: false, authority_unavailable: false};
+    return new Response(JSON.stringify(body), {headers: {'Content-Type': 'application/json'}});
   };
   Object.defineProperty(w.navigator, 'clipboard', {value: {writeText: async text => {state.copied = text;}}});
   const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (_mount, ctx) => {const t = {ctx, dispose() {this.disposed = true;}, invalidate() {this.stale = true;}}; terminals.push(t); return t;});
-  const button = text => [...root.querySelectorAll('button')].find(b => b.textContent === text);
+  const button = text => {
+    const b = [...root.querySelectorAll('button')].find(b => b.textContent === text);
+    const panel = b?.closest('[role=tabpanel]');
+    if (panel) root.querySelector('#' + panel.getAttribute('aria-labelledby')).click();
+    return b;
+  };
   t.after(() => {api.dispose(); dom.window.close();});
   return {w, root, api, calls, state, terminals, button};
 }
@@ -44,6 +49,23 @@ test('standalone mount is inert; refresh only reads and preserves native nodes',
   const f = fixture(t); assert.equal(f.calls.length, 0); await f.api.refresh();
   assert(f.calls.every(c => c.method === 'GET')); assert.equal(f.terminals.length, 1); assert.equal(f.terminals[0].ctx.environmentId, env);
   await f.api.refresh(); assert(f.terminals[0].disposed); assert(f.w.document.getElementById('native'));
+});
+test('view tabs and app switches retain terminal and dispatch no reads or writes', async t => {
+  const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
+  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]').textContent, 'Terminal');
+  f.button('Access').click(); assert(!f.root.querySelector('#sodaspaces-view-access').hidden);
+  f.button('Environment').click(); f.button('Terminal').click();
+  f.w.dispatchEvent(new f.w.Event('blur')); f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
+  assert.equal(f.calls.length, count); assert.equal(f.terminals.length, 1); assert(!f.terminals[0].disposed);
+  f.button('Terminal').dispatchEvent(new f.w.KeyboardEvent('keydown', {key: 'ArrowRight', cancelable: true}));
+  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]').textContent, 'Environment');
+  assert.equal(f.w.document.activeElement.textContent, 'Environment');
+});
+test('hidden access view cannot remove a key through a synthetic click', async t => {
+  const f = fixture(t); await f.api.refresh();
+  assert(f.root.querySelector('#sodaspaces-view-access').hidden);
+  f.root.querySelector('#sodaspaces-key-list button').click(); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
 });
 test('create never implicitly joins, saves keys or starts', async t => {
   const f = fixture(t, {absent: true}); await f.api.refresh(); f.button('Create environment').click(); await tick();
@@ -82,10 +104,49 @@ test('unknown mutation outcome blocks replay, not safe refresh or logout', async
 });
 test('stale page closes terminal and cannot refresh/replay on focus', async t => {
   const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
-  f.w.dispatchEvent(new f.w.Event('blur')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
+  f.w.dispatchEvent(new f.w.Event('pagehide')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
   assert.equal(f.calls.length, count); assert(f.terminals[0].disposed); assert(f.button('Refresh status').disabled);
   assert(f.w.document.getElementById('native'));
 });
+test('mutation rechecks current session and refuses a switched actor before dispatch', async t => {
+  let switched = false;
+  const f = fixture(t, {absent: true, fetch: async (url) => switched && url.endsWith('/api/session') ? new Response(JSON.stringify({user: {id: '2'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'}), {headers: {'Content-Type': 'application/json'}}) : null});
+  await f.api.refresh(); switched = true; f.button('Create environment').click(); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
+});
+for (const body of [new Response('<html>login</html>', {headers: {'Content-Type': 'text/html'}}), new Response(JSON.stringify({padding: 'x'.repeat(65537)}), {headers: {'Content-Type': 'application/json'}})]) {
+  test('HTML/oversized streamed response cannot expose actions', async t => {
+    const f = fixture(t, {fetch: async () => body}); await f.api.refresh();
+    assert(f.button('Create environment').hidden); assert.equal(f.terminals.length, 0);
+  });
+}
+test('refresh never remounts an ended or started terminal', async t => {
+  const f = fixture(t); await f.api.refresh(); f.terminals[0].started = true;
+  await f.api.refresh(); assert.equal(f.terminals.length, 1); assert(f.terminals[0].disposed);
+  assert.match(f.root.textContent, /terminal session ended/);
+});
+test('a provider mismatch at action time dispatches no mutation', async t => {
+  let switched = false;
+  const f = fixture(t, {absent: true, fetch: async url => switched && url.endsWith('/api/forgejo/me') ? new Response('{"id":"2"}', {headers: {'Content-Type': 'application/json'}}) : null});
+  await f.api.refresh(); switched = true; f.button('Create environment').click(); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
+});
+test('closing while authorization is pending never dispatches the mutation', async t => {
+  let paused = false, release;
+  const f = fixture(t, {absent: true, fetch: async url => paused && url.endsWith('/api/session') ? new Promise(resolve => { release = resolve; }) : null});
+  await f.api.refresh(); paused = true; f.button('Create environment').click(); f.api.dispose();
+  release(new Response(JSON.stringify({user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'}), {headers: {'Content-Type': 'application/json'}})); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
+});
+test('unknown key-save response cannot claim a confirmed key', async t => {
+  const f = fixture(t, {fetch: async (url, init) => init.method === 'POST' ? new Response('{"items":[]}', {headers: {'Content-Type': 'application/json'}}) : null});
+  await f.api.refresh(); f.root.querySelector('textarea').value = 'ssh-ed25519 YWJj'; f.button('Save public key').click(); await tick();
+  assert.match(f.root.textContent, /Outcome unconfirmed/);
+});
+test('hidden create and lifecycle actions cannot dispatch through their handlers', async t => {
+  const f = fixture(t, {admin: false}); await f.api.refresh(); f.button('Create environment').click(); f.button('Start').click(); await tick();
+  assert(f.calls.every(c => c.method === 'GET'));
+});
 test('copy uses own displayed login/IP without changing native access', async t => {
-  const f = fixture(t); await f.api.refresh(); f.button('Copy SSH connection').click(); await tick(); assert.equal(f.state.copied, 'ssh alice@10.89.0.2'); assert(f.calls.every(c => c.method === 'GET'));
+  const f = fixture(t); await f.api.refresh(); f.button('Copy SSH connection').click(); await tick(); assert.equal(f.button('Copy SSH connection').getAttribute('data-clipboard-target'), '#sodaspaces-command'); assert.equal(f.root.querySelector('#sodaspaces-command').value, 'ssh alice@10.89.0.2'); assert(f.calls.every(c => c.method === 'GET'));
 });

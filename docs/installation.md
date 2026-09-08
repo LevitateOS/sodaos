@@ -74,22 +74,26 @@ and explicit offline mode are not silently overridden by activation.
 
 ### Sodaspaces customization delivery
 
-**Merged-source packaging hold:** the combined Forgejo preview hooks now reference
-shared presentation partials/assets outside the bounded payload below. Staging refuses
-an incomplete frontend before creating rootfs. Complete the presentation packaging,
-exact destination/conflict guards and validation before a new appliance build/delivery;
-the historical installed payload is unchanged by this Git merge.
+The earlier merge's partial-payload hold is replaced in source by
+`internal/nativebuild/forgejo-payload.json`: an exact source/destination inventory
+shared by staging and the embedded Go verifier. It includes all 229 selected template
+overrides, shared presentation assets/fonts/notices, the mounted Sodaspaces content/
+terminal and five locked renderer/CSS/MIT-notice files, beneath
+`/var/lib/soda/forgejo/gitea/`. See the [mounting contract](terminal-integration.md).
+Adding an arbitrary template is still refused; expand the reviewed inventory explicitly.
+Clean native build/check/export passed at `dad2945`, including public-mode
+normalization for private checkouts. The preceding `2aa4960` application/helper
+passed bounded installed integration on the isolated fixture; see the handoff for
+its exact bytes and recorded legacy public-mode differences. The newer whole
+bundle is not an installed-appliance or retained-rollout result.
 
-The source stage includes `templates/custom/{header,footer}.tmpl`,
-`public/assets/sodaspaces.{css,js}`, the independent `sodaspaces-terminal.{css,js}`
-component, `sodaspaces-drawer.{css,js}` independent complete control content, and five
-exact renderer/CSS/MIT-notice files under `public/assets/soda-terminal/`
-beneath `/var/lib/soda/forgejo/gitea/`, alongside existing branding. The terminal
-module does not alter templates/layout; see its [mounting contract](terminal-integration.md).
-The build fetches locked upstream distributions into its own `terminal-assets` output;
-staging verifies the file hashes again and never downloads at runtime. Files are 0644, new readable directories 0755; the installer
-applies Forgejo UID/GID 1000 to the exact new template paths. Bundle verification
-requires those exact files and source LICENSE/NOTICE; it rejects arbitrary templates.
+The build fetches locked terminal distributions into `terminal-assets` and verifies
+Forgejo 15.0.7's complete English catalog via `appliance/forgejo/locale.lock.json` before
+adding the Soda-only namespace into `forgejo-locales/locale_en-US.ini`. It never installs
+a partial replacement catalog or downloads at runtime. Stage checks locked renderer
+bytes again; bundle verification requires exact files, modes and LICENSE/NOTICE.
+Files are 0644, new readable directories 0755. The installer applies UID/GID 1000 only
+to the admitted new files/directories, not recursively to a mutable Forgejo tree.
 First-install preflight refuses occupied hook/asset destinations, including
 symlinks, before host writes. Resolve conflicts explicitly, never merge or overwrite
 operator hooks automatically. This is not an upgrade interface. Actual CustomPath,
@@ -178,5 +182,11 @@ Host Tailnet enrollment by itself does not route the project subnet. Port-forwar
 Cockpit initially binds loopback 9090; use an operator SSH tunnel unless private native access is deliberately configured. Its PAM policy permits only root. Tailnet/Runners remain operator pages. The dashboard runs as native service UID/GID 2000 with no host capabilities and reaches only the restricted project helper socket; secret files are root:soda 0640, the database directory soda-owned 0700. The helper is root and exposes only fixed project operations over that Unix socket, never a public control listener.
 
 Project environments are created once and started/stopped as existing containers. Do not run `podman system prune`, delete project containers, use `--rm`, or replace their writable roots as ordinary management. That root stores account records, installed packages/tools and service data. Backups/recovery and automatic image replacement remain deferred.
+
+Required new native support, such as tmux, follows the [Project OS same-root
+maintenance contract](project-os.md#deliver-required-additions-without-replacing-roots).
+New image builds/defaults do not update retained roots. Exact package/file/service
+maintenance recipes and compatibility checks still need implementation, rehearsal
+and applicable target/action scope; first-install/activation are not those recipes.
 
 Run the later [native validation guide](native-validation.md) only with explicit targets and permissions. Installation/activation command success is not validation. Keep source, build and installed evidence separate.

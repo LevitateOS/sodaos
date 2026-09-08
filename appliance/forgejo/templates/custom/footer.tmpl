@@ -1,45 +1,16 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
 {{if .Repository}}{{if not (or .Repository.IsBeingCreated .Repository.IsBroken)}}
 <div id="sodaspaces-root" hidden data-sub-url="{{AppSubUrl}}" data-repository-id="{{.Repository.ID}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" data-user-id="{{if .IsSigned}}{{.SignedUserID}}{{end}}">
-	<button id="sodaspaces-button" type="button" class="ui compact small basic button" aria-haspopup="dialog" aria-controls="sodaspaces-drawer">Sodaspaces</button>
-	<dialog id="sodaspaces-drawer" aria-labelledby="sodaspaces-title">
+	<button id="sodaspaces-button" type="button" class="ui primary button" aria-expanded="false" aria-controls="sodaspaces-drawer">{{svg "octicon-terminal" 16}} Sodaspaces</button>
+	<aside id="sodaspaces-drawer" hidden aria-labelledby="sodaspaces-title">
+		<div id="sodaspaces-divider" role="separator" tabindex="0" aria-label="Workspace width" aria-orientation="vertical" aria-controls="sodaspaces-drawer" aria-valuemin="35" aria-valuemax="65" aria-valuenow="50"></div>
 		<div class="sodaspaces-panel">
-			<header><h2 id="sodaspaces-title">Sodaspaces</h2><button id="sodaspaces-close" type="button" class="ui small basic button" autofocus>Close</button></header>
-			<div class="content">
-				<p id="sodaspaces-status" role="status" aria-live="polite"></p>
-				<div id="sodaspaces-loading" class="is-loading loading-icon-2px" hidden aria-hidden="true"></div>
-				<div id="sodaspaces-data" aria-busy="false">
-					<p id="sodaspaces-actor"></p><p id="sodaspaces-repository"></p>
-					<p id="sodaspaces-environment"></p><p id="sodaspaces-login"></p>
-					<p id="sodaspaces-warning"></p>
-					<button id="sodaspaces-create" type="button" class="ui primary button" hidden>Create shared environment</button>
-					<section id="sodaspaces-keys" class="ui form" hidden aria-labelledby="sodaspaces-keys-title">
-						<h3 id="sodaspaces-keys-title">Development access keys</h3>
-						<ul id="sodaspaces-key-list"></ul>
-						<p>These are not Forgejo Git keys. Keys are installed only when you explicitly join; later saves do not update existing accounts.</p>
-						<div class="field"><label for="sodaspaces-public-key">One public SSH key (never a private key)</label><textarea id="sodaspaces-public-key" rows="3" maxlength="16384" spellcheck="false" autocomplete="off"></textarea></div>
-						<button id="sodaspaces-save-key" type="button" class="ui basic button">Save public key</button>
-					</section>
-					<button id="sodaspaces-join" type="button" class="ui primary button" hidden>Add me to this project</button>
-					<section id="sodaspaces-connection" class="ui form" hidden aria-labelledby="sodaspaces-connection-title">
-						<h3 id="sodaspaces-connection-title">Your connection</h3>
-						<p id="sodaspaces-address"></p>
-						<div class="field"><label for="sodaspaces-command">SSH command</label><input id="sodaspaces-command" type="text" readonly></div>
-						<button id="sodaspaces-copy" type="button" class="ui basic button" data-tooltip-appendto="parent" disabled>Copy</button>
-						<p id="sodaspaces-fingerprint"></p>
-						<p>Verify this public host-key fingerprint with SSH. The address does not prove a route from your client.</p>
-					</section>
-				</div>
-				<p id="sodaspaces-result" role="status" aria-live="polite"></p>
-				<p>Persistent shared development environment. Opening or refreshing never creates, joins or starts it. Creation and joining are separate explicit actions.</p>
-				<p><a id="sodaspaces-sign-in" class="ui basic button" hidden>Sign in to Soda</a></p>
-				<p><button id="sodaspaces-sign-out" type="button" class="ui basic button" hidden>Sign out of Soda</button></p>
-			</div>
-			<footer class="actions"><button id="sodaspaces-refresh" type="button" class="ui basic button">Refresh status</button><button id="sodaspaces-reload" type="button" class="ui basic button" hidden>Reload repository page</button></footer>
+			<header class="sodaspaces-heading"><h2 id="sodaspaces-title">Sodaspaces</h2><button id="sodaspaces-close" type="button" class="ui basic button" aria-label="Hide workspace">Hide</button></header>
+			<div id="sodaspaces-content" class="sodaspaces-content"></div>
 		</div>
-	</dialog>
+	</aside>
 </div>
-<script src="{{AppSubUrl}}/assets/sodaspaces.js" defer></script>
+<script type="module" src="{{AppSubUrl}}/assets/sodaspaces.js"></script>
 {{end}}{{end}}
 {{if .IsSigned}}
 <div id="soda-notification-preview" class="soda-notification-preview" popover="auto" role="region" aria-labelledby="soda-notification-preview-title">

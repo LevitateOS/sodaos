@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Stage existing native build outputs plus configuration; does not build or install."""
-import argparse, hashlib, json, os, platform, re, shutil
+import argparse, hashlib, json, os, platform, shutil
 from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
@@ -12,13 +12,6 @@ build = source / '.artifacts/native' / a.arch
 stage = build / 'rootfs'
 if stage.exists():
     p.error('rootfs staging already exists; inspect and explicitly clear only this generated directory before restaging')
-# The merged preview hooks now call shared presentation templates. The bounded
-# appliance allowlist still ships only header/footer; do not emit a broken partial
-# frontend until the full presentation payload/install contract is implemented.
-for hook in ('header', 'footer'):
-    text = (source / f'appliance/forgejo/templates/custom/{hook}.tmpl').read_text()
-    if re.search(r'{{-?\s*template\s+"', text):
-        p.error('expanded Forgejo hook dependencies need complete presentation packaging; refusing a partial stage')
 stage.mkdir(parents=True)
 def copy(src, dest, mode=None):
     target = stage / dest.lstrip('/')
@@ -76,27 +69,30 @@ for name in ['logo.svg', 'favicon.svg']:
     shutil.copy2(source / 'assets/branding/source/soda-symbol.svg', images / name)
 for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
-# Original Sodaspaces hooks/assets; no upstream template tree or frontend build.
-for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-             'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
-             'public/assets/sodaspaces-terminal.css', 'public/assets/sodaspaces-terminal.js',
-             'public/assets/sodaspaces-drawer.css', 'public/assets/sodaspaces-drawer.js'):
-    target = copy(source / 'appliance/forgejo' / name,
-                  '/var/lib/soda/forgejo/gitea/' + name, 0o644)
-    # mkdir inherits a private builder umask. These public paths must be readable
-    # by the stock Forgejo UID; change only this run-owned staging ancestry.
+# copytree/copy2 preserve checkout modes (a private worktree may be 0700/0600).
+# Normalize only this run-owned public adaptation, never canonical source assets.
+for target in custom.rglob('*'):
+    target.chmod(0o755 if target.is_dir() else 0o644)
+# Exact reviewed presentation payload: templates, local assets, fonts/notices and
+# generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
+payload = json.loads((source / 'internal/nativebuild/forgejo-payload.json').read_text())
+locked = {asset['file']: asset['sha256'] for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text()) for asset in item['files']}
+for name, origin in payload.items():
+    if Path(name).is_absolute() or '..' in Path(name).parts:
+        p.error('invalid Forgejo payload destination')
+    if origin.startswith('@build/'):
+        src = build / origin.removeprefix('@build/')
+    else:
+        src = source / origin
+    if src.is_symlink() or not src.is_file():
+        p.error('missing or unsafe Forgejo payload input')
+    if origin.startswith('@build/terminal-assets/') and hashlib.sha256(src.read_bytes()).hexdigest() != locked[src.name]:
+        p.error('terminal asset differs from locked upstream bytes')
+    target = copy(src, '/var/lib/soda/forgejo/gitea/' + name, 0o644)
     for parent in target.parents:
         if parent == stage:
             break
         parent.chmod(0o755)
-# Exact local upstream distributions; no runtime/CDN fetch or template coupling.
-for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text()):
-    for asset in item['files']:
-        src = build / 'terminal-assets' / asset['file']
-        if hashlib.sha256(src.read_bytes()).hexdigest() != asset['sha256']:
-            p.error('terminal asset differs from locked upstream bytes')
-        target = copy(src, '/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/' + asset['file'], 0o644)
-        target.parent.chmod(0o755)
 copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)

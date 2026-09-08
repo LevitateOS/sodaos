@@ -2,9 +2,11 @@
 
 The candidate remains nested Podman, not a host-socket backend. Rocky contains
 Podman and podman-compose 1.6.0. The project-local engine uses
-`/run/soda-podman/podman.sock`; project owner/wheel members administer it with
+`/run/soda-podman/podman.sock`; project-native root/wheel members administer it with
 ordinary native commands. Other members consume service endpoints, not its
 rootful API. Giving that API to ordinary members would grant project-root power.
+The [Project OS baseline](project-os.md) consolidates shared state, native authority,
+startup/terminal distinctions and required additions to existing writable roots.
 
 ## Service and permission corrections
 

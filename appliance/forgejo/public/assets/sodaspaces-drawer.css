@@ -1,9 +1,27 @@
-/* Content only. The template owner chooses the shell, drawer and navigation. */
-.soda-spaces-controls { display: grid; gap: .8rem; min-width: 0; }
-.soda-spaces-controls > p { margin: 0; }
-.soda-spaces-controls fieldset { min-width: 0; padding: .7rem; }
-.soda-spaces-controls button, .soda-spaces-controls textarea { font: inherit; }
-.soda-spaces-controls button { margin: .2rem; padding: .35rem .6rem; }
-.soda-spaces-controls textarea { display: block; width: 100%; box-sizing: border-box; }
+/* Open content sections reuse the native site's typography and tonal buttons. */
+.soda-spaces-controls { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
+.soda-spaces-tabs { display: flex; flex-shrink: 0; gap: 4px; overflow-x: auto; width: calc(100% - 80px); box-sizing: border-box; padding: 4px 8px; border-bottom: 1px solid var(--soda-page-edge, var(--color-secondary)); }
+.soda-spaces-tabs button { flex-shrink: 0; }
+.soda-spaces-tabs [aria-selected=true] { box-shadow: inset 0 -2px var(--color-primary, #4583db); }
+.soda-spaces-view { flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 16px; }
+#sodaspaces-view-terminal { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.soda-spaces-summary { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 4px 12px; border-top: 1px solid var(--soda-page-edge, var(--color-secondary)); font-size: 12px; max-height: 25%; overflow: auto; }
+.soda-spaces-summary #sodaspaces-result { flex-basis: 100%; }
+.soda-spaces-view > a { display: inline-block; margin-block: 8px; }
+.soda-spaces-controls p { margin: 0; }
+.soda-spaces-controls p:empty { display: none; }
+.soda-spaces-controls .soda-spaces-context { color: var(--soda-page-muted, var(--color-text-light)); font: var(--soda-font-meta); }
+.soda-spaces-controls .soda-spaces-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.soda-spaces-controls fieldset { display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; margin: 8px 0 0; padding: 0; border: 0; }
+.soda-spaces-controls legend { margin-bottom: 12px; padding: 0; font: var(--soda-font-heading, 600 24px/1.35 Georgia, serif); }
+.soda-spaces-controls fieldset > p, .soda-spaces-controls fieldset > label, .soda-spaces-controls fieldset > div, .soda-spaces-controls ul { flex-basis: 100%; min-width: 0; }
+.soda-spaces-controls fieldset > p, .soda-spaces-controls label { font: var(--soda-font-meta); color: var(--soda-page-muted, var(--color-text-light)); }
+.soda-spaces-controls #sodaspaces-public-key { display: block; width: 100%; min-width: 0; box-sizing: border-box; resize: vertical; padding: 12px; margin-top: 8px; border-radius: var(--soda-control-radius, 8px); border: 1px solid var(--soda-page-edge, var(--color-secondary)); background: var(--soda-page-surface, var(--color-input-background)); color: var(--color-text); font: 14px/1.5 'IBM Plex Mono', monospace; }
+.soda-spaces-controls #sodaspaces-command { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--soda-page-edge, var(--color-secondary)); color: var(--color-text); }
+.soda-spaces-controls code, .soda-spaces-controls #sodaspaces-command { display: block; padding: 12px; border-radius: 8px; background: var(--soda-page-surface, var(--color-input-background)); font: 14px/1.5 'IBM Plex Mono', monospace; }
+.soda-spaces-controls li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--soda-page-edge, var(--color-secondary)); }
+.soda-spaces-controls ul { margin: 0; padding: 0; list-style: none; }
 .soda-spaces-controls code, .soda-spaces-controls li, .soda-spaces-controls p { overflow-wrap: anywhere; }
 .soda-spaces-controls [hidden] { display: none !important; }
+.soda-spaces-controls a[aria-disabled=true] { pointer-events: none; opacity: .5; }
+.soda-spaces-controls > a { align-self: flex-start; }

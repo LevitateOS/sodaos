@@ -1,5 +1,384 @@
 # Current handoff
 
+## Merged presentation and Sodaspaces payload
+
+Merged upstream `416180e` with local `8d9b2eb`, preserving both histories and their
+evidence below. The shared header keeps the local presentation revision/asset
+versions plus the incoming drawer, terminal and xterm styles. Its reviewed inventory
+hash now binds the combined bytes; stale home-logo and seven settings-role entries
+were corrected to match the existing local templates. The deployment allowlist adds
+the nine local templates and both Soda Forge wordmarks, and drops deleted `issues.css`.
+All 367 payload entries have their selected source/build ownership; no new product
+feature or installed state change is implied by this merge.
+
+Local checks passed: Go scripts and host packages; focused nativebuild payload,
+allowlist and private-output tests; 62 Node frontend/presentation checks; and nine
+Python payload/synthetic-staging checks. The opt-in Chromium layout test was skipped.
+Prepared the existing frozen Cockpit dependency lock with install scripts disabled;
+no dependency manifest/lock changed. Initial host/nativebuild checks hit macOS
+temporary-path length/symlink constraints; the relevant checks passed with real,
+short `TMPDIR=/private/tmp`. The installed-stage suite could not run without an
+actual `SODA_STAGE`; no native appliance build, installed journey or deployment ran.
+Initial failures and corrected local results remain under
+`.artifacts/merge-8d9b2eb-416180e/`.
+
+## Project OS baseline consolidated — documentation only
+
+At the user's request, replaced the stale, unlinked [Project OS guide](project-os.md)
+with the existing foundation: native accounts/sudo/trust, supported tools and ordinary
+extension points, persistent versus runtime state, separate SSH/browser/Git credentials,
+service/cgroup ownership and same-container lifecycle. Linked it from the leading
+plan, architecture, agent/readme and feature/installation/validation guides. Corrected
+old claims that the image/GitHub CLI packaging and default-bridge/lifecycle checks
+had never completed; retained evidence remains bounded to its original bytes/targets.
+
+Two source distinctions matter: web management consumes current Forgejo authority,
+while native wheel grants use the creation-time owner label and are not revoked by
+that account helper; inner workload cgroups being disabled does not prove terminal
+systemd/cgroup cleanup. Do not invent synchronization, new capabilities or broad
+native compatibility to hide either boundary.
+
+The selected required-addition delivery is bounded **same-root native maintenance**:
+reviewed package/dependency/scriptlet/file/service effects, original CID/accounts and
+fresh matching preserved-state scope, no image replacement or install on Open. Its
+concrete recipe/checks remain source work for tmux delivery, not a fleet updater or
+execution permission. Tmux supervision/retention remains the immediate slice; zero-key
+real onboarding and the unresolved personal Git credential model are separate later
+work. No new universal Project OS planning phase is selected.
+
+Review used production source and the saved public
+`.artifacts/e2e-dad2945/export/x86_64/inputs/native-build.json`: that prior x86_64 image
+record includes `vim-minimal`, `less`, CA packages and the selected Tea/GitHub CLI
+versions, not tmux. It is not an audit of retained projects or evidence for current
+HEAD. Notes/document checks are retained under
+`.artifacts/research/project-os-baseline-0848079/`.
+
+Checks performed: source/retained-metadata review, Markdown relative-link/anchor
+inspection and `git diff --check`. No product code, dependency/package installation,
+build/test, terminal execution, VM contact, service/project/key/provider mutation,
+deployment or push. Source layout `4cb7f7d`, installed isolated `2aa4960`, retained
+`soda-test`, both isolated project roots, credentials and earlier evidence are unchanged.
+Tmux/native delivery and new acceptance remain unimplemented/unverified.
+
+## Resumable terminal selection — tmux, documentation only
+
+Following the user's request to find the best native persistence option, the
+[leading plan](sodaspaces-plan.md#resumable-terminal-decision--tmux) now selects
+**stock Rocky-packaged tmux** for the next single resumable terminal. The
+[terminal contract](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
+records the comparison, exact upstream sources, native ownership and proof required.
+
+Source review found the decisive shpool v0.11.4 limitation: no require-existing
+option in its CLI/attach protocol; missing/exited sessions can create a new shell.
+List-before-attach still races. Tmux 3.2a supports exact attach-only with `-N`,
+private sockets and a foreground server. Rocky 9 metadata lists `3.2a-5.el9` for
+both x86_64/aarch64; this is availability, not installed package/native proof.
+Research is retained under `.artifacts/research/terminal-options/`.
+
+The selected candidate keeps xterm/Soda authentication and uses one private,
+project-local supervised tmux server per managed browser terminal, under the
+original Linux account. Creation, attachment, retention and End are separate.
+Systemd/cgroup ownership plus the native safety lease must supervise the server and
+remaining owned descendants, not just its attachment client. Ordinary SSH/tmux and
+other terminals stay separate. Tmux history/selection/paste need actual UX review;
+its hidden status bar does not make scrollback identical to a plain xterm shell.
+
+**Still unimplemented:** package/unit/config, detached lifetime owner, resumable
+API/metadata, Refresh/navigation continuity and new native tests. First prove one
+session; multi-terminal tabs and Spaces reuse it afterwards. Existing first-layout
+source `4cb7f7d`, installed isolated `2aa4960`, retained `soda-test`, both isolated
+project roots and all earlier evidence are unchanged. No automatic shell replacement,
+restart resurrection, forced SSH configuration or runtime package installation.
+
+Checks performed: public upstream source/release/package-metadata inspection,
+documentation relative-link/anchor inspection and `git diff --check`. No product
+build/test, dependency installation, tmux/shpool session execution, VM contact,
+service/project/key/provider change, deployment or push occurred. This selects the
+source candidate, not runtime acceptance or new execution scope.
+
+## Global Spaces page selected — documentation revision only
+
+The user selected a global Spaces link alongside native navigation and a Soda-owned
+Go/template page at `/-/soda/spaces`. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+now supersedes the environment-catalog exclusion and records authorized listings,
+a fixed OAuth return and reuse of the same drawer/terminal sessions. Architecture,
+API, deferred-scope and agent guidance distinguish this planned HTML addition from
+today's API-only service. Future Runners navigation remains Soda-operator-only.
+
+**Not implemented:** navbar/page handler, authorized collection, Spaces OAuth return
+or authenticated page-shell composition. Shared assets do not import Forgejo's native
+session/template/CSRF context. Resolve the supported shell without borrowing cookies,
+relaying HTML or recreating upstream authentication/workflow authority. Existing
+JSON protections, current repository-filtered API and independent logout stay intact.
+
+Terminal continuity remains the immediate coding task; this revision does not gate
+it on a new planning project. Source layout slice `4cb7f7d` and its evidence remain
+unchanged. Documentation link/anchor inspection and `git diff --check` passed. No
+product code, builds/tests, native execution, credential/provider changes, deployment
+or push in this revision; no Spaces runtime acceptance is claimed.
+
+## Workspace step 1 — first source/layout slice, not native delivery
+
+Under the user's instruction to start the four implementation steps, replaced the
+modal shell with a non-modal aside and a desktop 50/50 native-page/workspace split.
+A pointer/keyboard separator adjusts width between 35–65%; narrow screens use the
+full workspace with Hide returning to the native page. There is no backdrop,
+outside-click dismissal, inert native page or focus trap. Native routing, forms,
+notifications and beforeunload remain untouched. Source scopes native body/container
+widths, but actual Forgejo page-specific reflow still requires browser validation.
+
+Terminal, Environment and Access **view tabs** now separate management/SSH forms from
+the full-height terminal. These are not multiple terminal sessions yet. All three
+frontend layers no longer retire on window blur/hidden visibility. Hide/reopen and
+view changes retain the same component/socket without new reads, commands or native
+mutations. End terminal is explicitly separate. Keyboard tabs, separator and terminal
+focus escape are covered. Footer structural inventory was reviewed; notification
+markup is unchanged and its hash was calculated from the actual changed template.
+
+**Remaining work is significant:** the backend still owns a single request-bound
+PTY per context/project, with its existing two-hour/session expiry limit. Actual
+pagehide/BFCache, transport loss and Refresh still end the terminal; there is no
+server-detached 30-minute grace, multiple terminal tabs, navigation restoration or
+command replay. Those are step 2, not a claim made by retaining a live browser
+mount. Browser-only joining, Forgejo-key reuse and outbound Git setup (step 3) are
+unchanged; no new keys, scopes or provider resources were created. Combined native
+workflow proof (step 4) has not run. Installed fixtures remain unchanged.
+
+Checks actually run on this first source slice:
+
+- 54 frontend Node tests passed; one opt-in layout test skipped in that invocation.
+  Includes late terminal readiness not stealing focus from the native pane and
+  refusal of synthetic hidden-view key deletion / terminal-launch clicks.
+- Separately, the sandboxed Chromium layout test passed all 16 combinations of
+  1440/900/390/320 widths, light/dark and running/stopped synthetic states. Real
+  locked xterm/CSS, synthetic HTTP/WebSocket and a native-form stand-in—not actual
+  Forgejo/OAuth/helper proof. It checks full-height canvas, half-width desktop,
+  editable left form, pointer-click non-dismissal, keyboard resize, view changes
+  and same-socket Hide/reopen. Desktop/mobile captures were visually inspected.
+- Go tests passed for `./scripts` and `./internal/nativebuild` (the latter cached).
+- Presentation inventory passed; embedded upstream-caller test skipped because its
+  optional local export was absent. Seven Sodaspaces Python packaging fixtures passed.
+
+Logs/screenshots: `.artifacts/workspace-d57f128/`, with final layout captures in
+`layout-1788897855045/`. Visual review of an earlier 320px capture caught the Access
+label painting beneath Hide despite the initial layout test passing. The tab strip
+now has a separate clipped width; a new non-overlap assertion and all 16 browser
+cases passed, and the corrected narrow capture was inspected. Earlier captures are
+retained, not relabeled as final. Documentation link/
+anchor inspection passed (94 files, 563 links, 70 anchors, zero errors) and
+`git diff --check` passed. No dependency installation, native build/export, real fixture
+journey, service/container/account/key mutation, deployment or push. This is a
+reviewable first implementation slice, not acceptance of all four steps. Preserve
+all existing native evidence and both retained isolated projects.
+
+## Product UX rejected — workspace correction is next, not delivery
+
+After using the installed fixture, the user rejected immediate terminal termination
+on tab/app changes and the modal management-form drawer. They clarified that **all
+development happens in the drawer**: a terminal fills its entire content area,
+session/management tabs occupy a compact top bar, and the native Soda/Forgejo page
+must remain usable on the left at roughly half-screen width. The current backdrop
+turns that page into a large dismiss target; passing the old tests did not establish
+an acceptable development experience.
+
+The revised requirements and proposed credential integration are now recorded at
+[the start of the leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
+No runtime fix has been made. Source and installed `2aa4960` still have modal blocking,
+three layers of blur/hidden retirement, a two-hour absolute terminal cap, one stream
+per context/project, socket-owned PTY lifetime and mandatory SSH keys at join. Native
+Forgejo navigation replaces the document: merely removing blur or changing CSS
+cannot preserve development while using the left pane. Multiple terminal tabs,
+non-modal pane-width layout and bounded same-process reattachment remain source work.
+
+The user also asked to reuse Forgejo profile public keys and automate project Git
+credentials rather than demand manual SSH entry. Inspection of exact Forgejo 15.0.7
+source confirms acting-user public-key listing/registration through official APIs;
+listing uses `read:user`, registration needs `write:user`, which Soda does not currently
+request. Browser terminal transport itself uses no SSH key. Browser-only joining
+therefore needs an intentional API/helper/project-script change, not a UI-only bypass.
+Existing keys, account markers and memberships must be preserved.
+
+The recommended outbound Git candidate generates a distinct keypair inside each
+user/project account and registers only its public half, rather than distributing
+one private key everywhere. This credential model is **not yet selected or implemented**:
+a Forgejo profile key still carries the user's normal cross-repository Git permissions,
+and project sudo administrators/root can read project-resident private keys. At-rest/
+passphrase handling and explicit user consent must be agreed. Do not blindly install
+all profile keys for inbound project SSH, including workspace-generated Git keys;
+that could silently enable lateral access. No automatic later synchronization or
+new provider mutation authority follows from this discussion.
+
+Checks this turn: tracked tree inspection and product/exact-selected-upstream source
+review; documentation edits only. The documentation checker passed (94 Markdown
+files, 563 relative links, 71 anchors, zero errors), as did `git diff --check`.
+Earlier public terminal UX comparisons are retained in
+`.artifacts/research/terminal-ux-5f33120/`. No builds/product tests, browser/native execution,
+key generation/registration, credential/scope change, deployment or push occurred.
+The technical evidence below remains valid at its recorded scope, **not acceptance
+of the rejected UX or proof of these corrections**. Preserve both isolated projects,
+all later user work and the installed-versus-exported candidate distinctions.
+
+## Integrated native E2E passed — bounded isolated x86_64 fixture
+
+Installed application/helper candidate `2aa4960` passed the real integrated
+existing-project management journey and fresh Create/Join journey with test source
+`1c02fb5`. This is bounded first-product integration evidence, not retained delivery,
+whole-appliance/operator/provider/aarch64 or release acceptance. `soda-test` was not
+contacted. The original fixture project and all earlier inputs/failures remain.
+
+- `browser-g` passed actual TLS/native Forgejo OAuth/two identities, BFCache,
+  original-login browser terminals and Escape/Disconnect/no-reconnect, explicit
+  Stop with a live terminal, disabled boot start, same-container Start, restored
+  boot policy, persistent home marker, account/group/host-key/key-file preservation,
+  actual nonowner lifecycle denial, temporary-key replacement and explicit removal.
+  New key B authenticated; removed A failed **public-key authentication**, while
+  already authenticated A and Bob SSH sessions survived. Both temporary saved keys
+  were then explicitly removed/applied through the UI; original key rows and managed
+  files are preserved. No original saved key was deleted.
+- A single new public run-owned repository `/alice/soda-e2e-1c02fb5` was created
+  through Alice's actual native form. `browser-access` passed owner Create,
+  nonowner denial, each user's explicit key Save/Join, own connection and native
+  Copy/real paste. New project `p9568a9ea83a6c84e66c6b975`, CID
+  `cfdaa1def67a97b37c4af5c5b61b851aeb3a328caf6b2b8a8ac21d72ded86748`, is retained.
+  The product-owned `developer-access.py` passed independent SSH/PTY/SCP/SFTP,
+  UID-map, owner/nonowner sudo and cross-user authentication-denial checks. The
+  client used explicit management-SSH forwarding, **not direct/laptop routing proof**;
+  the script now accepts a private SSH configuration and records that distinction.
+- Final independent observations bind the actual running backend/helper and all
+  368 custom-file bytes. Original users/key rows/grant-key check and original managed
+  key files match preflight/backup. Schema5 integrity/FKs pass; counts are users2,
+  keys2, projects2, memberships4, sessions9/grants9 after legitimate auth transitions.
+  Both projects are running/boot-enabled on the unchanged original project-image
+  default. Earlier process observations independently confirmed terminal shell
+  disappearance; socket closure alone was not the evidence.
+
+Evidence: `.artifacts/e2e-2aa4960/`, including the fresh paired guest/local backup,
+all browser profiles/results, new client files/transfers, native observations and
+failed runs. Preserve new home markers and both project roots. No reboot, host
+routing, provider job, original-key deletion, project-image replacement or retained
+rollout occurred. Old backups are not lossless rollback over the new repository,
+project, auth transitions or later writes.
+
+Retained failures matter: D/F used a stale client IP after native Start changed it
+from `10.90.0.2` to `.3`; the helper/UI correctly exposed the new address. The probe
+now compares the current CID-bound address with the drawer and uses a separately
+pinned host-key alias, without changing routes. G observed `.3` then `.4` and passed.
+E failed before management at real back-forward restoration; it is not a passed run.
+B's native PTY parser failure and both pre-write maintenance refusals remain below.
+
+Final mode verification also found a packaging discrepancy: 11 legacy theme/logo
+adaptations inherited private-checkout 0600 modes in the bundle, while the reviewed
+fixture maintenance installed public files as 0644. All bytes match; the explicit
+mode differences are retained in `final-check-reviewed.json`, not hidden as exact
+mode equivalence. Source staging now normalizes only its run-owned public adaptation
+files/directories, with a private-checkout regression test. The corrected packaging
+passed a clean native build, `check-native.sh x86_64` and verified export at
+`dad2945`, retained in `.artifacts/e2e-dad2945/`. Every staged Forgejo public asset now has
+0644 file/0755 directory modes even from the private worktree. No new application
+behavior was introduced: production application/helper source remains the tested
+`2aa4960` code. The newer whole bundle is not installed; current fixture runtime
+and its 11 explicitly recorded mode differences remain bound to the evidence above.
+No additional restart or retained rollout was performed to hide that distinction.
+
+## Integrated E2E execution started — isolated fixture only
+
+The user authorized proceeding with E2E testing after the explicit build/native
+journey, Stop/Start and temporary SSH-key rotation proposal. Execution is bounded
+to this x86_64 builder and `soda-native-spaces-658f2af`; preserve its original project,
+accounts, keys, later writes and evidence. Fresh paired backup precedes fixture
+service changes. No `soda-test`, provider, routing, project deletion or host reboot
+is included. New work/evidence: `.artifacts/e2e-806d0d9/`.
+
+Clean `806d0d9` passed full native build, `check-native.sh x86_64` and verified bundle
+export from its own detached worktree. Read-only pinned-SSH preflight confirmed the
+original CID/image, one project/two memberships/two keys, schema5, running services
+and query-free native logging. No fixture mutation or browser proof yet.
+
+Preflight reproduced a real lifecycle compatibility blocker: systemd
+`259.8-1.fc44` supplies the global `service.d/10-timeout-abort.conf`, setting only
+`TimeoutStopFailureMode=abort`. The helper wrongly required no drop-ins whatsoever.
+Source now admits exactly that stock vendor path (or no drop-ins), while refusing
+all other/combined overrides and retaining fixed unit/CID validation. Host policy
+was not changed. Focused host/web tests passed; the corrected candidate still needs
+its own clean build/check and integrated native execution. Initial bundle/evidence
+remain preserved, not relabeled as the corrected build or E2E success.
+
+Follow-up: clean `2aa4960` passed full native build/check/export. Its exact dashboard,
+helper and full customization payload were installed only on the isolated fixture,
+after a fresh quiesced paired backup (guest `/var/lib/soda-e2e-2aa4960/backup`, local
+`.artifacts/e2e-2aa4960/fixture-backup.tar`). Original project CID/image/running state,
+Soda rows/grant ciphertext and credentials were preserved; project defaults/units,
+accounts/keys, routing and `soda-test` were untouched. Two pre-write maintenance
+refusals are retained: the full payload also contains 11 legacy theme/logo files,
+and this fixture used its original verified `:dev` reference rather than the retained
+target's image-pinned unit. The fixture now uses the candidate's immutable image pin.
+
+The real guarded public-repository OAuth/browser journey passed against this installed
+candidate (`browser-a`): trusted TLS, actual native forms and two identities, actor/
+CSRF denials, native theme/focus/form coexistence and real BFCache. This is not
+yet terminal/lifecycle/key E2E proof. An explicit existing-member terminal mode is
+now authored in the same installed entrypoint; native execution and independent
+process-disappearance checks are next. Stop/Start and key rotation remain unexecuted.
+
+The terminal follow-up passed as test revision `5f459a1` against unchanged installed
+`2aa4960` product bytes (`browser-c`). Both users exercised real native login/OAuth,
+mounted xterm, original login/UID/GID/groups/home/TTY, Escape/focus escape, explicit
+Disconnect and no remount after Refresh. Independent pinned host observations
+confirmed both original shell PID/start identities disappeared, original managed
+keys remained byte-identical and the CID was unchanged. `browser-b` is a retained
+failed fact-parser attempt; native PTY CSI/CR framing was corrected in the probe,
+not stripped from the product shell or turned into a synthetic response.
+
+An explicit existing-project management extension is now authored in the same
+installed entrypoint: Stop/Start, persistent marker, live-terminal interruption,
+nonowner denial and two temporary-key rotation/revocation with independent SSH and
+held-session checks. It preserves original saved keys and uses only exact approved
+fixture aliases; root transport observes, UI/API performs mutations. It has not yet
+run. This does not authorize new targets, deletion, routing or a retained rollout.
+
+## Mounted Sodaspaces management and terminal in the established UI
+
+The native repository button/right dialog now mounts the complete control component
+through a single `sodaspaces.js` shell. Its historical duplicate API/action caller is
+removed. Connect/logout, create, saved-key add/remove, join, own-key review/Apply,
+Start/Stop, SSH/native Copy, Refresh and explicit terminal Open/Disconnect remain
+separate actions. Existing native forms/navigation/notification hooks are preserved.
+The drawer uses shared typography/tonal 44px buttons, responsive width and scoped
+terminal styles. It retires on close/stale context; reopening requires an explicit
+full-page reload rather than evading terminal or uncertain-operation guards. Refresh
+cannot remount a used terminal. Mutations recheck session identity before dispatch;
+JSON reads are MIME-checked and streaming-bounded to 64 KiB. No backend authority,
+provider rule, schema, lifecycle or key semantics changed in this UI integration.
+
+The merge's partial-payload packaging hold is resolved **in source**: staging and
+the compiled verifier share `internal/nativebuild/forgejo-payload.json` (357 exact
+entries, including 229 templates, presentation assets/fonts/notices and generated
+locale/terminal inputs). The installer refuses unsafe ancestors and occupied
+customization destinations, and chowns only admitted entries, not mutable data trees.
+Native build now verifies the locked complete upstream 15.0.7 English catalog before
+merging the Soda namespace; GPL/font/Soda/renderer notices remain paired with payloads.
+This is not a new native candidate build, exported bundle or installed frontend.
+
+Local checks passed: full Go suite; focused web/host/store/nativebuild races; 65 Node
+tests (two opt-in/export-dependent checks skipped); 60 Python build tests (one opt-in
+Caddy check skipped); shell/installed-probe syntax, documentation and whitespace.
+A separate opt-in sandboxed Chromium layout test passed all 16 combinations of
+1440/900/390/320 widths, light/dark and running/stopped, with real source styles and
+hash-verified xterm, native-form preservation, keyboard escape and reload behavior.
+Its APIs/WebSocket are synthetic: **not real Forgejo/OAuth/helper terminal proof**.
+Logs and screenshots: `.artifacts/ui-integration-c6df099/`. Initial failures are
+retained: presentation hook snapshots required explicit integration review, a closure
+test wrongly required stock `custom/extra_tabs`, and the actual-stage packaging suite
+refused to run without `SODA_STAGE` (zero tests; not a passing stage check).
+
+The existing installed journey was adapted to reload/retired-context semantics and
+current status text but was not executed. Combined native OAuth/proxy/helper/browser
+proof, full candidate build/check/stage and native Start/Stop persistence/new-key
+success/old-key refusal remain pending. No dependency install, service reload,
+VM/project/account/key/provider mutation, retained rollout or push occurred. The
+previous terminal-only fixture approval does not cover lifecycle/key mutations;
+obtain exact scope first. Destroy and operator runner relocation remain separate.
+
 ## Public contributor profile redesign
 
 Local presentation revision `2026-09-08.32` implements the approved compact
@@ -308,9 +687,9 @@ and credential-stripped; other `/-/soda/*` traffic retains same-origin API/OAuth
 credentials. No separate Soda browser origin or old schema/deployment state was restored.
 Both real upstream dependency/checksum sets and packaged license notices are retained.
 
-The merged hooks reference shared presentation templates/assets beyond the existing
-bounded appliance staging allowlist. `stage.py` now refuses that incomplete payload
-before creating rootfs; full presentation packaging/install validation is still needed.
+At this merge, the hooks referenced shared presentation templates/assets beyond the
+then-current bounded staging allowlist. Staging refused that incomplete payload.
+The source inventory above supersedes that hold; native delivery validation is still needed.
 This merge does not deploy the preview, mount the new management module or change any
 retained fixture/service/account/key. Imported preview evidence refers to its original
 workspace and is not newly executed evidence here.

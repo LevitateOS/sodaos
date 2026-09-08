@@ -18,6 +18,23 @@ separately approved cutover. A build permit is not install/restart, disk erasure
 provider registration, routing or fixture permission. Record reused evidence by
 exact bytes/target, not a second independent PASS. Missing access is **unverified**.
 
+## Project OS baseline checks
+
+The [Project OS baseline](project-os.md) is a source-backed contract, not another
+readiness gate. Extend existing image/tool, account/access, project-state/workload
+and terminal tests for the actual candidate. Required commands/terminfo, genuine
+login/groups/shared paths and managed-service cgroup ownership need native checks;
+package metadata or disabled inner workload cgroups alone prove none of those.
+
+For existing-root additions, declare the exact native maintenance transaction and
+fresh backup/interruption scope; verify the original CID, accounts/keys, configuration,
+homes/shared tools and workload data survive. Prove the selected tmux session's same
+process and owned cleanup independently from its socket. The existing request-owned
+terminal probe assertions below are historical behavior, not acceptance of new
+reattachment/navigation retention; revise them with the implementation, not by
+relabelling their old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented).
+No project/package/service mutation is authorized by these requirements.
+
 ## Native source and build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
@@ -117,7 +134,10 @@ browser result, an independently operator-verified public project host key and
 client-local private keys. Its private `target.json` has `target`, `revision`,
 `project_id`, `subnet`, `browser_result`, `host_key_file` and ordered `users` matching
 the browser result. Each user declares `id`, `login`, `key_file`, `administrator`
-(first user true, second false). `SODA_NATIVE_VALIDATE` must match `target`. All input
+(first user true, second false). An optional restricted `ssh_config_file` selects
+an explicitly approved client transport (for example management-SSH forwarding).
+That mode records no direct-route proof; original-key pinning, forced public-key
+authentication and separate connections remain mandatory for SSH/SCP/SFTP/denials. `SODA_NATIVE_VALIDATE` must match `target`. All input
 files are absolute restricted regular files; no host-key scan or trust bypass occurs.
 It records actual client hostname/architecture and script hash, tests project-IP SSH,
 PTY, SCP/SFTP, owner/nonowner sudo and cross-user key denial, and retains its own new
@@ -178,6 +198,45 @@ The template owner mounts `mountSodaspaces` through the
 clipboard and BFCache; source component tests or injected browser state do not replace
 that integrated proof. Any retained deployment still needs current paired backups and
 its exact affected-component scope, including the changed helper.
+
+## Integrated existing-account browser terminal mode
+
+Append `--allow-existing-terminal` to the authenticated public-repository probe
+using its ordinary private input. This requires explicit native shell permission
+for both existing members. It completes the ordinary OAuth/BFCache journey, then
+uses real native login/OAuth and the mounted Open/Disconnect controls for each user.
+Only a bounded transient socket-output buffer recognizes run-owned identity/home/TTY
+facts; no transcript or authentication frames are retained. Escape, focus escape,
+explicit disconnect and no remount on Refresh are checked. Returned shell PID/start
+facts require independent host-side disappearance checks: socket closure alone is
+not process-cleanup proof. No create/join/start/key action is permitted by this flag.
+
+## Integrated existing-project management mode
+
+`--allow-existing-management /private/management.json` additionally runs the
+existing-terminal mode, owner Stop/Start with an active browser terminal and a
+run-owned persistent home marker, native nonowner lifecycle denial, and explicit
+saved-key/native Apply/revocation using two temporary client keys. Original saved
+keys are never deleted. New SSH authentication, refusal of the removed temporary
+key and survival of already authenticated temporary-key/Bob sessions are separate
+checks. Successful completion removes only the two new saved keys through the UI,
+explicitly reapplies originals and verifies the original managed files/identities.
+Failure does not trigger automatic restoration, mutation replay or cleanup of keys.
+
+The private management JSON has exactly `target`, `project`, `cid`, `ssh_config`,
+`key_a`, `key_a_public`, `key_b`, `key_b_public`, `original_alice`, `original_bob`.
+All file references are absolute restricted regular files. The trusted SSH config
+must define pinned `soda-e2e-host`, `soda-e2e-alice` and `soda-e2e-bob` aliases for
+this declared fixture and existing project. Project aliases must use an independently
+verified `HostKeyAlias` pin, not a stale IP-key entry: the probe overrides HostName
+with the current CID-bound native address and compares it with the drawer's SSH
+command. Podman can change that address on Start; it is not a persistent identity.
+Root SSH only observes state; every
+lifecycle/key mutation goes through the actual protected browser UI/API, with
+single-use actor/path/body/method-bound request admission. Private keys stay on the
+client and never enter browser inputs. Management forwarding is not laptop routing
+proof. The current bounded scenario deliberately requires the existing Alice/Bob
+fixture accounts; it is not an arbitrary project maintenance tool.
 
 ## Native terminal boundary probe
 

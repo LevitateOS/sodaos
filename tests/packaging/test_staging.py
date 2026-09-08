@@ -110,8 +110,17 @@ class NativeStage(unittest.TestCase):
                 if parent == self.root:
                     break
                 self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
-        self.assertEqual(sorted(p.name for p in (custom / 'templates/custom').iterdir()),
-                         ['footer.tmpl', 'header.tmpl'])
+        root = Path(__file__).resolve().parents[2]
+        payload = json.loads((root / 'internal/nativebuild/forgejo-payload.json').read_text())
+        for name, origin in payload.items():
+            target = custom / name
+            self.assertTrue(target.is_file(), name)
+            self.assertFalse(target.is_symlink(), name)
+            self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+            if not origin.startswith('@build/'):
+                self.assertEqual(target.read_bytes(), (root / origin).read_bytes(), name)
+        self.assertEqual({p.relative_to(custom).as_posix() for p in (custom / 'templates').rglob('*.tmpl')},
+                         {name for name in payload if name.startswith('templates/')})
 
     def test_operator_console_delivery(self):
         renderer = self.root / 'usr/local/libexec/soda/soda-console-welcome'

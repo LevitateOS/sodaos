@@ -12,6 +12,16 @@ native access proof at `bdbce8e`, followed by separately approved retained cutov
 private-page browser and existing-account SSH/PTY checks. Exact evidence and limits
 remain in the handoff, not a general release/installation acceptance.
 
+**UX correction in progress:** the user rejected the modal overlay and blocked native
+page. The first source slice uses a non-modal aside, adjustable native left pane and
+full-height Terminal/Environment/Access views. Multiple terminal sessions and native
+navigation/network reattachment remain pending; source layout tests are synthetic. See the
+[leading product correction](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
+The dialog/backdrop details below describe the old candidate, not current shell code
+or constraints to preserve. Actual document departure still requires reload until
+reattachment is implemented; focus/view/Hide changes now retain the same mount. Native routes, forms, authentication,
+customization ownership and no-fork boundaries remain selected.
+
 ## Verified source surface
 
 The inspected **15.0.7** source establishes:
@@ -53,7 +63,8 @@ and context menus delegate to native partials; scoped CSS only adapts their visu
 The guest preference script loads only on anonymous routes with a guest toggle.
 
 This extraction is live-mounted only in the existing local 15.0.7 preview.
-Production staging/verifier delivery is still pending. Shared presentation does
+Production staging/verifier now has an exact full-presentation inventory; an actual
+new candidate build and delivery remain pending. Shared presentation does
 not add handlers, authentication, permissions, a frontend build or a Lit dependency.
 Use Lit selectively when a new self-contained interaction warrants it; do not
 migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
@@ -212,16 +223,19 @@ Always show repository/environment context, the actual Soda acting identity and 
 | Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
 
 Closing synchronously invalidates stale reads/results, including before the browser's
-queued close event; it does not undo an in-flight native mutation. Reopen waits for
-an outstanding action, then offers a safe Refresh. Otherwise it reads actual state. Existing join is not later key propagation.
-Basic Start/Stop controls are now a planned follow-up in the
-[remaining-work list](sodaspaces-plan.md#remaining-work--ordered), not existing drawer
-operations. Destruction requires a separate scope decision; restart controls, resource
+queued close event; it does not undo an in-flight native mutation. Reopen requires
+explicit full-page reload, never remounting to evade an ended terminal or uncertain
+operation. Existing join is not later key propagation. The shell now mounts the
+complete management content: Start/Stop and reviewed own-key Apply are explicit
+source-implemented operations, still requiring scoped native persistence/revocation
+proof at each new delivery target. That proof now passed on the isolated x86_64
+fixture; see the [remaining-work list](sodaspaces-plan.md#remaining-work--ordered). Destruction requires a separate scope decision; restart controls, resource
 charts, member administration and a browser IDE are not part of this slice. The existing-account terminal now has a protected backend and
-self-contained component in source, not deployed/native-page proof or a prerequisite
-for SSH. Its [mount/dispose contract](terminal-integration.md) leaves all template
-placement/layout with the separate override owner; no terminal-specific template
-changes or automatic opening are selected.
+self-contained mounted component with bounded isolated native-page proof, not a prerequisite
+for SSH. Its [mount/dispose contract](terminal-integration.md) is now used by the
+native dialog shell, loading the complete content and local terminal styles. Opening
+the drawer never opens a terminal. Local layout/renderer tests remain distinct from
+the separately recorded passed native OAuth/helper journeys in the handoff.
 
 ## Integration limits
 

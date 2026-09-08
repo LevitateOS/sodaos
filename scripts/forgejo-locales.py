@@ -6,6 +6,9 @@ this command therefore requires the complete extracted native catalog as input.
 """
 import argparse
 import configparser
+import hashlib
+import json
+import urllib.request
 from pathlib import Path
 
 
@@ -29,10 +32,24 @@ def merge(native: str, additions: str) -> str:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--native', required=True, type=Path)
+    native = parser.add_mutually_exclusive_group(required=True)
+    native.add_argument('--native', type=Path)
+    native.add_argument('--lock', type=Path, help='Fetch the exact locked native catalog at build time')
     parser.add_argument('--additions', type=Path, default=Path('appliance/forgejo/i18n/en-US.ini'))
     parser.add_argument('--out', required=True, type=Path)
     args = parser.parse_args()
-    output = merge(args.native.read_text(), args.additions.read_text())
+    if args.lock:
+        lock = json.loads(args.lock.read_text())
+        if not lock['url'].startswith('https://codeberg.org/forgejo/forgejo/raw/tag/'):
+            parser.error('unexpected native catalog source')
+        with urllib.request.urlopen(lock['url'], timeout=30) as response:
+            data = response.read(1024 * 1024 + 1)
+        if len(data) > 1024 * 1024 or hashlib.sha256(data).hexdigest() != lock['sha256']:
+            parser.error('native catalog differs from locked bytes')
+        native = data.decode('utf-8')
+    else:
+        native = args.native.read_text()
+    output = merge(native, args.additions.read_text())
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(output)
+    with args.out.open('x') as stream:
+        stream.write(output)

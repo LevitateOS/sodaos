@@ -31,7 +31,11 @@ The complete generated English catalog was copied to the existing preview's
 `/data/gitea/options/locale/locale_en-US.ini` and activated with the single
 user-authorized restart. The existing image, configuration and data volume were
 retained. Further locale changes require another authorized activation; template
-reloads do not refresh production locale caches. Appliance staging is separate.
+reloads do not refresh production locale caches. Appliance build now uses
+`--lock appliance/forgejo/locale.lock.json` to verify the complete upstream 15.0.7
+English input before merging. The exact payload inventory stages that generated
+catalog and its GPL/source notices. This is source packaging plus local fixture
+coverage, not a new appliance catalog installation.
 
 Verified upstream source:
 [locale loading](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/translation/translation.go)

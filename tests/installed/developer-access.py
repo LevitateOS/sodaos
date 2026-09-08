@@ -33,7 +33,11 @@ def main():
     assert root.is_absolute() and root.is_dir() and not root.is_symlink()
     assert not root.stat().st_mode & 0o077
     request = json.loads(private_file(root / 'target.json'))
-    assert set(request) == {'target', 'revision', 'project_id', 'subnet', 'browser_result', 'host_key_file', 'users'}
+    required = {'target', 'revision', 'project_id', 'subnet', 'browser_result', 'host_key_file', 'users'}
+    assert set(request) in (required, required | {'ssh_config_file'})
+    ssh_config = request.get('ssh_config_file', '/dev/null')
+    if ssh_config != '/dev/null':
+        private_file(ssh_config, 16384)  # Explicit trusted client transport, not a route claim.
     assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,252}', request['target'])
     assert os.environ.get('SODA_NATIVE_VALIDATE') == request['target']
     assert re.fullmatch(r'[0-9a-f]{40}', request['revision'])
@@ -62,6 +66,7 @@ def main():
     output.mkdir(mode=0o700)
     results = {'revision': request['revision'], 'target': request['target'], 'project': identifier,
                'client': platform.node(), 'client_arch': platform.machine(),
+               'transport': 'direct project IP' if ssh_config == '/dev/null' else 'explicit SSH configuration; not direct-route proof',
                'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), 'users': []}
 
     def execute(args, data=None):
@@ -91,7 +96,9 @@ def main():
             endpoints.append(ip)
             known = output / (login + '-known-hosts')
             known.write_text(ip + ' ' + public + '\n')
-            options = ['-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
+            options = ['-F', ssh_config, '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
+                       '-o', 'IdentityAgent=none', '-o', 'PreferredAuthentications=publickey',
+                       '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
                        '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
                        '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known), '-i', user['key_file']]
             ssh = ['ssh', *options]
@@ -124,12 +131,14 @@ def main():
             checked(['sftp', *options, '-b', '-', target], batch.encode())
             assert sftp_copy.read_bytes() == payload
             results['users'].append({'id': user['id'], 'login': login, 'ip': ip, 'project_administrator': user['administrator'],
-                                     'direct_ssh': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
+                                     'direct_ssh': ssh_config == '/dev/null', 'ssh_authentication': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
                                      'probe_directory': destination})
         assert endpoints[0] == endpoints[1]
         # Same host key and reachable endpoint: require public-key denial, not a transport failure.
         first, second = request['users']
-        denied = execute(['ssh', '-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
+        denied = execute(['ssh', '-F', ssh_config, '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
+                          '-o', 'IdentityAgent=none', '-o', 'PreferredAuthentications=publickey',
+                          '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
                           '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
                           '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known),
                           '-i', first['key_file'], second['login'] + '@' + endpoints[1], 'true'])
@@ -141,7 +150,7 @@ def main():
         raise
     finally:
         (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
-    print('Declared memberships passed direct project-IP SSH, PTY, SCP/SFTP, owner sudo and cross-user key denial.')
+    print('Declared memberships passed native SSH, PTY, SCP/SFTP, owner sudo and cross-user key denial.')
     print('Client placement/routing is recorded separately; not laptop, lifecycle or workload acceptance.')
 
 

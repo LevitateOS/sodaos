@@ -19,66 +19,68 @@ func (f managementExec) Run(ctx context.Context, in []byte, cmd string, args ...
 }
 
 func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
-	for _, action := range []string{"inspect", "start", "stop"} {
-		t.Run(action, func(t *testing.T) {
-			running, enabled := false, false
-			if action == "stop" {
-				running, enabled = true, true
-			}
-			mutations := 0
-			id := "p0123456789abcdef01234567"
-			d := Daemon{Config: Config{Network: "soda-projects", Subnet: "10.89.0.0/24"}}
-			d.Exec = managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
-				joined := strings.Join(args, " ")
-				if cmd == "/usr/bin/systemctl" {
-					if args[0] == "show" {
-						state := "disabled"
-						if enabled {
-							state = "enabled"
+	for _, dropIn := range []string{"", "/usr/lib/systemd/system/service.d/10-timeout-abort.conf"} {
+		for _, action := range []string{"inspect", "start", "stop"} {
+			t.Run(fmt.Sprintf("%s/fedora=%t", action, dropIn != ""), func(t *testing.T) {
+				running, enabled := false, false
+				if action == "stop" {
+					running, enabled = true, true
+				}
+				mutations := 0
+				id := "p0123456789abcdef01234567"
+				d := Daemon{Config: Config{Network: "soda-projects", Subnet: "10.89.0.0/24"}}
+				d.Exec = managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
+					joined := strings.Join(args, " ")
+					if cmd == "/usr/bin/systemctl" {
+						if args[0] == "show" {
+							state := "disabled"
+							if enabled {
+								state = "enabled"
+							}
+							return []byte("LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=" + dropIn + "\nUnitFileState=" + state + "\n"), nil
 						}
-						return []byte("LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=\nUnitFileState=" + state + "\n"), nil
+						verb := "enable"
+						if action == "stop" {
+							verb = "disable"
+						}
+						if joined != verb+" --now soda-project@"+id+".service" {
+							t.Fatal("unbounded lifecycle command", joined)
+						}
+						mutations++
+						running, enabled = action == "start", action == "start"
+						return nil, nil
 					}
-					verb := "enable"
-					if action == "stop" {
-						verb = "disable"
+					if cmd != "/usr/bin/podman" {
+						t.Fatal("unexpected command")
 					}
-					if joined != verb+" --now soda-project@"+id+".service" {
-						t.Fatal("unbounded lifecycle command", joined)
+					if strings.Contains(joined, "--format") {
+						return []byte(fmt.Sprintf(`{"id":%q,"running":%t,"project":%q,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64), running, id)), nil
 					}
-					mutations++
-					running, enabled = action == "start", action == "start"
-					return nil, nil
+					if joined != "inspect soda-"+id {
+						t.Fatal("lifecycle bypassed native unit", joined)
+					}
+					return []byte(fmt.Sprintf(`[{"Config":{"Labels":{"org.soda.project":%q,"org.soda.owner":"1"}},"State":{"Running":%t},"NetworkSettings":{"Networks":{}}}]`, id, running)), nil
+				})
+				state, err := d.lifecycle(t.Context(), Lifecycle{Project: id, Action: action})
+				if err != nil {
+					t.Fatal(err)
 				}
-				if cmd != "/usr/bin/podman" {
-					t.Fatal("unexpected command")
+				if state.Environment.ID != id || state.BootEnabled != enabled || state.Environment.Running != running {
+					t.Fatal("wrong observed state")
 				}
-				if strings.Contains(joined, "--format") {
-					return []byte(fmt.Sprintf(`{"id":%q,"running":%t,"project":%q,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64), running, id)), nil
+				want := 1
+				if action == "inspect" {
+					want = 0
 				}
-				if joined != "inspect soda-"+id {
-					t.Fatal("lifecycle bypassed native unit", joined)
+				if mutations != want {
+					t.Fatal("unexpected mutation count")
 				}
-				return []byte(fmt.Sprintf(`[{"Config":{"Labels":{"org.soda.project":%q,"org.soda.owner":"1"}},"State":{"Running":%t},"NetworkSettings":{"Networks":{}}}]`, id, running)), nil
 			})
-			state, err := d.lifecycle(t.Context(), Lifecycle{Project: id, Action: action})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if state.Environment.ID != id || state.BootEnabled != enabled || state.Environment.Running != running {
-				t.Fatal("wrong observed state")
-			}
-			want := 1
-			if action == "inspect" {
-				want = 0
-			}
-			if mutations != want {
-				t.Fatal("unexpected mutation count")
-			}
-		})
+		}
 	}
 }
 func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
-	for _, unit := range []string{"LoadState=not-found\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/other.service\nDropInPaths=\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/etc/systemd/system/override.conf\nUnitFileState=enabled\n"} {
+	for _, unit := range []string{"LoadState=not-found\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/other.service\nDropInPaths=\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/10-timeout-abort.conf /etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/other.conf\nUnitFileState=enabled\n"} {
 		d := Daemon{Exec: managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
 			if cmd == "/usr/bin/systemctl" {
 				if args[0] != "show" {

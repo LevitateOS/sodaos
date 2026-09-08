@@ -818,7 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f834fe4ff56c13fe77b009b50bc40209a5c36296f6ab3b334f7fe0eaa151ccbc",
+      "beforeRoleHash": "27344134df7f6cd780b07eeb0defbac8db57f446c137a308bc3e9f0a43449789",
+      "presentationReview": "non-modal workspace aside, keyboard/pointer divider and Hide; notification markup unchanged; source and synthetic layout proof only",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -846,12 +847,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4fda21532e9e8d4e62d79fcc715374740863beffc48f67782f9fa9e3a8ae65ae",
+      "beforeRoleHash": "893394990e74d5fbac774430bd6c1b35e414f6f3d1d2c29e2a7f3374b2a26bcc",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
+      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal styles; native privacy and handler contracts retained; combined native proof pending."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -1317,8 +1318,8 @@
         "soda-home-primary",
         "soda-home-secondary",
         "soda-home-title",
-        "soda-logo-horizontal",
-        "soda-logo-horizontal-dark"
+        "soda-forge-logo-horizontal",
+        "soda-forge-logo-horizontal-dark"
       ],
       "states": [
         "light",
@@ -7579,7 +7580,6 @@
         "soda-account-details",
         "soda-account-details--account",
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-section",
         "soda-p-form",
@@ -7652,7 +7652,6 @@
         "soda-account-details",
         "soda-account-details--appearance",
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-preference",
         "soda-settings-section-body",
         "soda-p-section",
@@ -8703,7 +8702,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-p-compact",
         "soda-settings-section-body"
       ],
@@ -8742,7 +8740,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-compact",
         "soda-p-form",
@@ -8788,8 +8785,7 @@
         "soda-account-details-page--security",
         "soda-account-details",
         "soda-account-details--security",
-        "soda-settings-section",
-        "soda-settings-explained"
+        "soda-settings-section"
       ],
       "states": [
         "credential-inventory",
@@ -8820,7 +8816,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-factor-state",
         "soda-p-control",
@@ -8900,7 +8895,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-compact",
         "soda-p-form",

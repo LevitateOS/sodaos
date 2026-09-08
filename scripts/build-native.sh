@@ -85,6 +85,7 @@ for image in forgejo caddy; do
 done
 python3 scripts/fetch-runner.py --arch "$arch" --out "$out/github-actions-runner"
 python3 scripts/fetch-terminal.py --out "$out/terminal-assets"
+python3 scripts/forgejo-locales.py --lock appliance/forgejo/locale.lock.json --out "$out/forgejo-locales/locale_en-US.ini"
 python3 scripts/stage.py --arch "$arch"
 python3 scripts/native-build-info.py --arch "$arch" --revision "$revision"
 [[ $(git rev-parse HEAD) == "$revision" && -z $(git status --porcelain --untracked-files=normal) ]] || { echo 'Source changed during build; output is not sealed' >&2; exit 1; }

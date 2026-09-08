@@ -24,7 +24,7 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
 		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
-	paths = append(paths, sodaspacesFiles...)
+	paths = append(paths, forgejoFiles...)
 	for _, name := range paths {
 		p := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
@@ -34,7 +34,7 @@ func fixtureBundle(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range sodaspacesFiles {
+	for _, name := range forgejoFiles {
 		if err := os.Chmod(filepath.Join(root, name), 0644); err != nil {
 			t.Fatal(err)
 		}

@@ -2,6 +2,7 @@ package nativebuild
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -29,24 +31,30 @@ type Inventory struct {
 
 const inventoryName = "build-info.json"
 
-var sodaspacesFiles = []string{
-	"rootfs/var/lib/soda/forgejo/gitea/templates/custom/header.tmpl",
-	"rootfs/var/lib/soda/forgejo/gitea/templates/custom/footer.tmpl",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.css",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces.js",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.js",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-terminal.css",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-drawer.js",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/sodaspaces-drawer.css",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.mjs",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.css",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/addon-fit.mjs",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/xterm.LICENSE",
-	"rootfs/var/lib/soda/forgejo/gitea/public/assets/soda-terminal/fit.LICENSE",
-}
+// One reviewed source/destination inventory drives staging and the compiled
+// verifier. It admits these exact customization files, never a mutable data tree.
+//
+//go:embed forgejo-payload.json
+var forgejoPayload []byte
+
+var forgejoFiles = func() []string {
+	var entries map[string]string
+	if err := json.Unmarshal(forgejoPayload, &entries); err != nil {
+		panic(err)
+	}
+	names := make([]string, 0, len(entries))
+	for dest, source := range entries {
+		if !fs.ValidPath(dest) || !fs.ValidPath(strings.TrimPrefix(source, "@build/")) {
+			panic("invalid Forgejo payload path")
+		}
+		names = append(names, "rootfs/var/lib/soda/forgejo/gitea/"+dest)
+	}
+	slices.Sort(names)
+	return names
+}()
 
 func allowedPayload(p string) bool {
-	for _, name := range sodaspacesFiles {
+	for _, name := range forgejoFiles {
 		if p == name || strings.HasPrefix(name, p+"/") {
 			return true
 		}
@@ -162,7 +170,7 @@ func tree(root string) (map[string]File, error) {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)
 		}
 	}
-	for _, name := range sodaspacesFiles {
+	for _, name := range forgejoFiles {
 		entry, ok := result[name]
 		if !ok || entry.SHA256 == "" || entry.Mode != 0644 {
 			return nil, fmt.Errorf("missing or unreadable Sodaspaces payload: %s", name)

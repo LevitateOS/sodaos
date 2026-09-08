@@ -8,6 +8,38 @@ by separately approved preserved-state cutover and existing-account observations
 See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
 configuration, client reachability and acceptance limits.
 
+**Workspace correction pending:** this guide still describes today's API. The user
+rejected modal/focus-loss terminal behavior and mandatory manual SSH setup for browser
+development. The first source split-view slice retains a live mount/socket across
+focus, view and Hide changes, without changing this backend API. The
+[leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
+selects [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
+for real reattachment. Browser-only joining and Forgejo-key integration are also
+unimplemented API capabilities. No new reattachment/key endpoints, consent or
+provider mutations follow from the plan. The future terminal contract must separate
+explicit creation, attach-only, detach and End; authorize stable terminal locators
+against the original user/project/login/context and reject missing/expired targets
+without spawning. No URL bearer tickets, arbitrary tmux commands or weakened
+actor/CSRF/logout checks. Today's endpoint below remains request-owned and unchanged.
+
+## Planned Spaces page — not an implemented endpoint
+
+`/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
+Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+defines the authorized listing and unresolved page-shell boundary. No page handler,
+collection contract or Spaces OAuth return has been implemented. The current required
+`repository_id` collection API below remains unchanged; do not remove its guard to
+resurrect the old unrestricted catalog.
+
+HTML navigation must resolve the actor from the protected Soda session and acting
+grant server-side; it cannot send the JSON API's custom actor header. That is not
+permission to weaken existing API checks. OAuth needs a fixed, transaction-bound
+Spaces destination, never an arbitrary `return_to`. Authorize rows/counts/metadata
+before rendering, retain truthful unavailable states and recheck every action's
+permissions. Do not borrow native cookies/CSRF or assume CSS imports Forgejo's
+session/template context. The page opens the same authorized drawer/sessions, not a
+new terminal implementation. These requirements are planning, not runtime evidence.
+
 ## Browser namespace
 
 Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.
@@ -86,7 +118,11 @@ query parameters and never accept caller-selected Linux identities, targets or f
   administration is freshly resolved through the acting grant; the explicitly
   configured Soda operator is a distinct permitted authority. Ordinary members or
   arbitrary site administrators cannot stop/start. Require a provisioned project,
-  existing isolated container and the selected project unit path with no drop-ins.
+  existing isolated container and the selected project unit path. Only an empty
+  drop-in list or Fedora's stock global
+  `/usr/lib/systemd/system/service.d/10-timeout-abort.conf` is admitted; arbitrary
+  or project-specific overrides still refuse. This trusts installed host-root
+  configuration, not caller-selected policy or byte attestation of root edits.
   As with creation, the installed root-owned project unit is trusted configuration;
   this is not a byte attestation against arbitrary host-root edits.
   Start enables the unit for host boot and starts it; Stop disables boot start and
@@ -244,12 +280,16 @@ no runtime failure matrix or whole-product acceptance is inferred.
 The backend sees a Soda session and a declared page actor, **not Forgejo's live
 browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
-is unchanged. The implemented drawer discards stale reads and requires reloading native page
-context on resume/BFCache restoration before exposing actions, then compares the
-page/session/provider IDs. The [read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
-invalidates on hidden/blurred/pagehide/restored documents and requires an explicit
-full native-page reload before further environment reads. It must not auto-reload
-away unsaved native form edits; another Soda fetch is not refreshed native context.
+is unchanged. The source workspace now retains its mount/socket on focus/visibility
+and Hide changes; those are not authentication loss. Actual pagehide/BFCache still
+retires the document's component and requires explicit reload. The initial native
+page/session/provider IDs are compared, and each mutation rechecks the current Soda
+session/provider. Another Soda fetch is not fresh native-session authentication;
+show the actual Soda actor and do not promise atomic native-only logout. Never
+auto-reload away unsaved native forms. The historical
+[read-only milestone](sodaspaces-plan.md#native-context-and-authenticated-reads)
+used a stronger blur/hidden teardown rule which the user rejected; its passing
+checks are not proof of the revised interaction.
 An anonymous or mismatched page offers explicit sign-in,
 not automatic account switching or mutation replay. Native logout is not global
 Soda logout; do not claim atomic cross-system session revocation. The bounded native
@@ -260,7 +300,8 @@ native proof inferred from that read-only run.
 The drawer separately rechecks session/provider identity on each explicit action,
 then sends one protected POST. Create never joins; key save never joins or propagates
 keys to existing memberships. Pending actions disable duplicate submission and Soda
-logout; Close remains usable and invalidates rendering, not native execution. A lost,
+logout; Hide remains usable and retains rendering/state without cancelling native
+execution. Actual component disposal invalidates rendering but does not undo writes. A lost,
 malformed or failed native/persistence response is not success or proof of no effects.
 Safe rereads do not replay writes. Uncertain create/join remains blocked in that
 document pending operator inspection; there is no persistent browser operation journal

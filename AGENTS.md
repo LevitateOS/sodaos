@@ -6,6 +6,7 @@ Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
 - `docs/sodaspaces-plan.md` — short current implementation sequence and ownership
+- `docs/project-os.md` — project userspace baseline, native ownership, persistence and bounded same-root maintenance
 - `docs/native-support.md` — authored support-tool contracts, private inputs, phase effects and retention; not execution permission or native proof
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence
@@ -61,6 +62,15 @@ all four roots, memberships, credentials and unchanged native components were pr
 See the handoff and `.artifacts/cutover-c007eb6/` for exact bytes, fresh backups and
 remaining scope. No further deployment, lifecycle or target is implied.
 
+The subsequent integrated E2E request authorized build/check and scoped native
+execution on `soda-native-spaces-658f2af`. Backed-up affected-component delivery,
+real browser terminals, Stop/Start persistence, temporary-key rotation/revocation
+and fresh Create/Join/SSH checks passed there. Two projects are now retained in
+that fixture; originals and all later writes/keys/evidence must survive. The
+client used management forwarding, not laptop routing. See the leading handoff
+for exact tested bytes, failed probes and the public-mode packaging correction.
+This does not authorize further targets, deletion or a `soda-test` rollout.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
@@ -89,11 +99,24 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
   superseded. See `docs/sodaspaces-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
-  button/right-drawer addition, not a new tab. No new component library or Bootstrap UI is selected.
+  button/right-drawer addition, not a new repository tab. Drawer view/session tabs
+  are selected. A global Spaces link and bounded Soda-owned Go/template listing page
+  are also selected but unimplemented; see the leading plan for authentication and
+  the unresolved page-shell boundary. No new component library or Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
-  Cockpit React/PatternFly pages. The read-only hook/drawer/context caller passed
+  Cockpit React/PatternFly pages. Current hooks mount one complete management/
+  terminal component through a non-modal aside; the historical duplicate API
+  caller is removed. Focus/view/Hide changes preserve the live mount/socket, but
+  navigation, Refresh and transport loss still end the terminal. Bounded server-owned
+  reattachment is the immediate coding task: stock Rocky tmux, one private supervised
+  server per managed browser terminal, behind the existing authenticated bridge.
+  This is selected, not installed/implemented; follow the leading plan and terminal
+  guide. Do not force ordinary SSH/tmux sessions into Soda or auto-create on reconnect.
+  Local component/layout checks are not native navigation/session proof or deployment;
+  no implicit launch or mutation replay.
+  The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
   explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,
   expected-actor API guards, schema-v5 login cancellation and OAuth repository/actor
@@ -233,7 +256,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is served. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Current root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is currently served. The selected Spaces Go/template page is a bounded future exception for Soda-owned data, not a replacement Forgejo frontend. Its fixed OAuth return and supported page shell are still unimplemented/unresolved; follow the leading plan. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

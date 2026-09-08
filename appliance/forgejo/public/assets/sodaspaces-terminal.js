@@ -9,6 +9,24 @@ const renderer = async () => {
   return {Terminal, FitAddon};
 };
 
+// Shared by the two Soda API components; never accept HTML or unbounded bodies.
+export async function readSodaJSON(response) {
+  if (!/^application\/json(?:;|$)/i.test(response.headers.get('Content-Type') || '') || Number(response.headers.get('Content-Length')) > 65536) {
+    await response.body?.cancel(); throw Error('Invalid Soda response');
+  }
+  const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8', {fatal: true});
+  let size = 0, text = '';
+  try {
+    for (;;) {
+      const {done, value} = await reader.read(); if (done) break;
+      size += value.byteLength; if (size > 65536) throw Error('Oversized Soda response');
+      text += decoder.decode(value, {stream: true});
+    }
+    return JSON.parse(text + decoder.decode());
+  } catch (error) { await reader.cancel(); throw error; }
+  finally { reader.releaseLock(); }
+}
+
 // Third argument is the renderer loading seam for DOM unit tests; native page
 // integration uses only (mount, context). There is exactly one shipped renderer.
 export function mountTerminal(root, context, loadRenderer = renderer) {
@@ -22,18 +40,19 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
   let state = 'idle', socket, terminal, fit, observer, timer, request;
   let disposed = false, generation = 0;
   const box = doc.createElement('section'); box.className = 'soda-terminal';
-  const heading = doc.createElement('p'); heading.textContent = `Project terminal as ${login}`;
-  const warning = doc.createElement('p'); warning.textContent = 'Switching tabs/apps disconnects this terminal. Closing can interrupt work; completed writes and detached workloads are not undone.';
-  const open = doc.createElement('button'); open.type = 'button'; open.textContent = 'Open terminal';
-  const disconnect = doc.createElement('button'); disconnect.type = 'button'; disconnect.textContent = 'Disconnect'; disconnect.disabled = true;
+  const heading = doc.createElement('h3'); heading.textContent = `Project terminal as ${login}`;
+  const warning = doc.createElement('p'); warning.textContent = 'Switching apps or hiding this view keeps the connection. Navigation, network loss and the current two-hour/session limit still end it; reconnection is not available yet.';
+  const open = doc.createElement('button'); open.type = 'button'; open.className = 'ui primary button'; open.textContent = 'Open terminal';
+  const disconnect = doc.createElement('button'); disconnect.type = 'button'; disconnect.className = 'ui basic button'; disconnect.textContent = 'End terminal'; disconnect.disabled = true;
   const status = doc.createElement('p'); status.setAttribute('role', 'status'); status.textContent = 'Not connected.';
   const screen = doc.createElement('div'); screen.className = 'soda-terminal-screen'; screen.hidden = true;
-  screen.setAttribute('aria-label', `Terminal for ${login}; Ctrl+Shift+Enter focuses Disconnect`);
-  box.append(heading, warning, open, disconnect, status, screen); root.append(box);
+  screen.setAttribute('aria-label', `Terminal for ${login}; Ctrl+Shift+Enter focuses End terminal`);
+  const toolbar = doc.createElement('div'); toolbar.className = 'soda-terminal-toolbar';
+  toolbar.append(open, disconnect, status); box.append(heading, warning, toolbar, screen); root.append(box);
   const live = n => !disposed && state !== 'stale' && generation === n;
   const stop = (message, stale = false) => {
     ++generation;
-    state = stale ? 'stale' : 'closed';
+    state = stale ? 'stale' : 'closed'; box.classList.remove('is-connected');
     win.clearTimeout(timer); request?.abort(); request = undefined;
     observer?.disconnect(); observer = undefined;
     const old = socket; socket = undefined;
@@ -59,7 +78,7 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
     }
   };
   open.addEventListener('click', async () => {
-    if (state !== 'idle' || disposed || doc.visibilityState === 'hidden' || !doc.hasFocus()) return;
+    if (state !== 'idle' || disposed || root.closest('[hidden]') || doc.visibilityState === 'hidden' || !doc.hasFocus()) return;
     state = 'opening'; open.disabled = true; disconnect.disabled = false;
     status.textContent = 'Checking your Soda session…'; const n = ++generation;
     request = new win.AbortController();
@@ -68,13 +87,13 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
       const response = await win.fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': expectedUserId}, signal: request.signal});
       if (!live(n)) return;
       if (!response.ok) throw new Error('session');
-      const session = await response.json();
+      const session = await readSodaJSON(response);
       if (!live(n)) return;
       if (session.user?.id !== expectedUserId || typeof session.csrf_token !== 'string' || !session.csrf_token || session.forgejo_url !== win.location.origin) throw new Error('session');
       const details = await win.fetch(`/-/soda/api/environments/${environmentId}`, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': expectedUserId}, signal: request.signal});
       if (!live(n)) return;
       if (!details.ok) throw new Error('membership');
-      const own = await details.json();
+      const own = await readSodaJSON(details);
       if (!live(n)) return;
       if (own.environment?.id !== environmentId || own.environment.repository_id !== repositoryId || !own.environment.provisioned || own.login !== login) throw new Error('membership');
       const {Terminal, FitAddon} = await loadRenderer();
@@ -113,8 +132,11 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
           if (typeof event.data !== 'string' || event.data.length > 32768) throw new Error('frame');
           const frame = JSON.parse(event.data), keys = Object.keys(frame).sort().join(',');
           if (frame.type === 'ready' && keys === 'type' && state === 'opening') {
-            win.clearTimeout(timer); state = 'ready'; terminal.options.disableStdin = false;
-            status.textContent = `Connected as ${login}.`; terminal.focus();
+            win.clearTimeout(timer); state = 'ready'; terminal.options.disableStdin = false; box.classList.add('is-connected');
+            status.textContent = `Connected as ${login}.`;
+            // A slow Open must not steal focus after the user moved to the native pane.
+            if (doc.hasFocus() && doc.visibilityState !== 'hidden' && !root.closest('[hidden]') &&
+                (doc.activeElement === doc.body || box.contains(doc.activeElement))) terminal.focus();
             observer = new win.ResizeObserver(resize); observer.observe(screen); resize();
           } else if (frame.type === 'output' && state === 'ready' && keys === 'data,type' && typeof frame.data === 'string') {
             const decoded = win.atob(frame.data);
@@ -139,11 +161,10 @@ export function mountTerminal(root, context, loadRenderer = renderer) {
     // After xterm receives Escape, prevent the containing native dialog closing.
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
   }, {signal: abort.signal});
-  win.addEventListener('blur', invalidate, {signal: abort.signal});
   win.addEventListener('pagehide', invalidate, {signal: abort.signal});
-  doc.addEventListener('visibilitychange', () => { if (doc.visibilityState === 'hidden') invalidate(); }, {signal: abort.signal});
   win.addEventListener('pageshow', event => { if (event.persisted) invalidate(); }, {signal: abort.signal});
   return {
+    get started() { return state !== 'idle'; },
     invalidate,
     disconnect: () => stop('Disconnected. Reload the repository page before opening another terminal.'),
     dispose() { if (disposed) return; stop('Disconnected.', true); disposed = true; abort.abort(); box.remove(); },
