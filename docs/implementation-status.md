@@ -1,5 +1,34 @@
 # Current handoff
 
+## Personal settings UX investigation
+
+The [settings UX proposal](forgejo-settings-ux-proposal.md) records a read-only
+investigation of the complete personal-settings navigation and native child
+workflows against source `2cc73b6` / local presentation `2026-09-08.5`. It recommends
+a compact grouped navigation shell, mobile destination disclosure, meaningful
+page headings and per-task open sections with unchanged native save boundaries.
+The proposal is not implemented. Live inspection found password/expanded SSH
+controls still at 38px beside 44px shared controls, and ordinary mobile content
+starting about 637px below the page top. Prior source coverage did not establish
+consistent native form presentation or a complete UX redesign.
+
+Actual evidence: 11 enabled landing routes and three new-form routes returned
+their requested URLs; 27 verified native viewport captures were visually reviewed
+across dark desktop/mobile and selected light desktop pages. Additional DOM
+checks covered the six core pages at 320/768px and opening/cancelling an empty
+native SSH add panel. No document overflow was observed in the inspected widths.
+Exact Account/Security handler review confirms password validation and redirects
+remain owned by Account. Evidence and an interactive structure/evidence outline
+are in `.artifacts/settings-ux-investigation/`; the outline's navigation and
+containment were checked at 1440/900/390/320px. It is a planning artifact, not
+native-page or production-gallery evidence.
+
+No application source, templates, styles, services, saved preferences, resources
+or permissions changed; no forms were submitted. No build or application test
+suite was run for this documentation-only investigation. Enabled/mandatory factor,
+provider, populated credential/resource, Actions/quota, mutation and validation
+return states remain explicit verification gaps. No appliance rollout occurred.
+
 ## Ordinary repository container spacing
 
 Local revision `2026-09-08.5` removes the extra 24px top padding from project
