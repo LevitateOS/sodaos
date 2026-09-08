@@ -190,10 +190,10 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | Pending | [`user/auth/activate.tmpl`](../appliance/forgejo/templates/user/auth/activate.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`user/auth/change_passwd.tmpl`](../appliance/forgejo/templates/user/auth/change_passwd.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`user/auth/forgot_passwd.tmpl`](../appliance/forgejo/templates/user/auth/forgot_passwd.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`user/auth/grant.tmpl`](../appliance/forgejo/templates/user/auth/grant.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`user/auth/grant_error.tmpl`](../appliance/forgejo/templates/user/auth/grant_error.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`user/auth/grant.tmpl`](../appliance/forgejo/templates/user/auth/grant.tmpl) | — | Actual application name/creator, scopes, redirect destination and authorize/cancel controls must drive consent. Decorative Soda imagery could distract from that identity; no added art. Full override reviewed; native consent/error-session capture unperformed. No grants or account state changed. |
+| No image | [`user/auth/grant_error.tmpl`](../appliance/forgejo/templates/user/auth/grant_error.tmpl) | `repo/header` | Actual authorization error and explanation carry the outcome, with optional repository context. Keep this concise diagnostic free of decorative art. Full override reviewed; native consent/error-session capture unperformed. No grants or account state changed. |
 | Pending | [`user/auth/link_account.tmpl`](../appliance/forgejo/templates/user/auth/link_account.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`user/auth/prohibit_login.tmpl`](../appliance/forgejo/templates/user/auth/prohibit_login.tmpl) | — | Not yet reviewed in this goal. |
+| No image | [`user/auth/prohibit_login.tmpl`](../appliance/forgejo/templates/user/auth/prohibit_login.tmpl) | — | The account-access restriction and its explanation are the entire message. Avoid a playful illustration that would soften or misrepresent that state. Full override reviewed; native consent/error-session capture unperformed. No grants or account state changed. |
 | Pending | [`user/auth/reset_passwd.tmpl`](../appliance/forgejo/templates/user/auth/reset_passwd.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`user/auth/signin.tmpl`](../appliance/forgejo/templates/user/auth/signin.tmpl) | `login-papercraft.png` | Not yet reviewed in this goal. |
 | Pending | [`user/auth/signin_openid.tmpl`](../appliance/forgejo/templates/user/auth/signin_openid.tmpl) | — | Not yet reviewed in this goal. |
