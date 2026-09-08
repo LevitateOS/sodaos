@@ -372,6 +372,43 @@ installed probe stop at preflight. Real OAuth/proxy/browser and staged/installed
 verification remain held for an explicitly approved fixture/target and exact artifacts.
 Step-4 mutation controls remain absent; no new native/product acceptance is claimed.
 
+## Isolated local Sodaspaces browser execution
+
+The user explicitly approved a new isolated local Forgejo/Caddy fixture on the
+existing development machine, with synthetic users/repository and private TLS.
+This authorizes this fixture's initialization and authentication/browser checks,
+not installation on the builder or changes to `soda-test`, retained environments,
+host trust/network policy, provider resources outside the fixture or cutover.
+
+Evidence/state: `.artifacts/local-sodaspaces-31e73bf/`, retained privately. Built
+`31e73bf`'s Go backend with the cached pinned toolchain and readonly/offline modules.
+Stock cached Forgejo 15.0.7 and Caddy 2.10.2 run with that backend in a new rootless
+shared network/user namespace; only `127.0.0.1:31443` is published. This is an
+integration fixture, not installed appliance topology or a full native stage.
+NSS tools were downloaded/extracted locally, not installed; only a fresh private
+browser home's trust database received the new fixture CA. Native CLI/official
+APIs created two synthetic users, one public repository and one confidential OAuth
+client. No Soda sessions, grants, environments or memberships were seeded; no host
+helper is connected. Native passwords/token output went directly from captured
+process memory into restricted secret files, not logs. Runtime service logs are
+discarded to avoid recording OAuth URLs or other credentials.
+
+Initial container failures are retained: missing fixture SELinux volume labels,
+and stock Caddy's file capability refusing execution with an empty capability
+bounding set. Only new fixture paths were relabelled. Caddy retains just
+`NET_BIND_SERVICE` in the rootless namespace, with no-new-privileges; no host
+capability/security policy was changed. Failed containers were not removed.
+
+The first real journey passed trusted raw proxy path/version/asset/revalidation
+checks and sandboxed browser startup, then stopped on its own readiness assertion:
+an anonymous drawer's empty data region has zero height in native CSS. Separate
+sanitized native DOM observations confirmed a mounted button, visible dialog and
+sign-in, completed ARIA busy state and no page-script errors. The probe now waits
+for the visible drawer plus completed ARIA state, not a box on the empty region.
+OAuth/account switching/accessibility/BFCache proof is still pending at this point;
+this failure is not a product pass. Full native build/stage, installed checks,
+retained-state rehearsal and cutover remain unperformed.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and regression coverage while wiring

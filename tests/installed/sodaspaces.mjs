@@ -148,9 +148,15 @@ try {
   const page = await context.newPage();
   const repoURL = origin.origin + input.repository_path;
   const drawer = page.locator('#sodaspaces-drawer');
+  async function settled(p = page) {
+    await p.locator('#sodaspaces-drawer').waitFor({state: 'visible'});
+    // An unauthenticated/empty data region has zero height in native CSS.
+    // Completion is its ARIA state, not whether that empty region has a box.
+    await p.waitForFunction(() => document.getElementById('sodaspaces-data')?.getAttribute('aria-busy') === 'false');
+  }
   async function open(p = page) {
     await p.locator('#sodaspaces-button').click();
-    await p.locator('#sodaspaces-data[aria-busy="false"]').waitFor({state: 'visible'});
+    await settled(p);
   }
   async function nativeLogin(p, index) {
     assert(!interrupted);
@@ -185,7 +191,7 @@ try {
       await page.locator('#authorize-app').click();
     }
     await page.waitForURL(url => url.origin === origin.origin && url.pathname === input.repository_path && url.hash === '#sodaspaces');
-    await page.locator('#sodaspaces-data[aria-busy="false"]').waitFor({state: 'visible'});
+    await settled();
     assert(authorizations > before);
     assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[index].id);
     assert.match(await page.locator('#sodaspaces-actor').innerText(), new RegExp(`ID ${input.users[index].id}\\)`));
@@ -262,7 +268,7 @@ try {
   assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
   assert.equal(environmentReads, beforeSwitch);
   await page.locator('#sodaspaces-reload').click();
-  await page.locator('#sodaspaces-data[aria-busy="false"]').waitFor({state: 'visible'});
+  await settled();
   assert.match(await page.locator('#sodaspaces-status').innerText(), /identities do not match/);
   assert.equal(environmentReads, beforeSwitch);
   stage = 'second real OAuth repository return';

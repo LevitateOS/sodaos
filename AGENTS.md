@@ -21,6 +21,15 @@ source work on this development machine. This does not authorize deployment,
 repository/provider mutations or changes to retained projects. See the handoff
 for the exact checks actually run.
 
+The user also explicitly authorized a new isolated local Sodaspaces validation
+fixture on this development machine. Its state/evidence is retained under
+`.artifacts/local-sodaspaces-31e73bf/`: rootless stock Forgejo/Caddy plus the built
+Go backend, synthetic users/repository/OAuth client and fixture-only TLS/browser
+trust. Fixture initialization and authentication/browser checks are authorized;
+no builder appliance installation, retained VM/project mutation, global trust or
+host-network/security-policy change, unrelated provider mutation or cleanup is
+implied. See `docs/implementation-status.md` for actual execution and failures.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
