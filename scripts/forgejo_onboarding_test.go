@@ -104,6 +104,7 @@ func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) 
 func TestForgejoOnboardingMigratingPreservesNativeRuntimeHooks(t *testing.T) {
 	source := readForgejoTemplate(t, "repo", "migrate", "migrating.tmpl")
 	for _, want := range []string{
+		`data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
 		`{{template "repo/header" .}}`,
 		`id="repo_migrating"`,
 		`data-migrating-task-id="{{.MigrateTask.ID}}"`,
@@ -130,6 +131,9 @@ func TestForgejoOnboardingMigratingPreservesNativeRuntimeHooks(t *testing.T) {
 		if !strings.Contains(source, want) {
 			t.Errorf("migrating page lost native runtime contract %q", want)
 		}
+	}
+	if strings.Contains(source, `data-signed="true"`) {
+		t.Error("migrating page assumes authentication even though public migrating repositories use the anonymous repository route")
 	}
 	for _, id := range []string{"repo_migrating", "repo_migrating_failed_image", "repo_migrating_progress", "repo_migrating_progress_message", "repo_migrating_failed", "repo_migrating_failed_error", "repo_migrating_retry", "delete-repo-modal", "cancel-repo-modal"} {
 		if strings.Count(source, `id="`+id+`"`) != 1 {

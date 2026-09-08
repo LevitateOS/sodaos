@@ -1,0 +1,26 @@
+/* Native quota disclosure content; shared settings cards and global focus
+   treatment own the surrounding surface and keyboard indication. */
+.soda-quota-overview details.stats {
+	margin-block: 6px;
+	padding: 18px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+}
+
+.soda-quota-overview details.stats summary > .tw-flex {
+	flex-wrap: wrap;
+}
+
+.soda-quota-overview details.stats summary {
+	color: var(--soda-page-text);
+}
+
+.soda-quota-overview details.stats ul {
+	padding-inline: 0;
+}
+
+.soda-quota-overview details.stats ul li {
+	padding-block: 10px;
+	color: var(--soda-page-muted);
+}

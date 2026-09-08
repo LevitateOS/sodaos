@@ -5,6 +5,26 @@
   min-width: 0;
 }
 
+.soda-org-home :is(.ui.attached.segment, .ui.attached.header, .ui.attached.table) {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+
+.soda-org-home .ui.top.attached.header {
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+}
+
+.soda-org-home .ui.bottom.attached:is(.header, .segment) {
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+.soda-org-home .flex-list > .flex-item {
+  padding-block: 20px;
+  border-color: var(--soda-page-edge);
+}
+
 .soda-org-home #readme_profile {
   margin-bottom: 24px;
   padding: var(--soda-panel-inset);
@@ -52,6 +72,7 @@
 }
 
 .soda-org-home .soda-org-home-sidebar .teams .team-name {
+  color: var(--soda-page-text) !important;
   font: 600 17px/1.5 Barlow, sans-serif;
 }
 

@@ -1,0 +1,59 @@
+/* Native webhook providers and event selection. Forgejo keeps field names,
+   defaults, credential masking, permission gates, and modal behavior. */
+.soda-webhook-heading .dropdown {
+  max-width: 100%;
+  font: 600 15px/1.5 Barlow,Arial,sans-serif;
+}
+
+.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) > .ui.list > .item {
+  padding-block: 16px;
+  border-color: var(--soda-page-edge);
+}
+
+.soda-repository-settings :is(.soda-webhook-list-header, .soda-webhook-history-header) {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.soda-webhook-events {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-canvas);
+}
+
+.soda-webhook-events > legend {
+  padding-inline: 8px;
+  color: var(--soda-page-text);
+  font: 600 21px/1.4 "Fraunces Variable",Georgia,serif;
+}
+
+.soda-webhook-events > label {
+  display: block;
+  margin-block: 14px;
+}
+
+.soda-webhook-events .simple-grid {
+  min-width: 0;
+  padding: 20px;
+  margin-top: 20px;
+  gap: 20px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-webhook-events .simple-grid > legend { padding-inline: 8px; }
+.soda-webhook-events .simple-grid > label { min-width: 0; overflow-wrap: anywhere; }
+.soda-webhook-events .help { display: block; padding-left: 24px; }
+
+@media (max-width: 700px) {
+  .soda-webhook-events { padding: 14px; }
+  .soda-webhook-events .simple-grid { grid-template-columns: 1fr; padding: 16px; }
+}

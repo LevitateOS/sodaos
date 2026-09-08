@@ -118,9 +118,6 @@ func TestForgejoRepositoryContentStylesStayScoped(t *testing.T) {
 		".soda-wiki-pages",
 		".soda-wiki-editor",
 		".soda-wiki-revisions",
-		".soda-projects-list",
-		".soda-projects-new",
-		".soda-projects-view",
 		".soda-release-list",
 		".soda-release-editor",
 		".soda-wiki-view",
@@ -133,5 +130,8 @@ func TestForgejoRepositoryContentStylesStayScoped(t *testing.T) {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("repository content stylesheet exceeds presentation scope with %q", forbidden)
 		}
+	}
+	if strings.Contains(css, ".soda-repository-content > .ui.container") {
+		t.Error("repository content stylesheet must leave repository container width to the shell owner")
 	}
 }

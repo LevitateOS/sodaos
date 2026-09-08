@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Local page captures with a dedicated, reusable manual-login profile.
-import { mkdir, mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -19,6 +19,7 @@ Options:
   --width N        Screenshot width (default: 1440)
   --height N       Screenshot height (default: 1000)
   --wait N         Extra settling time in milliseconds (default: 1500)
+  --local-css      Use this checkout's Soda CSS on localhost:3300; server templates stay unchanged
   --help           Show this help
 
 Requires Node.js, the existing Playwright dependency, and Google Chrome.
@@ -31,6 +32,7 @@ async function main() {
     allowPositionals: true,
     options: {
       login: { type: 'boolean' }, help: { type: 'boolean' },
+      'local-css': { type: 'boolean' },
       profile: { type: 'string', default: path.join(root, '.local/screenshot-profile') },
       out: { type: 'string' },
       width: { type: 'string', default: '1440' },
@@ -50,6 +52,9 @@ async function main() {
     }
     return url.href;
   });
+  if (values['local-css'] && (values.login || urls.some(url => new URL(url).origin !== 'http://localhost:3300'))) {
+    throw new Error('--local-css is only for captures of the local Forgejo preview.');
+  }
   for (const option of ['width', 'height', 'wait']) {
     if (!/^\d+$/.test(values[option]) || !Number.isSafeInteger(Number(values[option])) || Number(values[option]) < 1) {
       throw new Error(`--${option} must be a positive integer.`);
@@ -78,6 +83,14 @@ async function main() {
     output = await mkdtemp(path.join(parent, 'capture-'));
   }
   let context;
+  let localStyles;
+  if (values['local-css']) {
+    const header = await readFile(path.join(root, 'appliance/forgejo/templates/custom/header.tmpl'), 'utf8');
+    const names = [...header.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=/g)].map(([, name]) => name);
+    localStyles = new Map(await Promise.all(names.map(async name => [
+      name, await readFile(path.join(root, 'assets/branding/forgejo', name), 'utf8'),
+    ])));
+  }
   try {
     context = await chromium.launchPersistentContext(profile, {
       ...(process.env.CHROME ? { executablePath: process.env.CHROME } : { channel: 'chrome' }),
@@ -90,6 +103,16 @@ async function main() {
     throw new Error('Cannot launch Chrome. Check CHROME and that the dedicated profile is closed.');
   }
   try {
+    if (values['local-css']) {
+      // Browser-only stylesheet substitution: keep the fixture, live checkout,
+      // native HTML, scripts and handlers untouched while reviewing a worktree.
+      await context.route('http://localhost:3300/assets/soda/forgejo/*.css*', async route => {
+        const name = new URL(route.request().url()).pathname.split('/').pop();
+        if (!localStyles.has(name)) return route.continue();
+        await route.fulfill({ status: 200, contentType: 'text/css', body: localStyles.get(name) });
+      });
+      console.log('Capture uses local Soda CSS; native server templates are unchanged.');
+    }
     const page = context.pages()[0] || await context.newPage();
     page.setDefaultTimeout(30000);
     if (values.login) {
@@ -108,6 +131,20 @@ async function main() {
       const filename = path.join(output, `${String(index + 1).padStart(3, '0')}.png`);
       try {
         await page.goto(url, { waitUntil: 'load' });
+        if (localStyles) {
+          // Use the candidate registry/order too, including added or removed sheets.
+          await page.evaluate(async names => {
+            document.querySelectorAll('link[rel="stylesheet"][href*="/assets/soda/forgejo/"]').forEach(link => link.remove());
+            await Promise.all(names.map(name => new Promise((resolve, reject) => {
+              const link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = `/assets/soda/forgejo/${name}`;
+              link.onload = resolve;
+              link.onerror = reject;
+              document.head.append(link);
+            })));
+          }, [...localStyles.keys()]);
+        }
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(Number(values.wait));
         await page.screenshot({ path: filename });

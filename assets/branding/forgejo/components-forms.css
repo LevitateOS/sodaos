@@ -107,7 +107,8 @@
     margin-bottom: 0;
   }
 
-  & :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search), textarea, .selection.dropdown) {
+  /* Type exclusions must not outrank native focus/error states. */
+  & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search), textarea, .selection.dropdown) {
     width: 100%;
     min-height: 46px;
     border: 1px solid var(--soda-page-edge);
@@ -164,21 +165,12 @@
     padding: 12px 24px;
     border: 0;
     border-radius: var(--soda-control-radius);
-    background: var(--soda-page-action);
-    color: var(--soda-page-on-action);
     font: 600 16px/1.5 Barlow, sans-serif;
     box-shadow: none;
   }
 
-  & .primary.button:hover {
-    background: var(--soda-page-action-hover);
-  }
-
-  & .primary.button:active {
-    background: var(--soda-page-action-pressed);
-  }
-
-  & .field.error input {
+  & .field.error :is(input, textarea, .selection.dropdown),
+  & :is(input, textarea, .selection.dropdown).error {
     border-color: var(--color-error-border);
   }
 

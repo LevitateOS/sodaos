@@ -1,4 +1,9 @@
-.soda-status { display: grid; align-items: center; }
+.soda-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+}
 
 .soda-status-card {
   max-width: 760px !important;
@@ -25,8 +30,6 @@
 
 .soda-status-card > .ui.primary.button {
   border-radius: var(--soda-control-radius);
-  background: var(--soda-page-action);
-  color: var(--soda-page-on-action);
 }
 
 .soda-status-version {

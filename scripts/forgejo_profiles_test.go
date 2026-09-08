@@ -19,6 +19,7 @@ func TestForgejoProfilesKeepNativePageWorkflows(t *testing.T) {
 	for _, marker := range []string{
 		`class="page-content user profile soda-page soda-profile"`,
 		`data-signed="{{.IsSigned}}"`,
+		`soda-profile-identity soda-profile-card-context`,
 		`template "shared/user/profile_big_avatar" .`,
 		`template "user/overview/header" .`,
 		`template "user/heatmap" .`,
@@ -128,6 +129,23 @@ func TestForgejoProfilesHeaderComposesNativeRoutes(t *testing.T) {
 	}
 }
 
+func TestForgejoSharedProfileCardCallersOptInExplicitly(t *testing.T) {
+	for _, path := range [][]string{
+		{"user", "profile.tmpl"},
+		{"user", "code.tmpl"},
+		{"user", "overview", "packages.tmpl"},
+		{"user", "overview", "package_versions.tmpl"},
+		{"org", "projects", "list.tmpl"},
+	} {
+		t.Run(strings.Join(path, "/"), func(t *testing.T) {
+			source := readForgejoTemplate(t, path...)
+			if calls, markers := strings.Count(source, `{{template "shared/user/profile_big_avatar" .}}`), strings.Count(source, "soda-profile-card-context"); calls != 1 || markers != calls {
+				t.Errorf("shared profile-card calls = %d and explicit component markers = %d, want one of each", calls, markers)
+			}
+		})
+	}
+}
+
 func TestForgejoProfilesStylesStayInsideProfileRoot(t *testing.T) {
 	contents, err := os.ReadFile("../assets/branding/forgejo/profiles.css")
 	if err != nil {
@@ -137,11 +155,16 @@ func TestForgejoProfilesStylesStayInsideProfileRoot(t *testing.T) {
 	if strings.Contains(css, "overflow: hidden") {
 		t.Error("profile styles must not clip Forgejo's native avatar-card action menu")
 	}
-	for _, selector := range []string{"#profile-avatar-card", "#visibility-hint", "#activity-feed", ".user-cards", ".soda-profile-readme"} {
+	for _, selector := range []string{"#visibility-hint", "#activity-feed", ".user-cards", ".soda-profile-readme"} {
 		for _, line := range strings.Split(css, "\n") {
 			if strings.Contains(line, selector) && !strings.Contains(line, ".soda-profile") {
 				t.Errorf("profile selector %q escapes .soda-profile scope: %s", selector, line)
 			}
+		}
+	}
+	for _, line := range strings.Split(css, "\n") {
+		if strings.Contains(line, "#profile-avatar-card") && !strings.Contains(line, ".soda-profile-card-context") {
+			t.Errorf("shared profile-card selector escapes its positive component marker: %s", line)
 		}
 	}
 }

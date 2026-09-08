@@ -1,0 +1,62 @@
+/* Administrator pages retain Forgejo 15.0.7 controls, permission gates, and
+   scripts. These rules only compose the Soda shell around native layouts. */
+.soda-admin-layout {
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 24px;
+}
+
+.soda-admin-layout > .soda-page-intro {
+	order: -2;
+	flex: 0 0 100%;
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.soda-admin-layout > .soda-page-intro .soda-page-art {
+	width: 190px;
+}
+
+.soda-admin-layout > .flex-container-nav {
+	flex: 0 0 240px;
+	width: 240px;
+}
+
+.soda-admin-layout > .flex-container-main {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.soda-admin .admin-setting-content :is(table, .ui.table) th {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+	letter-spacing: .025em;
+}
+
+.soda-admin .admin-setting-content .list-header {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+}
+
+.soda-admin .admin-setting-content :is(.ui.pagination.menu, .pagination) {
+	border-color: var(--soda-page-edge);
+}
+
+@media (max-width: 800px) {
+	.soda-admin-layout > .flex-container-nav {
+		position: static;
+		flex-basis: 100%;
+		width: 100%;
+	}
+
+	.soda-admin-layout > .flex-container-main {
+		flex-basis: 100%;
+		width: 100%;
+	}
+}
+
+@media (max-width: 700px) {
+	.soda-admin-layout > .soda-page-intro .soda-page-art {
+		width: 120px;
+	}
+}

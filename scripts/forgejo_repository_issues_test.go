@@ -120,7 +120,10 @@ func TestForgejoRepositoryIssueStylesStayScoped(t *testing.T) {
 			t.Errorf("repository issue stylesheet lost scope %q", marker)
 		}
 	}
-	for _, forbidden := range []string{"body:has(", "#navbar", ".page-footer", "overflow: hidden", "overflow: clip"} {
+	for _, forbidden := range []string{
+		"body:has(", "#navbar", ".page-footer", "overflow: hidden", "overflow: clip",
+		".page-content.repository.issue-list", ".page-content.repository.view.issue",
+	} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("repository issue stylesheet contains unsafe shared/clipping rule %q", forbidden)
 		}
