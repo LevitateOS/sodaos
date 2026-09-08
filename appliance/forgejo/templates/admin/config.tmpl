@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/config.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a8858e7295 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config" "hideArtwork" true)}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--config">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "admin.config.server_config"}}
