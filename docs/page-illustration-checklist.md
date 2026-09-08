@@ -24,7 +24,7 @@ Next: administrator landing page and remaining admin callers; resolve unconditio
 
 | Status | Template / page entry | Current artwork or caller | Decision / evidence |
 | --- | --- | --- | --- |
-| Integrated — verify | [`admin/applications/list.tmpl`](../appliance/forgejo/templates/admin/applications/list.tmpl) | `admin/layout_head` | Shared OAuth application inventory/create caller reviewed. Do not add another image; current inherited dashboard art needs an explicit page decision after reviewing the admin landing page. Source assessment only; current fixture is non-admin. |
+| Integrated — verify | [`admin/applications/list.tmpl`](../appliance/forgejo/templates/admin/applications/list.tmpl) | `admin/layout_head` | Application IDs, built-in locked status and inline redirect-URI/client-type form are the useful content. Leaf and complete shared list/create form reviewed; inherited dashboard artwork now suppressed explicitly. Native capture pending. Source assessment only; current fixture is non-admin. |
 | Integrated — verify | [`admin/applications/oauth2_edit.tmpl`](../appliance/forgejo/templates/admin/applications/oauth2_edit.tmpl) | `admin/layout_head` | Focused client configuration/credential form should have no decorative art. Inherited dashboard image is now suppressed through an explicit hideArtwork input; native verification remains pending; leaf reviewed, shared form previously assessed. Source assessment only; current fixture is non-admin. |
 | Integrated — verify | [`admin/auth/edit.tmpl`](../appliance/forgejo/templates/admin/auth/edit.tmpl) | `admin/layout_head`, artwork suppressed | Full 449-line override reviewed, including LDAP/DLDAP, SMTP, PAM and OAuth branches. Credentials, claims/group mappings, TLS options, activation and deletion instructions need uninterrupted form space. No decorative art; inherited dashboard image suppressed explicitly. Native administrator capture pending. |
 | Integrated — verify | [`admin/auth/list.tmpl`](../appliance/forgejo/templates/admin/auth/list.tmpl) | `admin/layout_head`, artwork suppressed | Authentication-source names, types and enabled indicators are the meaningful visuals; retain the compact configuration inventory. Full leaf reviewed; inherited dashboard art suppressed explicitly. Native administrator capture pending. |
@@ -260,8 +260,8 @@ Next: administrator landing page and remaining admin callers; resolve unconditio
 | No image | Personal OAuth grants section and revoke confirmation | App names, authorization dates and revoke action; no additional decoration within the applications landing page. |
 | No image | Shared OAuth create form and application-delete confirmation | Name, redirect URIs, confidentiality choice and exact deletion notice; owner page supplies any header art. |
 | No image | `org/settings/applications_oauth2_edit.tmpl` | Organization identity plus credential/redirect form; no additional art. Source assessment, runtime unverified. |
-| Pending | `admin/applications/list.tmpl` | Shared list/create caller traced; admin layout/page decision remains pending. |
-| Pending | `admin/applications/oauth2_edit.tmpl` | Shared credential form traced; admin layout/page decision remains pending. |
+| Integrated — verify | `admin/applications/list.tmpl` | Shared list/create reviewed; no decorative art, inherited image suppressed. Native admin capture pending. |
+| Integrated — verify | `admin/applications/oauth2_edit.tmpl` | Credential editor assessed; inherited image suppressed. Native admin capture pending. |
 
 | Status | Personal settings route | Decision / remaining work |
 | --- | --- | --- |
