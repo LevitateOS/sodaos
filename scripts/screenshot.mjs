@@ -82,6 +82,7 @@ async function main() {
     context = await chromium.launchPersistentContext(profile, {
       ...(process.env.CHROME ? { executablePath: process.env.CHROME } : { channel: 'chrome' }),
       headless: !values.login,
+      chromiumSandbox: true,
       viewport: { width: Number(values.width), height: Number(values.height) },
       deviceScaleFactor: 1,
     });
