@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: administrator landing page and remaining admin callers; resolve unconditional inherited dashboard artwork before closing the admin batch. Authentication, Actions and remaining shared callers still require assessment. Track the issue/PR create-button text visibility defect observed in capture-h1PW7Q separately from artwork decisions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: the 15 additional upstream administrator layout callers listed below; resolve their inherited fallback artwork before closing the admin family. Authentication, repository Actions and remaining shared callers also require assessment. Track the issue/PR create-button text visibility defect observed in capture-h1PW7Q separately from artwork decisions. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -653,3 +653,25 @@ Fork and watcher wrappers plus stock Forgejo 15.0.7 user_cards were read in full
 Read full chooser/new/view overrides and selected Forgejo 15.0.7 embedded new_form and view_content. The blank editor and structured-template dispatch, title defaults, metadata permission gates, maintainer-edit choice for cross-repository PRs, authored conversation, timeline, archived/blocked/locked/sign-in feedback and comment controls all benefit from focused native content. No decorative artwork is appropriate. Individual nested field/comment/sidebar implementations were not audited as code changes; none were changed.
 
 Native desktop screenshots inspected: `capture-QF2Yhi/001.png` blank `/bob/activity-field-notes/issues/new` form and `capture-pf4GoU/001.png` closed issue `/issues/9`, showing actual author, timeline and comment area. No issue/comment/upload/reaction/subscription was submitted. Template chooser, structured issue forms and PR conversation branches remain source-based decisions. Tests were not rerun for documentation-only assessment.
+
+## Additional administrator layout callers
+
+Read-only enumeration of Forgejo 15.0.7 embedded admin templates found these 15 stock leaf callers of the overridden `admin/layout_head`. They currently inherit its fallback dashboard artwork. Caller discovery is not a page-content assessment or native rendering check. No new local leaf overrides were added.
+
+| Status | Upstream template | Remaining work |
+| --- | --- | --- |
+| Pending | `admin/actions.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/config_settings.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/hook_new.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/hooks.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/moderation/report_details.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/moderation/reports.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/org/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/packages/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/repo/unadopted.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/runners/create.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/runners/details.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/runners/edit.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/runners/setup.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/stats.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Pending | `admin/user/view.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
