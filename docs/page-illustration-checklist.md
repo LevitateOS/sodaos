@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization team list, team member/repository detail, and team creation/invitation. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: team creation/edit and invitation pages; inspect their distinct form states. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -68,10 +68,10 @@ Next: organization team list, team member/repository detail, and team creation/i
 | Pending | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`org/settings/layout_head.tmpl`](../appliance/forgejo/templates/org/settings/layout_head.tmpl) | `org/header` | Registry/cleanup callers assessed; remaining settings routes explicitly queued below. No shared artwork decision imposed on callers. |
 | Pending | [`org/team/invite.tmpl`](../appliance/forgejo/templates/org/team/invite.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`org/team/members.tmpl`](../appliance/forgejo/templates/org/team/members.tmpl) | `org/header` | Not yet reviewed in this goal. |
+| No image | [`org/team/members.tmpl`](../appliance/forgejo/templates/org/team/members.tmpl) | `org/header` | Actual member identities, owner controls and pending invitations take priority. Source-reviewed. |
 | Pending | [`org/team/new.tmpl`](../appliance/forgejo/templates/org/team/new.tmpl) | `org/header` | Not yet reviewed in this goal. |
-| Pending | [`org/team/repositories.tmpl`](../appliance/forgejo/templates/org/team/repositories.tmpl) | `org/header` | Not yet reviewed in this goal. |
-| Pending | [`org/team/teams.tmpl`](../appliance/forgejo/templates/org/team/teams.tmpl) | `org/header` | Not yet reviewed in this goal. |
+| No image | [`org/team/repositories.tmpl`](../appliance/forgejo/templates/org/team/repositories.tmpl) | `org/header` | Exact repository membership and bulk access controls take priority. Source-reviewed. |
+| No image | [`org/team/teams.tmpl`](../appliance/forgejo/templates/org/team/teams.tmpl) | `org/header` | Team cards already show real members and counts; no added header art. Source-reviewed. |
 | No image | [`package/settings.tmpl`](../appliance/forgejo/templates/package/settings.tmpl) | `org/header`, `user/overview/header` | Repository association and version deletion need package identity and clear warnings, not a decorative header; both owner branches source-reviewed. |
 | No image | [`package/shared/cargo.tmpl`](../appliance/forgejo/templates/package/shared/cargo.tmpl) | — | Inline initialize/rebuild controls and explanatory text within owner registry settings; no independent image. |
 | No image | [`package/shared/cleanup_rules/edit.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/edit.tmpl) | — | Add/edit retention form: keep/remove criteria and actions take priority; no decorative art. |
@@ -572,3 +572,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Inspected complete current `org/home.tmpl` and `org/member/members.tmpl`, including README plain/rendered states, visibility-conditioned member/team sidebar, repository creation/migration links and member-role/security/action branches.
 - Home needs no illustration above its real organization header and authored README/repository content. Members needs no illustration despite its existing compact title: real people, roles and public/private status are the relevant visual content. Owner-only two-factor status stays meaningful and native; it is not replaced by an illustrative security symbol.
 - Per-variant decisions are recorded above. All are source assessments; no organization fixture or populated member screenshot is claimed. No membership, visibility, role, README or repository change performed. No source edits/tests needed.
+
+### Team list and detail pages
+
+- Read complete current team list, members and repositories overrides. Each already has organization identity and a compact title; detail pages also include a team sidebar and native tab navigation.
+- Team list: no additional artwork. Real member avatars, team names and member/repository counts define each card; owner create/join and member leave actions remain clear. Team members: no decoration beside actual identities, owner-only add/remove controls, last-owner protection and pending email invitations. Team repositories: no decoration beside exact access membership, owner-only search/add/remove and all-repository restrictions.
+- Leave/remove confirmations and add-all/remove-all repository dialogs remain text/action focused with no independent image. Empty lists keep their native feedback.
+- Source-based decisions only. No organization/team fixture, invitation, membership or repository association changed. Native team screenshots remain unavailable; no source changes/tests required. Creation/edit and invitation pages remain pending separately.
