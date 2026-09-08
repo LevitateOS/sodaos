@@ -1,0 +1,22 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/find/files.tmpl (GPL-3.0-or-later); upstream SHA-256 7b8bb3d319d0509f3d31df2bf27e5eac4ac8a0410c7f0a8c5ca74c2b30c319ec. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-browser page-content repository">
+	{{template "repo/header" .}}
+	<div class="ui container">
+		<div class="tw-flex tw-items-center soda-code-finder">
+			<a href="{{$.RepoLink}}">{{.RepoName}}</a>
+			<span class="tw-mx-2">/</span>
+			<div class="ui input tw-flex-1">
+				<input id="repo-file-find-input" type="text" autofocus data-url-data-link="{{.DataLink}}" data-url-tree-link="{{.TreeLink}}">
+			</div>
+		</div>
+		<table id="repo-find-file-table" class="ui single line table">
+			<tbody>
+			</tbody>
+		</table>
+		<div id="repo-find-file-no-result" class="ui row center tw-mt-8 tw-hidden">
+			<h3>{{ctx.Locale.Tr "repo.find_file.no_matching"}}</h3>
+		</div>
+	</div>
+</div>
+{{template "base/footer" .}}

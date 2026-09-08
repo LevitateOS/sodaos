@@ -1,0 +1,47 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/commits_table.tmpl (GPL-3.0-or-later); upstream SHA-256 4ee088c88faa1fe4c5e9fd825d3374b2cc09df41f4e0bb67a138cddaff419a4d. Presentation changes only. */}}
+<h4 class="soda-code-commits-heading ui top attached header commits-table tw-flex tw-items-center tw-justify-between">
+	<div class="commits-table-left tw-flex tw-items-center">
+		{{if or .PageIsCommits (gt .CommitCount 0)}}
+			{{ctx.Locale.TrN .CommitCount "repo.n_commit_one" "repo.n_commit_few" (ctx.Locale.PrettyNumber .CommitCount)}}
+		{{else if .IsNothingToCompare}}
+			{{ctx.Locale.Tr "repo.commits.nothing_to_compare"}}
+		{{else}}
+			{{ctx.Locale.Tr "repo.commits.no_commits" $.BaseBranch $.HeadBranch}}
+		{{end}}
+	</div>
+	{{if .IsDiffCompare}}
+		<div class="commits-table-right tw-whitespace-nowrap">
+			<a href="{{$.CommitRepoLink}}/commit/{{.BeforeCommitID | PathEscape}}" class="primary sha label tw-mx-0">
+				<span class="shortsha">{{if not .BaseIsCommit}}{{if .BaseIsBranch}}{{svg "octicon-git-branch"}}{{else if .BaseIsTag}}{{svg "octicon-tag"}}{{end}}{{.BaseBranch}}{{else}}{{ShortSha .BaseBranch}}{{end}}</span>
+			</a>
+			...
+			<a href="{{$.CommitRepoLink}}/commit/{{.AfterCommitID | PathEscape}}" class="primary sha label tw-mx-0">
+				<span class="shortsha">{{if not .HeadIsCommit}}{{if .HeadIsBranch}}{{svg "octicon-git-branch"}}{{else if .HeadIsTag}}{{svg "octicon-tag"}}{{end}}{{.HeadBranch}}{{else}}{{ShortSha .HeadBranch}}{{end}}</span>
+			</a>
+		</div>
+	{{end}}
+</h4>
+
+{{if .PageIsCommits}}
+	<div class="ui attached segment soda-code-commit-search">
+		<form class="ignore-dirty" action="{{.RepoLink}}/commits/{{.BranchNameSubURL}}/search">
+			<div class="ui small fluid action input">
+				{{template "shared/search/input" dict "Value" .Keyword "Placeholder" (ctx.Locale.Tr "search.commit_kind")}}
+				{{template "repo/commits_search_dropdown" .}}
+				{{template "shared/search/button" dict "Tooltip" (ctx.Locale.Tr "repo.commits.search.tooltip")}}
+			</div>
+		</form>
+	</div>
+{{end}}
+
+{{if and .Commits (gt .CommitCount 0)}}
+	{{template "repo/commits_list" .}}
+{{end}}
+
+{{if .OldFilename}}
+	<div class="ui bottom attached header">
+		<span>{{ctx.Locale.Tr "repo.commits.renamed_from" .OldFilename}} (<a href="{{.OldFilenameHistory}}">{{ctx.Locale.Tr "repo.commits.browse_further"}}</a>)</span>
+	</div>
+{{end}}
+
+{{template "base/paginate" .}}

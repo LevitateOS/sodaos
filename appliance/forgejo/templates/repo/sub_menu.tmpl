@@ -1,0 +1,50 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/sub_menu.tmpl (GPL-3.0-or-later); upstream SHA-256 e9c1b52e5f0a8f766d4bec6897926db92a05f6c2f9147bc704ddf43664518b9e. Presentation changes only. */}}
+{{if and (not .HideRepoInfo) (not .IsBlame)}}
+<div class="soda-code-summary ui segments repository-summary tw-mt-1 tw-mb-0">
+	<div class="ui segment repository-menu">
+		{{if and (.Permission.CanRead $.UnitTypeCode) (not .IsEmptyRepo)}}
+			<a class="item muted {{if .PageIsCommits}}active{{end}}" href="{{.RepoLink}}/commits/{{.BranchNameSubURL}}">
+				{{svg "octicon-history"}} {{ctx.Locale.TrN .CommitsCount "repo.n_commit_one" "repo.n_commit_few" (printf "<b>%s</b>" (ctx.Locale.PrettyNumber .CommitsCount) | TrustHTML)}}
+			</a>
+			<a class="item muted {{if .PageIsBranches}}active{{end}}" href="{{.RepoLink}}/branches">
+				{{svg "octicon-git-branch"}} {{ctx.Locale.TrN .BranchesCount "repo.n_branch_one" "repo.n_branch_few" (printf "<b>%s</b>" (ctx.Locale.PrettyNumber .BranchesCount) | TrustHTML)}}
+			</a>
+			{{if $.Permission.CanRead $.UnitTypeCode}}
+				<a class="item muted {{if .PageIsTagList}}active{{end}}" href="{{.RepoLink}}/tags">
+					{{svg "octicon-tag"}} {{ctx.Locale.TrN .NumTags "repo.n_tag_one" "repo.n_tag_few" (printf "<b>%s</b>" (ctx.Locale.PrettyNumber .NumTags) | TrustHTML)}}
+				</a>
+			{{end}}
+			<span class="item" {{if not (eq .Repository.Size 0)}}data-tooltip-content="{{.Repository.SizeDetailsString ctx.Locale}}"{{end}}>
+				{{$fileSizeFields :=  ctx.Locale.TrSize .Repository.Size}}
+				{{svg "octicon-database"}} <b>{{$fileSizeFields.PrettyNumber}}</b> {{$fileSizeFields.TranslatedUnit}}
+			</span>
+		{{end}}
+	</div>
+	{{if and (.Permission.CanRead $.UnitTypeCode) (not .IsEmptyRepo) .LanguageStats}}
+		<details class="stats" id="language-stats">
+			<summary>
+				<stats-bar>
+					{{range .LanguageStats}}
+						<div class="slice" style="width: {{.Percentage}}%; background-color: {{.Color}}" data-tooltip-placement="top" data-tooltip-content={{.Language}} data-tooltip-follow-cursor="horizontal"></div>
+					{{end}}
+				</stats-bar>
+			</summary>
+			<ul>
+				{{range .LanguageStats}}
+					<li>
+						<i class="color-icon" style="background-color: {{.Color}}"></i>
+						<span>
+							{{if eq .Language "other"}}
+								{{ctx.Locale.Tr "repo.language_other"}}
+							{{else}}
+								{{.Language}}
+							{{end}}
+						</span>
+						{{.Percentage}}%
+					</li>
+				{{end}}
+			</ul>
+		</details>
+	{{end}}
+</div>
+{{end}}

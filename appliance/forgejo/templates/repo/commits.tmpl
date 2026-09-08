@@ -1,0 +1,19 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/commits.tmpl (GPL-3.0-or-later); upstream SHA-256 69bdb04a868d29059ecec2a95675d46c66879ebec15e9f33c6b85b8bc95e648b. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-browser page-content repository commits">
+	{{template "repo/header" .}}
+	<div class="ui container">
+		{{template "repo/sub_menu" .}}
+		<div class="repo-button-row soda-toolbar">
+			<div class="tw-flex tw-items-center">
+				{{template "repo/branch_dropdown" dict "root" . "ContainerClasses" "tw-mr-1"}}
+				<a href="{{.RepoLink}}/graph" class="ui basic small compact button">
+					{{svg "octicon-git-branch"}}
+					{{ctx.Locale.Tr "repo.commit_graph"}}
+				</a>
+			</div>
+		</div>
+		{{template "repo/commits_table" .}}
+	</div>
+</div>
+{{template "base/footer" .}}

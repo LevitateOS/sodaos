@@ -1,0 +1,196 @@
+/* Detail presentation for exact Forgejo 15.0.7 repository settings leaves. */
+.soda-repo-settings-detail {
+	min-width: 0;
+}
+
+.soda-repo-settings-detail .ui.attached.segment > :is(p, .help):first-child {
+	margin-top: 0;
+	color: var(--soda-page-muted);
+	line-height: 1.6;
+}
+
+.soda-repo-settings-detail .flex-list > .flex-item {
+	gap: 16px;
+	padding: 18px 4px;
+	border-color: var(--soda-page-edge);
+}
+
+.soda-repo-settings-detail .flex-item-title,
+.soda-repo-settings-detail .ui.list > .item .name {
+	color: var(--soda-page-text);
+	font-weight: 600;
+}
+
+.soda-repo-settings-detail :is(.flex-item-body, .flex-text-body, .text.light-3) {
+	color: var(--soda-page-muted) !important;
+}
+
+.soda-repo-settings-detail .ui.attached.table,
+.soda-repo-settings-detail .ui.attached.segment > .ui.table {
+	max-width: 100%;
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+}
+
+.soda-repo-settings-detail .ui.table :is(th, td) {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-repo-settings-detail .ui.table th {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+	letter-spacing: .025em;
+}
+
+.soda-repo-settings-units > .ui.form > :is(.ui.segment, fieldset),
+.soda-repo-settings-protected-branch > .ui.form > fieldset {
+	min-width: 0;
+	margin: 0 0 22px;
+	padding: var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-repo-settings-units > .ui.form > :is(.ui.segment, fieldset) > :is(h4, legend),
+.soda-repo-settings-protected-branch > .ui.form > fieldset > legend {
+	color: var(--soda-page-text);
+	font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
+}
+
+.soda-repo-settings-tags .ui.attached.segment > .ui.grid > .column > .ui.segment {
+	margin: 0;
+	border-color: var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+	box-shadow: none;
+}
+
+.soda-repo-settings-branches .ui.attached.segment > form.tw-flex {
+	align-items: center;
+	gap: 10px;
+}
+
+.soda-repo-settings-branches .ui.attached.segment > form.tw-flex > .ui.dropdown {
+	margin-right: 0 !important;
+}
+
+.soda-repo-settings-collaboration .access-mode,
+.soda-repo-settings-deploy-keys .ui.list,
+.soda-repo-settings-githooks .ui.list {
+	color: var(--soda-page-text);
+}
+
+.soda-repo-settings-options .ui.attached.segment .divider {
+	margin-block: 24px;
+	border-color: var(--soda-page-edge);
+}
+
+.soda-repo-settings-githook-edit :is(.CodeMirror, .editor-toolbar),
+.soda-repo-settings-lfs-file .non-diff-file-content,
+.soda-repo-settings-lfs-file-find .non-diff-file-content,
+.soda-repo-settings-lfs-locks .non-diff-file-content {
+	border-color: var(--soda-page-edge) !important;
+	background: var(--soda-page-surface);
+}
+
+.soda-repo-settings-githook-edit :is(.CodeMirror, .editor-toolbar) {
+	box-shadow: none;
+}
+
+.soda-repo-settings-lfs-file .file-view,
+.soda-repo-settings-lfs-file-find .ui.attached.table,
+.soda-repo-settings-lfs-locks .ui.attached.table {
+	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+:is(.soda-repo-settings-runner-create, .soda-repo-settings-runner-details, .soda-repo-settings-runner-edit, .soda-repo-settings-runner-setup, .soda-repo-settings-actions, .soda-repo-settings-secrets) :is(.ui.segment, .ui.segments) {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+	box-shadow: none;
+}
+
+:is(.soda-repo-settings-actions, .soda-repo-settings-secrets, .soda-repo-settings-lfs-pointers) .flex-list > .flex-item:last-child {
+	border-bottom: 0;
+}
+
+.soda-shared-runner > .ui.top.attached.header {
+	color: var(--soda-page-text);
+	font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.soda-shared-runner > :is(.ui.attached.segment, .ui.attached.table.segment) {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+	box-shadow: none;
+}
+
+.soda-shared-runner .runner-list :is(th, td) {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-shared-runner dl > .item {
+	display: grid;
+	grid-template-columns: minmax(130px, .4fr) minmax(0, 1fr);
+	gap: 12px 24px;
+	padding: 14px 0;
+	border-bottom: 1px solid var(--soda-page-edge);
+}
+
+.soda-shared-runner dl > .item:last-child {
+	border-bottom: 0;
+}
+
+.soda-shared-runner dl dt {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+}
+
+.soda-shared-runner pre {
+	overflow-x: auto;
+	padding: 16px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+}
+
+.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+}
+
+.soda-repository-settings :is(.soda-webhook-list, .soda-webhook-history) > .ui.list > .item {
+	padding-block: 16px;
+	border-color: var(--soda-page-edge);
+}
+
+.soda-repository-settings :is(.soda-webhook-list-header, .soda-webhook-history-header) {
+	color: var(--soda-page-text);
+	font-family: "Fraunces Variable", Georgia, serif;
+}
+
+@media (max-width: 700px) {
+	.soda-repo-settings-detail .flex-item {
+		align-items: flex-start !important;
+		flex-wrap: wrap;
+	}
+
+	.soda-repo-settings-detail .flex-item-trailing {
+		width: 100%;
+	}
+
+	.soda-repo-settings-branches .ui.attached.segment > form.tw-flex {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.soda-repo-settings-detail > .ui.header > .ui.right {
+		float: none;
+		margin-top: 10px;
+	}
+
+	.soda-shared-runner dl > .item {
+		grid-template-columns: 1fr;
+		gap: 5px;
+	}
+}
