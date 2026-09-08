@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: assess organization registry settings separately. Personal registry settings artwork is complete. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: personal webhook settings landing page and its new/edit variants. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -66,7 +66,7 @@ Next: assess organization registry settings separately. Personal registry settin
 | Pending | [`org/projects/list.tmpl`](../appliance/forgejo/templates/org/projects/list.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`org/projects/new.tmpl`](../appliance/forgejo/templates/org/projects/new.tmpl) | `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`org/projects/view.tmpl`](../appliance/forgejo/templates/org/projects/view.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
-| Pending | [`org/settings/layout_head.tmpl`](../appliance/forgejo/templates/org/settings/layout_head.tmpl) | `org/header` | Not yet reviewed in this goal. |
+| Partial — trace caller | [`org/settings/layout_head.tmpl`](../appliance/forgejo/templates/org/settings/layout_head.tmpl) | `org/header` | Registry/cleanup callers assessed; remaining settings routes explicitly queued below. No shared artwork decision imposed on callers. |
 | Pending | [`org/team/invite.tmpl`](../appliance/forgejo/templates/org/team/invite.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`org/team/members.tmpl`](../appliance/forgejo/templates/org/team/members.tmpl) | `org/header` | Not yet reviewed in this goal. |
 | Pending | [`org/team/new.tmpl`](../appliance/forgejo/templates/org/team/new.tmpl) | `org/header` | Not yet reviewed in this goal. |
@@ -236,7 +236,7 @@ Upstream-only page callers traced from the running stock binary with `forgejo em
 | Status | Native page template / variant | Decision |
 | --- | --- | --- |
 | Done | `user/settings/packages.tmpl` (now overridden) | Registry-maintenance scene integrated; native desktop/mobile captures and cleanup-page isolation checked. |
-| Pending | `org/settings/packages.tmpl` | Separate organization registry-settings decision queued. |
+| No image | `org/settings/packages.tmpl` | Organization identity header and navigation lead directly to cleanup/Cargo controls; no added decorative intro. Source assessment. |
 | No image | `user/settings/packages_cleanup_rules_edit.tmpl` — add | Long retention form; prioritize criteria. Native desktop capture inspected. |
 | No image | `user/settings/packages_cleanup_rules_edit.tmpl` — edit | Same criteria plus remove/preview actions; source-reviewed. |
 | No image | `org/settings/packages_cleanup_rules_edit.tmpl` — add | Same shared retention fields under organization navigation; source-reviewed. |
@@ -262,6 +262,21 @@ Upstream-only page callers traced from the running stock binary with `forgejo em
 | No image | Contributor following | Same identity-card responsibility but a separate relationship list; no decorative scene above the people. |
 | No image | Contributor README overview | The contributor authors this content and may supply their own artwork. Source-reviewed; no generated illustration ahead of it. |
 | No image | Contributor watched repositories (stars-disabled navigation variant) | Source-reviewed profile list under the same identity shell; distinct from the separate `/notifications/watching` introduction. |
+
+Organization settings routes discovered in the native navbar (each still needs its own source/layout assessment):
+
+| Status | Organization-relative route | Page |
+| --- | --- | --- |
+| Pending | `/settings` | General options |
+| Pending | `/settings/hooks` | Webhook list and new/edit variants |
+| Pending | `/settings/labels` | Organization labels |
+| Pending | `/settings/applications` | OAuth applications, when enabled |
+| Pending | `/settings/actions/runners` | Native Actions runners |
+| Pending | `/settings/actions/secrets` | Native Actions secrets |
+| Pending | `/settings/actions/variables` | Native Actions variables |
+| Pending | `/settings/blocked_users` | Blocked users |
+| Pending | `/settings/storage_overview` | Storage overview, when quotas are enabled |
+| Pending | `/settings/delete` | Organization deletion confirmation |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
 - [ ] Trace account, organization, repository and administrator shared layouts for native routes without leaf overrides.
@@ -354,3 +369,10 @@ Upstream-only page callers traced from the running stock binary with `forgejo em
 - Focused offline `TestForgejoPackages` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed. Local templates reloaded.
 - Inspected native captures: `.artifacts/screenshots/capture-gzvM6u/001.png` (1440×1000 landing), `002.png` (add-cleanup isolation), and `capture-X8BBed/001.png` (390×844 landing). The image composites cleanly and fits beside the heading without overlap. Mobile settings navigation still precedes the form below the viewport. Baseline `capture-AyNtZk/001.png`.
 - No forms submitted or registry state changed. Dark theme, initialized Cargo, populated cleanup lists and edit/preview runtime states were not exercised.
+
+### Organization registry settings
+
+- Inspected the complete overridden organization settings layout and organization identity header, plus stock `org/settings/packages.tmpl` and `org/settings/navbar.tmpl` through the running binary's read-only embedded-resource viewer.
+- No image: unlike the personal landing page, this layout has no dedicated page introduction. The native organization avatar/name/description and horizontal navigation already precede a settings sidebar and the cleanup/Cargo sections. Adding a robot would create another header before two operational sections. Retain the real organization identity and direct access to those controls.
+- This decision is specific to registry settings; other organization settings pages remain pending individually. The native navbar exposed ten more route groups, now explicitly listed, including configuration-dependent pages. No blanket no-image rule was assigned to the shared layout.
+- Source-based assessment only: no accessible organization fixture is available for native capture. No templates, organization records, Cargo index or cleanup rules changed. No tests were needed for this documentation-only decision.

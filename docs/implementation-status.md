@@ -21,7 +21,9 @@ were added explicitly to the inventory, with personal landing/add-rule desktop
 captures inspected. Personal registry settings now has its own maintenance illustration, scoped by an
 explicit landing-template artwork input; desktop/mobile captures and add-cleanup
 isolation were checked, and focused package/shared-boundary tests passed.
-Organization registry settings is next; individual decisions and unexercised variants remain in the checklist.
+Organization registry settings was assessed without a second decorative header;
+its native identity and direct cleanup/Cargo controls take precedence. Other
+organization settings routes are now explicitly queued. Personal webhooks are next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
