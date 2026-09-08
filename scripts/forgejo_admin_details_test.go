@@ -37,6 +37,9 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
 			restored := strings.TrimPrefix(contents, provenance)
+			if tt.name == "user/new.tmpl" {
+				restored = strings.Replace(restored, ` "artwork" "admin-new-account-papercraft.png"`, "", 1)
+			}
 			if tt.name == "dashboard.tmpl" || tt.name == "applications/oauth2_edit.tmpl" || tt.name == "auth/list.tmpl" || tt.name == "user/list.tmpl" || tt.name == "repo/list.tmpl" || tt.name == "emails/list.tmpl" {
 				restored = strings.Replace(restored, ` "hideArtwork" true`, "", 1)
 			}
