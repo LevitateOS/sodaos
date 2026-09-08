@@ -5,7 +5,7 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | Step-3 read-only source, real x86_64 build/stage/export checks and exported-payload browser journey passed at `ee8091a`; step-4 mutation controls are next. Both standalone frontends remain removed |
+| Soda UI source | Step 4's explicit stable-ID create/key/join/own-connection controls are source-implemented and locally tested; step 5's helper-backed native access proof is next. Step-3 read-only build/export/browser evidence remains bound to `ee8091a`. Both standalone frontends remain removed |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
@@ -505,13 +505,60 @@ Checks for this revision: documentation inspection passed (55 Markdown files,
 242 local relative links, 34 Markdown anchors, zero errors); diff-whitespace checks
 passed. No product tests, build, native execution, fixture mutation or data cleanup.
 
+## Explicit access actions source implementation
+
+Implemented step 4 after `f940338`, without a new frontend stack, helper protocol,
+permission inventory or recovery subsystem:
+
+- Create accepts only canonical decimal-string `repository_id`. The existing
+  `visibleRepository` path checks actual user/repository consent, fresh subject and
+  stable-ID visibility; the acting human must be the current owner. Reservation
+  precedes native provisioning, uniqueness survives concurrent requests and create
+  never joins. The unused owner/name Forgejo adapter is removed. The API's existing
+  bounded decoder now uses `strictjson` to reject duplicate fields/invalid UTF-8 too.
+- The existing four hook/assets add separate Create, development-key summary/public-
+  key save, Add me and own SSH connection controls. Public-only input is checked
+  before transmission and by the retained Go SSH parser. Save never joins or updates
+  existing Linux keys. Existing-member original logins and degraded API access remain.
+- Each explicit action rechecks page/session/provider consistency, sends one protected
+  POST, disables duplicate dispatch/logout while pending and safely rereads afterwards.
+  Close/blur/BFCache cannot cancel or replay native work. Close/backdrop invalidate
+  synchronously before the native queued close event; late writes cannot populate a
+  reopened/stale drawer. Uncertain create/join stays blocked in that document with
+  operator-inspection guidance, not a claim that a missing row proves no native effect.
+- Own connection rendering validates association, original login, current running
+  address and public host-key/fingerprint fields; stopped/unavailable/stale views
+  clear the command and Copy target. Copy delegates through stock 15.0.7's inspected
+  `clipboard.js`, not a replacement handler. Address display is not routing proof.
+
+Performed under standing local testing approval: full uncached Go suite; uncached
+web/store/Forgejo/config/nativebuild races; **89 Node tests** (86 drawer DOM cases and
+three retained probe/transport cases); **36 Python build fixtures**. All passed.
+Source checks include owner transfer/admin non-bypass, large/invalid IDs, provider/
+consent/actor denials, concurrent reservations and native/persistence failures,
+separate actions, private/options/multiple-key refusal, pending/stale/queued-close
+results, no replay or false membership and unavailable connection/Copy behavior.
+Earlier focused passes and final logs are retained in
+`.artifacts/research/access-f940338/`. Documentation/whitespace checks accompany the
+change; no new dependencies or baseline versions changed.
+
+This is handler/store/DOM and packaging-fixture evidence, **not** a new real image/
+stage/export, native browser/Copy interaction, helper account/key installation, SSH,
+project-runtime or aarch64 pass. No Cockpit retest, fixture service restart, helper
+connection, retained database/config/OAuth migration, VM/project change or cutover
+occurred. Both browser fixtures, `soda-test`, all four retained environments, earlier
+worktrees/artifacts and private credentials/evidence remain untouched. Step 4's local
+exit is satisfied; step 5 must bind updated delivered UI/backend/helper/project bytes
+to real account/key/SSH results before native access is claimed.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and native-page context regression
   coverage while wiring explicit actions; no retained-appliance acceptance is inferred
   from local test results.
-- Implement step 4's explicit stable-ID create, public-key save, join and own
-  connection controls; the read-only step-3 gate passed at the bounded scope above.
+- Execute step 5's updated-payload native-page/helper-backed create/key/join/connection
+  and SSH proof; step 4's local source exit passed, not native provisioning validation.
+  Keep the existing read-only guard mode while adding bounded access requests.
   Existing-account terminal work remains separate.
   The verified template hook alone is not this integration. Stop if it needs a fork.
 - Rehearse exact candidate/config/grants/populated-state preservation before a

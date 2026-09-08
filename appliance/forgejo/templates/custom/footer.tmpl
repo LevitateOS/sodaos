@@ -12,8 +12,26 @@
 					<p id="sodaspaces-actor"></p><p id="sodaspaces-repository"></p>
 					<p id="sodaspaces-environment"></p><p id="sodaspaces-login"></p>
 					<p id="sodaspaces-warning"></p>
+					<button id="sodaspaces-create" type="button" class="ui primary button" hidden>Create shared environment</button>
+					<section id="sodaspaces-keys" class="ui form" hidden aria-labelledby="sodaspaces-keys-title">
+						<h3 id="sodaspaces-keys-title">Development access keys</h3>
+						<ul id="sodaspaces-key-list"></ul>
+						<p>These are not Forgejo Git keys. Keys are installed only when you explicitly join; later saves do not update existing accounts.</p>
+						<div class="field"><label for="sodaspaces-public-key">One public SSH key (never a private key)</label><textarea id="sodaspaces-public-key" rows="3" maxlength="16384" spellcheck="false" autocomplete="off"></textarea></div>
+						<button id="sodaspaces-save-key" type="button" class="ui basic button">Save public key</button>
+					</section>
+					<button id="sodaspaces-join" type="button" class="ui primary button" hidden>Add me to this project</button>
+					<section id="sodaspaces-connection" class="ui form" hidden aria-labelledby="sodaspaces-connection-title">
+						<h3 id="sodaspaces-connection-title">Your connection</h3>
+						<p id="sodaspaces-address"></p>
+						<div class="field"><label for="sodaspaces-command">SSH command</label><input id="sodaspaces-command" type="text" readonly></div>
+						<button id="sodaspaces-copy" type="button" class="ui basic button" disabled>Copy</button>
+						<p id="sodaspaces-fingerprint"></p>
+						<p>Verify this public host-key fingerprint with SSH. The address does not prove a route from your client.</p>
+					</section>
 				</div>
-				<p>Persistent shared development environment. No environment changes are made by this drawer.</p>
+				<p id="sodaspaces-result" role="status" aria-live="polite"></p>
+				<p>Persistent shared development environment. Opening or refreshing never creates, joins or starts it. Creation and joining are separate explicit actions.</p>
 				<p><a id="sodaspaces-sign-in" class="ui basic button" hidden>Sign in to Soda</a></p>
 				<p><button id="sodaspaces-sign-out" type="button" class="ui basic button" hidden>Sign out of Soda</button></p>
 			</div>

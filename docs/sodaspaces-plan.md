@@ -7,13 +7,14 @@ hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
 pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
 Step 2's backend repository reads/new-join checks are implemented. Step 3's bounded
 x86_64 exit passed at `ee8091a`: real native build/stage/export and an exported-payload
-browser journey. Steps 4–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+browser journey. Step 4 is now source-implemented with local handler/DOM coverage;
+steps 5–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
 locally tested. Neither is deployed to the retained appliance; the isolated
 browser proof does not establish installed security or preserved-state migration.
 
-**Next milestone:** [step 4's explicit access actions](#4-wire-the-explicit-access-actions).
+**Next milestone:** [step 5's helper-backed native access proof](#5-validate-the-integrated-native-experience).
 The read-only step-3 gate passed at the recorded local x86_64 scope; this does not
 establish appliance installation, project access or retained-state cutover.
 
@@ -181,8 +182,9 @@ and no cross-project disclosure through alternate routes.
 
 **Source-implemented:** required repository lookup, direct-ID read boundaries and
 fresh new-join checks; focused denial/concurrency/degraded-access tests. The read-only
-native UI passed its bounded journey with absent views only. Stable-ID creation,
-mutation controls and helper-backed native access proof remain pending. The following
+native UI passed its bounded journey with absent views only. Stable-ID creation and
+mutation controls now have local source coverage; helper-backed native access proof
+remains pending. The following
 steps record the implemented contract, not further execution permission.
 
 **Files:** the step-2 owners above plus `internal/web/provider.go` where its existing
@@ -397,9 +399,11 @@ retained-appliance delivery remain unproven by that run.
 
 ### 4. Wire the explicit access actions
 
-**Status:** not implemented. The read-only exit is complete; no new roadmap or
-frontend stack is needed. The [API guide](dashboard-api.md) still describes the
-current `{owner,repository}` create body, not the planned contract below.
+**Status:** source-implemented; full Go, focused races, 89 Node tests and 36 build
+fixtures passed. See the [handoff](implementation-status.md#explicit-access-actions-source-implementation).
+The [API guide](dashboard-api.md) now specifies the stable-ID create body. The
+contracts below are implemented with the existing stack; updated-payload browser,
+real account/key/SSH evidence and appliance cutover remain steps 5–6.
 
 **Files:** the existing drawer script/templates/styles, retained Go environment/key
 handlers and their focused tests. Keep the restricted helper and store as owners
@@ -412,7 +416,8 @@ of native operations and legitimate Soda records.
    advisory `can_create` or an earlier read. No organization-owned creation or
    operator/admin impersonation. Preserve reservation-before-provisioning, unique
    association by stable ID and honest incomplete results. Creation does not join.
-   Update the API guide and actual callers/tests in the implementation commit.
+   The API guide/callers/tests use this contract; the unused owner/name Forgejo
+   adapter is removed. JSON writes also reject duplicate fields and invalid UTF-8.
 2. **Save public key:** show registered development-key summaries; when needed,
    accept one public key through the retained key API. No private-key upload,
    native Git-key changes, key selector or automatic later propagation.
@@ -463,8 +468,8 @@ reservations, incomplete native results and no false membership. Exercise stale/
 BFCache, close/reopen, pending logout, delayed/malformed/lost responses and safe rereads
 with zero write replay. Preserve original-login idempotency and own-only connection
 access; stopped/unavailable/malformed connection data must not expose a usable Copy
-command. Source/helper doubles establish these branches, not actual SSH provisioning;
-step 5 supplies the helper-backed native evidence.
+command. These local checks passed. Source/helper doubles establish these branches,
+not actual SSH provisioning; step 5 supplies the helper-backed native evidence.
 
 ### 5. Validate the integrated native experience
 

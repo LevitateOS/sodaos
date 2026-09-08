@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -89,31 +88,23 @@ func validRepositoryPart(value string) bool {
 }
 func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var input struct {
-		Owner      string `json:"owner"`
-		Repository string `json:"repository"`
+		RepositoryID string `json:"repository_id"`
 	}
 	if !decodeAPIObject(w, r, &input) {
 		return
 	}
-	if !validRepositoryPart(input.Owner) || !validRepositoryPart(input.Repository) {
-		jsonError(w, 400, "invalid_repository", "Select an existing repository.")
+	repositoryID, valid := positiveID(input.RepositoryID)
+	if !valid {
+		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
 		return
 	}
-	grant, err := s.userGrant(r, v)
+	access, err := s.visibleRepository(r, v, repositoryID)
 	if err != nil {
 		providerError(w, err)
 		return
 	}
-	if !forgejo.HasScope(grant.Scopes, "read:repository") {
-		jsonError(w, 403, "consent_required", "Forgejo repository consent is required.")
-		return
-	}
-	repo, err := s.Forgejo.Repository(r.Context(), grant.Access, input.Owner, input.Repository)
-	if err != nil {
-		providerError(w, err)
-		return
-	}
-	if repo.ID <= 0 || repo.Owner.ID != v.User.ID {
+	repo := access.repository
+	if repo.Owner.ID != access.actor.ID {
 		jsonError(w, 403, "owner_required", "Only the human repository owner can create its environment. Organization-owned environments are not supported.")
 		return
 	}

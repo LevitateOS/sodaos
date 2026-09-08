@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
 const apiBodyLimit = 65536
@@ -145,14 +146,10 @@ func decodeAPIObject(w http.ResponseWriter, r *http.Request, out any) bool {
 		jsonError(w, http.StatusBadRequest, "invalid_json", "Send exactly one JSON object.")
 		return false
 	}
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(out); err != nil {
+	// Keep the outer 64-KiB limit and sanitized errors, while rejecting ambiguous
+	// repeated fields and invalid UTF-8 through the existing strict decoder.
+	if err = strictjson.Decode(bytes.NewReader(body), out); err != nil {
 		jsonError(w, http.StatusBadRequest, "invalid_json", "JSON fields or values are invalid.")
-		return false
-	}
-	if err = decoder.Decode(new(any)); err != io.EOF {
-		jsonError(w, http.StatusBadRequest, "invalid_json", "Send exactly one JSON object.")
 		return false
 	}
 	return true

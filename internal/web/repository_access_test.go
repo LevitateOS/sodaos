@@ -24,7 +24,7 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 	}{
 		{"hidden", 404}, {"forbidden", 403}, {"unavailable", 503}, {"wrong repository", 503},
 		{"malformed", 503}, {"oversized", 413}, {"wrong subject", 401}, {"no grant", 401},
-		{"no consent", 403}, {"timeout", 503}, {"site admin", 404}, {"Soda operator", 404},
+		{"no consent", 403}, {"no user consent", 403}, {"timeout", 503}, {"site admin", 404}, {"Soda operator", 404},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
@@ -77,12 +77,15 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 					t.Fatal(err)
 				}
 			}
-			if tc.name == "no consent" {
+			if tc.name == "no consent" || tc.name == "no user consent" {
 				g, err := s.Store.Grant(t.Context(), "session-bob", 2)
 				if err != nil {
 					t.Fatal(err)
 				}
 				g.Scopes = "read:user"
+				if tc.name == "no user consent" {
+					g.Scopes = "read:repository"
+				}
 				if err = s.Store.ReplaceGrant(t.Context(), "session-bob", 2, g); err != nil {
 					t.Fatal(err)
 				}
@@ -94,16 +97,19 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 				calls.Add(1)
 				return nil, errors.New("must not reach helper")
 			})}
-			for _, path := range []string{"/api/environments?repository_id=42", "/api/environments/" + id, "/api/environments/" + id + "/members", "/api/environments/" + id + "/join"} {
-				method := "GET"
-				if strings.HasSuffix(path, "/join") {
+			for _, path := range []string{"/api/environments?repository_id=42", "/api/environments/" + id, "/api/environments/" + id + "/members", "/api/environments/" + id + "/join", "/api/environments"} {
+				method, body := "GET", "{}"
+				if strings.HasSuffix(path, "/join") || path == "/api/environments" {
 					method = "POST"
+				}
+				if path == "/api/environments" {
+					body = `{"repository_id":"42"}`
 				}
 				if tc.name == "Soda operator" && method != "POST" {
 					continue
 				} // operator inspection is selected, not a join bypass
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, apiTestRequest(method, path, "{}", "bob"))
+				s.ServeHTTP(w, apiTestRequest(method, path, body, "bob"))
 				if w.Code != tc.status || strings.Contains(w.Body.String(), "alice/private") || strings.Contains(w.Body.String(), id) {
 					t.Fatal(path, w.Code, w.Body.String())
 				}

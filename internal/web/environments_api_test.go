@@ -22,7 +22,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		case "/api/v1/user":
 			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
 			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
-		case "/api/v1/repos/alice/demo", "/api/v1/repositories/7":
+		case "/api/v1/repositories/7":
 			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
 		default:
 			t.Error("unexpected provider path", r.URL.Path)
@@ -74,13 +74,13 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		s.ServeHTTP(w, apiTestRequest(method, path, body, login))
 		return w
 	}
-	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo"}`, "bob"); w.Code != 403 || id != "" {
+	if w := perform("POST", "/api/environments", `{"repository_id":"7"}`, "bob"); w.Code != 403 || id != "" {
 		t.Fatal("nonowner provisioned", w.Code)
 	}
-	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo","admin":true}`, "alice"); w.Code != 400 || id != "" {
+	if w := perform("POST", "/api/environments", `{"repository_id":"7","admin":true}`, "alice"); w.Code != 400 || id != "" {
 		t.Fatal("privilege field accepted", w.Code)
 	}
-	if w := perform("POST", "/api/environments", `{"owner":"alice","repository":"demo"}`, "alice"); w.Code != 201 || w.Header().Get("Location") != "/-/soda/api/environments/"+id {
+	if w := perform("POST", "/api/environments", `{"repository_id":"7"}`, "alice"); w.Code != 201 || w.Header().Get("Location") != "/-/soda/api/environments/"+id {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	for _, uid := range []int64{1, 2} {

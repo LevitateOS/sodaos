@@ -66,11 +66,6 @@ func (c *Client) Current(ctx context.Context, token string) (User, error) {
 	err := c.request(ctx, "GET", "/user", token, nil, &u)
 	return u, err
 }
-func (c *Client) Repository(ctx context.Context, token, owner, name string) (Repository, error) {
-	var r Repository
-	err := c.request(ctx, "GET", "/repos/"+url.PathEscape(owner)+"/"+url.PathEscape(name), token, nil, &r)
-	return r, err
-}
 
 func (c *Client) Application(ctx context.Context, token, redirect string) (Application, error) {
 	var a Application

@@ -34,8 +34,8 @@ The user subsequently gave standing implementation/testing approval for this
 planned work. Native x86_64 build/check/export and the new isolated delivery fixture
 at `.artifacts/delivery-ee8091a/` passed for `ee8091a`; the build/worktree/export are
 retained under `.artifacts/stage-validation-ee8091a/` and `.artifacts/worktrees/`.
-Step 3's bounded read-only exit is satisfied; step 4's explicit access actions are
-next. Routine local implementation/testing does not need repeated permission.
+Step 3's bounded read-only exit is satisfied. Step 4's explicit access actions now
+have local source/test coverage; step 5's helper-backed native access proof is next. Routine local implementation/testing does not need repeated permission.
 Preserve retained data, credentials, fixtures and evidence; standing testing approval
 is not an instruction to erase them or silently perform appliance cutover.
 
@@ -73,7 +73,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
-  explicit mutation controls remain next. Source has same-origin `/-/soda/` routing/scoped cookies,
+  explicit mutation controls now have local source/test coverage, not native access proof. Source has same-origin `/-/soda/` routing/scoped cookies,
   expected-actor API guards, schema-v5 login cancellation and OAuth repository/actor
   context. The actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and

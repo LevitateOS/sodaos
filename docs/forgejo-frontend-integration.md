@@ -7,7 +7,9 @@ is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
 The isolated x86_64 authenticated native-page → Soda browser journey now passes,
 including real tab/BFCache transitions. Native x86_64 stage/export checks and a
 browser run using exported UI/branding and the built dashboard image also passed at
-`ee8091a`. Appliance install and existing-environment validation remain separate.
+`ee8091a`. Step-4 explicit create/key/join/connection controls now have local source
+coverage, not updated native-browser or helper-backed access proof. Appliance install
+and existing-environment validation remain separate.
 
 ## Verified source surface
 
@@ -27,8 +29,9 @@ The inspected **15.0.7** source establishes:
 
 Staging supplies native themes/logos and the four Sodaspaces hook/assets under
 `gitea/templates/custom/` and `gitea/public/assets/`. This is authored delivery,
-not an installed appliance result. The four hook/assets have rendered in the
-isolated browser fixture, not through a full stage/install. Forgejo's customized Fomantic subset has native
+not an installed appliance result. The read-only four hook/assets rendered from an
+actual exported stage in the isolated fixture; new access controls still need that
+updated-payload browser/access run. Forgejo's customized Fomantic subset has native
 accessibility/initialization adaptations; it is not a standalone Soda component kit.
 Preserve native markup, scripts, form behavior and branding. The source reference
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact
@@ -72,8 +75,10 @@ the separately approved [native journey](native-validation.md#read-only-sodaspac
 
 ### Controls and states
 
-The current source implements the read-only states and explicit authentication;
-create/key/join/SSH controls in the eventual table below are not implemented.
+The current source implements the read states, explicit authentication and the
+create/key/join/SSH controls below. Handler/DOM tests cover action-time identity,
+duplicate/pending/stale requests and honest failures. The native read-only evidence
+is not proof of these new mutation/connection controls.
 
 Always show repository/environment context, the actual Soda acting identity and Close.
 
@@ -87,8 +92,9 @@ Always show repository/environment context, the actual Soda acting identity and 
 | Pending action | “Creating…” / “Saving key…” / “Adding you…” with duplicate submits disabled, not an invented progress/job system |
 | Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
 
-Closing aborts/discards stale reads, not a promise to undo an in-flight native
-mutation. Reopen by reading actual state. Existing join is not later key propagation.
+Closing synchronously invalidates stale reads/results, including before the browser's
+queued close event; it does not undo an in-flight native mutation. Reopen waits for
+an outstanding action, then offers a safe Refresh. Otherwise it reads actual state. Existing join is not later key propagation.
 Start/stop/restart/delete, resource charts, member administration and a browser IDE
 are not needed here. The separately requested existing-account terminal remains a
 follow-up, not a prerequisite for SSH access.
@@ -111,7 +117,7 @@ setup flag are removed; URL configuration remains origin-only. No permissive COR
 Repository-scoped reads and new-join authorization now check the acting grant's
 fresh subject, consent and native visibility. Schema v5 also binds OAuth finalization
 and Soda logout to one cancellable login context. These backend fixes are locally
-tested, not a native-page integration or installed migration.
+tested; the read-only native integration passed separately, not an installed migration.
 
 Backend guards now require `X-Soda-Expected-User-ID` except for session bootstrap;
 OAuth state binds optional repository/expected-user IDs and callback checks the
@@ -120,11 +126,10 @@ grant `RepositoryByID` lookup and a locally constructed native URL, never a supp
 redirect URL. Inspected 15.0.7 `repo.GetByID` checks acting-user repository access.
 
 The header is a consistency guard, not proof of the live native browser session.
-Native-page context capture and stale-tab handling are authored; the real browser
-round trip remains pending; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
-The Caddy recipe has not been exercised or deployed; source HTTP tests do not prove
-native route matching or cookie behavior. The installed guest retains historical
-separate origins/configuration and schema v3.
+Native-page context capture, stale-tab handling and Caddy routing passed the bounded
+isolated read-only journey; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
+The new mutation-time path remains locally tested only. The retained installed guest
+still has historical separate origins/configuration and schema v3.
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 

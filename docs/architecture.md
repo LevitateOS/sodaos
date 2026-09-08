@@ -9,7 +9,8 @@ account, key or runtime wiring themselves.
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. A read-only native drawer
 is implemented and passed native x86_64 build/stage and isolated exported-payload
-browser checks; explicit mutation controls remain next.
+browser checks. Explicit create/key/join/connection controls are now source-implemented
+and locally tested; helper-backed native access proof remains next.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
 ## Topology
