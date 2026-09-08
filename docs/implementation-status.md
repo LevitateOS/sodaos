@@ -415,7 +415,14 @@ redirect guard did not run there. The probe now uses CDP Fetch on its exercised
 pages to inspect each hop before transmission; focused doubles test allowed and
 refused hops. Separate native DOM diagnosis observed the matching actor and real
 absent-environment state. Account switching/accessibility/BFCache and a complete
-journey are still pending; these failures are not a milestone pass. Full native build/stage, installed checks,
+journey are still pending; these failures are not a milestone pass.
+
+Probe `72a3c2b` passed the real first OAuth/absent state, cookie scope and protected
+logout denial checks, then failed its overly strict keyboard assertion. Native
+Chromium permits Tab to browser chrome (not background page controls); this correctly
+invalidates/clears Soda. Native close/focus-return events are asynchronous. The probe
+now permits that browser behavior while asserting no underlying-page focus, data
+clearing and explicit reload, and waits for the actual close-event focus return. Full native build/stage, installed checks,
 retained-state rehearsal and cutover remain unperformed.
 
 ## Remaining work and permission boundary

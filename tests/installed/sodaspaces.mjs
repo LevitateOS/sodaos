@@ -260,20 +260,38 @@ try {
   }, input.users[1].id);
   assert.deepEqual(guards, [{status: 403, code: 'identity_mismatch'}, {status: 403, code: 'invalid_csrf'}]);
 
-  stage = 'keyboard backdrop layout and automatic themes';
+  stage = 'native keyboard focus and browser chrome';
+  let chromeFocus = false;
   for (let i = 0; i < 8; i++) {
     await page.keyboard.press('Tab');
-    assert(await drawer.evaluate(node => node.contains(document.activeElement)));
+    const focus = await drawer.evaluate(node => ({inside: node.contains(document.activeElement),
+      chrome: !document.hasFocus() && document.activeElement === document.body,
+      stale: !document.getElementById('sodaspaces-reload').hidden,
+      cleared: document.getElementById('sodaspaces-actor').textContent === ''}));
+    // Native Chromium permits browser-chrome focus, never background form focus.
+    assert(focus.inside || focus.chrome);
+    if (focus.chrome) { chromeFocus = true; assert(focus.stale && focus.cleared); }
   }
+  if (!await page.evaluate(() => document.hasFocus())) await page.keyboard.press('Tab');
+  assert(await drawer.evaluate(node => node.contains(document.activeElement)));
+  stage = 'Escape and asynchronous focus return';
   await page.keyboard.press('Escape');
   await drawer.waitFor({state: 'hidden'});
-  assert(await page.locator('#sodaspaces-button').evaluate(node => node === document.activeElement));
+  await page.waitForFunction(() => document.activeElement?.id === 'sodaspaces-button');
   await open();
+  if (chromeFocus) {
+    await page.locator('#sodaspaces-reload').click();
+    await settled();
+  }
+  result.keyboard_chrome_invalidation = chromeFocus;
+  stage = 'backdrop and automatic theme selection';
   await page.mouse.click(10, 400);
   await drawer.waitFor({state: 'hidden'});
+  await page.waitForFunction(() => document.activeElement?.id === 'sodaspaces-button');
   assert.match(await page.locator('html').getAttribute('data-theme'), /auto/);
   const backgrounds = [];
   for (const [width, colorScheme] of [[360, 'light'], [1280, 'dark']]) {
+    stage = `native ${width}-pixel ${colorScheme} layout`;
     await page.setViewportSize({width, height: 900});
     await page.emulateMedia({colorScheme});
     await open();
