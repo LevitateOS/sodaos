@@ -229,7 +229,7 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | Done | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `settings-security-papercraft.png` | Existing security scene retained; native desktop/mobile landing captures inspected. |
 | No image | [`user/settings/security/twofa_enroll.tmpl`](../appliance/forgejo/templates/user/settings/security/twofa_enroll.tmpl) | `user/settings/layout_head` | Explicitly suppress decoration for enrollment/re-enrollment; QR and passcode are the task. Native capture unperformed. |
 | Partial — no image | [`webhook/new.tmpl`](../appliance/forgejo/templates/webhook/new.tmpl) | — | Full provider dispatcher reviewed; repository settings caller traced. Selected provider icon identifies the integration; native provider form and delivery history need no added illustration. Individual upstream provider bodies not re-audited here. |
-| Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | Native provider forms | Full helper reviewed: event groups, branch filter, provider-specific authorization-header gate, active state and create/update/delete controls. Native Forgejo provider caller inspected. No decorative art among configuration fields; other provider bodies remain separately scoped. |
 
 ## Additional page variants
 
