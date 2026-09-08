@@ -168,28 +168,31 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			t.Fatal("native launch not confirmed")
 		}
 		t.Log("checking native account facts", a.Identity)
-		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"resuid":os.getresuid(),"resgid":os.getresgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman")}))'`)
+		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"resuid":os.getresuid(),"resgid":os.getresgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman"),"mise_data":os.environ.get("MISE_DATA_DIR"),"mise_config":os.environ.get("MISE_GLOBAL_CONFIG_FILE"),"container_host":os.environ.get("CONTAINER_HOST")} ))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
 		var actual struct {
-			UID    int
-			GID    int
-			Groups []int
-			ResUID []int
-			ResGID []int
-			Home   string
-			Cwd    string
-			TTY    bool
-			PID    int
-			Shell  string
-			Mise   string
-			Podman string
+			UID           int
+			GID           int
+			Groups        []int
+			ResUID        []int
+			ResGID        []int
+			Home          string
+			Cwd           string
+			TTY           bool
+			PID           int
+			Shell         string
+			Mise          string
+			Podman        string
+			MiseData      string `json:"mise_data"`
+			MiseConfig    string `json:"mise_config"`
+			ContainerHost string `json:"container_host"`
 		}
 		if json.Unmarshal([]byte(value[1]), &actual) != nil {
 			t.Fatal("native facts invalid")
 		}
 		sort.Ints(actual.Groups)
 		sort.Ints(a.Groups)
-		if actual.UID != a.UID || actual.GID != a.GID || !reflect.DeepEqual(actual.ResUID, []int{a.UID, a.UID, a.UID}) || !reflect.DeepEqual(actual.ResGID, []int{a.GID, a.GID, a.GID}) || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) || actual.Shell != "/bin/bash" || actual.Mise == "" || actual.Podman == "" {
+		if actual.UID != a.UID || actual.GID != a.GID || !reflect.DeepEqual(actual.ResUID, []int{a.UID, a.UID, a.UID}) || !reflect.DeepEqual(actual.ResGID, []int{a.GID, a.GID, a.GID}) || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) || actual.Shell != "/bin/bash" || actual.Mise == "" || actual.Podman == "" || actual.MiseData != "/opt/mise" || actual.MiseConfig != "/etc/mise/config.toml" || actual.ContainerHost != "unix:///run/soda-podman/podman.sock" {
 			t.Fatal("native account/home/group/TTY mismatch")
 		}
 		if err = stream.Send(ctx, TerminalFrame{Type: "resize", Cols: 103, Rows: 37}); err != nil {
