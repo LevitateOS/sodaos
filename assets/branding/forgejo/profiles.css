@@ -14,7 +14,8 @@
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
   box-shadow: none;
-  overflow: hidden;
+  /* Native profile action menus extend beyond the card. */
+  overflow: visible;
 }
 
 .soda-profile #profile-avatar-card > .content,

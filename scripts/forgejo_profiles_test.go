@@ -102,7 +102,7 @@ func TestForgejoProfilesHeaderComposesNativeRoutes(t *testing.T) {
 	}
 	data := map[string]any{
 		"HasProfileReadme": true, "TabName": "repositories", "SignedUserID": int64(2),
-		"IsPackageEnabled": true, "IsRepoIndexerEnabled": true,
+		"IsPackageEnabled": true, "IsRepoIndexerEnabled": true, "IsSigned": true,
 		"ContextUser": map[string]any{"ID": int64(2), "HomeLink": "/forge/alice", "IsIndividual": true, "KeepActivityPrivate": false, "NumStars": 3},
 	}
 	var rendered bytes.Buffer
@@ -110,13 +110,21 @@ func TestForgejoProfilesHeaderComposesNativeRoutes(t *testing.T) {
 		t.Fatalf("render profile header: %v", err)
 	}
 	output := rendered.String()
-	for _, want := range []string{`<div class="soda-tabs">`, `class="ui secondary pointing tabular borderless menu secondary-nav"`, `href="/forge/alice?tab=repositories"`} {
+	for _, want := range []string{`<div class="soda-tabs soda-page-marker" data-signed="true">`, `class="ui secondary pointing tabular borderless menu secondary-nav"`, `href="/forge/alice?tab=repositories"`} {
 		if !strings.Contains(output, want) {
 			t.Errorf("profile header lost %q:\n%s", want, output)
 		}
 	}
 	if strings.Count(output, `href="/forge/alice/-/packages"`) != 1 {
 		t.Errorf("profile header must render one native package route from ContextUser.HomeLink:\n%s", output)
+	}
+	data["IsSigned"] = false
+	rendered.Reset()
+	if err := parsed.ExecuteTemplate(&rendered, "header", data); err != nil {
+		t.Fatalf("render guest profile header: %v", err)
+	}
+	if !strings.Contains(rendered.String(), `class="soda-tabs soda-page-marker" data-signed="false"`) {
+		t.Errorf("profile header did not pass guest state to the page marker:\n%s", rendered.String())
 	}
 }
 
@@ -126,6 +134,9 @@ func TestForgejoProfilesStylesStayInsideProfileRoot(t *testing.T) {
 		t.Fatalf("read profile styles: %v", err)
 	}
 	css := string(contents)
+	if strings.Contains(css, "overflow: hidden") {
+		t.Error("profile styles must not clip Forgejo's native avatar-card action menu")
+	}
 	for _, selector := range []string{"#profile-avatar-card", "#visibility-hint", "#activity-feed", ".user-cards", ".soda-profile-readme"} {
 		for _, line := range strings.Split(css, "\n") {
 			if strings.Contains(line, selector) && !strings.Contains(line, ".soda-profile") {
