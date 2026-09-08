@@ -1,0 +1,4 @@
+/* Pull requests add branch/review metadata to the shared native issue list. */
+.soda-pulls #issue-list .issue-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.soda-pulls #issue-list .issue-meta > span:first-child { flex: 0 0 100%; min-width: 0; overflow-wrap: anywhere; }
+.soda-pulls #issue-list .flex-item-main { gap: 8px; }

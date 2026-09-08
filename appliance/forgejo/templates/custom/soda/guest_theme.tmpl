@@ -1,0 +1,20 @@
+{{/* One presentation-only route gate for the head script and navbar control.
+     Auth paths use Forgejo's native Link and preserve configured subpaths. */}}
+{{$page := .Page}}
+{{$auth := eq $page.Link
+	(printf "%s/user/sign_up" AppSubUrl)
+	(printf "%s/user/forgot_password" AppSubUrl)
+	(printf "%s/user/reset_password" AppSubUrl)
+	(printf "%s/user/settings/change_password" AppSubUrl)
+	(printf "%s/user/two_factor" AppSubUrl)
+	(printf "%s/user/two_factor/scratch" AppSubUrl)
+	(printf "%s/user/webauthn" AppSubUrl)
+	(printf "%s/user/activate" AppSubUrl)}}
+{{$branded := or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsExploreRepositories $page.PageIsExploreUsers $page.PageIsExploreOrganizations $page.PageIsExploreCode $page.ContextUser $page.PageIsInstall $page.Repository $page.Org $auth}}
+{{if and (not $page.IsSigned) $branded}}
+	{{if eq .Placement "head"}}
+		<script src="{{AssetUrlPrefix}}/soda/forgejo/login-theme.js?v=2" data-app-sub-url="{{AppSubUrl}}"></script>
+	{{else if and (eq .Placement "navbar") (not (or $page.PageIsHome $page.PageIsSignIn $page.LinkAccountMode $page.PageIsInstall))}}
+		{{template "custom/soda/theme_toggle" dict}}
+	{{end}}
+{{end}}

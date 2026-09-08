@@ -157,17 +157,34 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   native helper. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo, two small custom-template hooks, browser `<dialog>`,
   scoped native styling and vanilla JavaScript using `fetch` with the JSON API.
-  **No added HTMX, React, component library or frontend build.** Forgejo's own
-  frontend and Cockpit's separate React/PatternFly stack remain intact.
+  Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
+  through a drawer-local root; `.soda-page` activates a full-page shell and must not
+  wrap the drawer.
+  Lit is an option for a new self-contained interactive feature, including the
+  drawer, when that feature justifies it. No Lit dependency or frontend build is
+  added by the presentation extraction; vanilla JavaScript remains the current
+  drawer candidate. Keep native forms/lists/scripts and Cockpit's separate stack.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   The isolated browser journey now exercises this routing; appliance cutover is separate.
+  Preserve the public [robot-avatar route](avatars.md) within this namespace,
+  including its credential-stripping proxy boundary.
 - **Authority:** Forgejo owns identity, native sessions, permissions, Git keys,
   collaboration and administration. Soda owns its additional data and real
   environment/access integration—not copied roles or another password authority.
 - **Environment model:** persistent and shared, with personal Linux accounts inside
   each project. Opening the drawer never creates, joins, starts or repairs anything.
   Sodaspaces is a UI name, not disposable Codespaces or a browser IDE.
+
+## Presentation foundation
+
+Standardize existing custom pages before adding new ones. The current local
+Forgejo preview composes shared page intros, empty content and guest theme controls,
+with explicit toolbar, form and native-list CSS adapters. Page styles own only
+page-specific layout. This is a presentation system inside Forgejo's customization
+surface; the authenticated drawer and appliance delivery below remain pending.
+Do not convert native forms/lists to web components. Review each override and its
+script-sensitive markup against the exact selected Forgejo version on upgrades.
 
 ## Delivery sequence
 

@@ -1,0 +1,62 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content repository milestone-issue-list soda-milestone-detail">
+	{{template "repo/header" .}}
+	<div class="ui container soda-milestone-detail-container">
+		{{template "base/alert" .}}
+		<div class="tw-flex tw-items-center tw-justify-between soda-milestone-detail-title">
+			<h1 class="tw-mb-2 soda-p-title">{{.Milestone.Name}}</h1>
+			{{if not .Repository.IsArchived}}
+				<div class="tw-flex button-row">
+					{{if or .CanWriteIssues .CanWritePulls}}
+						{{if .Milestone.IsClosed}}
+							<a class="soda-milestone-action link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/open" aria-label="{{ctx.Locale.Tr "repo.milestones.open"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.open"}}">{{svg "octicon-issue-reopened" 18}}</a>
+						{{else}}
+							<a class="soda-milestone-action link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/close" aria-label="{{ctx.Locale.Tr "repo.milestones.close"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.close"}}">{{svg "octicon-check" 18}}</a>
+						{{end}}
+						<a class="soda-milestone-action" href="{{.RepoLink}}/milestones/{{.MilestoneID}}/edit" aria-label="{{ctx.Locale.Tr "repo.milestones.edit"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.edit"}}">{{svg "octicon-pencil" 18}}</a>
+					{{end}}
+					<a class="soda-milestone-action" href="{{.RepoLink}}/issues/new{{if .NewIssueChooseTemplate}}/choose{{end}}?milestone={{.MilestoneID}}" aria-label="{{ctx.Locale.Tr "repo.issues.new"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.issues.new"}}">{{svg "octicon-plus" 18}}</a>
+				</div>
+			{{end}}
+		</div>
+		{{if .Milestone.RenderedContent}}
+		<div class="markup content tw-mb-4">
+				{{.Milestone.RenderedContent}}
+		</div>
+		{{end}}
+		<div class="tw-flex tw-flex-col tw-gap-2 soda-milestone-progress">
+			<progress class="milestone-progress-big" value="{{.Milestone.Completeness}}" max="100"></progress>
+			<div class="tw-flex tw-gap-4">
+				<div class="tw-flex tw-items-center">
+					{{$closedDate:= DateUtils.TimeSince .Milestone.ClosedDateUnix}}
+					{{if .IsClosed}}
+						{{svg "octicon-clock"}} {{ctx.Locale.Tr "repo.milestones.closed" $closedDate}}
+					{{else}}
+						{{if .Milestone.DeadlineString}}
+							<span{{if .IsOverdue}} class="text red"{{end}}>
+								{{svg "octicon-calendar"}}
+								{{DateUtils.AbsoluteShort (.Milestone.DeadlineString|DateUtils.ParseLegacy)}}
+							</span>
+						{{else}}
+							{{svg "octicon-calendar"}}
+							{{ctx.Locale.Tr "repo.milestones.no_due_date"}}
+						{{end}}
+					{{end}}
+				</div>
+				<div class="tw-mr-2">{{ctx.Locale.Tr "repo.milestones.completeness" .Milestone.Completeness}}</div>
+				{{if .TotalTrackedTime}}
+					<div data-tooltip-content='{{ctx.Locale.Tr "tracked_time_summary"}}'>
+						{{svg "octicon-clock"}}
+						{{.TotalTrackedTime | Sec2Time}}
+					</div>
+				{{end}}
+			</div>
+		</div>
+		<div class="divider soda-p-gap"></div>
+
+		<div class="soda-repo-work-items-filters">{{template "repo/issue/filters" .}}</div>
+
+		<div class="soda-list soda-repo-issue-list">{{template "shared/issuelist" dict "." . "listType" "milestone"}}</div>
+	</div>
+</div>
+{{template "base/footer" .}}

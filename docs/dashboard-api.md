@@ -118,6 +118,11 @@ project. Neither operation revokes Forgejo Git keys, OAuth or browser terminal a
 
 ## Retained operations
 
+The backend also serves the public, read-only
+[`GET/HEAD /-/soda/avatars/v1/{hash}` image endpoint](avatars.md#public-image-contract).
+It requires no session and performs no identity/database lookup. This image route
+does not change the authentication rules of the JSON operations below.
+
 | Endpoint | Behavior |
 | --- | --- |
 | `GET /api/session` | Soda acting identity, CSRF token, explicit Soda operator flag and configured Forgejo browser URL |

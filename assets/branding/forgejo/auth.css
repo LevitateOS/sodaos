@@ -1,0 +1,44 @@
+/* Secondary authentication routes retain Forgejo 15.0.7 forms and security hooks. */
+.soda-auth {
+	padding: 32px 16px;
+}
+
+.soda-auth > :is(.ui.page.grid, .ui.container) {
+	width: min(100%, 620px) !important;
+	margin-inline: auto !important;
+	padding-inline: 0;
+}
+
+.soda-auth > .ui.page.grid > .column {
+	width: 100%;
+	max-width: none !important;
+	margin-inline: auto !important;
+}
+
+.soda-auth .ui.attached.segment :is(p, .text) {
+	line-height: 1.6;
+}
+
+.soda-auth .ui.container.fluid + .ui.container.fluid {
+	margin-top: 16px;
+}
+
+.soda-auth.webauthn-prompt .ui.attached.segment {
+	text-align: center;
+}
+
+.soda-auth.webauthn-prompt .ui.attached.segment > svg {
+	color: var(--soda-page-link);
+}
+
+@media (max-width: 700px) {
+	.soda-auth {
+		padding: 24px 16px;
+	}
+
+	}
+
+/* The native prohibited-login response keeps PageIsSignIn; its toggle is local. */
+.soda-auth > .soda-guest-theme-toggle {
+	margin: 0 0 12px auto;
+}

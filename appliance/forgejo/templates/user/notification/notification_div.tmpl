@@ -1,0 +1,128 @@
+{{if and (ctx.Context.FormBool "div-only") (ctx.Context.FormBool "soda-preview")}}
+	{{template "custom/soda/notification_preview" .}}
+{{else}}
+<div role="main" aria-label="{{.Title}}" class="page-content user notification soda-page soda-notifications" data-signed="true" id="notification_div" data-sequence-number="{{.SequenceNumber}}">
+	<div class="ui container soda-page-container">
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" "notifications-papercraft.png"}}
+		{{$notificationUnreadCount := call .NotificationUnreadCount}}
+		<div class="soda-toolbar soda-notifications-toolbar soda-p-toolbar">
+			<div class="switch soda-tabs">
+				<a class="{{if eq .Status 1}}active {{end}}item" href="{{AppSubUrl}}/notifications?q=unread">
+					{{ctx.Locale.Tr "notification.unread"}}
+					<div class="notifications-unread-count ui label{{if not $notificationUnreadCount}} tw-hidden{{end}}">{{$notificationUnreadCount}}</div>
+				</a>
+				<a class="{{if eq .Status 2}}active {{end}}item" href="{{AppSubUrl}}/notifications?q=read">
+					{{ctx.Locale.Tr "notification.read"}}
+				</a>
+			</div>
+			<div class="button-row tw-flex">
+				<a class="secondary button soda-toolbar-action" href="{{AppSubUrl}}/notifications/subscriptions">
+					{{ctx.Locale.Tr "notification.subscriptions"}}
+				</a>
+				{{if and (eq .Status 1)}}
+					<form class="{{if not $notificationUnreadCount}}tw-hidden{{end}}" action="{{AppSubUrl}}/notifications/purge" method="post">
+						<div>
+							<button class="primary button soda-toolbar-action soda-toolbar-action--primary" title="{{ctx.Locale.Tr "notification.mark_all_as_read"}}">
+								{{svg "octicon-checklist"}}
+							</button>
+						</div>
+					</form>
+				{{end}}
+			</div>
+		</div>
+		<div class="tw-p-0 soda-list">
+			<div id="notification_table">
+				{{if not .Notifications}}
+                    <div class="soda-empty soda-empty--inset">
+                      {{$emptyTitle := ctx.Locale.Tr "notification.no_read"}}
+                      {{if eq .Status 1}}{{$emptyTitle = ctx.Locale.Tr "notification.no_unread"}}{{end}}
+                      {{template "custom/soda/empty_content" dict "Icon" "octicon-inbox" "Title" $emptyTitle}}
+                    </div>
+				{{else}}
+					{{range $notification := .Notifications}}
+						<div class="notifications-item tw-flex tw-items-center tw-flex-wrap tw-gap-2 tw-p-2" id="notification_{{.ID}}" data-status="{{.Status}}">
+							<div class="notifications-icon tw-ml-2 tw-mr-1 tw-self-start tw-mt-1">
+								{{if .Issue}}
+									{{template "shared/issueicon" .Issue}}
+								{{else}}
+									{{svg "octicon-repo" 16 "text grey"}}
+								{{end}}
+							</div>
+							<a class="notifications-link tw-flex tw-flex-1 tw-flex-col silenced" href="{{.Link ctx}}">
+								<div class="notifications-top-row tw-text-13 tw-break-anywhere">
+									{{.Repository.FullName}} {{if .Issue}}<span class="text light-3">#{{.Issue.Index}}</span>{{end}}
+									{{if eq .Status 3}}
+										{{svg "octicon-pin" 13 "text blue tw-mt-0.5 tw-ml-1"}}
+									{{end}}
+								</div>
+								<div class="notifications-bottom-row tw-text-16 tw-py-0.5">
+									<span class="issue-title tw-break-anywhere">
+										{{if .Issue}}
+											{{RenderRefIssueTitle $.Context .Issue.Title}}
+										{{else}}
+											{{.Repository.FullName}}
+										{{end}}
+									</span>
+								</div>
+							</a>
+							<div class="notifications-updated tw-items-center tw-mr-2">
+								{{if .Issue}}
+									{{DateUtils.TimeSince .Issue.UpdatedUnix}}
+								{{else}}
+									{{DateUtils.TimeSince .UpdatedUnix}}
+								{{end}}
+							</div>
+							<div class="notifications-buttons tw-items-center tw-justify-end tw-gap-1 tw-px-1">
+								{{if ne .Status 3}}
+									<form action="{{AppSubUrl}}/notifications/status" method="post">
+										<input type="hidden" name="notification_id" value="{{.ID}}">
+										<input type="hidden" name="status" value="pinned">
+										<button class="btn interact-bg tw-p-2" title="{{ctx.Locale.Tr "notification.pin"}}"
+											data-url="{{AppSubUrl}}/notifications/status"
+											data-status="pinned"
+											data-page="{{$.Page.Paginater.Current}}"
+											data-notification-id="{{.ID}}"
+											data-q="{{$.Keyword}}">
+											{{svg "octicon-pin"}}
+										</button>
+									</form>
+								{{end}}
+								{{if or (eq .Status 1) (eq .Status 3)}}
+									<form action="{{AppSubUrl}}/notifications/status" method="post">
+										<input type="hidden" name="notification_id" value="{{.ID}}">
+										<input type="hidden" name="status" value="read">
+										<input type="hidden" name="page" value="{{$.Page.Paginater.Current}}">
+										<button class="btn interact-bg tw-p-2" title="{{ctx.Locale.Tr "notification.mark_as_read"}}"
+											data-url="{{AppSubUrl}}/notifications/status"
+											data-status="read"
+											data-page="{{$.Page.Paginater.Current}}"
+											data-notification-id="{{.ID}}"
+											data-q="{{$.Keyword}}">
+											{{svg "octicon-check"}}
+										</button>
+									</form>
+								{{else if eq .Status 2}}
+									<form action="{{AppSubUrl}}/notifications/status" method="post">
+										<input type="hidden" name="notification_id" value="{{.ID}}">
+										<input type="hidden" name="status" value="unread">
+										<input type="hidden" name="page" value="{{$.Page.Paginater.Current}}">
+										<button class="btn interact-bg tw-p-2" title="{{ctx.Locale.Tr "notification.mark_as_unread"}}"
+											data-url="{{AppSubUrl}}/notifications/status"
+											data-status="unread"
+											data-page="{{$.Page.Paginater.Current}}"
+											data-notification-id="{{.ID}}"
+											data-q="{{$.Keyword}}">
+											{{svg "octicon-bell"}}
+										</button>
+									</form>
+								{{end}}
+							</div>
+						</div>
+					{{end}}
+				{{end}}
+			</div>
+		</div>
+		{{template "base/paginate" .}}
+	</div>
+</div>
+{{end}}

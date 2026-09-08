@@ -1,0 +1,19 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/forks.tmpl (GPL-3.0-or-later); upstream SHA-256 a519029ae63d7da5a6ad3e601bb6571b8f7fb9c79ea3a9a67b05713f32936e34. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-browser page-content repository forks">
+	{{template "repo/header" .}}
+	<div class="ui container">
+		<h2 class="ui dividing header">
+			{{ctx.Locale.Tr "repo.forks"}}
+		</h2>
+		{{range .Forks}}
+			<div class="tw-flex tw-items-center tw-py-2">
+				<span class="tw-mr-1">{{ctx.AvatarUtils.Avatar .Owner}}</span>
+				<a href="{{.Owner.HomeLink}}">{{.Owner.Name}}</a> / <a href="{{.Link}}">{{.Name}}</a>
+			</div>
+		{{end}}
+	</div>
+
+	{{template "base/paginate" .}}
+</div>
+{{template "base/footer" .}}

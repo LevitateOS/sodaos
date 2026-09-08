@@ -40,6 +40,7 @@ def collect(root, arch, revision):
     shutil.copyfile(root / 'project-os/licenses/tea-LICENSE', notices / 'tea-LICENSE')
     shutil.copyfile(root / 'LICENSE', notices / 'soda-LICENSE')
     shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')
+    shutil.copyfile(root / 'appliance/licenses/avatar-dependencies.txt', notices / 'avatar-dependencies.txt')
     tools = {name: output(command) for name, command in {
         'go': ['go', 'version'], 'node': ['node', '--version'],
         'pnpm': ['pnpm', '--version'], 'podman': ['podman', '--version'],

@@ -1,0 +1,33 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/editor/upload.tmpl (GPL-3.0-or-later); upstream SHA-256 db1ae7fb8e2a14503a2511d6d0b69bee462faf9bc5d2144cb2169716709f7258. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-editor page-content repository file editor upload">
+	{{template "repo/header" .}}
+	<div class="ui container soda-p-editor-container">
+		{{template "base/alert" .}}
+		<form class="soda-form ui comment form soda-p-form" method="post">
+			<div class="repo-editor-header">
+				<div class="ui breadcrumb field {{if .Err_TreePath}}error{{end}}">
+					<a class="section" href="{{$.BranchLink}}">{{.Repository.Name}}</a>
+					{{$n := len .TreeNames}}
+					{{$l := Eval $n "-" 1}}
+					{{range $i, $v := .TreeNames}}
+						<div class="breadcrumb-divider">/</div>
+						{{if eq $i $l}}
+							<input type="text" id="file-name" maxlength="255" value="{{$v}}" placeholder="{{ctx.Locale.Tr "repo.editor.add_subdir"}}" autofocus>
+							<span data-tooltip-content="{{ctx.Locale.Tr "repo.editor.filename_help"}}">{{svg "octicon-info"}}</span>
+						{{else}}
+							<span class="section"><a href="{{$.BranchLink}}/{{index $.TreePaths $i | PathEscapeSegments}}">{{$v}}</a></span>
+						{{end}}
+					{{end}}
+					<span>{{ctx.Locale.Tr "repo.editor.or"}} <a href="{{$.BranchLink}}{{if not .IsNewFile}}/{{.TreePath | PathEscapeSegments}}{{end}}">{{ctx.Locale.Tr "repo.editor.cancel_lower"}}</a></span>
+					<input type="hidden" id="tree_path" name="tree_path" value="{{.TreePath}}" required>
+				</div>
+			</div>
+			<div class="field">
+				{{template "repo/upload" .}}
+			</div>
+			{{template "repo/editor/commit_form" .}}
+		</form>
+	</div>
+</div>
+{{template "base/footer" .}}

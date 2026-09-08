@@ -1,0 +1,48 @@
+/* Shared native Actions runner partials. Forgejo retains runner permissions,
+   editable gates, registration tokens, forms, and command generation. */
+.soda-shared-runner > .ui.top.attached.header {
+	color: var(--soda-page-text);
+	font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.soda-shared-runner > :is(.ui.attached.segment, .ui.attached.table.segment) {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+	box-shadow: none;
+}
+
+.soda-shared-runner .runner-list :is(th, td) {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-shared-runner dl > .item {
+	display: grid;
+	grid-template-columns: minmax(130px, .4fr) minmax(0, 1fr);
+	gap: 12px 16px;
+	padding: 12px 0;
+	border-bottom: 1px solid var(--soda-page-edge);
+}
+
+.soda-shared-runner dl > .item:last-child {
+	border-bottom: 0;
+}
+
+.soda-shared-runner dl dt {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+}
+
+.soda-shared-runner pre {
+	overflow-x: auto;
+	padding: 16px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+}
+
+@media (max-width: 700px) {
+	.soda-shared-runner dl > .item {
+		grid-template-columns: 1fr;
+		gap: 4px;
+	}
+}

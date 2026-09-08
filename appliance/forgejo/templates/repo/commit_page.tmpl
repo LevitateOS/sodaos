@@ -1,0 +1,10 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/commit_page.tmpl (GPL-3.0-or-later); upstream SHA-256 8c1aa5b0ff14c880558f6776ec1b8a1c56c13ab674395eb9ca699775fd8701fc. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-compare page-content repository diff">
+	{{template "repo/header" .}}
+	<div class="ui container fluid padded">
+		{{template "repo/commit_header" .}}
+		{{template "repo/diff/box" .}}
+	</div>
+</div>
+{{template "base/footer" .}}

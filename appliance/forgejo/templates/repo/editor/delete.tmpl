@@ -1,0 +1,13 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/editor/delete.tmpl (GPL-3.0-or-later); upstream SHA-256 b5532ab7e69d0933722e60f6c9b1b443bc4d72f180197faaa52c46d34e3d5fc0. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-editor page-content repository file editor delete">
+	{{template "repo/header" .}}
+	<div class="ui container soda-p-editor-container">
+		{{template "base/alert" .}}
+		<form class="soda-form ui form soda-p-form" method="post">
+			<input type="hidden" name="last_commit" value="{{.last_commit}}">
+			{{template "repo/editor/commit_form" .}}
+		</form>
+	</div>
+</div>
+{{template "base/footer" .}}

@@ -22,7 +22,7 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
 		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
-		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
+		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
 	paths = append(paths, sodaspacesFiles...)
 	for _, name := range paths {
@@ -148,6 +148,16 @@ func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
 	}
 	if _, err := tree(root); err == nil {
 		t.Fatal("accepted missing core-owned page")
+	}
+}
+
+func TestBundleRequiresAvatarDependencyNotices(t *testing.T) {
+	root := fixtureBundle(t)
+	if err := os.Remove(filepath.Join(root, "notices/avatar-dependencies.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tree(root); err == nil {
+		t.Fatal("accepted a bundle without avatar dependency notices")
 	}
 }
 func TestRunnerInstalledUtilityIsNotAnApplianceStateMarker(t *testing.T) {

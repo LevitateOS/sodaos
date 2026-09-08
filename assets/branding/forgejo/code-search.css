@@ -1,0 +1,35 @@
+/* Owner and global code-search layout. Forgejo owns the query form, path state,
+   index availability, result visibility, and links. */
+.soda-explore-code .soda-toolbar--plain {
+	margin-bottom: 12px;
+}
+
+.soda-code-search {
+	min-width: 0;
+}
+
+.soda-code-search > .ui.form {
+	margin: 0 0 16px;
+	padding: 16px var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-code-search > .ui.user.list {
+	margin: 0;
+	padding: var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-code-search > .ui.user.list:empty {
+	display: none;
+}
+
+.soda-code-search .breadcrumb,
+.soda-code-search .text.grey,
+.soda-code-search relative-time {
+	color: var(--soda-page-muted) !important;
+}

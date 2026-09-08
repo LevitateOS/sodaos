@@ -1,0 +1,319 @@
+/* Native repository work items, milestone pages, and pull-request review surfaces. */
+.soda-repo-work-items-container,
+.soda-repo-issue-editor-container,
+.soda-repo-thread-container {
+  padding-top: 4px;
+}
+
+.soda-repo-work-items .soda-repo-work-items-toolbar {
+  align-items: center;
+  margin-bottom: 0;
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+}
+
+.soda-repo-work-items-toolbar .issue-list-navbar {
+  flex: none;
+}
+
+.soda-repo-work-items-toolbar .list-header-search {
+  flex: 1;
+  min-width: 240px;
+}
+
+.soda-repo-work-items-toolbar .issue-list-new {
+  flex: none;
+  min-height: var(--soda-control-height);
+  padding: 12px 16px;
+  border-radius: var(--soda-control-radius);
+}
+
+.soda-repo-work-items-filters {
+  border-inline: 1px solid var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.soda-repo-work-items-filters .filter.menu {
+  margin: 0;
+  padding: 8px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+}
+
+.soda-repo-work-items-filters #issue-filters {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.soda-repo-work-items .soda-repo-issue-list > #issue-list {
+  border-top: 0;
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+.soda-repo-work-items .soda-pinned-issues {
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.soda-repo-work-items .soda-pinned-issues .issue-card {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.soda-repo-work-items #issue-actions {
+  padding: 8px var(--soda-panel-inset);
+  border-inline: 1px solid var(--soda-page-edge);
+  background: var(--soda-page-selected);
+}
+
+.soda-issue-section-tabs {
+  width: max-content;
+}
+
+.soda-issue-template-list {
+  display: grid;
+  gap: 12px;
+}
+
+.soda-issue-template-list .soda-issue-template-card {
+  padding: 16px var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius) !important;
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.soda-issue-template-card strong {
+  color: var(--soda-page-text);
+  font: 600 18px/1.4 "Fraunces Variable", Georgia, serif;
+}
+
+.soda-repo-labels-toolbar {
+  justify-content: space-between;
+}
+
+.soda-repo-label-form,
+.soda-repo-label-list {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-repo-label-list .label-list {
+  border-color: var(--soda-page-edge);
+}
+
+/* The native new-issue form keeps its markdown editor, template chooser, and sidebar. */
+.soda-repo-editor-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.soda-repo-issue-editor :is(.issue-title,.issue-content) {
+  min-width: 0;
+}
+
+.soda-repo-issue-editor .ui.form :is(input,textarea,.selection.dropdown) {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-repo-issue-editor .ui.form .field.error :is(input,textarea,.selection.dropdown) {
+  border-color: var(--color-error-border);
+}
+
+/* Conversation, review tabs, commits, checks, and diff remain native fragments. */
+.soda-repo-thread-title .issue-title-header {
+  margin-bottom: 16px;
+  padding: 16px var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-repo-thread-title .issue-title-header h1 {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+}
+
+.soda-pull-tabs {
+  width: 100% !important;
+  margin: 0 0 16px !important;
+}
+
+.soda-pull-tabs > .pull.tabular.menu {
+  min-width: max-content;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius) var(--soda-control-radius) 0 0;
+  background: var(--soda-page-surface);
+}
+
+.soda-pull-tabs > .pull.tabular.menu > .item {
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+
+.soda-pull-tabs > .pull.tabular.menu > .active.item {
+  color: var(--soda-page-link);
+}
+
+.soda-repo-thread-content :is(.comment,.timeline-item .comment),
+.soda-pull-commits-list .commit-table,
+.soda-commit-status-panel {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.soda-repo-thread-content .comment .header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-hover);
+}
+
+.soda-repo-thread .issue-content-right .ui.segment {
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-commit-status-panel .commit-status-header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-hover);
+}
+
+.soda-commit-status-panel .commit-status-item {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-pull-trust-panel .item-section {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-selected);
+}
+
+.soda-pull-trust-panel .button-sequence {
+  flex-wrap: wrap;
+}
+
+.soda-pull-files-container {
+  width: min(1440px, calc(100% - 48px)) !important;
+  margin-inline: auto !important;
+}
+
+.soda-pull-diff .diff-file-box {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  box-shadow: none;
+}
+
+/* Compact milestone actions retain native tooltips and link-action handling. */
+.soda-milestone-detail-title {
+  flex-wrap: nowrap;
+  gap: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.soda-milestone-detail-title > h1 { flex: 1; min-width: 0; }
+
+.soda-milestone-detail-title > .button-row {
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* Existing stock milestone leaves share stable native page classes. */
+.page-content.repository.milestones .milestone-card {
+  margin-bottom: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.page-content.repository.milestones .milestone-header,
+.page-content.repository.milestones .milestone-toolbar {
+  border-color: var(--soda-page-edge);
+}
+
+.page-content.repository.milestones progress,
+.page-content.repository.milestone-issue-list progress {
+  accent-color: var(--soda-page-action);
+}
+
+
+.soda-milestone-editor .soda-milestone-form .field.error :is(input,textarea) {
+  border-color: var(--color-error-border);
+}
+
+.page-content.repository.milestone-issue-list > .ui.container > .markup.content {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 700px) {
+  .soda-repo-work-items-toolbar {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .soda-repo-work-items-toolbar .list-header-search,
+  .soda-repo-work-items-toolbar .issue-list-new {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .soda-repo-editor-card {
+    padding: 0;
+  }
+
+  .soda-issue-template-card .ui.two.column.grid {
+    display: block;
+  }
+
+  .soda-issue-template-card .column {
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  .soda-pull-tabs {
+    overflow-x: auto;
+  }
+
+  .soda-pull-files-container {
+    width: calc(100% - 24px) !important;
+  }
+}
+
+.soda-milestone-detail-container > .divider:empty {
+  border: 0;
+  height: 0;
+  margin-block: 24px;
+}
+
+/* The new issue/PR composer is a form, not a comment bubble. Keep the editor,
+   preview, upload target and popup surfaces native. */
+.soda-code-compare .issue-content.ui.form .comment > .ui.segment.content,
+.soda-repo-issue-editor .issue-content.ui.form .comment > .ui.segment.content,
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form > .issue-content-right.ui.segment {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form .comment > .ui.segment.content::before,
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form .comment > .ui.segment.content::after {
+  display: none;
+}
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content-right > .divider {
+  border: 0;
+  height: 0;
+  margin-block: 16px;
+}

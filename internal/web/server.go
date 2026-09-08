@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
@@ -33,6 +34,8 @@ func New(c config.Config, db *store.Store) *Server {
 		w.Write([]byte("ok\n"))
 	})
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
+	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
+	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	s.authRoutes()
 	s.apiRoutes()
 	return s
@@ -64,6 +67,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+	// Public avatars retain their full namespaced path and never enter session
+	// routing. Refuse aliases before ServeMux can canonicalize them.
+	if r.URL.Path == strings.TrimSuffix(avatarPrefix, "/") || strings.HasPrefix(r.URL.Path, avatarPrefix) {
+		if path.Clean(r.URL.Path) != r.URL.Path || r.URL.EscapedPath() != r.URL.Path || strings.Contains(r.URL.Path, "\\") {
+			avatarError(w, r, http.StatusNotFound, "Avatar route not found.")
+			return
+		}
+		s.mux.ServeHTTP(w, r)
+		return
+	}
 	// Only the fixed namespace is public through Caddy. Root/health remain direct
 	// backend probes, not aliases for browser API or authentication routes.
 	if r.URL.Path == "/" || r.URL.Path == "/healthz" {

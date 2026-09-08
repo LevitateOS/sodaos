@@ -1,0 +1,22 @@
+{{template "base/head" .ctxData}}
+<div role="main" aria-label="{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}" class="page-content soda-page soda-native-forms soda-settings {{.pageClass}}" data-signed="true">
+ <div class="ui container soda-page-container">
+  <div class="soda-settings-bar">
+   <a class="soda-settings-identity" {{if not .ctxData.HideNavbarLinks}}href="{{AppSubUrl}}/{{.ctxData.SignedUser.Name}}"{{end}}>
+    {{ctx.AvatarUtils.Avatar .ctxData.SignedUser 40}}
+    <span><strong>{{.ctxData.SignedUser.DisplayName}}</strong><small>@{{.ctxData.SignedUser.Name}}</small></span>
+   </a>
+   {{template "user/settings/navbar" .ctxData}}
+  </div>
+  <div class="soda-settings-layout">
+   <div class="flex-container-main">
+    {{template "base/alert" .ctxData}}
+    {{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
+    <h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>
+    {{/* block: user-setting-content */}}
+{{if false}}
+   </div>
+  </div>
+ </div>
+</div>
+{{end}}

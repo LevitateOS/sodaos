@@ -1,0 +1,205 @@
+/* Detailed Forgejo administrator pages keep their native 15.0.7 forms,
+   actions, live fragments, dialogs, and permission branches. */
+.soda-admin-details {
+	min-width: 0;
+}
+
+.soda-admin-details .ui.form > .divider {
+	height: 1px;
+	margin: 16px 0;
+	background: var(--soda-page-edge);
+}
+
+.soda-admin-details .ui.form > .field:last-child {
+	margin-bottom: 0;
+}
+
+.soda-admin-details .ui.form .secondary.segment {
+	padding: 16px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+	box-shadow: none;
+}
+
+.soda-admin-details :is(code, pre, dd, .help, .flex-item-main) {
+	min-width: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+/* The configuration page is a long native definition list. A real grid keeps
+   labels and values aligned while allowing paths and JSON to wrap safely. */
+.soda-admin-details--config .admin-dl-horizontal {
+	display: grid;
+	grid-template-columns: minmax(180px, .42fr) minmax(0, 1fr);
+	gap: 12px 16px;
+}
+
+.soda-admin-details--config .admin-dl-horizontal > :is(dt, dd) {
+	float: none;
+	width: auto;
+	margin: 0;
+	padding: 0;
+}
+
+.soda-admin-details--config .admin-dl-horizontal > dt {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.6 "IBM Plex Mono", monospace;
+}
+
+.soda-admin-details--config .admin-dl-horizontal > dd {
+	color: var(--soda-page-text);
+	line-height: 1.6;
+}
+
+.soda-admin-details--config .admin-dl-horizontal > .divider {
+	grid-column: 1 / -1;
+	height: 1px;
+	margin: 8px 0;
+	background: var(--soda-page-edge);
+}
+
+.soda-admin-details--config .admin-dl-horizontal pre {
+	max-height: 260px;
+	overflow: auto;
+	white-space: pre-wrap;
+}
+
+/* Operation rows remain native POST controls; only their table presentation
+   changes. The HTMX status segment retains its polling attributes and target. */
+.soda-admin-details--dashboard > .table.segment {
+	overflow-x: auto;
+}
+
+.soda-admin-details--dashboard table {
+	margin: 0 !important;
+}
+
+.soda-admin-details--dashboard table td {
+	padding-block: 12px;
+	border-color: var(--soda-page-edge);
+}
+
+
+
+/* Large identity and authentication forms use the shared native-form adapter.
+   These local rules handle only their page-specific grouping and action rows. */
+:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
+	padding: 16px;
+}
+
+:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) .ui.form > .field:has(> .button) {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.soda-admin-details--auth-edit #ldap-group-options {
+	margin-block: 16px;
+}
+
+.soda-admin-details--auth-new > .ui.attached.segment :is(h5, p),
+.soda-admin-details--auth-edit > .ui.attached.segment :is(h5, p) {
+	color: var(--soda-page-muted);
+}
+
+/* OAuth application lists and forms remain the shared upstream partials. */
+.soda-admin-details--applications .flex-list > .flex-item {
+	padding-block: 16px;
+	border-color: var(--soda-page-edge);
+}
+
+.soda-admin-details--applications .flex-item-trailing {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.soda-admin-details--applications .ui.label {
+	max-width: 100%;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.soda-admin-details--oauth2-edit > .ui.attached.form,
+.soda-admin-details--oauth2-edit > .ui.attached.segment {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+	color: var(--soda-page-text);
+}
+
+/* Dense administrator inventories retain native sorting, filtering, row actions,
+   empty branches, pagination, and dialogs. Only the table panel scrolls. */
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) > .ui.attached.table.segment {
+	overflow-x: auto;
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) > .ui.header .ui.right {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+:is(.soda-admin-details--user-list, .soda-admin-details--email-list) > .ui.attached.segment .filter.menu {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) table {
+	margin: 0 !important;
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) table :is(th, td) {
+	padding-block: 12px;
+	border-color: var(--soda-page-edge);
+	vertical-align: middle;
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) tbody tr:hover {
+	background: var(--soda-page-hover);
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) tbody td[colspan] {
+	padding-block: 24px;
+	color: var(--soda-page-muted);
+}
+
+:is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) > .ui.pagination.menu {
+	margin-top: 0;
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+}
+
+@media (max-width: 700px) {
+	:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
+		padding: 16px 16px;
+	}
+
+	.soda-admin-details--config .admin-dl-horizontal {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 4px;
+	}
+
+	.soda-admin-details--config .admin-dl-horizontal > dd {
+		margin-bottom: 12px;
+	}
+
+	.soda-admin-details--dashboard table td {
+		min-width: 150px;
+	}
+
+	.soda-admin-details--applications .flex-item-trailing {
+		flex-basis: 100%;
+		width: 100%;
+	}
+
+	:is(.soda-admin-details--user-list, .soda-admin-details--email-list) > .ui.attached.segment .filter.menu > :is(form, .item) {
+		flex-basis: 100%;
+		min-width: 0;
+		width: 100%;
+	}
+}

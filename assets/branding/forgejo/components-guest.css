@@ -1,0 +1,109 @@
+body:has(:is(.soda-home, .soda-login, :is(.soda-page, .soda-page-marker)[data-signed="false"])) {
+  --soda-guest-canvas: var(--soda-light-canvas);
+  --soda-guest-surface: var(--soda-light-surface);
+  --soda-guest-text: var(--soda-light-text);
+  --soda-guest-muted: var(--soda-light-muted);
+  --soda-guest-edge: var(--soda-light-neutral-200);
+  --soda-guest-link: var(--soda-light-link);
+  --soda-guest-focus: var(--soda-light-focus);
+  --soda-guest-action: var(--soda-light-action);
+  --soda-guest-action-hover: var(--soda-light-action-hover);
+  --soda-guest-action-pressed: var(--soda-light-action-pressed);
+  --soda-guest-on-action: var(--soda-light-on-action);
+  --soda-guest-selected: var(--soda-light-selected);
+  --soda-guest-glow: #fff0df88;
+  color-scheme: light;
+}
+
+html[data-soda-login-theme="dark"] body:has(:is(.soda-home, .soda-login, :is(.soda-page, .soda-page-marker)[data-signed="false"])) {
+  --soda-guest-canvas: var(--soda-dark-canvas);
+  --soda-guest-surface: var(--soda-dark-surface);
+  --soda-guest-text: var(--soda-dark-text);
+  --soda-guest-muted: var(--soda-dark-muted);
+  --soda-guest-edge: var(--soda-dark-hover);
+  --soda-guest-link: var(--soda-dark-link);
+  --soda-guest-focus: var(--soda-dark-focus);
+  --soda-guest-action: var(--soda-dark-action);
+  --soda-guest-action-hover: var(--soda-dark-action-hover);
+  --soda-guest-action-pressed: var(--soda-dark-action-pressed);
+  --soda-guest-on-action: var(--soda-dark-on-action);
+  --soda-guest-selected: var(--soda-dark-selected);
+  --soda-guest-glow: #17255488;
+  color-scheme: dark;
+}
+
+body:has(:is(.soda-home, .soda-login)) {
+  min-height: 100svh;
+  height: auto;
+  background: var(--soda-guest-canvas);
+  color: var(--soda-guest-text);
+  font-family: Barlow, Arial, sans-serif;
+}
+
+body:has(:is(.soda-home, .soda-login)) #navbar {
+  display: none;
+}
+
+body:has(:is(.soda-home, .soda-login)) .full.height {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+  background: var(--soda-guest-canvas);
+}
+
+body:has(:is(.soda-home, .soda-login)) .page-footer {
+  flex-shrink: 0;
+  padding: 16px 16px;
+  border-top: 1px solid var(--soda-guest-edge);
+  background: var(--soda-guest-canvas);
+  color: var(--soda-guest-muted);
+  font: 400 12px/1.5 Barlow, Arial, sans-serif;
+}
+
+body:has(:is(.soda-home, .soda-login)) .page-footer a {
+  color: var(--soda-guest-muted);
+}
+
+.soda-guest-theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--soda-guest-muted);
+  cursor: pointer;
+}
+
+.soda-guest-theme-toggle:hover {
+  color: var(--soda-guest-link);
+}
+
+.soda-guest-theme-toggle:active {
+  color: var(--soda-guest-action-pressed);
+}
+
+.soda-guest-theme-toggle:focus-visible {
+  outline: 2px solid var(--soda-guest-focus);
+  outline-offset: 2px;
+}
+
+.soda-guest-theme-toggle[hidden], .soda-guest-theme-sun {
+  display: none;
+}
+
+.soda-guest-theme-icon {
+  width: 21px;
+  height: 21px;
+}
+
+html[data-soda-login-theme="dark"] .soda-guest-theme-moon {
+  display: none;
+}
+
+html[data-soda-login-theme="dark"] .soda-guest-theme-sun {
+  display: block;
+}

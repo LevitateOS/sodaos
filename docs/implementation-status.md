@@ -1,5 +1,468 @@
 # Current handoff
 
+## Merge of Forgejo presentation and Sodaspaces work
+
+Merged remote `f838b80` with local `a652450`, preserving both histories, native
+presentation/notification/avatar changes and the local environment/terminal/security
+work. Shared header/footer hooks retain both features. Avatar requests remain public
+and credential-stripped; other `/-/soda/*` traffic retains same-origin API/OAuth
+credentials. No separate Soda browser origin or old schema/deployment state was restored.
+Both real upstream dependency/checksum sets and packaged license notices are retained.
+
+The merged hooks reference shared presentation templates/assets beyond the existing
+bounded appliance staging allowlist. `stage.py` now refuses that incomplete payload
+before creating rootfs; full presentation packaging/install validation is still needed.
+This merge does not deploy the preview, mount the new management module or change any
+retained fixture/service/account/key. Imported preview evidence refers to its original
+workspace and is not newly executed evidence here.
+
+Checks: full Go suite, 121 local Node tests and Python build fixtures (58 passed,
+one opt-in Caddy check skipped) passed. Focused Go races and documentation checks
+passed; the resolution diff against `origin/main` is whitespace-clean. Existing remote
+whitespace in native-parity templates/notices/assets is retained, not rewritten as
+part of conflict resolution. Logs are under `.artifacts/merge-f838b80/`. An initial combined Forgejo
+browser-test invocation failed at import because root Playwright is unavailable;
+those browser-dependent tests remain unverified, not counted as passing. Original
+merge/test failures are preserved. No dependency install, native stage/build,
+browser fixture, deployment or provider action was performed.
+
+## Selected tonal buttons — uniform 44px sizing
+
+Local presentation `2026-09-08.17` implements the user's selected C — Tonal,
+44px design, superseding revision .16's mixed sizes. Primary actions use tinted
+surfaces and blue text; neutral actions are open. Shared buttons use 6px corners,
+600-weight 14px labels and 14px horizontal padding. Native mini/tiny/small/compact
+classes, icon actions, count labels and adjoining single-value controls all align
+at 44px. Competing form, repository, home and administration button declarations
+were removed. Native semantic colors, loading/disabled behavior and joined edges
+remain. Single-value principal-form fields align with actions; multiline and
+multiple-selection controls retain growing areas. The narrow header now fits
+44px targets at 320px without shrinking the canonical logo.
+
+Go Forgejo source checks passed. The full browser suite passed 39 checks with two
+opt-in native session tests skipped; the dedicated native settings suite passed
+11, including menu navigation, avatar dialog/focus and no-JavaScript behavior.
+The final focused component suite passed 12 checks, including the additional
+native-size and adjoining-input assertion. A read-only native audit recorded
+1,298 control measurements across 13 routes, light/dark and 1440/900/390/320px
+(104 page states), with no size failures, horizontal overflow or browser errors.
+
+Final verified real-route captures are under `.artifacts/tonal44/release-desktop/`
+and `release-mobile/`: Appearance, repository code, issue creation, Keys and
+Explore. Representative final desktop/mobile captures were visually reviewed.
+The production-derived gallery remains `.artifacts/forgejo-presentation/`;
+`.artifacts/button-options/` is the separate design-choice comparison, not native
+route evidence. Check logs and dimensional evidence are in `.artifacts/tonal44/`.
+Admin/provider/conditional and populated credential states, long translations
+and submission journeys remain unverified natively. No account data or preferences
+were submitted. Activation used local template reloads only; no container restart
+or appliance rollout occurred.
+
+## Pronouns removed from Soda presentation
+
+Personal profile editing, the pronoun privacy checkbox, administrator user editing
+and public profile display no longer expose pronouns. The public-profile partial
+is an attributed exact-native override with only its pronoun suffix removed.
+The gallery and coverage inventory (229 overrides/helpers) reflect this change.
+Hidden personal/admin form fields retain existing native values so unrelated
+saves do not implicitly clear data. Forgejo's database, API and locale catalogs
+remain unchanged; this is presentation removal, not an upstream feature fork.
+
+Local revision `2026-09-08.15` is active via template reload. Go Forgejo checks,
+five source/inventory checks and eleven settings browser checks passed. Verified
+dark desktop settings/public-profile and light mobile settings captures under
+`.artifacts/profile-without-pronouns/` were visually reviewed. Native profile
+mutations and administrator routes were not exercised; administrator parity and
+hidden-value contracts were checked in source. No saved data was changed.
+
+## Settings menu link activation fix
+
+A native pointer-click reproduction showed focusout closing the settings menu
+before its destination link received focus, cancelling navigation. The handler
+now checks `relatedTarget` instead of the transient `document.activeElement`.
+Local presentation `2026-09-08.14` is active via template reload. Eleven settings
+browser checks passed, now including twelve real link navigations across all
+three menu groups at desktop/mobile widths with HTTP status, URL and page-heading
+assertions. The Go Forgejo suite and four source/inventory checks also passed.
+No account data was submitted or changed.
+
+## Clickable avatar and modal dialog
+
+The actual profile portrait now opens the native avatar form in a browser modal
+dialog. A translucent dark pencil overlay appears on hover/focus and remains
+visible on coarse pointers. The same form is moved, never copied; native upload,
+source selection and deletion hooks remain intact. Escape, explicit close and
+backdrop clicks restore focus; Tab wraps within the dialog. Without JavaScript,
+unsupported dialogs or with server errors, the expanded inline editor remains
+available alongside authoritative alerts. The local preview is active at
+`2026-09-08.13` via template reload only.
+
+The Go Forgejo suite, four source/inventory checks and eleven settings browser
+checks passed, covering seven widths, keyboard/overlay/modal behavior and the
+actual native no-JavaScript fallback. Verified dark 1440px and light 320px captures
+in `.artifacts/avatar-modal/release-{desktop,mobile}/` were visually reviewed.
+Earlier captures in that directory tree expose a corrected native dialog-style
+conflict and are not final evidence. No upload/delete POST was submitted; native
+server-error and lookup-enabled submission journeys remain unverified.
+
+## Avatar source simplification
+
+The avatar editor now starts directly with file selection when Gravatar is disabled;
+it submits the native `source=local` field without showing a lone radio. When
+lookup is available, both source radios and the saved selection remain native.
+Active local presentation is `2026-09-08.12`, via template reload only. The Go
+Forgejo suite passed, including rendered checks for both capability states and
+both saved source selections; four source/inventory checks passed. Verified dark
+1440px and light 320px captures under `.artifacts/avatar-source/` were visually
+reviewed. No account settings, upload or deletion were submitted; lookup-enabled
+runtime coverage remains unavailable on this fixture.
+
+## Avatar editor refinement
+
+The profile avatar disclosure now aligns its source and upload fields without
+native indentation, uses a single native file-selector boundary, compact help
+text and a borderless explicit delete action. Upload constraints, source choices,
+form handlers and delete hooks are unchanged. This is active only in the existing
+local preview at presentation `2026-09-08.11`; templates were reloaded without a
+container restart. The Go Forgejo checks, four source/inventory checks and ten
+settings browser checks passed. Verified dark desktop and light 320px captures
+were visually reviewed under `.artifacts/avatar-refinement/final-{desktop,mobile}/`;
+an earlier 390px capture was also reviewed. No upload or deletion was submitted.
+The earlier comprehensive review package below predates this focused refinement.
+
+## Personal settings structural overhaul — local review candidate
+
+The approved personal-settings overhaul is implemented through Forgejo 15.0.7
+configuration, template overrides, shared styles and a small presentation-only
+script. The existing local preview is active at presentation `2026-09-08.10`.
+There is no personal-settings sidebar or artwork hero: one actual identity row
+and grouped destination menus compose around distinct profile, preference,
+security, inventory and focused-editor layouts. Mobile uses one disclosure below
+900px. Native routes, permissions, handlers and save boundaries remain upstream.
+
+Profile retains one identity/address/privacy save and a separate avatar form.
+Account places email management before its disclosed password editor and final
+deletion warning. Appearance retains four saves. Security retains native factor
+state and links to Account for passwords. Keys, Applications, resources and
+conditional operational/child pages retain their native structures and gates.
+Shared OAuth, runner, webhook and cleanup adapters use explicit personal-caller
+inputs and preserve native root context; the organization Applications flag is
+not used as a personal-only presentation gate. The test-only inventory covers
+228 overrides/helpers, including 37 personal-settings files, their native callers,
+compositions and required states.
+
+The complete English locale was generated from the exact embedded native 15.0.7
+INI plus Soda additions. Duplicate keys/namespaces are rejected; native INI bytes
+and JSON catalogs retain upstream ownership. The complete file was copied into
+the existing preview volume and activated with the single user-authorized restart
+of `sodaos-local-forgejo`, retaining its image, configuration and data. Subsequent
+template changes used native reloads. No appliance deployment occurred.
+
+Actual checks and review evidence:
+
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off SODA_FORGEJO_GALLERY=1 go test
+  -mod=readonly ./scripts -run TestForgejo -count=1` passed. Tests retain native
+  control/capability contracts, mandatory enrollment gates, caller-specific title
+  handling, selected cleanup values and native OAuth/runner root context.
+- The complete existing Forgejo browser suite passed 37 checks, with its separately
+  invoked personal-session journey skipped in that batch. The dedicated settings
+  run passed all 10 checks, including navigation at 1440/1000/900/899/768/390/320px,
+  Escape/outside dismissal, focus return, password and avatar disclosures, key
+  panel focus, token-select dimensions, no-JavaScript fallback and fixture errors.
+- Read-only native inspection covered 14 routes at six widths: 84 combinations
+  without document overflow or page errors. Forgejo 15.0.7 uses Go's native
+  `http.NewCrossOriginProtection` in `routers/web/web.go`; an initial audit's
+  hidden-CSRF-input assumption was corrected against exact source. That middleware
+  was not changed. No POST security/submission journey is claimed.
+- The review package contains 94 verified native captures in light/dark at
+  1440×1000 and 390×844, including full-page content and open editors. Requested
+  URLs, status, landmarks, presentation revision, stylesheet hashes and browser
+  errors were checked by `scripts/screenshot.mjs`. The helper now supports
+  `--full-page` and forces a fresh document for fragment-only capture requests.
+  Failed intermediate capture attempts are excluded from the review manifest.
+- `.artifacts/personal-settings/review.html` groups native evidence by family and
+  links the actual check logs, route observations and verification sidecars.
+  `.artifacts/forgejo-presentation/gallery-{light,dark}.html` is the separate
+  production-derived component gallery. Earlier generated concepts remain in
+  `.artifacts/settings-design-concepts/`; they are not native evidence.
+
+Native landing pages and accessible child editors were visually reviewed, including
+below-the-fold controls. This is not full visual or functional acceptance.
+Remaining prerequisites include enrolled/mandatory TOTP and WebAuthn, recovery and
+key verification challenges, populated credentials/OAuth grants/applications,
+providers, organization memberships/adoption permissions, configured webhooks and
+delivery history, populated cleanup previews, Actions/runners/secrets/variables,
+and enabled Storage/Quota. Successful/error POST journeys and native fallback for
+untranslated Soda additions were not manufactured. Nonpersonal shared callers
+have source and regression checks, not newly authorized owner/admin sessions.
+No credentials, saved preferences, resources or permissions were created or changed.
+
+The earlier [UX investigation](forgejo-settings-ux-proposal.md) and its evidence in
+`.artifacts/settings-ux-investigation/` remain the baseline for comparison, rather
+than the current implementation contract. See `appliance/forgejo/README.md` and its
+locale guide for the maintained presentation and local activation contracts.
+
+## Ordinary repository container spacing
+
+Local revision `2026-09-08.5` removes the extra 24px top padding from project
+lists and wiki revisions. The ordinary repository body container now explicitly
+owns zero padding; the shared repository header supplies the navigation gap.
+Native fluid/explicitly padded canvases keep their separate gutter contract.
+The earlier redesign had consolidated width without removing these family-local
+insets; its coverage did not establish equivalent container spacing.
+
+A read-only native regression compares Code, Projects, Issues and Releases at
+1440px and 390px, asserting equal padding, width, left alignment and gap below
+repository navigation. It passed, as did focused Forgejo Go checks. Wiki revision
+padding removal is source-reviewed; no wiki fixture was created for verification.
+Templates/assets refreshed only in the existing local preview.
+
+
+## Repository file toolbar correction
+
+Local revision `2026-09-08.4` aligns the branch picker, compare/find/add controls,
+clone protocol buttons, URL field, copy and menu controls to the same 44px row.
+The shared toolbar stylesheet owns their geometry and joined edges; the previous
+40px clone-input minimum is removed. Dropdown contents remain native. A bounded
+flex override lets the URL shrink instead of overflowing narrow viewports.
+
+Focused Forgejo Go checks, both inventory checks and all 10 component-boundary
+checks passed. The new toolbar case includes the owner-only Add file button,
+light/dark and 1440/390/320px layouts. Native non-owner desktop/mobile captures of
+`/alice/activity-workbench` passed route/revision/style verification and were
+visually inspected: `.artifacts/screenshots/capture-vUErxz/` and `capture-MkUotY/`.
+Owner-only Add file is fixture-tested, not claimed as authenticated owner evidence.
+The earlier complete review package remains a record of revision `.3`; this is a
+scoped local correction, with no form submissions or appliance deployment.
+
+
+## Presentation redesign local candidate
+
+Candidate `2026-09-08.3` is active only in the existing local Forgejo preview.
+The inventory accounts for all 206 overrides/helpers and their local/embedded
+15.0.7 callers across eight compositions. 125 templates select new explicit
+presentation roles; the remaining helpers/native structures use existing shared
+components or specialized family composition. Shared controls, typography,
+spacing, open sections and editor containers replace duplicated page rules.
+Native routes, inputs, permissions, CSRF and script hooks remain upstream-owned.
+
+Actual checks: focused `go test ./scripts -run TestForgejo` passed using the local
+toolchain and offline dependency settings; all 30 opt-in Node checks passed,
+including component states, native Explore overflow/navigation, notification
+lifecycle, milestone layout, gallery responsiveness and both sides of inventory
+coverage. The gallery uses production intro/empty partials and the real registry,
+with minimal native markup fixtures. It passed light/dark at 1440, 900, 390 and
+320px. Native template source was read through the running container's embedded
+resource export; no Forgejo source fork or rebuild was introduced.
+
+The local review package is `.artifacts/forgejo-presentation/review.html`, with
+light/dark galleries, a manifest and 36 verified native viewport captures across
+nine accessible routes at 1440×1000 and 390×844. Each final PNG has a sidecar with
+URL/status, landmark, revision, registry and stylesheet hashes, viewport/theme
+and browser errors. The signed-out account-settings redirect was rejected with
+no accepted image. Visual inspection caught and fixed primary-anchor text losing
+contrast; a focused regression check now covers it. Earlier `review-*` and
+`login-*` capture folders are superseded by the `final-*` candidate images.
+
+This is **not full visual acceptance**. Owner-only repository editors/settings,
+administrator pages, organization fixtures, setup/provider/authentication states,
+populated packages and specialized canvas/permission/interaction states remain
+unverified on native pages. No resources or permissions were created to fill
+those gaps, no forms were submitted, no saved preferences were changed, and no
+appliance rollout occurred. See `docs/forgejo-presentation-review.md` for the
+review entry points and precise evidence limits.
+
+## Shared repository form presentation
+
+Issue/PR composers and milestone, project, release and wiki forms now opt into
+the existing shared form controls. Repository creation/editor pages share their
+container width, open heading treatment, explanatory copy and divider spacing
+in `components-forms.css`. Removed competing wiki/release/project layout rules
+and file-editor header/commit-choice cards rather than layering another theme.
+Native templates, form actions, field names, editor internals and gates are unchanged.
+
+Focused Forgejo checks passed after updating the stylesheet-ownership assertion
+for release forms; the initial stale assertion failure was resolved by moving
+ownership, not changing the native-body checks. New-issue desktop capture was
+inspected (`.artifacts/screenshots/capture-cfXgkj/`); browser measurements verified
+1440px/390px widths without horizontal overflow and one issue form. The separate
+manual screenshot profile was signed out: milestone/release captures showed login
+and wiki/project showed 404 (`capture-xXavbV`), not successful form evidence.
+Remaining permission-restricted forms and dark rendering need native visual review.
+Local templates reloaded for CSS versions only; no submissions or deployment.
+
+## Reduce decorative cards and dividers
+
+Shared toolbar, list, empty-state and form-section frames are removed. Native
+settings navigation and attached form sections use open backgrounds; profile
+privacy controls no longer have an extra enclosing box. Milestone cards and
+descriptions, repository-sidebar rules and the landing README frame are removed.
+Blank settings/milestone dividers retain a 24px margin; other removed section
+borders retain their existing padding and gaps. Control, table-row, alert and
+dialog boundaries remain. Changes are scoped to existing presentation owners.
+
+Focused Forgejo checks and whitespace checks passed. Local templates were reloaded
+for stylesheet versions. Desktop captures of repository/profile/explore and mobile
+profile/explore/milestone detail were inspected (`capture-wlMSyp`, `capture-BGWs4M`
+under `.artifacts/screenshots/`); inspection prompted removal of a remaining native
+README segment frame and profile legend rule. Restricted admin/organization forms
+and dark variants were not newly visually checked. No backend or appliance changes.
+
+## Repository metadata sidebar
+
+The repository code landing override now places existing description, website,
+topics and their native editor, counts/size and conditional language statistics
+in a right sidebar. Metadata is rendered once with its existing permission gates;
+file, directory and blame views keep their previous layout. Below 1000px the
+metadata stacks above the code. The main toolbar no longer has an enclosing card.
+No release/contributor data fetch or backend change was added.
+
+All focused Forgejo source checks passed, including upstream body recovery after
+removing the explicit layout changes. Reloaded templates only in the existing
+local preview. Inspected desktop/mobile captures (`capture-br6UQ5`,
+`capture-mLOcnf` under `.artifacts/screenshots/`); browser measurements confirmed
+1440px and 390px document widths, one sidebar/topics/summary instance, and no
+sidebar on the README file view. The screenshot fixture lacks topic-admin rights;
+interactive topic editing and populated language statistics were not exercised.
+No appliance deployment or native acceptance.
+
+## Soda robot avatars — source implementation
+
+Original `soda-robot-v1` artwork now has 44 modular SVG variants and an eight-by-four
+background/accent palette in one embedded DiceBear JSON definition. The pinned Go
+renderer serves public GET/HEAD `/-/soda/avatars/v1/{hash}` with bounded inputs,
+deterministic ETags and no session, identity/database lookup or outbound fetch.
+The development-only catalog uses the same renderer and is not appliance payload.
+
+Caddy source routes only `/-/soda/avatars/*` on the Forgejo origin to the existing
+backend, dropping Cookie/Authorization for those requests. First activation derives
+the supported provider URL from `forgejo_url`; native database-backed avatar
+settings and explicit offline mode remain operator-owned. Uploaded photos/files
+are preserved. This does not implement the broader Sodaspaces origin/session work.
+New bundles include and require the exact avatar dependency notices. See
+[behavior, configuration and restoration](avatars.md).
+
+Local checks on 2026-09-08: full `go test -mod=readonly ./...` passed with Go 1.26.7
+on macOS arm64; avatar/web race suites passed. The backend binary built locally
+with the same toolchain and `go mod verify` passed. All 34 Python build fixtures passed,
+including real Caddy 2.10.2 routing against test-owned loopback upstreams, mocked
+first activation and actual notice collection. Caddy was downloaded into ignored
+tooling and verified against its published SHA-512 checksum, not installed.
+Some unchanged Go results were cached. Initial broader runs failed on macOS's
+symlinked temp path and BSD `cp`; using a real workspace TMPDIR and the already
+installed GNU coreutils resolved them without changing runner/provisioning code.
+The first Caddy checksum comparison mistakenly used SHA-256; the correct SHA-512
+comparison passed before the binary was executed. Earlier failed records remain.
+
+Inspected all parts, all 32 palette pairs and the generated 100-robot grids.
+Chrome checked all 100 images at 24/32/64/128px across light/dark and square/circular
+modes, with no missing images or external resource requests. Six production HTTP
+images also matched reference pixels under the restrictive response CSP, with no
+browser errors or external requests. The first pixel comparison used different
+screen positions; the corrected check uses the same position to avoid SVG
+antialiasing differences. Final preview and
+captures: `.artifacts/avatars/preview-606454540/`; check logs:
+`.artifacts/avatars/checks/`. These are artwork/local-test evidence, not Forgejo
+screenshots or native installed acceptance.
+
+No live Forgejo settings, avatar uploads/deletions, retained fixture data, services,
+appliance routing or installed artifacts were changed by this avatar work. Native
+profile/list/discussion and upload/delete smoke checks, local proxy/backend rehearsal
+and appliance rollout remain pending their target-specific authorization. The
+direct-port local Forgejo preview cannot exercise this route through a template
+reload alone.
+
+## Tighter template spacing
+
+Reduced larger margins, padding and layout gaps across 42 Forgejo presentation
+stylesheets. Shared panels use an 18px desktop inset (16px narrow), list rows use
+16px vertical padding, and page intros use a 192px minimum with 224px artwork.
+Typography, control minimum heights and native workflow markup remain unchanged.
+Changed stylesheet URLs are versioned in the header hook.
+
+Focused Forgejo source checks passed with local Go and dependency resolution
+disabled (`go test -mod=readonly ./scripts -run TestForgejo -count=1`); whitespace
+checks passed. Inspected local candidate-CSS captures of repository exploration,
+repository milestones and profile settings at 1440×1000 and 390×844. Captures:
+`.artifacts/screenshots/capture-rkXrOj/` and `capture-LQW7zh/`; desktop baseline:
+`capture-PA9rin/`. Settings mobile autofocus scrolls to the form. Repository
+milestone cards already had flush content in the baseline; that native styling
+is unchanged. Other page variants and dark mode were not newly visually checked.
+No service reload, deployment or native acceptance was performed.
+
+## Page illustration goal
+
+The accumulated Forgejo-focused scripts suite passes (`go test ./scripts -run TestForgejo -count=1`) after correcting three stale parity normalizers for intentional artwork suppression. All 34 literal illustration references resolve to local assets. Native restricted-page rendering remains outstanding; neither check establishes that visual evidence.
+
+Repository Actions no-workflows state now selects a distinct transparent workflow-tile illustration; native permission-specific guidance is preserved. Populated/filtered run lists, dispatch and log viewer remain undecorated. Focused body-parity/shared-presentation tests passed. The attempted native Actions capture returned 404; artwork rendering remains unverified.
+
+Public registration now has a distinct transparent welcome-folder illustration, gated to enabled standalone registration. Exact prompt and original output are retained. Focused authentication/shared-presentation tests passed. Native guest desktop/mobile screenshots confirm disabled registration excludes the image; enabled registration rendering remains unverified because the local instance disables registration.
+
+All current administrator layout callers are source-assessed. Admin artwork is now opt-in: account creation selects its distinct illustration; operational/configuration pages receive none. Redundant suppression flags were removed. Native admin verification remains pending.
+
+Administrator account creation now selects a distinct transparent identity-card illustration through an explicit presentation input. The generated asset and exact prompt are retained; focused administrator parity/presentation tests passed. Native admin capture remains pending.
+
+Wiki welcome now uses a distinct transparent reference-book illustration, preserving native text and the writer/mirror action gate. Repository content source-parity/gate tests passed; native read-only welcome was captured at desktop/mobile widths. Repository project wrappers and shared callers are assessed in the checklist.
+
+Personal/organization project creation now uses a distinct planning-board illustration; editing excludes it. Personal creation was visually checked at desktop and mobile widths, and focused context/presentation tests passed. Organization and edit-state captures remain pending; checklist records list/board no-image decisions and the remaining repository callers.
+
+Team creation now has a distinct transparent member-card illustration, gated to the creation state. Editing permissions and invitation acceptance retain focused native content. Native markup parity/parse and shared presentation tests passed; organization screenshots remain pending an accessible existing organization. The checklist advances to organization projects.
+
+The [per-page checklist](page-illustration-checklist.md) inventories 206 current
+overrides/helpers and tracks shared-template page variants separately. Migration,
+fork, 404, discussion subscriptions and watched repositories now have distinct
+illustrations. Native forms, state, permissions and meaningful status text remain
+upstream-owned. Migration progress and 413 retain concise native diagnostics
+without additional decorative art. Public contributor profile tabs were also
+assessed without extra art: native identity, authored content and activity visuals
+take precedence, supported by desktop/mobile captures. The personal package
+registry now has a compact wrapping illustration, with focused package tests and
+native desktop/mobile empty-state captures checked. Organization package registry
+has a distinct shared-shelf illustration and passing focused package tests;
+native verification is pending because the local public organization inventory
+is empty. Package version lists and the common detail shell were assessed without
+added art to prioritize release selection, installation content and metadata;
+these are source decisions, not populated-page runtime evidence. Package settings and cleanup forms were assessed; six upstream settings callers
+were added explicitly to the inventory, with personal landing/add-rule desktop
+captures inspected. Personal registry settings now has its own maintenance illustration, scoped by an
+explicit landing-template artwork input; desktop/mobile captures and add-cleanup
+isolation were checked, and focused package/shared-boundary tests passed.
+Organization registry settings was assessed without a second decorative header;
+its native identity and direct cleanup/Cargo controls take precedence. Other
+organization settings routes are now explicitly queued. Personal webhooks now have a connection illustration on the list page only;
+desktop/mobile and new-form isolation captures were inspected, with focused
+webhook/shared-boundary tests passing. Personal organization memberships now has a distinct card scene, with native
+desktop/mobile empty-state captures checked and stock membership content verified
+unchanged after the layout call. Personal repository settings was assessed without artwork to prioritize its
+repository/directory inventory and permission-dependent confirmations; native
+empty-state desktop capture was inspected. Personal and organization blocked-user pages were assessed without decorative
+art; personal empty-state capture was inspected. Conditional personal Actions
+and storage routes are explicitly queued. Existing profile artwork was retained and verified on desktop/mobile. The
+screenshot helper now has an optional `--scroll-top` flag, exercised to inspect
+headers after native form autofocus; default capture behavior is unchanged.
+Account artwork was retained and verified on desktop/mobile, with native forms
+left untouched. Appearance swatch artwork was also retained and verified on desktop/mobile,
+without changing saved preferences. Security landing artwork was verified on desktop/mobile. Enrollment/re-enrollment
+now explicitly suppress decorative art to prioritize the QR/passcode flow; native
+enrollment capture remains unperformed. Focused shared-presentation tests passed.
+Keys artwork was retained and verified on desktop/mobile; native SSH, GPG and
+principal subpanels were source-reviewed without added decoration. Applications landing artwork was retained and verified on desktop/mobile;
+OAuth editing and token creation now suppress inherited decoration; token
+creation final desktop/mobile rendering was checked after restoring its existing presentation classes and focused shared-presentation tests
+passed. Native OAuth edit verification remains pending. Shared OAuth list/create/grant
+sections were traced to personal, organization and admin callers; they need no
+independent artwork, while remaining page owners stay explicitly queued; individual decisions and unexercised variants remain in the checklist.
+
+Each new PNG was visually inspected and verified as transparent RGBA. Focused
+onboarding, status, presentation-boundary and notification-preview tests passed
+for their respective changes. Local templates were reloaded and actual fixture
+light-theme pages were inspected at 1440/390px; 404 covered general/repository
+contexts, and subscriptions/watching covered shared-template isolation. A status
+stylesheet version bump corrected observed cached sizing. Exact prompts, rejected
+outputs, capture paths and per-page limits are in the checklist and linked records.
+No fixture/account state or provider resources were changed. Dark appearance,
+POST journeys and production deployment are not implied by these captures.
+
 ## Source versus installed state
 
 | Area | Current state |
@@ -31,6 +494,492 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 [architecture](architecture.md) and [current work](sodaspaces-plan.md) authoritative.
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
+
+## Expanded component audit merged into canonical main
+
+Merged exact branch candidate `919bb97cdc4d3c4db84bda6cfd57e02c870dfd3b`
+(`codex/forgejo-expanded-component-audit`) with canonical `85f29a5` using a
+non-fast-forward merge. The sole textual conflict was this handoff: both audit and
+newer notification implementation/activation evidence were retained. The header
+merged automatically and retains the notification stylesheet alongside the new
+feature owners. Notification source/tests, Explore overflow and milestone grid
+fixes remain byte-for-byte unchanged from pre-merge main. Both parent histories
+are preserved; no rebase, cherry-pick or history rewrite.
+
+Merged-tree checks on this development machine:
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -json -count=1 -mod=readonly ./scripts -run TestForgejo`:
+  **97 top-level tests passed**, no failures/skips, plus their subtests. There are
+  98 matching source declarations; `TestForgejoBrandingMatchesSVGMaster` requires
+  the separate `branding` build tag/native renderer and was not selected. The
+  audit-only tree has 96 declarations, so its earlier reported count is not used
+  as the merged runtime count. The two newer notification tests are included.
+- `SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/*.test.mjs`:
+  **19 reported tests passed**, no failures/skips, including the eight boundary
+  subtests, guest theme, Explore, milestone and newer notification fixture suite.
+- `node --check scripts/screenshot.mjs`, CSS registry correspondence (46 files,
+  each registered exactly once), and staged/working-tree whitespace checks passed.
+  Logs retained under `.artifacts/component-merge-checks/`.
+
+No template reload, authenticated journey, new capture, fixture/provider mutation,
+dependency installation, service restart or deployment was performed for this merge.
+The preview's cached templates still predate the audit: the former `admin-org.css`
+and `workflow-details.css` references may outlive their removed source files until
+an authorized reload. Shared source-mounted CSS changes are not a complete native
+activation. Boundary/milestone fixtures load the merged registry; native-page tests
+still use the existing server templates, and notification tests simulate signed-in
+markup/responses. The audit's new native form/profile markers and other server
+changes remain source-tested, not newly rendered. Earlier notification activation
+is evidence for its pre-merge candidate only. Administrator/owner-only workflows,
+populated boards, package cleanup, provider/POST journeys and production staging
+retain the audit's documented limits.
+
+## Notification bell quick-view local activation
+
+User authorized activation and testing after `20ad60f`. Reloaded templates only in
+`sodaos-local-forgejo` (`forgejo manager reload-templates` returned `Reloaded`).
+Real signed-in requests now exercise the native `ctx.Context.FormBool` rendering
+branch successfully; no product-code correction was needed for activation.
+
+- Populated native inbox: three real unread entries rendered at 1440, 768, 390 and
+  320px. Both bell anchors, panel containment and Escape/focus return passed. The
+  native unread count remained **3 before / 3 after**. No entries were opened.
+- On `/notifications`, the popup coexisted with exactly one native notification
+  div/table. An ordinary `div-only` refresh still returned the full native fragment;
+  “View all notifications” navigated to the normal page. Recorded notification
+  requests were GET-only and no page errors occurred.
+- Existing non-admin screenshot fixture profile exercised the real empty inbox in
+  dark mode; zero rows, truthful empty copy, dismissal and **0 before / 0 after**
+  unread count passed. Populated light/mobile and empty dark screenshots were read.
+- The 320px signed-in navbar already extends 3px beyond the viewport before the
+  popup opens (`navbar-left/right` and appearance link); the popup fits and does not
+  increase document width. This unrelated navbar issue remains, not a popup pass
+  disguised as a whole-page no-overflow claim.
+- Focused Go Forgejo tests and all three browser suites (notification fixture,
+  Explore overflow, milestone layout) passed again after reload. `git diff --check`
+  passed. Evidence/scripts/screenshots are retained privately under
+  `.artifacts/local-forgejo/notification-activation-20260908/`.
+
+An isolated browser used the retained local fixture credential privately for normal
+login; the existing screenshot profile was reused for empty-state checks. Exploratory
+checks initially used an explicit submit-type selector absent from the native login
+button and assumed five entries where the real account has three; test assumptions
+were corrected, not fixture data. No new fixture, notification-status mutation,
+account preference change, service restart or appliance deployment occurred. Actual
+pinned rows, live badge changes from new events, account switching/session expiry
+and native read-on-navigation remain unexercised; those existing synthetic/source
+checks are not relabeled native evidence. Production staging/delivery remains pending.
+
+## Notification bell quick-view source implementation (pre-activation evidence)
+
+The requested [plan](notification-preview-plan.md) is implemented in source using
+the existing native notification fragment and bundled HTMX. A signed-in-only footer
+hook enhances both stock bell anchors; a presentation query flag selects a compact
+list of the five native unread-plus-pinned entries. Dedicated markup avoids full-page
+notification IDs/hooks. Native destinations, auth, queries, badge updates and read
+behavior remain Forgejo-owned. There is no Soda backend, upstream patch, new library,
+status POST or second poller. Missing JavaScript/HTMX/popover support retains native
+bell navigation. The panel handles loading/errors/retry, cancellation, response
+identity, focus/Escape/outside dismissal and native HTMX redirects. A 10-second
+request timeout bounds the loading state. Retry/View all/Pinned/loading/empty/error
+copy is custom English pending localization; existing notification/close keys are reused.
+
+Performed locally:
+- Offline readonly focused Go `./scripts -run TestForgejo`: passed, including compact
+  and ordinary fragment branches, faithful embedded template-context method lookup,
+  zero/one/five rows, pinned/content escaping, native subpath links and signed-in hooks.
+- `SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/notification-preview.test.mjs`:
+  passed against the real native HTMX bundle with browser-only signed-in markup and
+  notification-response fixtures. Both bells, long five-row content, 320/390/768/1440px,
+  dark/light scheme requests, loading/empty/errors/retry, stale responses, Enter/Escape,
+  modified clicks, focus/outside dismissal, GET-only preview traffic, HX-Redirect and
+  no-JS/no-HTMX/no-popover native fallback were checked. No authenticated fixture data
+  or existing private credentials were accessed. Initial tests exposed a null detail
+  on custom abort events; events now supply the native expected element detail.
+- Existing Explore overflow, milestone layout and seven guest-theme tests passed.
+  `git diff --check` passed. No dependency installation or full native build occurred.
+
+Native authenticated rendering, actual unread/pinned data, badge/full-page coexistence,
+real account switching and user visual review remain unverified. No template reload,
+service restart, notification mutation or appliance deployment occurred. Existing local
+mounts expose asset source, but changed/new templates require an explicitly authorized
+reload to activate. Production template/asset staging remains separately pending.
+
+## Notification bell quick-view investigation (historical, before implementation)
+
+The requested [implementation plan](notification-preview-plan.md) is now authored:
+prove compact native rendering, enhance both bells using bundled HTMX, validate
+interaction/native coexistence, then deliver under separate target/action scope.
+Unread plus pinned is the proposed native-matching default; no UI code or runtime
+work was performed while writing the plan. Documentation whitespace checks passed.
+
+The [integration guide](forgejo-frontend-integration.md#notification-bell-quick-view-investigation)
+records source findings for stock 15.0.7 (`d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`).
+JSON notification APIs do not accept the ordinary web session, but the existing
+`/notifications?div-only=true` HTML-fragment route does; Forgejo already ships HTMX.
+The recommended candidate is a supported compact template branch loaded with native
+HTMX, not a Soda Go/API proxy. Native unread results include pinned entries, so
+strictly-unread-only semantics need a decision rather than silently filtering a page.
+Anonymous local GET checks confirmed API 401, native fragment login redirect and
+HTMX-aware 204/HX-Redirect. No existing credentials, authenticated requests, state
+mutations, UI implementation, builds/tests, service reloads or deployment occurred.
+`git diff --check` passed. Authenticated rendering and candidate interaction checks
+remain unperformed; investigation is not implementation acceptance.
+
+## Expanded component audit
+
+Audited the `82379b4` expansion across all 201 template overrides/helpers and
+38 linked CSS files. The [audit](forgejo-components-audit.md) and
+[composition contract](../appliance/forgejo/README.md#presentation-component-contract)
+record the resulting boundaries. Shared controls now preserve native focus/error
+states; button-local theme variables give native primary actions one color owner.
+Settings table padding is separate from card padding. Ordinary repository/org
+width rules exclude fluid canvases; the bounded pull-files canvas is centered.
+Repository-context status pages constrain their grid instead of expanding native
+navigation beyond mobile width.
+
+Repository, administrator, organization, projects, packages/code search, shared
+runner/configuration/quota/webhook/moderation adapters now have explicit owners;
+competing old rules and the mixed admin/workflow aggregators are removed. Native
+profile-card callers opt in through a component marker. Two nested principal
+settings forms opt in explicitly, preserving compact row/dialog/search forms.
+The migrating wrapper derives guest state from native `.IsSigned`. The unused
+`finalize_openid` override is removed. There are still 201 template files (one
+removed, one native OAuth-list override added), four Soda partials and 45 CSS
+files; all CSS files are registered exactly once. No Lit dependency was added.
+
+Executed locally for this audit:
+
+- Offline readonly `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1
+  -mod=readonly ./scripts -run TestForgejo` passed, covering 96 top-level tests
+  plus their native composition/hash/security cases. Earlier runs exposed stale
+  CSS-owner/cache-version assertions; those were corrected to the new contracts.
+- The combined guest-theme, Explore overflow, milestone layout and component
+  boundary JavaScript run passed all 18 reported tests. The new boundary suite
+  covers eight cases, including light/dark focus/errors and native button states,
+  table padding, fluid widths, narrow error pages, compact-form isolation, profile
+  reuse and horizontally reachable package table columns. The error-border,
+  table-padding, fluid-width and status-grid tests reproduced pre-fix failures.
+  The boundary suite passed again after centering the bounded pull-files canvas.
+- Read-only stock 15.0.7 embedded/source inspection retained native hooks and
+  confirmed the unreachable OpenID template and anonymous migration route. Exact
+  upstream commit: `d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`.
+- Captured and inspected 40 candidate CSS screenshots using
+  `scripts/screenshot.mjs --local-css`, at 390px and 1654px, plus ten initial
+  mobile baseline captures. Candidate captures cover account settings, public
+  repository/list/release/wiki/project/activity/profile/package views, migration
+  selection, pull files, branches/commits, error pages and guest sign-in/disabled
+  registration/recovery notices. Evidence is retained under ignored
+  `.artifacts/screenshots/audit-candidate-*`, `audit-final-*` and
+  `audit-pull-files-centered/`. The latter recapture verifies the final wide canvas.
+- Screenshot helper syntax, CSS registry/file correspondence and
+  `git diff --check` passed. Existing development dependencies were reused.
+
+The preview binds `/Users/vince/Projects/sodaos`, not this audit worktree. The
+capture option substitutes only candidate Soda CSS in the isolated browser;
+native server templates/scripts remain unchanged. New form/profile class markers,
+the migration guest flag and removed unused override have source/caller-test
+evidence only and await applying/reloading the templates. Missing quota/Actions
+routes produced native errors, and global code search redirected to Explore;
+those captures are not evidence of those workflows. The non-admin fixture cannot
+exercise administrator/owner-only settings. Populated project boards, package
+cleanup, provider authentication, native POST/error responses and appliance
+staging/deployment were not newly exercised. No fixtures, account preferences,
+credentials, service lifecycle or provider resources were changed.
+
+## Expanded native Forgejo branding
+
+Broad supported stock 15.0.7 header/layout overrides now cover repository pages
+and settings, account settings, administrator and organization views, and nine
+secondary authentication wrappers. Three coordinated task teams added 183 template
+override files from the `a81bfae` baseline, including 141 during the final authoring
+sprint; the source now contains 201 overrides/helpers. The added detailed families
+include code/edit/diff/history, issues/pulls/milestones, releases/wiki/projects,
+Actions/runners/webhooks, storage and access lists, profiles/packages/imports,
+administrator monitoring, account/security, organization/team, federated auth,
+and setup pages. These are template-file counts, including shared partials, not
+independently exercised workflows. The shared native leaf forms/lists/scripts,
+permissions and handlers remain upstream-owned. The page-marker adapter reaches
+whole native pages from their shared header/helper; it is not a widget root.
+Common settings sidebars/cards have one CSS owner. Principal native forms use a
+positive structural adapter; nested dialog/table/row-action and settings search
+forms keep native sizing. Guest theme routes share one presentation gate.
+Six new settings illustrations from the separate art task are mapped by native
+page flags, preserving its asset/provenance commits and earlier artwork.
+
+Local source tests passed with the existing offline Go toolchain and readonly
+modules (`go test -count=1 -mod=readonly ./scripts -run TestForgejo`). These check
+native template composition, permission seams, exact-stock recovery hashes,
+escaping, theme placement, artwork selection and CSS boundaries. Stock preview
+`reload-templates` succeeded. Initial browser checks covered all 11 account
+sidebar pages at desktop/390px, all 16 administrator sidebar pages at 390px,
+and 12 repository sections at desktop/390px. One narrow native stacktrace overflow
+and clipped-popup risks were found and corrected. After combining all three teams,
+the full focused Go suite and all seven guest-theme JavaScript tests passed.
+Final browser checks exercised 27 distinct pages at 390px and 1654px, plus all ten
+native migration-provider forms at 390px, with no page-level horizontal overflow
+after correcting the direct system-notices table. The native file editor mounted
+CodeMirror and retained its commit form; a desktop release page was visually
+checked. Browser viewport overrides were reset. The owner code-search URL
+redirected to the profile under the existing configuration, so that route remains
+source-tested only. Registration/recovery remain truthfully disabled. Setup,
+MFA, activation, consent, POSTs, populated packages/organization teams/project
+boards, Actions dispatch and fullscreen logs were not executed or fabricated.
+Guest light/dark navigation was checked earlier and returned to light; no native
+account preference, fixture, provider, native stage or deployed VM was changed.
+All task commits were collected onto `main`; production staging and the Sodaspaces
+drawer remain separate unfinished integration work.
+
+`scripts/screenshot.mjs` is a small local capture helper: manual `--login` in a
+dedicated private profile, then viewport PNGs for supplied URLs. Fixture changes
+stay manual. It uses installed Chrome and existing Playwright; this development
+checkout links the preinstalled desktop package through ignored `node_modules/`.
+Verified two real guest preview captures at 390×844, interactive login-window
+open/close, and persistent test-cookie reuse across browser runs with a local
+temporary HTTP server (1440×1000 output). No real Forgejo login was submitted and
+no Forgejo fixtures, native installation or deployment were changed. Usage is in
+[screenshot capture](screenshot-capture.md#quick-local-page-screenshots).
+
+## Explore tab overflow correction
+
+The Explore tab wrapper now has a bounded 420px width (capped by the existing
+100% maximum), with the native overflow-menu filling it rather than sizing to
+visible children. Tabs align to the start so Forgejo's trailing overflow-button
+reservation is not consumed by centering. This removes the ResizeObserver feedback
+loop that repeatedly moved Organizations into/out of the popup. Native navigation,
+visibility, overflow logic and keyboard handling remain unchanged; no custom JS.
+The shared toolbar stylesheet cache version is bumped.
+
+Read-only local Chrome checks on all three real anonymous Explore routes passed
+at 1440, 768, 700, 390 and 320px, then back at 1440px. The new opt-in
+`tests/forgejo/explore-overflow.test.mjs` waits for native initialization/fonts and
+checks no child reparenting over 700ms after settling, no page overflow, all three
+wide-screen links, narrow-screen popup visibility/destination and Escape dismissal.
+With pre-fix CSS intercepted in the isolated browser, the same observation found
+14 child mutations in 700ms; fixed pages had zero. An initial test attempted Escape
+before the popup's deferred focus; focusing the menu item first corrected that test
+race. Run with `SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/explore-overflow.test.mjs`.
+The milestone layout regression and offline readonly focused Go Forgejo suite also
+passed; `git diff --check` passed. No login, data writes, service/template reload,
+new dependency or deployment occurred. Local live-mounted CSS can be hard-refreshed;
+the header cache-version change awaits the next template reload. Authenticated-only
+extra tabs and translated labels were not newly exercised.
+
+## Shared Forgejo presentation components
+
+The local stock 15.0.7 preview uses small Go template partials for page intros,
+empty content and the guest theme button. The component audit separates page
+shell/tokens, intro, toolbar/native controls, forms, list/pagination, empty feedback
+and guest theme/shell ownership. Page files retain only their specific metadata
+and layout. Explore now delegates navigation, visibility and overflow to native
+`explore/navbar`; context-switcher CSS has an explicit wrapper. All list callers
+use the same wrapper contract. Search selectors cannot reach nested dialog buttons;
+filled actions use the selected theme's action colors. Login no longer decorates
+Forgejo's loader pseudo-element. Guest theme listeners load only on anonymous
+routes with a guest toggle.
+
+[Composition contract](../appliance/forgejo/README.md#presentation-component-contract)
+and [full audit](forgejo-components-audit.md). `.soda-page` is a full-page shell,
+not a root for the future drawer. Home/login keep distinct content layouts; the
+native dashboard Vue widget, milestone cards and notification row actions retain
+bounded page adapters. The original extraction is recorded in `ce4129c`.
+
+Native forms, permission gates, translations, asset prefixes and notification
+replacement hooks remain upstream-owned. Exact embedded 15.0.7 source comparison
+found no unexplained behavior divergence in issues, milestones, notifications,
+subscriptions or organization creation. The documented historical research mirror
+is absent on this machine; the audit used `forgejo embedded view` from the existing
+stock preview. No Lit dependency or frontend build was added. The authenticated
+drawer and production staging remain pending.
+
+Executed for this audit on the development machine:
+
+- `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1 -mod=readonly ./scripts -run 'TestForgejo'`
+  passed with Go 1.27.1 darwin/arm64. Tests render real Soda partials/callers with
+  native seams stubbed, including creation permission branches, guest route gates,
+  singleton placement, escaping, subpaths and Explore delegation. This is not a
+  locked native toolchain or a full Go/native build check.
+- `node --test tests/forgejo/login-theme.test.mjs`: all seven tests passed, now
+  including actual head timing before the toggle exists and a no-toggle case.
+- Reloaded templates only in existing `sodaos-local-forgejo`. All twelve signed-in
+  route variants rendered at 1654px and 390px without horizontal overflow; shared
+  intro artwork loaded and search inputs measured 44px. Native Explore overflow
+  opened its Organizations menu item and navigated successfully. The syntax dialog
+  opened/closed normally; its nested Cancel button matches zero toolbar rules even
+  before Forgejo reparents the dialog. The personal context menu stayed within 390px.
+- Notification bulk action uses dark action blue with white text; list wrappers and
+  twenty visible native rows were verified without submitting actions. Expanded
+  native repository initialization/advanced controls fit at 390px; organization
+  fieldsets and required input remained intact.
+- Guest home/login and all three directories rendered at measured 480px in both
+  light/dark modes without overflow. Each page had one toggle (40px; login 44px),
+  persisted the choice across navigation and kept native `data-theme`. Login's
+  idle submit has no authored `::after`. Unrelated password recovery loaded no guest
+  script or theme attribute. Both browser viewport overrides were reset afterward.
+- All sixteen linked component/page CSS responses matched source bytes. Changed
+  guide file links and `git diff --check` passed.
+
+No fixture records, native account preferences, providers, dependencies, appliance
+stage or deployed VM were changed. The guest local choice was restored. Native
+notification POST/live replacement, creation POST/server-error and transient
+loading/disabled journeys were not newly exercised; source contracts were reviewed.
+Signed-in light appearance and organization/team context menus were not exercised
+(the local account has no organization context). Template overrides still require
+exact-version review and browser checks on upgrades. This is bounded local preview
+validation, not production or final-product acceptance. Custom introductory copy
+remains English pending the existing i18n work.
+
+## Local New Organization preview
+
+Official `org/create.tmpl` now uses the Soda shell and existing organization
+workshop artwork. Native fields, defaults, visibility values, permission checkbox,
+error flags and POST action are retained. Desktop cards match the repository form
+with 24px padding/gaps and aligned labels. Local reload and Chrome checks covered
+desktop, 390px layout without overflow, visibility selection and required name/
+40-character constraint. The form was reset afterward; no organization was created.
+Submission, server errors and light appearance were not newly exercised. Custom
+intro remains English; no appliance deployment.
+
+## Local New Repository preview
+
+Official `repo/create.tmpl` now has the Soda shell, existing repository-folder
+artwork and scoped form cards/styles. All native create-helper/basic/template/
+initialization/advanced partials, permission gates and form action remain intact.
+Local template reload and Chrome inspection verified expanded initialization and
+advanced controls, required name/length constraints, asset loading and a 390px
+layout without horizontal overflow. No repository was created; submission,
+server-side error paths, template selection and light appearance were not newly
+exercised. Custom intro is English. No appliance deployment.
+
+## Local Notifications preview
+
+Official stock 15.0.7 notification partial and subscriptions wrapper now use the
+Soda shell, dedicated generated inbox artwork, separate consistent toolbar and
+rounded list/empty state. Native notification IDs, sequence hooks, forms, data
+attributes, status conditions and pagination remain unchanged. Existing fixtures
+supply 40 unread notifications; no new data was seeded. Local Chrome verified
+populated/read/empty views, mark-read then unread restoration, subscriptions shell,
+and a 390px layout without horizontal overflow. Two fixture status checks were
+restored to their original states. PNG alpha and template reload were verified;
+`git diff --check` passed. Light appearance, pin/bulk actions and watching filters
+were not newly exercised. Custom intro remains English; no appliance deployment.
+
+## Local Milestones layout correction
+
+Fixed the dashboard sidebar consuming the row and squeezing milestone cards off
+screen. Stock 15.0.7's `.flex-container { display: flex !important }` defeated the
+page's grid; the scoped milestone grid now explicitly overrides it. The stylesheet
+cache version is bumped. Native filters, milestone data and templates are unchanged.
+
+The new opt-in `tests/forgejo/milestones-layout.test.mjs` reproduced horizontal
+overflow before the fix and passed afterward at 1440, 1024, 768, 700 and 390px.
+It uses existing local preview public stock CSS, all authored custom styles in load
+order and representative milestone markup in isolated headless Chrome—not an
+authenticated native-page journey. Run with
+`SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/milestones-layout.test.mjs`.
+Offline readonly `go test -count=1 -mod=readonly ./scripts -run TestForgejo` and
+`git diff --check` also passed. No service reload/restart, fixture mutation or
+appliance deployment was performed. CSS is live-mounted in the local preview;
+cached pages may need a hard refresh, and the header version takes effect on the
+next separately performed template reload.
+
+## Local Milestones preview
+
+The official dashboard milestones override now uses Soda's separate toolbar,
+repository filter panel and progress cards, reusing the checklist illustration.
+Native milestone data, filtering, rendered content, dates and pagination remain
+upstream-owned. Local reload and browser checks covered the populated 8% fixture,
+closed empty state, keyword no-match and 390px layout without horizontal overflow.
+Deadline/overdue, tracked time, org context, light appearance and pagination were
+not newly exercised. No new fixtures or deployment; custom intro is English.
+
+## Local global Issues preview
+
+The official 15.0.7 dashboard Issues template now has Soda styling and new
+checklist artwork. Native query/filter/count/context and shared issue-list logic
+remain; Pull requests now shares the same layout with its own heading and icons. Local reload succeeded.
+Chrome exercised six populated issues, type switching, closed/no-match empty
+states, oldest sorting and 390px layout without horizontal overflow. Pull requests
+retains its native list partial. Light appearance, org context and pagination were
+not newly exercised. No appliance deployment; custom intro copy remains English.
+
+The Pull requests list now shares the Soda list layout and dedicated collaboration
+artwork. Local Chrome checks covered reviewed-by filtering, open/closed/merged
+fixture rows and review summaries, no-match search and 390px layout without
+horizontal overflow. Native review filters, query state and permissions are
+unchanged. No new fixtures or deployment; light mode/pagination not newly checked.
+
+## Local signed-in dashboard preview
+
+The personal home feed now has an official Soda dashboard template override,
+new generated workbench artwork, responsive feed/sidebar layout and branded
+native empty guide. Native account/org navigation, alerts, heatmap, activity
+partial/pagination and Vue repository/organization controls remain composed
+upstream partials. Shared shell styles match the explorer; Forgejo account theme
+state remains authoritative. Custom dashboard copy is English for now.
+
+The local stock 15.0.7 preview reloaded successfully. Chrome verified empty feed,
+repository/organization tab switching, light and auto/dark themes, appearance
+navigation and 390px layout without horizontal overflow. Account theme was
+restored to `forgejo-auto`. Existing Alice authenticated HTTP rendering returned
+200 with populated activity and native repo-list markup; its populated layout was
+not visually checked. Organization/team contexts, heatmap and feed pagination
+were not newly exercised. No new fixture data or appliance deployment.
+
+The dashboard context switcher now uses a compact Soda trigger and rounded
+menu with palette colors, monospace caption, active state and keyboard focus.
+Its stock markup and context links are unchanged. Local Chrome inspection
+verified the open menu, ArrowDown expansion and personal-context navigation;
+organization switching was not newly exercised. CSS-only change and local
+template reload; no deployment.
+
+## Forgejo illustration consistency
+
+Reviewed all nine page illustrations together and regenerated the repository
+explorer, Users and Issues assets using Home/Dashboard as style references.
+The replacements align robot proportions, paper materials and scene balance;
+canonical logos remain unchanged. PNG alpha and the cream contact sheet were
+inspected, then all three pages were visually checked in local Chrome dark mode
+after template reload. Asset query versions refresh cached images. No appliance
+deployment or backend changes. Prompts and decisions are recorded in
+`assets/branding/forgejo/art-consistency-review.md`.
+
+## Local repository explorer preview
+
+The stock Forgejo 15.0.7 local Docker preview now uses a Soda repository-explorer
+wrapper and scoped CSS with the approved folder artwork. Native search, list,
+filters, sorting, pagination and main navigation remain upstream partials. Guests
+share the login/home theme preference; signed-in pages use the same Soda palette
+with light/dark selection inherited from the native account color-scheme.
+Local browser checks exercised matching and empty searches, alphabetical sorting,
+not-archived filtering, light/dark switching and a 480 CSS-pixel narrow layout
+without horizontal overflow. The preview now contains 21 public repositories with sample descriptions/topics;
+browser checks confirmed 20 rows on page one and one on page two. Language
+variants and a fresh signed-in journey were not exercised. This is local
+preview evidence only; appliance staging/deployment remains unchanged.
+
+The Users and Organizations directories now share the Soda shell with distinct
+headings and separate newly generated papercraft artwork for individual contributors
+and a shared organization workshop. Browser inspection confirmed the page-specific
+asset references after local template reload. Native user-list privacy/email
+conditions, search, sorting and pagination remain upstream-owned. Local browser
+checks covered people search, organization sorting/empty state, light/dark
+appearance and 480 CSS-pixel layouts without horizontal overflow. No sample
+organizations were added, so populated organization rows remain unexercised.
+
+Signed-in explorer parity now includes the Soda logo/palette, themed native account
+menus and a shortcut to native appearance settings. Local Chrome checks using the
+existing Vince session covered light and auto/dark themes, profile/admin links,
+390 CSS-pixel mobile navigation without horizontal overflow, search and page two.
+Vince's original `forgejo-auto` preference was restored after verification. Native
+navbar permission conditions are unchanged; private-repository authorization and
+additional theme families were not newly tested. No appliance deployment occurred.
+
+Branded empty states now cover the three explorer directories through a shared
+presentation partial, used only when native result collections are empty. Native
+populated lists and visibility/creation authorization are unchanged. Local browser
+checks verified repository reset, people search clearing, organization empty
+states for guests and the signed-in administrator, dark desktop and light narrow
+layout. Empty state copy remains English; no translations or deployments occurred.
 
 ## Accepted native evidence
 
@@ -957,6 +1906,87 @@ was also exercised locally as an unprivileged refusal (no host account/file chan
 These checks did not run installed/native tests, SSH key possession or a full appliance
 build/stage. Destruction remains an explicit unimplemented decision.
 
+## Login design font assets
+
+Downloaded the website's exact Fontsource 5.3.0 Latin WOFF2 selection into
+`assets/branding/fonts/`: Fraunces variable 100–900, Barlow 400/600 and IBM Plex
+Mono 400/500, all normal style. Added relative-URL font-face CSS, original family
+OFL licenses and package/file provenance. Existing `assets/branding/theme/palette.css`
+remains the shared color source, unchanged. These are source assets only; no
+Forgejo template, running preview, native staging or deployment was changed.
+
+Verified published archive SHA-512 integrity, font signatures, local CSS paths and
+file SHA-256 values. No build, font-rendering/browser test or native validation ran.
+
+## Local branded login preview
+
+With user authorization, added `appliance/forgejo/templates/user/auth/signin.tmpl`
+and the custom header CSS hook, plus `assets/branding/forgejo/login.css` and the
+approved original papercraft PNG. The login shell uses the website's local fonts,
+canonical logo and unchanged shared palette. Native `signin_inner`, head/footer
+and scripts remain upstream-owned. This is the light login design; responsive CSS
+hides the illustration below 900px. The Sodaspaces drawer remains unimplemented.
+
+Recreated only `sodaos-local-forgejo` on Docker Desktop to bind source directories
+read-only, retaining `sodaos-local-forgejo_data` and port 3300. An initial mount failed
+because nested mountpoint directories were absent beneath a read-only parent;
+created those empty local mountpoints and startup succeeded. The existing other
+preview and appliance VM were untouched. No appliance stage/install changes.
+
+Checks: login HTML and all sampled CSS/font/palette/logo/image URLs returned 200;
+Alice's native form sign-in succeeded; wrong-password submission rendered the
+native error inside the new shell. Image alpha data was verified. An exploratory
+foreign-Origin rejection assertion failed (HTTP 200, also with cross-site fetch
+metadata), so these probes do not establish CSRF protection; no native middleware
+was changed. Browser automation was blocked by the user's password-manager panel;
+the user inspected the preview and reported it looked good. Automated mobile,
+keyboard, provider/passkey, account-link and CAPTCHA browser checks remain unrun.
+Source whitespace checks passed. No full build, test suite or native acceptance.
+
+## Login viewport correction
+
+Removed Forgejo's inherited 80px wrapper bottom padding and first-section margin
+on the login page. The flex layout now reserves the footer's actual height instead
+of assuming a fixed footer size; artwork height and compact spacing adapt to shorter
+viewports. Content may still scroll when genuinely taller than the available space.
+Bumped the login CSS URL and reloaded templates only in the local preview.
+
+Browser measurements confirmed document height and footer bottom equal viewport
+height at 1654×970, 1366×768 and 390×844; mobile width was also exactly 390px.
+Restored the browser viewport afterward. Initial measurements used cached CSS;
+the versioned stylesheet loaded the correction. Whitespace checks passed.
+
+## Login theme toggle
+
+Added a single borderless sun/moon button at the top right, shared-palette dark
+colors and the canonical dark logo. The guest preference follows system appearance
+until explicitly selected, persists in origin/subpath-scoped localStorage, syncs
+across tabs and tolerates blocked storage. A head script initializes appearance;
+Forgejo's native theme attribute and authenticated account preference are unchanged.
+No authentication/provider or appliance deployment changes.
+
+Six Node state tests passed (system changes, explicit choice, toggle/persistence,
+blocked storage, storage events and invalid/subpath values). Browser checks confirmed
+system dark initial appearance, switching to light, correct next-action labels,
+persistence after reload and no desktop vertical overflow in dark mode. The user's
+existing “Soda dashboard” wording edit was preserved separately from this commit.
+
+## Public homepage and texture removal
+
+Removed the experimental paper texture asset and CSS references, restoring the
+smooth login button. Added the native `home.tmpl` override and scoped `home.css`
+for the public homepage: Soda welcome copy, approved papercraft artwork, sign-in
+and repository exploration links, shared guest theme toggle and native footer.
+The authenticated dashboard is unchanged. No account/authentication handlers,
+provider configuration, appliance staging or deployed VM were changed.
+
+Browser checks covered light/dark desktop appearance, shared theme on navigation
+to login, native repository-explore and login destinations, and 390px mobile layout
+with no horizontal overflow. Desktop homepage height matched the 970px viewport.
+Verified login's computed background contains only its gradient, no texture.
+Native public HTML/assets served successfully; whitespace checks passed. No full
+build or native validation ran. Source is live-mounted only in the local preview.
+
 ## Remaining work and permission boundary
 
 The remaining-work plan now has an explicit [minimum user-controls contract](sodaspaces-plan.md#minimum-end-to-end-user-controls),
@@ -1021,3 +2051,20 @@ resolution, generated provisioning, service/provider/network action or data clea
 Checks covered 55 Markdown files, 218 local relative links and 17 Markdown anchors
 with no errors; six retired documents have no active references. Logs:
 `.artifacts/research/docs-cleanup-9f3baa7/`.
+
+Local PR fixture follow-up (2026-09-08): added seven user-requested PRs through
+native APIs within alice/activity-workbench. Browser confirmed 8 open/2 closed,
+review summaries and conflict indicator; API confirmed a native draft and
+non-mergeable conflicting PR. Added a new generated collaboration image selected
+only for Pull requests. No deployment or non-fixture repository changes.
+
+Milestone artwork/fixture follow-up (2026-09-08): dedicated generated steps/flag
+illustration now replaces the reused checklist image. Prompt and provenance:
+`assets/branding/forgejo/milestones-art-prompt.md`. User-authorized native API writes
+added ten milestones and thirty linked issues within the existing three local
+fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50/75/100%
+progress examples, overdue/upcoming/no-deadline states and empty milestone content.
+The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
+do not blindly rerun it. No non-fixture repository writes or deployment.
+
+<!-- Illustration queue: personal Actions lists, four runner subpages and both owner storage overviews source-assessed without art; organization general and deletion pages source-assessed without extra art; labels and hooks also source-assessed without extra art; organization applications and Actions source-assessed without art; organization home and members source-assessed without art; team list/member/repository pages source-assessed without art; creation and invitations are next. See the per-page checklist. -->

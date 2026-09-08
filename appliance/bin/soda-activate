@@ -46,6 +46,9 @@ for source, dest in [(args.certificate, 'cert.pem'), (args.private_key, 'key.pem
 envpath = root / 'forgejo.env'
 values = dict(line.split('=', 1) for line in envpath.read_text().splitlines() if line and not line.startswith('#') and '=' in line)
 values.update({'FORGEJO__server__ROOT_URL': cfg['forgejo_url'].rstrip('/') + '/', 'FORGEJO__server__DOMAIN': urlsplit(cfg['forgejo_url']).hostname, 'FORGEJO__server__SSH_PORT': '2222', 'FORGEJO__security__INSTALL_LOCK': 'true'})
+# Forgejo appends its email hash and size query to this supported provider URL.
+# Dynamic provider/federation settings remain native Forgejo administrator state.
+values['FORGEJO__picture__GRAVATAR_SOURCE'] = cfg['forgejo_url'].rstrip('/') + '/-/soda/avatars/v1/'
 values.setdefault('FORGEJO__server__SSH_DOMAIN', str(address))
 envpath.write_text(''.join(f'{k}={v}\n' for k, v in values.items()))
 envpath.chmod(0o600)

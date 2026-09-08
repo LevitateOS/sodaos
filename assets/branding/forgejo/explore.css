@@ -1,0 +1,13 @@
+/* Directory metadata only; native navigation/search adapters belong to the toolbar. */
+.soda-explore .flex-item-leading { padding-top: 4px; }
+.soda-explore .flex-item-body { font-size: 15px; line-height: 1.6; margin-top: 4px; }
+.soda-explore .flex-item-body:last-child { font-size: 12px; }
+.soda-explore .flex-item-trailing { font: 400 12px "IBM Plex Mono", monospace; }
+.soda-explore .flex-list > div:not(.flex-item) { padding: 24px 0; color: var(--soda-page-muted); }
+.soda-explore-people .flex-item-title a { color: var(--soda-page-link); }
+.soda-explore-people .flex-item-body:last-child { font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.soda-explore-people .flex-item-leading img { border-radius: 14px; }
+@media (max-width: 700px) {
+  .soda-explore .flex-item-header { flex-wrap: wrap; gap: 8px; }
+  .soda-explore .flex-item-trailing { flex-wrap: wrap; }
+}

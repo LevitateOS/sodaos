@@ -1,0 +1,27 @@
+{{/* Stock Forgejo 15.0.7 owns owner-scoped code search and result visibility. */}}
+{{template "base/head" .}}
+{{if .ContextUser.IsOrganization}}
+	<main aria-label="{{.Title}}" class="page-content organization code soda-page soda-owner-code" data-signed="{{.IsSigned}}">
+		{{template "org/header" .}}
+		<div class="ui container soda-page-container">
+			{{template "custom/soda/page_intro" dict "TitleID" "soda-owner-code-title" "Eyebrow" .ContextUser.Name "Title" (ctx.Locale.Tr "user.code") "Description" "Find code in this organization’s repositories." "Class" "soda-page-intro--compact"}}
+			<div class="soda-code-search">{{template "shared/search/code/search" .}}</div>
+		</div>
+	</main>
+{{else}}
+	<main aria-label="{{.Title}}" class="page-content user profile soda-page soda-profile soda-owner-code" data-signed="{{.IsSigned}}">
+		<div class="ui container soda-page-container">
+			<div class="ui stackable grid soda-profile-layout">
+				<div class="ui four wide column soda-profile-identity soda-profile-card-context">
+					{{template "shared/user/profile_big_avatar" .}}
+				</div>
+				<div class="ui twelve wide column soda-profile-content">
+					{{template "user/overview/header" .}}
+					{{template "custom/soda/page_intro" dict "TitleID" "soda-owner-code-title" "Eyebrow" .ContextUser.Name "Title" (ctx.Locale.Tr "user.code") "Description" "Find code in this contributor’s repositories." "Class" "soda-page-intro--compact"}}
+					<div class="soda-code-search">{{template "shared/search/code/search" .}}</div>
+				</div>
+			</div>
+		</div>
+	</main>
+{{end}}
+{{template "base/footer" .}}

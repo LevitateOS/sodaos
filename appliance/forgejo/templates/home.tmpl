@@ -1,0 +1,41 @@
+{{/* Soda public welcome page for stock Forgejo 15.0.7; native routes and authentication remain upstream-owned. */}}
+{{template "base/head" .}}
+<main class="page-content home soda-home" aria-label="{{ctx.Locale.Tr "home"}}">
+	<header class="soda-home-nav">
+		<a class="soda-home-brand" href="{{AppSubUrl}}/" aria-label="Soda OS home">
+			<img class="soda-home-logo-light" src="{{AssetUrlPrefix}}/soda/source/soda-logo-horizontal.svg" width="156" height="39" alt="Soda OS">
+			<img class="soda-home-logo-dark" src="{{AssetUrlPrefix}}/soda/source/soda-logo-horizontal-dark.svg" width="156" height="39" alt="Soda OS">
+		</a>
+		<nav aria-label="Main navigation" class="soda-home-links">
+			<a href="{{AppSubUrl}}/explore/repos">Explore repositories</a>
+			{{template "custom/soda/theme_toggle" dict}}
+			<a class="soda-home-nav-signin" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "sign_in"}} <span aria-hidden="true">→</span></a>
+		</nav>
+	</header>
+	<section class="soda-home-hero" aria-labelledby="soda-home-title">
+		<div class="soda-home-copy">
+			<p class="soda-home-eyebrow"><span aria-hidden="true"></span>Your development cloud</p>
+			<h1 id="soda-home-title">Good things<br>come together<br>with Soda.</h1>
+			<p class="soda-home-lede">A shared home for your code and your team. Pick up a project, share an idea, and build something together.</p>
+			<div class="soda-home-actions">
+				<a class="soda-home-primary" href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "sign_in"}} <span aria-hidden="true">→</span></a>
+				<a class="soda-home-secondary" href="{{AppSubUrl}}/explore/repos">Explore repositories <span aria-hidden="true">↗</span></a>
+			</div>
+			{{if .ShowRegistrationButton}}
+			<p class="soda-home-account">New here? <a href="{{AppSubUrl}}/user/sign_up">Create an account</a></p>
+			{{else}}
+			<p class="soda-home-account">Joining the team? Ask your administrator for an account.</p>
+			{{end}}
+		</div>
+		<div class="soda-home-illustration">
+			<img src="{{AssetUrlPrefix}}/soda/forgejo/home-papercraft.png" width="1536" height="1024" alt="Two papercraft robots collaborate at their own laptops connected to a shared computer on a blue workbench.">
+			<p>Your projects. Your tools. Your Soda.</p>
+		</div>
+	</section>
+	<section class="soda-home-features" aria-label="A place to build together">
+		<article><span class="soda-home-feature-icon">{{svg "octicon-repo" 22}}</span><div><h2>A home for your code.</h2><p>Keep repositories, branches, and the next good idea together.</p></div></article>
+		<article><span class="soda-home-feature-icon">{{svg "octicon-git-pull-request" 22}}</span><div><h2>Better, together.</h2><p>Discuss issues, review changes, and keep your team moving.</p></div></article>
+		<article><span class="soda-home-feature-icon">{{svg "octicon-terminal" 22}}</span><div><h2>Make yourself at home.</h2><p>Use familiar Git workflows and the tools you already enjoy.</p></div></article>
+	</section>
+</main>
+{{template "base/footer" .}}

@@ -1,0 +1,55 @@
+/* Page intro: heading, supporting copy and decorative artwork only. */
+.soda-page-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 128px;
+  padding-top: 16px;
+  margin-bottom: 24px;
+}
+
+.soda-page-copy {
+  min-width: 0;
+}
+
+.soda-page-eyebrow {
+  color: var(--soda-page-link);
+  font: 500 11px/1.5 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .13em;
+  margin: 0 0 16px;
+}
+
+.soda-page-title {
+  color: var(--soda-page-text);
+  font: var(--soda-font-title);
+  letter-spacing: -.035em;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.soda-page-description {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--soda-page-muted);
+  margin: 0;
+}
+
+.soda-page-art {
+  width: 160px;
+  max-width: 30%;
+  height: auto;
+}
+
+.soda-page-intro--compact {
+  min-height: 0;
+  padding-top: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 700px) {
+  .soda-page-intro { gap: 12px; }
+  .soda-page-art { max-width: 25%; }
+  .soda-page-description { font-size: 16px; }
+}

@@ -1,0 +1,11 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2.tmpl (GPL-3.0-or-later); upstream SHA-256 82da1ade20b176d2c9c80d7b957b51ce2919a0ddb643b42cd562aef7f5aa21c9. */}}
+{{if .PersonalSettings}}{{template "user/settings/applications_oauth2_body" .}}{{else}}{{template "user/settings/applications_oauth2_body" (dict "ctxData" .)}}{{end}}
+{{define "user/settings/applications_oauth2_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
+{{if $personal}}<h2 class="soda-settings-inventory-heading soda-p-heading">{{else}}<h4 class="ui top attached header">{{end}}
+	{{ctx.Locale.Tr "settings.manage_oauth2_applications"}}
+{{if $personal}}</h2>{{else}}</h4>{{end}}
+
+{{if $personal}}{{template "user/settings/applications_oauth2_list" (dict "PersonalSettings" true "ctxData" .)}}{{else}}{{template "user/settings/applications_oauth2_list" .}}{{end}}
+
+
+{{end}}{{end}}

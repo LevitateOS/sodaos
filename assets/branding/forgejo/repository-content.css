@@ -1,0 +1,170 @@
+/* Repository release and wiki views retain Forgejo's native data,
+   permission gates, forms, menus, and destructive actions. */
+
+/* Wiki empty state, index, editor, and revision history. */
+.soda-wiki-start > .ui.container > .ui.center.segment {
+	max-width: 760px;
+	margin: 32px auto 0;
+	padding: 32px 24px !important;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+	box-shadow: none;
+}
+
+.soda-wiki-start .soda-wiki-welcome-art {
+	display: block;
+	width: 240px;
+	max-width: 100%;
+	height: auto;
+	margin: 0 auto 16px;
+}
+
+.soda-wiki-start h2,
+.soda-wiki-pages > .ui.container > h2,
+.soda-wiki-revisions h2,
+
+.soda-wiki-start p {
+	margin: 12px auto 16px;
+	max-width: 520px;
+	color: var(--soda-page-muted);
+	font-size: 16px;
+	line-height: 1.6;
+}
+
+.soda-wiki-pages > .ui.container > h2 {
+	margin: 24px 0 16px;
+	font-size: 28px;
+}
+
+.soda-wiki-pages .wiki-pages-list {
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+	box-shadow: none;
+}
+
+.soda-wiki-pages .wiki-pages-list td {
+	padding: 16px var(--soda-panel-inset);
+	border-color: var(--soda-page-edge);
+}
+
+.soda-wiki-pages .wiki-pages-list td:first-child a:not(.wiki-git-entry) {
+	color: var(--soda-page-text);
+	font: 600 16px/1.45 Barlow, sans-serif;
+}
+
+.soda-wiki-pages .wiki-pages-list td.text.right {
+	color: var(--soda-page-muted);
+	font: 400 12px/1.5 "IBM Plex Mono", monospace;
+}
+
+
+
+
+.soda-wiki-editor > .ui.container > form > .help {
+	margin: -4px 0 16px;
+	color: var(--soda-page-muted);
+}
+
+.soda-wiki-editor :is(input, textarea, .combo-markdown-editor) {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-wiki-revisions .ui.top.attached.header {
+	padding: 16px var(--soda-panel-inset);
+	border-color: var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+	background: var(--soda-page-surface);
+}
+
+.soda-wiki-revisions #commits-table,
+.soda-wiki-revisions .commit-table {
+	border-color: var(--soda-page-edge);
+	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+/* Full release and wiki detail views retain their native markup and hooks. */
+.soda-wiki-view .ui.dividing.header {
+	color: var(--soda-page-text);
+	font-family: "Fraunces Variable", Georgia, serif;
+}
+
+
+
+
+.soda-wiki-view .repo-button-row {
+	gap: 12px;
+	padding: 12px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-wiki-view .wiki-content-parts > .file-view {
+	padding: var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-release-list #release-list {
+	margin: 0;
+	padding: 0;
+}
+
+.soda-release-list #release-list > li {
+	gap: 16px;
+	margin-bottom: 16px;
+	padding: 16px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-release-list #release-list .release-title-wrap h4 a {
+	color: var(--soda-page-text);
+	font: var(--soda-font-heading);
+}
+
+.soda-release-list #release-list details.download {
+	border-color: var(--soda-page-edge);
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-canvas);
+}
+
+.soda-wiki-search-result {
+	color: var(--soda-page-text) !important;
+}
+
+.soda-wiki-search-result p,
+.soda-wiki-search-empty {
+	color: var(--soda-page-muted) !important;
+}
+
+@media (max-width: 700px) {
+	.soda-release-list #release-list > li {
+		padding: 16px 16px;
+	}
+
+	.soda-wiki-start > .ui.container > .ui.center.segment {
+		padding: 32px 16px !important;
+	}
+
+	.soda-wiki-pages > .ui.container > h2 {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.soda-wiki-pages .wiki-pages-list tr,
+	.soda-wiki-pages .wiki-pages-list td {
+		display: block;
+		width: 100%;
+		text-align: left !important;
+	}
+
+	.soda-wiki-pages .wiki-pages-list td:last-child {
+		padding-top: 0;
+	}
+}

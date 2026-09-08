@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Stage existing native build outputs plus configuration; does not build or install."""
-import argparse, hashlib, json, os, platform, shutil
+import argparse, hashlib, json, os, platform, re, shutil
 from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
@@ -12,6 +12,13 @@ build = source / '.artifacts/native' / a.arch
 stage = build / 'rootfs'
 if stage.exists():
     p.error('rootfs staging already exists; inspect and explicitly clear only this generated directory before restaging')
+# The merged preview hooks now call shared presentation templates. The bounded
+# appliance allowlist still ships only header/footer; do not emit a broken partial
+# frontend until the full presentation payload/install contract is implemented.
+for hook in ('header', 'footer'):
+    text = (source / f'appliance/forgejo/templates/custom/{hook}.tmpl').read_text()
+    if re.search(r'{{-?\s*template\s+"', text):
+        p.error('expanded Forgejo hook dependencies need complete presentation packaging; refusing a partial stage')
 stage.mkdir(parents=True)
 def copy(src, dest, mode=None):
     target = stage / dest.lstrip('/')

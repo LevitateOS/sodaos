@@ -109,6 +109,17 @@ class SodaspacesPackaging(unittest.TestCase):
             shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
             (checkout / 'assets').symlink_to(ROOT / 'assets', target_is_directory=True)
             shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
+            # Actual merged hooks depend on unstaged presentation partials. Refuse
+            # before any rootfs write rather than produce a broken appliance.
+            with patch('sys.argv', ['stage.py', '--arch', 'x86_64']), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
+                with self.assertRaises(SystemExit) as refused:
+                    runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
+            self.assertEqual(refused.exception.code, 2)
+            self.assertFalse((checkout / '.artifacts/native/x86_64/rootfs').exists())
+            # Continue testing the bounded staging mechanics with dependency-free
+            # synthetic hooks, not a claim that the expanded frontend is packaged.
+            for hook in ('header', 'footer'):
+                (checkout / f'appliance/forgejo/templates/custom/{hook}.tmpl').write_text('synthetic hook')
             (checkout / 'cmd/soda-dashboard').mkdir(parents=True)
             build = checkout / '.artifacts/native/x86_64'
             (build / 'bin').mkdir(parents=True)
@@ -135,7 +146,7 @@ class SodaspacesPackaging(unittest.TestCase):
             stage = build / 'rootfs'
             for name in FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name
-                self.assertEqual(p.read_bytes(), (ROOT / 'appliance/forgejo' / name).read_bytes())
+                self.assertEqual(p.read_bytes(), (checkout / 'appliance/forgejo' / name).read_bytes())
                 self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
                 for parent in p.parents:
                     if parent == stage:

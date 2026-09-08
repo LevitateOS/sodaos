@@ -1,0 +1,86 @@
+/* Owner profile components retain Forgejo's native identity, relationship and repository workflows. */
+.soda-profile {
+  padding-top: 32px;
+}
+
+.soda-profile .soda-profile-layout {
+  align-items: flex-start;
+}
+
+.soda-profile-card-context #profile-avatar-card {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  /* Native profile action menus extend beyond the card. */
+  overflow: visible;
+}
+
+.soda-profile-card-context #profile-avatar-card > .content,
+.soda-profile-card-context #profile-avatar-card > .extra.content {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-profile-card-context #profile-avatar-card .profile-avatar-name .header {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-weight: 650;
+}
+
+.soda-profile-card-context #profile-avatar-card :is(.username, .muted, .extra.content, .extra.content a) {
+  color: var(--soda-page-muted);
+}
+
+.soda-profile-card-context #profile-avatar-card .actions.button-row {
+  border-color: var(--soda-page-edge);
+}
+
+.soda-profile .soda-profile-content > .soda-tabs {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.soda-profile .soda-tabs .ui.label {
+  margin-left: 4px;
+  border: 0;
+  background: var(--soda-page-hover);
+  color: inherit;
+}
+
+.soda-profile #visibility-hint {
+  margin: 0 0 16px;
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-muted);
+}
+
+.soda-profile :is(#user-heatmap, #activity-feed, .user-cards, .soda-profile-readme) {
+  color: var(--soda-page-text);
+}
+
+.soda-profile #activity-feed,
+.soda-profile .soda-profile-readme,
+.soda-profile .user-cards {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.soda-profile .soda-profile-readme pre {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--soda-page-text);
+}
+
+.soda-profile .user-cards .card {
+  border-color: var(--soda-page-edge);
+}
+
+@media (max-width: 767px) {
+  .soda-profile { padding-top: 16px; }
+  .soda-profile .soda-profile-identity,
+  .soda-profile .soda-profile-content { width: 100% !important; }
+}

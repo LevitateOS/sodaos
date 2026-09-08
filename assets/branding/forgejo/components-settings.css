@@ -1,0 +1,128 @@
+/* Shared presentation for native Forgejo account, repository, organization,
+   and administrator side navigation. Native templates retain every link,
+   nested details group, visibility gate, form, and action. */
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu > .header.item {
+	padding: 8px 12px 12px;
+	border-bottom: 0;
+	background: transparent;
+	color: var(--soda-page-text);
+	font: 600 20px/1.3 "Fraunces Variable", Georgia, serif;
+}
+
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu :is(a.item, details.item > summary) {
+	margin: 4px 4px;
+	padding: 8px 12px;
+	border: 0;
+	border-radius: 8px;
+	color: var(--soda-page-muted);
+	font: 600 14px/1.45 Barlow, Arial, sans-serif;
+}
+
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu :is(a.item:hover, details.item > summary:hover) {
+	background: var(--soda-page-hover);
+	color: var(--soda-page-text);
+}
+
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu a.active.item {
+	background: var(--soda-page-selected);
+	color: var(--soda-page-link);
+}
+
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu details.item > .menu {
+	margin: 0 4px 8px 12px;
+	padding-left: 4px;
+}
+
+/* Open native settings sections. Family styles retain specialized lists,
+   tables, forms, monitoring output, and destructive action colors. */
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) {
+	min-width: 0;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
+	margin-top: 24px;
+	padding: 0 0 16px;
+	border: 0;
+	border-bottom: 0;
+	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+	background: transparent;
+	color: var(--soda-page-text);
+	font: 600 21px/1.35 "Fraunces Variable", Georgia, serif;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header:first-child {
+	margin-top: 0;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > :is(.ui.attached.segment, .ui.attached.table) {
+	border-color: var(--soda-page-edge);
+	background: transparent;
+	color: var(--soda-page-text);
+	box-shadow: none;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.attached.segment:not(table) {
+	padding: 0;
+	border: 0;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > :is(.ui.bottom.attached.segment, .ui.attached.segment:last-child, .ui.attached.table:last-child) {
+	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.attached.segment:only-child {
+	border-radius: 0;
+}
+
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) :is(.ui.table, table) :is(th, td) {
+	border-color: var(--soda-page-edge);
+}
+
+/* Native configuration and webhook headings can carry an action control. */
+:is(.soda-config-heading, .soda-webhook-heading).ui.header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+@media (max-width: 540px) {
+	:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
+		font-size: 19px;
+	}
+
+}
+
+/* Native menu separators are redundant beside the selected-item background. */
+:is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu .item::before {
+  display: none;
+}
+
+/* Blank section dividers keep their vertical rhythm; labeled dividers stay native. */
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .admin-setting-content, .org-setting-content) .divider:not(.horizontal):not(.vertical):not(.divider-text):empty {
+  border: 0;
+  height: 0;
+  margin-block: 24px;
+}
+
+/* Stacked settings navigation stays compact without hiding native destinations.
+   Nested groups span both columns so their hierarchy remains legible. */
+@media (max-width: 900px) {
+  :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu > :is(.header, details) {
+    grid-column: 1 / -1;
+  }
+}

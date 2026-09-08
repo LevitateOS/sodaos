@@ -1,0 +1,12 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/keys.tmpl (GPL-3.0-or-later); upstream SHA-256 e587ae7db2beecccd7af83b42a64b85b417c8157cd70726c38b8093e23638740. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--keys sshkeys")}}
+	<div class="user-setting-content soda-account-details soda-account-details--keys">
+		{{if not ($.UserDisabledFeatures.Contains "manage_ssh_keys")}}
+			{{template "user/settings/keys_ssh" .}}
+		{{end}}
+		{{template "user/settings/keys_principal" .}}
+		{{if not ($.UserDisabledFeatures.Contains "manage_gpg_keys")}}
+		{{template "user/settings/keys_gpg" .}}
+		{{end}}
+	</div>
+{{template "user/settings/layout_footer" .}}

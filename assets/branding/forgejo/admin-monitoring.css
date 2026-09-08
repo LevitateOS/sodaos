@@ -1,0 +1,143 @@
+/* Native Forgejo administration diagnostics. Shared components own the page
+   shell and form controls; these rules only arrange monitoring content. */
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child,
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child > form {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.soda-admin.monitor .admin-setting-content > .tw-flex:first-child > form :is(label, button) {
+  white-space: normal !important;
+}
+
+.soda-admin.monitor .admin-setting-content .ui.relaxed.divided.list :is(.content, .header, .description, code) {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.soda-admin-monitoring .soda-monitoring-table {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.soda-admin-monitoring .soda-monitoring-table .ui.table {
+  margin: 0;
+  border: 0;
+}
+
+.soda-admin-monitoring .soda-monitoring-table .ui.table :is(th, td),
+.soda-admin-monitoring--notice > .ui.table :is(th, td) {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.soda-admin-monitoring .soda-monitoring-table .ui.table thead th,
+.soda-admin-monitoring--notice > .ui.table thead th {
+  background: var(--soda-page-canvas);
+  white-space: nowrap;
+}
+
+.soda-admin-monitoring .soda-monitoring-table .ui.table tbody td:first-child {
+  font-weight: 600;
+}
+
+.soda-admin-monitoring--cron .ui.table td:nth-child(3),
+.soda-admin-monitoring--queue .ui.table td:nth-child(n+4):nth-child(-n+6),
+.soda-admin-monitoring--queue-manage .ui.table td:nth-child(n+4) {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}
+
+.soda-admin-monitoring--cron button[name="op"] {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--soda-control-height);
+  min-height: var(--soda-control-height);
+  border-radius: var(--soda-button-radius);
+}
+
+.soda-admin-monitoring--queue-manage .soda-form .inline.field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 16px;
+}
+
+.soda-admin-monitoring--queue-manage .soda-form input[name="max-number"] {
+  flex: 1 1 140px;
+  max-width: 220px;
+}
+
+.soda-admin-monitoring--notice > .ui.table td[colspan="6"] {
+  padding: 32px 16px;
+  color: var(--soda-page-muted);
+  font-size: 17px;
+}
+
+/* Notices uses a direct unstackable table instead of the monitoring wrapper.
+   Keep its native columns within a scrollable viewport on narrow screens. */
+.soda-admin-monitoring--notice > .ui.table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.soda-admin-monitoring--notice > .ui.table tfoot th {
+  background: var(--soda-page-canvas);
+}
+
+.soda-admin-monitoring--stacktrace > .tw-flex:first-child {
+  padding: 16px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-admin-monitoring--stacktrace > .tw-flex > .soda-form {
+  width: auto !important;
+  flex: 1 1 360px;
+  justify-content: flex-end;
+}
+
+.soda-admin-monitoring--stacktrace .soda-form input[name="seconds"] {
+  width: 88px;
+  min-width: 0;
+}
+
+.soda-admin-monitoring--stacktrace .ui.relaxed.divided.list > .item {
+  padding-block: 16px;
+}
+
+.soda-admin-monitoring--self-check > .ui.segment > .ui.message {
+  margin-block: 16px;
+  padding: 16px 16px;
+  border-radius: var(--soda-control-radius);
+  line-height: 1.6;
+}
+
+.soda-admin-monitoring--self-check > .ui.segment > .tw-p-2 {
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .soda-admin.monitor .admin-setting-content > .tw-flex:first-child > :is(.tw-flex-1, form) {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .soda-admin-monitoring .soda-monitoring-table .ui.table :is(th, td) {
+    padding: 12px;
+  }
+
+  .soda-admin-monitoring--stacktrace > .tw-flex > .soda-form {
+    justify-content: flex-start;
+  }
+
+  .soda-admin-monitoring--notice > .ui.table tfoot .button {
+    margin-block: 4px;
+  }
+}

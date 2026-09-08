@@ -1,0 +1,9 @@
+/* Repository creation keeps only adaptations for its native partials. */
+.soda-create .soda-form #template_units {
+	margin: 16px 0 0;
+	background: var(--soda-page-canvas);
+}
+
+.soda-create .soda-form #repo_template_search {
+	margin-top: 8px;
+}

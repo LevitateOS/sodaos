@@ -38,6 +38,124 @@ Preserve native markup, scripts, form behavior and branding. The source referenc
 is retained under `.artifacts/research/h01-0f43b9f/v15.0.7/forgejo/`; inspect the exact
 selected version/configuration when changing an override.
 
+## Shared presentation components
+
+The existing overrides use the [Soda component contract](../appliance/forgejo/README.md#presentation-component-contract):
+small Go template partials for intros, empty content and guest theme controls;
+explicit CSS classes for page shells, toolbars, form sections and native list rows.
+`custom/header.tmpl` loads component CSS before page-specific styles. Native partials
+receive their original context; caller templates retain permission decisions,
+translations, form fields and notification replacement hooks. Components accept
+plain presentation values, with normal template escaping and native asset prefixes.
+The [component audit](forgejo-components-audit.md) records ownership and remaining
+validation limits. The page shell is not an embeddable drawer root. Explore tabs
+and context menus delegate to native partials; scoped CSS only adapts their visuals.
+The guest preference script loads only on anonymous routes with a guest toggle.
+
+This extraction is live-mounted only in the existing local 15.0.7 preview.
+Production staging/verifier delivery is still pending. Shared presentation does
+not add handlers, authentication, permissions, a frontend build or a Lit dependency.
+Use Lit selectively when a new self-contained interaction warrants it; do not
+migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
+
+These are official customization mechanisms, with version-sensitive compatibility:
+[Forgejo's documentation](https://forgejo.org/docs/latest/admin/advanced/customization/)
+explicitly does not guarantee template/custom-resource compatibility across upgrades.
+Review the overridden templates, native partial/script boundaries, CSS adapters and
+local browser behavior against the exact candidate version before an upgrade.
+The [Lit shadow DOM documentation](https://lit.dev/docs/components/shadow-dom/)
+explains the CSS and DOM boundaries that any future Lit component must account for.
+
+## Notification bell quick-view investigation
+
+The [implementation plan/evidence](notification-preview-plan.md) sequences compact
+native rendering, bell/HTMX integration, focused validation and separately authorized
+delivery. Preview source and focused fixture tests are implemented. The authorized
+local template reload and signed-in populated/empty rendering checks passed;
+remaining native cases, user acceptance and production delivery are tracked there.
+
+Source reviewed at **15.0.7**, tag commit
+`d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`. The following records the original
+investigation and candidate; current implementation evidence is linked above.
+Neither source inspection nor fixture tests are authenticated browser proof.
+
+### Existing native interfaces
+
+- JSON `GET /api/v1/notifications?status-types=unread&limit=5` supplies the data,
+  but the API authentication group has OAuth2/token, HTTP signature, Basic and
+  optional reverse-proxy methods—not browser-session authentication. It calls
+  `AuthShared` with a nil session store. `reqToken` requires an authenticated actor;
+  scoped tokens need notification read access. Same-origin cookies alone do not
+  make this API usable from a native page. Do not expose a token, copy the session
+  to Soda, enable reverse-proxy auth or add a Go proxy to bypass that boundary.
+- Native `GET /notifications?div-only=true&q=unread&page=1&perPage=5` uses the
+  ordinary signed-in web middleware and renders `user/notification/notification_div`
+  with the current user's notification data. Forgejo's own notification JavaScript
+  already calls this route to refresh the full-page list. This is an intentional
+  HTML-fragment interface, not scraping a full page for data.
+- Native `GET /notifications/new` returns only the unread count. Existing
+  event-source/polling logic owns the navbar badge; do not create another poller.
+- Forgejo already loads HTMX through `features/common-global.js` → `htmx.js`.
+  Native redirect handling recognizes `HX-Request` and sends `204` plus
+  `HX-Redirect`, avoiding insertion of a login page into the fragment target.
+
+### Recommended candidate: native fragment plus existing HTMX
+
+Use supported navbar/custom hooks for the bell panel, plus a compact presentation
+branch in the already overridden notification fragment. A presentation-only query
+flag such as `soda-preview=true` can select that branch; it must not affect native
+identity, permissions or notification queries. Source wiring exposes the web context
+as `ctx.Context` (`NewTemplateContextForWeb`), whose `FormBool` can read the flag;
+the exact template expression still needs a focused rendering check. Preserve the
+existing full-page branch for all ordinary/native refresh requests.
+
+On opening, HTMX requests the native fragment with that flag, and swaps the compact
+server-rendered markup into one dedicated panel. Keep native links, escaping and
+issue icons. Do not parse rows from a full page, fetch JSON through Soda, query the
+upstream database, add an upstream executable patch or load a second HTMX copy.
+Small local JS may handle opening/closing, focus, in-flight cancellation and stale
+responses. The presentation flag is not an authentication or trust signal.
+
+The preview must not reuse full-page IDs (`notification_div`, `notification_table`,
+`notification_<id>`) or full-page initialization hooks. Native count updates replace
+`#notification_div` using the current page's query; inserting that ID in a dropdown
+would let the full-page updater replace it accidentally. Preview content also must
+not mount another `role=main`/`.soda-page` shell. Loading the preview issues no
+notification-status POST; visiting a native issue link retains Forgejo's own read
+behavior. Keep “View all notifications” and the ordinary bell URL as fallback.
+
+### Semantics and remaining checks
+
+The native unread query includes **unread plus pinned**, ordered by notification
+`updated_unix DESC`. Its pagination count counts unread only. `perPage=5` therefore
+means five native inbox entries, not necessarily five strictly unread entries.
+Recommended initial behavior is to match the native inbox and visibly label pinned
+entries. Strictly unread-only is a separate decision: filtering the returned batch
+can produce fewer than five (or no visible rows despite unread items on later pages).
+Do not call that “all caught up” or claim it is the latest five unread notifications.
+Do not implement an unbounded page scan or change the upstream query in templates.
+
+Read-only anonymous requests to the existing local preview returned API `401`,
+native fragment `303` to `/user/login`, and native fragment with `HX-Request: true`
+`204` with `HX-Redirect` to `/user/login`. No login/session was created deliberately,
+no existing credentials were used, and no notification or repository was mutated.
+Authenticated populated/empty/pinned output, request-flag rendering, native-session
+expiry/account switching, desktop/mobile bell behavior, Escape/outside click/focus,
+rapid reopen/late responses, failure fallback, subpaths, and coexistence with the
+full notifications page remain to test during implementation. No UI code, dependency,
+service reload or deployment was changed for this investigation.
+
+Source references (all at the selected tag):
+[API middleware](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/shared/middleware.go),
+[API routes](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/api.go),
+[native routes](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/web.go),
+[notification handler](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/user/notification.go),
+[ordering](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/models/activities/notification_list.go),
+[native updates](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/web_src/js/features/notification.js),
+[HTMX](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/web_src/js/htmx.js),
+[template context](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/services/context/context.go),
+[redirects](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/services/context/base.go).
+
 ## Minimal button, drawer and loading candidate
 
 Inspected 15.0.7 provides these concrete primitives:
@@ -138,6 +256,9 @@ The mutation-time path subsequently passed bounded native create/key/join/Copy/S
 on the fresh fixture. Separately approved retained cutover now serves the native
 integration with one Forgejo browser origin and schema v5; native private-page and
 existing-account access checks passed. See the [cutover evidence](implementation-status.md#approved-retained-cutover).
+
+The public [robot-avatar route](avatars.md) also uses this namespace, without
+sessions or grants; it does not confer authenticated drawer access.
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 

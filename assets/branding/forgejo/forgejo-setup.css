@@ -1,0 +1,139 @@
+/* Forgejo's first-run form keeps native fields and setup behavior; this file only
+   adapts that exact 15.0.7 markup to the Soda full-page presentation shell. */
+.soda-forgejo-setup {
+  position: relative;
+  padding-block: 32px 32px;
+}
+
+.soda-forgejo-setup .soda-setup-theme {
+  position: absolute;
+  z-index: 1;
+  top: 20px;
+  right: max(24px, calc((100% - 1240px) / 2));
+}
+
+.soda-forgejo-setup .install-config-container.soda-page-container {
+  display: block;
+  margin: 0 auto !important;
+}
+
+.soda-forgejo-setup .install-config-container > .column {
+  display: block;
+  width: 100% !important;
+  max-width: none;
+  padding: 0 !important;
+  text-align: left;
+}
+
+.soda-forgejo-setup .soda-page-intro {
+  margin-bottom: 24px;
+}
+
+.soda-forgejo-setup .soda-setup-panel.ui.segment {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.soda-forgejo-setup .soda-form > p {
+  margin: 0 0 16px;
+  color: var(--soda-page-muted);
+  line-height: 1.6;
+  text-align: left;
+}
+
+.soda-forgejo-setup .soda-form .optional.field {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.soda-forgejo-setup .soda-form .optional.field > summary {
+  margin: 0;
+  padding: 0 !important;
+}
+
+.soda-forgejo-setup .soda-form .optional.field[open] > summary {
+  margin-bottom: 16px;
+}
+
+.soda-forgejo-setup .soda-form .reinstall-message {
+  color: var(--color-error-text);
+  font-weight: 600;
+}
+
+.soda-forgejo-setup .soda-form .reinstall-confirm {
+  margin: 12px 0;
+}
+
+.soda-forgejo-setup .soda-form .right-content {
+  color: var(--soda-page-muted);
+}
+
+.soda-forgejo-setup .soda-form .ui.label {
+  border: 1px solid var(--soda-page-edge);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+}
+
+.soda-forgejo-setup-completing {
+  display: grid;
+  min-height: min(620px, calc(100svh - 120px));
+  place-items: center;
+}
+
+.soda-forgejo-setup-completing > .soda-page-container {
+  margin: 0 auto !important;
+}
+
+.soda-forgejo-setup-completing .soda-setup-completing {
+  width: min(520px, 100%);
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.soda-forgejo-setup-completing .soda-setup-completing .ui.grid {
+  margin: 0;
+  padding-inline: 0;
+}
+
+.soda-forgejo-setup-completing .soda-setup-completing .column {
+  padding: 0 !important;
+}
+
+.soda-forgejo-setup-completing .soda-setup-completing img {
+  max-width: 100%;
+  height: auto;
+}
+
+.soda-forgejo-setup-completing #goto-user-login {
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .soda-forgejo-setup {
+    padding-block: 24px 32px;
+  }
+
+  .soda-forgejo-setup .soda-setup-theme {
+    top: 12px;
+    right: 16px;
+  }
+
+  .soda-forgejo-setup .soda-setup-panel.ui.segment {
+    padding: 0;
+  }
+
+  .soda-forgejo-setup .soda-form .optional.field {
+    padding: 0;
+  }
+}

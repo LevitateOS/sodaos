@@ -29,17 +29,19 @@ func TestSodaspacesTemplates(t *testing.T) {
 		{"creating", &repository{ID: 42, IsBeingCreated: true}, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }}).ParseFiles(
+			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }, "AssetUrlPrefix": func() string { return "/assets" }, "dict": forgejoTemplateDict, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles(
 				"../appliance/forgejo/templates/custom/header.tmpl", "../appliance/forgejo/templates/custom/footer.tmpl")
 			if err != nil {
 				t.Fatal(err)
 			}
+			if _, err = tmpl.New("custom/soda/guest_theme").Parse(readForgejoTemplate(t, "custom/soda/guest_theme.tmpl")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = tmpl.New("custom/soda/theme_toggle").Parse(readForgejoTemplate(t, "custom/soda/theme_toggle.tmpl")); err != nil {
+				t.Fatal(err)
+			}
 			var out bytes.Buffer
-			ctx := struct {
-				Repository   *repository
-				IsSigned     bool
-				SignedUserID int64
-			}{tc.repo, tc.signed, 9007199254740993}
+			ctx := map[string]any{"Repository": tc.repo, "IsSigned": tc.signed, "SignedUserID": int64(9007199254740993), "Link": ""}
 			if err := tmpl.ExecuteTemplate(&out, "footer.tmpl", ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -104,7 +106,7 @@ func TestSodaspacesRequestLoggingOmitsQueries(t *testing.T) {
 }
 
 func TestSodaspacesTemplateEscapesContext(t *testing.T) {
-	tmpl, err := template.New("footer.tmpl").Funcs(template.FuncMap{"AppSubUrl": func() string { return "/native" }}).ParseFiles("../appliance/forgejo/templates/custom/footer.tmpl")
+	tmpl, err := template.New("footer.tmpl").Funcs(template.FuncMap{"AppSubUrl": func() string { return "/native" }, "AssetUrlPrefix": func() string { return "/native/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles("../appliance/forgejo/templates/custom/footer.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}

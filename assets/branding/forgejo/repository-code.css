@@ -1,0 +1,456 @@
+/* Stock Forgejo code workflows. Native editors, diffs, polling and actions retain
+   their own behavior; these adapters use the established Soda primitives. */
+.soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
+  gap: 12px;
+  padding: 16px var(--soda-panel-inset);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+.soda-code .soda-code-finder { margin-bottom: 16px; }
+.soda-code .soda-code-finder > .input { min-width: 0; }
+.soda-code #repo-file-find-input {
+  min-width: 0;
+  min-height: var(--soda-control-height);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font-family: Barlow,Arial,sans-serif;
+}
+
+.soda-code #repo-find-file-table {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code #repo-find-file-table td { padding: 12px 16px; }
+.soda-code .repo-button-row.soda-toolbar { justify-content: space-between; }
+.soda-code .repo-button-row.soda-toolbar > .button-sequence { flex-wrap: wrap; }
+.soda-code-browser .repo-description {
+  margin-bottom: 16px;
+  color: var(--soda-page-muted);
+  font-size: 16px;
+}
+.soda-code-browser .repo-description .description { color: var(--soda-page-text); }
+.soda-code-browser .repo-topics .repo-topic {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 999px;
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+.soda-code-summary.ui.segments {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-summary .repository-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 16px 16px;
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+.soda-code-summary .repository-menu .item {
+  color: var(--soda-page-muted) !important;
+  font: 500 14px/1.6 Barlow,Arial,sans-serif;
+}
+.soda-code-summary .repository-menu .item:is(:hover,.active) { color: var(--soda-page-link) !important; }
+.soda-code-summary #language-stats > ul { padding: 16px 16px; }
+.soda-code-ref-selector .ui.dropdown > .menu {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-clone-url {
+  border-color: var(--soda-page-edge) !important;
+  background: var(--soda-page-canvas) !important;
+  color: var(--soda-page-text) !important;
+  font: 400 12px/1.5 "IBM Plex Mono",monospace !important;
+}
+.soda-code-commit-heading { padding: 16px !important; }
+.soda-code-commit-heading .commit-summary {
+  color: var(--soda-page-text);
+  font: 600 25px/1.4 "Fraunces Variable",Georgia,serif;
+  overflow-wrap: anywhere;
+}
+.soda-code-commit-heading .commit-header-buttons { flex-wrap: wrap; gap: 8px; }
+.soda-code-diff > .diff-detail-box {
+  margin-block: 16px;
+  padding: 16px 16px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-diff .diff-detail-actions { flex-wrap: wrap; gap: 8px; }
+.soda-code-diff .diff-file-box { border-color: var(--soda-page-edge); }
+.soda-code-diff .diff-file-header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+.soda-code-files.ui.table {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-files.ui.table thead th {
+  padding-block: 16px;
+  background: var(--soda-page-hover);
+  border-color: var(--soda-page-edge);
+}
+.soda-code-files.ui.table td {
+  padding-block: 16px;
+  border-color: var(--soda-page-edge);
+}
+.soda-code-files.ui.table tr.entry:hover { background: var(--soda-page-hover); }
+.soda-code-files .name a.muted { color: var(--soda-page-text); }
+.soda-code-browser .code-search,
+.soda-code-file,
+.soda-code-file .file-header {
+  border-color: var(--soda-page-edge) !important;
+  background: var(--soda-page-surface) !important;
+}
+.soda-code-file .file-header {
+  padding: 16px 16px;
+  gap: 12px;
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0 !important;
+}
+.soda-code-file .file-actions { gap: 4px; }
+.soda-code-file,
+.soda-code-file :is(.file-view,.repo-file-view) {
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+}
+.soda-code .markup { color: var(--soda-page-text); }
+.soda-code-commits-heading.ui.header { flex-wrap: wrap; gap: 12px; }
+.soda-code-browser:is(.commits,.branches,.tags) > .ui.container > .ui.top.attached.header {
+  margin-top: 16px;
+  padding: 16px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  font: 600 20px/1.4 "Fraunces Variable",Georgia,serif;
+  box-shadow: none;
+}
+.soda-code-browser.branches > .ui.container > .ui.attached.segment:not(.table) {
+  padding: var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+.soda-code-history.ui.segment {
+  background: var(--soda-page-surface);
+  border-color: var(--soda-page-edge);
+}
+.soda-code-history #commits-table :is(th,td) { padding-block: 16px; }
+.soda-code-browser.commits .commit-table {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-browser.commits #commits-table :is(th,td) { border-color: var(--soda-page-edge); }
+.soda-code-browser:is(.branches,.tags) .ui.attached.table.segment {
+  overflow: auto;
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-browser:is(.branches,.tags) table td {
+  padding-block: 16px;
+  border-color: var(--soda-page-edge);
+}
+.soda-code-browser.tags .release-tag-name a {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable",Georgia,serif;
+}
+.soda-code-commit-search .ui.action.input > input {
+  min-height: var(--soda-control-height);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  border-color: var(--soda-page-edge);
+}
+.soda-code #repo-find-file-no-result h3,
+.soda-code-browser.quickstart :is(h3,h4),
+.soda-code-compare > .ui.container > h2,
+.soda-code-browser.forks > .ui.container > h2 {
+  color: var(--soda-page-text);
+  font-family: "Fraunces Variable",Georgia,serif;
+  letter-spacing: -.025em;
+}
+
+/* The editor remains full width; only the surrounding form adopts Soda controls. */
+.soda-code-editor > .ui.container > .soda-form {
+  width: 100%;
+  max-width: none;
+}
+.soda-code-editor .commit-form.soda-form-section { margin-top: 16px; }
+.soda-code-commit-title {
+  margin: 0 0 16px;
+  font: 600 25px/1.35 "Fraunces Variable",Georgia,serif;
+  color: var(--soda-page-text);
+}
+.soda-code-editor .quick-pull-choice {
+  padding: 0;
+  margin-block: 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-editor .repo-editor-header {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  margin-bottom: 16px;
+}
+.soda-code-editor .repo-editor-header .breadcrumb {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  overflow-wrap: anywhere;
+}
+.soda-code-editor #editor-bar {
+  min-height: var(--soda-control-height);
+  padding: 4px;
+  gap: 8px;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+}
+.soda-code-editor #editor-bar .switch {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.soda-code-editor #editor-bar .switch > .item {
+  padding: 8px 12px;
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-muted);
+  font: 600 14px/1.4 Barlow,Arial,sans-serif;
+}
+.soda-code-editor #editor-bar .switch > .active.item {
+  color: var(--soda-page-link);
+  background: var(--soda-page-selected);
+}
+.soda-code-editor #editor-bar .switch > .item:hover {
+  background: var(--soda-page-hover);
+}
+.soda-code-editor .ui.tab.segment {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+/* Branch selectors stay outside clipping panels so their native menus can open. */
+.soda-code .soda-code-branch-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: visible;
+}
+.soda-code-branch-picker > .dropdown { max-width: 100%; }
+.soda-code-branch-picker > .dropdown > .button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: var(--soda-control-height);
+  white-space: normal;
+}
+.soda-code-branch-picker > .dropdown > .button > .text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.soda-code-compare :is(.diff-file-header,.diff-detail-box) {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+.soda-code-compare .diff-file-box {
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+}
+.soda-code-compare > .ui.container > h2 .sub.header {
+  margin-top: 8px;
+  color: var(--soda-page-muted);
+  font: 400 16px/1.6 Barlow,Arial,sans-serif;
+}
+
+.soda-code-browser.quickstart .empty-repo-guide {
+  border-color: var(--soda-page-edge);
+  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+.soda-code-browser.quickstart .empty-repo-guide > .item {
+  padding: 16px var(--soda-panel-inset);
+}
+.soda-code-browser.quickstart .empty-repo-guide h3 small {
+  color: var(--soda-page-muted);
+  font: 400 14px/1.5 Barlow,Arial,sans-serif;
+}
+.soda-code-browser.quickstart .empty-repo-guide pre {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+}
+.soda-code-browser.forks > .ui.container > .tw-flex {
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+.soda-code-people .list > .card {
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+.soda-code-people .list > .card .name a { color: var(--soda-page-text); }
+.soda-code-people .list > .card .meta { color: var(--soda-page-muted); }
+.soda-code-people > h2 { font-family: "Fraunces Variable",Georgia,serif; }
+
+/* Actions keeps the native workflow filter, dispatch gates, HTMX refresh and app. */
+.soda-code-actions .flex-list {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-actions .flex-list > .flex-item {
+  padding: 16px var(--soda-panel-inset);
+  border-color: var(--soda-page-edge);
+}
+.soda-code-actions .actions-menu {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.soda-code-actions .actions-menu .item {
+  border-color: var(--soda-page-edge);
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+.soda-code-actions .actions-menu .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+.soda-code-actions #repo-action-view {
+  width: min(1400px,calc(100% - 48px));
+  margin-inline: auto;
+}
+.soda-code-no-workflows > svg {
+  margin-bottom: 16px;
+  color: var(--soda-page-link);
+}
+.soda-code-workflows .filter.menu {
+  padding: 0;
+  margin-bottom: 16px;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.soda-code-workflows .filter.menu > .dropdown.item {
+  min-height: var(--soda-control-height);
+  border-radius: var(--soda-control-radius);
+  color: var(--soda-page-text);
+  background: var(--soda-page-canvas);
+}
+.soda-code-runs .flex-item-title { font: 600 17px/1.5 Barlow,Arial,sans-serif; }
+.soda-code-runs .flex-item-body { color: var(--soda-page-muted); line-height: 1.6; }
+.soda-code-dispatch { flex-wrap: wrap; gap: 12px; border-radius: var(--soda-panel-radius); }
+.soda-code-dispatch #workflow_dispatch_dropdown > .menu {
+  padding: 16px;
+  border-color: var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  max-width: calc(100vw - 48px);
+}
+.soda-code-dispatch .menu .ui.form {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+@media (max-width: 700px) {
+  .soda-code :is(.soda-code-finder,.soda-code-branch-picker) {
+    padding: 16px;
+  }
+  .soda-code-editor #editor-bar { flex-wrap: wrap; }
+  .soda-code-editor #editor-bar .switch > .item { padding-inline: 8px; }
+  .soda-code-browser .repo-button-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .soda-code-branch-picker > .dropdown { width: 100%; }
+  .soda-code-branch-picker > .dropdown > .menu {
+    max-width: calc(100vw - 64px);
+  }
+  .soda-code-actions #repo-action-view { width: calc(100% - 32px); }
+}
+
+/* Repository landing metadata has one native owner, beside the code content. */
+.soda-repo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--soda-sidebar-width);
+  grid-template-areas: "code sidebar";
+  gap: 24px;
+  align-items: start;
+}
+.soda-repo-main { grid-area: code; min-width: 0; }
+.soda-repo-sidebar {
+  grid-area: sidebar;
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 0;
+  overflow-wrap: anywhere;
+}
+.soda-repo-sidebar .repo-description { margin-bottom: 12px; }
+.soda-repo-sidebar #repo-desc .link { display: block; margin-top: 8px; }
+.soda-repo-sidebar .repo-topics { display: flex; flex-wrap: wrap; gap: 4px; }
+.soda-repo-sidebar .repo-topics .repo-topic { margin: 0; font-size: 12px; }
+.soda-repo-sidebar #manage_topic { flex-basis: 100%; text-align: left; margin-top: 4px; }
+.soda-repo-sidebar #topic_edit { flex-wrap: wrap; }
+.soda-repo-sidebar #topic_edit > .dropdown { flex-basis: 100%; min-width: 0; }
+.soda-repo-sidebar .soda-code-summary.ui.segments {
+  margin-top: 16px !important;
+  border: 0;
+  border-top: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.soda-repo-sidebar .soda-code-summary .repository-menu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 16px 0;
+  border: 0;
+  background: transparent;
+}
+.soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 4px; white-space: nowrap; flex: none; }
+.soda-repo-sidebar #language-stats { border-top: 0; padding-top: 16px; }
+.soda-repo-sidebar #language-stats > ul { padding: 12px 0; }
+.soda-repo-sidebar #language-stats > ul > li { margin: 4px 0; }
+.soda-repo-main .repo-button-row.soda-toolbar { padding: 0; border: 0; background: transparent; }
+.soda-repo-main .clone-panel { min-width: 0; max-width: 100%; }
+.soda-repo-main .clone-panel input { min-width: 0; }
+@media (max-width: 900px) {
+  .soda-repo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "code"; gap: 16px; }
+  .soda-repo-sidebar { padding: 0 0 16px; border-left: 0; border-bottom: 0; }
+  .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+}
+
+/* The landing README is content, not another card beneath the file table. */
+.soda-repo-main .soda-code-file,
+.soda-repo-main .soda-code-file > .ui.attached.segment,
+.soda-repo-main .soda-code-file .file-header,
+.soda-repo-main .soda-code-file :is(.file-view, .repo-file-view) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+}
+.soda-repo-main .soda-code-file { margin-top: 24px; }
+.soda-repo-main .soda-code-file .file-header { padding-inline: 0; }

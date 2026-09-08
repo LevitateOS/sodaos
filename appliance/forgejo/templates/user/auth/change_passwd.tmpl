@@ -1,0 +1,7 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content soda-page soda-auth soda-native-forms user signin{{if .LinkAccountMode}} icon{{end}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
+	<div class="ui container">
+		{{template "user/auth/change_passwd_inner" .}}
+	</div>
+</div>
+{{template "base/footer" .}}

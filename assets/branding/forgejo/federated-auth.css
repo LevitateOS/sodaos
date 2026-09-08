@@ -1,0 +1,78 @@
+/*
+ * Presentation adapters for stock Forgejo 15.0.7 federated-auth templates.
+ * The adapted template wrappers remain GPL-3.0-or-later; upstream source:
+ * https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/templates/user/auth
+ */
+.soda-federated-auth {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(100%, 1120px);
+  margin-inline: auto;
+  padding: 32px 16px;
+}
+
+.soda-federated-auth > .soda-theme-toggle {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  z-index: 2;
+}
+
+.soda-federated-auth > :is(.ui.container, .ui.page.grid, .column) {
+  width: min(100%, 680px) !important;
+  margin-inline: auto !important;
+}
+
+.soda-federated-auth.ui.page.grid,
+.soda-federated-auth .ui.page.grid {
+  padding-inline: 0;
+}
+
+.soda-federated-auth .ui.raised.segments,
+.soda-federated-auth .ui.attached.segment,
+.soda-federated-auth .ui.attached.header {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+
+.soda-federated-auth .ui.raised.segments {
+  border-radius: var(--soda-panel-radius);
+  overflow: hidden;
+}
+
+.soda-federated-auth .ui.attached.segment p {
+  color: var(--soda-page-muted);
+  line-height: 1.6;
+}
+
+.soda-federated-auth > .secondary-nav {
+  width: min(100%, 680px);
+  margin: 0 auto 16px !important;
+  border-color: var(--soda-page-edge) !important;
+}
+
+.soda-federated-auth > .secondary-nav .item {
+  color: var(--soda-page-muted) !important;
+}
+
+.soda-federated-auth > .secondary-nav .active.item {
+  color: var(--soda-page-link) !important;
+  border-color: var(--soda-page-link) !important;
+}
+
+.soda-federated-auth--error .ui.attached.segment,
+.soda-federated-auth--error h3.ui.attached.segment {
+  color: var(--color-red);
+}
+
+@media (max-width: 700px) {
+  .soda-federated-auth {
+    justify-content: flex-start;
+    padding: 24px 16px;
+  }
+
+  }

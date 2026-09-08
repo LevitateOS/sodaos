@@ -1,0 +1,94 @@
+/* Native authentication markup remains upstream-owned. */
+body:has(.soda-login) {
+  --login-input-edge: var(--soda-light-neutral-300);
+  --login-action-highlight: var(--soda-light-link-ramp-down-1);
+}
+html[data-soda-login-theme="dark"] body:has(.soda-login) {
+  --login-input-edge: var(--soda-dark-border);
+  --login-action-highlight: var(--soda-dark-link-ramp-down-1);
+}
+
+body:has(.soda-login) {
+  --color-text: var(--soda-guest-text);
+  --color-text-light: var(--soda-guest-muted);
+  --color-body: var(--soda-guest-canvas);
+  --color-input-background: var(--soda-guest-surface);
+  --color-input-text: var(--soda-guest-text);
+  --color-input-border: var(--login-input-edge);
+  --color-primary: var(--soda-guest-action);
+  --color-primary-contrast: var(--soda-guest-on-action);
+  --color-primary-hover: var(--soda-guest-action-hover);
+  --color-primary-active: var(--soda-guest-action-pressed);
+}
+.soda-login.page-content > :first-child { margin-top: 0; }
+.soda-login {
+  display: grid;
+  flex: 1;
+  margin: 0;
+  font-family: Barlow, Arial, sans-serif;
+  color: var(--soda-guest-text);
+}
+.soda-login-story { padding: 16px; }
+.soda-login-brand { display: inline-flex; border-radius: 8px; }
+.soda-login-brand img { width: 142px; height: auto; }
+.soda-login-art, .soda-login-tagline { display: none; }
+.soda-login-panel { display: flex; align-items: center; padding: 24px 16px 32px; }
+.soda-login-form { width: 100%; max-width: 440px; margin: auto; }
+.soda-login h2 {
+  font-family: "Fraunces Variable", Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(38px, 4vw, 58px);
+  line-height: 1.08;
+  letter-spacing: -.04em;
+  margin: 0 0 16px;
+  color: var(--soda-guest-text);
+}
+.soda-login-eyebrow {
+  font: 500 11px/1.5 "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: .15em;
+  color: var(--soda-guest-link);
+  margin: 0 0 16px;
+}
+.soda-login-intro { font-size: 19px; line-height: 1.5; color: var(--soda-guest-muted); margin: 0 0 32px; }
+.soda-login .ui.container.fluid { width: 100% !important; margin: 0 !important; }
+.soda-login .ui.attached.segment,
+.soda-login .ui.attached.header { background: transparent; border: 0; box-shadow: none; padding: 0; width: 100%; margin: 0; }
+.soda-login:not(.icon) .ui.top.attached.header.center { display: none; }
+.soda-login .ui.form .primary.button { display: block; width: 100%; margin-block: 24px 16px; }
+.soda-login .ui.checkbox label { color: var(--soda-guest-muted); }
+.soda-login a { color: var(--soda-guest-link); }
+.soda-login .soda-login-account { font-size: 15px; color: var(--soda-guest-muted); margin: 24px 0 0; text-align: center; }
+.soda-login .ui.message { margin: 0 0 16px; }
+@media (min-width: 900px) {
+  .soda-login { grid-template-columns: 54% 46%; }
+  .soda-login-story { display: flex; flex-direction: column; padding: 16px 24px; border-right: 1px solid var(--soda-guest-edge); background: radial-gradient(ellipse at 40% 46%, var(--soda-guest-glow), transparent 65%); }
+  .soda-login-brand img { width: 156px; }
+  .soda-login-art { display: flex; flex: 1; flex-direction: column; justify-content: center; padding-top: 16px; }
+  .soda-login-art h1 { margin: 0 5% 16px; font: 600 clamp(42px, 4.4vw, 72px)/1.07 "Fraunces Variable", Georgia, serif; letter-spacing: -.045em; color: var(--soda-guest-text); }
+  .soda-login-art > img { display: block; width: 100%; height: auto; max-height: min(520px, max(180px, calc(100svh - 420px))); object-fit: contain; }
+  .soda-login-tagline { display: block; margin: 16px 0 0; font-size: 14px; color: var(--soda-guest-muted); }
+  .soda-login-panel { padding: 32px clamp(36px, 5vw, 90px); }
+}
+@media (max-height: 850px) {
+  .soda-login-panel { padding-block: 16px; }
+  .soda-login-eyebrow { margin-bottom: 16px; }
+  .soda-login-intro { margin-bottom: 24px; }
+  .soda-login .ui.form .field { margin-bottom: 16px; }
+  .soda-login .ui.form .primary.button { margin-top: 16px; }
+  .soda-login .soda-login-account { margin-top: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .soda-login *, .soda-login *::after { transition: none !important; } }
+
+.soda-theme-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+}
+.soda-theme-toggle .soda-guest-theme-icon { width: 22px; height: 22px; }
+.soda-login-logo-dark { display: none; }
+html[data-soda-login-theme="dark"] .soda-login-logo-light { display: none; }
+html[data-soda-login-theme="dark"] .soda-login-logo-dark { display: block; }

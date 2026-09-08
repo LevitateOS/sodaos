@@ -1,0 +1,81 @@
+/* Organization landing content composes native search, repository rows and
+   membership summaries; visibility and creation authority stay upstream. */
+.soda-org-home .soda-org-home-main,
+.soda-org-home .soda-org-home-sidebar {
+  min-width: 0;
+}
+
+.soda-org-home .ui.attached.table {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+  box-shadow: none;
+}
+
+.soda-org-home .flex-list > .flex-item {
+  padding-block: 16px;
+  border-color: var(--soda-page-edge);
+}
+
+.soda-org-home #readme_profile {
+  margin-bottom: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.soda-org-home #readme_profile > pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.soda-org-home .soda-org-home-main > .soda-toolbar {
+  margin-bottom: 16px;
+}
+
+.soda-org-home .soda-org-home-sidebar > .center.aligned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.soda-org-home .soda-org-home-sidebar > .ui.header {
+  gap: 12px;
+  padding: 16px var(--soda-panel-inset);
+  font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
+}
+
+.soda-org-home .soda-org-home-sidebar > .members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: var(--soda-panel-inset);
+  margin-bottom: 16px;
+}
+
+.soda-org-home .soda-org-home-sidebar .teams > .item {
+  padding: 16px var(--soda-panel-inset);
+  border-bottom: 1px solid var(--soda-page-edge);
+}
+
+.soda-org-home .soda-org-home-sidebar .teams > .item:last-child {
+  border-bottom: 0;
+}
+
+.soda-org-home .soda-org-home-sidebar .teams .team-name {
+  color: var(--soda-page-text) !important;
+  font: 600 17px/1.5 Barlow, sans-serif;
+}
+
+.soda-org-home .soda-org-home-sidebar .teams p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .soda-org-home .soda-org-home-sidebar > .center.aligned > .button {
+    flex: 1 1 180px;
+  }
+}

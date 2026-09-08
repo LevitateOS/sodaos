@@ -1,0 +1,8 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/blocked_users.tmpl (GPL-3.0-or-later); upstream SHA-256 b67e666e6ebc8463ab212fe19bda6252441441b4bd3c4cf5d419b02516569efd. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings blocked-users")}}
+<div class="user-setting-content">
+	<div class="ui attached segment soda-p-section">
+		{{template "shared/blocked_users_list" .}}
+	</div>
+</div>
+{{template "user/settings/layout_footer" .}}

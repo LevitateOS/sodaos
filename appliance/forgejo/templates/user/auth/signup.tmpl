@@ -1,0 +1,10 @@
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" class="page-content soda-page soda-auth soda-native-forms user signin{{if .LinkAccountMode}} icon{{end}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
+	<div class="ui middle very relaxed page grid">
+		<div class="column tw-flex tw-flex-col tw-gap-4 tw-max-w-2xl tw-m-auto">
+			{{if and (not .DisableRegistration) (not .LinkAccountMode)}}<img class="tw-mx-auto" src="{{AssetUrlPrefix}}/soda/forgejo/signup-papercraft.png" width="180" height="120" alt="">{{end}}
+			{{template "user/auth/signup_inner" .}}
+		</div>
+	</div>
+</div>
+{{template "base/footer" .}}

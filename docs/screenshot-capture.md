@@ -1,6 +1,94 @@
 # Screenshot capture brief — later real evidence
 
-Adapted from `soda-os`'s handbook capture rules, not its old page list or release claims. No screenshots have been captured for this implementation. Do not add broken image links or substitute generated UI, mockups or the Forgejo component sheet for an installed product screenshot.
+Adapted from `soda-os`'s handbook capture rules, not its old page list or release claims. Local preview captures are separate from installed-product evidence. Do not add broken image links or substitute generated UI, mockups or the Forgejo component sheet for an installed product screenshot.
+
+## Quick local page screenshots
+
+### Existing development fixture login
+
+The local development container `sodaos-local-forgejo` at
+`http://localhost:3300` has the user-authorized, non-admin `soda-screenshot`
+fixture account. Its authenticated Chrome profile is already saved in ignored
+`.local/screenshot-fixture-profile/`. Reuse it directly from the repository root:
+
+```sh
+node scripts/screenshot.mjs --profile .local/screenshot-fixture-profile \
+  http://localhost:3300/ \
+  http://localhost:3300/user/settings
+```
+
+If the session expires, log in through Forgejo's normal login form using that
+same profile. The generated credential is retained privately in ignored
+`.local/screenshot-fixture/create-output.txt`; automation can read it internally
+to fill the form. Never print that file or expose the password in command
+arguments, logs or screenshots. Select “Remember me” and close the browser
+cleanly before capturing. This account and profile belong to this local
+development instance and may not exist in another checkout or on another machine.
+
+### Setup and manual login
+
+Use Node.js, installed Google Chrome and the Playwright dependency already declared
+in `cockpit/package.json`. The helper uses a persistent browser context so mobile
+captures use the requested CSS viewport rather than cropping a desktop window.
+On the current development machine, ignored `node_modules/playwright` links to the
+already installed desktop runtime package; no package installation was needed.
+Other machines can use the existing Cockpit development dependencies or `NODE_PATH`
+pointing to an installed Playwright package directory.
+
+Log in once in its dedicated browser window, then press Enter in the terminal:
+
+```sh
+node scripts/screenshot.mjs --login http://localhost:3300/user/login
+```
+
+Choose “Remember me” if offered. The script keeps that browser profile in ignored
+`.local/screenshot-profile/`; it contains session cookies and stays private.
+It does not copy your normal browser's cookies or store a password in source.
+If the session expires, run `--login` again.
+
+Capture one or more URLs using that session:
+
+```sh
+node scripts/screenshot.mjs \
+  http://localhost:3300/ \
+  http://localhost:3300/user/settings
+
+node scripts/screenshot.mjs --width 390 --height 844 \
+  http://localhost:3300/explore/repos
+```
+
+Each run prints its PNG paths under a fresh `.artifacts/screenshots/capture-*`
+directory. Files are numbered in URL order. These are viewport screenshots by default. Use `--full-page` to include offscreen
+content while preserving the requested CSS viewport and record that mode in the
+verification sidecar. Each capture starts from a fresh document so a fragment-only
+URL still receives an actual HTTP response for verification. `--wait 3000` gives JavaScript three extra seconds to
+settle. Inspect the result: a PNG can still show an expired login or an error page.
+Use `--scroll-top` to inspect the header when native autofocus scrolls to a form
+field. This scrolls after settling; it does not disable focus or change the page.
+
+Keep the dedicated profile closed between runs. Use `--profile DIR` for a separate
+guest/account profile, `--out DIR` for a new output directory, or `CHROME` for a
+different Chrome executable. Run `--help` for defaults. Fixtures are added and
+removed manually through Forgejo; the script has no fixture management.
+
+### Reviewing CSS from an isolated worktree
+
+The running preview may bind another checkout. `--local-css` serves this
+checkout's Soda stylesheets to the capture browser in its `custom/header.tmpl`
+order, including added or removed files. It accepts only `http://localhost:3300`
+capture URLs and cannot be combined with `--login`:
+
+```sh
+node scripts/screenshot.mjs --local-css \
+  --profile /absolute/path/to/existing/.local/screenshot-fixture-profile \
+  --width 390 --height 844 http://localhost:3300/user/settings
+```
+
+This changes only the capture browser's CSS. Native server HTML, scripts, account
+preferences and the live checkout remain unchanged. Label these as candidate CSS
+captures; they do not prove that edited templates rendered on the server. If the
+profile or existing Playwright dependency lives in another checkout, use its
+absolute `--profile` path and `NODE_PATH` as needed. No profile copy is necessary.
 
 ## Conditions
 
@@ -41,3 +129,27 @@ own-user/project-boundary behavior is verified.
 ## Review
 
 Compare each caption and alt text with the actual image. Use only images that clarify an instruction; inspect narrow/wide layouts and relevant light/dark modes before publishing. Keep required warnings and distinguish observed state from unverified actions. The [branding component review](branding-review.md) is a separate visual/style check, not a screenshot source for claiming the full appliance works.
+
+### Verified presentation captures
+
+For the existing local Forgejo preview, use `--verify` to reject HTTP errors,
+redirects (including login), unexpected status pages, missing visible main
+landmarks, stale template revision/stylesheet registry or bytes, and browser
+errors before saving a PNG. `--landmark CSS` tightens the expected page landmark.
+`--theme light` or `--theme dark` changes only the capture browser's stylesheet
+and document theme; it does not submit or persist an account preference.
+
+```sh
+node scripts/screenshot.mjs --verify --landmark .soda-repo-issue-editor \
+  --profile .local/screenshot-fixture-profile --theme dark --scroll-top \
+  http://localhost:3300/vince/activity-playground/issues/new
+```
+
+Every accepted verified PNG has a JSON sidecar with requested/actual URL,
+HTTP status, visible-landmark selector, viewport, theme, template revision,
+registry hash, per-stylesheet hashes and timestamp. Bump the presentation meta
+revision and changed stylesheet versions in `custom/header.tmpl` when activating
+a new candidate. Rejected runs preserve earlier captures and report the reason;
+a failed route is not coverage. Verification requires real server assets and
+cannot be combined with `--local-css`. A valid capture still requires visual
+inspection, and a viewport image does not prove offscreen content or interactions.

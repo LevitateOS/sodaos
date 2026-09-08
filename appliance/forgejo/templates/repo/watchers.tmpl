@@ -1,0 +1,9 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/watchers.tmpl (GPL-3.0-or-later); upstream SHA-256 19350d7226014e63bfa7b9d12e48128e1f3d84ee8686f7603bc56e2c0f0b53e8. Presentation changes only. */}}
+{{template "base/head" .}}
+<div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-browser page-content repository watchers">
+	{{template "repo/header" .}}
+	<div class="ui container">
+		{{template "repo/user_cards" .}}
+	</div>
+</div>
+{{template "base/footer" .}}

@@ -1,0 +1,172 @@
+/* Native organization header, tabs, and settings shell. Page-specific cards
+   and lists remain with their organization leaf stylesheets. */
+.page-content.organization:has(.soda-org-header) {
+	padding-bottom: 32px;
+}
+
+.page-content.organization:has(.soda-org-header) > .ui.container:not(.fluid) {
+	width: min(1120px, calc(100% - 48px)) !important;
+}
+
+.soda-org-header {
+	box-sizing: border-box;
+	align-items: center;
+	min-height: 196px;
+	margin-top: 24px;
+	margin-bottom: 16px;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+}
+
+.soda-org-header > .org-avatar {
+	width: 92px;
+	height: 92px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: 24px 24px 24px 8px;
+	background: var(--soda-page-canvas);
+}
+
+.soda-org-header #org-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.soda-org-header .org-title {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	min-width: 0;
+}
+
+.soda-org-header .org-title h1 {
+	margin: 0;
+	color: var(--soda-page-text);
+	font: 600 clamp(31px, 4vw, 46px)/1.15 "Fraunces Variable", Georgia, serif;
+	letter-spacing: -.035em;
+	overflow-wrap: anywhere;
+}
+
+.soda-org-header .org-visibility .ui.label {
+	border: 1px solid var(--soda-page-edge);
+	background: var(--soda-page-canvas);
+	color: var(--soda-page-muted);
+}
+
+.soda-org-header .render-content {
+	margin-top: 12px;
+	color: var(--soda-page-muted);
+	font: 400 16px/1.6 Barlow, sans-serif;
+}
+
+.soda-org-header .meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	color: var(--soda-page-muted) !important;
+	font: 400 13px/1.55 "IBM Plex Mono", monospace;
+}
+
+.soda-org-header .button-sequence {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.page-content.organization:has(.soda-org-header) > .soda-org-header + .ui.container overflow-menu {
+	margin-bottom: 16px !important;
+	padding: 8px;
+	border: 1px solid var(--soda-page-edge) !important;
+	border-radius: var(--soda-control-radius);
+	background: var(--soda-page-surface);
+}
+
+.page-content.organization:has(.soda-org-header) > .soda-org-header + .ui.container overflow-menu .item {
+	border: 0;
+	border-radius: 8px;
+	color: var(--soda-page-muted);
+	font: 600 14px/1.45 Barlow, sans-serif;
+}
+
+.page-content.organization:has(.soda-org-header) > .soda-org-header + .ui.container overflow-menu .active.item {
+	background: var(--soda-page-canvas);
+	color: var(--soda-page-link);
+}
+
+.soda-org-settings-layout {
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.soda-org-settings-layout > .flex-container-nav {
+	flex: 0 0 240px;
+	width: 240px;
+}
+
+.soda-org-settings-layout > .flex-container-main {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.soda-org-settings .org-setting-content :is(table, .ui.table) th {
+	color: var(--soda-page-muted);
+	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+	letter-spacing: .025em;
+}
+
+.soda-org-settings .org-setting-content .list-header {
+	border-color: var(--soda-page-edge);
+	background: var(--soda-page-surface);
+}
+
+.soda-org-settings .org-setting-content :is(.ui.pagination.menu, .pagination) {
+	border-color: var(--soda-page-edge);
+}
+
+.soda-org-settings > .soda-org-header {
+	width: min(1120px, calc(100% - 48px)) !important;
+}
+
+@media (max-width: 900px) {
+	.soda-org-settings-layout > .flex-container-nav {
+		position: static;
+		flex-basis: 100%;
+		width: 100%;
+	}
+
+	.soda-org-settings-layout > .flex-container-main {
+		flex-basis: 100%;
+		width: 100%;
+	}
+}
+
+@media (max-width: 700px) {
+	.page-content.organization:has(.soda-org-header) > .ui.container:not(.fluid),
+	.soda-org-settings > .soda-org-header {
+		width: calc(100% - 32px) !important;
+	}
+
+	.soda-org-header {
+		align-items: flex-start;
+		min-height: 0;
+		padding: 0;
+	}
+
+	.soda-org-header > .org-avatar {
+		width: 64px;
+		height: 64px;
+		border-radius: 18px 18px 18px 6px;
+	}
+
+	.soda-org-header .org-header {
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.soda-org-header .button-sequence {
+		margin-left: 0 !important;
+		white-space: normal !important;
+	}
+}

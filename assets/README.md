@@ -12,6 +12,7 @@ Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3
 | `branding/icons/hicolor/` | System icons from 16px to 512px |
 | `branding/installer/` | Raster logo variants, export manifest, and Anaconda CSS |
 | `branding/cockpit/` | Light/dark login backgrounds, ICO/PNG icons, offline preview, and Cockpit/PatternFly styles |
+| `branding/fonts/` | Self-hosted Fraunces, Barlow and IBM Plex Mono WOFF2 faces, CSS, exact-version provenance and OFL licenses |
 | `branding/forgejo/` | App/favicon exports, manifest, artwork preview, native component preview, and light/dark/automatic themes in `css/` |
 | `branding/theme/palette.css` | Shared light/dark semantic color tokens and control ramps |
 | `branding/terminal/sodaos.txt` | Terminal wordmark |

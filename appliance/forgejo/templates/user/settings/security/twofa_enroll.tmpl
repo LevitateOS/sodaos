@@ -1,0 +1,22 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/security/twofa_enroll.tmpl (GPL-3.0-or-later); upstream SHA-256 fdd8187cd87d5c5ed07f78a49a7b5402c69b6f5c08fac5aa75f3ce307f94ea70. */}}
+{{$taskTitle := ctx.Locale.Tr "settings.twofa_enroll"}}{{if .ReenrollTwofa}}{{$taskTitle = ctx.Locale.Tr "settings.twofa_reenroll"}}{{end}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--twofa-enroll twofa" "HideNavbarLinks" .HideNavbarLinks "title" $taskTitle "parentURL" (printf "%s/user/settings/security" AppSubUrl) "parentTitle" (ctx.Locale.Tr "settings.security"))}}
+	<div class="user-setting-content soda-settings-editor soda-account-details soda-account-details--twofa-enroll">
+		<div class="ui attached segment soda-p-section">
+			<p>{{ctx.Locale.Tr "settings.scan_this_image"}}</p>
+			<img src="{{.QrUri}}" alt="{{.TwofaSecret}}">
+			<p>{{ctx.Locale.Tr "settings.or_enter_secret" .TwofaSecret}}</p>
+			<p>{{ctx.Locale.Tr "settings.then_enter_passcode"}}</p>
+			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
+				<div class="inline required field {{if .Err_Passcode}}error{{end}}">
+					<label for="passcode">{{ctx.Locale.Tr "passcode"}}</label>
+					<input id="passcode" name="passcode" autofocus required>
+				</div>
+				<div class="field">
+					<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "auth.verify"}}</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+{{template "user/settings/layout_footer" .}}

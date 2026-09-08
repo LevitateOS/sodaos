@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web"
@@ -18,6 +19,10 @@ import (
 func main() {
 	path := flag.String("config", "/etc/soda/dashboard.json", "configuration file")
 	flag.Parse()
+	if err := avatar.Validate(); err != nil {
+		slog.Error("embedded avatar style is invalid")
+		os.Exit(1)
+	}
 	c, err := config.Load(*path)
 	if err != nil {
 		slog.Error("configuration", "error", err)

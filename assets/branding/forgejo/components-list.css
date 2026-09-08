@@ -1,0 +1,74 @@
+/* List adapters style native rows without copying their rendering or actions. */
+.soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) > :is(.flex-item,.notifications-item) {
+  padding: 16px 0 !important;
+  gap: 16px;
+  border-color: var(--soda-page-edge);
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title {
+  font: 600 18px/1.5 Barlow,sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title > a {
+  color: var(--soda-page-text);
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title a.text.primary {
+  color: var(--soda-page-link) !important;
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .repo-topics .ui.label {
+  border-radius: 5px;
+  background: var(--soda-page-canvas);
+  border: 1px solid var(--soda-page-edge);
+  color: var(--soda-page-link);
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-body {
+  color: var(--soda-page-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) :is(.flex-item-leading,.flex-item-trailing) {
+  color: var(--soda-page-muted);
+}
+
+.soda-list #issue-list:empty {
+  min-height: 120px;
+}
+
+.soda-page .ui.pagination.menu {
+  background: var(--soda-page-surface);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  box-shadow: none;
+}
+
+.soda-page .ui.pagination.menu .item {
+  color: var(--soda-page-muted);
+  border-color: var(--soda-page-edge);
+}
+
+.soda-page .ui.pagination.menu .active.item {
+  color: var(--soda-page-on-action);
+  background: var(--soda-page-action);
+}
+
+@media (max-width: 700px) {
+  .soda-list > :is(.flex-list,#issue-list,#activity-feed) > .flex-item { gap: 8px; }
+}

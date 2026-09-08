@@ -1,0 +1,153 @@
+{{/* Adapted from Forgejo 15.0.7 templates/user/settings/profile.tmpl (GPL-3.0-or-later); upstream SHA-256 877b9dc97e0c7ee3769bf00765959009e91f30d064777387d4ac9433c5713e75. */}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--profile profile")}}
+	<div class="user-setting-content soda-account-details soda-account-details--profile">
+<aside class="soda-profile-portrait">
+		<a class="soda-avatar-trigger" href="#avatar-settings" aria-label="{{ctx.Locale.Tr "edit"}}: {{ctx.Locale.Tr "settings.avatar"}}">
+			{{ctx.AvatarUtils.Avatar .SignedUser 112}}
+			<span class="soda-avatar-overlay" aria-hidden="true">{{svg "octicon-pencil" 24}}</span>
+		</a>
+<details id="avatar-settings" class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.avatar"}}</summary>
+		<div class="soda-settings-disclosure-body">
+			<form class="ui form soda-p-form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
+				{{if not .DisableGravatar}}
+				<div class="inline field">
+					<div class="ui radio checkbox">
+						<input name="source" value="lookup" type="radio" {{if not .SignedUser.UseCustomAvatar}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "settings.lookup_avatar_by_mail"}}</label>
+					</div>
+				</div>
+				<div class="field {{if .Err_Gravatar}}error{{end}}">
+					<label for="gravatar">Avatar {{ctx.Locale.Tr "email"}}</label>
+					<input id="gravatar" name="gravatar" value="{{.SignedUser.AvatarEmail}}">
+				</div>
+
+				<div class="inline field">
+					<div class="ui radio checkbox">
+						<input name="source" value="local" type="radio" {{if .SignedUser.UseCustomAvatar}}checked{{end}}>
+						<label>{{ctx.Locale.Tr "settings.enable_custom_avatar"}}</label>
+					</div>
+				</div>
+
+				{{else}}
+				<input name="source" value="local" type="hidden">
+				{{end}}
+
+				<div class="field soda-avatar-upload">
+					<label for="new-avatar">{{ctx.Locale.Tr "settings.choose_new_avatar"}}</label>
+					<input id="new-avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+					<span class="help">{{ctx.Locale.Tr "avatar.constraints_hint" (ctx.Locale.TrSize .MaxAvatarFileSize) .MaxAvatarWidth .MaxAvatarHeight}}</span>
+				</div>
+
+				<div class="field button-sequence">
+					<button class="primary button">{{ctx.Locale.Tr "settings.update_avatar"}}</button>
+					<button class="ui danger button link-action soda-p-control" data-url="{{.Link}}/avatar/delete">{{ctx.Locale.Tr "settings.delete_current_avatar"}}</button>
+				</div>
+			</form>
+		</div>
+</details>
+<dialog id="avatar-dialog" class="soda-avatar-dialog" aria-labelledby="avatar-dialog-title">
+	<header class="soda-avatar-dialog-header">
+		<h2 id="avatar-dialog-title">{{ctx.Locale.Tr "settings.avatar"}}</h2>
+		<button type="button" class="soda-avatar-close" aria-label="{{ctx.Locale.Tr "cancel"}}">{{svg "octicon-x" 20}}</button>
+	</header>
+</dialog>
+</aside>
+		<div class="soda-profile-editor">
+			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
+				<fieldset>
+					<legend>{{ctx.Locale.Tr "settings.public_profile"}}</legend>
+
+
+					<label {{if .Err_FullName}}class="field error"{{end}}>
+						{{ctx.Locale.Tr "settings.full_name"}}
+						<input name="full_name" value="{{.SignedUser.FullName}}" maxlength="100">
+					</label>
+					<input type="hidden" name="pronouns" value="{{.SignedUser.Pronouns}}">
+
+					<label {{if .Err_Biography}}class="field error"{{end}}>
+						{{ctx.Locale.Tr "user.user_bio"}}
+						<textarea name="biography" rows="2" placeholder="{{ctx.Locale.Tr "settings.biography_placeholder"}}" maxlength="255">{{.SignedUser.Description}}</textarea>
+					</label>
+
+					<label {{if .Err_Website}}class="field error"{{end}}>
+						{{ctx.Locale.Tr "settings.website"}}
+						<input name="website" type="url" value="{{.SignedUser.Website}}" maxlength="255">
+					</label>
+
+					<label>
+						{{ctx.Locale.Tr "settings.location"}}
+						<input name="location" placeholder="{{ctx.Locale.Tr "settings.location_placeholder"}}" value="{{.SignedUser.Location}}" maxlength="50">
+					</label>
+				</fieldset>
+
+				<fieldset>
+<legend>{{ctx.Locale.Tr "soda.account_address"}}</legend>
+					<label {{if .Err_Name}}class="field error"{{end}}>
+						{{ctx.Locale.Tr "username"}}
+						<input name="name" value="{{.SignedUser.Name}}" data-name="{{.SignedUser.Name}}" required {{if or .UserRenameDisabled .IsReverseProxy}}disabled{{end}} maxlength="40">
+						{{if or .UserRenameDisabled .IsReverseProxy}}
+							<span class="help">{{ctx.Locale.Tr "settings.password_username_disabled"}}</span>
+						{{else}}
+							<span class="help">
+								{{ctx.Locale.Tr "settings.change_username_prompt"}}
+								{{if gt .CooldownPeriod 0}}
+								{{ctx.Locale.TrN .CooldownPeriod "settings.change_username_redirect_prompt.with_cooldown.one" "settings.change_username_redirect_prompt.with_cooldown.few" .CooldownPeriod}}</span>
+								{{else}}
+								{{ctx.Locale.Tr "settings.change_username_redirect_prompt"}}
+								{{end}}
+							</span>
+						{{end}}
+					</label>
+<p class="help">{{AppUrl}}{{.SignedUser.Name}}</p>
+</fieldset>
+				<fieldset>
+					<legend id="privacy-user-settings">{{ctx.Locale.Tr "settings.privacy"}}</legend>
+
+					<label id="visibility-setting" {{if .Err_Visibility}}class="field error"{{end}}>
+						{{ctx.Locale.Tr "settings.visibility"}}
+						<div class="ui selection type dropdown" aria-labelledby="visibility-setting">
+							{{if .SignedUser.Visibility.IsPublic}}<input type="hidden" id="visibility" name="visibility" value="0">{{end}}
+							{{if .SignedUser.Visibility.IsLimited}}<input type="hidden" id="visibility" name="visibility" value="1">{{end}}
+							{{if .SignedUser.Visibility.IsPrivate}}<input type="hidden" id="visibility" name="visibility" value="2">{{end}}
+							<div class="text">
+								{{if .SignedUser.Visibility.IsPublic}}{{ctx.Locale.Tr "settings.visibility.public"}}{{end}}
+								{{if .SignedUser.Visibility.IsLimited}}{{ctx.Locale.Tr "settings.visibility.limited"}}{{end}}
+								{{if .SignedUser.Visibility.IsPrivate}}{{ctx.Locale.Tr "settings.visibility.private"}}{{end}}
+							</div>
+							{{svg "octicon-triangle-down" 14 "dropdown icon"}}
+							<div class="menu">
+								{{range $mode := .AllowedUserVisibilityModes}}
+									{{if $mode.IsPublic}}
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.public_tooltip"}}" data-value="0">{{ctx.Locale.Tr "settings.visibility.public"}}</div>
+									{{else if $mode.IsLimited}}
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.limited_tooltip"}}" data-value="1">{{ctx.Locale.Tr "settings.visibility.limited"}}</div>
+									{{else if $mode.IsPrivate}}
+										<div class="item" data-tooltip-content="{{ctx.Locale.Tr "settings.visibility.private_tooltip"}}" data-value="2">{{ctx.Locale.Tr "settings.visibility.private"}}</div>
+									{{end}}
+								{{end}}
+							</div>
+						</div>
+						<span class="help">{{ctx.Locale.Tr "settings.visibility.description" "https://forgejo.org/docs/latest/user/repo-permissions/#profile-and-visibility"}}</span>
+					</label>
+
+					<label>
+						<input name="keep_email_private" type="checkbox" {{if .SignedUser.KeepEmailPrivate}}checked{{end}}>
+						{{ctx.Locale.Tr "settings.keep_email_private"}}
+						<span class="help">{{ctx.Locale.Tr "settings.keep_email_private_popup" .SignedUser.GetPlaceholderEmail}}</span>
+					</label>
+
+					<label id="keep-activity-private">
+						<input name="keep_activity_private" type="checkbox" {{if .SignedUser.KeepActivityPrivate}}checked{{end}}>
+						{{ctx.Locale.Tr "settings.keep_activity_private"}}
+						<span class="help">{{ctx.Locale.Tr "settings.keep_activity_private.description" (printf "/%s?tab=activity" .SignedUser.Name)}}</span>
+					</label>
+
+					<input type="hidden" name="keep_pronouns_private" value="{{if .SignedUser.KeepPronounsPrivate}}true{{else}}false{{end}}">
+				</fieldset>
+
+				<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "settings.update_profile"}}</button>
+			</form>
+		</div>
+
+	</div>
+{{template "user/settings/layout_footer" .}}

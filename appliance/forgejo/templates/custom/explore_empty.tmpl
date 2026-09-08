@@ -1,0 +1,41 @@
+{{/* Presentation only: never infer the existence of records hidden by native visibility. */}}
+<section class="soda-empty" aria-labelledby="soda-empty-title">
+  {{$icon := "octicon-people"}}
+  {{$eyebrow := "There’s room at the workbench"}}
+  {{$title := "No people to show yet."}}
+  {{$description := "People with profiles visible to you will appear here. Check back as your community grows."}}
+  {{if .PageIsExploreRepositories}}
+    {{$icon = "octicon-repo"}}
+    {{$eyebrow = "Room for your next idea"}}
+    {{$title = "No repositories to show."}}
+    {{$description = "Nothing is visible in this view right now. Reset the filters to see the repositories available to you."}}
+  {{else if .PageIsExploreOrganizations}}
+    {{$icon = "octicon-organization"}}
+    {{$eyebrow = "Good things start together"}}
+    {{$title = "No organizations to show yet."}}
+    {{$description = "When organizations are available to you, you’ll find their shared home here."}}
+  {{end}}
+  {{if .Keyword}}
+    {{$kind := "people"}}
+    {{if .PageIsExploreRepositories}}{{$kind = "repositories"}}{{else if .PageIsExploreOrganizations}}{{$kind = "organizations"}}{{end}}
+    {{$icon = "octicon-search"}}
+    {{$eyebrow = "A little room to explore"}}
+    {{$title = "No matches this time."}}
+    {{$description = printf "We couldn’t find %s matching “%s”. Try a different search, or start fresh." $kind .Keyword}}
+  {{end}}
+  {{template "custom/soda/empty_content" dict "TitleID" "soda-empty-title" "Icon" $icon "Eyebrow" $eyebrow "Title" $title "Description" $description}}
+  <div class="soda-empty-actions">
+    {{if .PageIsExploreRepositories}}
+      <a class="soda-empty-primary" href="{{AppSubUrl}}/explore/repos?only_show_relevant=false">Reset search and filters {{svg "octicon-arrow-right" 16}}</a>
+    {{else if .Keyword}}
+      <a class="soda-empty-primary" href="{{AppSubUrl}}/explore/{{if .PageIsExploreOrganizations}}organizations{{else}}users{{end}}">Clear search {{svg "octicon-arrow-right" 16}}</a>
+    {{else}}
+      <a class="soda-empty-primary" href="{{AppSubUrl}}/explore/repos">Explore repositories {{svg "octicon-arrow-right" 16}}</a>
+    {{end}}
+    {{if and .IsSigned .PageIsExploreRepositories}}
+      <a class="soda-empty-secondary" href="{{AppSubUrl}}/repo/create">{{ctx.Locale.Tr "new_repo.link"}}</a>
+    {{else if and .IsSigned .PageIsExploreOrganizations}}
+      {{if .SignedUser.CanCreateOrganization}}<a class="soda-empty-secondary" href="{{AppSubUrl}}/org/create">{{ctx.Locale.Tr "new_org.link"}}</a>{{end}}
+    {{end}}
+  </div>
+</section>

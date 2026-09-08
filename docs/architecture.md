@@ -34,6 +34,10 @@ source recipes/locks, not repeated prose version requirements.
 The `soda-dashboard` command/container/config/data names still identify the Go backend.
 Do not rename persistent records or roots simply because the UI is called Sodaspaces.
 
+The backend also renders [original robot avatars](avatars.md) from embedded SVG
+parts using Forgejo's supported provider setting. Only the avatar namespace is
+proxied on the Forgejo origin; broader Sodaspaces API/OAuth routing remains pending.
+
 ## Authority and identity
 
 - **Forgejo** owns identity, passwords/factors, native sessions, permissions, Git,

@@ -1,0 +1,13 @@
+# Directory illustration provenance
+
+Generated from scratch with the built-in image generator. Original PNG alpha is preserved.
+
+## Users: users-papercraft.png
+
+Use case: stylized-concept. Create a brand-new standalone Soda OS Users directory illustration, not a webpage. Three friendly individual little robots standing as peers in a relaxed compact group, each with cream folded-cardstock body, dark navy face panel and simple friendly eyes; distinct silhouettes and modest cobalt, mint and amber accents. One waves, one holds a tiny closed notebook, one wears small paper headphones. Represent individual contributors and meeting collaborators, not corporate hierarchy. Exquisite handmade papercraft miniature with visible folded edges, fine natural paper fibers, matte layered card, soft studio light. No glossy plastic or metallic surfaces. Color palette warm cream #fffdf8, cobalt #155eef, deep navy #1c2740, pale mint, tiny amber accent. Three-quarter perspective, entire subjects visible, clear readable silhouette at 300px wide, centered compact composition in landscape 1536x1024 with modest breathing room. Genuinely transparent alpha background, no scenery or background rectangle, no text, no logos, no watermark. Generate original artwork from scratch.
+
+## Organizations: orgs-papercraft.png
+
+Use case: stylized-concept. Create a brand-new standalone Soda OS Organizations directory illustration, not a webpage. A welcoming miniature shared workshop made from folded cardstock: three open architectural workspace bays joined on one small curved cobalt foundation, with a cream central arch and mint partition walls. Two tiny cream paper robots with dark navy face panels collaborate from separate bays, one passes a small blue project folder to the other across the shared central table. This represents a team with a shared home and shared projects, not a hierarchy or office skyscraper. Elegant simple coherent silhouette rather than a busy dollhouse. Exquisite handmade paper miniature, visible folded edges and layered card, fine subtle paper fibers, matte materials, soft studio lighting. No glossy plastic or metallic surfaces. Palette warm cream #fffdf8, vivid cobalt #155eef, deep navy #1c2740, pale mint, tiny amber accent. Three-quarter perspective, entire asset visible, centered compact landscape 1536x1024 composition, legible when displayed 300px wide. Genuinely transparent alpha background, no scenery/background rectangle, no lettering, no logos, no watermark. Generate original artwork from scratch.
+
+The Users replacement is documented in [the consistency review](art-consistency-review.md); the prompt above records the original generation.
