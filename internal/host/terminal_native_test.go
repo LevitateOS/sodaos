@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -106,8 +107,13 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	go server.Serve(listener)
 	defer server.Close()
 	defer d.CloseTerminals()
+	// A parent probe may kill only this exact owned child helper to test abrupt
+	// loss. No installed helper/service is ever signalled.
+	if os.Getenv("SODA_TERMINAL_HELPER_CHILD") == "1" {
+		select {}
+	}
 	c := NewClient(socket)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cid, err := d.terminalContainer(ctx, request.Project)
 	if err != nil {
@@ -151,7 +157,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			t.Fatal("native launch not confirmed")
 		}
 		t.Log("checking native account facts", a.Identity)
-		command(stream, `/usr/bin/python3 -c 'import os,json; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid()}))'`)
+		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman")}))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
 		var actual struct {
 			UID    int
@@ -161,13 +167,16 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			Cwd    string
 			TTY    bool
 			PID    int
+			Shell  string
+			Mise   string
+			Podman string
 		}
 		if json.Unmarshal([]byte(value[1]), &actual) != nil {
 			t.Fatal("native facts invalid")
 		}
 		sort.Ints(actual.Groups)
 		sort.Ints(a.Groups)
-		if actual.UID != a.UID || actual.GID != a.GID || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) {
+		if actual.UID != a.UID || actual.GID != a.GID || actual.Home != a.Home || actual.Cwd != a.Home || !actual.TTY || actual.PID <= 1 || !reflect.DeepEqual(actual.Groups, a.Groups) || actual.Shell != "/bin/bash" || actual.Mise == "" || actual.Podman == "" {
 			t.Fatal("native account/home/group/TTY mismatch")
 		}
 		if err = stream.Send(ctx, TerminalFrame{Type: "resize", Cols: 103, Rows: 37}); err != nil {
@@ -211,9 +220,104 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		}
 		results = append(results, map[string]any{"login": a.Login, "identity": a.Identity, "native_account_tty_resize_interrupt": true, "sudo_boundary": true, "login_exit_observed": true})
 	}
-	// This is intentionally not full browser, SSH, workload-preservation or lost-
-	// helper proof. Those must be observed independently before the plan gate closes.
-	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "scope": "native account/TTY/explicit-close only"}, "", "  ")
+	// Exercise real remote teardown, not just a closed WebSocket or dead host CLI.
+	// Foreground jobs and login PIDs are read back through an independent exec.
+	teardown := []map[string]any{}
+	for i, mode := range []string{"transport-eof", "silent-lease", "helper-killed"} {
+		t.Log("checking native teardown", mode)
+		client := c
+		var child *exec.Cmd
+		if mode == "helper-killed" {
+			childDir := filepath.Join(dir, "loss")
+			if err := os.Mkdir(childDir, 0700); err != nil {
+				t.Fatal("occupied child proof")
+			}
+			body, _ := json.Marshal(request)
+			childInput := filepath.Join(childDir, "request.json")
+			if err := os.WriteFile(childInput, body, 0600); err != nil {
+				t.Fatal("child input unavailable")
+			}
+			child = exec.Command(os.Args[0], "-test.run", "^TestInstalledTerminalBoundary$", "-test.timeout=3m")
+			child.Env = append(os.Environ(), "SODA_TERMINAL_NATIVE_INPUT="+childInput, "SODA_TERMINAL_HELPER_CHILD=1")
+			if err := child.Start(); err != nil {
+				t.Fatal("child helper unavailable")
+			}
+			defer func() {
+				if child.ProcessState == nil {
+					_ = child.Process.Kill()
+					_ = child.Wait()
+				}
+			}()
+			childSocket := filepath.Join(childDir, "host.sock")
+			until := time.Now().Add(5 * time.Second)
+			for {
+				if _, err := os.Lstat(childSocket); err == nil {
+					break
+				}
+				if time.Now().After(until) {
+					t.Fatal("child helper not ready")
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			client = NewClient(childSocket)
+		}
+		a := request.Accounts[i%2]
+		stream, err := client.OpenTerminal(ctx, TerminalRequest{Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()})
+		if err != nil {
+			t.Fatal("teardown terminal unavailable")
+		}
+		defer stream.Close()
+		if first, err := stream.Receive(ctx); err != nil || first.Type != "ready" {
+			t.Fatal("teardown launch unconfirmed")
+		}
+		command(stream, `printf '__SODA_LOGIN__%s\n' "$$"`)
+		login := waitText(stream, regexp.MustCompile(`(?m)^__SODA_LOGIN__([1-9][0-9]*)$`))[1]
+		command(stream, `/usr/bin/python3 -u -c 'import os,time,pathlib; parent=pathlib.Path("/proc/"+str(os.getppid())+"/stat").read_text().rsplit(")",1)[1].split()[1]; print("__SODA_JOB__"+str(os.getpid())+":"+parent); time.sleep(180)'`)
+		owned := waitText(stream, regexp.MustCompile(`(?m)^__SODA_JOB__([1-9][0-9]*):([1-9][0-9]*)$`))
+		job, launcher := owned[1], owned[2]
+		started := time.Now()
+		switch mode {
+		case "transport-eof":
+			stream.Close()
+		case "silent-lease":
+			for {
+				frame, err := stream.Receive(ctx)
+				if err != nil {
+					t.Fatal("lease teardown receipt unavailable")
+				}
+				if frame.Type == "closed" {
+					if frame.Reason != "expired" {
+						t.Fatal("lease teardown reason mismatch")
+					}
+					break
+				}
+			}
+		case "helper-killed":
+			if err := child.Process.Kill(); err != nil {
+				t.Fatal("owned helper kill failed")
+			}
+			_ = child.Wait()
+		}
+		until := started.Add(75 * time.Second)
+		for {
+			out, err := (Native{}).Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", cid, "/usr/bin/python3", "-I", "-c", `import os,sys; print(int(any(os.path.exists('/proc/'+p) for p in sys.argv[1:])))`, login, job, launcher)
+			if err != nil {
+				t.Fatal("independent teardown observation failed")
+			}
+			if strings.TrimSpace(string(out)) == "0" {
+				break
+			}
+			if time.Now().After(until) {
+				t.Fatal("owned login/foreground job survived native deadline")
+			}
+			time.Sleep(time.Second)
+		}
+		stream.Close()
+		teardown = append(teardown, map[string]any{"mode": mode, "login_exit_observed": true, "foreground_exit_observed": true, "launcher_exit_observed": true, "elapsed_seconds": time.Since(started).Seconds()})
+	}
+	// Independent SSH/workload preservation and browser integration are not
+	// fabricated by this private-helper test; observe them separately.
+	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "teardown": teardown, "scope": "native account/TTY/profile/explicit-close/EOF/lease/helper-loss"}, "", "  ")
 	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal("native evidence finalization failed")
