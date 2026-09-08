@@ -166,14 +166,66 @@ func TestForgejoPackagesStylesStayScoped(t *testing.T) {
 		t.Fatalf("read package stylesheet: %v", err)
 	}
 	css := string(contents)
-	for _, want := range []string{".soda-explore-code", ".soda-code-search", ".soda-packages", ".soda-package-view", ".soda-package-settings"} {
+	for _, want := range []string{".soda-explore-code", ".soda-code-search", ".soda-packages", ".soda-package-view", ".soda-package-settings", ".soda-package-cleanup-list", ".soda-package-cleanup-edit", ".soda-package-preview-table"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("package stylesheet lacks scoped owner %q", want)
 		}
 	}
-	for _, forbidden := range []string{"body {", "#navbar", ".page-footer"} {
+	for _, forbidden := range []string{"\nbody {", "#navbar", ".page-footer"} {
 		if strings.Contains(css, forbidden) {
 			t.Errorf("package stylesheet reaches shared shell with %q", forbidden)
+		}
+	}
+}
+
+func TestForgejoPackagesCleanupRulesKeepNativeActionsAndData(t *testing.T) {
+	functions := template.FuncMap{
+		"ctx":         func() forgejoTemplateContext { return forgejoTemplateContext{} },
+		"svg":         func(...any) string { return "" },
+		"StringUtils": func() any { return struct{}{} },
+		"DateUtils":   func() any { return struct{}{} },
+	}
+	for _, name := range []string{"list.tmpl", "edit.tmpl", "preview.tmpl"} {
+		if _, err := template.New(name).Funcs(functions).Parse(readForgejoTemplate(t, "package", "shared", "cleanup_rules", name)); err != nil {
+			t.Fatalf("parse cleanup-rule %s: %v", name, err)
+		}
+	}
+
+	list := readForgejoTemplate(t, "package", "shared", "cleanup_rules", "list.tmpl")
+	for _, want := range []string{
+		`range .CleanupRules`, `href="{{.Link}}/rules/add"`, `href="{{$.Link}}/rules/{{.ID}}"`,
+		`href="{{$.Link}}/rules/{{.ID}}/preview"`, `.KeepCount`, `.KeepPattern`, `.RemoveDays`, `.RemovePattern`,
+	} {
+		if !strings.Contains(list, want) {
+			t.Errorf("cleanup-rule list lost native contract %q", want)
+		}
+	}
+	if !strings.Contains(list, `class="soda-list"`) || !strings.Contains(list, `class="flex-list"`) {
+		t.Error("cleanup-rule list does not compose the shared list around the native list")
+	}
+
+	edit := readForgejoTemplate(t, "package", "shared", "cleanup_rules", "edit.tmpl")
+	for _, want := range []string{
+		`action="{{.Link}}" method="post"`, `name="id"`, `name="enabled"`, `name="type"`,
+		`name="match_full_name"`, `name="keep_count"`, `name="keep_pattern"`, `name="remove_days"`,
+		`name="remove_pattern"`, `name="action" value="save"`, `name="action" value="remove"`,
+		`href="{{.Link}}/preview"`, `.Err_Type`, `.Err_KeepCount`, `.Err_KeepPattern`, `.Err_RemoveDays`, `.Err_RemovePattern`,
+	} {
+		if !strings.Contains(edit, want) {
+			t.Errorf("cleanup-rule editor lost native form contract %q", want)
+		}
+	}
+	if strings.Count(edit, `class="ui form soda-form"`) != 1 {
+		t.Error("cleanup-rule editor must adapt its single native form exactly once")
+	}
+
+	preview := readForgejoTemplate(t, "package", "shared", "cleanup_rules", "preview.tmpl")
+	for _, want := range []string{
+		`len .VersionsToRemove`, `range .VersionsToRemove`, `href="{{.VersionWebLink}}"`,
+		`href="{{.Creator.HomeLink}}"`, `.CalculateBlobSize`, `.Version.CreatedUnix`, `colspan="6"`,
+	} {
+		if !strings.Contains(preview, want) {
+			t.Errorf("cleanup-rule preview lost native data contract %q", want)
 		}
 	}
 }
