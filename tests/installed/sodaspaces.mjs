@@ -11,14 +11,14 @@ import https from 'node:https';
 import path from 'node:path';
 
 let stage = 'private input validation';
-let context, run, result;
+let context, run, result, nativeBrowser;
 let interrupted = false;
 let refusedRequest = false;
 let failure = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
-  try { await context?.close(); } catch { /* Report only the safe stage below. */ }
+  try { await nativeBrowser?.close(); } catch { /* Report only the safe stage below. */ }
 };
 process.once('SIGINT', interrupt);
 process.once('SIGTERM', interrupt);
@@ -115,13 +115,9 @@ try {
   const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
   const {chromium} = require('playwright');
   assert(!interrupted);
-  context = await chromium.launchPersistentContext(path.join(run, 'profile'), {
-    headless: true, chromiumSandbox: true,
-    // Inspected Playwright 1.63.0 otherwise disables the behavior being tested.
-    ignoreDefaultArgs: ['--disable-back-forward-cache'],
-    env: {...process.env, HOME: home, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_DATA_HOME: path.join(home, '.local/share')},
-    viewport: {width: 1280, height: 900},
-  });
+  const {launchNativeBrowser} = await import('./native-browser.mjs');
+  nativeBrowser = await launchNativeBrowser(chromium, run, home);
+  context = nativeBrowser.context;
   assert(!interrupted);
   context.setDefaultTimeout(30000);
   let environmentReads = 0;
@@ -129,6 +125,7 @@ try {
   const writes = new Set(['/user/login', '/user/logout', '/login/oauth/grant', '/-/soda/api/session/logout']);
   async function guardedPage() {
     const p = await context.newPage();
+    await p.setViewportSize({width: 1280, height: 900});
     const cdp = await context.newCDPSession(p);
     // Playwright route handlers omit redirect hops. CDP Fetch pauses each hop
     // before transmission, including the authorization redirect from Soda.
@@ -383,7 +380,7 @@ try {
       : error?.message?.includes('strict mode violation') ? 'ambiguous_locator' : 'other';
   failure = true; // Never print Playwright errors/URLs/input bodies or credentials.
 } finally {
-  try { await context?.close(); } catch { failure = true; }
+  try { await nativeBrowser?.close(); } catch { failure = true; }
   failure ||= interrupted || refusedRequest;
   const outcome = failure ? 'failed' : result?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
   if (run) {

@@ -429,7 +429,17 @@ and SSE navigations, not a Soda account error. Stock `SignOut` broadcasts logout
 its notification/stopwatch workers navigate session tabs home. The probe now checks
 blur clearing before logout, waits for actual native sign-out without a competing
 click-navigation waiter, and explicitly revisits the repository if upstream took
-the old page away. Native workers, navigation and beforeunload remain unmodified. Full native build/stage, installed checks,
+the old page away. Native workers, navigation and beforeunload remain unmodified.
+
+The next attempts (`0576e60`/`fb6f32e`) stopped before logout because Playwright
+forces both tabs focused/visible. Separate source-backed diagnostics reproduced
+this in both prepared browser channels; another CDP session disabling focus
+emulation does not undo Playwright's session override. The selected correction is
+a stock Chromium process attached with public `connectOverCDP({noDefaults:true})`,
+using a private Unix WebSocket/pipe rather than a TCP debugger. Sandbox/TLS stay
+normal; no synthetic events or upstream worker suppression. A real two-tab diagnostic
+with that launcher observed the background page unfocused/hidden and foreground
+page focused/visible. Full-journey re-execution with this launcher remains pending. Full native build/stage, installed checks,
 retained-state rehearsal and cutover remain unperformed.
 
 ## Remaining work and permission boundary

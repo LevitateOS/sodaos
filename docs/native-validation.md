@@ -26,7 +26,9 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 
 ## Read-only Sodaspaces browser probe
 
-`tests/installed/sodaspaces.mjs` is authored and opt-in, **not executed native proof**.
+`tests/installed/sodaspaces.mjs` is opt-in. Partial isolated local execution and
+failures are recorded in the [handoff](implementation-status.md); the complete
+journey and milestone are not yet accepted.
 It uses stock 15.0.7, the candidate's served CSS/JS, real native forms and OAuth,
 then read-only drawer states. It never seeds cookies/sessions, substitutes responses,
 creates repositories/environments, joins or installs keys. Protective request
@@ -46,9 +48,13 @@ unsaved issue title without submitting it. An existing-environment view requires
 approved helper read scope; an absent reservation suffices for initial OAuth proof.
 
 Use a fresh restricted browser home with the selected CA already trusted by
-Chromium. All input/password/CA files are absolute regular mode-0600 files; the
+Chromium. Keep `HOME/sodaspaces-run/cdp.sock` within 103 bytes. All input/password/CA files are absolute regular mode-0600 files; the
 home is mode 0700. No TLS bypass or sandbox disabling is selected. Reuse prepared
-pinned Playwright/Chromium; the probe does not download browsers. Private request:
+pinned Playwright/Chromium and Cockpit's existing jsdom/WebSocket dependency; the
+probe does not download browsers. `native-browser.mjs` launches stock sandboxed
+Chromium and attaches through a private Unix socket/pipe with `noDefaults`, not a
+TCP debugger port. This avoids Playwright's always-focused/visible override and
+BFCache-disabling launch flag; it does not synthesize visibility or restore events. Private request:
 
 ```json
 {
@@ -84,8 +90,7 @@ Coverage includes raw proxy alias/encoding denials, native version/asset routes,
 conditional asset revalidation, actual Soda cookie attributes, anonymous/native-only
 cookies, two OAuth returns, actor/CSRF logout denials, native-only account switching,
 Soda-only logout, stale tabs, native unsaved form coexistence, keyboard/focus/backdrop,
-narrow/wide automatic themes and actual back-forward restoration. Playwright's
-inspected default `--disable-back-forward-cache` is omitted for this check. If a real
+narrow/wide automatic themes and actual back-forward restoration. The native launcher leaves BFCache enabled and omits Playwright's focus emulation. If a real
 BFCache restoration does not occur, the probe records incomplete scope and exits 2,
 not a synthetic pass; failure exits 1. Exit 0 is only this scoped journey. Current
 asset revalidation is not an update rehearsal; native provisioning/SSH, final product,

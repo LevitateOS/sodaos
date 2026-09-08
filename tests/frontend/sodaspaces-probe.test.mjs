@@ -14,7 +14,7 @@ assert(start > 0 && end > start);
 test('native probe guards every paused redirect before transmission', async () => {
   let paused;
   const calls = [];
-  const page = {};
+  const page = {async setViewportSize(size) { assert.equal(size.width, 1280); assert.equal(size.height, 900); }};
   const cdp = {
     on(name, handler) { assert.equal(name, 'Fetch.requestPaused'); paused = handler; },
     async send(method, params) { calls.push({method, params}); },
