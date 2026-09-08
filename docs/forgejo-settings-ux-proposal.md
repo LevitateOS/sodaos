@@ -401,3 +401,8 @@ Do not claim complete visual or functional acceptance from this investigation.
   retained in the investigation directory.
 - Exact upstream [native routes](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/web.go),
   retained in `.artifacts/research/forgejo-15.0.7-notifications/web.go`.
+
+
+Later presentation decision (2026-09-08): pronoun editing, privacy controls and
+public display are removed. Earlier pronoun references above describe the
+investigation baseline, not the current UI contract.

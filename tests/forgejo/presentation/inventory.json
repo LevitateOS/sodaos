@@ -617,13 +617,14 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "edbaeb304f291f8ea7ee8386d9ce2ab0283170aeffa2672122556f7c35d7df87",
+      "beforeRoleHash": "580c93f97f8736af2dc005c16f403bd3dec30f1b3ec8785aae6a15cce9034e88",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "pronouns retained only as hidden native round-trip field"
     },
     {
       "template": "admin/user/list.tmpl",
@@ -843,7 +844,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "aa0620aeb9d02d270f0a1f898b9756e0b53a6354ab90c01f523299309a397c31",
+      "beforeRoleHash": "94ed731382030a40a11891d54db2c650665bc84be69f18c473afd60e6c8dadd4",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -1459,7 +1460,6 @@
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "shared/user/profile_big_avatar",
         "base/footer"
       ],
       "roles": [
@@ -6598,7 +6598,6 @@
       "nativeCalls": [
         "base/head",
         "shared/search/code/search",
-        "shared/user/profile_big_avatar",
         "shared/search/code/search",
         "base/footer"
       ],
@@ -6911,7 +6910,6 @@
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "shared/user/profile_big_avatar",
         "base/footer"
       ],
       "roles": [
@@ -6945,7 +6943,6 @@
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "shared/user/profile_big_avatar",
         "base/footer"
       ],
       "roles": [
@@ -6980,7 +6977,6 @@
       "nativeCalls": [
         "base/head",
         "base/alert",
-        "shared/user/profile_big_avatar",
         "user/heatmap",
         "user/dashboard/feeds",
         "shared/repo_search",
@@ -8022,7 +8018,6 @@
         "light",
         "narrow",
         "privacy",
-        "pronoun-datalist",
         "public-identity",
         "username-restricted"
       ],
@@ -8037,7 +8032,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/006.png"
         ]
       },
-      "beforeRoleHash": "b317fd7bf1bdb40def7a63f8fb67462478f3d7aa2f3e10669c33254eedcb27ae",
+      "beforeRoleHash": "3afdd86322b3a61e069979bdd074b22c22fb40d3f710661f1169b215aad3856e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -8563,6 +8558,40 @@
         "webhook/new/wechatwork.tmpl"
       ],
       "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/user/profile_big_avatar.tmpl",
+      "composition": "overview",
+      "owner": "user",
+      "callers": [
+        "org/projects/list.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "shared/user/actions_menu",
+        "shared/user/actions_menu"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "signed-in",
+        "signed-out",
+        "populated-profile",
+        "follow-actions"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "verified read-only public fixture profile capture; populated pronoun state covered by exact-native display delta"
+      },
+      "presentationReview": "remove pronoun display; retain native profile actions",
+      "upstreamCallers": [],
+      "beforeRoleHash": "40376730d1828cf90090bf7a477fbf5368958ccbe05ffc57ccfd6ca0fc264d11"
     }
   ]
 }

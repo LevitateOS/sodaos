@@ -13,6 +13,8 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
    await t.test(`navigation and task start at ${width}`,async()=>{
     await page.setViewportSize({width,height:width<500?844:1000});
     const response=await page.goto(origin+'/user/settings');assert.equal(response.status(),200);assert.equal(new URL(page.url()).pathname,'/user/settings');
+    assert.equal(await page.locator('input[name=pronouns]:not([type=hidden]), input[name=keep_pronouns_private]:not([type=hidden]), #label-pronouns').count(),0);
+    assert(!/pronouns/i.test(await page.getByRole('main').innerText()));
     const nav=page.locator('.soda-settings-nav');
     await page.waitForSelector('.soda-settings-nav.is-enhanced');
     const trigger=width<900?nav.locator('.soda-settings-current'):nav.locator('.soda-settings-nav-trigger').first();

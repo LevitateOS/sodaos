@@ -40,6 +40,13 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 			if tt.name == "user/new.tmpl" {
 				restored = strings.Replace(restored, ` "artwork" "admin-new-account-papercraft.png"`, "", 1)
 			}
+			if tt.name == "user/edit.tmpl" {
+				// Restore only the reviewed hidden round-trip field for native parity.
+				restored = strings.Replace(restored, `<input type="hidden" name="pronouns" value="{{.User.Pronouns}}">`, `<div class="field">
+					<label for="pronouns">{{ctx.Locale.Tr "settings.pronouns"}}</label>
+					<input id="pronouns" name="pronouns" value="{{.User.Pronouns}}" maxlength="50">
+				</div>`, 1)
+			}
 			custom := `class="admin-setting-content soda-admin-details soda-admin-details--` + tt.kind + `"`
 			if count := strings.Count(restored, custom); count != 1 {
 				t.Fatalf("%s has %d scoped native content roots, want 1", tt.name, count)

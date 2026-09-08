@@ -1,5 +1,22 @@
 # Current handoff
 
+## Pronouns removed from Soda presentation
+
+Personal profile editing, the pronoun privacy checkbox, administrator user editing
+and public profile display no longer expose pronouns. The public-profile partial
+is an attributed exact-native override with only its pronoun suffix removed.
+The gallery and coverage inventory (229 overrides/helpers) reflect this change.
+Hidden personal/admin form fields retain existing native values so unrelated
+saves do not implicitly clear data. Forgejo's database, API and locale catalogs
+remain unchanged; this is presentation removal, not an upstream feature fork.
+
+Local revision `2026-09-08.15` is active via template reload. Go Forgejo checks,
+five source/inventory checks and eleven settings browser checks passed. Verified
+dark desktop settings/public-profile and light mobile settings captures under
+`.artifacts/profile-without-pronouns/` were visually reviewed. Native profile
+mutations and administrator routes were not exercised; administrator parity and
+hidden-value contracts were checked in source. No saved data was changed.
+
 ## Settings menu link activation fix
 
 A native pointer-click reproduction showed focusout closing the settings menu

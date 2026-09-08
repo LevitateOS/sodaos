@@ -463,7 +463,7 @@ the narrow main-content form adapter; compact row/search/modal forms are exclude
 Sign-in retains its native partial with a bounded form adapter. Do not replace
 these with selectors matching every descendant form or segment on a page.
 
-`tests/forgejo/presentation/inventory.json` accounts for all 228 overrides and
+`tests/forgejo/presentation/inventory.json` accounts for all 229 overrides and
 records local and embedded-15.0.7 callers, compositions, roles and required
 states. It is test-only, not routing configuration. Role-only source hashes
 complement the existing exact upstream-body tests; they do not constitute visual
@@ -538,3 +538,10 @@ It is component evidence, not native-route acceptance.
 See `i18n/README.md` for complete English catalog generation and the scoped local
 activation. Generated catalogs, gallery and screenshots stay in ignored
 `.artifacts/`. No appliance staging or deployment is part of this redesign.
+
+
+Pronoun editing, its privacy control and public-profile display are omitted from
+Soda presentation. Personal/admin forms carry existing native values in hidden
+fields solely to avoid resetting data on unrelated saves. Forgejo's database,
+API and native locale catalogs remain upstream-owned. The attributed
+`shared/user/profile_big_avatar` override changes only that display fragment.

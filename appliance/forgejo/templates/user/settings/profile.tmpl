@@ -62,16 +62,7 @@
 						{{ctx.Locale.Tr "settings.full_name"}}
 						<input name="full_name" value="{{.SignedUser.FullName}}" maxlength="100">
 					</label>
-
-					<label id="label-pronouns">
-						{{ctx.Locale.Tr "settings.pronouns"}}
-						<input name="pronouns" list="pronouns" placeholder="{{ctx.Locale.Tr "settings.pronouns_unspecified"}}" value="{{.SignedUser.Pronouns}}" maxlength="50">
-						<datalist id="pronouns">
-							{{range .CommonPronouns}}
-								<option value="{{.}}"></option>
-							{{end}}
-						</datalist>
-					</label>
+					<input type="hidden" name="pronouns" value="{{.SignedUser.Pronouns}}">
 
 					<label {{if .Err_Biography}}class="field error"{{end}}>
 						{{ctx.Locale.Tr "user.user_bio"}}
@@ -151,11 +142,7 @@
 						<span class="help">{{ctx.Locale.Tr "settings.keep_activity_private.description" (printf "/%s?tab=activity" .SignedUser.Name)}}</span>
 					</label>
 
-					<label>
-						<input name="keep_pronouns_private" type="checkbox" {{if .SignedUser.KeepPronounsPrivate}}checked{{end}}>
-						{{ctx.Locale.Tr "settings.keep_pronouns_private"}}
-						<span class="help">{{ctx.Locale.Tr "settings.keep_pronouns_private.description"}}</span>
-					</label>
+					<input type="hidden" name="keep_pronouns_private" value="{{if .SignedUser.KeepPronounsPrivate}}true{{else}}false{{end}}">
 				</fieldset>
 
 				<button class="ui primary button soda-p-control">{{ctx.Locale.Tr "settings.update_profile"}}</button>
