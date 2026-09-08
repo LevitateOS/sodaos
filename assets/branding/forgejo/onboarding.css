@@ -32,6 +32,8 @@
    keeps provider-specific fields, validation, and scripts under Forgejo ownership. */
 .repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid {
   width: min(920px, calc(100% - 48px));
+  /* Width already supplies gutters; native page-grid padding reaches 23%. */
+  padding-inline: 0;
   margin: 40px auto 64px;
 }
 
