@@ -4,24 +4,25 @@
 
 | Area | Current state |
 | --- | --- |
-| Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback passed; retained cutover is pending separate approval. Both standalone frontends remain removed |
+| Selected frontend | Stock Forgejo native pages plus delivered **Sodaspaces** repository button/right environment drawer (no new tab) |
+| Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback and separately approved retained cutover passed, with native browser and own-access observations. Both standalone frontends remain removed |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
-| Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
-| Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
+| Installed affected components | Built `bdbce8e` dashboard/strict-config runners CLI, native hooks and namespaced proxy/config on `soda-test`; schema v5 and stock Forgejo 15.0.7. Unchanged helper/default project image/other native components retain prior `8b823db` provenance; old frontends are no longer served |
+| Acceptance | Historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`); Sodaspaces steps 5–6 have passed bounded execution and approved cutover. U01 architecture acceptance was withdrawn; no final-product/aarch64 acceptance |
 
 Source removal is **not retained-appliance deployment**. `ee8091a` passed bounded
 read-only delivery/browser proof; `bdbce8e` subsequently passed native create/key/join/
-Copy/SSH on the separate fresh fixture. `soda-test` retains its old payload/schema after
-backup/quiesce/resume, not cutover. Root returns to configured Forgejo
+Copy/SSH on the separate fresh fixture. Separately approved `soda-test` cutover then
+delivered those affected payloads with recorded configuration and schema v5. Root returns to configured Forgejo
 home; OAuth can return to a freshly resolved repository under that origin using
 single-use stored context and the acting grant, never a caller-supplied URL.
 Schema v5 adds internal login cancellation contexts after v4's repository/expected-
-user IDs. The historical return-path column remains unused; live retained data was not
-migrated, while isolated copied private v3 → v5 rehearsal passed. Old pending OAuth must restart; existing session/grant bytes are preserved.
+user IDs. The historical return-path column remains unused. Both copied and live
+v3 → v5 migration preserved original rows/ciphertext before login. Old pending OAuth
+must restart; subsequent normal expiry/login/logout changes session/grant rows.
 New consent requests read user/repository/organization scopes, not administrator
-expansion; actual existing grants remain intact. Redirecting is not native-session
+expansion; actual grants, not requested scope names, govern authority. Redirecting is not native-session
 transfer or cross-origin authorization.
 
 Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
@@ -643,7 +644,7 @@ not a claim that a later source revision was rebuilt or installed wholesale.
 
 ## Phase-6 preserved-state rehearsal
 
-Evidence is retained in `.artifacts/phase6-658f2af/`. `soda-test` remains schema v3
+Evidence is retained in `.artifacts/phase6-658f2af/`. At rehearsal, `soda-test` was schema v3
 with 3 profiles, 2 keys, 4 projects, 7 memberships, 10 sessions and 9 encrypted grants;
 all four project roots were running and exact Soda hooks/assets absent. Existing
 browser tunnels and trusted Forgejo TLS work. Only its original Soda service was
@@ -734,24 +735,47 @@ original CA file or global trust.
 The real private-repository browser journey passed at probe `c007eb6` (`browser-d`),
 with three running views and genuine BFCache plus normal authentication/identity/
 logout/form guards. No environments, keys or memberships were written by the probe.
-A focused probe follow-up records usable displayed own SSH commands/fingerprints for
-independent comparison; its delivered-target rerun and direct own-key SSH observations
-are pending. This cutover is not whole-product, provider, laptop-route or aarch64
-acceptance. All old/fresh fixtures, failures and project roots remain retained.
+The follow-up probe `44819462d52de86fe8d40e3b278ec26ce48b942a` also passed on the
+delivered target (`browser-e`), recording both users' usable displayed own commands/
+fingerprints, three running views and genuine BFCache. Those displayed values match
+original membership logins and independent operator public-host-key observations.
+Native `ssh-keygen` independently matched fingerprints for all four roots.
+
+All **seven existing memberships across four projects** then passed direct own-key
+SSH identity and PTY checks from `linux-infra.dimensionlab.net`, using the unchanged
+`tun8417` route via `169.254.84.2`. No keys/accounts were created or updated, no project
+files were written by the probe commands, and no project lifecycle/routing action was
+performed. This is infra reachability, not laptop/Tailnet proof. Native private Git
+HTTP advertisement at the unchanged Forgejo origin passed using the real native Alice
+credential, without retaining its body or exposing the credential.
+
+Final checks preserved all original profile/key/project/membership/key-check rows,
+four container/image/running-state identities, helper bytes, native Forgejo/proxy units
+and credential/TLS bytes. Affected files and running backend match the export. The old
+Soda listener is absent; a preserved old SSH forward may still bind locally but no
+longer serves Soda. Native query-free request/OAuth logging was observed with zero
+audited credential/state query lines. Normal authentication/expiry/logout left two
+sessions/grants; the pre-login check had preserved all ten sessions/nine grant rows.
+Fresh paired backup is also retained at `.artifacts/cutover-c007eb6/backup/`.
+
+The scoped phase-6 exit passed. **92 Node tests, 38 Python build fixtures**, JS/Bash
+syntax, documentation and whitespace checks passed. The VM web-tunnel wrapper now
+advertises/forwards only native 24444 on future invocation, with a fake-SSH regression;
+no running tunnel was changed. No new Go compilation/native build
+was needed or performed in this cutover turn. This is an affected-component deployment
+of `bdbce8e` artifacts plus recorded configuration, not a wholesale install of the
+later probe/document revision. Full product/provider/aarch64 acceptance, console and
+laptop routing remain separate. All old/fresh fixtures and failures are retained.
 
 ## Remaining work and permission boundary
 
-- Preserve the two implemented security fixes and native-page context regression
-  coverage while wiring explicit actions; no retained-appliance acceptance is inferred
-  from local test results.
-- Preserve step 5's bounded native-page/helper-backed create/key/join/connection and
-  SSH evidence while completing phase-6 copied-state rehearsal and affected cutover.
-  Keep the read-only guard mode separate from explicitly bounded access requests.
-  Existing-account terminal work remains separate.
-  The verified template hook alone is not this integration. Stop if it needs a fork.
-- Rehearse exact candidate/config/grants/populated-state preservation before a
-  separately approved cutover; finish fresh/populated native product proof and
-  independent native aarch64 validation. No current UI/final product is accepted.
+- Preserve the implemented security, native-page context and explicit-action
+  regressions plus steps 5–6's bounded native delivery/access evidence. Keep read-only
+  guard mode separate from explicitly bounded writes; future maintenance needs its
+  own exact scope/current backup, not replay of the recorded cutover.
+- Existing-account terminal remains separate. Stop any approach that needs a fork.
+- Finish full fresh/populated product and independent native aarch64 acceptance;
+  scoped x86_64 delivery/browser/SSH results are not final-product acceptance.
 - Complete console delivery/interactive proof, Tailnet and both providers' real
   runner journeys, intended-client routes, native branding and package/tool closure.
 - Close [support-tool validation gaps](native-support.md#remaining-validation) and

@@ -125,8 +125,9 @@ home probe directories/results. Historical fixed-name U08 invocation remains in 
 no old fixture is silently retargeted. Record the actual client namespace and route:
 a fixture-local client does not establish builder/laptop or Tailnet reachability.
 
-Neither authored entrypoint is native evidence until its exact run passes. Phase 6
-still requires preserved-state rehearsal before retained-appliance cutover.
+Neither authored entrypoint is native evidence until its exact run passes. The
+handoff now records passed bounded phase-5 native access and separately approved
+phase-6 preserved-state cutover; those records do not authorize replay or other targets.
 
 For an existing private repository, use `--private-repository` after
 `--allow-auth-transitions`, with the ordinary read-only input (no public-key files).
@@ -134,6 +135,9 @@ It cannot combine with access mode. Both declared users must actually have nativ
 repository access. The anonymous stage requires stock Forgejo's 404, no visible Soda
 button and no environment reads; the remaining native login/OAuth/stale/BFCache/form
 journey is unchanged. Do not make retained repositories public to fit a probe.
+When an own connection is displayed, the probe records its usable SSH command and
+public fingerprint, bound to the declared actor/repository, for independent operator/
+client comparison. These public observations contain no cookie, grant or private key.
 
 Native Forgejo request logging uses the supported empty `LOGGER_ROUTER_MODE` and
 console access logger with method, `URL.EscapedPath` and status only. The default
@@ -163,8 +167,8 @@ are not reusable permission. Extend/invoke product-owned installed tests. Keep s
 installation identity, precise denial results and failure-safe bounded snapshots;
 a failed inspection is not evidence of absent state or forbidden access.
 
-1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Both old Soda frontends are removed from current source; native Sodaspaces browser coverage remains pending. Use native Forgejo operator setup, not the retired Soda People form. Test Soda's authority boundary: Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority. Do not duplicate upstream administrator-API permission tests.
-2. Provision the approved Alice/Bob identities through native Forgejo; each completes native password/security requirements and authenticates independently. Exercise native-page/Sodaspaces identity matching and development-key controls once implemented. Private keys stay on their clients; no database-seeded browser success.
+1. Complete the core-owned native Forgejo operator setup and OAuth bootstrap. Sign in through the browser. Both old Soda frontends are removed from current source; bounded native Sodaspaces browser coverage is recorded in the handoff. Use native Forgejo operator setup, not the retired Soda People form. Test Soda's authority boundary: Forgejo administrator status alone never grants native Cockpit/root or extra Soda operator authority. Do not duplicate upstream administrator-API permission tests.
+2. Provision the approved Alice/Bob identities through native Forgejo; each completes native password/security requirements and authenticates independently. Exercise native-page/Sodaspaces identity matching and implemented development-key controls within their explicit action scope. Private keys stay on their clients; no database-seeded browser success.
 3. Alice creates an ordinary Forgejo repository with native Git credentials and then creates its Soda environment. Only its human owner may create that environment. Both explicitly select **Add me to this project**. No creator auto-enrollment is assumed.
 4. From the real developer client, verify the SSH host key through native operator access and connect to the displayed project IP as Alice and Bob. Exercise interactive SSH, a noninteractive command, SCP and SFTP. Do not disable host-key checking to manufacture a pass.
 5. Run `tests/installed/project-os.sh` inside the project with `SODA_NATIVE_VALIDATE` set only for that named target. Inspect `sudo -l`: Alice is project-local administrator, Bob is not. Neither acquires a host account or the host engine socket. A second project must have separate writable state and native identities.

@@ -7,9 +7,10 @@ is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
 The isolated x86_64 authenticated native-page → Soda browser journey now passes,
 including real tab/BFCache transitions. Native x86_64 stage/export checks and a
 browser run using exported UI/branding and the built dashboard image also passed at
-`ee8091a`. Step-4 explicit create/key/join/connection controls now have local source
-coverage, not updated native-browser or helper-backed access proof. Appliance install
-and existing-environment validation remain separate.
+`ee8091a`. Explicit create/key/join/connection controls subsequently passed bounded
+native access proof at `bdbce8e`, followed by separately approved retained cutover,
+private-page browser and existing-account SSH/PTY checks. Exact evidence and limits
+remain in the handoff, not a general release/installation acceptance.
 
 ## Verified source surface
 
@@ -77,8 +78,8 @@ the separately approved [native journey](native-validation.md#read-only-sodaspac
 
 The current source implements the read states, explicit authentication and the
 create/key/join/SSH controls below. Handler/DOM tests cover action-time identity,
-duplicate/pending/stale requests and honest failures. The native read-only evidence
-is not proof of these new mutation/connection controls.
+duplicate/pending/stale requests and honest failures. Native mutation/connection
+proof is recorded separately from the earlier read-only evidence.
 
 Always show repository/environment context, the actual Soda acting identity and Close.
 
@@ -128,8 +129,10 @@ redirect URL. Inspected 15.0.7 `repo.GetByID` checks acting-user repository acce
 The header is a consistency guard, not proof of the live native browser session.
 Native-page context capture, stale-tab handling and Caddy routing passed the bounded
 isolated read-only journey; follow the [API caller boundary](dashboard-api.md#native-page-and-stale-tab-boundary).
-The new mutation-time path remains locally tested only. The retained installed guest
-still has historical separate origins/configuration and schema v3.
+The mutation-time path subsequently passed bounded native create/key/join/Copy/SSH
+on the fresh fixture. Separately approved retained cutover now serves the native
+integration with one Forgejo browser origin and schema v5; native private-page and
+existing-account access checks passed. See the [cutover evidence](implementation-status.md#approved-retained-cutover).
 
 Further source facts informing the [implementation sequence](sodaspaces-plan.md):
 

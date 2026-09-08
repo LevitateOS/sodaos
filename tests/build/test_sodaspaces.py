@@ -18,6 +18,19 @@ PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
 
 class SodaspacesPackaging(unittest.TestCase):
+    def test_vm_web_tunnel_uses_only_the_native_browser_origin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ssh = Path(tmp) / 'ssh'
+            ssh.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+            ssh.chmod(0o755)
+            result = subprocess.run(['bash', str(ROOT / 'scripts/test-vm.sh'), 'web-tunnel'],
+                                    env={**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH']},
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            self.assertIn('Forgejo + Sodaspaces https://localhost:24444', result.stdout)
+            self.assertIn('127.0.0.1:24444:127.0.0.1:24444', result.stdout)
+            self.assertNotIn('24443', result.stdout)
+
     def test_browser_probe_refuses_bad_inputs_without_secret_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

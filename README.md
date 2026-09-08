@@ -7,10 +7,10 @@ individual Linux accounts on the host.
 **Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
 button/environment drawer, without adding a new tab. Both standalone Soda frontends (React and Go/HTMX) are
 removed. The protected Go environment/access API, OAuth, native provisioning and
-separate Cockpit Tailnet/Runners pages remain. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Copied retained-state migration/rollback rehearsal passed; live cutover awaits separate approval.**
+separate Cockpit Tailnet/Runners pages remain. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
 
-The isolated `soda-test` guest still has historical `8b823db` React preview/HTMX
-bytes; it has been backed up, not cut over. Bounded native x86_64 first-product
+The isolated `soda-test` guest now serves native Forgejo/Sodaspaces with schema v5;
+all four retained project roots are preserved. Bounded native x86_64 first-product
 proof is accepted, not final product, fresh-install or aarch64 acceptance. See
 [current work](docs/sodaspaces-plan.md), [handoff/evidence](docs/implementation-status.md)
 and [local access](docs/local-testing.md). This is not a ready-to-deploy release.

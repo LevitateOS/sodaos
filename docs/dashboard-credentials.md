@@ -7,8 +7,9 @@ the complete historical migration record remains in Git at `9f3baa7`.
 Both standalone frontends are now removed, but the Go API's schema/key contract
 remains. Candidate `bdbce8e` subsequently passed fresh and copied retained-v3 → v5
 native rehearsal, including rejection and paired rollback cases, in an isolated
-networkless fixture. The retained VM has only been backed up and its unchanged old
-Soda service resumed; native Sodaspaces cutover still requires separate approval.
+networkless fixture. The user then separately approved retained cutover: a new matching backup preceded
+live v3 → v5 migration and native callback/config/proxy delivery. Native browser and
+existing-account access observations passed; see the [cutover handoff](implementation-status.md#approved-retained-cutover).
 This is a bounded service upgrade, not bootstrap, an updater or appliance recovery.
 Require explicit target/deployment permission before executing any step.
 
@@ -63,7 +64,7 @@ ownership before mutation. A reusable dashboard-only deployment tool is still pe
 private operator recipes executed the recorded `35df189` rehearsal/rollout;
 the steps above do not establish deployment proof for other revisions/targets.
 
-## Sodaspaces namespace transition — rehearsed, not cut over
+## Sodaspaces namespace transition
 
 The current source removes `public_url` / `--public-url` and uses the unchanged
 `forgejo_url` origin with `/-/soda/` API/login/callback routes. The strict loader
@@ -72,7 +73,8 @@ edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged; current
 source appends v4/v5 as described below, with unchanged encrypted grant binding/key.
 The integrated drawer and bounded native browser/access proof passed. Copied private
 state rehearsal also passed; see the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal).
-Neither proof is authorization to silently cut over the retained appliance.
+Those proofs did not authorize silent cutover; separate approval was subsequently
+obtained and the bounded retained-target transition passed.
 
 For a later approved transition, include the matching backend and strict-config
 consumers (notably `soda-runners`), copied configuration without `public_url`, Caddy
@@ -93,8 +95,8 @@ New host-only Secure/HttpOnly/SameSite=Lax cookies use unique names and Path
 expired across ports; users explicitly sign in again. Old pending browser flows
 restart, with no unprefixed callback alias or rewriting of stored destinations.
 Soda-only logout remains distinct from native Forgejo/SSH logout. Real browser/proxy
-and copied populated-state rehearsal passed independently; the retained target still
-needs its separately approved coordinated transition and post-cutover observations.
+and copied populated-state rehearsal passed independently, followed by separately
+approved retained transition and native browser/own-access observations.
 
 ## Schema v4 OAuth context
 
@@ -129,8 +131,10 @@ Wrong/missing keys still fail before migration. Pre-v5 binaries reject schema v5
 rehearse matching DB/config/key/artifacts before separately authorized deployment.
 The fresh fixture runs v5. Copied private v3 → v5 preserved every original column,
 profile/key/project/membership/session/grant row and ciphertext, with integrity,
-foreign keys and migrated contexts checked. Live retained `soda-test` remains v3;
-its callback and stored sessions were not migrated by the rehearsal.
+foreign keys and migrated contexts checked. The rehearsal did not mutate live retained data. The later separately approved
+`soda-test` transition migrated v3 → v5, preserving all original rows/ciphertext before
+login. Normal subsequent expiry/login/logout changed session/grant rows; original
+profiles, keys, projects and memberships remained unchanged.
 
 ## Compatibility and rollback
 

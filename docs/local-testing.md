@@ -1,12 +1,11 @@
 # Local test host and retained access
 
-This describes the **last recorded** isolated `soda-test` installation, not a live
-status check or permission to mutate it. Current source has neither standalone
-Soda frontend; the guest still has historical `8b823db` React preview/HTMX defaults.
-The Sodaspaces UI is implemented and its separate isolated local browser journey
-passed, but it is not installed on this guest. The new fixture is recorded in the
-[handoff/evidence](implementation-status.md#isolated-local-sodaspaces-browser-execution);
-its permission does not extend to this retained VM.
+This describes the **last recorded** isolated `soda-test` installation, not a new
+liveness check or permission to mutate it. Separately approved cutover delivered
+`bdbce8e` affected artifacts, native Forgejo/Sodaspaces and schema v5. Native private-page
+browser and all seven existing memberships' SSH/PTY observations passed; the four
+project roots and unchanged native components retain prior provenance. See the
+[cutover evidence](implementation-status.md#approved-retained-cutover).
 
 ## Target and state to preserve
 
@@ -29,8 +28,7 @@ When the existing builder-to-guest tunnels are available, the recorded origins a
 
 | Service | Origin | Identity / private builder input |
 | --- | --- | --- |
-| Historical Soda | `https://localhost:24443/` (`/app/` preview) | Forgejo `operator`; `.artifacts/test-vm/forgejo-operator-password` |
-| Native Forgejo | `https://localhost:24444/` | Same native Forgejo identity, not host root |
+| Native Forgejo + Sodaspaces | `https://localhost:24444/` | Forgejo `operator`; `.artifacts/test-vm/forgejo-operator-password`, not host root |
 | Cockpit | `https://localhost:29090/` | Native `root`; `.artifacts/test-vm/root-password` |
 
 For laptop browser access through the recorded builder, an explicitly selected
@@ -38,12 +36,13 @@ SSH transport is:
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
-  -L 24443:127.0.0.1:24443 -L 24444:127.0.0.1:24444 \
+  -L 24444:127.0.0.1:24444 \
   -L 29090:127.0.0.1:29090 vince@192.168.2.253
 ```
 
 Do not open duplicate occupied tunnels. Keep the exact configured localhost
-origins: both Soda and Forgejo are visited during historical OAuth. This is not
+origin: current OAuth stays on Forgejo at 24444 under `/-/soda/`. The old 24443
+Soda listener is removed; its preserved forwarding process is not a serving UI. This is not
 project routing or authorization for browser mutations. Read credentials privately,
 never in tool output/chat/logs. The builder's infrastructure Forgejo is unrelated.
 
@@ -61,7 +60,7 @@ Inspect the subcommand and actual target before use:
 | `scripts/test-vm.sh status` | Local process/status observation |
 | `scripts/test-vm.sh ssh` | Native operator shell; commands may mutate the guest |
 | `scripts/test-vm.sh console` | Guest console attachment, potentially interactive |
-| `scripts/test-vm.sh web-tunnel` | Soda 24443 / Forgejo 24444 forwarding |
+| `scripts/test-vm.sh web-tunnel` | Current Forgejo/Sodaspaces 24444 forwarding; does not open retired 24443 |
 | `scripts/test-vm.sh tunnel` | Cockpit 29090 / legacy loopback bootstrap 23000 forwarding |
 | `scripts/test-vm.sh start` | Starts the existing guest/disk; requires applicable scope |
 
@@ -77,7 +76,9 @@ SSH tunnel `tun8417` and exact run-owned firewall rules, not through a LAN/Tailn
 change. Direct SSH/PTY/SCP/SFTP, native Git/shared tools, HTTP/SQL and scoped lifecycle
 results are in the handoff. This does not route the laptop or establish automatic
 route/workload restart. Project addresses changed across lifecycle operations; old
-examples, agents and recorded bindings are not current reachability evidence.
+examples, agents and recorded bindings are not automatic liveness evidence. The latest
+cutover independently verified SSH/PTY for all seven existing memberships through
+this unchanged infra route, with operator-verified host keys; no laptop route was added.
 
 Preserve the run-owned tunnel, probe files, failed workload resources, private Git
 inputs and snapshots. Old agents/passphrases are not guaranteed available after

@@ -1,13 +1,12 @@
 # Soda environment/access API
 
 The root React `dashboard/` and its duplicate Forgejo workflow adapters have been
-removed. This guide describes the **retained Go source**, not an installed rollout
-or a completed Sodaspaces button/drawer. Native Forgejo owns collaboration/account/
-administration pages. The old Go/HTMX frontend is also removed. A native read-only
-hook/drawer caller passed its bounded x86_64 build/stage/export and isolated
-exported-payload browser/proxy journey at `ee8091a`. Step-4 create/key/join/connection
-controls are now source-implemented and locally tested; helper-backed native access
-and updated-payload browser proof remain step 5.
+removed. This guide describes the **Go environment/access contract**. Native Forgejo
+owns collaboration/account/administration pages; the Go/HTMX frontend is also removed.
+The integrated drawer passed bounded native create/key/join/Copy/SSH proof, followed
+by separately approved preserved-state cutover and existing-account observations.
+See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
+configuration, client reachability and acceptance limits.
 
 ## Browser namespace
 
@@ -17,8 +16,8 @@ Paths below are relative to that prefix: `/api/session` means
 backend still answers `/healthz` and redirects `/`; unprefixed API/login/callback
 paths are not aliases. Caddy forwards only the Soda prefix unchanged and leaves
 native Forgejo routes upstream-owned. Actor-context guards, repository-bound OAuth
-returns and native-page context capture passed the isolated read-only journey;
-this is not retained-appliance deployment or completed create/join/access proof.
+returns and native-page context capture passed both isolated and retained native
+journeys. The namespace was delivered in the separately approved retained cutover.
 
 ## Expected actor
 
@@ -87,15 +86,16 @@ Repository-scoped reads and new-join authorization are implemented; the native
 read-only button/drawer caller passed its bounded native journey. Stable-ID creation
 and the explicit drawer actions are now implemented in
 [step 4](sodaspaces-plan.md#4-wire-the-explicit-access-actions), with local handler/DOM
-coverage, not new native provisioning evidence. No shared native cookie is used.
+coverage and later bounded native provisioning/access evidence. No shared native
+cookie is used.
 
 ## Browser/session/security contracts
 
 Both reviewed fixes—repository authorization and callback/logout cancellation—are
 implemented and locally source-tested. The isolated read-only browser/proxy journey
-passed; new joins and deterministic callback/logout races retain their focused
-handler/store evidence. No retained-appliance deployment or native new-join proof
-is inferred.
+passed, followed by explicit native access proof and approved retained deployment.
+Deterministic callback/logout races retain their focused handler/store evidence;
+no runtime failure matrix or whole-product acceptance is inferred.
 
 - `GET /` redirects to configured Forgejo home. `GET /login` accepts optional
   `repository_id` and `expected_user_id` with the same positive-ID representation;

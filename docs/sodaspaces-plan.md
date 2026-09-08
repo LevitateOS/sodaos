@@ -8,15 +8,15 @@ pass; see [exact evidence and limits](implementation-status.md#isolated-local-so
 Step 2's backend repository reads/new-join checks are implemented. Step 3's bounded
 x86_64 exit passed at `ee8091a`: real native build/stage/export and an exported-payload
 browser journey. Step 4 is now source-implemented with local handler/DOM coverage;
-step 5's bounded native x86_64 access exit passed at `bdbce8e`. Step 6 remains incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+step 5's bounded native x86_64 access exit passed at `bdbce8e`. Step 6's separately approved retained cutover and native browser/SSH observations also passed. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
-locally tested. Neither is deployed to the retained appliance; the isolated
-browser proof does not establish installed security or preserved-state migration.
+locally tested, then delivered in the approved retained cutover. Deterministic race
+coverage remains handler/store evidence; installed observations have their own scope.
 
-**Next milestone:** [step 6's preserved-state rehearsal and cutover](#6-rehearse-and-cut-over-separately).
-The read-only step-3 gate passed at the recorded local x86_64 scope; this does not
-establish appliance installation, project access or retained-state cutover.
+**This implementation sequence is complete at its bounded x86_64 scope.** Existing-account terminal and independent acceptance obligations remain [separate follow-up](#follow-up-and-limits).
+The read-only step-3 gate alone did not establish appliance installation, project
+access or retained-state cutover; those later results have distinct evidence.
 
 ## Selected approach
 
@@ -520,12 +520,14 @@ host-network and retained-appliance actions still require separate scope.
 
 ### 6. Rehearse and cut over separately
 
-**Rehearsal passed; cutover pending separate approval.** Actual prior/candidate images
-passed fresh and copied retained-v3 migration, missing/wrong-key and future-version
-refusal, preservation and paired rollback on the isolated fixture. Retained `soda-test`
-was backed up with only its old Soda service quiesced/resumed; no schema/config/callback
-cutover occurred. See the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal)
-and [affected-component procedure](installation.md#retained-sodaspaces-cutover).
+**Bounded exit passed after separate approval.** Fresh/copied-state rehearsal preceded
+a new paired backup and affected-component cutover on `soda-test`. Native callback/
+namespace/config/schema-v5 delivery, private-page browser/own-connection checks and
+all seven existing memberships' SSH/PTY observations passed. Four roots and persistent
+product records were preserved; no project lifecycle or routing change occurred.
+See the [cutover handoff](implementation-status.md#approved-retained-cutover) and
+[affected-component procedure](installation.md#retained-sodaspaces-cutover). The steps
+below remain the maintenance contract, not permission to replay it.
 
 - Author the affected-component procedure using [credential preservation](dashboard-credentials.md),
   [installation](installation.md) and [native validation](native-validation.md).

@@ -92,9 +92,10 @@ a prior binary is not assumed compatible with the new schema.
 ### Retained Sodaspaces cutover
 
 This is the bounded affected-component procedure for the retained `soda-test`,
-**not an executed cutover or general upgrade tool**. Fresh delivery and copied private
-v3 → v5 / paired-v3 rollback rehearsal passed; see the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal).
-The plan requires separate live-cutover approval after that rehearsal.
+**not a general upgrade tool or permission to replay maintenance**. Fresh delivery,
+copied private v3 → v5 / paired rollback and the separately approved retained cutover
+passed; see the [handoff](implementation-status.md#approved-retained-cutover). Any new
+maintenance still needs its own exact scope and current backup.
 
 1. Approve the exact candidate/configuration and short Soda/Forgejo/proxy interruption.
    Record installed image IDs and effective units, not assumed `:dev` tags: the retained

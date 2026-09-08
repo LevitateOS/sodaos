@@ -14,7 +14,7 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 ## Current execution boundary
 
-The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; default routes remain HTMX. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not final-product/release acceptance. The missing console hook remains an explicit delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
+The original handoff was **source-complete, unbuilt, unvalidated (M01–M14)**. The user subsequently authorized local builds/tests and scoped native execution on the existing isolated `soda-test` VM, using this x86_64 infra workspace as builder/client. Candidate `8b823db` passed full native build/check and backed-up populated-v3 affected-component rollout at `/app/`; routes then defaulted to HTMX, superseded by the scoped Sodaspaces cutover recorded below. Four environments are retained. **U08 is accepted for bounded native x86_64 first-product proof**, combining real c96c108 fresh/different-UID exec evidence, earlier lifecycle results for explicitly unchanged mechanisms and merged-candidate regressions. This is not final-product/release acceptance. The missing console hook remains an explicit delivery gap; full operator/provider and aarch64 acceptance are pending. Both additional-fixture approvals and the original VM reboot have been used; no further fixture, lifecycle action, capability change or target is implied. Preserve every root, later write, private credential input and evidence. The private route serves infra, not the laptop automatically; old backups are not lossless rollback. See `docs/local-testing.md` and `docs/implementation-status.md` for exact bytes, evidence and remaining scope.
 
 The user subsequently authorized local builds and automated tests for the U09
 source work on this development machine. This does not authorize deployment,
@@ -46,9 +46,12 @@ native x86_64 build/export and real create/key/join/Copy/SSH validation on the n
 routing. Phase 6 covers preserved-state rehearsal before coordinated affected-component
 maintenance on retained `soda-test`; no project lifecycle, unrelated provider/network
 change, deletion or blanket appliance upgrade is included. Copied-state rehearsal
-passed; only backup/quiesce/resume has executed on retained `soda-test`. The plan's
-separate live-cutover approval is still required. See the handoff for exact executed
-versus pending actions and protected backups.
+passed, followed by explicit live-cutover approval. `soda-test` now serves native
+Sodaspaces with built `bdbce8e` affected artifacts and schema v5. Native private-page
+browser checks and all seven existing memberships' SSH/PTY checks passed from infra;
+all four roots, memberships, credentials and unchanged native components were preserved.
+See the handoff and `.artifacts/cutover-c007eb6/` for exact bytes, fresh backups and
+remaining scope. No further deployment, lifecycle or target is implied.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
@@ -222,7 +225,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is served. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` still has historical `8b823db` React preview/HTMX defaults and schema-v3 grants: source removal is not deployment or completed Sodaspaces integration. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is served. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.
