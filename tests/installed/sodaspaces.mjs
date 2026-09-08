@@ -313,6 +313,7 @@ try {
   stage = 'second guarded native page';
   const other = await guardedPage();
   await other.goto(repoURL);
+  await other.bringToFront();
   await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
   assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
   assert.equal(environmentReads, beforeSwitch);
