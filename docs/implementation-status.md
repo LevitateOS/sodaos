@@ -177,6 +177,25 @@ restored to their original states. PNG alpha and template reload were verified;
 `git diff --check` passed. Light appearance, pin/bulk actions and watching filters
 were not newly exercised. Custom intro remains English; no appliance deployment.
 
+## Local Milestones layout correction
+
+Fixed the dashboard sidebar consuming the row and squeezing milestone cards off
+screen. Stock 15.0.7's `.flex-container { display: flex !important }` defeated the
+page's grid; the scoped milestone grid now explicitly overrides it. The stylesheet
+cache version is bumped. Native filters, milestone data and templates are unchanged.
+
+The new opt-in `tests/forgejo/milestones-layout.test.mjs` reproduced horizontal
+overflow before the fix and passed afterward at 1440, 1024, 768, 700 and 390px.
+It uses existing local preview public stock CSS, all authored custom styles in load
+order and representative milestone markup in isolated headless Chrome—not an
+authenticated native-page journey. Run with
+`SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/milestones-layout.test.mjs`.
+Offline readonly `go test -count=1 -mod=readonly ./scripts -run TestForgejo` and
+`git diff --check` also passed. No service reload/restart, fixture mutation or
+appliance deployment was performed. CSS is live-mounted in the local preview;
+cached pages may need a hard refresh, and the header version takes effect on the
+next separately performed template reload.
+
 ## Local Milestones preview
 
 The official dashboard milestones override now uses Soda's separate toolbar,

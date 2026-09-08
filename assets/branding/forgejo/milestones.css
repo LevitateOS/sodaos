@@ -1,5 +1,6 @@
 /* Milestone counts, progress and dates remain native Forgejo values. */
-.soda-milestones .flex-container { display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; align-items: start; }
+/* Stock Forgejo sets .flex-container to flex !important; this page owns a grid. */
+.soda-milestones .flex-container { display: grid !important; grid-template-columns: 240px minmax(0,1fr); gap: 24px; align-items: start; }
 .soda-milestones .flex-container-nav { width: 100%; min-width: 0; }
 .soda-milestones .flex-container-nav > .ui.menu { width: 100%; margin: 0; padding: 10px; border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius) !important; background: var(--soda-page-surface) !important; }
 .soda-milestones .flex-container-nav .item { padding: 12px 10px; color: var(--soda-page-muted); font: 600 14px/1.5 Barlow,sans-serif; border-radius: 8px; }
