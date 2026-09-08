@@ -37,7 +37,7 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
 			restored := strings.TrimPrefix(contents, provenance)
-			if tt.name == "dashboard.tmpl" || tt.name == "applications/oauth2_edit.tmpl" {
+			if tt.name == "dashboard.tmpl" || tt.name == "applications/oauth2_edit.tmpl" || tt.name == "auth/list.tmpl" || tt.name == "user/list.tmpl" || tt.name == "repo/list.tmpl" || tt.name == "emails/list.tmpl" {
 				restored = strings.Replace(restored, ` "hideArtwork" true`, "", 1)
 			}
 			custom := `class="admin-setting-content soda-admin-details soda-admin-details--` + tt.kind + `"`

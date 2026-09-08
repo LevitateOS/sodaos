@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/auth/list.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 3be096d353ffbbdf11eabd0d31a79968a94a1605428164825a841d1d392cf501 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin authentication")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin authentication" "hideArtwork" true)}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-list">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "admin.auths.auth_manage_panel"}} ({{ctx.Locale.Tr "admin.total" .Total}})
