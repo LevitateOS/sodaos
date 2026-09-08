@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: organization labels and webhook settings; inspect each native page wrapper. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: organization applications and Actions pages, including runner subpages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -306,8 +306,8 @@ Organization settings routes discovered in the native navbar (each still needs i
 | Status | Organization-relative route | Page |
 | --- | --- | --- |
 | No image | `/settings` | Organization identity/avatar already supplies visual context; prioritize profile, visibility and permission fields. |
-| Pending | `/settings/hooks` | Webhook list and new/edit variants |
-| Pending | `/settings/labels` | Organization labels |
+| No image | `/settings/hooks` | Organization identity plus native endpoint/status list; new/edit provider controls remain undecorated. Source-reviewed. |
+| No image | `/settings/labels` | Real label colors, names, counts and editing previews are the visual content; source-reviewed. |
 | Pending | `/settings/applications` | OAuth applications, when enabled |
 | Pending | `/settings/actions/runners` | Native Actions runners |
 | Pending | `/settings/actions/secrets` | Native Actions secrets |
@@ -536,3 +536,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - General options: no extra image. The page edits that same identity, description/contact fields, public/limited/private visibility, repository-admin team-access option and avatar; the real organization header is the appropriate visual. The administrator-only repository-creation limit remains part of this same undecorated form. No separate illustration for validation or visibility variants.
 - Deletion: no image on the warning page or final modal. Keep the exact organization-name confirmation, alert and native destructive action prominent.
 - Both decisions are source-based; no organization fixture is available for native capture. No organization/avatar/visibility/permission change or deletion attempted. No source changes/tests required.
+
+### Organization labels and webhooks
+
+- Read complete stock organization labels/hooks/hook-new wrappers, label list/new/edit/delete partials, and webhook list/base-list/delete-modal via the running binary. Initial local-file lookups confirmed these leaf partials are upstream-owned, then the embedded viewer supplied exact content.
+- Labels: no extra art in the page, new/edit dialogs or deletion confirmation. Actual rendered labels, colors, descriptions, counts and color selectors convey the task. Preserve exclusive/archive controls and their warnings. The empty-label template-loader include remains native; no claim that its downstream controls were newly exercised.
+- Organization webhooks: no additional introduction below the existing organization identity header. Endpoint URLs and native last-status dots are the relevant list visuals. New/edit wrappers use the previously reviewed provider dispatcher and form/history structure; keep those controls and deletion confirmation undecorated. This does not close unreviewed provider-specific partials or other owner pages.
+- These decisions are source-based only. No organization fixture, label, webhook or delivery was created/changed. No source changes or tests required; native organization rendering remains unavailable.
