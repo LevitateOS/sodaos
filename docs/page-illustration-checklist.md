@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: conditional personal Actions runners, secrets and variables; inspect native callers before deciding artwork. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: personal runner create/setup/edit/detail pages, then storage overview. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -179,12 +179,12 @@ Next: conditional personal Actions runners, secrets and variables; inspect nativ
 | Partial — trace caller | [`shared/actions/runner_create.tmpl`](../appliance/forgejo/templates/shared/actions/runner_create.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/actions/runner_details.tmpl`](../appliance/forgejo/templates/shared/actions/runner_details.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Personal caller reviewed; status table needs no art. Other owner pages remain pending. |
 | Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/variables/variable_list.tmpl`](../appliance/forgejo/templates/shared/variables/variable_list.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Personal caller reviewed; inline list and add/edit dialogs need no art. Other owner pages remain pending. |
+| Partial — trace caller | [`shared/variables/variable_list.tmpl`](../appliance/forgejo/templates/shared/variables/variable_list.tmpl) | — | Personal caller reviewed; exact configuration and dialogs need no art. Other owner pages remain pending. |
 | Done | [`status/404.tmpl`](../appliance/forgejo/templates/status/404.tmpl) | `not-found-papercraft.png` | Small neutral wayfinding scene; native general/repository 404 captures inspected at desktop/mobile widths. |
 | No image | [`status/413.tmpl`](../appliance/forgejo/templates/status/413.tmpl) | — | Payload-too-large diagnostic: keep the brief error code/explanation immediately visible after a failed request. Additional artwork would lengthen this corrective interruption; source reviewed, no oversized request submitted. |
 | Pending | [`user/auth/activate.tmpl`](../appliance/forgejo/templates/user/auth/activate.tmpl) | — | Not yet reviewed in this goal. |
@@ -244,9 +244,9 @@ Next: conditional personal Actions runners, secrets and variables; inspect nativ
 | Status | Personal settings route | Decision / remaining work |
 | --- | --- | --- |
 | No image | `/user/settings/blocked_users` | Actual identities, block dates and unblock actions; native empty-state desktop capture inspected. |
-| Pending | `/user/settings/actions/runners` | Conditional on Actions; native caller/layout still needs review. |
-| Pending | `/user/settings/actions/secrets` | Conditional on Actions; native caller/layout still needs review. |
-| Pending | `/user/settings/actions/variables` | Conditional on Actions; native caller/layout still needs review. |
+| No image | `/user/settings/actions/runners` | Runner names, UUIDs, labels, ownership and live status are the relevant visuals; source-reviewed. |
+| No image | `/user/settings/actions/secrets` | Names, masked values and edit controls; no decorative scene. Source-reviewed. |
+| No image | `/user/settings/actions/variables` | Exact names/values and mutation controls; no decorative scene. Source-reviewed. |
 | Pending | `/user/settings/storage_overview` | Conditional on quotas; native caller/layout still needs review. |
 
 | Status | Personal repository settings variant | Decision |
@@ -500,3 +500,11 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Read complete overridden `applications_oauth2_list` and native `applications_oauth2`, `grants_oauth2`, organization application list/edit and administrator application list/edit wrappers via the running binary's embedded viewer. Correct admin path is `admin/applications/list.tmpl`; an initial lookup at `admin/applications.tmpl` returned no match, then the embedded inventory resolved it.
 - Shared list/create partial: no independent image. Application names/client IDs, locked built-ins, edit/delete controls and redirect/confidentiality fields are the content. Existing personal page artwork remains its sole decorative introduction. Grants and revoke confirmation likewise retain actual application identity and dates without extra art.
 - Organization/admin caller entries are explicit and remain pending where their full page assessment/rendering is incomplete. No new runtime evidence or mutation; no source changes or tests needed for this caller audit.
+
+### Personal Actions lists
+
+- Read native `user/settings/actions.tmpl` from the running binary and complete overridden runner list, secret add/list and variable list. The native `PageType` dispatch explicitly maps all three personal routes; no new owner or backend inferred.
+- Runners: no decorative image. The table's native active/idle/offline indicators, UUIDs, labels and ownership are the relevant visuals. Keep search, registration controls and edit/delete actions direct. Registration-token dropdown was not opened.
+- Secrets: no decorative image. Masked values, names, dates and exact add/edit help take priority. Variables: no decorative image. Actual configuration values and mutation controls take priority. Their add/edit/delete dialogs also need no independent artwork.
+- These are source assessments. The fixture navbar did not expose Actions, and no configuration was changed to enable it. No runner registration, token reset, secret/variable mutation or native runtime capture is claimed. Repository, organization and administrator callers remain pending separately; runner create/setup/edit/detail pages are next.
+- No source change or tests required for this assessment.

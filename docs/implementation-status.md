@@ -818,3 +818,5 @@ fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50
 progress examples, overdue/upcoming/no-deadline states and empty milestone content.
 The ignored one-shot execution record is `.artifacts/local-forgejo/seed-milestone-fixtures.py`;
 do not blindly rerun it. No non-fixture repository writes or deployment.
+
+<!-- Illustration queue: personal Actions lists source-assessed without art; runner subpages and storage remain pending. See the per-page checklist. -->
