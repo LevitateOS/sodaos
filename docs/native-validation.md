@@ -32,7 +32,7 @@ homes/shared tools and workload data survive. Prove the selected tmux session's 
 process and owned cleanup independently from its socket. The existing request-owned
 terminal probe assertions below are historical behavior, not acceptance of new
 reattachment/navigation retention; revise them with the implementation, not by
-relabelling their old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented).
+relabelling their old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate).
 No project/package/service mutation is authorized by these requirements.
 
 ## Native source and build evidence
@@ -245,7 +245,8 @@ product test, not browser proof or permission to open a shell. Build the matchin
 `internal/host` test binary into a new ignored artifact path; invoke only that test on
 the explicitly approved fixture with `SODA_NATIVE_VALIDATE` equal to its hostname and
 `SODA_TERMINAL_NATIVE_INPUT` naming a private absolute JSON file. Input fields are
-`target`, `project`, and exactly two `accounts`, each with `login`, stable `identity`,
+`target`, `project`, exact `container_id`, `terminal_protocol:"managed-tmux-v1"`,
+and exactly two `accounts`, each with `login`, stable `identity`,
 expected native `uid`, `gid`, `home`, numeric supplementary `groups`, and `admin`.
 Obtain these expected values independently; do not infer them from terminal output.
 
@@ -254,8 +255,11 @@ that 0600 file in its private directory. It runs the candidate helper in-process
 without replacing/restarting the installed helper or touching project images/accounts/
 keys. It opens existing-account shells, checks identity/home/groups/TTY, resize,
 Ctrl-C, real/effective/saved credentials, shared-profile settings and current sudo
-permissions; it refuses a mismatched marker/actor without repair. It explicitly closes
-logins and independently checks process disappearance. Further cases cover transport
+permissions; it refuses a mismatched marker/actor without repair. It creates managed
+project-systemd/tmux sessions, detaches/re-attaches the same shell PID/start identity
+and in-memory variable, then explicitly Ends the owner and independently checks
+process disappearance. Required packages/managed program must already be delivered
+under separate scope; the probe installs nothing. Further cases cover **owner** transport
 EOF, a real 60-second silent lease and SIGKILL of only a test-owned child helper;
 independent exec observations must confirm the login, foreground job and launcher
 are gone. The internal child-mode environment flag is used only by that parent test,
@@ -264,8 +268,9 @@ audit state; no transcripts or credentials are captured. Keep inputs, marker and
 result; an occupied run refuses replay. `terminal-proof.json` records only this scope.
 
 The [approved isolated x86_64 proof](implementation-status.md#approved-native-terminal-fixture-proof)
-passed this probe plus independent continuously held own-key SSH/process-preservation
-observations. This closes only that existing-account native boundary, not the later
+passed the **earlier request-owned version** of this probe plus independent continuously
+held own-key SSH/process-preservation observations. It does not validate this managed-
+tmux revision. That proof closes only its original native boundary, not the later
 public browser/OAuth/proxy journey or installed delivery. Further executions still
 need their exact target/action scope; compiling a test or setting opt-in variables
 is not permission to open shells, kill helpers or change services.

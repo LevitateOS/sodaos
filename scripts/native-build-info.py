@@ -61,7 +61,7 @@ def collect(root, arch, revision):
             # No application entrypoint, network, persistent mount or provider use.
             images[name]['RPMs'] = sorted(output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=/usr/bin/rpm', image, '-qa', '--qf', '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n']).splitlines())
         if name == 'project-os':
-            images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, '--version']) for binary in ('/usr/local/bin/tea', '/usr/bin/gh')}
+            images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]) for binary, flag in (('/usr/local/bin/tea', '--version'), ('/usr/bin/gh', '--version'), ('/usr/bin/tmux', '-V'))}
     with (inputs / 'native-build.json').open('x') as f:
         json.dump({'Revision': revision, 'Architecture': arch, 'Tools': tools, 'Images': images}, f, indent=2)
         f.write('\n')

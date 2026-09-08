@@ -20,9 +20,9 @@ import (
 )
 
 const webTerminalProject = "p0123456789abcdef01234567"
-const terminalAuth = `{"expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
+const terminalAuth = `{"action":"create","expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
 
-func terminalWebFixture(t *testing.T, providerStatus int) (*Server, *httptest.Server, *atomic.Int32, <-chan struct{}) {
+func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...string) (*Server, *httptest.Server, *atomic.Int32, <-chan struct{}) {
 	t.Helper()
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if providerStatus != 0 {
@@ -66,7 +66,7 @@ func terminalWebFixture(t *testing.T, providerStatus int) (*Server, *httptest.Se
 		if json.Unmarshal(body, &in) != nil || in.Project != webTerminalProject || in.Login != "original-alice" || in.Identity != 1 {
 			t.Error("untrusted native dispatch")
 		}
-		if in.Expires > time.Now().Add(2*time.Hour).Unix() {
+		if in.Expires > time.Now().Add(12*time.Hour).Unix() {
 			t.Error("unbounded native lifetime")
 		}
 		_ = c.Write(r.Context(), websocket.MessageText, []byte(`{"type":"ready"}`))
@@ -78,7 +78,12 @@ func terminalWebFixture(t *testing.T, providerStatus int) (*Server, *httptest.Se
 			var f host.TerminalFrame
 			_ = json.Unmarshal(body, &f)
 			if f.Type == "close" {
-				_ = c.Write(r.Context(), websocket.MessageText, []byte(`{"type":"closed","reason":"disconnected"}`))
+				reason := "disconnected"
+				if len(cleanupReason) != 0 {
+					reason = cleanupReason[0]
+				}
+				body, _ := json.Marshal(host.TerminalFrame{Type: "closed", Reason: reason})
+				_ = c.Write(r.Context(), websocket.MessageText, body)
 				return
 			}
 		}
@@ -105,6 +110,14 @@ func terminalReady(t *testing.T, c *websocket.Conn) {
 		t.Fatal("auth write failed")
 	}
 	_, b, err := c.Read(ctx)
+	var locator struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}
+	if err != nil || json.Unmarshal(b, &locator) != nil || locator.Type != "session" || !browserTerminalID.MatchString(locator.ID) {
+		t.Fatal("no terminal locator", err)
+	}
+	_, b, err = c.Read(ctx)
 	if err != nil || string(b) != `{"type":"ready"}` {
 		t.Fatal("terminal not ready", err)
 	}
@@ -176,8 +189,8 @@ func TestBrowserTerminalLogoutDuplicateAndOriginalLogin(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("logout did not close native stream")
 	}
-	if calls.Load() != 1 {
-		t.Fatal("duplicate replayed native launch")
+	if calls.Load() != 2 {
+		t.Fatal("duplicate replayed native creation or attachment")
 	}
 }
 func TestBrowserTerminalPendingLogoutAndShutdown(t *testing.T) {

@@ -15,29 +15,76 @@ The content has Terminal, Environment and Access view tabs with roving keyboard
 focus. Management and SSH forms are no longer above the terminal. The terminal
 fills its available panel; its renderer observes resize and tab/hide restoration.
 There is still **one terminal**, not multiple session tabs or an implemented `+`.
-Those require the next protected session-lifetime change.
+Multiple session tabs remain later work.
 
 **Focus/visibility changes and Hide/reopen retain the same component and socket.**
-They do not fetch again, provision, restart or replay anything. Pending operations
+Focus/view changes do not fetch, provision, restart or replay anything. Hide requests
+finite retention; a deliberate reopen requests return. Pending operations
 remain guarded in that same component; hiding is not cancellation. End terminal is
 a separate action. No outside click dismisses the pane and no focus trap blocks the
 native page. Escape inside xterm remains shell input; Ctrl+Shift+Enter focuses End
 terminal. The complete component retains the existing action-time session/provider
 checks and uncertain-mutation guard.
 
-**Important remaining limits:** pagehide/BFCache still retire this page's component.
-Reload/navigation, lost transport, authorization loss and the backend's earlier-of-
-session-expiry/two-hour limit still end the terminal. Refresh still disposes the
-existing renderer and cannot remount a used terminal. Hiding currently retains a
-live socket, not a server-detached session; the proposed 30-minute retention deadline
-is **not implemented**. Do not deploy this slice as completed session continuity.
+Refresh now preserves the renderer for the same environment/login. Pagehide retires
+only the document's attachment; BFCache restoration and navigation mount fresh
+components with fresh authorization. A per-tab `sessionStorage` workspace/terminal
+locator preserves the selected repository instead of following the left page. It
+contains no credential, transcript or queued command. Switching repositories is
+explicit. Signed non-repository pages have a resume hook, not a Spaces listing.
 
-## Selected persistence mechanism — tmux, not implemented
+## Managed terminal source candidate — not native-proven
+
+The image recipe adds stock tmux and required terminfo/tools, and copies the single
+helper-owned Python source to `/usr/libexec/soda/project-terminal`. Project init
+creates the root-controlled runtime parent. Open verifies the installed program against
+the helper's embedded-source SHA256; it does not install or repair missing support.
+
+Creation opens a backend-owned helper connection, independent of browser transports.
+One transient project-systemd `soda-terminal-ID.service` contains a **root guard** and
+foreground tmux server/descendants running as the original non-root account. The
+guard protects the native lease from ordinary account processes. Notify/watchdog,
+control-group killing, finite startup/stop/runtime limits and no restart supervise
+it. Private runtime records bind account/identity, lease, socket inode/server peer
+credentials and exclusive writer lock. Socket parent sealing and exact `-N` attach
+refuse replacement/adoption. No personal tmux configuration or default server is used.
+
+The in-memory backend registry is per Soda context/project, 64 slots globally including
+detached and cleanup-unconfirmed slots. It is not restored after backend restart.
+Every 15 seconds, current session/membership and fresh acting-user repository authority
+must allow renewal of the native 60-second safety lease. Detach or explicit Hide
+sets 30-minute retention unless an explicit deadline exists. Output, input, pings
+and attach-only retries do not clear/extend it. Explicit Return is active while
+attached, otherwise finite; Keep two hours is finite. The healthy/native hard cap
+is 12 hours, never beyond the original Soda session expiry. Logout, rotation,
+confirmed denial, expiry, shutdown and Stop cancel browser access/ownership; none
+is a Linux-account deletion or shared-project idle stop.
+
+The protected `terminal-session` API reports metadata and accepts explicit End,
+Return and finite retention. The socket first selects create or exact attach, emits
+a locator then readiness, and carries only input/resize thereafter. See the
+[wire contract](dashboard-api.md#terminal-websocket--source-implemented-delivery-pending).
+End acknowledges **ending**, not process disappearance. Slots remain reserved until
+native cleanup acknowledgment; a lost/uncertain dispatch or cleanup reports
+`unconfirmed` and refuses replacement. No automatic reconciliation/retry frees it.
+The native guard/safety lease remains independent; an operator must inspect uncertain
+outcomes. Cleanup proves the selected cgroup empty before removing only admitted
+runtime files; unsafe or changed state is retained, not recursively deleted.
+
+Local HTTP/DOM/temporary-filesystem/PTY doubles are not a running tmux/systemd proof.
+The revised opt-in native probe requires fresh `terminal_protocol: managed-tmux-v1`
+and exact `container_id` inputs; old private approvals cannot accidentally run it.
+It authors same-shell PID/start/memory reattachment and owned teardown checks. Actual
+Rocky packages, unit properties/cgroups, native screen/history/editor/build continuity,
+independent SSH/tmux/workload preservation and real browser journeys remain unverified.
+The exact same-root maintenance recipe/rehearsal is still unfinished: no retained root
+has been updated, and a new image is not its upgrade path.
+
+## Selected persistence mechanism — tmux, source candidate
 
 The [leading plan](sodaspaces-plan.md#resumable-terminal-decision--tmux) selects
-**stock Rocky-packaged tmux**, not interchangeable backends. Existing source still
-launches a request-owned login shell; no package, unit, resumable API or retention
-implementation was added by this decision. The [Project OS baseline](project-os.md)
+**stock Rocky-packaged tmux**, not interchangeable backends. The original decision
+was documentation-only; the source candidate above now implements that mechanism. The [Project OS baseline](project-os.md)
 owns the shared account/profile/state and same-root delivery contract; this guide
 owns the terminal mechanism. No broader OS redesign is a prerequisite.
 
@@ -117,7 +164,8 @@ Research inputs and comparisons are retained in `.artifacts/research/terminal-op
   and there is no browser-idle stop of the shared project.
   Authentication expiry, explicit Soda logout and confirmed authority loss remain
   hard browser-access boundaries; no unauthenticated reattachment grace is selected.
-  The healthy-active two-hour cap must be revised separately from these safeguards.
+  The source candidate replaces the healthy-active two-hour cap with the original
+  session-bound 12-hour maximum, separately from these safeguards.
 - **Default to the drawer UI, not a nested dashboard.** Hide tmux's status bar by
   default; Soda's later session tabs map to separate managed terminals. Native tmux
   copy-mode and splits remain available. Tmux renders its own terminal screen:
@@ -145,7 +193,7 @@ support-tool readiness gate. Refresh and unrelated management updates must not
 unmount/end a running terminal. Navigation/reload restores the authorized selected
 environment/session, not the repository currently displayed on the left. Pagehide
 may dispose this document's renderer/attachment, not send End. Retain the current
-Hide/view live-mount behavior until the separate retention protocol is implemented.
+Hide/view live-mount behavior alongside the separate retention protocol.
 
 Prove a real unchanged shell PID/start identity, unsaved editor state and running
 build across native navigation, reload, temporary network loss and drawer/view

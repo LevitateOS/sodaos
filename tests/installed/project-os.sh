@@ -9,6 +9,14 @@ command -v tea
 command -v gh
 tea --version
 gh --version
+command -v tmux
+command -v vi
+command -v less
+command -v infocmp
+tmux -V
+infocmp xterm-256color >/dev/null
+infocmp screen-256color >/dev/null
+# These are package/terminfo checks, not a managed session or continuity proof.
 # CLI availability is not login or provider compatibility evidence.
 test -d "$HOME/shared"
 test -r "/etc/ssh/authorized_keys/$(id -un)"

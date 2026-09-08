@@ -1,5 +1,7 @@
 /* Non-modal native-page/workspace split. The native document remains interactive. */
 #sodaspaces-root [hidden] { display: none !important; }
+#sodaspaces-button.sodaspaces-global-resume { position: fixed; bottom: 12px; right: 12px; z-index: 90; }
+body.sodaspaces-open #sodaspaces-button.sodaspaces-global-resume { display: none; }
 body.sodaspaces-open { width: calc(100% - var(--soda-space-width, 50vw)); min-width: 0; }
 body.sodaspaces-open #navbar { flex-wrap: wrap; }
 body.sodaspaces-open .ui.container { max-width: calc(100% - 32px) !important; }

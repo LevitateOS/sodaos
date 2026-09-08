@@ -13,9 +13,18 @@ function fixture(t, options = {}) {
   let before = 0;
   w.addEventListener('beforeunload', () => before++);
   const calls = [], sockets = [], terms = [];
+  let existing = options.existing || null;
+  if (options.saved) w.sessionStorage.setItem(`soda-terminal:1:${env}`, options.saved);
   w.fetch = async (url, init) => {
     calls.push({url, init});
     if (options.fetch) return options.fetch(url, init);
+    if (url.endsWith('/terminal-session')) {
+      if (init.method === 'POST') {
+        const input = JSON.parse(init.body);
+        if (input.action === 'end') { existing = null; return new Response('{"ending":true}', {headers: {'Content-Type': 'application/json'}}); }
+      }
+      return new Response(JSON.stringify({terminal: existing}), {headers: {'Content-Type': 'application/json'}});
+    }
     return new Response(JSON.stringify(url.endsWith('/session') ? {user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'} : {environment: {id: env, repository_id: '7', provisioned: true}, login: 'original-alice'}), {headers: {'Content-Type': 'application/json'}});
   };
   w.ResizeObserver = class {observe() {} disconnect() {}};
@@ -25,7 +34,7 @@ function fixture(t, options = {}) {
     send(body) { this.sent.push(JSON.parse(body)); }
     close() { this.readyState = 3; this.onclose?.(); }
     open() { this.readyState = 1; this.onopen(); }
-    message(value) { this.onmessage({data: JSON.stringify(value)}); }
+    message(value) { if (value.type === 'session') existing = {id: value.id, login: 'original-alice', repository_id: '7'}; this.onmessage({data: JSON.stringify(value)}); }
   };
   class Terminal {
     cols = 80; rows = 24; osc = []; writes = []; parser = {registerOscHandler: (code, fn) => { assert.equal(fn(), true); this.osc.push(code); }};
@@ -41,7 +50,7 @@ function fixture(t, options = {}) {
 }
 async function ready(f) {
   f.open.click(); await tick(); await tick();
-  assert.equal(f.sockets.length, 1); const socket = f.sockets[0]; socket.open(); socket.message({type: 'ready'}); return socket;
+  assert.equal(f.sockets.length, 1); const socket = f.sockets[0]; socket.open(); socket.message({type: 'session', id: 'a'.repeat(32)}); socket.message({type: 'ready'}); return socket;
 }
 test('mounting is inert and does not own Forgejo markup or beforeunload', t => {
   const f = fixture(t); assert.equal(f.calls.length, 0); assert.equal(f.sockets.length, 0);
@@ -51,16 +60,16 @@ test('mounting is inert and does not own Forgejo markup or beforeunload', t => {
 test('explicit auth, local renderer, original login and Unicode input/output', async t => {
   const f = fixture(t), socket = await ready(f);
   assert.equal(socket.url, `wss://forge.test/-/soda/api/environments/${env}/terminal`);
-  assert.deepEqual(socket.sent[0], {expected_user_id: '1', repository_id: '7', csrf_token: 'synthetic-csrf', cols: 80, rows: 24});
+  assert.deepEqual(socket.sent[0], {action: 'create', expected_user_id: '1', repository_id: '7', csrf_token: 'synthetic-csrf', cols: 80, rows: 24});
   assert.deepEqual(f.terms[0].osc, [0, 1, 2, 8, 52]);
-  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls.length, 3);
   for (const {init} of f.calls) {assert.equal(init.credentials, 'same-origin'); assert.equal(init.redirect, 'error'); assert.equal(init.headers['X-Soda-Expected-User-ID'], '1');}
   f.terms[0].input('héllo\r'); assert.equal(Buffer.from(socket.sent[1].data, 'base64').toString(), 'héllo\r');
   socket.message({type: 'output', data: Buffer.from('世界').toString('base64')});
   assert.equal(Buffer.from(f.terms[0].writes[0]).toString(), '世界');
 });
 for (const event of ['pagehide', 'pageshow']) {
-  test(`${event} invalidates, clears scrollback and never reconnects`, async t => {
+  test(`${event} retires this renderer without End or input replay`,  async t => {
     const f = fixture(t), socket = await ready(f);
     const e = new f.w.Event(event); if (event === 'pageshow') Object.defineProperty(e, 'persisted', {value: true}); f.w.dispatchEvent(e);
     assert(f.terms[0].disposed); assert.equal(socket.readyState, 3); assert(f.open.disabled);
@@ -81,7 +90,7 @@ test('app and browser visibility changes keep the same transport and renderer', 
 test('late terminal readiness does not steal focus from native page controls', async t => {
   const f = fixture(t); f.open.click(); await tick(); await tick();
   const native = f.w.document.getElementById('native'); native.focus();
-  f.sockets[0].open(); f.sockets[0].message({type: 'ready'});
+  f.sockets[0].open(); f.sockets[0].message({type: 'session', id: 'a'.repeat(32)}); f.sockets[0].message({type: 'ready'});
   assert.equal(f.w.document.activeElement, native); assert(!f.terms[0].disposed);
 });
 test('hidden terminal view cannot start a shell through a synthetic click', async t => {
@@ -95,16 +104,20 @@ test('late session response cannot launch after invalidation', async t => {
 });
 test('session or membership mismatch never opens transport', async t => {
   const f = fixture(t, {fetch: async () => new Response(JSON.stringify({user: {id: '2'}}), {headers: {'Content-Type': 'application/json'}})});
-  f.open.click(); await tick(); assert.equal(f.sockets.length, 0); assert(f.open.disabled);
+  f.open.click(); await tick(); assert.equal(f.sockets.length, 0);
 });
-test('Disconnect, keyboard escape and focus shortcut stay component-local', async t => {
+test('End is a separate authenticated action; keyboard escape and focus stay local', async t => {
   const f = fixture(t), socket = await ready(f); let escaped = false;
   f.root.addEventListener('keydown', () => {escaped = true;});
   const e = new f.w.KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true});
   f.terms[0].textarea.dispatchEvent(e); assert(e.defaultPrevented); assert.equal(escaped, false);
   f.terms[0].key(new f.w.KeyboardEvent('keydown', {key: 'Enter', ctrlKey: true, shiftKey: true}));
   assert.equal(f.w.document.activeElement, f.disconnect);
-  f.disconnect.click(); assert.equal(socket.sent.at(-1).type, 'close'); assert(f.terms[0].disposed);
+  f.disconnect.click(); await tick(); await tick();
+  const action = f.calls.find(c => c.init.method === 'POST');
+  assert.deepEqual(JSON.parse(action.init.body), {action: 'end', id: 'a'.repeat(32)});
+  assert.equal(socket.sent.length, 1); assert(f.terms[0].disposed);
+  assert.equal(f.w.sessionStorage.getItem(`soda-terminal:1:${env}`), null);
 });
 test('input and renderer backlog are bounded', async t => {
   const f = fixture(t, {slow: true}), socket = await ready(f);
@@ -115,6 +128,33 @@ test('oversized paste is refused before encoding or dispatch', async t => {
   const f = fixture(t), socket = await ready(f);
   f.terms[0].input('x'.repeat(65537));
   assert.equal(socket.sent.length, 1); assert(f.terms[0].disposed);
+});
+test('known locator restores attach-only without credentials in storage', async t => {
+  const id = 'a'.repeat(32);
+  const f = fixture(t, {saved: id, existing: {id, login: 'original-alice', repository_id: '7'}});
+  assert.equal(f.calls.length, 0); f.api.restore(); await tick(); await tick();
+  assert.equal(f.sockets.length, 1); f.sockets[0].open();
+  assert.equal(f.sockets[0].sent[0].action, 'attach'); assert.equal(f.sockets[0].sent[0].id, id);
+  assert(f.calls.every(c => c.init.method === 'GET'));
+  assert.equal(f.w.sessionStorage.getItem(`soda-terminal:1:${env}`), id);
+});
+test('unconfirmed cleanup reserves its locator without attaching or replacing', async t => {
+  const id = 'a'.repeat(32), f = fixture(t, {saved: id, existing: {id, login: 'original-alice', repository_id: '7', state: 'unconfirmed'}});
+  f.api.restore(); await tick(); await tick();
+  assert.equal(f.sockets.length, 0); assert(f.calls.every(c => c.init.method === 'GET'));
+  assert.match(f.root.textContent, /slot is reserved/);
+});
+test('missing stored target never falls back to creation', async t => {
+  const f = fixture(t, {saved: 'a'.repeat(32)});
+  f.api.restore(); await tick(); await tick();
+  assert.equal(f.sockets.length, 0); assert(f.calls.every(c => c.init.method === 'GET'));
+  assert.match(f.root.textContent, /Nothing was created/);
+});
+test('lost creation response is looked up, never retried', async t => {
+  const f = fixture(t, {saved: 'pending'});
+  f.open.click(); await tick(); await tick(); f.open.click(); await tick(); await tick();
+  assert.equal(f.sockets.length, 0); assert(f.calls.every(c => c.init.method === 'GET'));
+  assert.match(f.root.textContent, /no creation was retried/);
 });
 test('server cannot mutate page using an unknown frame', async t => {
   const f = fixture(t), socket = await ready(f);

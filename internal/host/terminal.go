@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
@@ -34,6 +35,8 @@ const terminalLimit = 64
 // TerminalRequest is private root:soda helper input. The web layer must resolve
 // membership/login and authorize the real actor before using this operation.
 type TerminalRequest struct {
+	Action   string `json:"action"`
+	ID       string `json:"id"`
 	Project  string `json:"project"`
 	Login    string `json:"login"`
 	Identity int64  `json:"identity"`
@@ -54,7 +57,7 @@ func terminalDimensions(cols, rows int) bool {
 	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300
 }
 func (in TerminalRequest) valid(now time.Time) bool {
-	return projectID.MatchString(in.Project) && loginName.MatchString(in.Login) && in.Login != "root" && in.Identity > 0 && terminalDimensions(in.Cols, in.Rows) && in.Expires > now.Unix() && in.Expires <= now.Add(2*time.Hour).Unix()
+	return (in.Action == "create" || in.Action == "attach") && terminalID.MatchString(in.ID) && projectID.MatchString(in.Project) && loginName.MatchString(in.Login) && in.Login != "root" && in.Identity > 0 && terminalDimensions(in.Cols, in.Rows) && in.Expires > now.Unix() && in.Expires <= now.Add(12*time.Hour).Unix()
 }
 func (f TerminalFrame) inputValid() bool {
 	if f.Reason != "" {
@@ -112,7 +115,7 @@ func (Native) terminal(container string, in TerminalRequest) (terminalProcess, e
 	if !containerID.MatchString(container) || !in.valid(time.Now()) || seconds < 1 {
 		return nil, errors.New("invalid terminal target")
 	}
-	cmd := exec.Command("/usr/bin/podman", "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", projectTerminal, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10))
+	cmd := exec.Command("/usr/bin/podman", "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", projectTerminal, in.Action, in.ID, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10), fmt.Sprintf("%x", sha256.Sum256([]byte(projectTerminal))))
 	// Terminal bytes never enter stderr diagnostics, journal or command-error text.
 	cmd.Stderr = io.Discard
 	input, err := cmd.StdinPipe()
@@ -177,6 +180,7 @@ func (p *nativeTerminal) Close() {
 }
 
 var containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var terminalID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 const terminalInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
 
@@ -254,10 +258,10 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "terminal unavailable", 503)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Hour)
 	defer cancel()
 	d.terminalMu.Lock()
-	if d.terminalClosed || len(d.terminals) >= terminalLimit {
+	if d.terminalClosed || len(d.terminals) >= 2*terminalLimit {
 		d.terminalMu.Unlock()
 		http.Error(w, "terminal unavailable", 503)
 		return

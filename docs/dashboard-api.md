@@ -8,19 +8,12 @@ by separately approved preserved-state cutover and existing-account observations
 See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
 configuration, client reachability and acceptance limits.
 
-**Workspace correction pending:** this guide still describes today's API. The user
-rejected modal/focus-loss terminal behavior and mandatory manual SSH setup for browser
-development. The first source split-view slice retains a live mount/socket across
-focus, view and Hide changes, without changing this backend API. The
-[leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
-selects [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
-for real reattachment. Browser-only joining and Forgejo-key integration are also
-unimplemented API capabilities. No new reattachment/key endpoints, consent or
-provider mutations follow from the plan. The future terminal contract must separate
-explicit creation, attach-only, detach and End; authorize stable terminal locators
-against the original user/project/login/context and reject missing/expired targets
-without spawning. No URL bearer tickets, arbitrary tmux commands or weakened
-actor/CSRF/logout checks. Today's endpoint below remains request-owned and unchanged.
+**Resumable terminal source candidate, not deployed:** the split-view drawer now
+uses [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
+with separate creation, attach-only, detach and End. Browser-only joining, optional
+Forgejo-key selection and Git credential integration remain unimplemented. No new
+provider consent or mutation is implied. Native continuity and same-root delivery
+remain unverified; installed fixtures still have the older request-owned terminal.
 
 ## Planned Spaces page — not an implemented endpoint
 
@@ -82,9 +75,11 @@ and provisioned state are checked before upgrade. No operator/site-admin/owner b
 The first text frame (within 5 seconds, at most 4096 bytes, strict JSON) is:
 
 ```json
-{"expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
+{"action":"create","expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
 ```
 
+Exact existing attachment uses `"action":"attach","id":"32 lowercase hex characters"`
+instead; create forbids `id`. Missing/expired/other-context IDs create nothing.
 Rows are 2–300, columns 2–500. Verify actor, association and the same Origin/CSRF check
 used by JSON mutations, then fresh acting-provider identity, actual user/repository
 consent and repository visibility. Degraded reads cannot launch. Only the stored
@@ -92,21 +87,42 @@ original membership login reaches the helper. Post-upgrade authorization failure
 closes with sanitized 1008 status, not provider errors or credentials.
 
 Then accept only text JSON `input` with base64 `data` (1–16384 decoded bytes), `resize`
-with bounded rows/columns, or `close`, with no extra fields. Browser heartbeats are
-forbidden. Return `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
+with bounded rows/columns, with no extra fields. Browser heartbeats and socket End
+controls are forbidden. First return `session` with `id`, then `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
 `closed`/`reason` frames. Total frames are limited to 32768 bytes; queues/write waits
 are bounded. No command, environment, UID, host address or Podman flags select launch.
 
-One pending/active stream per login-context/project; global cap 64, no eviction.
-Lifetime ends at the earlier of session/context expiry or two hours. Every 15 seconds
-check peer responsiveness and local session/membership before renewing the native
-60-second lease. Logout/OAuth rotation cancel pending/active streams, serialized
-against dispatch; shutdown closes hijacked streams before DB shutdown. No transcript,
-provider polling, reconnect/replay, join/start or global Linux/SSH revocation.
+One managed terminal per login-context/project and one writer; 64 slots globally
+including detached/cleanup-unconfirmed slots, no eviction. Pending transports are
+separately bounded at 128. Lifetime ownership is independent of the socket. Every
+15 seconds recheck current local session/membership and fresh acting-user repository
+authority before renewing the 60-second native safety lease. Original session expiry
+and a 12-hour native maximum remain hard limits. Logout/rotation/Stop/shutdown cancel
+pending and live attachments/owners, serialized against dispatch. No transcript,
+input replay, implicit join/start, cross-context adoption or global Linux/SSH revocation.
 
-See the [component contract](terminal-integration.md) for independent template/layout
-ownership and full-page stale/reload rules. Genuine browser and combined native
-delivery proof remain pending; this endpoint is not installed on retained targets.
+`GET /api/environments/{id}/terminal-session` is a protected metadata-only read,
+with fresh repository authority and own original membership. No query parameters.
+It returns `terminal:null` or `id`, `login`, `repository_id`, `ready`, `attached` and
+Unix `retain_until` (zero means deliberately active). Ending/uncertain slots instead
+include `state:"ending"` or `state:"unconfirmed"`, with false readiness/attachment.
+IDs are locators, never credentials. Unknown creation outcomes are looked up, not retried.
+
+`POST` at that path uses normal expected-actor/Origin/CSRF protections and strict JSON:
+
+- `{"action":"end","id":"…"}` acknowledges `{"ending":true}`, not native cleanup.
+- `{"action":"return","id":"…"}` clears retention only while attached; otherwise 30 minutes.
+- `{"action":"retain","id":"…","seconds":1800}` or `7200` sets a finite deadline.
+
+Disconnect sets 30 minutes only if no deadline exists. Input/output, automatic
+reattachment and browser noise never renew abandonment. Missing/expired actions
+return 404 and create nothing. Cleanup-unconfirmed slots stay reserved and require
+operator inspection; there is no automatic replacement/reconciliation. Registry
+state is in memory, not resurrected after backend restart. Native failure cleanup
+uses the separate guard/lease, not browser availability.
+
+See the [component contract](terminal-integration.md) for navigation/Refresh restore
+and remaining native/same-root delivery proof. No retained target has these changes.
 
 ## Explicit lifecycle and own SSH key updates — source, not installed proof
 

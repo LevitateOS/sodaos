@@ -84,10 +84,10 @@ func terminalFixture(t *testing.T) (*Daemon, *Client, *terminalFake) {
 	return d, NewClient(socket), f
 }
 func terminalInput() TerminalRequest {
-	return TerminalRequest{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 2, Cols: 80, Rows: 24, Expires: time.Now().Add(time.Minute).Unix()}
+	return TerminalRequest{Action: "attach", ID: strings.Repeat("a", 32), Project: "p0123456789abcdef01234567", Login: "alice", Identity: 2, Cols: 80, Rows: 24, Expires: time.Now().Add(time.Minute).Unix()}
 }
 func TestTerminalIdentityAndIsolationRefusal(t *testing.T) {
-	for _, change := range []func(*TerminalRequest){func(v *TerminalRequest) { v.Login = "root" }, func(v *TerminalRequest) { v.Login = "bob;id" }, func(v *TerminalRequest) { v.Project = "../../host" }, func(v *TerminalRequest) { v.Identity = 0 }, func(v *TerminalRequest) { v.Rows = 0 }, func(v *TerminalRequest) { v.Expires = time.Now().Add(3 * time.Hour).Unix() }} {
+	for _, change := range []func(*TerminalRequest){func(v *TerminalRequest) { v.Login = "root" }, func(v *TerminalRequest) { v.Login = "bob;id" }, func(v *TerminalRequest) { v.Project = "../../host" }, func(v *TerminalRequest) { v.Identity = 0 }, func(v *TerminalRequest) { v.Rows = 0 }, func(v *TerminalRequest) { v.Expires = time.Now().Add(13 * time.Hour).Unix() }} {
 		in := terminalInput()
 		change(&in)
 		if in.valid(time.Now()) {

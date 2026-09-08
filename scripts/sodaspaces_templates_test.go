@@ -25,6 +25,7 @@ func TestSodaspacesTemplates(t *testing.T) {
 		{"signed", &repository{ID: 9223372036854775807}, true, true},
 		{"anonymous", &repository{ID: 42}, false, true},
 		{"no repository", nil, false, false},
+		{"signed non-repository resume hook", nil, true, true},
 		{"broken", &repository{ID: 42, IsBroken: true}, true, false},
 		{"creating", &repository{ID: 42, IsBeingCreated: true}, true, false},
 	} {

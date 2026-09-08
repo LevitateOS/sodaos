@@ -48,7 +48,7 @@ function fixture(t, extra = {}) {
 test('standalone mount is inert; refresh only reads and preserves native nodes', async t => {
   const f = fixture(t); assert.equal(f.calls.length, 0); await f.api.refresh();
   assert(f.calls.every(c => c.method === 'GET')); assert.equal(f.terminals.length, 1); assert.equal(f.terminals[0].ctx.environmentId, env);
-  await f.api.refresh(); assert(f.terminals[0].disposed); assert(f.w.document.getElementById('native'));
+  await f.api.refresh(); assert(!f.terminals[0].disposed); assert.equal(f.terminals.length, 1); assert(f.w.document.getElementById('native'));
 });
 test('view tabs and app switches retain terminal and dispatch no reads or writes', async t => {
   const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
@@ -120,10 +120,10 @@ for (const body of [new Response('<html>login</html>', {headers: {'Content-Type'
     assert(f.button('Create environment').hidden); assert.equal(f.terminals.length, 0);
   });
 }
-test('refresh never remounts an ended or started terminal', async t => {
+test('refresh does not dispose or remount the terminal', async t => {
   const f = fixture(t); await f.api.refresh(); f.terminals[0].started = true;
-  await f.api.refresh(); assert.equal(f.terminals.length, 1); assert(f.terminals[0].disposed);
-  assert.match(f.root.textContent, /terminal session ended/);
+  await f.api.refresh(); assert.equal(f.terminals.length, 1); assert(!f.terminals[0].disposed);
+  assert.doesNotMatch(f.root.textContent, /terminal session ended/);
 });
 test('a provider mismatch at action time dispatches no mutation', async t => {
   let switched = false;

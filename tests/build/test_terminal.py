@@ -1,6 +1,6 @@
 """Local PTY supervision and fixed launcher contracts; no appliance or host users.
 
-Process tests replace only launch_shell with an unprivileged, clean test shell.
+Process tests replace only launch_attach with an unprivileged, clean test shell.
 They prove real local PTY lifetime, NOT project credential dropping/native Podman.
 """
 import base64
@@ -50,11 +50,13 @@ class TerminalProtocol(unittest.TestCase):
                             chdir=lambda *v: calls.append(('home', v)),
                             umask=lambda *v: calls.append(('umask', v)),
                             execve=lambda *v: calls.append(('exec', v))):
-            terminal.launch_shell(a)
+            terminal.launch_attach(a, '/run/soda-terminals/' + 'a'*32 + '/screen/socket')
         self.assertEqual([c[0] for c in calls], ['groups', 'gid', 'uid', 'home', 'umask', 'exec'])
         self.assertEqual(calls[2][1], (1001, 1001, 1001))
         shell, args, env = calls[-1][1]
-        self.assertEqual((shell, args, env['HOME']), ('/bin/bash', ['-bash'], '/home/alice'))
+        self.assertEqual(shell, '/usr/bin/tmux')
+        self.assertEqual(args, ['tmux', '-N', '-S', '/run/soda-terminals/' + 'a'*32 + '/screen/socket', 'attach-session', '-E', '-t', '=soda'])
+        self.assertEqual(env['HOME'], '/home/alice')
         self.assertEqual(set(env), {'HOME', 'USER', 'LOGNAME', 'SHELL', 'PATH', 'TERM', 'LANG'})
 
     def test_markers_and_ancestors_refuse_adoption(self):
@@ -92,10 +94,117 @@ class TerminalProtocol(unittest.TestCase):
     def test_unprivileged_entrypoint_never_launches(self):
         if os.geteuid() == 0:
             self.skipTest('this check requires the unprivileged development user')
-        p = subprocess.run([sys.executable, '-I', str(SOURCE), 'alice', '2', '80', '24', '30'], capture_output=True, timeout=5)
+        p = subprocess.run([sys.executable, '-I', str(SOURCE), 'create', 'a'*32, 'alice', '2', '80', '24', '30', '0'*64], capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 1)
         self.assertEqual(json.loads(p.stdout), {'type': 'closed', 'reason': 'launch_failed'})
         self.assertEqual(p.stderr, b'')
+
+
+class ManagedTerminalBoundary(unittest.TestCase):
+    """Temporary filesystem/command doubles, not tmux or systemd execution."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.identifier = 'a'*32
+        self.directory = self.root/'run/soda-terminals'/self.identifier
+        self.directory.mkdir(parents=True)
+        (self.directory/'screen').mkdir()
+        self.account = types.SimpleNamespace(pw_name='alice', pw_uid=1001, pw_gid=1002,
+                                            pw_dir='/home/alice', pw_shell='/bin/bash')
+        data = {'account': terminal.account_binding(self.account), 'identity': 2, 'cols': 80,
+                'rows': 24, 'deadline': time.monotonic()+120}
+        for name, value in {'binding': json.dumps(data), 'ready': json.dumps({'pid': 42, 'socket': [1, 2]}),
+                            'lease': str(time.monotonic()+60), 'writer': ''}.items():
+            p = self.directory/name; p.write_text(value); p.chmod(0o600)
+        opened, inspected = os.open, os.fstat
+        def open_root(path, flags, *args, **kwargs):
+            return opened(self.root if path == '/' else path, flags, *args, **kwargs)
+        def root_owner(fd):
+            fields = list(inspected(fd)); fields[4] = 0
+            return os.stat_result(fields)
+        self.open_patch = patch.object(terminal.os, 'open', open_root)
+        self.stat_patch = patch.object(terminal.os, 'fstat', root_owner)
+        self.open_patch.start(); self.stat_patch.start()
+        self.addCleanup(self.open_patch.stop); self.addCleanup(self.stat_patch.stop)
+
+    def test_attach_checks_original_binding_and_never_creates(self):
+        with patch.object(terminal, 'service_state', return_value='active'), \
+             patch.object(terminal, 'socket_identity', return_value=[1, 2]), \
+             patch.object(terminal, 'run_terminal', return_value=0) as attach, \
+             patch.object(terminal.subprocess, 'run') as commands:
+            self.assertEqual(terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60), 0)
+            self.assertEqual(attach.call_args.args[-1], '/run/soda-terminals/' + self.identifier + '/screen/socket')
+            commands.assert_not_called()
+            with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 3, 80, 24, 60)
+            with self.assertRaises(FileNotFoundError): terminal.attach_terminal('b'*32, self.account, 2, 80, 24, 60)
+            (self.directory/'lease').write_text('0')
+            with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
+            self.assertEqual(attach.call_count, 1)
+
+    def test_nonfinite_lease_refuses(self):
+        for value in ('nan', 'inf', '-inf'):
+            (self.directory/'lease').write_text(value)
+            with (self.directory/'lease').open() as f:
+                with self.assertRaises(ValueError): terminal.lease_value(f.fileno())
+
+    def test_writer_lock_and_socket_replacement_refuse(self):
+        with (self.directory/'writer').open('r+') as writer:
+            terminal.fcntl.flock(writer, terminal.fcntl.LOCK_EX)
+            with patch.object(terminal, 'run_terminal') as attach:
+                with self.assertRaises(BlockingIOError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
+                attach.assert_not_called()
+        with patch.object(terminal, 'service_state', return_value='active'), \
+             patch.object(terminal, 'socket_identity', return_value=[1, 999]), \
+             patch.object(terminal, 'run_terminal') as attach:
+            with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
+            attach.assert_not_called()
+
+    def test_unsafe_paths_and_metadata_refuse(self):
+        with patch.object(terminal, 'run_terminal') as attach:
+            for name in ('../x', '', 'A'*32, 'a'*33):
+                with self.assertRaises(ValueError): terminal.attach_terminal(name, self.account, 2, 80, 24, 60)
+            (self.directory/'writer').chmod(0o666)
+            with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
+            (self.directory/'writer').unlink(); (self.directory/'writer').symlink_to('/etc/passwd')
+            with self.assertRaises(OSError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
+            attach.assert_not_called()
+
+    def test_cgroup_population_not_unit_status_proves_cleanup(self):
+        group = self.root/terminal.cgroup_directory(self.identifier).lstrip('/')
+        group.mkdir(parents=True)
+        (group/'cgroup.events').write_text('populated 1\nfrozen 0\n')
+        self.assertFalse(terminal.cgroup_empty(self.identifier))
+        with patch.object(terminal, 'service_state', return_value='inactive'):
+            with self.assertRaises(ValueError): terminal.stop_service(self.identifier)
+        (group/'cgroup.events').write_text('populated 0\nfrozen 0\n')
+        self.assertTrue(terminal.cgroup_empty(self.identifier))
+        (group/'cgroup.events').unlink(); group.rmdir()
+        self.assertTrue(terminal.cgroup_empty(self.identifier))
+        group.parent.rmdir()
+        with self.assertRaises(FileNotFoundError): terminal.cgroup_empty(self.identifier)
+
+    def test_occupied_creation_and_missing_program_never_start_service(self):
+        with patch.object(terminal.subprocess, 'run') as run:
+            with self.assertRaises(FileNotFoundError): terminal.own_terminal(self.identifier, self.account, 2, 80, 24, 60, '0'*64)
+            run.assert_not_called()
+            program = self.root/'usr/libexec/soda/project-terminal'; program.parent.mkdir(parents=True)
+            program.write_bytes(SOURCE.read_bytes()); program.chmod(0o644)
+            digest = terminal.hashlib.sha256(program.read_bytes()).hexdigest()
+            with self.assertRaises(FileExistsError): terminal.own_terminal(self.identifier, self.account, 2, 80, 24, 60, digest)
+            self.assertEqual(run.call_count, 2)  # terminfo observations only
+            self.assertTrue(all(c.args[0][0] == '/usr/bin/infocmp' for c in run.call_args_list))
+
+    def test_control_commands_are_attach_only_and_clean_user_scoped(self):
+        with patch.object(terminal.subprocess, 'run') as run:
+            terminal.tmux_control(self.account, '/owned/socket', 'has-session', '-t', '=soda')
+            args, = run.call_args.args
+            self.assertEqual(args, ['/usr/bin/tmux', '-N', '-S', '/owned/socket', 'has-session', '-t', '=soda'])
+            self.assertEqual(run.call_args.kwargs['env'], terminal.user_environment(self.account))
+            self.assertNotIn('new-session', args)
+        self.assertIn(b'set -g status off', terminal.TMUX_CONFIG)
+        self.assertIn(b'set -s set-clipboard off', terminal.TMUX_CONFIG)
+        self.assertNotIn(b'pipe-pane', terminal.TMUX_CONFIG)
 
 
 class LocalTerminalProcess(unittest.TestCase):
@@ -122,13 +231,13 @@ class LocalTerminalProcess(unittest.TestCase):
 from pathlib import Path
 s=importlib.util.spec_from_file_location('terminal',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 m.LEASE_SECONDS=float(sys.argv[3])
-def shell(account):
+def shell(account,path):
  Path(account.pw_dir,'pid').write_text(str(os.getpid()))
  if sys.argv[4]=='fail':raise ValueError('SYNTHETIC_PRIVATE_ERROR')
  os.chdir(account.pw_dir)
  os.execve('/bin/bash',['bash','--noprofile','--norc','-i'],{'HOME':account.pw_dir,'PATH':'/usr/bin:/bin','TERM':'xterm-256color','PS1':'TEST> '})
-m.launch_shell=shell
-sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10))
+m.launch_attach=shell
+sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synthetic-socket'))
 '''
         p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.processes.append(p)

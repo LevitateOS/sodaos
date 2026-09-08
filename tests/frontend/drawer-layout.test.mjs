@@ -24,10 +24,16 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, origin);
-      if (req.method !== 'GET') { writes.push(req.method); res.writeHead(405).end(); return; }
+      if (req.method !== 'GET') {
+        if (req.method !== 'POST' || !url.pathname.endsWith('/terminal-session')) { writes.push(req.method); res.writeHead(405).end(); return; }
+        let input = ''; for await (const chunk of req) input += chunk;
+        const action = JSON.parse(input).action; writes.push(action);
+        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({terminal: {id: 'a'.repeat(32), retain_until: action === 'return' ? 0 : Math.floor(Date.now()/1000)+1800}})); return;
+      }
       if (url.pathname.startsWith('/-/soda/api/')) {
         let body;
         if (url.pathname.endsWith('/session')) body = {user: {id: '1', login: 'component-fixture'}, csrf_token: 'synthetic-csrf', forgejo_url: origin};
+        else if (url.pathname.endsWith('/terminal-session')) body = {terminal: null};
         else if (url.pathname.endsWith('/forgejo/me')) body = {id: '1'};
         else if (url.search) body = {repository: {id: '7', owner: 'fixture', name: 'shared-work'}, can_create: false, items: [{id: env, repository_id: '7'}]};
         else if (url.pathname.endsWith('/development-keys')) body = {items: [{id: '1', fingerprint}]};
@@ -51,7 +57,7 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); origin = `http://127.0.0.1:${server.address().port}`;
   t.after(() => new Promise(resolve => server.close(resolve)));
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
-  const out = path.join(root, '.artifacts/workspace-d57f128/layout-' + Date.now()); await mkdir(out, {recursive: true, mode: 0o700});
+  const out = path.join(root, '.artifacts/tmux-416180e/layout-' + Date.now()); await mkdir(out, {recursive: true, mode: 0o700});
   for (const width of [1440, 900, 390, 320]) for (const theme of ['light', 'dark']) for (const state of [true, false]) {
     running = state;
     const page = await browser.newPage({viewport: {width, height: 900}, colorScheme: theme});
@@ -63,7 +69,7 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       window.WebSocket = class {
         readyState = 0; bufferedAmount = 0;
         constructor() { window.fixtureSocketCount++; setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 0); }
-        send(data) { if (JSON.parse(data).csrf_token) setTimeout(() => { this.onmessage?.({data: '{"type":"ready"}'}); this.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('Renderer fixture only — no native shell'.replace('—', '-'))})}); }, 0); }
+        send(data) { if (JSON.parse(data).csrf_token) setTimeout(() => { this.onmessage?.({data: JSON.stringify({type: 'session', id: 'a'.repeat(32)})}); this.onmessage?.({data: '{"type":"ready"}'}); this.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('Renderer fixture only — no native shell'.replace('—', '-'))})}); }, 0); }
         close() { window.fixtureClosedCount++; this.readyState = 3; this.onclose?.(); }
       };
     });
@@ -102,12 +108,15 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
     }
     await page.screenshot({path: path.join(out, `${width}-${theme}-${state ? 'running' : 'stopped'}.png`)});
-    await page.locator('#sodaspaces-close').click(); await page.locator('#sodaspaces-button').click();
+    const away = state ? page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/terminal-session')) : Promise.resolve();
+    await page.locator('#sodaspaces-close').click(); await away;
+    const returned = state ? page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/terminal-session')) : Promise.resolve();
+    await page.locator('#sodaspaces-button').click(); await returned;
     await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     assert.equal(await page.locator('.soda-terminal').count(), state ? 1 : 0);
     assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
     if (state) assert.equal(await page.evaluate(() => window.fixtureSocketCount), 1);
     await page.close();
   }
-  assert.deepEqual(writes, []); assert.deepEqual(errors, []);
+  assert.deepEqual(writes, Array.from({length: 8}, () => ['retain', 'return']).flat()); assert.deepEqual(errors, []);
 });

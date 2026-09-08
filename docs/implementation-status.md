@@ -1,5 +1,64 @@
 # Current handoff
 
+## Managed tmux terminal candidate — source checked, not delivered
+
+Implemented the next single-terminal source slice on top of `416180e`:
+
+- Stock Rocky tmux/terminfo/tool recipe and one copied helper-owned program. Each
+  terminal has a transient project-systemd cgroup containing a root safety guard
+  and foreground tmux server/shell as the original marker-bound account. Private
+  verified socket/config/binding/lease/writer records; exact attach-only, no personal
+  server adoption, restart, root shell, install-on-Open or disposable fallback.
+- Backend lifetime owner independent of browser sockets; original Soda context/
+  project membership and fresh acting-user repository checks every 15 seconds.
+  Thirty-minute detached/Hide retention, explicit Return/two-hour extension and
+  original-session-bound 12-hour maximum. Input/output/reconnect do not extend
+  abandonment. Logout/rotation/expiry/Stop remain hard browser boundaries.
+- Protected metadata/lifetime API, explicit create versus attach, exclusive writer,
+  pending Stop gate and 64 terminal slots including detached/uncertain cleanup.
+  End reports ending, not disappearance. Native cleanup acknowledgment is required
+  to release a slot; failed dispatch/cleanup remains reserved for inspection.
+  Registry lifetime is the backend process; no resurrection/reconciliation API.
+- Refresh keeps the same renderer; navigation/BFCache reauthorize and reattach using
+  per-tab locators, not stored credentials/transcripts/input. Saved workspace stays
+  selected across unrelated native repository/non-repository pages; switching is
+  explicit. Hide retains the mounted connection while requesting finite retention.
+  Signed non-repository resume hook is **not** the unfinished Spaces page/navbar.
+- Extended local HTTP/DOM/filesystem/PTY regressions and revised the existing opt-in
+  native probe for managed ownership, same PID/start/memory reattach, ended-target
+  refusal and owner EOF/lease/helper-loss teardown. Its new protocol/exact-CID input
+  rejects old private input files. Authored native checks have **not run**.
+
+Actual local checks in `.artifacts/tmux-416180e/`: offline/read-only-module `go test
+./...`; race tests for `internal/web` and `internal/host`; frontend/presentation
+suite (62 passes, two opt-in skips); Python build fixtures (68 tests, one skip);
+16 sandboxed synthetic Chromium layout cases with local locked assets. Reviewed
+1440px dark and 320px light captures under `layout-1788910813980/`. These are local
+source/component checks, not a tmux/systemd or native Forgejo browser journey.
+An initial frontend failure omitted the new session frame in its double and was
+corrected/rerun; all original logs remain. Native-stage packaging invocation did
+**not** run tests: `SODA_STAGE must identify the actual native build rootfs`. No
+current full native build/stage was prepared; an old stage was not substituted.
+Markdown relative-link/anchor checks and `git diff --check` also passed.
+
+**Still required before delivery/acceptance:** actual signed Rocky RPM/downstream
+behavior, project-systemd/cgroup/startup/cleanup and guard-failure proof; real native
+browser navigation/reload/network/expiry/logout/Stop, editor/build/screen/history/
+selection/paste continuity and unrelated SSH/tmux/services preservation. Update the
+remaining installed browser journeys deliberately; old request-owned assertions
+are not current acceptance. The exact same-root package/file maintenance recipe,
+compatibility checks, fresh backup/quiescence and rehearsal remain unfinished.
+Missing support refuses. Do not roll out helper/API bytes against old retained roots
+or normalize them through image replacement/restarts. Multi-session tabs, zero-key
+onboarding, Git credentials and Spaces remain later work.
+
+No dependency resolution/installation, project image build, native tmux execution,
+VM contact, package/service/project/key/provider mutation, deployment or push occurred.
+Installed isolated `2aa4960`, retained `soda-test`, both isolated mutable roots,
+private inputs and historical evidence remain unchanged. The sections below record
+older slices/evidence, not current implementation claims. See the current
+[terminal contract](terminal-integration.md) and [API](dashboard-api.md).
+
 ## Project OS baseline consolidated — documentation only
 
 At the user's request, replaced the stale, unlinked [Project OS guide](project-os.md)
@@ -43,7 +102,7 @@ Tmux/native delivery and new acceptance remain unimplemented/unverified.
 Following the user's request to find the best native persistence option, the
 [leading plan](sodaspaces-plan.md#resumable-terminal-decision--tmux) now selects
 **stock Rocky-packaged tmux** for the next single resumable terminal. The
-[terminal contract](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
+[terminal contract](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
 records the comparison, exact upstream sources, native ownership and proof required.
 
 Source review found the decisive shpool v0.11.4 limitation: no require-existing

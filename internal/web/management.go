@@ -82,6 +82,16 @@ func (s *Server) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Se
 		action = in.Action
 		if action == "stop" {
 			s.terminalMu.Lock()
+			if s.terminalStopping == nil {
+				s.terminalStopping = make(map[string]bool)
+			}
+			if s.terminalStopping[p.ID] {
+				s.terminalMu.Unlock()
+				jsonError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
+				return
+			}
+			s.terminalStopping[p.ID] = true
+			defer func() { s.terminalMu.Lock(); delete(s.terminalStopping, p.ID); s.terminalMu.Unlock() }()
 			for key, entry := range s.terminals {
 				if key.project == p.ID {
 					entry.cancel()

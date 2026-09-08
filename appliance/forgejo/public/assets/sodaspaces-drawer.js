@@ -75,11 +75,12 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
   box.replaceChildren(tabs, terminalMount, setup, access, summary); select(selected);
   for (const [name, element] of Object.entries({data: box, status, result: outcome, actor, repository: context, login: ownLogin, 'sign-in': connect, 'sign-out': signOut, refresh: refreshButton, reload, create, join, keys: keySection, 'key-list': keyList, 'public-key': publicKey, 'save-key': save, connection, command: sshCommand, fingerprint: hostFingerprint, copy})) element.id = 'sodaspaces-' + name;
   let session, environment, detail, keyPreview, terminal, readController;
-  let busy = false, stale = false, disposed = false, uncertain = false, terminalUsed = false, epoch = 0;
+  let busy = false, stale = false, disposed = false, uncertain = false, terminalTarget, epoch = 0;
   const commandButtons = [create, join, start, stop, save, review, apply, copy];
+  const retireTerminal = () => {
+    terminal?.dispose(); terminal = undefined; terminalTarget = undefined; terminalMount.replaceChildren();
+  };
   const reset = () => {
-    terminalUsed ||= terminal?.started === true;
-    terminal?.dispose(); terminal = undefined; terminalMount.replaceChildren();
     environment = detail = keyPreview = undefined;
     publicKey.value = ''; keyList.replaceChildren(); previewArea.replaceChildren();
     sshCommand.value = hostFingerprint.textContent = runtime.textContent = ownLogin.textContent = '';
@@ -98,7 +99,7 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
     signOut.disabled = busy || stale || !session;
   };
   const invalidate = () => {
-    ++epoch; stale = true; readController?.abort(); reset(); session = undefined;
+    ++epoch; stale = true; readController?.abort(); retireTerminal(); reset(); session = undefined;
     actor.textContent = context.textContent = ''; signOut.hidden = true; connect.hidden = true;
     status.textContent = 'Page context changed. Reload the full repository page; no action was replayed or undone.'; updateBusy();
   };
@@ -126,7 +127,7 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
       const found = await api('/api/session', 'GET', undefined, readController.signal); if (!active(n)) return;
       check(id(found.user?.id) && typeof found.user.login === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(found.csrf_token) && found.forgejo_url === win.location.origin);
       session = found; actor.textContent = `Soda account: ${found.user.login} (ID ${found.user.id})`; signOut.hidden = false;
-      if (!expectedUserId || found.user.id !== expectedUserId) { connect.hidden = false; status.textContent = 'Soda and native page identities differ. Sign out of Soda or reload and connect explicitly.'; return; }
+      if (!expectedUserId || found.user.id !== expectedUserId) { retireTerminal(); connect.hidden = false; status.textContent = 'Soda and native page identities differ. Sign out of Soda or reload and connect explicitly.'; return; }
       const provider = await api('/api/forgejo/me', 'GET', undefined, readController.signal); if (!active(n)) return; check(provider.id === expectedUserId);
       const collection = await api('/api/environments?repository_id=' + repositoryId, 'GET', undefined, readController.signal); if (!active(n)) return;
       check(collection.repository?.id === repositoryId && Array.isArray(collection.items) && collection.items.length <= 1 && typeof collection.can_create === 'boolean');
@@ -165,14 +166,19 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
         connection.hidden = false; ownLogin.textContent = `Project account: ${detail.login}`;
         sshCommand.value = `ssh ${detail.login}@${c.environment.ip}`; hostFingerprint.textContent = `Ed25519 host-key fingerprint: ${c.fingerprint}`;
         copy.setAttribute('data-clipboard-target', '#sodaspaces-command');
-        if (!terminalUsed) terminal = terminalFactory(terminalMount, {expectedUserId, repositoryId, environmentId: environment.id, login: detail.login});
-        else node('p', 'The terminal session ended. Reload the repository page before opening another terminal.', terminalMount);
+        const target = environment.id + ':' + detail.login;
+        if (terminal && terminalTarget !== target) retireTerminal();
+        if (!terminal) {
+          terminalTarget = target;
+          terminal = terminalFactory(terminalMount, {expectedUserId, repositoryId, environmentId: environment.id, login: detail.login});
+          terminal.restore?.();
+        }
         if (!chosen) select('terminal');
       }
     } catch (e) {
       if (!active(n)) return;
       reset(); context.textContent = '';
-      if (e.status === 401 || e.status === 403) { actor.textContent = ''; session = undefined; signOut.hidden = true; }
+      if (e.status === 401 || e.status === 403) { retireTerminal(); actor.textContent = ''; session = undefined; signOut.hidden = true; }
       connect.hidden = !(e.status === 401 || e.status === 403);
       status.textContent = connect.hidden ? 'Could not confirm state. Refresh; do not infer absence or retry an uncertain action.' : 'Connect through Forgejo to authorize Soda access.';
     } finally { win.clearTimeout(timeout); if (active(n)) { busy = false; updateBusy(); } }
@@ -251,5 +257,5 @@ export function mountSodaspaces(root, {expectedUserId, repositoryId}, terminalFa
   win.addEventListener('pagehide', invalidate, {signal: lifetime.signal});
   win.addEventListener('pageshow', e => {if (e.persisted) invalidate();}, {signal: lifetime.signal});
   reset(); signOut.hidden = true; updateBusy();
-  return {refresh, invalidate, dispose() {if (disposed) return; invalidate(); disposed = true; lifetime.abort(); box.remove();}};
+  return {refresh, invalidate, retain: () => terminal?.retain?.(), returnToWork: () => terminal?.returnToWork?.(), dispose() {if (disposed) return; invalidate(); disposed = true; lifetime.abort(); box.remove();}};
 }

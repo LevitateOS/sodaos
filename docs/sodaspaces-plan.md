@@ -138,7 +138,8 @@ See the [current component contract](terminal-integration.md).
 xterm and the existing authenticated Soda/native-helper boundary. Soda owns browser
 tabs and access policy; project-local tmux owns the live shell, terminal screen and
 bounded history. No separate web-terminal server, replacement frontend or custom
-terminal emulator. This is a source-backed choice, **not implemented/native-proven**.
+terminal emulator. A source candidate is now implemented; **native proof and delivery
+remain pending**. See the leading handoff for checks and remaining gaps.
 
 The decisive comparison is attach-only behavior. Reviewed shpool **v0.11.4** has no
 require-existing option in its CLI or attach protocol; its server can create a new
@@ -146,7 +147,7 @@ shell when the named session is missing or has exited. Listing first still races
 Tmux **3.2a**, the base version published by Rocky 9 for both target architectures,
 already supports explicit creation and exact existing-session attachment with server
 autostart disabled. No custom latest-tmux build is needed for those mechanisms.
-See the [source comparison and native contract](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented),
+See the [source comparison and native contract](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate),
 including tmux's scrollback trade-off and remaining package/runtime checks.
 
 Use **one private foreground tmux server/session per managed browser terminal**, as
@@ -165,8 +166,11 @@ and management rendering must stop owning terminal lifetime. Prove the same nati
 shell/editor/build across navigation/reload/network loss, and actual owned cleanup,
 before adding multiple session tabs/`＋` or treating this as a delivery candidate.
 Reuse that mechanism from Spaces; its unresolved page shell is not a prerequisite.
-The retention recommendations above remain unimplemented. No package installation,
-retained-project change or new native execution authority follows from this decision.
+The source candidate now implements 30-minute detached retention, explicit finite
+extension/return and an original-session-bound 12-hour maximum. It reserves uncertain
+cleanup slots rather than replacing them. Native history/editor/build/browser proof
+and exact same-root delivery remain unfinished. No package installation, retained-
+project change or new native execution authority follows from this implementation.
 
 ### SSH directions and the proposed Git setup
 

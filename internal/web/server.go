@@ -15,16 +15,18 @@ import (
 )
 
 type Server struct {
-	Config         config.Config
-	Store          *store.Store
-	Forgejo        *forgejo.Client
-	Host           *host.Client
-	mux            *http.ServeMux
-	providerLocks  providerLocks
-	terminalMu     sync.Mutex
-	terminals      map[terminalKey]*browserTerminal
-	terminalClosed bool
-	terminalWG     sync.WaitGroup
+	Config           config.Config
+	Store            *store.Store
+	Forgejo          *forgejo.Client
+	Host             *host.Client
+	mux              *http.ServeMux
+	providerLocks    providerLocks
+	terminalMu       sync.Mutex
+	terminals        map[terminalKey]*browserTerminal
+	terminalPeers    map[*http.Request]*terminalPeer
+	terminalStopping map[string]bool
+	terminalClosed   bool
+	terminalWG       sync.WaitGroup
 }
 
 func New(c config.Config, db *store.Store) *Server {

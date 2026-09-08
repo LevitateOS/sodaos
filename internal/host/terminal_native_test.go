@@ -5,7 +5,9 @@ package host
 // It starts a temporary root-private helper, not an installed/public service.
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -47,9 +49,11 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		t.Skip("opt-in native fixture proof; no target selected")
 	}
 	var request struct {
-		Target   string `json:"target"`
-		Project  string `json:"project"`
-		Accounts []struct {
+		Target    string `json:"target"`
+		Protocol  string `json:"terminal_protocol"`
+		Container string `json:"container_id"`
+		Project   string `json:"project"`
+		Accounts  []struct {
 			Login    string `json:"login"`
 			Identity int64  `json:"identity"`
 			UID      int    `json:"uid"`
@@ -70,7 +74,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	err = strictjson.Decode(f, &request)
 	f.Close()
-	if err != nil || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !projectID.MatchString(request.Project) || len(request.Accounts) != 2 {
+	if err != nil || request.Protocol != "managed-tmux-v1" || !containerID.MatchString(request.Container) || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !projectID.MatchString(request.Project) || len(request.Accounts) != 2 {
 		t.Fatal("native target/account scope mismatch")
 	}
 	seen := map[int64]bool{}
@@ -116,8 +120,36 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cid, err := d.terminalContainer(ctx, request.Project)
-	if err != nil {
+	if err != nil || cid != request.Container {
 		t.Fatal("native project binding unavailable")
+	}
+	newID := func() string {
+		var value [16]byte
+		if _, err := rand.Read(value[:]); err != nil {
+			t.Fatal("identifier unavailable")
+		}
+		return hex.EncodeToString(value[:])
+	}
+	openManaged := func(client *Client, in TerminalRequest) (*Terminal, *Terminal) {
+		in.Action = "create"
+		owner, err := client.OpenTerminal(ctx, in)
+		if err != nil {
+			t.Fatal("managed owner unavailable")
+		}
+		t.Cleanup(owner.Close)
+		if f, err := owner.Receive(ctx); err != nil || f.Type != "ready" {
+			t.Fatal("managed creation unconfirmed")
+		}
+		in.Action = "attach"
+		stream, err := client.OpenTerminal(ctx, in)
+		if err != nil {
+			t.Fatal("managed attach unavailable")
+		}
+		t.Cleanup(stream.Close)
+		if f, err := stream.Receive(ctx); err != nil || f.Type != "ready" {
+			t.Fatal("managed attachment unconfirmed")
+		}
+		return owner, stream
 	}
 
 	// Output stays in bounded memory and is never attached to a test failure/log.
@@ -145,7 +177,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		return nil
 	}
 	// A genuine marker/actor mismatch must refuse without changing the account.
-	wrong := TerminalRequest{Project: request.Project, Login: request.Accounts[0].Login, Identity: request.Accounts[1].Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
+	wrong := TerminalRequest{Action: "create", ID: newID(), Project: request.Project, Login: request.Accounts[0].Login, Identity: request.Accounts[1].Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
 	denied, err := c.OpenTerminal(ctx, wrong)
 	if err != nil {
 		t.Fatal("native refusal transport unavailable")
@@ -157,16 +189,8 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	results := []map[string]any{}
 	for _, a := range request.Accounts {
-		in := TerminalRequest{Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
-		stream, err := c.OpenTerminal(ctx, in)
-		if err != nil {
-			t.Fatal("native terminal open failed")
-		}
-		defer stream.Close()
-		first, err := stream.Receive(ctx)
-		if err != nil || first.Type != "ready" {
-			t.Fatal("native launch not confirmed")
-		}
+		in := TerminalRequest{ID: newID(), Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
+		owner, stream := openManaged(c, in)
 		t.Log("checking native account facts", a.Identity)
 		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"resuid":os.getresuid(),"resgid":os.getresgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman"),"mise_data":os.environ.get("MISE_DATA_DIR"),"mise_config":os.environ.get("MISE_GLOBAL_CONFIG_FILE"),"container_host":os.environ.get("CONTAINER_HOST")} ))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
@@ -209,12 +233,41 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		time.Sleep(200 * time.Millisecond)
 		command(stream, "\x03printf '__SODA_INTERRUPT__%s\\n' ok")
 		waitText(stream, regexp.MustCompile(`(?m)^__SODA_INTERRUPT__ok\r?$`))
-		if err = stream.Send(ctx, TerminalFrame{Type: "close"}); err != nil {
-			t.Fatal("native close failed")
+		command(stream, `SODA_RESUME_PROBE=kept; printf '__SODA_SET__ok\n'`)
+		waitText(stream, regexp.MustCompile(`(?m)^__SODA_SET__ok$`))
+		observe := func() string {
+			out, e := (Native{}).Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", cid, "/usr/bin/python3", "-I", "-c", `import pathlib,sys; print(pathlib.Path('/proc/'+sys.argv[1]+'/stat').read_text().rsplit(')',1)[1].split()[19])`, strconv.Itoa(actual.PID))
+			if e != nil {
+				t.Fatal("independent shell start observation failed")
+			}
+			return strings.TrimSpace(string(out))
 		}
-		closeCtx, closeCancel := context.WithTimeout(ctx, 8*time.Second)
+		start := observe()
+		stream.Close()
+		time.Sleep(300 * time.Millisecond)
+		if observe() != start {
+			t.Fatal("detach replaced shell")
+		}
+		in.Action = "attach"
+		stream, err = c.OpenTerminal(ctx, in)
+		if err != nil {
+			t.Fatal("reattach unavailable")
+		}
+		defer stream.Close()
+		if f, e := stream.Receive(ctx); e != nil || f.Type != "ready" {
+			t.Fatal("reattach unconfirmed")
+		}
+		command(stream, `printf '__SODA_RESUME__%s:%s\n' "$$" "$SODA_RESUME_PROBE"`)
+		resumed := waitText(stream, regexp.MustCompile(`(?m)^__SODA_RESUME__([1-9][0-9]*):kept$`))
+		if resumed[1] != strconv.Itoa(actual.PID) || observe() != start {
+			t.Fatal("reattach replaced shell state")
+		}
+		if err = owner.Send(ctx, TerminalFrame{Type: "close"}); err != nil {
+			t.Fatal("native End failed")
+		}
+		closeCtx, closeCancel := context.WithTimeout(ctx, 20*time.Second)
 		for {
-			frame, e := stream.Receive(closeCtx)
+			frame, e := owner.Receive(closeCtx)
 			if e != nil {
 				closeCancel()
 				t.Fatal("native teardown receipt missing")
@@ -234,7 +287,16 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		if e != nil || strings.TrimSpace(string(out)) != "0" {
 			t.Fatal("native login process disappearance not confirmed")
 		}
-		results = append(results, map[string]any{"login": a.Login, "identity": a.Identity, "native_account_tty_resize_interrupt": true, "sudo_boundary": true, "login_exit_observed": true})
+		absent, e := c.OpenTerminal(ctx, in)
+		if e != nil {
+			t.Fatal("ended attach refusal transport unavailable")
+		}
+		f, e := absent.Receive(ctx)
+		absent.Close()
+		if e != nil || f.Type != "closed" || f.Reason != "launch_failed" {
+			t.Fatal("ended attach did not refuse")
+		}
+		results = append(results, map[string]any{"login": a.Login, "identity": a.Identity, "native_account_tty_resize_interrupt": true, "same_shell_start_and_memory_after_reattach": true, "ended_attach_refused": true, "sudo_boundary": true, "login_exit_observed": true})
 	}
 	// Exercise real remote teardown, not just a closed WebSocket or dead host CLI.
 	// Foreground jobs and login PIDs are read back through an independent exec.
@@ -278,14 +340,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			client = NewClient(childSocket)
 		}
 		a := request.Accounts[i%2]
-		stream, err := client.OpenTerminal(ctx, TerminalRequest{Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()})
-		if err != nil {
-			t.Fatal("teardown terminal unavailable")
-		}
-		defer stream.Close()
-		if first, err := stream.Receive(ctx); err != nil || first.Type != "ready" {
-			t.Fatal("teardown launch unconfirmed")
-		}
+		owner, stream := openManaged(client, TerminalRequest{ID: newID(), Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()})
 		command(stream, `printf '__SODA_LOGIN__%s\n' "$$"`)
 		login := waitText(stream, regexp.MustCompile(`(?m)^__SODA_LOGIN__([1-9][0-9]*)$`))[1]
 		command(stream, `/usr/bin/python3 -u -c 'import os,time,pathlib; parent=pathlib.Path("/proc/"+str(os.getppid())+"/stat").read_text().rsplit(")",1)[1].split()[1]; print("__SODA_JOB__"+str(os.getpid())+":"+parent); time.sleep(180)'`)
@@ -294,10 +349,10 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		started := time.Now()
 		switch mode {
 		case "transport-eof":
-			stream.Close()
+			owner.Close()
 		case "silent-lease":
 			for {
-				frame, err := stream.Receive(ctx)
+				frame, err := owner.Receive(ctx)
 				if err != nil {
 					t.Fatal("lease teardown receipt unavailable")
 				}
@@ -333,7 +388,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	// Independent SSH/workload preservation and browser integration are not
 	// fabricated by this private-helper test; observe them separately.
-	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "teardown": teardown, "scope": "native account/TTY/profile/explicit-close/EOF/lease/helper-loss"}, "", "  ")
+	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "teardown": teardown, "scope": "managed tmux: account/TTY/profile/same-shell reattach/End/owner EOF/lease/helper-loss; not browser/editor/unrelated-service preservation"}, "", "  ")
 	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal("native evidence finalization failed")

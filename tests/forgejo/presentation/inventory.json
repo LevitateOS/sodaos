@@ -818,8 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "27344134df7f6cd780b07eeb0defbac8db57f446c137a308bc3e9f0a43449789",
-      "presentationReview": "non-modal workspace aside, keyboard/pointer divider and Hide; notification markup unchanged; source and synthetic layout proof only",
+      "beforeRoleHash": "14612902fd280e228c9ae9ef14519285959b8e23c150dcfb745af6324ca3e46d",
+      "presentationReview": "non-modal workspace and signed non-repository resume hook; notification markup unchanged; source checks only for resumable integration, no native acceptance",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],

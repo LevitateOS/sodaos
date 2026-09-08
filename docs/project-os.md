@@ -223,7 +223,7 @@ operator/project coordination. No automatic fleet patching is currently supplied
 
 | Gap | When it matters |
 | --- | --- |
-| Tmux package, project-local supervision/lease and same-process reattachment | Immediate single-terminal slice; verify native cgroup ownership, login/terminfo/editor behavior and failure cleanup before calling it resumable. |
+| Tmux source candidate native proof | Package recipe, private guard/service, lease, attach-only API and drawer restore are authored; verify actual native cgroups, login/terminfo/editor behavior and failure cleanup before acceptance. |
 | Required-tool checks and same-root package/unit delivery | Part of that feature, not a separate OS platform. Saved RPMs are not proof every retained root has the required commands; maintenance is a gate to existing-target delivery, not to source work. |
 | Zero-key real account provisioning and explicit Forgejo public-key selection | Browser-only onboarding slice; preserve current accounts/key files and password-SSH denial. Not a prerequisite for testing tmux with an existing member. |
 | Personal Git credential trust/consent/passphrase choice and native endpoint trust | Resolve before automated Git setup/combined clone-edit-build-push proof; do not fabricate credentials or treat profile keys as repository-scoped. |
