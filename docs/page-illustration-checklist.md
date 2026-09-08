@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: OAuth application edit form and access-token creation; trace their native content and artwork inheritance. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: finish tracing OAuth list/create/grant partial callers, then conditional personal Actions/storage pages. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -216,8 +216,9 @@ Next: OAuth application edit form and access-token creation; trace their native 
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Done | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `settings-account-papercraft.png` via layout | Existing mailbox/account scene retained; native desktop/mobile introduction inspected. |
 | Done | [`user/settings/appearance.tmpl`](../appliance/forgejo/templates/user/settings/appearance.tmpl) | `settings-appearance-papercraft.png` via layout | Existing swatch scene retained; native desktop/mobile introduction verified. |
+| No image | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `hideArtwork` | Native resource/scope selection takes priority; desktop creation form checked. |
 | Done | [`user/settings/applications.tmpl`](../appliance/forgejo/templates/user/settings/applications.tmpl) | `settings-applications-papercraft.png` via layout | Existing application-connection scene retained; native desktop/mobile landing captures inspected. |
-| Pending | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| No image | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `hideArtwork` | Credential and redirect configuration; source reviewed, native edit verification pending. |
 | Partial — trace caller | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | — | Not yet reviewed in this goal. |
 | Done | [`user/settings/hooks.tmpl`](../appliance/forgejo/templates/user/settings/hooks.tmpl) | `settings-webhooks-papercraft.png` | Personal webhook list only; desktop/mobile and new-form isolation checked. |
 | Done | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `settings-keys-papercraft.png` via layout | Existing key-rack scene retained; native desktop/mobile landing captures inspected. |
@@ -471,3 +472,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-flZti2/001.png` (1440×1000) and `capture-fc5zay/001.png` (390×844). Art fits beside the heading; desktop shows empty token/grant lists and the start of the native OAuth creation form. Mobile navigation remains before those sections below the viewport.
 - OAuth edit wrapper was inspected, but its included edit form and separate token-creation page remain queued; this landing verification does not close those variants or shared partials.
 - No tokens/applications created, credentials regenerated, grants revoked or forms submitted. Populated lists, secret display, OAuth-disabled and dark-theme states were not exercised. Existing asset/prompt unchanged; no tests/reload required for verification-only work.
+
+### OAuth editing and access-token creation
+
+- Read the complete native OAuth edit form and access-token creation template. OAuth editing presents client identity/secret, regeneration and redirect/confidential-client configuration. Token creation presents resource boundaries, repository selection with state-preserving GET pagination and per-category permissions. These controls need no decorative scene.
+- Both personal wrappers now explicitly pass `hideArtwork` to the existing layout. Added the token template as a stock official override; only the header input changes. Inventory now has 207 overrides/helpers. No native form content or handler changed.
+- Focused offline shared-presentation test passed; local templates reloaded. Native token-creation desktop capture inspected at `.artifacts/screenshots/capture-Adtqrc/001.png` (1440×1000): no artwork, resource and scope controls visible. No token generated.
+- OAuth edit has source evidence only: no existing fixture application is available, and none was created. Native edit verification remains pending. Secret regeneration/display, form submission and mobile token rendering were not exercised.
