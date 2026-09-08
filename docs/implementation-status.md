@@ -25,7 +25,43 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
-## Notification bell quick-view source implementation
+## Notification bell quick-view local activation
+
+User authorized activation and testing after `20ad60f`. Reloaded templates only in
+`sodaos-local-forgejo` (`forgejo manager reload-templates` returned `Reloaded`).
+Real signed-in requests now exercise the native `ctx.Context.FormBool` rendering
+branch successfully; no product-code correction was needed for activation.
+
+- Populated native inbox: three real unread entries rendered at 1440, 768, 390 and
+  320px. Both bell anchors, panel containment and Escape/focus return passed. The
+  native unread count remained **3 before / 3 after**. No entries were opened.
+- On `/notifications`, the popup coexisted with exactly one native notification
+  div/table. An ordinary `div-only` refresh still returned the full native fragment;
+  “View all notifications” navigated to the normal page. Recorded notification
+  requests were GET-only and no page errors occurred.
+- Existing non-admin screenshot fixture profile exercised the real empty inbox in
+  dark mode; zero rows, truthful empty copy, dismissal and **0 before / 0 after**
+  unread count passed. Populated light/mobile and empty dark screenshots were read.
+- The 320px signed-in navbar already extends 3px beyond the viewport before the
+  popup opens (`navbar-left/right` and appearance link); the popup fits and does not
+  increase document width. This unrelated navbar issue remains, not a popup pass
+  disguised as a whole-page no-overflow claim.
+- Focused Go Forgejo tests and all three browser suites (notification fixture,
+  Explore overflow, milestone layout) passed again after reload. `git diff --check`
+  passed. Evidence/scripts/screenshots are retained privately under
+  `.artifacts/local-forgejo/notification-activation-20260908/`.
+
+An isolated browser used the retained local fixture credential privately for normal
+login; the existing screenshot profile was reused for empty-state checks. Exploratory
+checks initially used an explicit submit-type selector absent from the native login
+button and assumed five entries where the real account has three; test assumptions
+were corrected, not fixture data. No new fixture, notification-status mutation,
+account preference change, service restart or appliance deployment occurred. Actual
+pinned rows, live badge changes from new events, account switching/session expiry
+and native read-on-navigation remain unexercised; those existing synthetic/source
+checks are not relabeled native evidence. Production staging/delivery remains pending.
+
+## Notification bell quick-view source implementation (pre-activation evidence)
 
 The requested [plan](notification-preview-plan.md) is implemented in source using
 the existing native notification fragment and bundled HTMX. A signed-in-only footer

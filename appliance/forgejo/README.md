@@ -27,12 +27,13 @@ are enhanced after HTMX initializes. The script uses DOM events because the bund
 does not expose `window.htmx`. Preview IDs/styles are deliberately separate from
 native full-page notification replacement hooks. Keep that boundary on upgrades.
 
-Focused Go and browser-fixture checks pass; authenticated native rendering and
-visual review are pending. No template reload or deployment occurred. The new
-footer and compact branch require an authorized reload in the local preview;
-production delivery remains separately pending. See the
-[plan/evidence](../../docs/notification-preview-plan.md). Do not mark entries read
-or change fixture data merely to activate or preview this feature.
+Focused Go/browser checks pass, and the user-authorized local template reload is
+complete. Real signed-in populated and empty inboxes, both bells, mobile containment,
+Escape/focus and full-page coexistence were checked without changing unread counts.
+Production delivery remains separately pending. See the
+[plan/evidence](../../docs/notification-preview-plan.md) for exact limits, including
+unexercised native pinned/event cases and a pre-existing 320px navbar overflow.
+Do not mark entries read or change fixture data merely to preview this feature.
 
 ## Asset mapping
 

@@ -1,6 +1,6 @@
 # Notification bell preview implementation plan
 
-Status: **source implemented; native authenticated review and delivery pending**.
+Status: **implemented and activated in the local preview; production delivery pending**.
 Based on the [15.0.7 investigation](forgejo-frontend-integration.md#notification-bell-quick-view-investigation).
 This is a focused native Forgejo customization, independent of the unfinished
 Sodaspaces drawer/authentication work. No downstream Forgejo build or Go API adapter.
@@ -18,11 +18,18 @@ loading/empty/error/retry, delayed-response rejection, keyboard/modified clicks,
 Escape/outside/focus dismissal, mobile containment, HTMX redirects and no-JS/no-HTMX/
 no-popover fallback. Explore/milestone and guest-theme regressions also passed.
 
-Remaining: authorized template reload, native context-expression/rendering verification,
-actual authenticated inbox/badge/full-page coexistence and user visual review; real
-notification navigation/status changes require their own fixture scope. Production
-staging/delivery remains pending. The sequence below remains the feature contract,
-not a claim that these remaining validation/delivery steps ran.
+After explicit activation/testing authorization, template reload succeeded. Real
+signed-in populated (three unread) and empty inboxes rendered correctly, proving the
+native context-expression seam. Desktop/mobile panel containment, Escape/focus,
+full-page coexistence, ordinary fragment refresh and “View all notifications” passed;
+unread counts stayed 3/3 and 0/0. Screenshots were inspected. Focused suites passed
+again. A pre-existing 3px signed-in navbar overflow at 320px remains; the popup adds
+no overflow. See the [handoff](implementation-status.md#notification-bell-quick-view-local-activation).
+
+Remaining: actual pinned rows, live badge-event changes, account switching/expiry,
+native read-on-navigation and user acceptance. Real notification status changes need
+their own fixture scope. Production staging/delivery remains pending. The sequence
+below remains the feature contract, not a claim that every validation step ran.
 
 ## Experience and scope
 

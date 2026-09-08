@@ -61,8 +61,9 @@ explains the CSS and DOM boundaries that any future Lit component must account f
 
 The [implementation plan/evidence](notification-preview-plan.md) sequences compact
 native rendering, bell/HTMX integration, focused validation and separately authorized
-delivery. Preview source and focused fixture tests are implemented; authenticated
-native rendering, template reload, user review and production delivery remain pending.
+delivery. Preview source and focused fixture tests are implemented. The authorized
+local template reload and signed-in populated/empty rendering checks passed;
+remaining native cases, user acceptance and production delivery are tracked there.
 
 Source reviewed at **15.0.7**, tag commit
 `d4de9eb2a87c26b402fdd0259e079957f8cd2b4b`. The following records the original
