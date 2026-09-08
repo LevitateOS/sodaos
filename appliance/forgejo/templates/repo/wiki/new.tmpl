@@ -1,9 +1,9 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository wiki new soda-repository-content soda-wiki-editor">
 	{{template "repo/header" .}}
-	<div class="ui container">
+	<div class="ui container soda-p-editor-container">
 		{{template "base/alert" .}}
-		<div class="ui header flex-text-block tw-justify-between">
+		<div class="ui header flex-text-block tw-justify-between soda-p-heading">
 			{{ctx.Locale.Tr "repo.wiki.new_page"}}
 			{{if .PageIsWikiEdit}}
 				<a class="ui tiny primary button" href="{{.RepoLink}}/wiki?action=_new">{{ctx.Locale.Tr "repo.wiki.new_page_button"}}</a>

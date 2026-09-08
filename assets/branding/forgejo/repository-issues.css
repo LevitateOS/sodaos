@@ -211,12 +211,15 @@
 
 /* Compact milestone actions retain native tooltips and link-action handling. */
 .soda-milestone-detail-title {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px 16px;
   margin-bottom: 16px;
 }
 
+.soda-milestone-detail-title > h1 { flex: 1; min-width: 0; }
+
 .soda-milestone-detail-title > .button-row {
+  flex: none;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;

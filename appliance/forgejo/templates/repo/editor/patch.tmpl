@@ -2,7 +2,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-editor page-content repository file editor edit">
 	{{template "repo/header" .}}
-	<div class="ui container">
+	<div class="ui container soda-p-editor-container">
 		{{template "base/alert" .}}
 		<form class="soda-form ui edit form soda-p-form" method="post" action="{{.RepoLink}}/_diffpatch/{{.BranchName | PathEscapeSegments}}">
 			<input type="hidden" name="last_commit" value="{{.last_commit}}">

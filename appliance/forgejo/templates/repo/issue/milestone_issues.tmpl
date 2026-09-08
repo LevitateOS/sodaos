@@ -4,7 +4,7 @@
 	<div class="ui container soda-milestone-detail-container">
 		{{template "base/alert" .}}
 		<div class="tw-flex tw-items-center tw-justify-between soda-milestone-detail-title">
-			<h1 class="tw-mb-2">{{.Milestone.Name}}</h1>
+			<h1 class="tw-mb-2 soda-p-title">{{.Milestone.Name}}</h1>
 			{{if not .Repository.IsArchived}}
 				<div class="tw-flex button-row">
 					{{if or .CanWriteIssues .CanWritePulls}}

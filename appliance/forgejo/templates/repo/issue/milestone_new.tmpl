@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new milestone soda-milestone-editor">
 	{{template "repo/header" .}}
-	<div class="ui container soda-milestone-editor-container">
+	<div class="ui container soda-milestone-editor-container soda-p-editor-container">
 		<div class="issue-navbar">
 			{{template "repo/issue/navbar" .}}
 			{{if and (or .CanWriteIssues .CanWritePulls) .PageIsEditMilestone}}

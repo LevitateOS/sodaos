@@ -152,6 +152,8 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   --color-primary-hover: var(--soda-page-action-hover);
   --color-primary-active: var(--soda-page-action-pressed);
   --color-primary-contrast: var(--soda-page-on-action);
+  /* Native primary anchors also match the page's ordinary-link rule. */
+  &:is(a):not(.basic) { color: var(--soda-page-on-action); }
 }
 
 :is(.soda-page, .page-content:has(.soda-page-marker)) {
@@ -187,7 +189,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   box-shadow: none !important;
   margin-block: 0 24px;
 }
-.soda-p-heading.ui.header, .soda-p-title.ui.header {
+.soda-p-heading.ui.header, .soda-p-title {
   padding: 0 !important;
   margin-block: 24px 16px;
   border: 0 !important;
@@ -197,8 +199,8 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
   font: var(--soda-font-heading);
   overflow-wrap: anywhere;
 }
-.soda-p-title.ui.header { font: var(--soda-font-title); }
-.soda-p-heading.ui.header:first-child, .soda-p-title.ui.header:first-child { margin-top: 0; }
+.soda-p-title { font: var(--soda-font-title); }
+.soda-p-heading.ui.header:first-child, .soda-p-title:first-child { margin-top: 0; }
 .soda-p-gap.divider:empty {
   height: 0;
   margin-block: 24px !important;

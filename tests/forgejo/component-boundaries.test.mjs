@@ -128,6 +128,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           <section class="page-content repository"><div class="soda-page-marker soda-repository-header"></div>
             <button id="repository-primary" class="primary button">New issue</button>
           </section>
+          <a id="anchor-primary" class="ui primary button" href="#">New issue</a>
           <button id="tiny-primary" class="ui primary tiny button">Tiny</button>
           <button id="tiny-native" class="ui tiny button">Tiny</button>
           <button id="disabled-primary" class="ui primary tiny disabled button">Disabled</button>
@@ -152,6 +153,8 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         for (const id of ['settings-primary', 'form-primary', 'repository-primary', 'tiny-primary', 'disabled-primary', 'loading-primary']) {
           assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the Soda action color`);
         }
+        assert.equal(states['anchor-primary'].color, states['form-primary'].color, 'primary anchor text remains legible');
+        assert.notEqual(states['anchor-primary'].color, states['anchor-primary'].background);
         assert.equal(states['tiny-primary'].fontSize, states['tiny-native'].fontSize);
         assert.equal(states['tiny-primary'].paddingBlock, states['tiny-native'].paddingBlock);
         assert.notEqual(states['disabled-primary'].opacity, '1');

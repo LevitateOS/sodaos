@@ -747,7 +747,7 @@
         "long-content"
       ],
       "verification": "pending",
-      "beforeRoleHash": "4424e7094d871e8bccf0072f426338e455ff81df4a3e74d7169d762cc5451c33",
+      "beforeRoleHash": "d388a3891740b0ec667f907363c8db252d30e7f7ecb69a30efc955ba9fb02e75",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -2651,6 +2651,7 @@
         "soda-code",
         "soda-code-editor",
         "soda-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-page"
       ],
@@ -2713,6 +2714,7 @@
         "soda-code",
         "soda-code-editor",
         "soda-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-page"
       ],
@@ -2746,6 +2748,7 @@
         "soda-code",
         "soda-code-editor",
         "soda-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-page"
       ],
@@ -2781,6 +2784,7 @@
         "soda-code",
         "soda-code-editor",
         "soda-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-p-section",
         "soda-page"
@@ -2815,6 +2819,7 @@
         "soda-code",
         "soda-code-editor",
         "soda-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-page"
       ],
@@ -3203,6 +3208,7 @@
         "soda-milestone-detail-title",
         "soda-milestone-progress",
         "soda-p-gap",
+        "soda-p-title",
         "soda-repo-issue-list",
         "soda-repo-work-items-filters"
       ],
@@ -3233,6 +3239,7 @@
         "soda-milestone-editor",
         "soda-milestone-editor-container",
         "soda-milestone-form",
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-p-gap",
         "soda-p-heading"
@@ -3328,6 +3335,7 @@
         "repo/issue/new_form"
       ],
       "roles": [
+        "soda-p-editor-container",
         "soda-p-form-host",
         "soda-repo-editor-card",
         "soda-repo-issue-editor",
@@ -3505,6 +3513,7 @@
         "base/head"
       ],
       "roles": [
+        "soda-p-editor-container",
         "soda-projects-new",
         "soda-repository-content"
       ],
@@ -3765,6 +3774,7 @@
         "shared/combomarkdowneditor"
       ],
       "roles": [
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-p-gap",
         "soda-p-heading",
@@ -4756,8 +4766,10 @@
         "shared/combomarkdowneditor"
       ],
       "roles": [
+        "soda-p-editor-container",
         "soda-p-form",
         "soda-p-gap",
+        "soda-p-heading",
         "soda-repository-content",
         "soda-wiki-editor"
       ],

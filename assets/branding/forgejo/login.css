@@ -55,7 +55,7 @@ body:has(.soda-login) {
 .soda-login .ui.attached.segment,
 .soda-login .ui.attached.header { background: transparent; border: 0; box-shadow: none; padding: 0; width: 100%; margin: 0; }
 .soda-login:not(.icon) .ui.top.attached.header.center { display: none; }
-.soda-login .ui.form .primary.button { display: block; width: 100%; margin-top: 24px; }
+.soda-login .ui.form .primary.button { display: block; width: 100%; margin-block: 24px 16px; }
 .soda-login .ui.checkbox label { color: var(--soda-guest-muted); }
 .soda-login a { color: var(--soda-guest-link); }
 .soda-login .soda-login-account { font-size: 15px; color: var(--soda-guest-muted); margin: 24px 0 0; text-align: center; }

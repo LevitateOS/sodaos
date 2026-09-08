@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new release soda-repository-content soda-release-editor">
 	{{template "repo/header" .}}
-	<div class="ui container">
+	<div class="ui container soda-p-editor-container">
 		<h2 class="ui dividing header soda-p-heading">
 			{{if .PageIsEditRelease}}
 				{{ctx.Locale.Tr "repo.release.edit_release"}}
