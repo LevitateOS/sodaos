@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {lstat, readFile} from 'node:fs/promises';
 import {execFileSync, spawn} from 'node:child_process';
 
-export async function exerciseManagement({page, input, request, authenticate, settled, permit, stage}) {
+export async function exerciseManagement({page, input, request, authenticate, settled, permit, stage, evidence}) {
   assert.deepEqual(Object.keys(request).sort(), ['cid','key_a','key_a_public','key_b','key_b_public','original_alice','original_bob','project','ssh_config','target']);
   assert.equal(request.target, input.target);
   assert.match(request.project, /^p[0-9a-f]{24}$/);
@@ -23,7 +23,12 @@ export async function exerciseManagement({page, input, request, authenticate, se
   assert.notEqual(keys[0], keys[1]);
   const sshArgs = (user, key) => ['-F', request.ssh_config, '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ControlMaster=no', '-o', 'ControlPath=none', '-o', 'IdentityAgent=none', '-o', 'IdentitiesOnly=yes', '-o', 'PreferredAuthentications=publickey', ...(key ? ['-i', key] : []), 'soda-e2e-' + user];
   function ssh(user, key, program) {
-    return execFileSync('ssh', [...sshArgs(user,key), 'python3', '-'], {input: program, encoding:'utf8', timeout:30000, maxBuffer:65536, stdio:['pipe','pipe','pipe']});
+    try {
+      return execFileSync('ssh', [...sshArgs(user,key), 'python3', '-'], {input: program, encoding:'utf8', timeout:30000, maxBuffer:65536, stdio:['pipe','pipe','pipe']});
+    } catch(error) {
+      evidence.last_ssh_failure={user,exit:error.status,kind:/Permission denied \(publickey/.test(String(error.stderr))?'authentication':/Connection refused|Connection closed|Connection reset|kex_exchange_identification/.test(String(error.stderr))?'transport':'command'};
+      throw error;
+    }
   }
   // Pinned management SSH is observation only. All lifecycle/key writes use UI/API.
   assert.equal(ssh('host', null, "import socket; print(socket.gethostname())\n").trim(), input.target);
@@ -90,10 +95,11 @@ export async function exerciseManagement({page, input, request, authenticate, se
     const check=async()=>{child.stdin.write('check\n'); assert.equal(await next(),first);};
     held.push(child); return check;
   }
-  const result={};
+  const result=evidence;
   stage('management: owner authentication and stable baseline');
   await authenticate(0);
   const before=snapshot(true);
+  result.before=before;
   // Persist a new exact run-owned home marker; never alter existing files.
   const name='.soda-e2e-'+Date.now();
   const create=`from pathlib import Path\np=Path.home()/${JSON.stringify(name)}\np.mkdir(mode=0o700)\n(p/'marker').write_text('persistent E2E marker\\n')\nprint(p.name)\n`;
@@ -107,13 +113,24 @@ export async function exerciseManagement({page, input, request, authenticate, se
   stage('management: explicit Stop and disabled host-boot start');
   await page.getByLabel(/I understand Stop interrupts/).check();
   await action(life,{action:'stop',confirm_stop:true},page.getByRole('button',{name:'Stop',exact:true}));
-  snapshot(false);
+  result.stopped=snapshot(false);
   const untilClosed=Date.now()+10000;
   while(!terminalClosed && Date.now()<untilClosed) await new Promise(r=>setTimeout(r,50));
   assert(terminalClosed);
   stage('management: explicit same-container Start and persistence');
   await action(life,{action:'start'},page.getByRole('button',{name:'Start',exact:true}));
-  assert.deepEqual(snapshot(true),before);
+  stage('management: stable state after Start');
+  result.started=snapshot(true);
+  assert.deepEqual(result.started,before);
+  stage('management: SSH availability and home persistence after Start');
+  const readyUntil=Date.now()+30000;
+  for (;;) {
+    try {login('alice',request.original_alice); break;}
+    catch(error) {
+      if(result.last_ssh_failure?.kind!=='transport' || Date.now()>=readyUntil) throw error;
+      await new Promise(r=>setTimeout(r,500)); // Read/auth observation only; never retry Start.
+    }
+  }
   const read=`from pathlib import Path\nassert (Path.home()/${JSON.stringify(name)}/'marker').read_text()=='persistent E2E marker\\n'\nprint('preserved')\n`;
   assert.equal(ssh('alice',request.original_alice,read).trim(),'preserved');
   result.lifecycle={same_container:true,boot_policy:true,accounts_keys_host_key_preserved:true,terminal_interrupted:true,home_marker:name};

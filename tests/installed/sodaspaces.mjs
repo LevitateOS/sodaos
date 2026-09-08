@@ -621,8 +621,9 @@ try {
   }
   if (managementMode) {
     const {exerciseManagement} = await import('./sodaspaces-management.mjs');
-    result.management = await exerciseManagement({page, input, request:managementRequest,
-      authenticate:authenticateExisting, settled,
+    result.management = {};
+    await exerciseManagement({page, input, request:managementRequest,
+      authenticate:authenticateExisting, settled, evidence:result.management,
       stage: value => {stage=value;},
       permit: (index, route, body, method='POST') => {
         assert(!accessWrite && !interrupted && !refusedRequest);
