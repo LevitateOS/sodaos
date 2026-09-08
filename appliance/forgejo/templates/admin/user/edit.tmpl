@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/user/edit.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14b1409aa90 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin edit user")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin edit user" "hideArtwork" true)}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--user-edit">
 		<h4 class="ui top attached header">
 			{{ctx.Locale.Tr "admin.users.edit_account"}}
