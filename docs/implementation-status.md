@@ -1,5 +1,26 @@
 # Current handoff
 
+## Global Spaces page selected — documentation revision only
+
+The user selected a global Spaces link alongside native navigation and a Soda-owned
+Go/template page at `/-/soda/spaces`. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+now supersedes the environment-catalog exclusion and records authorized listings,
+a fixed OAuth return and reuse of the same drawer/terminal sessions. Architecture,
+API, deferred-scope and agent guidance distinguish this planned HTML addition from
+today's API-only service. Future Runners navigation remains Soda-operator-only.
+
+**Not implemented:** navbar/page handler, authorized collection, Spaces OAuth return
+or authenticated page-shell composition. Shared assets do not import Forgejo's native
+session/template/CSRF context. Resolve the supported shell without borrowing cookies,
+relaying HTML or recreating upstream authentication/workflow authority. Existing
+JSON protections, current repository-filtered API and independent logout stay intact.
+
+Terminal continuity remains the immediate coding task; this revision does not gate
+it on a new planning project. Source layout slice `4cb7f7d` and its evidence remain
+unchanged. Documentation link/anchor inspection and `git diff --check` passed. No
+product code, builds/tests, native execution, credential/provider changes, deployment
+or push in this revision; no Spaces runtime acceptance is claimed.
+
 ## Workspace step 1 — first source/layout slice, not native delivery
 
 Under the user's instruction to start the four implementation steps, replaced the

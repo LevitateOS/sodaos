@@ -17,6 +17,24 @@ still requires real session reattachment; browser-only joining and Forgejo-key
 integration are not implemented API capabilities yet. Do not infer new
 reattachment/key endpoints, consent or provider mutations from that plan.
 
+## Planned Spaces page — not an implemented endpoint
+
+`/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
+Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+defines the authorized listing and unresolved page-shell boundary. No page handler,
+collection contract or Spaces OAuth return has been implemented. The current required
+`repository_id` collection API below remains unchanged; do not remove its guard to
+resurrect the old unrestricted catalog.
+
+HTML navigation must resolve the actor from the protected Soda session and acting
+grant server-side; it cannot send the JSON API's custom actor header. That is not
+permission to weaken existing API checks. OAuth needs a fixed, transaction-bound
+Spaces destination, never an arbitrary `return_to`. Authorize rows/counts/metadata
+before rendering, retain truthful unavailable states and recheck every action's
+permissions. Do not borrow native cookies/CSRF or assume CSS imports Forgejo's
+session/template context. The page opens the same authorized drawer/sessions, not a
+new terminal implementation. These requirements are planning, not runtime evidence.
+
 ## Browser namespace
 
 Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.

@@ -14,6 +14,13 @@ x86_64 OAuth, Create/Join, lifecycle, key-revocation and SSH/PTY/transfer proof 
 isolated fixture; retained delivery and broader product acceptance remain separate.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
+The user also selected a global **Spaces** link and authenticated Soda-owned
+Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sessions.
+This is a planned, bounded extension of the API-only backend, not restoration of
+Forgejo workflow adapters or either removed frontend. The listing, OAuth return and
+page shell are not implemented; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+owns this scope. Terminal continuity remains the immediate implementation task.
+
 ## Topology
 
 | Placement | Implemented mechanism |
@@ -84,6 +91,16 @@ repository resolved by stored ID through the acting grant, never a supplied URL.
 Soda's expected-user header guards page/session consistency, not native browser
 session authenticity. Native-page wiring passed the isolated local browser journey; native
 WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
+
+The planned Spaces HTML handler uses Soda's own session/acting grant to authorize
+its listing and actions server-side. Its fixed OAuth return must be transaction-bound;
+the current callback does not yet support that destination. Loading Forgejo assets
+cannot supply native template context, CSRF or authenticated navigation, and template
+overrides cannot install Go handlers upstream. Supported page-shell composition
+remains unresolved: no copied native authentication logic, HTML relay or borrowed
+cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
+remain intact. A future global Runners link/page must enforce the configured Soda
+operator boundary server-side; Forgejo site administration is not a substitute.
 
 ## Projects and explicit joining
 

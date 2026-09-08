@@ -98,15 +98,19 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   shell/navigation/assets; the earlier all-React/no-Forgejo-HTML requirement is
   superseded. See `docs/sodaspaces-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
-  button/right-drawer addition, not a new tab. No new component library or Bootstrap UI is selected.
+  button/right-drawer addition, not a new repository tab. Drawer view/session tabs
+  are selected. A global Spaces link and bounded Soda-owned Go/template listing page
+  are also selected but unimplemented; see the leading plan for authentication and
+  the unresolved page-shell boundary. No new component library or Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. Current hooks mount one complete management/
-  terminal component through a native dialog shell; the historical duplicate API
-  caller is removed. Local component/layout and full-payload fixture checks are not
-  combined native OAuth/helper proof or deployment. Close/stale context requires
-  full-page reload; no implicit terminal open or mutation replay.
+  terminal component through a non-modal aside; the historical duplicate API
+  caller is removed. Focus/view/Hide changes preserve the live mount/socket, but
+  navigation, Refresh and transport loss still end the terminal. Bounded server-owned
+  reattachment is the immediate coding task. Local component/layout checks are not
+  native navigation/session proof or deployment; no implicit launch or mutation replay.
   The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
   explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,
@@ -247,7 +251,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is served. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Current root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is currently served. The selected Spaces Go/template page is a bounded future exception for Soda-owned data, not a replacement Forgejo frontend. Its fixed OAuth return and supported page shell are still unimplemented/unresolved; follow the leading plan. No new component library is selected. Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

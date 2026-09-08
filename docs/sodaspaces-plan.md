@@ -1,8 +1,9 @@
 # Sodaspaces implementation plan
 
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
-**right-side shared-environment drawer**. No new Forgejo repository tab or standalone
-page; tabs **inside the drawer** are now required.
+**right-side shared-environment drawer**, plus a global **Spaces** navigation link
+and Soda-owned Go/template listing page. No new Forgejo repository tab; tabs
+**inside the drawer** are required. The Spaces page is selected, not implemented.
 Both old Soda frontends and duplicate forge adapters are removed. The read-only
 hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
 pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
@@ -23,6 +24,48 @@ that rejected behavior; the first source layout slice is described below. The co
 work; the older delivery/terminal sections retain the previous implementation and
 its evidence, not permission to reintroduce that UX. See the leading
 [handoff](implementation-status.md) for exact bytes, failures and limits.
+
+## Spaces page — selected, not implemented
+
+This replaces the earlier exclusion of an environment catalog. It is a bounded Soda
+feature, not restoration of either old standalone frontend or Forgejo workflow adapters.
+
+- **Global navigation:** add Spaces after Explore, alongside Issues, Pull requests
+  and Milestones, through supported native template hooks/overrides. A future Runners
+  link and its handlers are restricted to the configured **Soda operator**, not any
+  Forgejo site administrator. Retain Cockpit Runners until its replacement works.
+- **Page ownership:** a Soda-owned, server-rendered Go/template page at
+  `/-/soda/spaces`, inside the existing proxy namespace. This deliberately extends
+  today's API-only Go service for Soda data; Forgejo-owned workflows stay native.
+  No Forgejo executable changes, iframe, HTML relay or replacement frontend framework.
+- **Listing:** show the environments this actor is authorized to see, with repository,
+  membership and observed running/stopped/unavailable state. Authorize before rendering
+  rows, counts or metadata, using legitimate Soda associations and current acting-user
+  authority. Preserve the existing membership/operator/degraded-read boundaries; no
+  all-project dump filtered in JavaScript, copied permission inventory or provider
+  failure disguised as an empty list. Bound enumeration and live inspection.
+- **Authentication:** use Soda's existing secure session and Forgejo OAuth when needed.
+  A normal HTML navigation derives its actor server-side, not from a client hint or
+  Forgejo cookie. Add a fixed Spaces return destination bound to the OAuth transaction,
+  not a caller-supplied redirect URL. Preserve PKCE/state, encrypted grants, logout-
+  winning behavior, fresh operation-specific authorization and API actor/CSRF checks.
+  Same origin is not a shared session; native-only logout is not atomic Soda logout.
+- **One workspace:** Open workspace selects the same drawer and authorized terminal
+  sessions used from repository pages. The list remains usable on the left. Opening
+  never creates, joins, starts or repairs a project, launches a replacement shell or
+  replays commands. Do not build a second terminal/session implementation.
+- **Unresolved page shell:** shared CSS/assets do not supply Forgejo's authenticated
+  template context, native CSRF token, navigation or notification state. Template
+  overrides do not install Go handlers in Forgejo. Resolve and review the supported
+  page-shell composition before building this HTML page; do not duplicate upstream
+  authentication/workflow logic or borrow cookies/CSRF to make it appear native.
+
+The navbar/page, authorized collection and fixed OAuth return are all unimplemented.
+Validate authentication/expiry/logout, denied and unavailable listings without private
+metadata leaks, action-time authorization and same-session drawer use across both
+entry points. Existing drawer tests are not Spaces-page evidence. **Terminal continuity
+remains the immediate coding task**; this page joins the current workspace implementation
+and validation sequence, not a new prerequisite planning project or deployment grant.
 
 ## Product correction — development workspace, not a modal form
 
@@ -222,7 +265,10 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    account provisioning. Follow the existing [component/API ownership](terminal-integration.md),
    but deliberately revise its rejected lifecycle contract and tests. Preserve prior
    `2aa4960` native evidence and `dad2945` packaging correction; neither proves or
-   delivers the new UX. No retained rollout is implied.
+   delivers the new UX. Terminal continuity is the immediate coding task. Include the
+   selected [Spaces page](#spaces-page--selected-not-implemented) in this workspace
+   sequence after resolving its page-shell boundary, sharing the same sessions and
+   validating both entry points. No retained rollout is implied.
 2. **Preserve the proved minimum environment/access controls above.** Bounded
    native Stop/Start and temporary-key replacement/revocation passed, along with
    fresh Create/Join/SSH. Distinct operator/provider and broader acceptance remain
@@ -294,7 +340,8 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
 ## Selected approach
 
 - **Backend:** existing Go API, SQLite, encrypted Forgejo OAuth grants and restricted
-  native helper. Keep `soda-dashboard` and all persistent project/service identities.
+  native helper, with the selected but unimplemented Soda-owned Spaces Go/template
+  page. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
   native-page/workspace split view, scoped native styling and vanilla JavaScript
   using the JSON API. The first aside/view-tab source slice is implemented and locally
@@ -996,8 +1043,9 @@ operator authority. This is remaining work, not a delivered move or deployment g
 Basic Start/Stop and explicit own-key controls are now source implemented; integrated
 native proof and delivery remain in the remaining-work list.
 Destruction still requires the explicit scope decision above. Resource charts,
-member-management screens, an environment catalog, private-resource branching,
-generalized recovery and an update platform remain outside this work.
+member-management screens, private-resource branching, generalized recovery and an
+update platform remain outside this work. The bounded authorized Spaces listing is
+now selected above; this does not reopen broader lifecycle/deletion machinery.
 [Architecture](architecture.md), [integration](forgejo-frontend-integration.md),
 [deferred scope](deferred.md) and [licensing](licensing.md) remain authoritative.
 Stock Cockpit and its native integrations remain operator-only; providers own CI.

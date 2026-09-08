@@ -13,6 +13,13 @@ cannot change production policy or make optional installer media a product prere
 
 The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. The predecessor's operator Cockpit **Tailnet and Runners pages and backing logic are selected for reuse, not deferred**. Deferral is not a request to strip their existing working validation or focused error handling.
 
+The user subsequently selected the bounded authenticated **Spaces** listing and
+global navigation link; the earlier environment-catalog exclusion is superseded.
+See the [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented) for
+Go/template ownership, authorization and unresolved page-shell integration. This
+selection does not reopen deletion, reconciliation, resource branching or a general
+replacement dashboard. Future Runners navigation remains Soda-operator-only.
+
 Deferring machinery does not mean hiding native errors or granting developers unrestricted host administration.
 
 ## 1. Deferred: private toolchain and service branches
