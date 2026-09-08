@@ -2,6 +2,8 @@
 
 ## Page illustration goal
 
+Wiki welcome now uses a distinct transparent reference-book illustration, preserving native text and the writer/mirror action gate. Repository content source-parity/gate tests passed; native read-only welcome was captured at desktop/mobile widths. Repository project wrappers and shared callers are assessed in the checklist.
+
 Personal/organization project creation now uses a distinct planning-board illustration; editing excludes it. Personal creation was visually checked at desktop and mobile widths, and focused context/presentation tests passed. Organization and edit-state captures remain pending; checklist records list/board no-image decisions and the remaining repository callers.
 
 Team creation now has a distinct transparent member-card illustration, gated to the creation state. Editing permissions and invitation acceptance retain focused native content. Native markup parity/parse and shared presentation tests passed; organization screenshots remain pending an accessible existing organization. The checklist advances to organization projects.

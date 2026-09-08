@@ -33,6 +33,9 @@ func TestForgejoRepositoryContentOverridesRetain1507Source(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			contents := readForgejoTemplate(t, tt.path...)
 			normalized := strings.Replace(contents, `class="`+tt.sodaClass+`"`, `class="`+tt.stockClass+`"`, 1)
+			if tt.name == "wiki start" {
+				normalized = strings.Replace(normalized, `<img class="soda-wiki-welcome-art" src="{{AssetUrlPrefix}}/soda/forgejo/wiki-welcome-papercraft.png" width="1536" height="1024" alt="">`, `{{svg "octicon-book" 48}}`, 1)
+			}
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 			if got != tt.upstreamHash {
 				t.Fatalf("override differs from pinned Forgejo 15.0.7 source beyond its page-class delta: got %s, want %s", got, tt.upstreamHash)

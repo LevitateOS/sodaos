@@ -12,13 +12,12 @@
 	box-shadow: none;
 }
 
-.soda-wiki-start > .ui.container > .ui.center.segment > svg {
-	box-sizing: content-box;
-	padding: 18px;
-	border: 1px solid var(--soda-page-edge);
-	border-radius: 22px 22px 22px 7px;
-	background: var(--soda-page-canvas);
-	color: var(--soda-page-link);
+.soda-wiki-start .soda-wiki-welcome-art {
+	display: block;
+	width: 240px;
+	max-width: 100%;
+	height: auto;
+	margin: 0 auto 20px;
 }
 
 .soda-wiki-start h2,
