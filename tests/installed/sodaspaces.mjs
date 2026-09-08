@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
-// Opt-in real stock Forgejo/Caddy journey. Existing public repository and two users;
+// Opt-in real stock Forgejo/Caddy journey. Existing repository and two users;
+// public by default, with an explicit read-only private-repository variant.
 // Authentication-only by default; explicit access mode permits narrowly bound
 // create/key/join requests. No response fakes, cookie seeding or private-key upload.
 import assert from 'node:assert/strict';

@@ -677,7 +677,25 @@ client and sole prior `https://localhost:24443/oauth/callback`; the planned call
 occurred. Retained `/u08-alice-8417/shared-alice` is private and Issues-enabled; it must
 not be made public to fit a probe. The declared read-only private-repository probe
 variant requires native anonymous 404/no Soda reads and then the normal authenticated
-journey, never environment/key writes.
+journey, never environment/key writes. That variant passed as probe revision
+`0992f20ab295c1199ba58ccf34ac377012d67b9c` against the fresh fixture's built `bdbce8e`
+images plus tested query-free logging configuration (`browser-d`). A new synthetic
+private repository with native Alice ownership/Bob read access was used; no existing
+repository visibility changed and no new Soda environment was created. Its three
+absent observations and real BFCache are not retained-target running-view evidence.
+Official reads confirm retained Alice ownership/Bob write access already exists.
+
+Final retained observations match every preflight field, all four container/image/
+running-state identities and every original Soda table row against the backup at that
+observation. Key fingerprint and original-login shapes fit the drawer contract. The
+fresh fixture still passes installed/runtime artifact binding with exactly one project,
+two memberships and two development keys. No later backup should be assumed current.
+
+Follow-up local checks passed: uncached full Go tests, **91 Node tests**, **37 Python
+build fixtures**, JS syntax, whitespace and documentation links/anchors. Evidence is
+`.artifacts/research/phase6-bdbce8e/`. No new compiled backend/helper/UI payload or
+whole native bundle was built after `bdbce8e`; the follow-up changes are logging
+configuration, probe/tests and documentation.
 
 **Live cutover remains pending separate approval, as plan step 6 requires.** The
 [affected-component procedure](installation.md#retained-sodaspaces-cutover) covers

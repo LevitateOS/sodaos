@@ -71,7 +71,7 @@ rejects old configuration; this is not an automatic migration or permission to
 edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged; current
 source appends v4/v5 as described below, with unchanged encrypted grant binding/key.
 The integrated drawer and bounded native browser/access proof passed. Copied private
-state rehearsal also passed; see the [handoff](implementation-status.md#phase-5-bounded-native-access-proof).
+state rehearsal also passed; see the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal).
 Neither proof is authorization to silently cut over the retained appliance.
 
 For a later approved transition, include the matching backend and strict-config
