@@ -35,8 +35,9 @@ async function privateFile(file, limit) {
 try {
   const [inputFile, home, permission, ...extra] = process.argv.slice(2);
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
-    (extra.length === 1 && extra[0] === '--allow-environment-access')));
-  accessMode = extra.length === 1;
+    (extra.length === 1 && ['--allow-environment-access', '--private-repository'].includes(extra[0]))));
+  accessMode = extra[0] === '--allow-environment-access';
+  const privateRepository = extra[0] === '--private-repository';
   const input = JSON.parse(await privateFile(inputFile, 16384));
   assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', 'users']);
   const origin = new URL(input.origin);
@@ -265,11 +266,21 @@ try {
   }
 
   stage = 'anonymous and native-cookie-only contexts';
-  await page.goto(repoURL);
-  assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-signed'), 'false');
-  await open();
-  assert.equal(environmentReads, 0);
-  await page.locator('#sodaspaces-sign-in').waitFor({state: 'visible'});
+  const anonymous = await page.goto(repoURL);
+  if (privateRepository) {
+    // Stock 15.0.7 denies anonymous private repository access before supplying
+    // template repository context. Never make a retained repository public to
+    // satisfy the public-fixture journey, or treat denial as Soda absence.
+    assert.equal(anonymous.status(), 404);
+    assert(!(await page.locator('#sodaspaces-button').isVisible()));
+    assert.equal(environmentReads, 0);
+    result.anonymous_repository = 'native 404; no Soda repository reads';
+  } else {
+    assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-signed'), 'false');
+    await open();
+    assert.equal(environmentReads, 0);
+    await page.locator('#sodaspaces-sign-in').waitFor({state: 'visible'});
+  }
   await nativeLogin(page, 0);
   await open();
   assert.equal(environmentReads, 0);

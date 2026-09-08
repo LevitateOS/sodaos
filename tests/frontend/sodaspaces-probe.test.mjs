@@ -16,6 +16,32 @@ const start = probe.indexOf('  async function guardedPage() {');
 const end = probe.indexOf('  await context.addInitScript(', start);
 assert(start > 0 && end > start);
 
+test('private repository declaration is read-only and cannot combine with access mode', () => {
+  const from = probe.indexOf('  const [inputFile, home, permission, ...extra]');
+  const to = probe.indexOf('  const input = JSON.parse', from);
+  assert(from > 0 && to > from);
+  for (const [args, access, privateRepo] of [[[], false, false], [['--private-repository'], false, true], [['--allow-environment-access'], true, false]]) {
+    const scope = {assert, accessMode: false, process: {argv: ['node', 'probe', 'input', 'home', '--allow-auth-transitions', ...args]}};
+    const mode = runInNewContext(probe.slice(from, to) + '\n({accessMode, privateRepository})', scope);
+    assert.equal(mode.accessMode, access);
+    assert.equal(mode.privateRepository, privateRepo);
+  }
+  assert.throws(() => runInNewContext(probe.slice(from, to), {assert, process: {argv: ['node', 'probe', 'input', 'home', '--allow-auth-transitions', '--private-repository', '--allow-environment-access']}}));
+});
+
+test('private anonymous probe requires native denial without Soda repository reads', async () => {
+  const from = probe.indexOf("  stage = 'anonymous and native-cookie-only contexts';");
+  const to = probe.indexOf('  await nativeLogin(page, 0);', from);
+  assert(from > 0 && to > from);
+  for (const [status, visible, reads, valid] of [[404, false, 0, true], [200, false, 0, false], [404, true, 0, false], [404, false, 1, false]]) {
+    const scope = {assert, privateRepository: true, repoURL: 'https://fixture.invalid/owner/private', environmentReads: reads, result: {},
+      page: {async goto() { return {status() { return status; }}; }, locator() { return {async isVisible() { return visible; }}; }}};
+    const attempt = runInNewContext('(async () => {\n' + probe.slice(from, to) + '\n})()', scope);
+    if (valid) { await attempt; assert.equal(scope.result.anonymous_repository, 'native 404; no Soda repository reads'); }
+    else await assert.rejects(attempt);
+  }
+});
+
 test('native probe guards every paused redirect before transmission', async () => {
   let paused;
   const calls = [];

@@ -8,13 +8,13 @@ pass; see [exact evidence and limits](implementation-status.md#isolated-local-so
 Step 2's backend repository reads/new-join checks are implemented. Step 3's bounded
 x86_64 exit passed at `ee8091a`: real native build/stage/export and an exported-payload
 browser journey. Step 4 is now source-implemented with local handler/DOM coverage;
-steps 5–6 remain incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
+step 5's bounded native x86_64 access exit passed at `bdbce8e`. Step 6 remains incomplete. The [security review](implementation-status.md#security-review-and-fix-plan)
 confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
 did not check repository access. Both fixes below are now source-implemented and
 locally tested. Neither is deployed to the retained appliance; the isolated
 browser proof does not establish installed security or preserved-state migration.
 
-**Next milestone:** [step 5's helper-backed native access proof](#5-validate-the-integrated-native-experience).
+**Next milestone:** [step 6's preserved-state rehearsal and cutover](#6-rehearse-and-cut-over-separately).
 The read-only step-3 gate passed at the recorded local x86_64 scope; this does not
 establish appliance installation, project access or retained-state cutover.
 
@@ -182,9 +182,9 @@ and no cross-project disclosure through alternate routes.
 
 **Source-implemented:** required repository lookup, direct-ID read boundaries and
 fresh new-join checks; focused denial/concurrency/degraded-access tests. The read-only
-native UI passed its bounded journey with absent views only. Stable-ID creation and
-mutation controls now have local source coverage; helper-backed native access proof
-remains pending. The following
+native read-only UI initially passed with absent views only. Stable-ID creation and
+mutation controls subsequently passed local coverage and step 5's bounded native
+helper-backed access journey, including a real running view. The following
 steps record the implemented contract, not further execution permission.
 
 **Files:** the step-2 owners above plus `internal/web/provider.go` where its existing
@@ -473,6 +473,13 @@ not actual SSH provisioning; step 5 supplies the helper-backed native evidence.
 
 ### 5. Validate the integrated native experience
 
+**Bounded x86_64 exit passed at `bdbce8e`:** real native build/export/first delivery,
+stock-browser create/key/join/Copy and actual own-key SSH/PTY/SCP/SFTP from the fresh
+fixture's separate client bridge namespace. See the [handoff](implementation-status.md#phase-5-bounded-native-access-proof).
+This is not builder/laptop routing, a lifecycle/workload retest or aarch64 acceptance.
+The requirements below remain the owned regression scope, not instructions to replay
+fixture mutations.
+
 - Extend the existing product-owned native-page journey using the pinned tooling
   and proven browser launcher; adapt retained connection probes to the mounted API.
   Keep the read-only mode's environment-write refusal. Add an explicit bounded access
@@ -513,6 +520,13 @@ host-network and retained-appliance actions still require separate scope.
 
 ### 6. Rehearse and cut over separately
 
+**Rehearsal passed; cutover pending separate approval.** Actual prior/candidate images
+passed fresh and copied retained-v3 migration, missing/wrong-key and future-version
+refusal, preservation and paired rollback on the isolated fixture. Retained `soda-test`
+was backed up with only its old Soda service quiesced/resumed; no schema/config/callback
+cutover occurred. See the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal)
+and [affected-component procedure](installation.md#retained-sodaspaces-cutover).
+
 - Author the affected-component procedure using [credential preservation](dashboard-credentials.md),
   [installation](installation.md) and [native validation](native-validation.md).
   Rehearse fresh and copied populated state before requesting live cutover; preserve
@@ -549,7 +563,8 @@ Production `internal/host/` and `project-os/` own native behavior. Outside
 Standing implementation/testing approval covers planned local work and isolated
 delivery validation, not destructive cleanup, unrelated provider/host-network changes
 or silent retained-appliance cutover. Step 3's bounded x86_64 read-only exit passed;
-only historical **U08** has bounded native project-runtime acceptance. Neither is
-completed Sodaspaces access, final-product or aarch64 acceptance. Retained console,
+only historical **U08** has user-accepted bounded native project-runtime proof.
+Step 5 also passed bounded Sodaspaces access execution; none is final-product or
+aarch64 acceptance. Retained console,
 operator/provider, licensing, native-support and independent aarch64 obligations
 remain in the [handoff](implementation-status.md), not another expanded UI roadmap.

@@ -35,9 +35,20 @@ planned work. Native x86_64 build/check/export and the new isolated delivery fix
 at `.artifacts/delivery-ee8091a/` passed for `ee8091a`; the build/worktree/export are
 retained under `.artifacts/stage-validation-ee8091a/` and `.artifacts/worktrees/`.
 Step 3's bounded read-only exit is satisfied. Step 4's explicit access actions now
-have local source/test coverage; step 5's helper-backed native access proof is next. Routine local implementation/testing does not need repeated permission.
+have local source/test coverage and subsequent bounded native proof as recorded below. Routine local implementation/testing does not need repeated permission.
 Preserve retained data, credentials, fixtures and evidence; standing testing approval
 is not an instruction to erase them or silently perform appliance cutover.
+
+The user then explicitly requested phases 5 and 6. Candidate `bdbce8e` passed bounded
+native x86_64 build/export and real create/key/join/Copy/SSH validation on the new
+`soda-native-spaces-658f2af` CoreOS/KVM fixture, retained under
+`.artifacts/access-vm-658f2af/`. Its separate client bridge namespace is not laptop
+routing. Phase 6 covers preserved-state rehearsal before coordinated affected-component
+maintenance on retained `soda-test`; no project lifecycle, unrelated provider/network
+change, deletion or blanket appliance upgrade is included. Copied-state rehearsal
+passed; only backup/quiesce/resume has executed on retained `soda-test`. The plan's
+separate live-cutover approval is still required. See the handoff for exact executed
+versus pending actions and protected backups.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
@@ -73,7 +84,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
-  explicit mutation controls now have local source/test coverage, not native access proof. Source has same-origin `/-/soda/` routing/scoped cookies,
+  explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,
   expected-actor API guards, schema-v5 login cancellation and OAuth repository/actor
   context. The actor hint is not native-session authentication. No backend fork/rebuild, iframe, scraping, borrowed
   cookies or replacement password/permission authority is implied. Template and

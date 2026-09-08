@@ -128,6 +128,21 @@ a fixture-local client does not establish builder/laptop or Tailnet reachability
 Neither authored entrypoint is native evidence until its exact run passes. Phase 6
 still requires preserved-state rehearsal before retained-appliance cutover.
 
+For an existing private repository, use `--private-repository` after
+`--allow-auth-transitions`, with the ordinary read-only input (no public-key files).
+It cannot combine with access mode. Both declared users must actually have native
+repository access. The anonymous stage requires stock Forgejo's 404, no visible Soda
+button and no environment reads; the remaining native login/OAuth/stale/BFCache/form
+journey is unchanged. Do not make retained repositories public to fit a probe.
+
+Native Forgejo request logging uses the supported empty `LOGGER_ROUTER_MODE` and
+console access logger with method, `URL.EscapedPath` and status only. The default
+router logger includes raw query strings, including OAuth state. Do not enable that
+logger or add queries, referers, cookies, authorization headers or bodies to evidence.
+General upstream service/error logging remains native. Native configuration and
+query-free OAuth request observations are recorded in the phase-5 handoff; old private
+journals/evidence are retained, not cleared or described as never having logged state.
+
 ## Read-only installed observations
 
 After separately authorized installation, inspect:

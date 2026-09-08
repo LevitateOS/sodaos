@@ -5,21 +5,21 @@
 | Area | Current state |
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus planned **Sodaspaces** repository button/right environment drawer (no new tab) |
-| Soda UI source | Step 4's explicit stable-ID create/key/join/own-connection controls are source-implemented and locally tested; step 5's helper-backed native access proof is next. Step-3 read-only build/export/browser evidence remains bound to `ee8091a`. Both standalone frontends remain removed |
+| Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback passed; retained cutover is pending separate approval. Both standalone frontends remain removed |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Last recorded `8b823db` dashboard/helper/runner companion/default new-project image; stock Forgejo 15.0.7. Historical React `/app/` preview and HTMX defaults remain installed |
 | Acceptance | Only historical bounded **U08** native x86_64 first-product proof accepted (`a12b741`). U01 architecture acceptance was withdrawn; no Sodaspaces/final-product/aarch64 acceptance |
 
-Source removal is **not retained-appliance deployment**. The later `ee8091a` native
-build/stage/export and isolated exported-payload browser journey passed as recorded
-below; `soda-test` remains unchanged. The read-only caller is proven only at that
-bounded scope, not for native create/join/access. Root returns to configured Forgejo
+Source removal is **not retained-appliance deployment**. `ee8091a` passed bounded
+read-only delivery/browser proof; `bdbce8e` subsequently passed native create/key/join/
+Copy/SSH on the separate fresh fixture. `soda-test` retains its old payload/schema after
+backup/quiesce/resume, not cutover. Root returns to configured Forgejo
 home; OAuth can return to a freshly resolved repository under that origin using
 single-use stored context and the acting grant, never a caller-supplied URL.
 Schema v5 adds internal login cancellation contexts after v4's repository/expected-
-user IDs. The historical return-path column remains unused; installed data was not
-migrated. Old pending OAuth must restart; existing session/grant bytes are preserved.
+user IDs. The historical return-path column remains unused; live retained data was not
+migrated, while isolated copied private v3 → v5 rehearsal passed. Old pending OAuth must restart; existing session/grant bytes are preserved.
 New consent requests read user/repository/organization scopes, not administrator
 expansion; actual existing grants remain intact. Redirecting is not native-session
 transfer or cross-origin authorization.
@@ -577,14 +577,123 @@ rehearsal and live cutover have not begun. Local source checks passed: 89 Node t
 37 Python build fixtures and focused Go scripts/nativebuild tests, plus documentation
 links/anchors and whitespace. They do not establish a native access result.
 
+## Phase-5 bounded native access proof
+
+Candidate **`bdbce8e736b26dfaf81c37b1917386a536ef1fac`** passed production native
+x86_64 build/check/export from its clean detached worktree, including full Go,
+89 Node tests, Cockpit TypeScript/60 tests, 37 Python fixtures and 11 actual-stage
+checks. Separate uncached web/store/Forgejo/config/nativebuild races passed. The
+transferred verifier checksum and bundle inventory were checked before first
+installation on the new CoreOS fixture; `verify-installed` subsequently passed.
+
+The new fixture completed native layering/activation reboot, first installation,
+native Forgejo setup, production `soda-setup` and `soda-activate` with private TLS.
+The old initialization recipe wrongly expected a redirect: stock 15.0.7's
+`InstallDone` returns HTTP 200 after committing installation. The failure is retained;
+native CLI inspection confirmed only Alice existed, then a separately guarded
+continuation created Bob/OAuth/repository without replaying installation or replacing
+state. Public host-key inspection first omitted the production `soda-` container
+prefix; no container was changed. A diagnostic image comparison initially failed on
+Podman's omitted `sha256:` prefix; exact digest comparisons then passed. All failed
+observations remain, not relabelled as native defects.
+
+The exact candidate's real sandboxed/TLS-trusted browser access journey passed:
+real BFCache/account/cookie/logout/stale/native-form checks, nonowner create denial,
+one owner-created environment **`p4a530c394bcd53e563d3076d`**, separate Alice/Bob
+public-key saves and real helper-backed joins, own connections, native Copy success
+feedback and actual clipboard paste for both users. No Soda sessions/grants or
+membership rows were seeded and no native response was substituted. Observed states
+were absent and running; stopped/incomplete/uncertain-result branches retain their
+source/DOM evidence, not invented native observations.
+
+The separately named `soda-phase5-client` used a normal bridge network namespace
+inside the fixture, read-only root, no capabilities and no-new-privileges. Both users
+passed direct **10.90.0.2** SSH, interactive PTY, bidirectional SCP/SFTP, project-root
+UID-map separation and expected owner/nonowner sudo behavior; Alice's key was denied
+for Bob's login with a real public-key denial, not transport failure. Host trust came
+from independently read public project host-key bytes, compared with browser output;
+private client keys were never uploaded to Soda. All probe directories remain.
+This proves that fixture-local client path, **not builder/laptop/Tailnet routing**.
+
+`verify-installed`, runtime image IDs, the backend's actual `/proc/1/exe` and the new
+project's image/labels match the export. The native schema-v5 Soda DB has one project,
+two memberships and two development keys, with integrity checked. Source under
+`internal/host/`, `cmd/soda-host/`, `project-os/`, `internal/runners/` and
+`cmd/soda-runners/` is unchanged from installed `8b823db`; compiled provenance and
+mutable image package resolution remain distinct from source equality.
+
+Evidence: `.artifacts/stage-validation-bdbce8e/`, retained worktree
+`.artifacts/worktrees/stage-bdbce8e/`, and `.artifacts/access-vm-658f2af/` (browser-a
+result, exact artifact binding and copied client results). The VM/overlay/base,
+project/accounts/keys, services, exited client/conversion containers, private inputs,
+profiles and failures remain retained. Phase 5's bounded x86_64 access exit passed;
+this is not whole-product/operator/workload/lifecycle/aarch64 acceptance.
+
+A follow-up audit found five OAuth-state query lines in the fresh fixture's default
+Forgejo router journal; no code/token parameter lines were observed by that bounded
+audit. No raw journal or parameter values were emitted. Supported native logging
+configuration now disables the query-bearing router logger and retains console
+method/escaped-path/status access records. Native effective settings and a repeated
+real read-only/OAuth/BFCache journey (`browser-c`) passed, with query-free OAuth access
+records and zero audited credential/state query lines afterward. General service/error
+logging remains native. Earlier journals and failed recipe diagnostics are preserved.
+The default is also authored in `appliance/config/forgejo.env`, with a focused template
+check; this is an explicit configuration follow-up to the built `bdbce8e` images,
+not a claim that a later source revision was rebuilt or installed wholesale.
+
+## Phase-6 preserved-state rehearsal
+
+Evidence is retained in `.artifacts/phase6-658f2af/`. `soda-test` remains schema v3
+with 3 profiles, 2 keys, 4 projects, 7 memberships, 10 sessions and 9 encrypted grants;
+all four project roots were running and exact Soda hooks/assets absent. Existing
+browser tunnels and trusted Forgejo TLS work. Only its original Soda service was
+stopped for a SQLite backup plus matching private config/key/artifact capture and
+resumed unchanged. The resume recipe initially checked the wrong mutable `:dev` tag;
+inspection established the actual image-pinned Quadlet, which was resumed and verified
+against the original image/config and added to the backup. No live schema, callback,
+configuration, helper, project, default project image or runner-service change occurred.
+
+The consistent private set is `/var/lib/soda-sodaspaces-bdbce8e/backup` on `soda-test`
+and `.artifacts/phase6-658f2af/backup/` on the builder. Copies on the fresh fixture
+(`/var/lib/soda-phase6-rehearsal/`) ran the actual prior and `bdbce8e` images with
+network=none, no helper mount, UID2000, no capabilities, read-only root and explicit
+copy-only writable data. The first negative recipe expected an unsanitized key error;
+production correctly emitted its sanitized startup-stage message. That attempt is
+retained; separate reviewed copies then passed all eight cases:
+
+- legacy config and missing/wrong key refusal, leaving copied v3 bytes/rows unchanged;
+- successful v3 → v5 migration preserving every original column/row and encrypted
+  grant/key-check byte, with integrity/FKs and all migrated session contexts checked;
+- healthy empty v5, future-version refusal, prior-image refusal of migrated v5;
+- healthy paired prior-image/config/key/v3-copy rollback, preserving all original data.
+
+This is actual copied private-state/native-image evidence, not a live rollback or
+permission to restore an old backup after later writes. Only exact run-owned rehearsal
+containers were stopped; all copies, failed/exited containers and original roots remain.
+
+Official acting-owner API reads confirmed retained OAuth application 4, its unchanged
+client and sole prior `https://localhost:24443/oauth/callback`; the planned callback is
+`https://localhost:24444/-/soda/oauth/callback`. No application PATCH or Forgejo DB access
+occurred. Retained `/u08-alice-8417/shared-alice` is private and Issues-enabled; it must
+not be made public to fit a probe. The declared read-only private-repository probe
+variant requires native anonymous 404/no Soda reads and then the normal authenticated
+journey, never environment/key writes.
+
+**Live cutover remains pending separate approval, as plan step 6 requires.** The
+[affected-component procedure](installation.md#retained-sodaspaces-cutover) covers
+fresh-at-cutover backups, owner-native callback editing, image-pinned backend,
+strict-config `soda-runners` CLI, proxy/namespace/hooks and query-free native logging.
+Unchanged helper, project roots/default image and runner services are not upgrade
+targets. Post-cutover native browser/own-access observations remain unperformed.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and native-page context regression
   coverage while wiring explicit actions; no retained-appliance acceptance is inferred
   from local test results.
-- Execute step 5's updated-payload native-page/helper-backed create/key/join/connection
-  and SSH proof; step 4's local source exit passed, not native provisioning validation.
-  Keep the existing read-only guard mode while adding bounded access requests.
+- Preserve step 5's bounded native-page/helper-backed create/key/join/connection and
+  SSH evidence while completing phase-6 copied-state rehearsal and affected cutover.
+  Keep the read-only guard mode separate from explicitly bounded access requests.
   Existing-account terminal work remains separate.
   The verified template hook alone is not this integration. Stop if it needs a fork.
 - Rehearse exact candidate/config/grants/populated-state preservation before a

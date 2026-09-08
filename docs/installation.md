@@ -77,7 +77,8 @@ requires the four files and source LICENSE/NOTICE; it rejects arbitrary template
 First-install preflight refuses occupied hook/asset destinations, including
 symlinks, before host writes. Resolve conflicts explicitly, never merge or overwrite
 operator hooks automatically. This is not an upgrade interface. Actual CustomPath,
-labels, reload requirements and browser behavior still need approved native proof.
+labels, reload requirements and browser behavior passed bounded native first-delivery
+proof at `bdbce8e`; retained-target cutover and whole-appliance acceptance remain separate.
 
 ### Existing-state dashboard migration
 
@@ -87,6 +88,67 @@ Follow the [controlled credential migration and rollback procedure](dashboard-cr
 including a consistent SQLite backup, matching config/key/artifact set and
 separately approved rehearsal/deployment. A missing or wrong key fails closed;
 a prior binary is not assumed compatible with the new schema.
+
+### Retained Sodaspaces cutover
+
+This is the bounded affected-component procedure for the retained `soda-test`,
+**not an executed cutover or general upgrade tool**. Fresh delivery and copied private
+v3 → v5 / paired-v3 rollback rehearsal passed; see the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal).
+The plan requires separate live-cutover approval after that rehearsal.
+
+1. Approve the exact candidate/configuration and short Soda/Forgejo/proxy interruption.
+   Record installed image IDs and effective units, not assumed `:dev` tags: the retained
+   dashboard Quadlet is image-pinned. Inventory the four roots, their containers/images/
+   running state and original membership logins. Stop if identities or customizations
+   differ; do not force an old fixture inventory onto later writes.
+2. Quiesce Soda writes and stop only the old Soda service for a **new** consistent
+   SQLite backup and matching config/key/credential/artifact/unit/proxy/custom-file set.
+   The rehearsal backup is not current rollback data. Retain prior callbacks through
+   the actual owner's supported interface, file owners/modes/labels and the prior image.
+   Do not freeze, snapshot-restore or restart project workloads to manufacture equality.
+3. Verify the delivered bundle and stage the image by its actual config digest, plus
+   matching `soda-dashboard` and strict-config `soda-runners` binaries. The unchanged
+   helper, project image/default, project services, Cockpit and runner services are not
+   upgrade targets. Update the effective dashboard Quadlet's single image pin and
+   reload systemd; do not rely on loading an image to change a pinned unit.
+4. Preserve all credentials, native Forgejo origin/client, service UID, socket and
+   stored identities. Remove only legacy `public_url` from the prepared Soda config.
+   Deliver the namespaced Caddy recipe and remove only `SODA_ORIGIN` from `proxy.env`,
+   keeping `FORGEJO_ORIGIN`, private bind and TLS. Do not run first-install/setup/
+   activation recipes or generate a new grant key/OAuth application.
+5. Before any custom-file write, inspect the exact four hooks/assets and all ancestors,
+   including CustomPath, types, ownership and labels. Refuse unexpected occupants;
+   preserve operator changes. Install only the approved header/footer/CSS/JS, with
+   0644 files and readable new directories; no recursive mutable-tree chown. Retain
+   native theme/cache settings. Apply the reviewed query-free native logging settings
+   without replacing unrelated Forgejo configuration; general upstream logs remain.
+6. As the application's actual owner, use native Applications settings to update only
+   the intended callback to `FORGEJO_ORIGIN/-/soda/oauth/callback`, preserving unrelated
+   registered callbacks, name, confidential-client setting and secret. Retained app 4
+   currently has only the old Soda callback. **No API PATCH or secret regeneration.**
+   Verify the owner-visible client/callback metadata, and retain the exact prior list
+   for a reviewed rollback decision. Do not edit Forgejo's DB.
+7. Restart only the affected Forgejo/proxy/Soda services once their paired inputs are
+   ready. The correct key is checked before the backend migrates v3 → v5. Before new
+   browser login, verify integrity/FKs and preservation of original profile/key/
+   project/membership/session/grant columns and ciphertext. Run native runner `list`
+   with `{}` input, without registration/jobs or restarting runner services.
+8. Verify the running backend/image, custom bytes and native query-free logging.
+   Verify the unchanged Forgejo origin and native routes/protocols, the new scoped
+   namespace/cookies and removed separate Soda listener. Users explicitly sign in
+   again; old cookies/pending OAuth are not imported or replayed. Use the declared
+   private-repository read-only journey for the retained private repository, not a
+   visibility change, with real OAuth/identity/blur/BFCache/native-form observations.
+9. Compare all four root/container identities and original membership logins. Observe
+   own existing connection/host-key values and actual own-key SSH from a recorded
+   client path; do not add keys, join/create/start environments or change routing to
+   conceal a failed observation. Record the precise client, payloads and outcomes.
+
+On failure, retain candidate DB/WAL, credentials, partial delivery and all later writes.
+Do not run an old binary on v5, lower a schema marker or automatically overwrite data
+with a rehearsal snapshot. Rollback needs an explicit review of the matching prior
+DB/config/key/image/unit/callback/custom-file set **and** subsequent writes. Stop for
+that decision rather than inventing repair/reconciliation or deleting project roots.
 
 ## 4. Establish real project reachability
 

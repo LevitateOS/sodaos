@@ -3,8 +3,11 @@ package scripts
 import (
 	"bytes"
 	"html/template"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	texttemplate "text/template"
 )
 
 func TestSodaspacesTemplates(t *testing.T) {
@@ -65,6 +68,38 @@ func TestSodaspacesTemplates(t *testing.T) {
 				t.Fatal("missing local stylesheet")
 			}
 		})
+	}
+}
+
+func TestSodaspacesRequestLoggingOmitsQueries(t *testing.T) {
+	body, err := os.ReadFile("../appliance/config/forgejo.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]string{}
+	for _, line := range strings.Split(string(body), "\n") {
+		if key, value, found := strings.Cut(line, "="); found {
+			values[key] = value
+		}
+	}
+	if mode, exists := values["FORGEJO__log__LOGGER_ROUTER_MODE"]; !exists || mode != "" {
+		t.Fatal("native query-bearing router log enabled")
+	}
+	if values["FORGEJO__log__LOGGER_ACCESS_MODE"] != "console" {
+		t.Fatal("lost native request diagnostics")
+	}
+	tmpl, err := texttemplate.New("native-access").Parse(values["FORGEJO__log__ACCESS_LOG_TEMPLATE"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("GET", "https://forge.test/login/oauth/authorize%0A?state=SYNTHETIC_PRIVATE_MARKER", nil)
+	r.Header.Set("Referer", "https://forge.test/?code=SYNTHETIC_PRIVATE_MARKER")
+	var out bytes.Buffer
+	if err = tmpl.Execute(&out, map[string]any{"Ctx": map[string]any{"Req": r}, "ResponseWriter": map[string]any{"Status": 200}}); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "GET /login/oauth/authorize%0A 200" {
+		t.Fatal("unexpected request log fields")
 	}
 }
 

@@ -5,7 +5,10 @@
 [revision-specific evidence](implementation-status.md#accepted-native-evidence);
 the complete historical migration record remains in Git at `9f3baa7`.
 Both standalone frontends are now removed, but the Go API's schema/key contract
-remains. Rehearsal must precede separately approved native Sodaspaces cutover.
+remains. Candidate `bdbce8e` subsequently passed fresh and copied retained-v3 → v5
+native rehearsal, including rejection and paired rollback cases, in an isolated
+networkless fixture. The retained VM has only been backed up and its unchanged old
+Soda service resumed; native Sodaspaces cutover still requires separate approval.
 This is a bounded service upgrade, not bootstrap, an updater or appliance recovery.
 Require explicit target/deployment permission before executing any step.
 
@@ -60,16 +63,16 @@ ownership before mutation. A reusable dashboard-only deployment tool is still pe
 private operator recipes executed the recorded `35df189` rehearsal/rollout;
 the steps above do not establish deployment proof for other revisions/targets.
 
-## Sodaspaces namespace transition — not executed
+## Sodaspaces namespace transition — rehearsed, not cut over
 
 The current source removes `public_url` / `--public-url` and uses the unchanged
 `forgejo_url` origin with `/-/soda/` API/login/callback routes. The strict loader
 rejects old configuration; this is not an automatic migration or permission to
-edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged. The next
-source slice adds schema v4's OAuth context fields as described below; encrypted
-grant binding and the existing key remain unchanged. Backend actor/return handling
-is implemented, but the drawer and browser proof remain pending; this source is
-not a completed drawer cutover candidate.
+edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged; current
+source appends v4/v5 as described below, with unchanged encrypted grant binding/key.
+The integrated drawer and bounded native browser/access proof passed. Copied private
+state rehearsal also passed; see the [handoff](implementation-status.md#phase-5-bounded-native-access-proof).
+Neither proof is authorization to silently cut over the retained appliance.
 
 For a later approved transition, include the matching backend and strict-config
 consumers (notably `soda-runners`), copied configuration without `public_url`, Caddy
@@ -89,10 +92,11 @@ New host-only Secure/HttpOnly/SameSite=Lax cookies use unique names and Path
 `/-/soda/`. Old standalone cookies are ignored, not borrowed or automatically
 expired across ports; users explicitly sign in again. Old pending browser flows
 restart, with no unprefixed callback alias or rewriting of stored destinations.
-Soda-only logout remains distinct from native Forgejo/SSH logout. These rules still
-need real browser/proxy and populated-state rehearsal before rollout.
+Soda-only logout remains distinct from native Forgejo/SSH logout. Real browser/proxy
+and copied populated-state rehearsal passed independently; the retained target still
+needs its separately approved coordinated transition and post-cutover observations.
 
-## Schema v4 OAuth context — source-tested only
+## Schema v4 OAuth context
 
 Version 4 appends `oauth.repository_id` and `oauth.expected_user_id`, each a
 nonnegative integer defaulting to zero (absent). These are short-lived navigation/
@@ -106,23 +110,27 @@ The existing grant key is checked **before** migration. Local tests exercise a
 real v3-schema fixture containing profiles, keys, project/membership/session rows,
 pending OAuth and encrypted grants. Wrong/missing keys leave version/columns
 unchanged; the correct key preserves grant/key-check ciphertext and product records
-while migrating. This is not a rehearsal on copied private installation data.
+while migrating. Those local tests are separate from the later successful native
+`bdbce8e` rehearsal on copied private v3 installation data.
 
 A pre-v4 binary rejects the newer schema version. Do not downgrade the marker or
 assume the extra columns make mixed binaries safe. Rehearse a matching candidate
 on authorized fresh/copied state, including context expiry/replay and rollback
 preservation, before any live configuration/database change.
 
-## Schema v5 login cancellation — source only
+## Schema v5 login cancellation
 
-The next append-only migration adds internal login contexts and session/OAuth
+The append-only migration adds internal login contexts and session/OAuth
 references. Each existing Soda session gets its own context; user IDs, token hashes,
 CSRF, expiry and encrypted grants/key-check bytes are preserved. Old pending OAuth
 has no cancellation binding and must restart, including a v4 pending login. This
 supersedes the v4-only pending-state compatibility above, not historical evidence.
 Wrong/missing keys still fail before migration. Pre-v5 binaries reject schema v5;
 rehearse matching DB/config/key/artifacts before separately authorized deployment.
-No installed database, callback registration or retained session was changed.
+The fresh fixture runs v5. Copied private v3 → v5 preserved every original column,
+profile/key/project/membership/session/grant row and ciphertext, with integrity,
+foreign keys and migrated contexts checked. Live retained `soda-test` remains v3;
+its callback and stored sessions were not migrated by the rehearsal.
 
 ## Compatibility and rollback
 
