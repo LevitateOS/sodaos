@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new migrate soda-page soda-onboarding soda-migrate-chooser" data-signed="true">
 	<div class="ui container soda-page-container">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-migrate-title" "Eyebrow" "Bring your work with you" "Title" "Migrate repository" "Description" "Choose a source to import its code and available history." "Artwork" "new-repo-papercraft.png"}}
+		{{template "custom/soda/page_intro" dict "TitleID" "soda-migrate-title" "Eyebrow" "Bring your work with you" "Title" "Migrate repository" "Description" "Choose a source to import its code and available history." "Artwork" "migrate-papercraft.png"}}
 		{{template "repo/migrate/helper" .}}
 		<div class="migrate-entries soda-migrate-entries" aria-labelledby="soda-migrate-title">
 			{{range .Services}}

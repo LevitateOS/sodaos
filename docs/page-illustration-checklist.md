@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Repository migration chooser — `repo/migrate/migrate.tmpl`, `/repo/migrate`. Current artwork reuses New repository. Assess and generate an import/history scene first.
+Next: repository fork — `repo/pulls/fork.tmpl`. It currently reuses New repository; inspect the native page and distinguish branching from importing or creating an empty repository.
 
 ## Per-template inventory
 
@@ -122,7 +122,7 @@ Repository migration chooser — `repo/migrate/migrate.tmpl`, `/repo/migrate`. C
 | Partial — trace caller | [`repo/issue/navbar.tmpl`](../appliance/forgejo/templates/repo/issue/navbar.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/new.tmpl`](../appliance/forgejo/templates/repo/issue/new.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/view.tmpl`](../appliance/forgejo/templates/repo/issue/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Existing — verify | [`repo/migrate/migrate.tmpl`](../appliance/forgejo/templates/repo/migrate/migrate.tmpl) | `new-repo-papercraft.png` | Not yet reviewed in this goal. |
+| Done | [`repo/migrate/migrate.tmpl`](../appliance/forgejo/templates/repo/migrate/migrate.tmpl) | `migrate-papercraft.png` | Dedicated history/import scene; desktop/mobile native captures inspected. See record below. |
 | Pending | [`repo/migrate/migrating.tmpl`](../appliance/forgejo/templates/repo/migrate/migrating.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/migrate/options.tmpl`](../appliance/forgejo/templates/repo/migrate/options.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`repo/projects/list.tmpl`](../appliance/forgejo/templates/repo/projects/list.tmpl) | `repo/header` | Not yet reviewed in this goal. |
@@ -235,4 +235,11 @@ Repository migration chooser — `repo/migrate/migrate.tmpl`, `/repo/migrate`. C
 
 ## Completed page records
 
-No page completed in this goal yet. Record prompt path, asset, integration change, actual screenshot evidence and any unverified state here.
+### Repository migration chooser
+
+- Decision: appropriate in the existing intro; replace reused new-repository art with a distinct import/history scene.
+- Prompt and rationale: [migrate-art-prompt.md](../assets/branding/forgejo/migrate-art-prompt.md). Built-in image generator; fixed Dashboard/Notifications/New-repository references.
+- Integration: only the existing `Artwork` filename changed; native provider controls/routes were preserved. PNG verified as 1536×1024 RGBA with transparent corners.
+- Local stock Forgejo template reload returned `Reloaded`. Focused offline `go test -count=1 -mod=readonly ./scripts -run TestForgejoOnboarding` passed.
+- Actual authorized screenshot-helper captures inspected: `.artifacts/screenshots/capture-LnR3TI/001.png` (1440×1000), `.artifacts/screenshots/capture-gYsMJg/001.png` (390×844). The new illustration displays cleanly on the fixture's light theme, stays within the mobile header, and does not cover provider controls. Baseline: `capture-QmgQHa/001.png`.
+- No migration submission or fixture/account change. Dark-theme rendering and provider-specific form states were not newly exercised. Template reload refreshes the local cache globally; these captures validate this page, not every unrelated override.
