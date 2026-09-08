@@ -77,7 +77,7 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | No image | [`package/shared/cleanup_rules/edit.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/edit.tmpl) | — | Add/edit retention form: keep/remove criteria and actions take priority; no decorative art. |
 | No image | [`package/shared/cleanup_rules/list.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/list.tmpl) | — | Inline rule summaries and add/edit/preview controls; owner settings header owns any artwork. |
 | No image | [`package/shared/cleanup_rules/preview.tmpl`](../appliance/forgejo/templates/package/shared/cleanup_rules/preview.tmpl) | — | Affected-version count and six-column results table are the meaningful visuals; no artwork. |
-| Partial — trace caller | [`package/shared/list.tmpl`](../appliance/forgejo/templates/package/shared/list.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`package/shared/list.tmpl`](../appliance/forgejo/templates/package/shared/list.tmpl) | Personal/organization and native repository registries | Full helper reviewed: type/query filters, publication metadata, repository-access gate and empty/no-match branches. Owner pages supply their own art; repository list needs no second illustration. Native repository caller added below. |
 | No image | [`package/shared/versionlist.tmpl`](../appliance/forgejo/templates/package/shared/versionlist.tmpl) | `user/overview/package_versions` | Search, sort, container tag filter, version rows and pagination; no independent decorative header. Source assessment. |
 | No image | [`package/view.tmpl`](../appliance/forgejo/templates/package/view.tmpl) | `user/overview/header` | Package/version identity, protocol content, files and metadata take priority; source assessment below. |
 | No image | [`post-install.tmpl`](../appliance/forgejo/templates/post-install.tmpl) | — | Native loading animation and login handoff communicate ongoing setup. A static decorative image would compete with that state feedback. Full template reviewed; preserve loading SVG and goto-user-login hook. No installation run or native capture. |
@@ -773,3 +773,12 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 - Previously recorded landing-page screenshots establish the six approved settings images and three new landing images. This trace does not turn those into verification of enrollment, credential editing or every upstream settings caller.
 - Footer owns closing markup and native footer delegation only. No new illustration belongs in it. Header remains Integrated — verify until the outstanding native caller states are checked; no duplicate artwork generated.
 - Documentation-only assessment; no settings or source changed, no tests rerun.
+
+### Native repository package caller
+
+| Status | Native template / page | Decision / evidence |
+| --- | --- | --- |
+| No image | Forgejo 15.0.7 `repo/packages.tmpl` — repository Packages | Full native wrapper reviewed. Repository header establishes scope; package-type icons, publication metadata and private-repository/public-owner visibility warning take precedence. No decorative image selected. Native rendering not captured in this assessment. |
+
+- Full `package/shared/list` inspected and traced to both owner branches in `user/overview/packages` and the native repository wrapper. Preserve native package-access checks and distinguish an empty registry from a filtered no-match result.
+- Existing owner registry artwork stays in its caller introduction. Adding artwork to this shared list would duplicate that art and impose it on repository content. No new image generated; no packages or settings changed. Documentation-only assessment, no tests rerun.
