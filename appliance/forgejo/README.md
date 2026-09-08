@@ -108,7 +108,8 @@ should retain only specialized editor behavior; avoid reintroducing per-page
 widths, header cards or independent form-control scales.
 
 Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
-list rows use 16px vertical padding, and section gaps generally use 16–24px.
+general list rows use 16px vertical padding, and section gaps generally use
+16–24px. Milestone, issue and PR rows share 24px vertical padding.
 Use the shared components before adding page-specific spacing; preserve readable
 type and native control targets.
 
@@ -122,7 +123,7 @@ Each responsibility has one CSS owner:
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
 | `components-settings.css` | Shared personal/repository settings shell, compact grouped navigation, page gutters, open sections, 40px body inset and inventory action placement. Organization/administrator callers keep their native sidebar. Panel padding excludes native tables; nested row/dialog forms are not cards. |
-| `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
+| `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. Shared work-item appearance covers native `#issue-list` and `.soda-milestone-row`. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
 
@@ -310,8 +311,8 @@ new checklist artwork, and unified issue panel. Native search syntax, type/sort
 links, open/closed counts, account/org navigation and shared issue list remain
 upstream-owned. The shared template now also applies the design to Pull requests, with its own
 heading, introduction and status icons.
-`issues.css` supplies issue-specific layout around the shared page, toolbar and list
-components; account theme state remains native. The two custom intro strings remain English. Artwork provenance
+Shared page, toolbar and list components own the presentation; the former
+PR-only `issues.css` adapter was removed. Account theme state remains native. The two custom intro strings remain English. Artwork provenance
 and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
 
 Local template reload and Chrome checks covered populated dark-mode rows,
@@ -690,13 +691,25 @@ mirror and mutation coverage must be recorded separately in the handoff.
 
 
 Milestone list items use `custom/soda/milestone_row` for both global and repository
-callers. `milestones.css` owns the explicit `soda-milestone-row` presentation:
-uniform transparent rows, 24px vertical padding, one separator between items,
-20px sans-serif titles, compact Markdown previews, aligned native deadlines and
-progress/counts, and stacked mobile metadata. Keyboard focus reveals the full
+callers. `components-list.css` owns the appearance shared with native issue and
+PR rows: uniform transparent backgrounds, 24px vertical padding, one separator
+between complete items, 20px sans-serif linked titles, 13px metadata and matching
+progress tracks. `milestones.css` owns compact Markdown previews, aligned native
+deadline/progress columns and stacked mobile metadata. Keyboard focus reveals the full
 preview when it contains links; the detail page keeps its full native Markdown.
 Repository edit/close/reopen/delete actions retain native permission/archive
 gates and handlers. Global items remain read-only. Page heading, filters,
 navigation, pagination and empty states are outside this partial and unchanged.
 Native project collections also reuse `milestone-card`; their existing styles
 are explicitly excluded from the new row role to avoid changing those lists.
+
+The native `shared/issuelist` template stays unmodified. Its repository, dashboard,
+milestone-content and notification-subscription callers all receive the same row
+contract through native `#issue-list`. Status colors, label colors, selection
+checkboxes, commit-status popups, assignees, comments, review state and native
+links remain intact. Ordinary collections keep their existing 16px rows/18px
+titles. The PR-only spacing adapter and repository list corner adapter are removed.
+`work-item-lists.test.mjs` exercises isolated native markup samples with the actual
+registry, long labels/branches, keyboard selection and unrelated-list protection.
+Its component gallery under `.artifacts/work-item-consistency/components/` is
+separate from real-route captures and their verification status.

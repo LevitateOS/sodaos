@@ -1,5 +1,46 @@
 # Current handoff
 
+## Shared milestone, issue and pull-request rows
+
+Local revision `2026-09-08.31` gives milestone, issue and PR lists one shared
+appearance in `components-list.css`: 24px row padding, 20px linked titles,
+13px secondary metadata, aligned status icons, uniform backgrounds, matching
+progress tracks and one quiet separator between complete items. Hover/focus
+feedback remains visible. The PR-only `issues.css` adapter and repository list
+corner adapter are removed; milestone CSS retains only its specialized layout
+and Markdown preview. The native shared issue partial is unmodified, so repository,
+dashboard, milestone-content and notification-subscription callers share the
+same presentation without copying permissions, routes or script hooks. Existing
+status/label colors, selection, reviews, assignees and comments remain native.
+Page chrome and other collection families keep their existing presentation.
+
+Actual checks: focused Go Forgejo source checks passed; the milestone item-boundary
+and responsive tests passed; all 16 component-boundary checks passed. The new
+work-item component test passed for issue/PR samples in four caller compositions,
+both themes and 1440/1024/700/601/600/390/320px, including long titles/labels/branches,
+keyboard checkbox selection, matching title hover, and unrelated-list protection.
+Its isolated native-snippet gallery is under
+`.artifacts/work-item-consistency/components/`. Source review confirmed native
+checkbox, pinning, status-popup and PR metadata contracts remain unchanged.
+The 236-entry inventory's native caller check passes; its pre-existing footer
+hash mismatch remains the only hash failure and was not silently accepted.
+
+Read-only native layout checks passed for the rows in 56 route/theme/width
+combinations: open/closed issue and PR lists, open/closed milestones and milestone
+issue contents, at 1440/1024/390/320px. Requested URLs, 200 responses, main landmarks,
+revision and production stylesheet bytes were checked. Rows fit at every width.
+The pre-existing milestone **detail header/filter** still overflows at 390/320px;
+that surrounding layout is outside this list-item pass. All six collection routes
+fit. Global populated lists, native owner bulk actions and mutation journeys were
+not newly exercised; no credentials/resources/preferences were changed for coverage.
+
+Desktop dark and mobile light full-page diagnostic captures of all three lists
+were made through `scripts/screenshot.mjs` and reviewed. They remain separate
+from accepted evidence: `--verify` still rejects the existing
+`/assets/sodaspaces.js` 404. Logs, native layout measurements and diagnostics are
+retained in `.artifacts/work-item-consistency/`. Activation used only the existing
+local preview and native template reload; no restart or appliance deployment.
+
 ## Milestone list items
 
 Local revision `2026-09-08.30` applies the approved uniform-canvas row design to
@@ -600,8 +641,9 @@ reload alone.
 ## Tighter template spacing
 
 Reduced larger margins, padding and layout gaps across 42 Forgejo presentation
-stylesheets. Shared panels use an 18px desktop inset (16px narrow), list rows use
-16px vertical padding, and page intros use a 192px minimum with 224px artwork.
+stylesheets. At that stage, shared panels used an 18px desktop inset (16px narrow),
+list rows used 16px vertical padding, and page intros used a 192px minimum with
+224px artwork. Work-item rows now use the shared contract recorded above.
 Typography, control minimum heights and native workflow markup remain unchanged.
 Changed stylesheet URLs are versioned in the header hook.
 

@@ -20,20 +20,10 @@
  grid-template-columns: minmax(0, 1fr) 144px 168px;
  gap: 12px 24px;
  align-items: start;
- list-style: none;
- margin: 0;
- padding: 24px 0;
- border: 0;
- border-radius: 0;
- background: transparent;
- box-shadow: none;
 }
-.milestone-list > .soda-milestone-row + .soda-milestone-row { border-top: 1px solid var(--soda-page-edge); }
 .soda-milestone-main { min-width: 0; padding-inline-start: 32px; }
-.soda-milestone-row .soda-milestone-name { display: flex; align-items: start; gap: 12px; margin: 0 0 4px -32px; font: 600 20px/1.35 Barlow, sans-serif; }
+.soda-milestone-row .soda-milestone-name { display: flex; align-items: start; gap: 12px; margin: 0 0 4px -32px; }
 .soda-milestone-name > svg { flex: none; margin-top: 4px; color: var(--soda-page-muted); }
-.soda-milestone-name > a { min-width: 0; color: var(--soda-page-text); overflow-wrap: anywhere; }
-.soda-milestone-name > a:hover { color: var(--soda-page-link); }
 .soda-milestone-repository { margin-bottom: 4px; color: var(--soda-page-muted); font: var(--soda-font-meta); overflow-wrap: anywhere; }
 .soda-milestone-row .soda-milestone-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; color: var(--soda-page-muted); font: 400 14px/1.5 Barlow, sans-serif; overflow-wrap: anywhere; }
 /* Flatten rich Markdown only in the list preview. Full formatting remains on
@@ -41,18 +31,14 @@
 .soda-milestone-description :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre) { display: inline; margin: 0; padding: 0; border: 0; font: inherit; white-space: normal; }
 .soda-milestone-description :is(h1,h2,h3,h4,h5,h6,p,li)::after { content: " "; }
 .soda-milestone-row .soda-milestone-description:focus-within { display: block; -webkit-line-clamp: unset; }
-.soda-milestone-activity { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; color: var(--soda-page-muted); font: 400 12px/1.5 Barlow, sans-serif; }
+.soda-milestone-activity { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
 .soda-milestone-activity:empty { display: none; }
 .soda-milestone-deadline { padding-top: 4px; color: var(--soda-page-muted); font: 400 14px/1.5 Barlow, sans-serif; overflow-wrap: anywhere; }
-.soda-milestone-row .flex-text-inline { gap: 6px; }
 .soda-milestone-progress { min-width: 0; padding-top: 4px; }
 .soda-milestone-progress-value { display: flex; align-items: center; gap: 12px; font: 600 14px/1.5 Barlow, sans-serif; font-variant-numeric: tabular-nums; }
 .soda-milestone-progress-value > span { min-width: 4ch; text-align: end; }
-.soda-milestone-row progress { flex: 1; min-width: 0; width: 100%; height: 6px; border: 0; border-radius: 999px; overflow: hidden; background: var(--soda-page-edge); accent-color: var(--soda-page-link); }
-.soda-milestone-row progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
-.soda-milestone-row progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
-.soda-milestone-row progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }
-.soda-milestone-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; color: var(--soda-page-muted); font: 400 13px/1.5 Barlow, sans-serif; }
+.soda-milestone-row progress { flex: 1; min-width: 0; width: 100%; }
+.soda-milestone-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
 .soda-milestone-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; margin-inline-start: 32px; }
 .soda-milestone-actions > a { min-height: 44px; font: var(--soda-font-button); }
 @media (max-width: 1100px) {
