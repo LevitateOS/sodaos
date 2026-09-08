@@ -20,13 +20,15 @@ test('private repository declaration is read-only and cannot combine with access
   const from = probe.indexOf('  const [inputFile, home, permission, ...extra]');
   const to = probe.indexOf('  const input = JSON.parse', from);
   assert(from > 0 && to > from);
-  for (const [args, access, privateRepo] of [[[], false, false], [['--private-repository'], false, true], [['--allow-environment-access'], true, false]]) {
+  for (const [args, access, privateRepo] of [[[], false, false], [['--private-repository'], false, true], [['--allow-environment-access'], true, false], [['--allow-existing-terminal'], false, false], [['--allow-existing-management', '/private/request.json'], false, false]]) {
     const scope = {assert, accessMode: false, process: {argv: ['node', 'probe', 'input', 'home', '--allow-auth-transitions', ...args]}};
     const mode = runInNewContext(probe.slice(from, to) + '\n({accessMode, privateRepository})', scope);
     assert.equal(mode.accessMode, access);
     assert.equal(mode.privateRepository, privateRepo);
   }
-  assert.throws(() => runInNewContext(probe.slice(from, to), {assert, process: {argv: ['node', 'probe', 'input', 'home', '--allow-auth-transitions', '--private-repository', '--allow-environment-access']}}));
+  for (const args of [['--private-repository','--allow-environment-access'], ['--allow-existing-management'], ['--allow-existing-terminal','/private/request.json'], ['--allow-existing-management','/private/request.json','--private-repository']]) {
+    assert.throws(() => runInNewContext(probe.slice(from, to), {assert, process: {argv: ['node','probe','input','home','--allow-auth-transitions',...args]}}));
+  }
 });
 
 test('private anonymous probe requires native denial without Soda repository reads', async () => {
@@ -107,6 +109,16 @@ test('native probe guards every paused redirect before transmission', async () =
   assert.equal(scope.accessWrite, null);
   await paused({requestId: 'replay-access', request: allowed});
   assert.equal(calls.at(-1).method, 'Fetch.failRequest');
+  scope.accessWrite = {path:'/-/soda/api/me/development-keys/9', body:'{}', actor:'1', method:'DELETE'};
+  const removal = {url:'https://fixture.invalid'+scope.accessWrite.path, method:'DELETE', postData:'{}', headers:allowed.headers};
+  await paused({requestId:'wrong-method',request:{...removal,method:'POST'}});
+  assert.equal(calls.at(-1).method,'Fetch.failRequest');
+  assert(scope.accessWrite);
+  await paused({requestId:'one-removal',request:removal});
+  assert.equal(calls.at(-1).method,'Fetch.continueRequest');
+  assert.equal(scope.accessWrite,null);
+  await paused({requestId:'replay-removal',request:removal});
+  assert.equal(calls.at(-1).method,'Fetch.failRequest');
 });
 
 test('native browser refuses long private socket paths before starting a process', async () => {

@@ -191,6 +191,29 @@ explicit disconnect and no remount on Refresh are checked. Returned shell PID/st
 facts require independent host-side disappearance checks: socket closure alone is
 not process-cleanup proof. No create/join/start/key action is permitted by this flag.
 
+## Integrated existing-project management mode
+
+`--allow-existing-management /private/management.json` additionally runs the
+existing-terminal mode, owner Stop/Start with an active browser terminal and a
+run-owned persistent home marker, native nonowner lifecycle denial, and explicit
+saved-key/native Apply/revocation using two temporary client keys. Original saved
+keys are never deleted. New SSH authentication, refusal of the removed temporary
+key and survival of already authenticated temporary-key/Bob sessions are separate
+checks. Successful completion removes only the two new saved keys through the UI,
+explicitly reapplies originals and verifies the original managed files/identities.
+Failure does not trigger automatic restoration, mutation replay or cleanup of keys.
+
+The private management JSON has exactly `target`, `project`, `cid`, `ssh_config`,
+`key_a`, `key_a_public`, `key_b`, `key_b_public`, `original_alice`, `original_bob`.
+All file references are absolute restricted regular files. The trusted SSH config
+must define pinned `soda-e2e-host`, `soda-e2e-alice` and `soda-e2e-bob` aliases for
+this declared fixture and existing project. Root SSH only observes state; every
+lifecycle/key mutation goes through the actual protected browser UI/API, with
+single-use actor/path/body/method-bound request admission. Private keys stay on the
+client and never enter browser inputs. Management forwarding is not laptop routing
+proof. The current bounded scenario deliberately requires the existing Alice/Bob
+fixture accounts; it is not an arbitrary project maintenance tool.
+
 ## Native terminal boundary probe
 
 `internal/host/terminal_native_test.go::TestInstalledTerminalBoundary` is an opt-in

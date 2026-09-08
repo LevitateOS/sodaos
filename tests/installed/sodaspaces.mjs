@@ -19,6 +19,7 @@ let refusedRequest = false;
 let failure = false;
 let accessMode = false;
 let terminalMode = false;
+let managementMode = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
@@ -37,11 +38,14 @@ async function privateFile(file, limit) {
 try {
   const [inputFile, home, permission, ...extra] = process.argv.slice(2);
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
-    (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0]))));
+    (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0])) ||
+    (extra.length === 2 && extra[0] === '--allow-existing-management')));
+  managementMode = extra[0] === '--allow-existing-management';
   accessMode = extra[0] === '--allow-environment-access';
-  terminalMode = extra[0] === '--allow-existing-terminal';
+  terminalMode = extra[0] === '--allow-existing-terminal' || managementMode;
   const privateRepository = extra[0] === '--private-repository';
   const input = JSON.parse(await privateFile(inputFile, 16384));
+  const managementRequest = managementMode ? JSON.parse(await privateFile(extra[1], 16384)) : null;
   assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', 'users']);
   const origin = new URL(input.origin);
   assert(origin.protocol === 'https:' && origin.pathname === '/' && !origin.username && !origin.password && !origin.search && !origin.hash);
@@ -150,7 +154,7 @@ try {
         // Native logout's link action posts this fixed navigation-only form.
         const logoutRedirect = request.method === 'POST' && url.pathname === '/-/fetch-redirect' && request.postData === 'redirect=%2F';
         const expectedAccess = accessWrite && url.origin === origin.origin && !url.search &&
-          request.method === 'POST' && url.pathname === accessWrite.path && request.postData === accessWrite.body &&
+          request.method === (accessWrite.method || 'POST') && url.pathname === accessWrite.path && request.postData === accessWrite.body &&
           Object.entries(request.headers || {}).some(([name, value]) => name.toLowerCase() === 'x-soda-expected-user-id' && value === accessWrite.actor);
         if (expectedAccess) accessWrite = null;
         const denied = url.origin !== origin.origin ||
@@ -531,23 +535,27 @@ try {
     }
     result.access.native_join_confirmed = true;
   }
+  async function authenticateExisting(index) {
+    await page.goto(repoURL);
+    if (await page.locator('a[data-url="/user/logout"]').count()) await nativeLogout(page);
+    await nativeLogin(page, index);
+    await page.goto(repoURL);
+    await open();
+    if (await page.locator('#sodaspaces-sign-out').isVisible()) {
+      await page.locator('#sodaspaces-sign-out').click();
+      await settled();
+      await page.reload();
+      await open();
+    }
+    await oauth(index);
+    await settled();
+  }
   if (terminalMode) {
+    assert(result.bfcache_restored, 'Existing-account effects require the read-only journey first');
     result.terminals = [];
     for (let index = 0; index < input.users.length; index++) {
       stage = `terminal user ${index}: real native login and consent`;
-      await page.goto(repoURL);
-      if (await page.locator('a[data-url="/user/logout"]').count()) await nativeLogout(page);
-      await nativeLogin(page, index);
-      await page.goto(repoURL);
-      await open();
-      if (await page.locator('#sodaspaces-sign-out').isVisible()) {
-        await page.locator('#sodaspaces-sign-out').click();
-        await settled();
-        await page.reload();
-        await open();
-      }
-      await oauth(index);
-      await settled();
+      await authenticateExisting(index);
       assert(await page.locator('#sodaspaces-connection').isVisible());
       const marker = `SODA_E2E_${index}_${Date.now()}`;
       let wire = '', facts, sockets = 0, closed = false;
@@ -611,6 +619,17 @@ try {
       // from this socket closure or from shell facts alone.
     }
   }
+  if (managementMode) {
+    const {exerciseManagement} = await import('./sodaspaces-management.mjs');
+    result.management = await exerciseManagement({page, input, request:managementRequest,
+      authenticate:authenticateExisting, settled,
+      stage: value => {stage=value;},
+      permit: (index, route, body, method='POST') => {
+        assert(!accessWrite && !interrupted && !refusedRequest);
+        accessWrite={actor:input.users[index].id,path:'/-/soda'+route,body:JSON.stringify(body),method};
+      }});
+    assert.equal(accessWrite,null);
+  }
   assert(!refusedRequest && !interrupted);
 } catch (error) {
   if (result) result.failure_kind = error?.name === 'TimeoutError' ? 'timeout'
@@ -623,7 +642,7 @@ try {
   const outcome = failure ? 'failed' : result?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
   if (run) {
     try {
-      await writeFile(path.join(run, 'result.json'), JSON.stringify({...result, outcome, stage, environment_mutations: accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
+      await writeFile(path.join(run, 'result.json'), JSON.stringify({...result, outcome, stage, environment_mutations: managementMode ? 'explicit existing-project lifecycle and temporary own-key rotation only; single-use actor/path/body/method-bound' : accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
     } catch { failure = true; }
   }
   console.log(failure ? `Sodaspaces journey failed at ${stage}; private profile/evidence retained if created.` : `Sodaspaces journey: ${outcome}; not whole-product or backend-artifact acceptance.`);

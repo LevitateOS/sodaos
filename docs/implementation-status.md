@@ -40,6 +40,22 @@ yet terminal/lifecycle/key E2E proof. An explicit existing-member terminal mode 
 now authored in the same installed entrypoint; native execution and independent
 process-disappearance checks are next. Stop/Start and key rotation remain unexecuted.
 
+The terminal follow-up passed as test revision `5f459a1` against unchanged installed
+`2aa4960` product bytes (`browser-c`). Both users exercised real native login/OAuth,
+mounted xterm, original login/UID/GID/groups/home/TTY, Escape/focus escape, explicit
+Disconnect and no remount after Refresh. Independent pinned host observations
+confirmed both original shell PID/start identities disappeared, original managed
+keys remained byte-identical and the CID was unchanged. `browser-b` is a retained
+failed fact-parser attempt; native PTY CSI/CR framing was corrected in the probe,
+not stripped from the product shell or turned into a synthetic response.
+
+An explicit existing-project management extension is now authored in the same
+installed entrypoint: Stop/Start, persistent marker, live-terminal interruption,
+nonowner denial and two temporary-key rotation/revocation with independent SSH and
+held-session checks. It preserves original saved keys and uses only exact approved
+fixture aliases; root transport observes, UI/API performs mutations. It has not yet
+run. This does not authorize new targets, deletion, routing or a retained rollout.
+
 ## Mounted Sodaspaces management and terminal in the established UI
 
 The native repository button/right dialog now mounts the complete control component
