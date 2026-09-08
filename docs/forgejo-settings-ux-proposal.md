@@ -8,10 +8,22 @@ separate responsibilities.
 
 ## Recommendation
 
-Use a compact settings workspace with grouped navigation, one page-specific
-heading, open sections and explicit native save boundaries. Remove the repeated
-settings illustrations and generic introductory sentence. Show actual identity,
-credential state and resource information where they help the task.
+The user's clarified goal is a **visibly different layout and structure**, while
+retaining Forgejo's native capabilities and limits. A cleaner version of the old
+sidebar-and-sections arrangement does not meet that goal.
+
+Remove the settings sidebar. Use compact identity context and grouped destination
+menus across the top, followed by a full-width page-specific composition. Profile
+becomes an identity editor; Security uses status-led rows; preferences use
+setting-and-control columns; resource pages become open inventories. Focused
+child editors have a parent link and one clear task. Preserve the existing
+palette and fonts, but redesign content order, proportions and interaction flow.
+
+Forgejo constrains data availability, handler ownership, form submissions,
+permissions and interactive hooks. It does **not** require retaining the existing
+navigation position, surrounding div hierarchy, attached segments, heading
+placement or page silhouette. Rewrite that presentation markup where needed;
+preserve the native interactive structures inside it.
 
 The previous pass changed surfaces and tokens but did not establish a consistent
 task structure. Some native forms and nested callers still bypass the shared
@@ -64,9 +76,9 @@ representative users. Completion times and user preference remain hypotheses.
 
 | Direction | Benefit | Cost | Decision |
 | --- | --- | --- | --- |
-| Grouped desktop rail, compact mobile menu | All desktop destinations stay discoverable; content starts promptly; existing routes fit naturally. | Requires a targeted navbar override and accessible responsive disclosure. | **Recommended.** |
-| Category tabs plus a second navigation tier | Makes each family feel focused and gives forms more horizontal space. | Adds an extra navigation layer and becomes awkward with optional features and long translations. | Weaker fit for this number of settings. |
-| Collapsible groups on desktop and mobile | Scales to many optional destinations. | Hides routine settings and adds clicks on desktop. | Reserve for an observed navigation-density problem. |
+| Grouped top destination menus with page-specific bodies | Removes the settings sidebar and gives each task the full page width; creates a different visual hierarchy. | Most desktop navigation takes an extra click; requires clear active location and accessible menus. | **Selected direction after the user's clarification.** |
+| Grouped desktop rail, compact mobile menu | Keeps all desktop destinations visible and improves density. | Preserves too much of the previous layout and form-stack structure. | Superseded; insufficient structural change. |
+| Category landing pages or a settings dashboard | Could emphasize different kinds of tasks. | Adds an intermediate destination; aggregate status would require unavailable shared data or new handler work. | Not selected. |
 
 A settings dashboard made from status cards would add a stop before the task and
 need data that the shared layout does not receive. A single giant settings page
@@ -86,19 +98,35 @@ are working copy, subject to localization:
 
 Retain `EnableActions`, `EnablePackages`, `DisableWebhooks`, `EnableQuota` and
 `HideNavbarLinks` exactly. Mandatory factor enrollment must still suppress
-ordinary navigation. Do not add global counters or security badges to this rail:
-the different page handlers do not provide a shared status inventory.
+ordinary navigation. Do not add global counters or security badges to these
+menus: the different page handlers do not provide a shared status inventory.
 
-Desktop uses the existing 240px navigation column, a 24px gap and an open content
-area within the 1120px shell. Align navigation and page title at the top. A sticky
-rail is optional only when it fits the available height; it must not trap lower
-destinations offscreen. Lists may use the full content width; ordinary forms use
-the narrower reading width.
+Desktop uses the 1120px shell with **no persistent settings sidebar**. Start with
+a compact identity/context strip using the actual avatar and signed-in identity.
+It is not an illustrated hero and does not repeat the page title. Follow it with
+three grouped destination menus across the top. Mark the active group and the
+current destination. Native disclosure elements and existing links provide the
+foundation; use a small enhancement only for responsive open state, dismissal
+and focus behavior. Opening navigation must never submit or discard a form.
+
+The page body uses four deliberate compositions, rather than inheriting one
+vertical stack for every page:
+
+| Composition | Structure | Pages |
+| --- | --- | --- |
+| Identity editor | Compact portrait/source area alongside public-identity editing, then username and a distinct privacy band. | Profile |
+| Setting rows | Section title, purpose and actual state in a roughly 240px introduction column; controls and the real save action in the adjacent column. Stack on mobile. | Account, Appearance, operational configuration |
+| Status and inventory | Name/state/action on the first row, supporting metadata beneath, with native details or local editors revealed when needed. Use the available page width. | Security, keys, Applications, memberships, repositories, webhooks, package rules, Actions, quota |
+| Focused editor | Parent link, task-specific h1 and a roughly 720px editing column. Remove secondary identity detail and the ordinary settings navigation when native policy already requires focus. | Token/OAuth/webhook/cleanup editing, factor enrollment |
+
+These are compositions of real elements, not new generic component types or a
+schema renderer. A column for section explanations is not a navigation sidebar.
 
 Below the shared 900px breakpoint, show a single disclosure labelled with the
 current settings destination. Opening it reveals the same grouped native links.
 Use one navigation DOM, with an expanded usable fallback when JavaScript is
-unavailable. No modal, horizontal scrolling tab strip or second global hamburger.
+unavailable. Do not require opening a second category disclosure just to reach
+the mobile links. No modal, scrolling tab strip or second global hamburger.
 The actual page title and first task should normally appear within the first
 300px at 390×844, excluding mandatory alerts and unusually long translations.
 
@@ -112,7 +140,9 @@ a parent h1 followed immediately by a duplicate task heading.
 
 Show the current avatar near the top with an explicit change action. The native
 avatar helper already renders `.SignedUser` in the global navbar; reuse that
-helper, not a new image service. Reveal the existing upload/source form locally.
+helper, not a new image service. On desktop place the portrait/source area beside
+the public-identity editor; on mobile place it above. This is page content, not a
+replacement sidebar. Reveal the existing upload/source form locally.
 Avatar upload still has its own submit, native file constraints and separate
 delete action. A file selection must never imply it has already been saved.
 Keep one form DOM and an expanded no-JavaScript fallback. Expand the editor on
@@ -134,6 +164,10 @@ non-private repositories; do not present it as merely hiding a profile card.
 Public identity, username and privacy remain **one native profile save**. Avatar
 remains separate. Show a link to the current public profile, not a fabricated
 preview or profile-completeness score.
+Use sibling forms and an explicit grid composition: never nest the avatar form
+inside the profile form or duplicate fields to achieve the layout. The main
+profile form may span the identity and lower privacy areas while retaining one
+native submission boundary.
 
 ### Account: distinguish email, password and closure
 
@@ -141,11 +175,16 @@ Lead with email addresses: address, Primary and Activated/Requires activation st
 applicable actions. Keep activation, notification preference and primary-email
 operations distinct. The add-email form follows the list. Provider-managed and
 disabled states explain the actual restriction using existing native text.
+Compose the section as an introduction/state column beside the address inventory
+and editor, rather than a full-width heading above another attached segment.
 
 Place password management next, with a readable width and the same standard
 control appearance as other forms. Preserve current-password conditions,
 autofill behavior, password-manager semantics and `ignore-dirty`. Keep a clear
 link from Security to this section so password management is easy to find.
+Its editor can expand on demand within the setting row. It must expand on native
+errors or when following the password section link, with a usable fallback and
+no duplicate form. Essential policy text must remain visible before expansion.
 
 Account deletion is a clearly named final section with space before it. Its
 warning and native confirmation are a meaningful boundary and should remain.
@@ -158,6 +197,10 @@ Present authenticator-app enrollment and registered security keys as distinct
 sections. Lead with enrolled/not enrolled or the actual credential list, followed
 by the relevant setup/manage action. Keep recovery instructions beside the
 enrolled factor and preserve warnings before any removal or regeneration.
+Use aligned status/action rows instead of successive large headings and prose
+blocks. Local expansion reveals setup or credential detail; mandatory notices,
+errors and security consequences remain visible. Do not collapse native errors
+or turn the WebAuthn ceremony into a replacement custom form.
 
 Show linked providers and OpenIDs only where native configuration permits them.
 Keep active/inactive provider distinctions and native linking flows. Do not
@@ -184,6 +227,9 @@ section gets a short purpose statement and
 its own primary action. Show the owned-app registration form when requested,
 retaining its open state on errors. Do not turn the whole page into tabs that hide
 warnings, validation errors or a newly generated secret.
+Give these inventories the full task canvas. Use an in-page text outline where
+the populated page warrants it; do not rebuild three enclosing cards or retain
+an always-open registration form simply because it was previously in a segment.
 
 Token rows foreground name, repository reach and concise permissions, with native
 created/last-used metadata. Keep detailed scopes in the existing disclosure.
@@ -215,6 +261,10 @@ Forgejo Git/signing keys, not Soda’s project-development access keys.
 Theme, language, repository hints and hidden comment types remain four native
 forms. Use the same labels/help/action rhythm and retain a specific submit for
 each. A global Save or autosaving toggles would misrepresent the native behavior.
+Render the short settings as horizontal rows: explanation at left, selector or
+checkbox and its submit at right. The comment checklist occupies the wider
+control column. On mobile each row becomes an explanation followed immediately
+by its controls and action, without an enclosing card.
 
 Use the actual theme selector; illustrated theme previews are optional future
 work requiring real theme rendering. Present the 14 comment groups in two
@@ -268,8 +318,9 @@ journeys, not extra sections to embed into the ordinary settings shell.
 ## Implementation ownership and order
 
 1. **Shared shell plus Profile.** Replace the generic settings intro, add the
-   targeted native-navbar override, implement the mobile destination disclosure,
-   fix heading semantics and complete the identity/privacy/avatar composition.
+   targeted native-navbar override with grouped top navigation, remove the
+   settings sidebar, implement the mobile destination disclosure, fix heading
+   semantics and complete the identity/privacy/avatar composition.
 2. **Account, Security and Keys.** Establish one form appearance including native
    nested panels and behavior-hook exceptions. Complete state/action hierarchy
    and preserve each security flow’s conditions.
@@ -312,6 +363,11 @@ executable or replacement settings backend. See
 
 The implementation should demonstrate that a person can find a setting, understand
 its current state, make the intended change and identify which operation saved.
+It must also pass the user's structural goal: the default desktop composition
+must not retain a settings sidebar or the old repeated heading/attached-section
+stack. Profile, Security, preferences and inventories should be visibly distinct
+task compositions, built from consistent shared presentation rules. Removing
+borders and shrinking margins alone is not completion.
 Proposed usability tasks are: update a public bio and avatar; add an email and
 send/follow its native activation flow;
 find password and factor settings; add a signing key; generate a scoped token;

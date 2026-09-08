@@ -5,9 +5,13 @@
 The [settings UX proposal](forgejo-settings-ux-proposal.md) records a read-only
 investigation of the complete personal-settings navigation and native child
 workflows against source `2cc73b6` / local presentation `2026-09-08.5`. It recommends
-a compact grouped navigation shell, mobile destination disclosure, meaningful
-page headings and per-task open sections with unchanged native save boundaries.
-The proposal is not implemented. Live inspection found password/expanded SSH
+a structurally different layout after the user's clarification: no settings
+sidebar, grouped top destination menus, compact identity context, and distinct
+identity-editor, setting-row, status/inventory and focused-editor compositions.
+Mobile uses one destination disclosure. The earlier grouped-rail proposal is
+superseded because it retained too much of the old layout. Native routes, forms,
+save boundaries, permissions and interactive hooks remain authoritative.
+The revised proposal is not implemented. Live inspection found password/expanded SSH
 controls still at 38px beside 44px shared controls, and ordinary mobile content
 starting about 637px below the page top. Prior source coverage did not establish
 consistent native form presentation or a complete UX redesign.
