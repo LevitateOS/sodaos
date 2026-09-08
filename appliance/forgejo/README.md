@@ -587,5 +587,11 @@ Inventory actions remain beside headings on desktop and stack below on mobile.
 Content grids (portrait/editor, checklists and native label/value data) are not
 section-title columns and retain their task-specific arrangements.
 
-Settings section bodies use a 40px inline-start inset below flush headings. Apply
-it only to the direct body so nested native wrappers do not add repeated padding.
+Every personal-settings destination uses one 40px inline-start inset on
+`.user-setting-content`. Section headings and fieldset legends return 40px toward
+the outer edge. This covers native header/segment pairs, inventories and editors
+without requiring the personal section-body wrapper. Nested bodies never add
+another inset. `account-settings.css` owns this layout; shared form styles own
+only the vertical heading spacing and must not reset its inline alignment.
+The native browser check enumerates every permitted settings-menu destination,
+verifying the inset, heading alignment and overflow instead of sampling three pages.

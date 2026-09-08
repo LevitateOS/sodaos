@@ -1,5 +1,25 @@
 # Current handoff
 
+## Shared settings inset across every destination
+
+Revision `2026-09-08.22` replaces the incomplete direct-section-body inset with
+one 40px inset on the shared personal-settings content canvas. Native section
+headings, inventory headings and fieldset legends return to the outer edge.
+This covers Profile, Account, Appearance, Blocked users, Security, Keys,
+Applications, Webhooks, Organizations, Repositories and Packages. Conditional
+Actions/Storage and child editors use the same canvas; their gated states remain
+unverified natively. Shared form legends no longer reset inline margins.
+
+A read-only audit passed all 44 route/width combinations (all 11 visible
+destinations at 1440/900/390/320px), with the 40px inset, heading alignment,
+HTTP/URL checks and no document overflow or page errors. All 14 component checks
+and 11 native settings checks passed; the latter now enumerates every permitted
+menu destination. Go Forgejo checks passed and the production gallery was
+regenerated. Verified representative screenshots are under
+`.artifacts/settings-uniformity/`; final Cargo alignment uses `packages-final/`.
+The existing merged-footer inventory hash mismatch is still separately recorded.
+No data changes, permission changes, service restart or appliance deployment.
+
 ## Settings body inset
 
 Local revision `2026-09-08.21` uses the requested 40px inline-start inset to direct settings

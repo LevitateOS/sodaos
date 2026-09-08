@@ -25,11 +25,11 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     await t.test('settings headings stay above their bodies at every width', async () => {
       for (const width of [1440, 900, 899, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 });
-        await render(`<main class="soda-page soda-settings"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></main>`);
+        await render(`<main class="soda-page soda-settings"><div class="user-setting-content"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></div></main>`);
         const placement = await page.evaluate(() => {
           const heading = document.querySelector('.soda-settings-section > h2').getBoundingClientRect();
           const body = document.querySelector('.soda-settings-section-body').getBoundingClientRect();
-          return { above: heading.bottom <= body.top, inset: getComputedStyle(document.querySelector('.soda-settings-section-body')).paddingInlineStart, fits: document.documentElement.scrollWidth <= innerWidth };
+          return { above: heading.bottom <= body.top, inset: String(Math.round(body.left - heading.left)) + 'px', fits: document.documentElement.scrollWidth <= innerWidth };
         });
         assert.deepEqual(placement, { above: true, inset: '40px', fits: true });
       }

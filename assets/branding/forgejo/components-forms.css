@@ -33,7 +33,7 @@
   & .soda-form-section > legend {
     float: left;
     width: 100%;
-    margin: 0 0 16px;
+    margin-block: 0 16px;
     padding: 0;
     border: 0;
     color: var(--soda-page-text);

@@ -64,6 +64,22 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     }
    }
   }
+  // Every permitted destination must select the shared canvas, regardless of
+  // whether its content comes from a personal override or a native partial.
+  await page.goto(origin+'/user/settings');
+  const destinations=await page.locator('.soda-settings-menu a').evaluateAll(es=>es.map(e=>new URL(e.href).pathname));
+  for (const width of [1440,390,320]) {
+   await page.setViewportSize({width,height:1000});
+   for (const path of destinations) {
+    const response=await page.goto(origin+path);
+    assert.equal(response.status(),200);assert.equal(new URL(page.url()).pathname,path);
+    assert.equal(await page.locator('.user-setting-content').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px',path);
+    for (const heading of await page.locator('.user-setting-content :is(.soda-settings-section > h2,.soda-settings-inventory-heading,.soda-p-heading,.ui.top.attached.header,.soda-profile-editor legend,.soda-form-section > legend)').all()) {
+     if (await heading.isVisible()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px',path);
+    }
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),path);
+   }
+  }
   await page.goto(origin+'/user/settings/account#password');await page.waitForSelector('[data-settings-editor][open]');assert(await page.locator('#old_password').isVisible());
   await page.goto(origin+'/user/settings/keys');await page.locator('#add-ssh-button').click();await page.waitForSelector('#add-ssh-key-panel:visible');
   await page.waitForFunction(()=>document.activeElement?.id==='ssh-key-title');

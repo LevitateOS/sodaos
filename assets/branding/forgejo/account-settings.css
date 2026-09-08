@@ -31,8 +31,6 @@
 .soda-settings .soda-settings-section:first-child { margin-top: 0; }
 .soda-settings .soda-settings-section > h2 { margin: 0; font: var(--soda-font-heading); }
 .soda-settings .soda-settings-section-body { min-width: 0; }
-/* Inset only the direct body: native nested body wrappers must not compound it. */
-.soda-settings .soda-settings-section > .soda-settings-section-body { padding-inline-start: 40px; }
 .soda-settings .soda-settings-editor { max-width: 720px; }
 .soda-settings .flex-list > .flex-item { background: transparent; border-radius: 0; border: 0; padding-block: 12px; gap: 16px; }
 .soda-settings .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
@@ -76,4 +74,15 @@
 @media (max-width: 899px) {
  .soda-settings .soda-settings-inventory-heading { flex-direction: column; align-items: flex-start; }
  .soda-settings .soda-settings-inventory-heading > .ui.right { margin-left: 0; }
+}
+
+/* One inset for every personal-settings destination, including native partials.
+   Section headings return to the outer edge; nested bodies never compound it. */
+.soda-settings .user-setting-content {
+ --soda-settings-body-inset: 40px;
+ box-sizing: border-box;
+ padding-inline-start: var(--soda-settings-body-inset);
+}
+.soda-settings .user-setting-content :is(.soda-settings-section > h2, .soda-settings-inventory-heading, .soda-p-heading, .ui.top.attached.header, .soda-profile-editor legend, .soda-form-section > legend) {
+ margin-inline-start: calc(-1 * var(--soda-settings-body-inset));
 }
