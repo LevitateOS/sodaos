@@ -123,10 +123,10 @@
 }
 
 .soda-release-editor > .ui.container > form {
-	padding: var(--soda-panel-inset);
-	border: 1px solid var(--soda-page-edge);
-	border-radius: var(--soda-panel-radius);
-	background: var(--soda-page-surface);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 }
 
 .soda-release-editor > .ui.container > h2 {

@@ -105,10 +105,10 @@
 
 /* The native new-issue form keeps its markdown editor, template chooser, and sidebar. */
 .soda-repo-editor-card {
-  padding: 18px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-repo-issue-editor :is(.issue-title,.issue-content) {
@@ -264,10 +264,10 @@
 }
 
 .soda-milestone-editor .soda-milestone-form {
-  padding: 18px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-milestone-editor .soda-milestone-form .field.error :is(input,textarea) {
@@ -294,7 +294,7 @@
   }
 
   .soda-repo-editor-card {
-    padding: 16px 16px;
+    padding: 0;
   }
 
   .soda-issue-template-card .ui.two.column.grid {
@@ -319,4 +319,25 @@
   border: 0;
   height: 0;
   margin-block: 24px;
+}
+
+/* The new issue/PR composer is a form, not a comment bubble. Keep the editor,
+   preview, upload target and popup surfaces native. */
+.soda-code-compare .issue-content.ui.form .comment > .ui.segment.content,
+.soda-repo-issue-editor .issue-content.ui.form .comment > .ui.segment.content,
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form > .issue-content-right.ui.segment {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form .comment > .ui.segment.content::before,
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content.ui.form .comment > .ui.segment.content::after {
+  display: none;
+}
+:is(.soda-repo-issue-editor, .soda-code-compare) .issue-content-right > .divider {
+  border: 0;
+  height: 0;
+  margin-block: 20px;
 }
