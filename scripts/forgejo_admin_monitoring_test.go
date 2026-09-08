@@ -33,6 +33,9 @@ func TestForgejoAdminMonitoringStockParityAndParse(t *testing.T) {
 				t.Fatal("missing version/license/source attribution")
 			}
 			restored := strings.TrimPrefix(src, tt.provenance)
+			if tt.name == "queue.tmpl" || tt.name == "queue_manage.tmpl" {
+				restored = strings.Replace(restored, ` "hideArtwork" true`, "", 1)
+			}
 			for _, r := range tt.replacements {
 				if strings.Count(restored, r[0]) != 1 {
 					t.Fatalf("unexpected presentation delta %q", r[0])

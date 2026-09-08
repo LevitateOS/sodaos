@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/dashboard.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0db11a0f97 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard" "hideArtwork" true)}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--dashboard">
 		{{if .NeedUpdate}}
 			<div class="ui negative message flash-error">
