@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: verify existing account-settings artwork, then appearance settings. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: verify existing appearance-settings artwork and its native preferences layout. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -214,7 +214,7 @@ Next: verify existing account-settings artwork, then appearance settings. Person
 | Variants — see below | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | Personal: `personal-packages-papercraft.png`; organization: `organization-packages-papercraft.png` | Personal complete; organization integrated, native verification pending. |
 | No image | [`user/profile.tmpl`](../appliance/forgejo/templates/user/profile.tmpl) | Native avatar, README and activity chart | Individually assessed repositories, activity, stars, followers, following and README/conditional-watching variants below; identity and authored content take priority. |
 | Pending | [`user/settings/access_token_edit.tmpl`](../appliance/forgejo/templates/user/settings/access_token_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
-| Pending | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| Done | [`user/settings/account.tmpl`](../appliance/forgejo/templates/user/settings/account.tmpl) | `settings-account-papercraft.png` via layout | Existing mailbox/account scene retained; native desktop/mobile introduction inspected. |
 | Pending | [`user/settings/appearance.tmpl`](../appliance/forgejo/templates/user/settings/appearance.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/applications.tmpl`](../appliance/forgejo/templates/user/settings/applications.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -437,3 +437,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Native desktop capture inspected: `.artifacts/screenshots/capture-Q1c7e7/001.png` (1440×1000). Image is contained beside the intro; profile fields stay separate. Initial mobile capture `capture-6HUSt7/001.png` shows native autofocus scrolling to the username field, so it is form evidence, not header evidence.
 - Added optional `--scroll-top` to the authorized screenshot helper and documented it. Default behavior remains unchanged. The flag scrolls after settling without disabling autofocus or changing native DOM/content. Actual 390×844 run inspected at `capture-gmGqrm/001.png`: header illustration fits without overlap. Successful run validates the added capture option; no synthetic tests added.
 - No profile, privacy, avatar or account preference was changed. Dark theme, avatar upload/delete, validation errors and reverse-proxy/rename-disabled variants were not exercised. Those source branches retain the same decorative header and native controls.
+
+### Existing account settings artwork
+
+- Read the complete account override: password availability/local/OAuth conditions, email addresses and activation states, notification preferences, add/delete email controls and account deletion warning/confirmation. Retain the approved mailbox/account illustration in the common introduction; email management is a central part of this page. No extra art inside password, email or destructive confirmation sections.
+- Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-ZmbJ3J/001.png` (1440×1000) and `capture-Tn2wG8/001.png` (390×844). Art fits beside the heading and remains distinct from the forms. Desktop password fields are empty; the displayed email belongs to the authorized test fixture. Mobile navigation still precedes the forms below the viewport.
+- Existing prompt/provenance stays in `settings-art-prompts.md`; no asset/template change or regeneration. No tests/reload needed for this verification-only work.
+- No passwords entered, emails sent/changed, notifications changed or deletion attempted. Disabled-password, pending activation, deletion-disabled, validation-error and dark-theme states were not exercised; their source conditions remain native.
