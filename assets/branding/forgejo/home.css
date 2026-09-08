@@ -4,7 +4,7 @@
 .soda-home :is(a,button):not(.soda-guest-theme-toggle):focus-visible { outline: 2px solid var(--soda-guest-focus); outline-offset: 4px; }
 .soda-home-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 16px; border-bottom: 1px solid var(--soda-guest-edge); }
 .soda-home-brand { flex-shrink: 0; }
-.soda-home-brand img { display: block; width: 128px; height: auto; }
+.soda-home-brand img { display: block; width: 152px; height: auto; }
 .soda-home-links { display: flex; align-items: center; gap: 16px; font-size: 15px; font-weight: 600; }
 .soda-home-links > a:first-child { display: none; }
 .soda-home-links .soda-home-nav-signin { color: var(--soda-guest-text); white-space: nowrap; }

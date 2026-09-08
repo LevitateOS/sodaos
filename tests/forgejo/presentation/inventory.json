@@ -846,7 +846,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1e9b3959b35cbd6b0ae87f689118915cc41dcdac1ceb1850ce4a57bb8e425dc4",
+      "beforeRoleHash": "4fda21532e9e8d4e62d79fcc715374740863beffc48f67782f9fa9e3a8ae65ae",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -1331,7 +1331,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5e38c1293b121c29ccccaada2d112f19551e2a5396cea69c020f62b59141c451",
+      "beforeRoleHash": "ea2e0b91ed00dee65908992a8ef27ed80aa20b7b1b35a788a08298dff24f26ea",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
