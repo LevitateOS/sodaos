@@ -1,0 +1,203 @@
+/* Repository activity and commit-history presentation. Native Forgejo owns all data, charts and controls. */
+.soda-insights > .soda-page-container {
+  padding-top: 28px;
+}
+
+.soda-insights .flex-container-nav {
+  flex: 0 0 210px;
+}
+
+.soda-insights .flex-container-nav > .ui.menu {
+  padding: 8px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-insights .flex-container-nav > .ui.menu .item {
+  border-radius: 8px;
+  color: var(--soda-page-muted);
+  font-weight: 600;
+}
+
+.soda-insights .flex-container-nav > .ui.menu .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+
+.soda-insights .activity-header,
+.soda-insights #git-graph-heading h2 {
+  color: var(--soda-page-text);
+  font: 600 28px/1.25 "Fraunces Variable", Georgia, serif;
+  letter-spacing: -.025em;
+}
+
+.soda-insights .activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 22px;
+}
+
+.soda-insights .activity-header .dropdown .button,
+.soda-insights #flow-select-refs-dropdown {
+  min-height: var(--soda-control-height);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: 600 14px/1.4 Barlow, Arial, sans-serif;
+}
+
+.soda-insights .activity-header .dropdown .menu,
+.soda-insights #flow-select-refs-dropdown .menu {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.soda-insights .activity-header .dropdown .menu .item,
+.soda-insights #flow-select-refs-dropdown .menu .item {
+  color: var(--soda-page-text);
+}
+
+.soda-insights-activity .flex-container-main > .ui.header,
+.soda-insights-activity .flex-container-main > .ui.segment,
+.soda-insights-activity .flex-container-main > #repo-contributors-chart,
+.soda-insights-activity .flex-container-main > #repo-code-frequency-chart {
+  border-color: var(--soda-page-edge);
+  box-shadow: none;
+}
+
+.soda-insights-activity .flex-container-main > .ui.header {
+  border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+.soda-insights-activity .flex-container-main > .ui.segment {
+  background: var(--soda-page-surface);
+  color: var(--soda-page-text);
+}
+
+.soda-insights-activity .horizontal.segments > .segment {
+  border-color: var(--soda-page-edge);
+  background: transparent;
+  color: var(--soda-page-muted);
+}
+
+.soda-insights-activity .horizontal.segments > a.segment {
+  padding: 22px 16px;
+  transition: background-color .15s ease;
+}
+
+.soda-insights-activity .horizontal.segments > a.segment:hover {
+  background: var(--soda-page-hover);
+}
+
+.soda-insights-activity .horizontal.segments > a.segment strong {
+  color: var(--soda-page-text);
+  font: 600 26px/1.2 "Fraunces Variable", Georgia, serif;
+}
+
+.soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart) {
+  min-height: 360px;
+  padding: 22px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+}
+
+.soda-insights-activity .divider.divider-text {
+  margin-top: 34px;
+  color: var(--soda-page-text);
+  font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
+}
+
+.soda-insights-activity .list .desc {
+  margin: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--soda-page-edge);
+  color: var(--soda-page-muted);
+}
+
+.soda-insights-activity .list .desc .title {
+  color: var(--soda-page-text);
+  font-weight: 600;
+}
+
+.soda-insights-graph #git-graph-container {
+  padding: 0;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-panel-radius);
+  background: var(--soda-page-surface);
+  box-shadow: none;
+}
+
+.soda-insights-graph #git-graph-heading {
+  gap: 18px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+.soda-insights-graph #git-graph-heading-left {
+  gap: 16px;
+}
+
+.soda-insights-graph #git-graph-heading h2 {
+  margin: 0;
+}
+
+.soda-insights-graph #git-graph-heading .switch {
+  padding: 4px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-control-radius);
+  background: var(--soda-page-canvas);
+}
+
+.soda-insights-graph #git-graph-heading .switch .item {
+  border-radius: 7px;
+  color: var(--soda-page-muted);
+}
+
+.soda-insights-graph #git-graph-heading .switch .active.item {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-link);
+}
+
+.soda-insights-graph #git-graph-content {
+  background: var(--soda-page-canvas);
+}
+
+.soda-insights-graph + #pagination .ui.pagination.menu {
+  border-color: var(--soda-page-edge);
+  background: var(--soda-page-surface);
+}
+
+@media (max-width: 700px) {
+  .soda-insights > .soda-page-container,
+  .soda-insights-graph #git-graph-heading {
+    padding-top: 18px;
+  }
+
+  .soda-insights .activity-header,
+  .soda-insights-graph #git-graph-heading,
+  .soda-insights-graph #git-graph-heading-left {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .soda-insights .flex-container-nav {
+    flex-basis: auto;
+  }
+
+  .soda-insights-activity .horizontal.segments {
+    flex-direction: column;
+  }
+
+  .soda-insights-activity :is(#repo-contributors-chart, #repo-code-frequency-chart) {
+    min-height: 280px;
+    padding: 16px;
+  }
+}
