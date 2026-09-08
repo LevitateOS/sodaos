@@ -2,7 +2,7 @@
 
 ## Page illustration goal
 
-The [per-page checklist](page-illustration-checklist.md) inventories 205 current
+The [per-page checklist](page-illustration-checklist.md) inventories 206 current
 overrides/helpers and tracks shared-template page variants separately. Migration,
 fork, 404, discussion subscriptions and watched repositories now have distinct
 illustrations. Native forms, state, permissions and meaningful status text remain
@@ -25,7 +25,9 @@ Organization registry settings was assessed without a second decorative header;
 its native identity and direct cleanup/Cargo controls take precedence. Other
 organization settings routes are now explicitly queued. Personal webhooks now have a connection illustration on the list page only;
 desktop/mobile and new-form isolation captures were inspected, with focused
-webhook/shared-boundary tests passing. Personal organization memberships are next; individual decisions and unexercised variants remain in the checklist.
+webhook/shared-boundary tests passing. Personal organization memberships now has a distinct card scene, with native
+desktop/mobile empty-state captures checked and stock membership content verified
+unchanged after the layout call. Personal repository settings is next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed

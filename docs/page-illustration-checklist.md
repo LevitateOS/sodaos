@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: personal organization-membership settings page; trace its native caller and assess its layout. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: personal repository settings list and its native variants. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -223,6 +223,7 @@ Next: personal organization-membership settings page; trace its native caller an
 | Pending | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/layout_footer.tmpl`](../appliance/forgejo/templates/user/settings/layout_footer.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`user/settings/layout_head.tmpl`](../appliance/forgejo/templates/user/settings/layout_head.tmpl) | `settings-account-papercraft.png`, `settings-appearance-papercraft.png`, `settings-applications-papercraft.png`, `settings-keys-papercraft.png`, `settings-profile-papercraft.png`, `settings-security-papercraft.png` | Not yet reviewed in this goal. |
+| Done | [`user/settings/organization.tmpl`](../appliance/forgejo/templates/user/settings/organization.tmpl) | `settings-organizations-papercraft.png` | Distinct membership-card scene; desktop/mobile empty-state captures checked. |
 | Done | [`user/settings/packages.tmpl`](../appliance/forgejo/templates/user/settings/packages.tmpl) | `settings-packages-papercraft.png` | Native landing-page content preserved; explicit artwork input excludes cleanup pages. |
 | Pending | [`user/settings/profile.tmpl`](../appliance/forgejo/templates/user/settings/profile.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Pending | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
@@ -392,3 +393,11 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Focused offline `TestForgejoWebhookPartialsRetain1507Source` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
 - Native captures inspected: `.artifacts/screenshots/capture-AsQZYE/001.png` (1440×1000 list), `002.png` (new Forgejo webhook form isolation), and `capture-86gUS7/001.png` (390×844 list). Art fits and composites cleanly; new form remains undecorated. Baselines `capture-v83uiR/{001,002}.png`.
 - No webhook created, edited, tested or delivered. Empty list/light theme captured; populated list, edit history, other providers and dark theme were not exercised.
+
+### Personal organization memberships
+
+- Read the complete native `user/settings/organization.tmpl` from the running stock binary. The introduction can carry a small membership-card scene while real organization avatars/names and leave controls remain in the list. [Exact prompt/provenance](../assets/branding/forgejo/settings-organizations-art-prompt.md).
+- Selected 1536×1024 RGBA with transparent corners; visually inspected, no repair needed. New official override changes the layout call only. Direct line comparison confirmed all subsequent membership list, conditional create permission, pagination, empty state and leave-confirmation content matches stock. Inventory now has 206 overrides/helpers.
+- Focused offline `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
+- Native captures inspected: `.artifacts/screenshots/capture-3Mk8rM/001.png` (1440×1000) and `capture-rAjYlf/001.png` (390×844), baseline `capture-m6PFNf/001.png`. Image fits the introduction without overlapping text and preserves the truthful no-memberships result. Mobile navigation remains ahead of the list below the viewport.
+- No organization created or membership changed. Populated membership list, leave modal/action and dark theme were not exercised.
