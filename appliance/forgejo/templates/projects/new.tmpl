@@ -1,6 +1,6 @@
 {{template "base/alert" .}}
-<form class="ui form soda-form" action="{{.Link}}" method="post">
-	<fieldset class="soda-form-section">
+<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
+	<fieldset class="soda-form-section soda-p-section">
 		<legend>
 			{{if .PageIsEditProjects}}
 				{{ctx.Locale.Tr "repo.projects.edit"}}
@@ -54,7 +54,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="divider"></div>
+		<div class="divider soda-p-gap"></div>
 		<div class="tw-text-right">
 			<a class="ui cancel button" href="{{$.CancelLink}}">{{ctx.Locale.Tr "repo.milestones.cancel"}}</a>
 			<button class="ui primary button">

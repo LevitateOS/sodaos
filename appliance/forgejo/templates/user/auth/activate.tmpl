@@ -3,10 +3,10 @@
 	<div class="ui middle very relaxed page grid">
 		<div class="column">
 			<form class="ui form ignore-dirty tw-max-w-2xl tw-m-auto" action="{{AppSubUrl}}/user/activate" method="post">
-				<h2 class="ui top attached header">
+				<h2 class="ui top attached header soda-p-heading">
 					{{ctx.Locale.Tr "auth.active_your_account"}}
 				</h2>
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					{{template "base/alert" .}}
 					{{if .IsActivatePage}}
 						{{if .ServiceNotEnabled}}
@@ -36,7 +36,7 @@
 							<p class="center">{{ctx.Locale.Tr "auth.manual_activation_only"}}</p>
 						{{else}}
 							<p>{{ctx.Locale.Tr "auth.has_unconfirmed_mail" .SignedUser.Name .SignedUser.Email}}</p>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<details class="inline field">
 								<summary>{{ctx.Locale.Tr "auth.change_unconfirmed_email_summary"}}</summary>
 

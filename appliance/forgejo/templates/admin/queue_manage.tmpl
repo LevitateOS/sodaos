@@ -1,10 +1,10 @@
 {{/* Soda presentation of Forgejo 15.0.7 templates/admin/queue_manage.tmpl; GPL-3.0-or-later. Upstream SHA-256: c65151cd142ef86bcd371f6b2fc25b19d6e74aec0924c092daa3c6296171977e. */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin monitor")}}
 	<div class="admin-setting-content soda-admin-monitoring soda-admin-monitoring--queue-manage">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.monitor.queue" .Queue.GetName}}
 		</h4>
-		<div class="ui attached table segment soda-monitoring-table">
+		<div class="ui attached table segment soda-monitoring-table soda-p-section">
 			<table class="ui very basic striped table">
 				<thead>
 					<tr>
@@ -41,10 +41,10 @@
 			</table>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.monitor.queue.settings.title"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<p>{{ctx.Locale.Tr "admin.monitor.queue.settings.desc"}}</p>
 			<form method="post" action="{{.Link}}/set">
 				<div class="ui form soda-form">

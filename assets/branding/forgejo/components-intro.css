@@ -3,10 +3,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  min-height: 192px;
-  padding-top: 18px;
-  margin-bottom: 18px;
+  gap: 24px;
+  min-height: 128px;
+  padding-top: 16px;
+  margin-bottom: 24px;
 }
 
 .soda-page-copy {
@@ -23,9 +23,9 @@
 
 .soda-page-title {
   color: var(--soda-page-text);
-  font: 600 clamp(32px, 3.8vw, 48px)/1.15 "Fraunces Variable", Georgia, serif;
+  font: var(--soda-font-title);
   letter-spacing: -.035em;
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   overflow-wrap: anywhere;
 }
 
@@ -37,14 +37,14 @@
 }
 
 .soda-page-art {
-  width: 224px;
+  width: 160px;
   max-width: 30%;
   height: auto;
 }
 
 .soda-page-intro--compact {
   min-height: 0;
-  padding-top: 13px;
+  padding-top: 16px;
   margin-bottom: 24px;
 }
 

@@ -2,7 +2,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository new repo soda-page soda-create" data-signed="true">
 	<div class="ui container soda-page-container">
 		{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "Every good project starts somewhere." "Artwork" "new-repo-papercraft.png"}}
-		<form class="ui form soda-form" action="{{.Link}}" method="post">
+		<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 			<div class="soda-form-body">
 				{{if or .CanCreateRepo .Orgs}}
 					{{template "base/alert" .}}
@@ -13,11 +13,11 @@
 							<p>{{ctx.Locale.TrN .MaxCreationLimit "repo.form.reach_limit_of_creation_1" "repo.form.reach_limit_of_creation_n" .MaxCreationLimit}}</p>
 						</div>
 					{{end}}
-					<fieldset class="soda-form-section">
+					<fieldset class="soda-form-section soda-p-section">
 						{{template "repo/create_basic" .}}
 					</fieldset>
 
-					<fieldset class="soda-form-section">
+					<fieldset class="soda-form-section soda-p-section">
 						<legend>
 							{{ctx.Locale.Tr "repo.new_from_template"}}
 							<span class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</span>
@@ -26,12 +26,12 @@
 					</fieldset>
 
 					<div id="non_template">
-						<fieldset class="soda-form-section">
+						<fieldset class="soda-form-section soda-p-section">
 							<legend>{{ctx.Locale.Tr "repo.auto_init"}}</legend>
 							{{template "repo/create_init" .}}
 						</fieldset>
 
-						<fieldset class="soda-form-section">
+						<fieldset class="soda-form-section soda-p-section">
 							<legend>{{ctx.Locale.Tr "repo.new_advanced"}}</legend>
 							<details><summary>{{ctx.Locale.Tr "repo.new_advanced_expand"}}</summary>
 								{{template "repo/create_advanced" .}}

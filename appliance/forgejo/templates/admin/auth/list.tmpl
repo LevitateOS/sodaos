@@ -3,13 +3,13 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 3be096d353ffbbdf11eabd0d31a79968a94a1605428164825a841d1d392cf501 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin authentication")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-list">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.auth_manage_panel"}} ({{ctx.Locale.Tr "admin.total" .Total}})
 			<div class="ui right">
 				<a class="ui primary tiny button" href="{{AppSubUrl}}/admin/auths/new">{{ctx.Locale.Tr "admin.auths.new"}}</a>
 			</div>
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<table class="ui very basic striped table unstackable">
 				<thead>
 					<tr>

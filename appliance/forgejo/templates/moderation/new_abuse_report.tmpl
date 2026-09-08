@@ -3,7 +3,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content moderation new-report soda-page soda-moderation" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	<div class="ui middle very relaxed page grid">
 		<div class="column">
-			<form class="ui form soda-form" action="{{.Link}}" method="post">
+			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				<h3 class="ui top attached header">
 					{{ctx.Locale.Tr "moderation.report_abuse_form.header"}}
 				</h3>
@@ -30,7 +30,7 @@
 						</label>
 					</fieldset>
 
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 					<div class="text right actions">
 						<a class="ui cancel button" href="{{$.CancelLink}}">{{ctx.Locale.Tr "cancel"}}</a>
 						{{if .ContentID}}

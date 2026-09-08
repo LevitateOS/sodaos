@@ -3,10 +3,10 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a8858e7295 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--config">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.server_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.app_name"}}</dt>
 				<dd>{{AppName}}</dd>
@@ -25,19 +25,19 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 				<dt>{{ctx.Locale.Tr "admin.config.disable_router_log"}}</dt>
 				<dd>{{if .Loggers.router.IsEnabled}}{{svg "octicon-x"}}{{else}}{{svg "octicon-check"}}{{end}}</dd>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<dt>{{ctx.Locale.Tr "admin.config.run_user"}}</dt>
 				<dd>{{.RunUser}}</dd>
 				<dt>{{ctx.Locale.Tr "admin.config.run_mode"}}</dt>
 				<dd>{{.RunMode}}</dd>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<dt>{{ctx.Locale.Tr "admin.config.git_version"}}</dt>
 				<dd>{{.GitVersion}}</dd>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<dt>{{ctx.Locale.Tr "admin.config.app_data_path"}}</dt>
 				<dd>{{.AppDataPath}}</dd>
@@ -54,20 +54,20 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.security"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.global_2fa_requirement.title"}}</dt>
 				<dd>{{ctx.Locale.Tr (print "admin.config.global_2fa_requirement." .GlobalTwoFactorRequirement)}}</dd>
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.ssh_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.ssh_enabled"}}</dt>
 				<dd>{{if not .SSH.Disabled}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
@@ -99,10 +99,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.lfs_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.lfs_enabled"}}</dt>
 				<dd>{{if .LFS.StartServer}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
@@ -115,10 +115,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.db_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.db_type"}}</dt>
 				<dd>{{.DbCfg.Type}}</dd>
@@ -143,10 +143,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.service_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.register_email_confirm"}}</dt>
 				<dd>{{if .Service.RegisterEmailConfirm}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
@@ -189,7 +189,7 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 				<dd>{{if .Service.NoReplyAddress}}{{.Service.NoReplyAddress}}{{else}}-{{end}}</dd>
 				<dt>{{ctx.Locale.Tr "admin.config.default_enable_dependencies"}}</dt>
 				<dd>{{if .Service.DefaultEnableDependencies}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 				<dt>{{ctx.Locale.Tr "admin.config.active_code_lives"}}</dt>
 				<dd>{{.Service.ActiveCodeLives}} {{ctx.Locale.Tr "tool.raw_minutes"}}</dd>
 				<dt>{{ctx.Locale.Tr "admin.config.reset_password_code_lives"}}</dt>
@@ -197,10 +197,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.webhook_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.queue_length"}}</dt>
 				<dd>{{.Webhook.QueueLength}}</dd>
@@ -211,10 +211,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.mailer_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.mailer_enabled"}}</dt>
 				<dd>{{if .MailerEnabled}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
@@ -245,7 +245,7 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 					{{end}}
 					<dt>{{ctx.Locale.Tr "admin.config.mailer_user"}}</dt>
 					<dd>{{if .Mailer.User}}{{.Mailer.User}}{{else}}(empty){{end}}</dd>
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 					<dt class="tw-py-1 tw-flex tw-items-center">{{ctx.Locale.Tr "admin.config.send_test_mail"}}</dt>
 					<dd class="tw-py-0">
 						<form class="ui form ignore-dirty" action="{{AppSubUrl}}/admin/config/test_mail" method="post">
@@ -259,20 +259,20 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.moderation_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "enabled"}}</dt>
 				<dd>{{if .Moderation.Enabled}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.cache_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.cache_adapter"}}</dt>
 				<dd>{{.CacheAdapter}}</dd>
@@ -286,7 +286,7 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 					<dt>{{ctx.Locale.Tr "admin.config.cache_item_ttl"}}</dt>
 					<dd><code>{{.CacheItemTTL}}</code></dd>
 				{{end}}
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 				<dt class="tw-py-1 tw-flex tw-items-center">{{ctx.Locale.Tr "admin.config.cache_test"}}</dt>
 				<dd class="tw-py-0">
 					<form class="ui form ignore-dirty" action="{{AppSubUrl}}/admin/config/test_cache" method="post">
@@ -296,10 +296,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.session_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.session_provider"}}</dt>
 				<dd>{{.SessionConfig.Provider}}</dd>
@@ -316,10 +316,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.git_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				<dt>{{ctx.Locale.Tr "admin.config.git_disable_diff_highlight"}}</dt>
 				<dd>{{if .Git.DisableDiffHighlight}}{{svg "octicon-check"}}{{else}}{{svg "octicon-x"}}{{end}}</dd>
@@ -332,7 +332,7 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 				<dt>{{ctx.Locale.Tr "admin.config.git_gc_args"}}</dt>
 				<dd><code>{{.Git.GCArgs}}</code></dd>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<dt>{{ctx.Locale.Tr "admin.config.git_migrate_timeout"}}</dt>
 				<dd>{{.Git.Timeout.Migrate}} {{ctx.Locale.Tr "tool.raw_seconds"}}</dd>
@@ -347,10 +347,10 @@ Embedded source SHA-256: d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a
 			</dl>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.config.log_config"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<dl class="admin-dl-horizontal">
 				{{if .Loggers.xorm.IsEnabled}}
 					<dt>{{ctx.Locale.Tr "admin.config.xorm_log_sql"}}</dt>

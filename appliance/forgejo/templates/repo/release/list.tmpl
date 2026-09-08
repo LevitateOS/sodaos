@@ -8,7 +8,7 @@
 			{{range $idx, $info := .Releases}}
 				{{$release := $info.Release}}
 				{{if ne $idx 0}}
-					<div class="divider only-mobile"></div>
+					<div class="divider only-mobile soda-p-gap"></div>
 				{{end}}
 				<li>
 					<div class="meta">
@@ -70,7 +70,7 @@
 						{{$hasReleaseAttachment := gt (len $release.Attachments) 0}}
 						{{$hasArchiveLinks := and (not $.DisableDownloadSourceArchives) (not $release.IsDraft) (not $release.HideArchiveLinks) ($.Permission.CanRead $.UnitTypeCode)}}
 						{{if or $hasArchiveLinks $hasReleaseAttachment}}
-							<div class="divider not-mobile"></div>
+							<div class="divider not-mobile soda-p-gap"></div>
 							<details class="download" {{if eq $idx 0}}open{{end}}>
 								<summary>
 									{{ctx.Locale.Tr "repo.release.downloads"}}

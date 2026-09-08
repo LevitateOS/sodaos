@@ -6,7 +6,7 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 0;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -69,7 +69,7 @@
 
 .soda-toolbar > .ui.secondary.menu:not(.filter) {
   margin: 0;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -90,7 +90,7 @@
 .soda-context-switcher .secondary-nav > .ui.menu {
   max-width: 100%;
   margin: 0;
-  gap: 10px;
+  gap: 8px;
   background: transparent;
   justify-content: flex-end;
 }
@@ -123,7 +123,7 @@
 
 .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
   margin: 0;
-  padding: 12px 10px 16px;
+  padding: 12px 8px 16px;
   color: var(--soda-page-muted);
   font: 500 10px/1.5 "IBM Plex Mono", monospace;
   font-size: 10px !important;
@@ -141,10 +141,10 @@
 .soda-context-switcher .secondary-nav .ui.dropdown.jump .menu > .item {
   border: 0;
   border-radius: 8px;
-  padding: 12px 10px !important;
+  padding: 12px 8px !important;
   font: 600 15px/1.4 Barlow, sans-serif;
   font-weight: 600 !important;
-  gap: 10px;
+  gap: 8px;
 }
 
 .soda-context-switcher .secondary-nav .right.menu {
@@ -169,8 +169,8 @@
   flex: none;
   align-self: center;
   box-sizing: border-box;
-  padding: 3px;
-  gap: 2px;
+  padding: 4px;
+  gap: 4px;
   height: var(--soda-control-height);
   max-width: 100%;
   margin: 0;
@@ -198,7 +198,7 @@
 
 .soda-tabs > .secondary-nav > .overflow-menu-items {
   height: 100%;
-  gap: 2px;
+  gap: 4px;
   /* Leave the native handler's trailing button reservation at the end. */
   justify-content: flex-start !important;
 }
@@ -207,10 +207,10 @@
 .soda-tabs > .secondary-nav > .overflow-menu-items > .item {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex: none;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 0 !important;
   border-radius: 7px !important;
   background: transparent !important;
@@ -331,7 +331,7 @@
   align-items: center;
   justify-content: center;
   min-height: var(--soda-control-height);
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-canvas);
@@ -374,8 +374,8 @@
 
 @media (max-width: 700px) {
   .soda-toolbar {
-    padding: 16px;
-    gap: 14px;
+    padding: 0;
+    gap: 12px;
   }
 
   .soda-toolbar--plain {

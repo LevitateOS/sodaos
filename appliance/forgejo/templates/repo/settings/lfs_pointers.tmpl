@@ -1,6 +1,6 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs")}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-lfs-pointers">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.lfs_pointers.found" .NumPointers .NumAssociated .NumNotAssociated .NumNoExist}}
 			{{if gt .NumAssociatable 0}}
 				<div class="ui right">
@@ -15,7 +15,7 @@
 				</div>
 			{{end}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<table id="lfs-files-table" class="ui fixed single line table">
 				<thead>
 					<tr>

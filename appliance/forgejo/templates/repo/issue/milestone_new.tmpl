@@ -10,8 +10,8 @@
 				</div>
 			{{end}}
 		</div>
-		<div class="divider"></div>
-		<h2 class="ui dividing header">
+		<div class="divider soda-p-gap"></div>
+		<h2 class="ui dividing header soda-p-heading">
 			{{if .PageIsEditMilestone}}
 				{{ctx.Locale.Tr "repo.milestones.edit"}}
 				<div class="sub header">{{ctx.Locale.Tr "repo.milestones.edit_subheader"}}</div>
@@ -21,7 +21,7 @@
 			{{end}}
 		</h2>
 		{{template "base/alert" .}}
-		<form class="ui form soda-milestone-form" action="{{.Link}}" method="post">
+		<form class="ui form soda-milestone-form soda-p-form" action="{{.Link}}" method="post">
 				<div class="field {{if .Err_Title}}error{{end}}">
 					<label>{{ctx.Locale.Tr "repo.milestones.title"}}</label>
 					<input name="title" placeholder="{{ctx.Locale.Tr "repo.milestones.title"}}" value="{{.title}}" autofocus required maxlength="50">
@@ -44,7 +44,7 @@
 						"EasyMDE" true
 					)}}
 				</div>
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 				<div class="tw-text-right">
 					{{if .PageIsEditMilestone}}
 						<a class="ui primary basic button" href="{{.RepoLink}}/milestones">

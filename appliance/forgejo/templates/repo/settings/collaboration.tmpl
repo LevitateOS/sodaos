@@ -1,10 +1,10 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings collaboration")}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-collaboration">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.collaboration"}}
 		</h4>
 		{{if .Collaborators}}
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<div class="flex-list">
 				{{range .Collaborators}}
 					<div class="flex-item tw-items-center">
@@ -38,7 +38,7 @@
 			</div>
 		</div>
 		{{end}}
-		<div class="ui bottom attached segment">
+		<div class="ui bottom attached segment soda-p-section">
 			<form class="ui form" id="repo-collab-form" action="{{.Link}}" method="post">
 				<div id="search-user-box" class="ui search input tw-align-middle">
 					<input class="prompt" name="collaborator" placeholder="{{ctx.Locale.Tr "search.user_kind"}}" autocomplete="off" autofocus required>
@@ -48,12 +48,12 @@
 		</div>
 
 		{{if .RepoOwnerIsOrganization}}
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.teams"}}
 		</h4>
 		{{$allowedToChangeTeams := (or (.Org.RepoAdminChangeTeamAccess) (.Permission.IsOwner))}}
 		{{if .Teams}}
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<div class="flex-list">
 				{{range $t, $team := .Teams}}
 					<div class="flex-item">
@@ -84,7 +84,7 @@
 			</div>
 		</div>
 		{{end}}
-		<div class="ui bottom attached segment">
+		<div class="ui bottom attached segment soda-p-section">
 			{{if $allowedToChangeTeams}}
 				<form class="ui form" id="repo-collab-team-form" action="{{.Link}}/team" method="post">
 					<div id="search-team-box" class="ui search input tw-align-middle" data-org-name="{{.OrgName}}">

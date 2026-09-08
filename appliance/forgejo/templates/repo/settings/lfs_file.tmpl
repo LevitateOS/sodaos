@@ -1,7 +1,7 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs")}}
 	<div class="user-main-content twelve wide column content repository file list soda-repo-settings-detail soda-repo-settings-lfs-file">
 		<div class="tab-size-8 non-diff-file-content">
-			<h4 class="ui top attached header">
+			<h4 class="ui top attached header soda-p-heading">
 				<a href="{{.LFSFilesLink}}">{{ctx.Locale.Tr "repo.settings.lfs"}}</a> / <span class="truncate sha">{{.LFSFile.Oid}}</span>
 				<div class="ui right">
 					{{if .EscapeStatus.Escaped}}
@@ -11,7 +11,7 @@
 					<a class="ui primary tiny button" href="{{.LFSFilesLink}}/find?oid={{.LFSFile.Oid}}&size={{.LFSFile.Size}}">{{ctx.Locale.Tr "repo.settings.lfs_findcommits"}}</a>
 				</div>
 			</h4>
-			<div class="ui bottom attached table unstackable segment">
+			<div class="ui bottom attached table unstackable segment soda-p-section">
 				{{template "repo/unicode_escape_prompt" dict "EscapeStatus" .EscapeStatus "root" $}}
 				<div class="file-view{{if .IsMarkup}} markup {{.MarkupType}}{{else if .IsPlainText}} plain-text{{else if .IsTextFile}} code-view{{end}}">
 					{{if .IsMarkup}}

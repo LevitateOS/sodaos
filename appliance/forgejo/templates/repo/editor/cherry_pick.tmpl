@@ -4,7 +4,7 @@
 	{{template "repo/header" .}}
 	<div class="ui container">
 		{{template "base/alert" .}}
-		<form class="soda-form ui edit form" method="post" action="{{.RepoLink}}/_cherrypick/{{.SHA}}/{{.BranchName | PathEscapeSegments}}">
+		<form class="soda-form ui edit form soda-p-form" method="post" action="{{.RepoLink}}/_cherrypick/{{.SHA}}/{{.BranchName | PathEscapeSegments}}">
 			<input type="hidden" name="last_commit" value="{{.last_commit}}">
 			<input type="hidden" name="page_has_posted" value="true">
 			<input type="hidden" name="revert" value="{{if eq .CherryPickType "revert"}}true{{else}}false{{end}}">

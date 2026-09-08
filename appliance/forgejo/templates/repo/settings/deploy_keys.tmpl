@@ -1,6 +1,6 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings")}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-deploy-keys">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.deploy_keys"}}
 			<div class="ui right">
 			{{if not .DisableSSH}}
@@ -10,7 +10,7 @@
 			{{end}}
 			</div>
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<div class="{{if not .HasError}}tw-hidden{{end}} tw-mb-4" id="add-deploy-key-panel">
 				<form class="ui form" action="{{.Link}}" method="post">
 					<div class="field">

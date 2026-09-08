@@ -62,7 +62,7 @@
 		{{$n := len .TreeNames}}
 		{{$l := Eval $n "-" 1}}
 		{{$isHomepage := (eq $n 0)}}
-		<div class="repo-button-row soda-toolbar">
+		<div class="repo-button-row soda-toolbar soda-p-toolbar">
 			<div class="button-sequence tw-gap-y-2">
 				{{template "repo/branch_dropdown" dict "root" .}}
 				{{if and .CanCompareOrPull .IsViewBranch (not .Repository.IsArchived)}}

@@ -10,12 +10,12 @@
 
 			<div class="ui container fluid">
 				{{template "base/alert" .}}
-				<h4 class="ui top attached header center">
+				<h4 class="ui top attached header center soda-p-heading">
 					{{svg "fontawesome-openid"}}
 					OpenID
 				</h4>
-				<div class="ui attached segment">
-					<form class="ui form tw-m-auto" action="{{.Link}}" method="post">
+				<div class="ui attached segment soda-p-section">
+					<form class="ui form tw-m-auto soda-p-form" action="{{.Link}}" method="post">
 						<div class="inline field">
 							{{ctx.Locale.Tr "auth.openid_signin_desc"}}
 						</div>
@@ -42,7 +42,7 @@
 			<div class="ui container fluid">
 				{{template "user/auth/webauthn_error" .}}
 
-				<div class="ui attached segment header top tw-flex tw-flex-col tw-items-center">
+				<div class="ui attached segment header top tw-flex tw-flex-col tw-items-center soda-p-section">
 					<a href="{{AppSubUrl}}/user/login">{{ctx.Locale.Tr "auth.back_to_sign_in"}}</a>
 				</div>
 			</div>

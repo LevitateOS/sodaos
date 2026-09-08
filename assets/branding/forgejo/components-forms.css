@@ -10,11 +10,9 @@
    Dirty-ignored search/action forms, nested rows, tables, and dialogs stay native. */
 :is(
   .soda-form.ui.form,
-  :is(.soda-milestone-editor, .soda-projects-new, .soda-release-editor, .soda-wiki-editor) > .ui.container > form.ui.form,
-  .soda-repo-issue-editor .soda-repo-editor-card > form.ui.form,
-  .soda-code-compare form.issue-content.ui.form,
-  .soda-auth .ui.form,
-  .soda-federated-auth .ui.form,
+  .soda-p-form.ui.form,
+  .soda-p-form-host > form.ui.form,
+  .soda-login .ui.form,
   .soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.form:not(.ignore-dirty),
   .soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.attached.segment > .ui.form:not(.ignore-dirty)
 ) {
@@ -25,7 +23,7 @@
 
   & .soda-form-section {
     min-width: 0;
-    margin: 0 0 28px;
+    margin: 0 0 24px;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -77,7 +75,7 @@
 
   & label > .help {
     display: block;
-    margin-top: 6px;
+    margin-top: 4px;
   }
 
   & .soda-form-section > label.tw-mb-0 {
@@ -113,7 +111,7 @@
   /* Type exclusions must not outrank native focus/error states. */
   & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search), textarea, .selection.dropdown) {
     width: 100%;
-    min-height: 46px;
+    min-height: var(--soda-control-height);
     border: 1px solid var(--soda-page-edge);
     border-radius: var(--soda-control-radius);
     background: var(--soda-page-canvas);
@@ -123,12 +121,12 @@
   }
 
   & input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not(.search) {
-    padding: 10px 14px;
+    padding: 8px 12px;
   }
 
   & textarea {
     min-height: 100px;
-    padding: 12px 14px;
+    padding: 12px;
     resize: vertical;
   }
 
@@ -164,8 +162,8 @@
   }
 
   & .primary.button {
-    min-height: 48px;
-    padding: 12px 18px;
+    min-height: var(--soda-control-height);
+    padding: 8px 16px;
     border: 0;
     border-radius: var(--soda-control-radius);
     font: 600 16px/1.5 Barlow, sans-serif;

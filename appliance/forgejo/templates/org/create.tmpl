@@ -2,16 +2,16 @@
 <div role="main" aria-label="{{.Title}}" class="page-content organization new org soda-page soda-org-create" data-signed="true">
 	<div class="ui container soda-page-container">
 		{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Build something together" "Title" (ctx.Locale.Tr "new_org.title") "Description" "A shared home for your team and its projects." "Artwork" "new-org-papercraft.png"}}
-		<form class="ui form soda-form" action="{{.Link}}" method="post">
+		<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 			<div class="soda-form-body">
 				{{template "base/alert" .}}
-				<fieldset class="soda-form-section soda-org-name {{if .Err_OrgName}}field error{{end}}">
+				<fieldset class="soda-form-section soda-org-name {{if .Err_OrgName}}field error{{end}} soda-p-section">
 					<label for="org_name">{{ctx.Locale.Tr "org.org_name_holder"}}</label>
 					<input id="org_name" name="org_name" value="{{.org_name}}" autofocus required maxlength="40">
 					<span class="help">{{ctx.Locale.Tr "org.org_name_helper"}}</span>
 				</fieldset>
 
-				<fieldset class="soda-form-section {{if .Err_OrgVisibility}}field error{{end}}">
+				<fieldset class="soda-form-section {{if .Err_OrgVisibility}}field error{{end}} soda-p-section">
 					<legend>{{ctx.Locale.Tr "org.settings.visibility"}}</legend>
 					<div class="inline-grouped-list">
 						<div class="ui radio checkbox">
@@ -29,7 +29,7 @@
 					</div>
 				</fieldset>
 
-				<fieldset id="permission_box" class="soda-form-section">
+				<fieldset id="permission_box" class="soda-form-section soda-p-section">
 					<legend>{{ctx.Locale.Tr "org.settings.permission"}}</legend>
 					<div class="inline-grouped-list">
 						<div class="ui checkbox">

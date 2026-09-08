@@ -10,11 +10,11 @@ Embedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8
 			<div class="ui segment soda-setup-panel">
 				{{template "base/alert" .}}
 
-				<form class="ui form soda-form" action="{{AppSubUrl}}/" method="post">
+				<form class="ui form soda-form soda-p-form" action="{{AppSubUrl}}/" method="post">
 					<p class="tw-mt-0">{{ctx.Locale.Tr "install.docker_helper" "https://forgejo.org/docs/v15.0/admin/installation/docker/"}}</p>
 
 					<!-- Database Settings -->
-					<h4 class="ui dividing header">{{ctx.Locale.Tr "install.db_title"}}</h4>
+					<h4 class="ui dividing header soda-p-heading">{{ctx.Locale.Tr "install.db_title"}}</h4>
 					<p>{{ctx.Locale.Tr "install.require_db_desc"}}</p>
 					<div class="inline required field {{if .Err_DbType}}error{{end}}">
 						<label>{{ctx.Locale.Tr "install.db_type"}}</label>
@@ -103,7 +103,7 @@ Embedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8
 					{{end}}
 
 					<!-- General Settings -->
-					<h4 class="ui dividing header">{{ctx.Locale.Tr "install.general_title"}}</h4>
+					<h4 class="ui dividing header soda-p-heading">{{ctx.Locale.Tr "install.general_title"}}</h4>
 					<div class="inline required field {{if .Err_AppName}}error{{end}}">
 						<label for="app_name">{{ctx.Locale.Tr "install.app_name"}}</label>
 						<input id="app_name" name="app_name" value="{{.app_name}}" required>
@@ -170,7 +170,7 @@ Embedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8
 					</div>
 
 					<!-- Optional Settings -->
-					<h4 class="ui dividing header">{{ctx.Locale.Tr "install.optional_title"}}</h4>
+					<h4 class="ui dividing header soda-p-heading">{{ctx.Locale.Tr "install.optional_title"}}</h4>
 
 					<!-- Email -->
 					<details class="collapsible optional field">
@@ -339,11 +339,11 @@ Embedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8
 						</div>
 					</details>
 
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 
 					{{if .EnvConfigKeys}}
 					<!-- Environment Config -->
-					<h4 class="ui dividing header">{{ctx.Locale.Tr "install.env_config_keys"}}</h4>
+					<h4 class="ui dividing header soda-p-heading">{{ctx.Locale.Tr "install.env_config_keys"}}</h4>
 					<div class="inline field">
 						<div class="right-content">
 							{{ctx.Locale.Tr "install.env_config_keys_prompt"}}

@@ -9,7 +9,7 @@
 		<div class="list">
 			{{range $idx, $_ := .Members}}
 				{{if ne $idx 0}}
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 				{{end}}
 				{{$isPublic := index $.MembersIsPublicMember .ID}}
 				<a href="{{.HomeLink}}">{{ctx.AvatarUtils.Avatar . 48}}</a>

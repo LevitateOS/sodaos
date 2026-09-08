@@ -1,10 +1,10 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/profile.tmpl (GPL-3.0-or-later); upstream SHA-256 877b9dc97e0c7ee3769bf00765959009e91f30d064777387d4ac9433c5713e75. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--profile profile")}}
 	<div class="user-setting-content soda-account-details soda-account-details--profile">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.public_profile"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}" method="post">
 				<fieldset>
 					<legend>{{ctx.Locale.Tr "settings.profile_desc"}}</legend>
@@ -109,10 +109,10 @@
 			</form>
 		</div>
 
-		<h4 id="avatar-settings" class="ui top attached header">
+		<h4 id="avatar-settings" class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.avatar"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
 				{{if not .DisableGravatar}}
 				<div class="inline field">

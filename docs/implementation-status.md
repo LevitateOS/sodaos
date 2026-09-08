@@ -1,5 +1,18 @@
 # Current handoff
 
+## Presentation redesign implementation
+
+The 206-template presentation inventory and explicit role migration are authored,
+with shared spacing, typography, open-section and control contracts. Production
+intro/empty partials and the actual registry generate a local reference gallery.
+Existing exact upstream-body checks still recover the pinned sources after
+removing only the enumerated presentation roles; a separate inventory check
+compares all pre-role source bytes. No handlers, permissions or form submissions
+were changed. The redesign remains under local verification; it is not full
+visual acceptance or an appliance rollout. Owner/admin, organization, provider
+and first-run setup states still require authorized existing access/fixtures.
+
+
 ## Shared repository form presentation
 
 Issue/PR composers and milestone, project, release and wiki forms now opt into

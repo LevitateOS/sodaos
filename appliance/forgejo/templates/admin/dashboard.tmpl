@@ -8,10 +8,10 @@ Embedded source SHA-256: 66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0
 				<p>{{ctx.Locale.Tr "admin.dashboard.new_version_hint" .RemoteVersion AppVer "https://forgejo.org/news"}}</p>
 			</div>
 		{{end}}
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.dashboard.operations"}}
 		</h4>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<form method="post" action="{{AppSubUrl}}/admin">
 				<table class="ui very basic table tw-mt-0 tw-px-4">
 					<tbody>
@@ -30,12 +30,12 @@ Embedded source SHA-256: 66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0
 			</form>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.dashboard.system_status"}}
 		</h4>
 		{{/* TODO: make these stats work in multi-server deployments, likely needs per-server stats in DB */}}
 		<div class="no-loading-indicator tw-hidden"></div>
-		<div hx-get="{{$.Link}}/system_status" hx-swap="morph:innerHTML" hx-trigger="every 5s" hx-indicator=".no-loading-indicator" class="ui attached table segment">
+		<div hx-get="{{$.Link}}/system_status" hx-swap="morph:innerHTML" hx-trigger="every 5s" hx-indicator=".no-loading-indicator" class="ui attached table segment soda-p-section">
 			{{template "admin/system_status" .}}
 		</div>
 	</div>

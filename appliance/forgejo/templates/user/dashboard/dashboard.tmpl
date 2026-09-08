@@ -7,7 +7,7 @@
       {{if .ContextUser.IsOrganization}}{{$introTitle = printf "%s’s workbench." (.ContextUser.ShortName 40)}}{{end}}
       {{template "custom/soda/page_intro" dict "TitleID" "soda-dashboard-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" "Pick up where you left off." "Class" "soda-page-intro--compact"}}
         {{template "base/alert" .}}
-        <div class="soda-dashboard-heading soda-toolbar soda-toolbar--plain">
+        <div class="soda-dashboard-heading soda-toolbar soda-toolbar--plain soda-p-toolbar">
           <div><h2 id="soda-activity-title">Activity</h2><p>The latest from your corner of the forge.</p></div>
           <div class="soda-context-switcher">{{template "user/dashboard/navbar" .}}</div>
         </div>

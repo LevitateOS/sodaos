@@ -633,7 +633,7 @@ func TestForgejoNativeFormAdapterSelectsMainFormsOnly(t *testing.T) {
 	css := string(contents)
 	for _, required := range []string{
 		".soda-form.ui.form",
-		".soda-auth .ui.form",
+		".soda-login .ui.form",
 		".soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.form:not(.ignore-dirty)",
 		".soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.attached.segment > .ui.form:not(.ignore-dirty)",
 		"& .selection.dropdown > .default.text",
@@ -654,7 +654,7 @@ func TestForgejoNativeFormAdapterSelectsMainFormsOnly(t *testing.T) {
 			t.Errorf("shared form stylesheet includes broad or compact-form scope %q", forbidden)
 		}
 	}
-	if count := strings.Count(css, ".soda-auth .ui.form"); count != 1 {
+	if count := strings.Count(css, ".soda-login .ui.form"); count != 1 {
 		t.Errorf("native form roots must have one declaration owner, found %d", count)
 	}
 }
@@ -666,7 +666,9 @@ func readForgejoTemplate(t *testing.T, parts ...string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	return string(contents)
+	// Presentation roles are checked independently against the pre-migration bytes.
+	// These legacy tests continue to recover their exact pinned upstream source.
+	return withoutForgejoPresentationRoles(string(contents))
 }
 
 var forgejoTemplateCallPattern = regexp.MustCompile(`\{\{\s*template\s+"([^"]+)"`)
@@ -688,4 +690,8 @@ func requireForgejoTemplateCalls(t *testing.T, name string, required ...string) 
 			t.Errorf("%s no longer composes native template %q", name, requiredName)
 		}
 	}
+}
+
+func withoutForgejoPresentationRoles(source string) string {
+	return regexp.MustCompile(` soda-p-(form-host|form|title|heading|section|gap|toolbar)\b`).ReplaceAllString(source, "")
 }

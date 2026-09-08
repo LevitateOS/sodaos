@@ -20,7 +20,7 @@
 					{{end}}
 					</div>
 				{{end}}
-				<div class="soda-toolbar">{{template "shared/repo_search" .}}</div>
+				<div class="soda-toolbar soda-p-toolbar">{{template "shared/repo_search" .}}</div>
 				<div class="soda-list">{{template "explore/repo_list" .}}</div>
 				{{template "base/paginate" .}}
 			</div>
@@ -34,10 +34,10 @@
 							<a class="ui primary button tw-mb-1" href="{{AppSubUrl}}/repo/migrate?org={{.Org.ID}}&mirror=1">{{ctx.Locale.Tr "new_migrate.link"}}</a>
 						{{end}}
 					</div>
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 				{{end}}
 				{{if .NumMembers}}
-					<h4 class="ui top attached header tw-flex">
+					<h4 class="ui top attached header tw-flex soda-p-heading">
 						<strong class="tw-flex-1">{{ctx.Locale.Tr "org.members"}}</strong>
 						<a class="text grey tw-flex tw-items-center" href="{{.OrgLink}}/members"><span>{{.NumMembers}}</span> {{svg "octicon-chevron-right"}}</a>
 					</h4>

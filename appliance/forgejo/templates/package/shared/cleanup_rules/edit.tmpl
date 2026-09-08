@@ -1,7 +1,7 @@
 <section class="soda-package-section soda-package-cleanup-edit">
 <h4 class="ui top attached header soda-package-section-heading">{{if .IsEditRule}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.edit"}}{{else}}{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.add"}}{{end}}</h4>
 <div class="ui attached segment soda-package-section-body">
-	<form class="ui form soda-form" action="{{.Link}}" method="post">
+	<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 		<input name="id" type="hidden" value="{{.CleanupRule.ID}}">
 		<div class="field">
 			<div class="ui checkbox">
@@ -23,7 +23,7 @@
 				<input type="checkbox" name="match_full_name" {{if .CleanupRule.MatchFullName}}checked{{end}}>
 			</div>
 		</div>
-		<div class="divider"></div>
+		<div class="divider soda-p-gap"></div>
 		<p>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.keep.title"}}</p>
 		<div class="field {{if .Err_KeepCount}}error{{end}}">
 			<label>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.keep.count"}}:</label>
@@ -42,7 +42,7 @@
 			<input name="keep_pattern" type="text" value="{{.CleanupRule.KeepPattern}}">
 			<p>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.keep.pattern.container"}}</p>
 		</div>
-		<div class="divider"></div>
+		<div class="divider soda-p-gap"></div>
 		<p>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.remove.title"}}</p>
 		<div class="field {{if .Err_RemoveDays}}error{{end}}">
 			<label>{{ctx.Locale.Tr "packages.owner.settings.cleanuprules.remove.days"}}:</label>

@@ -3,10 +3,10 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14b1409aa90 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin edit user")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--user-edit">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.users.edit_account"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="./edit" method="post">
 				{{template "base/disable_form_autofill"}}
 				<div class="field {{if .Err_UserName}}error{{end}}">
@@ -107,7 +107,7 @@ Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14
 					<input id="location" name="location" value="{{.User.Location}}" maxlength="50">
 				</div>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<div class="inline field {{if .Err_MaxRepoCreation}}error{{end}}">
 					<label for="max_repo_creation">{{ctx.Locale.Tr "admin.users.max_repo_creation"}}</label>
@@ -115,7 +115,7 @@ Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14
 					<p class="help">{{ctx.Locale.Tr "admin.users.max_repo_creation_desc"}}</p>
 				</div>
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<div class="inline field">
 					<div class="ui checkbox">
@@ -170,7 +170,7 @@ Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14
 				{{end}}
 
 				{{if .TwoFactorEnabled}}
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 				<div class="inline field">
 					<div class="ui checkbox">
 						<label><strong>{{ctx.Locale.Tr "admin.users.reset_2fa"}}</strong></label>
@@ -179,7 +179,7 @@ Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14
 				</div>
 				{{end}}
 
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 
 				<div class="field">
 					<button class="ui primary button">{{ctx.Locale.Tr "admin.users.update_profile"}}</button>
@@ -188,10 +188,10 @@ Embedded source SHA-256: e3d1d0208fd8a6a92351789d80128bc95ab0177620d00ac16332a14
 			</form>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.avatar"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="./avatar" method="post" enctype="multipart/form-data">
 				{{if not .DisableGravatar}}
 				<div class="inline field">

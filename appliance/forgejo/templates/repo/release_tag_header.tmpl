@@ -2,7 +2,7 @@
 {{$canReadCode := $.Permission.CanRead $.UnitTypeCode}}
 
 {{if $canReadReleases}}
-	<div class="list-header soda-toolbar tw-justify-between">
+	<div class="list-header soda-toolbar tw-justify-between soda-p-toolbar">
 		<div class="switch soda-tabs">
 			<a class="{{if and .PageIsReleaseList (not .PageIsSingleTag)}}active {{end}}item" href="{{.RepoLink}}/releases{{if .Keyword}}?q={{.Keyword}}{{end}}">{{ctx.Locale.TrN .NumReleases "repo.n_release_one" "repo.n_release_few" (ctx.Locale.PrettyNumber .NumReleases)}}</a>
 			{{if $canReadCode}}
@@ -28,7 +28,7 @@
 			{{end}}
 		</div>
 	</div>
-	<div class="divider"></div>
+	<div class="divider soda-p-gap"></div>
 {{else if $canReadCode}}
 	{{/* if the "repo.releases" unit is disabled, only show the "commits / branches / tags" sub menu */}}
 	{{template "repo/sub_menu" .}}

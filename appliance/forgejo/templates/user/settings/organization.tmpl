@@ -1,7 +1,7 @@
 {{/* Stock Forgejo 15.0.7 membership content; decorative artwork input only. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings organization" "artwork" "settings-organizations-papercraft.png")}}
 	<div class="user-setting-content">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.orgs"}}
 			{{if .SignedUser.CanCreateOrganization}}
 			<div class="ui right">
@@ -9,7 +9,7 @@
 			</div>
 			{{end}}
 		</h4>
-		<div class="ui attached segment orgs">
+		<div class="ui attached segment orgs soda-p-section">
 			{{if .Orgs}}
 				<div class="flex-list">
 					{{range .Orgs}}

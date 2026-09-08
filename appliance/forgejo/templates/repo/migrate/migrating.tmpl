@@ -34,7 +34,7 @@
 								<p id="repo_migrating_failed_error"></p>
 							</div>
 							{{if .Permission.IsAdmin}}
-								<div class="divider"></div>
+								<div class="divider soda-p-gap"></div>
 								<div class="item">
 									{{if .Failed}}
 										<button class="ui basic red show-modal button" data-modal="#delete-repo-modal">{{ctx.Locale.Tr "repo.settings.delete"}}</button>
@@ -64,7 +64,7 @@
 			{{ctx.Locale.Tr "repo.settings.delete_notices_fork_1"}}
 			{{end}}
 		</div>
-		<form class="ui form" action="{{.Link}}/settings" method="post">
+		<form class="ui form soda-p-form" action="{{.Link}}/settings" method="post">
 			<input type="hidden" name="action" value="delete">
 			<div class="field">
 				<label>

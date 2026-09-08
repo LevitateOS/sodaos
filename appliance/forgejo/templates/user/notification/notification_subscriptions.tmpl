@@ -4,7 +4,7 @@
         {{$introArtwork := "watching-papercraft.png"}}
         {{if eq .Status 1}}{{$introArtwork = "subscriptions-papercraft.png"}}{{end}}
         {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" $introArtwork}}
-		<div class="soda-toolbar soda-notifications-toolbar soda-subscriptions-toolbar">
+		<div class="soda-toolbar soda-notifications-toolbar soda-subscriptions-toolbar soda-p-toolbar">
 			<div class="switch soda-tabs">
 				<a href="{{AppSubUrl}}/notifications/subscriptions" class="{{if eq .Status 1}}active {{end}}item">
 					{{ctx.Locale.Tr "notification.subscriptions"}}

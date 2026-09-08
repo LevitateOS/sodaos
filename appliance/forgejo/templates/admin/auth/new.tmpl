@@ -3,10 +3,10 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c29028426096061f9dd7473 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin new authentication")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-new">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.new"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<!-- Types and name -->
@@ -77,10 +77,10 @@ Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c2902842609606
 			</form>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.tips"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<h5>{{ctx.Locale.Tr "admin.auths.tips.gmail_settings"}}</h5>
 			<p>Host: smtp.gmail.com, Port: 587, Enable TLS Encryption: true</p>
 
@@ -88,7 +88,7 @@ Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c2902842609606
 			<p class="oauth2">{{ctx.Locale.Tr "admin.auths.tips.oauth2.general.tip"}} <b id="oauth2-callback-url"></b></p>
 
 			<h5 class="ui top attached header">{{ctx.Locale.Tr "admin.auths.tip.oauth2_provider"}}</h5>
-			<div class="ui attached segment">
+			<div class="ui attached segment soda-p-section">
 				<li>Bitbucket</li>
 				<span>{{ctx.Locale.Tr "admin.auths.tip.bitbucket" "https://bitbucket.org/account/user/{your-username}/oauth-consumers/new"}}</span>
 				<li>Dropbox</li>

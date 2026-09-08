@@ -426,3 +426,58 @@ changes from another worktree can be reviewed using the documented `--local-css`
 capture mode without reloading server templates. These overrides do not stage or
 deploy to the appliance or implement the Sodaspaces drawer. Current browser
 evidence and remaining limitations are recorded in the implementation handoff.
+
+## Presentation contract
+
+The native frontend uses one registry, `templates/custom/header.tmpl`, and no
+runtime component framework. `components.css` owns semantic tokens and explicit
+presentation roles; `components-forms.css`, `components-settings.css`, intro,
+list, empty and toolbar sheets own their respective reusable structures.
+Family styles compose those structures and adapt specialized native canvases.
+
+Use `soda-p-form` on principal native forms, `soda-p-form-host` on an existing
+wrapper whose direct child is an unchanged native form partial, `soda-p-heading`
+or `soda-p-title` on headings, `soda-p-section` on open sections, and
+`soda-p-gap` on blank native dividers. Retain native classes and all form/script
+attributes. Existing `soda-form`, `soda-toolbar`, `soda-list` and `soda-empty`
+contracts remain valid; do not add a second implementation of them.
+
+Spacing uses 4/8/12/16/24/32px. Controls use an 8px radius, with 44px standard,
+36px compact and 40px icon targets (44px for coarse pointers). Internal edges
+of joined repository controls are square even when a native modal lies between
+the action and count. Page and section typography use shared font tokens with
+the existing Fraunces, Barlow and IBM Plex Mono families. Ordinary content is
+1120px; wide data views remain 1440px or native fluid canvases. Narrow columns
+use the shared 240px token and stack at 900px where the native layout allows it.
+
+Open sections are the default. Keep boundaries for alerts, dialogs, code/data
+canvases and independently selectable items. Removing a blank divider preserves
+24px section spacing. Primary submissions and destructive/ambiguous actions
+retain text. Familiar icon utilities keep localized accessible names and native
+hover/focus tooltips. Artwork belongs in introductions and empty content.
+
+The centralized role `!important` declarations defeat native attached-segment
+borders, surfaces and enforced utility padding. They are scoped to explicit
+roles and exclude tables. Native settings leaves not overridden here still use
+the narrow main-content form adapter; compact row/search/modal forms are excluded.
+Sign-in retains its native partial with a bounded form adapter. Do not replace
+these with selectors matching every descendant form or segment on a page.
+
+`tests/forgejo/presentation/inventory.json` accounts for all 206 overrides and
+records local and embedded-15.0.7 callers, compositions, roles and required
+states. It is test-only, not routing configuration. Role-only source hashes
+complement the existing exact upstream-body tests; they do not constitute visual
+verification. The reference gallery renders production intro/empty partials,
+the actual stylesheet registry and minimal native markup fixtures into ignored
+`.artifacts/forgejo-presentation/`:
+
+```sh
+SODA_FORGEJO_GALLERY=1 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
+  go test -mod=readonly ./scripts -run TestForgejoPresentationGallery -count=1
+SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 \
+  node --test tests/forgejo/presentation/*.test.mjs
+```
+
+Gallery evidence remains separate from native route evidence and does not prove
+permissions, providers, form submissions, editor plugins or unavailable admin,
+organization and setup states.

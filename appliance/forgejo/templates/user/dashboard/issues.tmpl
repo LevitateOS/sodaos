@@ -12,7 +12,7 @@
         {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" $introDescription "Artwork" $introArtwork}}
         {{template "base/alert" .}}
         <div class="soda-list">
-		<div class="list-header soda-toolbar">
+		<div class="list-header soda-toolbar soda-p-toolbar">
 			<div class="switch list-header-toggle soda-tabs">
 				{{$keyword := StringUtils.RemoveAll $.Keyword "is:open" "-is:open" "is:closed" "-is:closed" "is:all"}}
 				<a class="item{{if not .IsShowClosed}} active{{end}}" href="?type={{$.ViewType}}&sort={{$.SortType}}&state=open&labels={{.SelectLabels}}&q={{$keyword}}">

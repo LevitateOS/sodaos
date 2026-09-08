@@ -3,10 +3,10 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: d50ddd4916af1e27411d4915f37e941d868367eb53d1d939a0df0532c674a3b9 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin edit authentication")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-edit">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.edit"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<input type="hidden" name="id" value="{{.Source.ID}}">
@@ -423,10 +423,10 @@ Embedded source SHA-256: d50ddd4916af1e27411d4915f37e941d868367eb53d1d939a0df053
 			</form>
 		</div>
 
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.tips"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<h5>{{ctx.Locale.Tr "admin.auths.tips.gmail_settings"}}</h5>
 			<p>Host: smtp.gmail.com, Port: 587, Enable TLS Encryption: true</p>
 

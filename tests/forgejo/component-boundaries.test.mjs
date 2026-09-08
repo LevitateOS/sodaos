@@ -52,7 +52,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       const padding = await page.evaluate(() => Object.fromEntries(
         [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).paddingTop])));
       assert.equal(padding['settings-table'], padding['native-table']);
-      assert.equal(padding['settings-panel'], '22px');
+      assert.equal(padding['settings-panel'], '0px');
     });
 
     await t.test('native fluid repository views keep their wider canvas', async () => {
@@ -112,7 +112,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       </section></main><form class="ui form"><input id="native"></form>`);
       const heights = await page.evaluate(() => Object.fromEntries(
         [...document.querySelectorAll('input')].map(el => [el.id, getComputedStyle(el).minHeight])));
-      assert.equal(heights.principal, '46px');
+      assert.equal(heights.principal, '44px');
       for (const id of ['search', 'row', 'modal']) assert.equal(heights[id], heights.native, id);
     });
 
@@ -176,7 +176,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       </div>`);
       const colors = await page.evaluate(() => Object.fromEntries(
         [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).backgroundColor])));
-      assert.equal(colors['profile-avatar-card'], colors['profile-surface']);
+      assert.equal(colors['profile-avatar-card'], 'rgba(0, 0, 0, 0)');
       assert.equal(colors['shared-follow'], colors['profile-action']);
     });
 

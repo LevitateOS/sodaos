@@ -1,5 +1,5 @@
 {{if and $.CanWriteProjects (not $.Repository.IsArchived)}}
-	<div class="tw-flex tw-justify-between tw-mb-4 tw-gap-2 soda-toolbar soda-toolbar--plain">
+	<div class="tw-flex tw-justify-between tw-mb-4 tw-gap-2 soda-toolbar soda-toolbar--plain soda-p-toolbar">
 		<div class="switch list-header-toggle soda-tabs">
 			<a class="item{{if not .IsShowClosed}} active{{end}}" href="?state=open&q={{$.Keyword}}">
 				{{svg "octicon-project-symlink" 16}}
@@ -16,7 +16,7 @@
 
 {{template "base/alert" .}}
 
-<div class="list-header soda-toolbar">
+<div class="list-header soda-toolbar soda-p-toolbar">
 	<form class="list-header-search ui form ignore-dirty">
 		<input type="hidden" name="state" value="{{$.State}}">
 		{{template "shared/search/combo" dict "Value" .Keyword "Placeholder" (ctx.Locale.Tr "search.project_kind")}}

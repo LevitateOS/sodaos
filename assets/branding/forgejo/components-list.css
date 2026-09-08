@@ -70,5 +70,5 @@
 }
 
 @media (max-width: 700px) {
-  .soda-list > :is(.flex-list,#issue-list,#activity-feed) > .flex-item { gap: 10px; }
+  .soda-list > :is(.flex-list,#issue-list,#activity-feed) > .flex-item { gap: 8px; }
 }

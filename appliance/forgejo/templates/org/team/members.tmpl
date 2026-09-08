@@ -54,7 +54,7 @@
 					{{template "base/paginate" .}}
 				</div>
 				{{if and .Invites $.IsOrganizationOwner}}
-				<h4 class="ui top attached header">{{ctx.Locale.Tr "org.teams.invite_team_member.list"}}</h4>
+				<h4 class="ui top attached header soda-p-heading">{{ctx.Locale.Tr "org.teams.invite_team_member.list"}}</h4>
 				<div class="ui attached segment">
 					<div class="flex-list">
 						{{range .Invites}}

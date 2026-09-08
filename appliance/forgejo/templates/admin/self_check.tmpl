@@ -2,10 +2,10 @@
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config")}}
 
 <div class="admin-setting-content soda-admin-monitoring soda-admin-monitoring--self-check">
-	<h4 class="ui top attached header">
+	<h4 class="ui top attached header soda-p-heading">
 		{{ctx.Locale.Tr "admin.self_check"}}
 	</h4>
-	<div class="ui attached segment">
+	<div class="ui attached segment soda-p-section">
 		{{if .DatabaseCheckHasProblems}}
 			{{if .DatabaseType.IsMySQL}}
 				<div class="tw-p-2">{{ctx.Locale.Tr "admin.self_check.database_fix_mysql"}}</div>

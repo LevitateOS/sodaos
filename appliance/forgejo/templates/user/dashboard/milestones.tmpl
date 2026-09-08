@@ -3,7 +3,7 @@
 	<div class="ui container soda-page-container">
         {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" (ctx.Locale.Tr "milestones") "Description" "Small steps. Shared progress." "Artwork" "milestones-papercraft.png"}}
         {{template "base/alert" .}}
-				<div class="list-header soda-toolbar">
+				<div class="list-header soda-toolbar soda-p-toolbar">
 					<div class="switch list-header-toggle soda-tabs">
 						<a class="item{{if not .IsShowClosed}} active{{end}}" href="?repos=[{{range $.RepoIDs}}{{.}}%2C{{end}}]&sort={{$.SortType}}&state=open&q={{$.Keyword}}">
 							{{svg "octicon-milestone" 16}}
@@ -49,7 +49,7 @@
 						{{ctx.Locale.Tr "home.issues.in_your_repos"}}
 						<strong>{{.Total}}</strong>
 					</div>
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 					{{range .Repos}}
 						{{with $Repo := .}}
 							<a class="{{range $.RepoIDs}}{{if eq . $Repo.ID}}active{{end}}{{end}} repo name item" href="?repos=[

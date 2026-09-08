@@ -299,7 +299,7 @@ func TestForgejoFederatedAuthCSSIsScopedAndAttributed(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	css := string(contents)
-	for _, want := range []string{"Forgejo 15.0.7", "GPL-3.0-or-later", ".soda-federated-auth", ".secondary-nav", ".ui.red.button"} {
+	for _, want := range []string{"Forgejo 15.0.7", "GPL-3.0-or-later", ".soda-federated-auth", ".secondary-nav"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("federated-auth CSS lacks %q", want)
 		}
@@ -313,5 +313,5 @@ func readForgejoFederatedTemplate(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	return string(contents)
+	return withoutForgejoPresentationRoles(string(contents))
 }

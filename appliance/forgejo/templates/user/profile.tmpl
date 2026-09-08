@@ -42,7 +42,7 @@
 					{{end}}
 				{{else if eq .TabName "stars"}}
 					<div class="stars">
-						<div class="soda-toolbar">{{template "shared/repo_search" .}}</div>
+						<div class="soda-toolbar soda-p-toolbar">{{template "shared/repo_search" .}}</div>
 						<div class="soda-list">{{template "explore/repo_list" .}}</div>
 						{{template "base/paginate" .}}
 					</div>
@@ -60,7 +60,7 @@
 					</div>
 				{{else}}
 					<div class="soda-profile-repositories">
-						<div class="soda-toolbar">{{template "shared/repo_search" .}}</div>
+						<div class="soda-toolbar soda-p-toolbar">{{template "shared/repo_search" .}}</div>
 						<div class="soda-list">{{template "explore/repo_list" .}}</div>
 						{{template "base/paginate" .}}
 					</div>

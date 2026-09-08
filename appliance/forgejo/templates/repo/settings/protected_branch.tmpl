@@ -1,6 +1,6 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings branches")}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{if .Rule.RuleName}}
 				{{ctx.Locale.Tr "repo.settings.branch_protection" .Rule.RuleName}}
 			{{else}}

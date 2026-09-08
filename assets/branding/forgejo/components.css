@@ -2,7 +2,7 @@
 @import "../theme/palette.css";
 /* Page shell and semantic tokens. Opt in only on full Soda page overrides.
    The root or a native full-page header marker changes navigation/footer; neither is a widget wrapper. */
-body:has(.soda-page, .soda-page-marker) {
+body:has(.soda-page, .soda-page-marker, .soda-login) {
   --soda-page-canvas: light-dark(var(--soda-light-canvas), var(--soda-dark-canvas));
   --soda-page-surface: light-dark(var(--soda-light-surface), var(--soda-dark-surface));
   --soda-page-text: light-dark(var(--soda-light-text), var(--soda-dark-text));
@@ -15,10 +15,24 @@ body:has(.soda-page, .soda-page-marker) {
   --soda-page-action-pressed: light-dark(var(--soda-light-action-pressed), var(--soda-dark-action-pressed));
   --soda-page-on-action: light-dark(var(--soda-light-on-action), var(--soda-dark-on-action));
   --soda-page-hover: light-dark(var(--soda-light-hover), var(--soda-dark-hover));
-  --soda-panel-radius: 14px;
-  --soda-panel-inset: 18px;
+  --soda-panel-radius: 8px;
+  --soda-panel-inset: 16px;
   --soda-control-height: 44px;
-  --soda-control-radius: 10px;
+  --soda-control-radius: 8px;
+  --soda-space-1: 4px;
+  --soda-space-2: 8px;
+  --soda-space-3: 12px;
+  --soda-space-4: 16px;
+  --soda-space-6: 24px;
+  --soda-space-8: 32px;
+  --soda-control-compact: 36px;
+  --soda-control-icon: 40px;
+  --soda-sidebar-width: 240px;
+  --soda-font-title: 600 32px/1.25 "Fraunces Variable", Georgia, serif;
+  --soda-font-heading: 600 24px/1.35 "Fraunces Variable", Georgia, serif;
+  --soda-font-body: 400 16px/1.5 Barlow, Arial, sans-serif;
+  --soda-font-label: 600 15px/1.5 Barlow, Arial, sans-serif;
+  --soda-font-meta: 400 14px/1.5 Barlow, Arial, sans-serif;
   font-family: Barlow, Arial, sans-serif;
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);
@@ -51,7 +65,7 @@ body:has(.soda-page, .soda-page-marker) #navbar .active.item {
 body:has(.soda-page, .soda-page-marker) #navbar-logo {
   width: 142px;
   background: url('../source/soda-logo-horizontal.svg') left center / 128px auto no-repeat;
-  margin-right: 18px;
+  margin-right: 16px;
 }
 
 body:has(.soda-page, .soda-page-marker) #navbar-logo img {
@@ -119,7 +133,7 @@ body:has(.soda-page, .soda-page-marker) .page-footer {
   background: var(--soda-page-canvas);
   color: var(--soda-page-muted);
   border-top: 1px solid var(--soda-page-edge);
-  padding: 16px 18px;
+  padding: 16px 16px;
 }
 
 body:has(.soda-page, .soda-page-marker) .page-footer a {
@@ -142,7 +156,7 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
 
 :is(.soda-page, .page-content:has(.soda-page-marker)) {
   flex: 1;
-  padding-bottom: 40px;
+  padding-bottom: 32px;
 }
 
 :is(.soda-page, .page-content:has(.soda-page-marker)) a {
@@ -158,4 +172,87 @@ body:has(.soda-page, .soda-page-marker) :is(.ui.primary.button, .ui.primary.butt
 @media (max-width: 700px) {
   body:has(.soda-page, .soda-page-marker) { --soda-panel-inset: 16px; }
   :is(.soda-page, .page-content:has(.soda-page-marker)) .soda-page-container { width: calc(100% - 32px) !important; }
+}
+
+/* Explicit roles override native attached/segment surfaces. The native classes
+   remain in templates because scripts and upstream layouts also consume them.
+   !important here defeats Fomantic's enforced attached borders and utility
+   spacing, without changing tables, alerts, dialogs or editor canvases. */
+.soda-p-section:not(table) {
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-block: 0 24px;
+}
+.soda-p-heading.ui.header, .soda-p-title.ui.header {
+  padding: 0 !important;
+  margin-block: 24px 16px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--soda-page-text);
+  font: var(--soda-font-heading);
+  overflow-wrap: anywhere;
+}
+.soda-p-title.ui.header { font: var(--soda-font-title); }
+.soda-p-heading.ui.header:first-child, .soda-p-title.ui.header:first-child { margin-top: 0; }
+.soda-p-gap.divider:empty {
+  height: 0;
+  margin-block: 24px !important;
+  border: 0 !important;
+}
+.soda-p-toolbar { gap: 12px; margin-bottom: 16px; }
+.soda-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+:is(.soda-icon-action, .soda-milestone-action) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: var(--soda-control-icon);
+  min-height: var(--soda-control-icon);
+  padding: 8px;
+  border: 0;
+  border-radius: var(--soda-control-radius);
+  background: transparent;
+  color: var(--soda-page-muted);
+}
+:is(.soda-icon-action, .soda-milestone-action):is(:hover, :focus-visible) {
+  background: var(--soda-page-hover);
+  color: var(--soda-page-link);
+}
+@media (pointer: coarse) {
+  body:has(.soda-page, .soda-page-marker) { --soda-control-icon: 44px; }
+}
+
+/* Shared editor/metadata composition; gallery and native callers use the same
+   grid. Specialized native issue/board/diff grids retain their own contracts. */
+.soda-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--soda-sidebar-width);
+  gap: 32px;
+}
+.soda-metadata-sidebar { min-width: 0; }
+@media (max-width: 900px) {
+  .soda-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}
+
+/* Sign-in is an unchanged native partial; only its colors adapt to the guest
+   theme. Geometry and states belong to the same shared form contract. */
+body:has(.soda-login) {
+  --soda-page-canvas: var(--soda-guest-canvas);
+  --soda-page-surface: var(--soda-guest-surface);
+  --soda-page-text: var(--soda-guest-text);
+  --soda-page-muted: var(--soda-guest-muted);
+  --soda-page-edge: var(--soda-guest-edge);
+  --soda-page-link: var(--soda-guest-link);
 }

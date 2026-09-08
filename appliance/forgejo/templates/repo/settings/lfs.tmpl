@@ -1,6 +1,6 @@
 {{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs")}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-lfs">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.lfs_filelist"}} ({{ctx.Locale.Tr "admin.total" .Total}})
 			<div class="ui right">
 				<a class="ui tiny button" href="{{.Link}}/locks">{{ctx.Locale.Tr "repo.settings.lfs_locks"}}</a>

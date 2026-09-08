@@ -3,16 +3,16 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: d5ec17847cadaf5ff50df1e8ccf755a6a1cb475cce26a53a57d0dcff83dacb00 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--repo-list">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.repos.repo_manage_panel"}} ({{ctx.Locale.Tr "admin.total" .Total}})
 			<div class="ui right">
 				<a class="ui primary tiny button" href="{{AppSubUrl}}/admin/repos/unadopted">{{ctx.Locale.Tr "admin.repos.unadopted"}}</a>
 			</div>
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			{{template "shared/repo_search" .}}
 		</div>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<table class="ui very basic striped table unstackable">
 				<thead>
 					<tr>

@@ -1,0 +1,6707 @@
+{
+  "upstream": "15.0.7",
+  "entries": [
+    {
+      "template": "admin/applications/list.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--applications",
+        "soda-p-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "52967a2b0a5396d68c28ddde4cd04d14809b50840ab76d9ac2b861dc4228f45d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/applications/oauth2_edit.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "user/settings/applications_oauth2_edit_form"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--oauth2-edit"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e2250743a3bfd525cee19ec9381dbf5b6fd7d7d02232752dc6124f7659e2764d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/auth/edit.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/disable_form_autofill",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--auth-edit",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4e3df5c0667be0d00cea2ddfc81a3d70ffbdd520352fb6319b6a5b44ef44f93f",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/auth/list.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--auth-list",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "51892a601b1a8ee74800405799ade2f3585dcbe1eef581909210c5e54b1c5f66",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/auth/new.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/auth/source/ldap",
+        "admin/auth/source/oauth",
+        "admin/auth/source/smtp",
+        "admin/layout_footer",
+        "base/disable_form_autofill"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--auth-new",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "df427e5daff6c120d47a2641304d086ba006cf2105b1606521d3d49e58a5a00a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/config.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--config",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0754c95ff020c8407c3bb813cbc55465faf3133491375415cf616b2975331c73",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/cron.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--cron",
+        "soda-monitoring-table",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "5f9be5764a9cabb34ae2ebb966b00954a85285f636648d3be748fd1027418294",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/dashboard.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "admin/system_status"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--dashboard",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "043a7975cf11cc08ea5a84a63fd6ba6b84e4d0e5fd9d9927a686662e896e183e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/emails/list.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--email-list",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "d4e0a6a094475e8772dea12ab4fd33708ab360719d9ab78a9bd3743fd78e2989",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/layout_head.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [
+        "admin/applications/list.tmpl",
+        "admin/applications/oauth2_edit.tmpl",
+        "admin/auth/edit.tmpl",
+        "admin/auth/list.tmpl",
+        "admin/auth/new.tmpl",
+        "admin/config.tmpl",
+        "admin/cron.tmpl",
+        "admin/dashboard.tmpl",
+        "admin/emails/list.tmpl",
+        "admin/notice.tmpl",
+        "admin/queue.tmpl",
+        "admin/queue_manage.tmpl",
+        "admin/repo/list.tmpl",
+        "admin/self_check.tmpl",
+        "admin/stacktrace.tmpl",
+        "admin/user/edit.tmpl",
+        "admin/user/list.tmpl",
+        "admin/user/new.tmpl"
+      ],
+      "nativeCalls": [
+        "admin/navbar",
+        "base/alert",
+        "base/head"
+      ],
+      "roles": [
+        "soda-admin",
+        "soda-admin-layout",
+        "soda-admin-title",
+        "soda-native-forms",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "041f94429efeb29cf2a0e1e3ec7c68e216bbc878692e0d94be1b2ba0081bc802",
+      "upstreamCallers": [
+        "admin/actions.tmpl",
+        "admin/config_settings.tmpl",
+        "admin/hook_new.tmpl",
+        "admin/hooks.tmpl",
+        "admin/moderation/report_details.tmpl",
+        "admin/moderation/reports.tmpl",
+        "admin/org/list.tmpl",
+        "admin/packages/list.tmpl",
+        "admin/repo/unadopted.tmpl",
+        "admin/runners/create.tmpl",
+        "admin/runners/details.tmpl",
+        "admin/runners/edit.tmpl",
+        "admin/runners/setup.tmpl",
+        "admin/stats.tmpl",
+        "admin/user/view.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "admin/notice.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/paginate"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--notice",
+        "soda-p-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c5afe1dadf84893d5c7d982f632b3c0db89da390014c87efe6447d0b46b453d4",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/queue.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--queue",
+        "soda-monitoring-table",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "03a57324dbd730ec40f2ebc22196c6c3651ef6defccb7cf0aa2ca18bee3b9ccb",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/queue_manage.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--queue-manage",
+        "soda-form",
+        "soda-monitoring-table",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "86cf51543ac17e0030d2584e66900712e0f6f17ce780838fb2428e0a722ba213",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/repo/list.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/repo_search"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--repo-list",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ae2ea251e60d50157741a46fc7f4b3ca787e762f5cac93a3dec2008ff434aced",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/self_check.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--self-check",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3444c24ebe16c4be4fac17d8f514d83f2b1b2f1d58b816df2b1b87b6e404f214",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/stacktrace.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "admin/stacktrace-row",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--stacktrace",
+        "soda-form",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "387e9a7886aacfc951a8f808b4d38bcfb3d976e2981e5f615bcb7e26aecc30cb",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/user/edit.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/disable_form_autofill",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--user-edit",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "edbaeb304f291f8ea7ee8386d9ce2ab0283170aeffa2672122556f7c35d7df87",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/user/list.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/paginate",
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--user-list",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2e2abfd4a298cddb01b645fc1d2b1d42d9f1a1d338a838248047208e3ce9aec8",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "admin/user/new.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer",
+        "base/disable_form_autofill"
+      ],
+      "roles": [
+        "soda-admin-details",
+        "soda-admin-details--user-new",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8908e98678eb844eb4f3ce71ac107c31f1153576d657a7dffcf01b7be3939ad9",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "custom/explore_empty.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "explore/repos.tmpl",
+        "explore/users.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-empty",
+        "soda-empty-actions",
+        "soda-empty-primary",
+        "soda-empty-secondary",
+        "soda-empty-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "bc0e5778c4e6d5292213efe012dfddf23ba3094e060494691a13d3ddadf84131",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/explore_navbar.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "explore/code.tmpl",
+        "explore/repos.tmpl",
+        "explore/users.tmpl"
+      ],
+      "nativeCalls": [
+        "explore/navbar"
+      ],
+      "roles": [
+        "soda-tabs"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "261c43680c78da23dae92ae6ff9d6b2fa01859c855f5b92cca49d53e9c8b9fa1",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/extra_links.tmpl",
+      "composition": "repository-workspace",
+      "owner": "custom",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-appearance"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "24b791a3ffe6556a600a79ced30f3d3eb59f300fa0c7e1e551f454cdcfa7c99f",
+      "upstreamCallers": [
+        "base/head_navbar.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/footer.tmpl",
+      "composition": "repository-workspace",
+      "owner": "custom",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notification-open",
+        "soda-notification-preview",
+        "soda-notification-preview-all",
+        "soda-notification-preview-close",
+        "soda-notification-preview-content",
+        "soda-notification-preview-header",
+        "soda-notification-preview-retry",
+        "soda-notification-preview-status",
+        "soda-notification-preview-title",
+        "soda-preview"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f834fe4ff56c13fe77b009b50bc40209a5c36296f6ab3b334f7fe0eaa151ccbc",
+      "upstreamCallers": [
+        "base/footer.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/header.tmpl",
+      "composition": "repository-workspace",
+      "owner": "custom",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4424e7094d871e8bccf0072f426338e455ff81df4a3e74d7169d762cc5451c33",
+      "upstreamCallers": [
+        "base/head.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/empty_content.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "custom/explore_empty.tmpl",
+        "package/shared/list.tmpl",
+        "user/dashboard/milestones.tmpl",
+        "user/notification/notification_div.tmpl",
+        "user/notification/notification_subscriptions.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-empty-description",
+        "soda-empty-eyebrow",
+        "soda-empty-symbol",
+        "soda-empty-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "91b2daddd839a1d308012136d8bd1cc3cf3c47c9496d2988ca275e975701d73d",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/guest_theme.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "custom/extra_links.tmpl",
+        "custom/header.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "87aa8cd463786c85ddd3aafeceaaedb3a8e9c4fdb8e2332a174db0c2b8eaa03c",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/notification_preview.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "user/notification/notification_div.tmpl"
+      ],
+      "nativeCalls": [
+        "shared/issueicon"
+      ],
+      "roles": [
+        "soda-notification-fragment",
+        "soda-notification-preview-empty",
+        "soda-notification-preview-entry",
+        "soda-notification-preview-icon",
+        "soda-notification-preview-list",
+        "soda-notification-preview-pin",
+        "soda-notification-preview-repo",
+        "soda-notification-preview-time",
+        "soda-notification-preview-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "d9a095c17292003553c4d7479d4fd984e6c09547362741b21026d5fbca33347c",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/page_intro.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "admin/layout_head.tmpl",
+        "explore/code.tmpl",
+        "explore/repos.tmpl",
+        "explore/users.tmpl",
+        "install.tmpl",
+        "org/create.tmpl",
+        "org/member/members.tmpl",
+        "org/projects/list.tmpl",
+        "org/projects/new.tmpl",
+        "org/projects/view.tmpl",
+        "org/team/members.tmpl",
+        "org/team/new.tmpl",
+        "org/team/repositories.tmpl",
+        "org/team/teams.tmpl",
+        "repo/create.tmpl",
+        "repo/migrate/migrate.tmpl",
+        "repo/migrate/migrating.tmpl",
+        "repo/pulls/fork.tmpl",
+        "user/code.tmpl",
+        "user/dashboard/dashboard.tmpl",
+        "user/dashboard/issues.tmpl",
+        "user/dashboard/milestones.tmpl",
+        "user/notification/notification_div.tmpl",
+        "user/notification/notification_subscriptions.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/settings/layout_head.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-page-art",
+        "soda-page-copy",
+        "soda-page-description",
+        "soda-page-eyebrow",
+        "soda-page-intro",
+        "soda-page-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "554628eb1f910300b234304208822047e3de1be0f2fd5d827972f7ab9f1a339c",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/theme_toggle.tmpl",
+      "composition": "overview",
+      "owner": "custom",
+      "callers": [
+        "custom/soda/guest_theme.tmpl",
+        "home.tmpl",
+        "install.tmpl",
+        "post-install.tmpl",
+        "user/auth/link_account.tmpl",
+        "user/auth/prohibit_login.tmpl",
+        "user/auth/signin.tmpl",
+        "user/auth/signin_openid.tmpl",
+        "user/auth/signup_openid_connect.tmpl",
+        "user/auth/signup_openid_register.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-guest-theme-icon",
+        "soda-guest-theme-moon",
+        "soda-guest-theme-sun",
+        "soda-guest-theme-toggle",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "eb0fd831928f328b7547c299aea94ec32550e62e8cfd0d0314cf77dfff2b2d6e",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "explore/code.tmpl",
+      "composition": "collection",
+      "owner": "explore",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/search/code/search"
+      ],
+      "roles": [
+        "soda-code-search",
+        "soda-explore",
+        "soda-explore-code",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-toolbar",
+        "soda-toolbar--plain"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ffdbbe3243f5edaabcd00ad166ae02e7b39cfcc64f7479b0e0ad25e8a6e54e52",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "explore/repos.tmpl",
+      "composition": "collection",
+      "owner": "explore",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "explore/repo_list",
+        "shared/repo_search"
+      ],
+      "roles": [
+        "soda-explore",
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8819a61ef314b0cbdd01c4fe83c30f8532543c2752a5c073441295ea7067d49c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "explore/users.tmpl",
+      "composition": "collection",
+      "owner": "explore",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "explore/search",
+        "explore/user_list"
+      ],
+      "roles": [
+        "soda-explore",
+        "soda-explore-people",
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "18852f21ae713cdb7fc15a2dd37021d83c975dfdfe3c3f20f2fcf2e687bcaf4f",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "home.tmpl",
+      "composition": "overview",
+      "owner": "home.tmpl",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-home",
+        "soda-home-account",
+        "soda-home-actions",
+        "soda-home-brand",
+        "soda-home-copy",
+        "soda-home-eyebrow",
+        "soda-home-feature-icon",
+        "soda-home-features",
+        "soda-home-hero",
+        "soda-home-illustration",
+        "soda-home-lede",
+        "soda-home-links",
+        "soda-home-logo-dark",
+        "soda-home-logo-light",
+        "soda-home-nav",
+        "soda-home-nav-signin",
+        "soda-home-primary",
+        "soda-home-secondary",
+        "soda-home-title",
+        "soda-logo-horizontal",
+        "soda-logo-horizontal-dark"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "5e38c1293b121c29ccccaada2d112f19551e2a5396cea69c020f62b59141c451",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "install.tmpl",
+      "composition": "focused-task",
+      "owner": "install.tmpl",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-forgejo-setup",
+        "soda-form",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-setup-panel",
+        "soda-setup-theme",
+        "soda-setup-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "bcf7fd2079bc84cd23abea573d051ebfe3af2bfb9df61e1367e1aa487a017e0d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "moderation/new_abuse_report.tmpl",
+      "composition": "detail",
+      "owner": "moderation",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-moderation",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e54c4235a0453d79f77563ed71b0dc1a53a7bbe17935d11f28d68599f03c5c51",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/create.tmpl",
+      "composition": "editor",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-form-body",
+        "soda-form-section",
+        "soda-org-create",
+        "soda-org-name",
+        "soda-p-form",
+        "soda-p-section",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "6bc9cc00f16aa523176843b2d22f55a2b91fa6a0d0e13acdb1463b6aded1f4f2",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/header.tmpl",
+      "composition": "detail",
+      "owner": "org",
+      "callers": [
+        "org/home.tmpl",
+        "org/member/members.tmpl",
+        "org/projects/list.tmpl",
+        "org/projects/view.tmpl",
+        "org/settings/layout_head.tmpl",
+        "org/team/members.tmpl",
+        "org/team/new.tmpl",
+        "org/team/repositories.tmpl",
+        "org/team/teams.tmpl",
+        "package/settings.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl"
+      ],
+      "nativeCalls": [
+        "org/follow_unfollow",
+        "org/menu"
+      ],
+      "roles": [
+        "soda-org-header",
+        "soda-page-marker"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "fd2e835ea1d0bc5e7eba9f9b8f5e85afa95646b330094e1fd4332ce12de25063",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "org/home.tmpl",
+      "composition": "overview",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "explore/repo_list",
+        "shared/repo_search"
+      ],
+      "roles": [
+        "soda-list",
+        "soda-org-home",
+        "soda-org-home-main",
+        "soda-org-home-sidebar",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "79b26814784ea081082974b2b03f206b26b6246fe9316c2a8de64886572554d7",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/member/members.tmpl",
+      "composition": "collection",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/user/name"
+      ],
+      "roles": [
+        "soda-org-detail-title",
+        "soda-org-details",
+        "soda-org-details-intro",
+        "soda-p-gap",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "60f878648b4f19cd4471cf1e128387700d3d10e5aa805f8aa4faa8b115a1a47e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/projects/list.tmpl",
+      "composition": "collection",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/user/profile_big_avatar"
+      ],
+      "roles": [
+        "soda-org-projects",
+        "soda-org-projects-list",
+        "soda-org-projects-title",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-profile-card-context",
+        "soda-user-projects-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2f3eeb43ecb79f0116389e51c642964aa5b299be561794b532cfddda0635e6f8",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/projects/new.tmpl",
+      "composition": "editor",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/user/org_profile_avatar"
+      ],
+      "roles": [
+        "soda-new-project-title",
+        "soda-org-projects",
+        "soda-org-projects-new",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2368fd349d4d2ba39466a8f4eafc2fa52c56fe4deaf497268907713aa5c847f3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/projects/view.tmpl",
+      "composition": "detail",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/user/org_profile_avatar"
+      ],
+      "roles": [
+        "soda-org-projects",
+        "soda-org-projects-view",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-project-board-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e75df26fed6fe851c8ef81fed575d8aec8cb6212ad8f2bc10af0c172092bcec3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/settings/layout_head.tmpl",
+      "composition": "settings",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/head",
+        "org/settings/navbar"
+      ],
+      "roles": [
+        "soda-native-forms",
+        "soda-org-settings",
+        "soda-org-settings-layout",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "79d81a7b78e7afff49c633143506f78f5cb3b85fca3f97dba85a100eb440d3fd",
+      "upstreamCallers": [
+        "org/settings/actions.tmpl",
+        "org/settings/applications.tmpl",
+        "org/settings/applications_oauth2_edit.tmpl",
+        "org/settings/blocked_users.tmpl",
+        "org/settings/delete.tmpl",
+        "org/settings/hook_new.tmpl",
+        "org/settings/hooks.tmpl",
+        "org/settings/labels.tmpl",
+        "org/settings/options.tmpl",
+        "org/settings/packages.tmpl",
+        "org/settings/packages_cleanup_rules_edit.tmpl",
+        "org/settings/packages_cleanup_rules_preview.tmpl",
+        "org/settings/runners_create.tmpl",
+        "org/settings/runners_details.tmpl",
+        "org/settings/runners_edit.tmpl",
+        "org/settings/runners_setup.tmpl",
+        "org/settings/storage_overview.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "org/team/invite.tmpl",
+      "composition": "editor",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-org-details",
+        "soda-p-form",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8f64e500ccd6c8a635c716b18f0d462dbf9454f684129a1f7161fb767ab8cb7b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/team/members.tmpl",
+      "composition": "collection",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "org/team/navbar",
+        "org/team/sidebar",
+        "shared/user/name"
+      ],
+      "roles": [
+        "soda-org-detail-title",
+        "soda-org-details",
+        "soda-org-details-intro",
+        "soda-p-heading",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8bea03de22da72ad1f7ff08e6f9dd58b96ff7093295bbbfef51b8ff9a80b1b5d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/team/new.tmpl",
+      "composition": "editor",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-org-detail-title",
+        "soda-org-details",
+        "soda-org-details-intro",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "21d8980251e6c7d626445afd80a68c3768d3acee8fc8fbdf454f6996a85969d5",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/team/repositories.tmpl",
+      "composition": "collection",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "org/team/navbar",
+        "org/team/sidebar",
+        "repo/icon"
+      ],
+      "roles": [
+        "soda-org-detail-title",
+        "soda-org-details",
+        "soda-org-details-intro",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9c6f148e8ee47ac292213a07946b52361573fc37e7668747819955b8ded807d6",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "org/team/teams.tmpl",
+      "composition": "collection",
+      "owner": "org",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "shared/user/avatarlink"
+      ],
+      "roles": [
+        "soda-org-detail-title",
+        "soda-org-details",
+        "soda-org-details-intro",
+        "soda-p-gap",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "58ae37f9c2f9456afa1873200efe69dc253f53a96668af5a1cbd0cdbb8ccc72b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "package/settings.tmpl",
+      "composition": "settings",
+      "owner": "package",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/disable_form_autofill",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "shared/user/org_profile_avatar"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-package-settings",
+        "soda-packages",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c5cffa2e5b72f4f1c29afc12f22d0dc5549b79feba398d0f9091450d45e2bb31",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "package/shared/cargo.tmpl",
+      "composition": "detail",
+      "owner": "package",
+      "callers": [
+        "user/settings/packages.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-form",
+        "soda-form-section",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "afd4282ee474b2ade6e29de297ff709ae9cc0668015974aadc21c6b8c8ac9cff",
+      "upstreamCallers": [
+        "org/settings/packages.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/shared/cleanup_rules/edit.tmpl",
+      "composition": "detail",
+      "owner": "package",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-form",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-package-cleanup-edit",
+        "soda-package-section",
+        "soda-package-section-body",
+        "soda-package-section-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f437f0c592249b75d492f62a4cb89b57eff9037d295185fd98cdc9c5b2aa8089",
+      "upstreamCallers": [
+        "org/settings/packages_cleanup_rules_edit.tmpl",
+        "user/settings/packages_cleanup_rules_edit.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/shared/cleanup_rules/list.tmpl",
+      "composition": "collection",
+      "owner": "package",
+      "callers": [
+        "user/settings/packages.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-list",
+        "soda-p-heading",
+        "soda-package-cleanup-list",
+        "soda-package-section",
+        "soda-package-section-body",
+        "soda-package-section-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f8fd5b26da0bf10b059b3ec634a27e8b9223b2f56bba1ae8dd0fdd548d1b00da",
+      "upstreamCallers": [
+        "org/settings/packages.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/shared/cleanup_rules/preview.tmpl",
+      "composition": "detail",
+      "owner": "package",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-package-cleanup-preview",
+        "soda-package-preview-table",
+        "soda-package-section",
+        "soda-package-section-body",
+        "soda-package-section-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a03fa2ee8fb6bf6b2464e23ba8cd63a1c03b5bcc9c796e2e6f202b83f121a3b0",
+      "upstreamCallers": [
+        "org/settings/packages_cleanup_rules_preview.tmpl",
+        "user/settings/packages_cleanup_rules_preview.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/shared/list.tmpl",
+      "composition": "collection",
+      "owner": "package",
+      "callers": [
+        "user/overview/packages.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "base/paginate",
+        "shared/search/button",
+        "shared/search/input"
+      ],
+      "roles": [
+        "soda-empty",
+        "soda-empty-description",
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-package-empty",
+        "soda-package-list",
+        "soda-package-no-result",
+        "soda-package-toolbar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c058b086a809e3519e2bf0bd644792eecb4f3bb42466b017a1fac76a3ea31aa2",
+      "upstreamCallers": [
+        "repo/packages.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/shared/versionlist.tmpl",
+      "composition": "detail",
+      "owner": "package",
+      "callers": [
+        "user/overview/package_versions.tmpl"
+      ],
+      "nativeCalls": [
+        "base/paginate",
+        "shared/search/button",
+        "shared/search/input"
+      ],
+      "roles": [
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-package-breadcrumb",
+        "soda-package-list",
+        "soda-package-no-result",
+        "soda-package-toolbar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "5f2ef641ba369af530c0f9abfea27b5c648c379c1dd8b89b15e9729dd6c18be4",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "package/view.tmpl",
+      "composition": "detail",
+      "owner": "package",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "package/content/alpine",
+        "package/content/alt",
+        "package/content/arch",
+        "package/content/cargo",
+        "package/content/chef",
+        "package/content/composer",
+        "package/content/conan",
+        "package/content/conda",
+        "package/content/container",
+        "package/content/cran",
+        "package/content/debian",
+        "package/content/generic",
+        "package/content/go",
+        "package/content/helm",
+        "package/content/maven",
+        "package/content/npm",
+        "package/content/nuget",
+        "package/content/pub",
+        "package/content/pypi",
+        "package/content/rpm",
+        "package/content/rubygems",
+        "package/content/swift",
+        "package/content/vagrant",
+        "package/metadata/alpine",
+        "package/metadata/alt",
+        "package/metadata/arch",
+        "package/metadata/cargo",
+        "package/metadata/chef",
+        "package/metadata/composer",
+        "package/metadata/conan",
+        "package/metadata/conda",
+        "package/metadata/container",
+        "package/metadata/cran",
+        "package/metadata/debian",
+        "package/metadata/generic",
+        "package/metadata/helm",
+        "package/metadata/maven",
+        "package/metadata/npm",
+        "package/metadata/nuget",
+        "package/metadata/pub",
+        "package/metadata/pypi",
+        "package/metadata/rpm",
+        "package/metadata/rubygems",
+        "package/metadata/swift",
+        "package/metadata/vagrant",
+        "shared/user/org_profile_avatar"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-package-view",
+        "soda-packages",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "d954584c1692d92b61786da53e33698b1aa0602244c918d5d200a7840fcbc3ed",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "post-install.tmpl",
+      "composition": "focused-task",
+      "owner": "post-install.tmpl",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-forgejo-setup",
+        "soda-forgejo-setup-completing",
+        "soda-page",
+        "soda-page-container",
+        "soda-setup-completing",
+        "soda-setup-theme",
+        "soda-setup-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "245d894049a52017aaed43741955f3cca1da42e8eaae9801c2d4df27b0627402",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "projects/list.tmpl",
+      "composition": "collection",
+      "owner": "projects",
+      "callers": [
+        "org/projects/list.tmpl",
+        "repo/projects/list.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-p-toolbar",
+        "soda-shared-project-list",
+        "soda-tabs",
+        "soda-toolbar",
+        "soda-toolbar--plain",
+        "soda-toolbar-action",
+        "soda-toolbar-action--primary"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0c2297b265231c75004cf4ae5ba8904e845e60e1718b4301023c471f9c47a8f2",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "projects/new.tmpl",
+      "composition": "editor",
+      "owner": "projects",
+      "callers": [
+        "org/projects/new.tmpl",
+        "repo/projects/new.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-form-body",
+        "soda-form-section",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3fe918607abfb6a0fd3c5b7d6085d501d30d13e51254af0a9422039c3115e9e1",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "projects/view.tmpl",
+      "composition": "detail",
+      "owner": "projects",
+      "callers": [
+        "org/projects/view.tmpl",
+        "repo/projects/view.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "repo/issue/card",
+        "repo/issue/label_precolors"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-p-toolbar",
+        "soda-project-board",
+        "soda-project-board-description",
+        "soda-project-board-header",
+        "soda-project-board-page",
+        "soda-project-board-toolbar",
+        "soda-toolbar",
+        "soda-toolbar--plain"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4e15f9ddcc1bc68c180d7dd1dc616ffc918a731a3b4bdb94a5e261e4e17ecec5",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/actions/dispatch.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list_inner.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-dispatch"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "07f6d8c3e8ec9973410a23f891df2355326be45b01c0ce2fe4ad000fc83619b7",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/actions/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-actions",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3076e5db6d7ff3e795af2e195cb6f46fbd10accab0b39e0f494f8f61847ee682",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/actions/list_inner.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-workflows"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "82005b007e9fd331aa0003120facc56445099df2208d311009e45ad352dcc440",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/actions/no_workflows.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list_inner.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-no-workflows",
+        "soda-empty",
+        "soda-empty-description",
+        "soda-empty-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9c0e750d14e37085bfb257984427243422147aaee5a10d92a20ad0d4174508c8",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/actions/runs_list.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list_inner.tmpl"
+      ],
+      "nativeCalls": [
+        "base/paginate",
+        "repo/actions/status"
+      ],
+      "roles": [
+        "soda-code-runs",
+        "soda-empty",
+        "soda-empty--inset",
+        "soda-empty-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "26512fc646366b1d40022fcf4dd121e3e936d2e8220bb79773628ff2f5d114eb",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/actions/view.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-actions",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e2b20fc80c73d8cc6645d0466c16fc64ce60b17a3542914814f81cd4be9e355c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/activity.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/code_frequency",
+        "repo/contributors",
+        "repo/navbar",
+        "repo/pulse",
+        "repo/recent_commits"
+      ],
+      "roles": [
+        "soda-insights",
+        "soda-insights-activity",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "b3b41c85f0791b6514072b39803fa81e1f04e1c37415ce1b25c41342560ff6d3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/branch/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "repo/commit_statuses",
+        "shared/search/combo",
+        "shared/user/avatarlink",
+        "shared/user/namelink"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-heading",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "00adf2447ddfbfc74d431f60ab451a7b39c9d62ecd108453ade78392f9ba9257",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/branch_dropdown.tmpl",
+      "composition": "repository-workspace",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/dispatch.tmpl",
+        "repo/commit_header.tmpl",
+        "repo/commits.tmpl",
+        "repo/home.tmpl",
+        "repo/release/list.tmpl",
+        "repo/search.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-ref-selector"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "aca747c60f3b6a6b2f82aa9dc7a680f4f39806b36b69e9aecbfde584cb0be44b",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/clone_buttons.tmpl",
+      "composition": "repository-workspace",
+      "owner": "repo",
+      "callers": [
+        "repo/empty.tmpl",
+        "repo/home.tmpl",
+        "repo/wiki/revision.tmpl",
+        "repo/wiki/view.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-clone-url"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8267ce800b3ad77b1ed4dcb18f456f74f694ad5c4d89fcf2b54ebd8e6352b026",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/commit_header.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/commit_page.tmpl",
+        "repo/diff/box.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/commit_load_branches_and_tags",
+        "repo/commit_statuses"
+      ],
+      "roles": [
+        "soda-code-commit-heading",
+        "soda-p-gap"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "87ad5d17c860c314a01b4106be7c2fd6531cd0ecc476cbba6fdc7d2ddc482f90",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/commit_page.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-compare",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "13359ceaf69413bb0973765c03308e9929be230967147c9632b16dfde6477fdc",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/commits.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "7acc6a70ca642b131aa6fdb69b11f24450578978f86ffcb9b9c1e8c13bab2ba3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/commits_list.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/commits_table.tmpl",
+        "repo/wiki/revision.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/commit_statuses",
+        "repo/shabox"
+      ],
+      "roles": [
+        "soda-code-history"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "906cb21a94e0824b75d443c3b1dc4510354ad1af9a84c63bff97736e9a401667",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/commits_table.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/commits.tmpl",
+        "repo/diff/compare.tmpl",
+        "repo/pulls/commits.tmpl"
+      ],
+      "nativeCalls": [
+        "base/paginate",
+        "repo/commits_search_dropdown",
+        "shared/search/button",
+        "shared/search/input"
+      ],
+      "roles": [
+        "soda-code-commit-search",
+        "soda-code-commits-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "87fd2662c14c00d1e4a92a4031a1b502a946bb3469c9e1074d37b95031e9f2b3",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/create.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/create_advanced",
+        "repo/create_basic",
+        "repo/create_from_template",
+        "repo/create_helper",
+        "repo/create_init"
+      ],
+      "roles": [
+        "soda-create",
+        "soda-form",
+        "soda-form-body",
+        "soda-form-section",
+        "soda-p-form",
+        "soda-p-section",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a32fc91afb9463a3c514861330d22178bd2330d63c1bf9310d8fa416543980e7",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/diff/box.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/commit_page.tmpl",
+        "repo/diff/compare.tmpl",
+        "repo/pulls/files.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/diff/csv_diff",
+        "repo/diff/image_diff",
+        "repo/diff/new_review",
+        "repo/diff/options_dropdown",
+        "repo/diff/section_split",
+        "repo/diff/section_unified",
+        "repo/diff/stats",
+        "repo/diff/whitespace_dropdown",
+        "repo/issue/view_content/reference_issue_dialog",
+        "repo/upload",
+        "shared/combomarkdowneditor"
+      ],
+      "roles": [
+        "soda-code-diff"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4cb43d7c7d465e7ca267f9fbfaee86848e23af119c194bcb9e34c5fe5b29828a",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/diff/compare.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/issue/new_form"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-branch-picker",
+        "soda-code-compare",
+        "soda-p-form-host",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "301e12979ef2eb75a3c0c191b544244fecbf82dd8915924b2bd9e5637282d2c6",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/editor/cherry_pick.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-editor",
+        "soda-form",
+        "soda-p-form",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ab669888f5ec49112e37a7662d990b23e81011a1b47d2136b0ff9f1eecf312f3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/editor/commit_form.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [
+        "repo/editor/cherry_pick.tmpl",
+        "repo/editor/delete.tmpl",
+        "repo/editor/edit.tmpl",
+        "repo/editor/patch.tmpl",
+        "repo/editor/upload.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-commit-title",
+        "soda-form-section",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "6e1b3796a8c6a4ae81d0639ac216e7208b72c33a2dc9fd09c582e5c2d6fefba3",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/editor/delete.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-editor",
+        "soda-form",
+        "soda-p-form",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "addbed1404de2f36a0ffb16a3f50750f42d337afeb6ef24ce8dbc3c0959b4131",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/editor/edit.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "shared/codemirror_container"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-editor",
+        "soda-form",
+        "soda-p-form",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "39ae193da143a01cb7619716634b0e50d062600b32a7e9fbd30aac7392421af9",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/editor/patch.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "shared/codemirror_container"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-editor",
+        "soda-form",
+        "soda-p-form",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "49b472cc2dd97743b4baf1d729d4fb6a53a04ed67d63db245303de431b1c360c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/editor/upload.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/upload"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-editor",
+        "soda-form",
+        "soda-p-form",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "016ff105cd38a4d91e953750eeb659da42003841831caabc94f9aa6a64413290",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/empty.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/clone_script"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-gap",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4c1c5739eaba7d7d1f36b7ed2f3942363bca5bc9b4fd7ba70afb7b7ef153e5e3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/find/files.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-code-finder",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "1a57111dc9260250dfe695c1fbe22f115df08ba1dd283d3429f3c8dfab5b69ad",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/forks.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "1ba9f4c605f19f12312037cc4c5337092129ea5b484d553ff5223001c976d465",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/graph.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "repo/graph/commits",
+        "repo/graph/svgcontainer"
+      ],
+      "roles": [
+        "soda-insights",
+        "soda-insights-graph",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f4e97ef29be84a2d67c772ffd91fcdce3b2709efdbed6c3deb8b30bc86f9b7cf",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/header.tmpl",
+      "composition": "repository-workspace",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list.tmpl",
+        "repo/actions/view.tmpl",
+        "repo/activity.tmpl",
+        "repo/branch/list.tmpl",
+        "repo/commit_page.tmpl",
+        "repo/commits.tmpl",
+        "repo/diff/compare.tmpl",
+        "repo/editor/cherry_pick.tmpl",
+        "repo/editor/delete.tmpl",
+        "repo/editor/edit.tmpl",
+        "repo/editor/patch.tmpl",
+        "repo/editor/upload.tmpl",
+        "repo/empty.tmpl",
+        "repo/find/files.tmpl",
+        "repo/forks.tmpl",
+        "repo/graph.tmpl",
+        "repo/home.tmpl",
+        "repo/issue/choose.tmpl",
+        "repo/issue/labels.tmpl",
+        "repo/issue/list.tmpl",
+        "repo/issue/milestone_issues.tmpl",
+        "repo/issue/milestone_new.tmpl",
+        "repo/issue/milestones.tmpl",
+        "repo/issue/new.tmpl",
+        "repo/issue/view.tmpl",
+        "repo/migrate/migrating.tmpl",
+        "repo/projects/list.tmpl",
+        "repo/projects/new.tmpl",
+        "repo/projects/view.tmpl",
+        "repo/pulls/commits.tmpl",
+        "repo/pulls/files.tmpl",
+        "repo/release/list.tmpl",
+        "repo/release/new.tmpl",
+        "repo/search.tmpl",
+        "repo/settings/layout_head.tmpl",
+        "repo/tag/list.tmpl",
+        "repo/watchers.tmpl",
+        "repo/wiki/new.tmpl",
+        "repo/wiki/pages.tmpl",
+        "repo/wiki/revision.tmpl",
+        "repo/wiki/start.tmpl",
+        "repo/wiki/view.tmpl",
+        "status/404.tmpl",
+        "status/413.tmpl",
+        "user/auth/grant_error.tmpl"
+      ],
+      "nativeCalls": [
+        "custom/extra_tabs",
+        "repo/header_fork",
+        "repo/icon",
+        "repo/star_unstar",
+        "repo/watch_unwatch"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-page-marker",
+        "soda-repository-eyebrow",
+        "soda-repository-header"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4980cb6811433066d7b0f7c9a60fdfb89ecd15402be01cd0edffd50810b8ac5d",
+      "upstreamCallers": [
+        "repo/flags.tmpl",
+        "repo/packages.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/home.tmpl",
+      "composition": "overview",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "custom/repo_flag_banners",
+        "repo/admin_flags",
+        "repo/blame",
+        "repo/clone_script",
+        "repo/code/fork_sync_message",
+        "repo/code/recently_pushed_new_branches",
+        "shared/search/combo_multi"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-repo-layout",
+        "soda-repo-main",
+        "soda-repo-sidebar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "441a8530c9b849660ba82159940ab60190f81af9105ed471f754bb0ae209b964",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/choose.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-issue-template-card",
+        "soda-issue-template-chooser",
+        "soda-issue-template-container",
+        "soda-issue-template-list",
+        "soda-p-gap"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f5bdcf511a5d501bc18bc238bae0e7c091fa4292c9a1f7f8fa915b084fa68a65",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/labels.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/issue/labels/edit_delete_label",
+        "repo/issue/labels/label_list",
+        "repo/issue/labels/label_new"
+      ],
+      "roles": [
+        "soda-p-toolbar",
+        "soda-repo-label-form",
+        "soda-repo-label-list",
+        "soda-repo-labels",
+        "soda-repo-labels-container",
+        "soda-repo-labels-toolbar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8ba8b76ec7a3fb787aea47e6b0ee3add6f22fbe6074a9df27005b326df3ac0ef",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/issue/card",
+        "repo/issue/filter_actions",
+        "repo/issue/filters",
+        "repo/issue/openclose",
+        "repo/issue/search",
+        "shared/issuelist"
+      ],
+      "roles": [
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-pinned-issues",
+        "soda-repo-issue-list",
+        "soda-repo-work-items",
+        "soda-repo-work-items-container",
+        "soda-repo-work-items-filters",
+        "soda-repo-work-items-toolbar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0e65ef4c9cf280c79876d6ccff7160b5eb9ade8b7cf6e2726f36bbe39451ca30",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/milestone_issues.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "repo/issue/filters",
+        "shared/issuelist"
+      ],
+      "roles": [
+        "soda-list",
+        "soda-milestone-action",
+        "soda-milestone-detail",
+        "soda-milestone-detail-container",
+        "soda-milestone-detail-title",
+        "soda-milestone-progress",
+        "soda-p-gap",
+        "soda-repo-issue-list",
+        "soda-repo-work-items-filters"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a3007b6a01f4271da9f0d4610199e1233ceb96bac4ba16881fce9013d16e0aba",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/milestone_new.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "shared/combomarkdowneditor"
+      ],
+      "roles": [
+        "soda-milestone-editor",
+        "soda-milestone-editor-container",
+        "soda-milestone-form",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-p-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f248d74c60a80cda0be7dbb9caa1c58ae437ca227b12f56b793f9740f9416e68",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/milestones.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "repo/issue/filters",
+        "repo/issue/search"
+      ],
+      "roles": [
+        "soda-milestone-list",
+        "soda-p-toolbar",
+        "soda-repo-milestones",
+        "soda-repo-milestones-container",
+        "soda-repo-work-items-toolbar",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f380417349773c9e11381b29d5a67007a7e80bf9d9909665a94b5869b92a20b5",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/navbar.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/issue/choose.tmpl",
+        "repo/issue/labels.tmpl",
+        "repo/issue/list.tmpl",
+        "repo/issue/milestone_new.tmpl",
+        "repo/issue/milestones.tmpl",
+        "repo/projects/view.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-issue-section-tabs",
+        "soda-tabs"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "47be671364089dd0acf7f879139ef57889caa81a24442d69147b2a2ff92ad921",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/issue/new.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/issue/new_form"
+      ],
+      "roles": [
+        "soda-p-form-host",
+        "soda-repo-editor-card",
+        "soda-repo-issue-editor",
+        "soda-repo-issue-editor-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "eeae299657f247453ac6656366252732f8e6f175022a9e67c2d6d0f1003b5310",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/issue/view.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/issue/view_content",
+        "repo/issue/view_title"
+      ],
+      "roles": [
+        "soda-repo-thread",
+        "soda-repo-thread-container",
+        "soda-repo-thread-content",
+        "soda-repo-thread-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "fd6b51d42cbb9645cba33aacf09dab592242036ad4e95cc9f1a417fede6a7f4b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/migrate/migrate.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/migrate/helper"
+      ],
+      "roles": [
+        "soda-migrate-chooser",
+        "soda-migrate-entries",
+        "soda-migrate-title",
+        "soda-onboarding",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "cf978fdc3523333c78a78f2c2e68314b632eb195d99d5591ea2efca736bc605a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/migrate/migrating.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-migrating",
+        "soda-migrating-title",
+        "soda-migration-status",
+        "soda-onboarding",
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "1e249456aedd27070c243b6a7b0ed37fcbda854de9eeaee868203e57bde49f4d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/migrate/options.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-page-marker"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "da97275bdebdb9d6dc94e51da76339d6a91ce9b274b4bc2bc0d5892f3c33e85f",
+      "upstreamCallers": [
+        "repo/migrate/codebase.tmpl",
+        "repo/migrate/git.tmpl",
+        "repo/migrate/gitbucket.tmpl",
+        "repo/migrate/gitea.tmpl",
+        "repo/migrate/github.tmpl",
+        "repo/migrate/gitlab.tmpl",
+        "repo/migrate/gogs.tmpl",
+        "repo/migrate/onedev.tmpl",
+        "repo/migrate/pagure.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/projects/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-projects-list",
+        "soda-repository-content"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "93f257b6d8a6494018c90e0f037226f7593af23c1b32cce563ef272e7409fdfd",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/projects/new.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-projects-new",
+        "soda-repository-content"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0d9e87e962dba6860feccf6a1098d2d9bca84cfe7ef4f5f1f0fcfb584ff72d34",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/projects/view.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-projects-view",
+        "soda-repository-content"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "eca12daee0325073716d407ee9cf753197ec4bc84b6ba5691e2806e3350659c1",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/pulls/commits.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/issue/view_title"
+      ],
+      "roles": [
+        "soda-pull-commits",
+        "soda-pull-commits-list",
+        "soda-repo-thread",
+        "soda-repo-thread-container",
+        "soda-repo-thread-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a0976547ff7f6b7bb0495473fcf41c5dfa10d874ed2f73d2824bd4dbde9647cf",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/pulls/files.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "repo/issue/view_title"
+      ],
+      "roles": [
+        "soda-pull-diff",
+        "soda-pull-files",
+        "soda-pull-files-container",
+        "soda-repo-thread",
+        "soda-repo-thread-container",
+        "soda-repo-thread-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "6abb03ed0b0a732dcdf57b4ec964284b9cc84473d99dfd84a0dbad985ea54b5d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/pulls/fork.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-fork",
+        "soda-fork-title",
+        "soda-form",
+        "soda-form-body",
+        "soda-form-section",
+        "soda-onboarding",
+        "soda-p-form",
+        "soda-p-section",
+        "soda-page",
+        "soda-page-container"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "dc148707613627abc3f4521d1a47dd22401a9812d9f6d9002dcc7d9565ffac25",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/pulls/status.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/commit_status"
+      ],
+      "roles": [
+        "soda-commit-status-panel"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ae12d9da71485a96309cfc952f92988d8527848e54cdb864979dae93c5920d20",
+      "upstreamCallers": [
+        "repo/commit_statuses.tmpl",
+        "repo/issue/view_content/pull.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/pulls/tab_menu.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/issue/view.tmpl",
+        "repo/pulls/commits.tmpl",
+        "repo/pulls/files.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-gap",
+        "soda-pull-tabs"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e967a4df3282839dfc3f08b36f6a93ab17daada326a7428f4bd507194c5a2668",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/pulls/trust.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-gap",
+        "soda-pull-trust-panel"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a3b82448ff8ba57a6af875b47917bb97a6a3cb373d4b1062fe98925fcd2e59f8",
+      "upstreamCallers": [
+        "repo/issue/view_content/pull.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/release/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "repo/commit_statuses",
+        "repo/tag/verification_line",
+        "shared/user/authorlink"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-release-list",
+        "soda-repository-content"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "fb62cdce5d1a6a12bf7f7cc2e5691c45742d0c547342317beb7d7b7f549ca850",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/release/new.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "repo/upload",
+        "shared/combomarkdowneditor"
+      ],
+      "roles": [
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-release-editor",
+        "soda-repository-content"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "77cdc0492e7fbd006652a033f0d658c79ba3130979cd5c599fbc944132ef6257",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/release_tag_header.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/release/list.tmpl",
+        "repo/tag/list.tmpl"
+      ],
+      "nativeCalls": [
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-p-toolbar",
+        "soda-tabs",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "837c2d235920c72769727aa3fd397fa2f0f656721d79cf7c667a810e798150f0",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/search.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/search/code/search"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e732cd9125b923a4d54c3f2729f0b25e459306318f90bbab2e362cc9fda22b5d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/actions.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-actions",
+        "soda-repo-settings-detail"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ea5ddcab1c9d09ba5938897c5157f8f79b8acbe40604ddb736834536494e5511",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/branches.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-branches",
+        "soda-repo-settings-detail"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c3fe32cb1833fb6337adcba411d8e66e0f7648eb294df6dc42bed5275191525f",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/collaboration.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "repo/settings/layout_footer",
+        "shared/user/name"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-collaboration",
+        "soda-repo-settings-detail"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "044fa54c382a0c42e25838cd4d952f1de2dc541e8623934b48cf85b2826105bf",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/deploy_keys.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-deploy-keys",
+        "soda-repo-settings-detail"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c97ebd63802193262a68d7cf8c5d24857695aae39781ae6d16c1d619b333b243",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/githook_edit.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer",
+        "shared/codemirror_container"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-githook-edit"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "5d31883389f573ba1dfe29cd9a0a240f3d2e70287c6a61bba7ffca71d6ea7eaa",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/githooks.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-githooks"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8423c3e708748d04fd57d8a95a5390300e917518444a914d2ed0e7353389c9db",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/layout_head.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/actions.tmpl",
+        "repo/settings/branches.tmpl",
+        "repo/settings/collaboration.tmpl",
+        "repo/settings/deploy_keys.tmpl",
+        "repo/settings/githook_edit.tmpl",
+        "repo/settings/githooks.tmpl",
+        "repo/settings/lfs.tmpl",
+        "repo/settings/lfs_file.tmpl",
+        "repo/settings/lfs_file_find.tmpl",
+        "repo/settings/lfs_locks.tmpl",
+        "repo/settings/lfs_pointers.tmpl",
+        "repo/settings/options.tmpl",
+        "repo/settings/protected_branch.tmpl",
+        "repo/settings/runner_create.tmpl",
+        "repo/settings/runner_details.tmpl",
+        "repo/settings/runner_edit.tmpl",
+        "repo/settings/runner_setup.tmpl",
+        "repo/settings/secrets.tmpl",
+        "repo/settings/tags.tmpl",
+        "repo/settings/units.tmpl",
+        "repo/settings/webhook/base.tmpl",
+        "repo/settings/webhook/new.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "base/head",
+        "repo/settings/navbar"
+      ],
+      "roles": [
+        "soda-native-forms",
+        "soda-page",
+        "soda-repository-settings",
+        "soda-settings-layout"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "548488e2d9b092643b1b7586d25a495fe945d2e653c1767233c250d452d10bec",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/lfs.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ffec31c77c3151d5a3192e54000450adbb0ee27ffdf46dfa43f63c76028d46e3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/lfs_file.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer",
+        "repo/unicode_escape_prompt"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-file"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "601ef230c1e246b85539fb6f32f866e8fb45acf262e1fddde1ee9f9119242259",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/lfs_file_find.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-file-find"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3e01b869f72938aaa99d57ea53ccb407230ea7151248e895db67d6fc10550586",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/lfs_locks.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/paginate",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-locks"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a8d70a7eeaf47cf1a44ac22d44784ae089454dc812f6b6da8f5479290eb1957f",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/lfs_pointers.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-pointers"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "df7ef096bb1700faf8f848cfbe9e23374cdbc1878bcc300d053ff985a969d24d",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/options.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/disable_form_autofill",
+        "repo/settings/layout_footer",
+        "repo/settings/push_mirror_sync_modal"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-options"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9a785460bdc89ed49511a0700232801d4fa6263f7792a39c1737c4fa974c6b05",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/protected_branch.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/search_name",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-protected-branch"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ad75022b2ab9dba5e9c13c876a99f1edd6a0b673166096ad98ff2cd96cc306ec",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/runner_create.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-runner-create"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "dcf4b3d535bd703e298ab072c674b18b6a601f19b6da0577d7bb3b3499b223eb",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/runner_details.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-runner-details"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "bfd0fa4291c9c68aad621225b00fc484f0566526a8a31ea3eda6acdb5803e58e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/runner_edit.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-runner-edit"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0bdd839f3a9db2ce4ee6c9370563f3cb58ee09532224776fb92ed6b398d3a5cc",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/runner_setup.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-runner-setup"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "b4eb24a418ab9d58cb1bdcd9bb2a0b655067631fd95079757750c5197516eac1",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/secrets.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-secrets"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "304182b7b4e50cd34d05f1ec8090afe97ec50a57a28eed91f94bef5c335e7d03",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/tags.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/search_name",
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-tags"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "63af84a2bb3f25d7246cdeadb64a90b0de16704618a2f7b5a0b762d753f06df2",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/units.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer",
+        "repo/settings/units/issues",
+        "repo/settings/units/overview",
+        "repo/settings/units/pulls",
+        "repo/settings/units/wiki"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-units"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "200027a136a07ffb5d9df48a66fdacd7b5b17a9ee626fa918e6a5b5553598484",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/webhook/base.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer",
+        "repo/settings/webhook/list"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-webhook-base"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8f0439bf40433c0635135129727ee4ecfe246f5e11e7cb080a4487891ddba2a8",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/settings/webhook/base_list.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/webhook/link_menu"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-webhook-list",
+        "soda-webhook-list-header"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "1f30d62b6334a388eaba234975e028a4fd10c891b5380f2baa6e0ef4956b0a21",
+      "upstreamCallers": [
+        "admin/hooks.tmpl",
+        "repo/settings/webhook/list.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/webhook/history.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "webhook/new.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-webhook-history",
+        "soda-webhook-history-header"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "faa65a38907fcac618176e4143933fd43f92825b4da6ff3127ea7d76d998c2f9",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/settings/webhook/new.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/layout_footer"
+      ],
+      "roles": [
+        "soda-repo-settings-detail",
+        "soda-repo-settings-webhook-new"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "472631b8414031feeaa39f8f134d55624e69fcb99e69b92508fe8cca222c3ce3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/sub_menu.tmpl",
+      "composition": "repository-workspace",
+      "owner": "repo",
+      "callers": [
+        "repo/branch/list.tmpl",
+        "repo/commits.tmpl",
+        "repo/home.tmpl",
+        "repo/release_tag_header.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-summary"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "b591397462844e94d90842cbf1eb5696030526cf945426344c924008928fd3de",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/tag/list.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "repo/tag/verification_box"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-heading",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "cf15123402e20e1d33603e55664657b4ddf7e3486b60ac5198a4cdb931ab8aa9",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/user_cards.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/watchers.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "base/paginate"
+      ],
+      "roles": [
+        "soda-code-people"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a58ddb4469520479dbb8c56f64d7d000bc82a231ff3ec95273eba8f554827e1c",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/view_file.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/home.tmpl",
+        "repo/view_list.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/file_info",
+        "repo/latest_commit",
+        "repo/unicode_escape_prompt"
+      ],
+      "roles": [
+        "soda-code-file"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e93ffa125e9c12a7c0cbd9aa0e34d788f89eded337e9d5d6d60e6e7f9f9c17ea",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/view_list.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/home.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/latest_commit"
+      ],
+      "roles": [
+        "soda-code-files"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "70082822582bd5bc0c53c0d62b3f58abeb56c7d8b3941f2270c5f9c0c51a5ca2",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "repo/watchers.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3b2221a381097551b0aa0c1aa452e576597695684459ea625fd357999dba4f6e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/new.tmpl",
+      "composition": "editor",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "shared/combomarkdowneditor"
+      ],
+      "roles": [
+        "soda-p-form",
+        "soda-p-gap",
+        "soda-repository-content",
+        "soda-wiki-editor"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "555a1674d87c659fc39910530eef173ea4462feacdfb40e464d629443edcbe43",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/pages.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-repository-content",
+        "soda-wiki-pages"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ed249a14b592052c380550399c0f742cb201b15d09042336645ac5a892f3b1f4",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/revision.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "repo/clone_script"
+      ],
+      "roles": [
+        "soda-repository-content",
+        "soda-wiki-revisions"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "7a5b7fa9afb05bcd47925b5a8385cb25a3e1a7371654fd3544c10f87e2ffd519",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/search.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-wiki-search-empty",
+        "soda-wiki-search-result"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "d4819edd2ff53be377ccfbd4b3778fa70aa74ba085920d24d7bb74a85722b2f9",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/start.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-repository-content",
+        "soda-wiki-start",
+        "soda-wiki-welcome-art"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9d1264f20e6894802a5aeb14a1a6208d2fa3af432be0757f672f08079cad6123",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/wiki/view.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "repo/clone_script",
+        "repo/unicode_escape_prompt"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-repository-content",
+        "soda-wiki-view"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "b25f6f6fef69dfde12f8a2bfe1b55493b934d675a0112e90978b21cd268b347e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "shared/actions/runner_create.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/runner_create.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-shared-runner",
+        "soda-shared-runner-create"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e98c6ddf3e8a9c741c9ccd095caf42179320899e45561688dd22251dc98c780d",
+      "upstreamCallers": [
+        "admin/runners/create.tmpl",
+        "org/settings/runners_create.tmpl",
+        "user/settings/runner_create.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/actions/runner_details.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/runner_details.tmpl"
+      ],
+      "nativeCalls": [
+        "base/paginate"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-shared-runner",
+        "soda-shared-runner-details"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3b99534421ff86ed4a991618462fc5cf27ec66d415e14e31d86719d69d8e85bc",
+      "upstreamCallers": [
+        "admin/runners/details.tmpl",
+        "org/settings/runners_details.tmpl",
+        "user/settings/runner_details.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/actions/runner_edit.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/runner_edit.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-shared-runner",
+        "soda-shared-runner-edit"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "1a2d21d092d7b9f7aae9637668e9522d9703e406b33b3baf58a524bbf9147203",
+      "upstreamCallers": [
+        "admin/runners/edit.tmpl",
+        "org/settings/runners_edit.tmpl",
+        "user/settings/runner_edit.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/actions/runner_list.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/actions.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-shared-runner",
+        "soda-shared-runner-list"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a81ef9b4cea2a5c0a4ce032bf7a1f37562483d2b42ce5ca72ab47cc6eb440c43",
+      "upstreamCallers": [
+        "admin/actions.tmpl",
+        "org/settings/actions.tmpl",
+        "user/settings/actions.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/actions/runner_setup.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/runner_setup.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-shared-runner",
+        "soda-shared-runner-setup"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "32e0beff8fc45acbaba46ef1ba9954eda863de7333f4f9c04b96389badee4d0d",
+      "upstreamCallers": [
+        "admin/runners/setup.tmpl",
+        "org/settings/runners_setup.tmpl",
+        "user/settings/runner_setup.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/blocked_users_list.tmpl",
+      "composition": "overview",
+      "owner": "shared",
+      "callers": [],
+      "nativeCalls": [
+        "shared/user/name"
+      ],
+      "roles": [
+        "soda-blocked-users"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "4f8bf39599178e8c7bceba1f0940b5fcfdf43768e6a0e05f6861e655e1186944",
+      "upstreamCallers": [
+        "org/settings/blocked_users.tmpl",
+        "user/settings/blocked_users.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/quota_overview.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-config-heading",
+        "soda-p-heading",
+        "soda-quota-overview"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "63972c7ee77bc7a354f9120ea2babe1d59908f162db4b425f3c9654e496c09a6",
+      "upstreamCallers": [
+        "org/settings/storage_overview.tmpl",
+        "user/settings/storage_overview.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/secrets/add_list.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/actions.tmpl",
+        "repo/settings/secrets.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-config-heading",
+        "soda-config-list",
+        "soda-p-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3cc76cfaee46cc811a558e0db168aba07aea04a1eff836bb4e51a0ce5e3ca58f",
+      "upstreamCallers": [
+        "org/settings/actions.tmpl",
+        "user/settings/actions.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "shared/variables/variable_list.tmpl",
+      "composition": "operations",
+      "owner": "shared",
+      "callers": [
+        "repo/settings/actions.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-config-heading",
+        "soda-config-list",
+        "soda-p-heading"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f619ed6d73ff4062087e3e74c61e83ad0123593239bc9aab9e13296cbb523542",
+      "upstreamCallers": [
+        "admin/actions.tmpl",
+        "org/settings/actions.tmpl",
+        "user/settings/actions.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "status/404.tmpl",
+      "composition": "focused-task",
+      "owner": "status",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-page",
+        "soda-page-container",
+        "soda-status",
+        "soda-status-art",
+        "soda-status-card",
+        "soda-status-version"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "195d984c79b3edd9778bae0f628575656bcc665b6aef933293ecd7357ad5dad5",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "status/413.tmpl",
+      "composition": "focused-task",
+      "owner": "status",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-page",
+        "soda-page-container",
+        "soda-status",
+        "soda-status-card"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "db53d1abc9d171d46c19efc676692f1c6c026fc07d02a1a22f9a8a3446ac7e0e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/activate.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "34e31a7616eb71aca5e26fba99dbfe3f8f3ed798d15490ba8cd7e384d7fc5aad",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/change_passwd.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "user/auth/change_passwd_inner"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "afa7737525fbed6f99bbffd9b3ccf31f9a5015ee16dc3b9f6999ae693f80a6a4",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/forgot_passwd.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "5699ab7c55caf5f6b0d0c6f3e8165342c63e31ace382f4cabf46684c5b492ce5",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/grant.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--grant",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2a45de15b60ba31da129044c10bf9c6bb2317bea7a0abfee76785fc8fe1dab89",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/grant_error.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--error",
+        "soda-p-section",
+        "soda-p-title",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "898efaab9433bb5042c20fa2fb0be34e8b0f439f121484d9c4cdee31e6e50629",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/link_account.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "user/auth/signin_inner",
+        "user/auth/signup_inner"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--link-account",
+        "soda-page",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ca6fa5f79b230a61004dfbe5730f338f4ade041b9f024f06fa10f831569a028b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/prohibit_login.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a4d5ee8130353fb7416ad1470702b73363732895ce2c993a391430c2adc6d6b4",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/reset_passwd.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-gap",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "83297dab704a36e2c32e4687dbdf4bccb5736f0fea0e656e28a988824ef08e11",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signin.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "user/auth/signin_inner"
+      ],
+      "roles": [
+        "soda-login",
+        "soda-login-account",
+        "soda-login-art",
+        "soda-login-brand",
+        "soda-login-eyebrow",
+        "soda-login-form",
+        "soda-login-intro",
+        "soda-login-logo-dark",
+        "soda-login-logo-light",
+        "soda-login-panel",
+        "soda-login-story",
+        "soda-login-tagline",
+        "soda-logo-horizontal",
+        "soda-logo-horizontal-dark",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2c16689be8c78eb66c7e88e64878e43fd9233e77691c89ce92bb8a424bd0273a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signin_openid.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "user/auth/webauthn_error"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--openid-signin",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "a7ae7b69c8cdaeab30e65910da764fcc7282c0ea90847f7203c012621f61338c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signup.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "user/auth/signup_inner"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "73c2d050b6da1faa551b90324ea1fee1e718ec1d4428fe61f25fe82c025a1eb4",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signup_openid_connect.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "user/auth/signup_openid_navbar"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--openid-connect",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "626106cd372e01c4768e64822edc9f21350ab977440b22ae24e43c13bae5751e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signup_openid_register.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "user/auth/captcha",
+        "user/auth/signup_openid_navbar"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--openid-register",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "86995a13831448e0212eca5a694f9cbaf519c3005f16fb3276d80ca55cbd630f",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/twofa.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0f0c345db8ecb80fa13a6b6ace3eab72287b79aa12b614ac10f2eafdd013be38",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/twofa_scratch.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "0f54356a1388e6cf57b3e9e68384bd8250618bc55028ec159ab20c5edd0126b2",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/webauthn.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "user/auth/webauthn_error"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "44e0444b45f278639f9023d92588b48acdb87bf2b9305291e8faf2ff4adf39d1",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/code.tmpl",
+      "composition": "detail",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/search/code/search",
+        "shared/user/profile_big_avatar"
+      ],
+      "roles": [
+        "soda-code-search",
+        "soda-owner-code",
+        "soda-owner-code-title",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-profile",
+        "soda-profile-card-context",
+        "soda-profile-content",
+        "soda-profile-identity",
+        "soda-profile-layout"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "e4255ba5d015eabbebeac710a745c763638b178c7575cef2d82fd902505bcd8b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/dashboard/dashboard.tmpl",
+      "composition": "overview",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "user/dashboard/feeds",
+        "user/dashboard/guide",
+        "user/dashboard/navbar",
+        "user/dashboard/repolist",
+        "user/heatmap"
+      ],
+      "roles": [
+        "soda-activity-title",
+        "soda-context-switcher",
+        "soda-dashboard",
+        "soda-dashboard-art",
+        "soda-dashboard-discover",
+        "soda-dashboard-feed",
+        "soda-dashboard-grid",
+        "soda-dashboard-heading",
+        "soda-dashboard-sidebar",
+        "soda-dashboard-title",
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-toolbar",
+        "soda-toolbar--plain"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c52db97f959e0ca554ee1844a668bd5165f4e53282f7ead0ba140e189c27f03a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/dashboard/issues.tmpl",
+      "composition": "collection",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "shared/issuelist",
+        "shared/label_filter",
+        "shared/search/combo",
+        "shared/search/issue/syntax",
+        "user/dashboard/navbar"
+      ],
+      "roles": [
+        "soda-context-switcher",
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-pulls",
+        "soda-tabs",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "024dea4b397e9a5843eb459b4805861881012ee88cc09e43aa3d7809908bc246",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/dashboard/milestones.tmpl",
+      "composition": "collection",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "shared/search/combo",
+        "user/dashboard/navbar"
+      ],
+      "roles": [
+        "soda-context-switcher",
+        "soda-empty",
+        "soda-milestones",
+        "soda-p-gap",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-tabs",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "53ff1a61932955c4c175b82d11bec25b8a9d478b867487db2045bce1108eb249",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/notification/notification_div.tmpl",
+      "composition": "collection",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/paginate",
+        "shared/issueicon"
+      ],
+      "roles": [
+        "soda-empty",
+        "soda-empty--inset",
+        "soda-list",
+        "soda-notifications",
+        "soda-notifications-toolbar",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-preview",
+        "soda-tabs",
+        "soda-toolbar",
+        "soda-toolbar-action",
+        "soda-toolbar-action--primary"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "d25776fa046a54241a04d4c02060f19787947a441650eae55e4d7871c3763473",
+      "upstreamCallers": [
+        "user/notification/notification.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "user/notification/notification_subscriptions.tmpl",
+      "composition": "collection",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "explore/repo_list",
+        "shared/issuelist",
+        "shared/repo_search"
+      ],
+      "roles": [
+        "soda-empty",
+        "soda-list",
+        "soda-notifications",
+        "soda-notifications-toolbar",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-title",
+        "soda-subscriptions-toolbar",
+        "soda-tabs",
+        "soda-toolbar",
+        "soda-toolbar-action"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "12d856a8d3bc1a5213b4858b42f8badd8c51037a5361e19df7d7d271d1a4a66c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/overview/header.tmpl",
+      "composition": "detail",
+      "owner": "user",
+      "callers": [
+        "org/projects/list.tmpl",
+        "org/projects/new.tmpl",
+        "org/projects/view.tmpl",
+        "package/settings.tmpl",
+        "package/view.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-page-marker",
+        "soda-tabs"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9c14f62e957d7e65ca9508c1bfe9d685f14182bb496a5f25d9952e3f147571e5",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "user/overview/package_versions.tmpl",
+      "composition": "detail",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/user/profile_big_avatar"
+      ],
+      "roles": [
+        "soda-package-versions",
+        "soda-packages",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-page-title",
+        "soda-profile-card-context"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "85701dab07509e053f67feaf177b91bc56e8bf10be5d40e8b0e3749f60e483e3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/overview/packages.tmpl",
+      "composition": "detail",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/footer",
+        "base/head",
+        "shared/user/profile_big_avatar"
+      ],
+      "roles": [
+        "soda-packages",
+        "soda-packages-index",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-page-title",
+        "soda-profile-card-context"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "8adf68cd15e613a6b51cc9be75d3135500613e9e4fa8023c0cd234b3574c262a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/profile.tmpl",
+      "composition": "overview",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/alert",
+        "base/footer",
+        "base/head",
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "explore/repo_list",
+        "shared/repo_search",
+        "shared/user/profile_big_avatar",
+        "user/dashboard/feeds",
+        "user/heatmap"
+      ],
+      "roles": [
+        "soda-list",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-page-container",
+        "soda-profile",
+        "soda-profile-card-context",
+        "soda-profile-content",
+        "soda-profile-identity",
+        "soda-profile-layout",
+        "soda-profile-readme",
+        "soda-profile-repositories",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c6536c90eb132197aed5362f0d36545ce51399a2c7402b2ec1a88c45a45281b3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/access_token_edit.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "user/settings/repo_icon"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--access-token",
+        "soda-account-details-page",
+        "soda-account-details-page--access-token",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "240644fbc9f48470551cb8cd50962995c05fb7e0b2ff2743061c63da545b2420",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/account.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/disable_form_autofill",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--account",
+        "soda-account-details-page",
+        "soda-account-details-page--account",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "955afb2fe15ebe59da5579c9666fee4fa31c8dbcbd257fb1e602a2723e384732",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/appearance.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--appearance",
+        "soda-account-details-page",
+        "soda-account-details-page--appearance",
+        "soda-form",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "f4691071bd84d3fc521ccdd6547d4b30de42b4cbf9817c3b0de201a6e2889611",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/applications.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "user/settings/applications_oauth2",
+        "user/settings/grants_oauth2"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--applications",
+        "soda-account-details-page",
+        "soda-account-details-page--applications",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "c8cb7d403250e024078e853d8d5b890d65f4ba397aa8c7ef40b02bd191f8c82e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/applications_oauth2_edit.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "user/settings/applications_oauth2_edit_form"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--oauth2-edit",
+        "soda-account-details-page",
+        "soda-account-details-page--oauth2-edit"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "b972d1d198e1cb46171f35a2e182391c92174c619fbf8c6903b666a220896981",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/applications_oauth2_list.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [
+        "admin/applications/list.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-form",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "6737c4b6e1f6a1437295a500dea3696a8a56bee1074a06e49e318623a1b85662",
+      "upstreamCallers": [
+        "org/settings/applications.tmpl",
+        "user/settings/applications_oauth2.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "user/settings/hooks.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/webhook/list"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2c106f2dbed49db6d902d7f361f3c217c0597e9de2bb6bdf28990a0e3d6a6521",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/keys.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "user/settings/keys_gpg",
+        "user/settings/keys_principal",
+        "user/settings/keys_ssh"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--keys",
+        "soda-account-details-page",
+        "soda-account-details-page--keys"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "15ca73e32e652169f38c3c2fd51b0877d024cd24b76f642638d32957bff4c26b",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/layout_footer.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [
+        "user/settings/access_token_edit.tmpl",
+        "user/settings/account.tmpl",
+        "user/settings/appearance.tmpl",
+        "user/settings/applications.tmpl",
+        "user/settings/applications_oauth2_edit.tmpl",
+        "user/settings/hooks.tmpl",
+        "user/settings/keys.tmpl",
+        "user/settings/organization.tmpl",
+        "user/settings/packages.tmpl",
+        "user/settings/profile.tmpl",
+        "user/settings/security/security.tmpl",
+        "user/settings/security/twofa_enroll.tmpl"
+      ],
+      "nativeCalls": [
+        "base/footer"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "dc8fd5dd9901e8f52dc2abc40fcdb3aecdf0436daa3f32d5ed251ce3509e0d22",
+      "upstreamCallers": [
+        "user/settings/actions.tmpl",
+        "user/settings/blocked_users.tmpl",
+        "user/settings/hook_new.tmpl",
+        "user/settings/packages_cleanup_rules_edit.tmpl",
+        "user/settings/packages_cleanup_rules_preview.tmpl",
+        "user/settings/repos.tmpl",
+        "user/settings/runner_create.tmpl",
+        "user/settings/runner_details.tmpl",
+        "user/settings/runner_edit.tmpl",
+        "user/settings/runner_setup.tmpl",
+        "user/settings/storage_overview.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "user/settings/layout_head.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [
+        "user/settings/access_token_edit.tmpl",
+        "user/settings/account.tmpl",
+        "user/settings/appearance.tmpl",
+        "user/settings/applications.tmpl",
+        "user/settings/applications_oauth2_edit.tmpl",
+        "user/settings/hooks.tmpl",
+        "user/settings/keys.tmpl",
+        "user/settings/organization.tmpl",
+        "user/settings/packages.tmpl",
+        "user/settings/profile.tmpl",
+        "user/settings/security/security.tmpl",
+        "user/settings/security/twofa_enroll.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "base/head",
+        "user/settings/navbar"
+      ],
+      "roles": [
+        "soda-native-forms",
+        "soda-page",
+        "soda-page-container",
+        "soda-page-intro--compact",
+        "soda-settings",
+        "soda-settings-layout",
+        "soda-settings-title"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "3b54355c23e59f565fead728195a4f2b39249c1b9e0c454b628b3fffd575687b",
+      "upstreamCallers": [
+        "user/settings/actions.tmpl",
+        "user/settings/blocked_users.tmpl",
+        "user/settings/hook_new.tmpl",
+        "user/settings/packages_cleanup_rules_edit.tmpl",
+        "user/settings/packages_cleanup_rules_preview.tmpl",
+        "user/settings/repos.tmpl",
+        "user/settings/runner_create.tmpl",
+        "user/settings/runner_details.tmpl",
+        "user/settings/runner_edit.tmpl",
+        "user/settings/runner_setup.tmpl",
+        "user/settings/storage_overview.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "user/settings/organization.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "base/paginate",
+        "shared/user/name"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "2b825bf375edc4cc5fdb89fef78b37740bcba517627dd0c30b3961da22f6a844",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/packages.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "144ecab59a5c737cd61287bdc6f1daf1ed0dff8f13b1fd3d0542f4555ac7af59",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/profile.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--profile",
+        "soda-account-details-page",
+        "soda-account-details-page--profile",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "53e8d1ac1f35054b0526a40b6f6681ebe7e05340ed7ad9e7e27db5b071a21f17",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/security/security.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "user/settings/security/accountlinks",
+        "user/settings/security/openid",
+        "user/settings/security/twofa",
+        "user/settings/security/webauthn"
+      ],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--security",
+        "soda-account-details-page",
+        "soda-account-details-page--security"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "9a663af02bee86e8ac994432979806cbdd20e30dc277f55825c812cf35fa7669",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/settings/security/twofa_enroll.tmpl",
+      "composition": "settings",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-details",
+        "soda-account-details--twofa-enroll",
+        "soda-account-details-page",
+        "soda-account-details-page--twofa-enroll",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "837c1d1be75dc8e08dfad642207dc12bfc9d50ab84e427c413fbb6e506ee5506",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "webhook/new.tmpl",
+      "composition": "operations",
+      "owner": "webhook",
+      "callers": [
+        "repo/settings/webhook/new.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/settings/webhook/link_menu",
+        "webhook/new/dingtalk",
+        "webhook/new/discord",
+        "webhook/new/feishu",
+        "webhook/new/forgejo",
+        "webhook/new/gitea",
+        "webhook/new/gogs",
+        "webhook/new/matrix",
+        "webhook/new/msteams",
+        "webhook/new/packagist",
+        "webhook/new/slack",
+        "webhook/new/sourcehut_builds",
+        "webhook/new/telegram",
+        "webhook/new/wechatwork"
+      ],
+      "roles": [
+        "soda-p-heading",
+        "soda-webhook-heading",
+        "soda-webhook-provider"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "69048eb397536c294f63bd89d4ee97246435922ba0e5d05aae85e61a83f44e07",
+      "upstreamCallers": [
+        "admin/hook_new.tmpl",
+        "org/settings/hook_new.tmpl",
+        "user/settings/hook_new.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    },
+    {
+      "template": "webhook/shared-settings.tmpl",
+      "composition": "operations",
+      "owner": "webhook",
+      "callers": [],
+      "nativeCalls": [
+        "repo/settings/webhook/delete_modal"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-webhook-events"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": "pending",
+      "beforeRoleHash": "ae8ff65faee65f7c904da0df2e6a0c4e638a786bcf66264c0192f13e22beb56a",
+      "upstreamCallers": [
+        "webhook/new/dingtalk.tmpl",
+        "webhook/new/discord.tmpl",
+        "webhook/new/feishu.tmpl",
+        "webhook/new/forgejo.tmpl",
+        "webhook/new/gitea.tmpl",
+        "webhook/new/gogs.tmpl",
+        "webhook/new/matrix.tmpl",
+        "webhook/new/msteams.tmpl",
+        "webhook/new/packagist.tmpl",
+        "webhook/new/slack.tmpl",
+        "webhook/new/sourcehut_builds.tmpl",
+        "webhook/new/telegram.tmpl",
+        "webhook/new/wechatwork.tmpl"
+      ],
+      "entryPoint": "shared partial"
+    }
+  ]
+}

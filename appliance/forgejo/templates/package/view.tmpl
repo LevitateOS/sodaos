@@ -78,7 +78,7 @@
 					{{end}}
 				</div>
 				{{if not (eq .PackageDescriptor.Package.Type "container")}}
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 					<strong>{{ctx.Locale.Tr "packages.assets"}} ({{len .PackageDescriptor.Files}})</strong>
 					<div class="ui relaxed list">
 					{{range .PackageDescriptor.Files}}
@@ -89,7 +89,7 @@
 					{{end}}
 					</div>
 				{{end}}
-				<div class="divider"></div>
+				<div class="divider soda-p-gap"></div>
 				<strong>{{ctx.Locale.Tr "packages.versions"}} ({{.TotalVersionCount}})</strong>
 				<a class="tw-float-right" href="{{$.PackageDescriptor.PackageWebLink}}/versions">{{ctx.Locale.Tr "packages.versions.view_all"}}</a>
 				<div class="ui relaxed list">
@@ -101,7 +101,7 @@
 				{{end}}
 				</div>
 				{{if or .CanWritePackages .HasRepositoryAccess}}
-					<div class="divider"></div>
+					<div class="divider soda-p-gap"></div>
 					<div class="ui relaxed list">
 						{{if .HasRepositoryAccess}}
 						<div class="item">{{svg "octicon-issue-opened" 16 "tw-mr-2"}} <a href="{{.PackageDescriptor.Repository.Link}}/issues">{{ctx.Locale.Tr "repo.issues"}}</a></div>

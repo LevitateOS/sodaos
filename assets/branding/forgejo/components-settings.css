@@ -11,7 +11,7 @@
 }
 
 :is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu > .header.item {
-	padding: 10px 12px 14px;
+	padding: 8px 12px 12px;
 	border-bottom: 0;
 	background: transparent;
 	color: var(--soda-page-text);
@@ -19,8 +19,8 @@
 }
 
 :is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu :is(a.item, details.item > summary) {
-	margin: 3px 6px;
-	padding: 10px 12px;
+	margin: 4px 4px;
+	padding: 8px 12px;
 	border: 0;
 	border-radius: 8px;
 	color: var(--soda-page-muted);
@@ -38,7 +38,7 @@
 }
 
 :is(.soda-settings-layout, .soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu details.item > .menu {
-	margin: 0 6px 8px 14px;
+	margin: 0 4px 8px 12px;
 	padding-left: 4px;
 }
 
@@ -49,7 +49,7 @@
 }
 
 :is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
-	margin-top: 28px;
+	margin-top: 24px;
 	padding: 0 0 16px;
 	border: 0;
 	border-bottom: 0;

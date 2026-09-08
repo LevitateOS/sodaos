@@ -4,7 +4,7 @@
 	{{template "repo/header" .}}
 	<div class="ui container">
 		{{template "repo/sub_menu" .}}
-		<div class="repo-button-row soda-toolbar">
+		<div class="repo-button-row soda-toolbar soda-p-toolbar">
 			<div class="tw-flex tw-items-center">
 				{{template "repo/branch_dropdown" dict "root" . "ContainerClasses" "tw-mr-1"}}
 				<a href="{{.RepoLink}}/graph" class="ui basic small compact button">

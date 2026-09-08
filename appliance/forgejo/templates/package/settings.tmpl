@@ -11,12 +11,12 @@
 		{{end}}
 		{{template "base/alert" .}}
 		<p><a href="{{.PackageDescriptor.VersionWebLink}}">{{.PackageDescriptor.Package.Name}} ({{.PackageDescriptor.Version.Version}})</a> / <strong>{{ctx.Locale.Tr "repo.settings"}}</strong></p>
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "packages.settings.link"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<p>{{ctx.Locale.Tr "packages.settings.link.description"}}</p>
-			<form class="ui form soda-form" action="{{.Link}}" method="post">
+			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<input type="hidden" name="action" value="link">
 				<div class="field">
@@ -40,7 +40,7 @@
 				</div>
 			</form>
 		</div>
-		<h4 class="ui top attached error header">
+		<h4 class="ui top attached error header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.danger_zone"}}
 		</h4>
 		<div class="ui attached error danger segment">

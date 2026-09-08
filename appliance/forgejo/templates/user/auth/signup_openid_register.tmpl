@@ -5,14 +5,14 @@
 	{{template "user/auth/signup_openid_navbar" .}}
 	<div class="ui container">
 				{{template "base/alert" .}}
-				<h4 class="ui top attached header">
+				<h4 class="ui top attached header soda-p-heading">
 					{{ctx.Locale.Tr "auth.openid_register_title"}}
 				</h4>
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					<p class="tw-max-w-2xl tw-mx-auto">
 						{{ctx.Locale.Tr "auth.openid_register_desc"}}
 					</p>
-					<form class="ui form" action="{{.Link}}" method="post">
+					<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 					<div class="required field {{if .Err_UserName}}error{{end}}">
 						<label for="user_name">{{ctx.Locale.Tr "username"}}</label>
 						<input id="user_name" type="text" name="user_name" value="{{.user_name}}" autofocus required autocorrect="off" autocapitalize="none">

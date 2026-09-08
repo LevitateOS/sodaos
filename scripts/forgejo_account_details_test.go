@@ -279,5 +279,5 @@ func readForgejoAccountDetailTemplate(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	return string(contents)
+	return withoutForgejoPresentationRoles(string(contents))
 }

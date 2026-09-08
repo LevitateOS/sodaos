@@ -6,7 +6,7 @@
 		{{template "base/alert" .}}
 		{{template "repo/sub_menu" .}}
 		{{if .DefaultBranchBranch}}
-			<h4 class="ui top attached header">
+			<h4 class="ui top attached header soda-p-heading">
 				{{ctx.Locale.Tr "repo.default_branch"}}
 				{{if and $.Permission.IsAdmin (not $.Repository.IsArchived) (not .IsDeleted)}}
 				<a role="button" class="right" href="{{.RepoLink}}/settings/branches" data-tooltip-content="{{ctx.Locale.Tr "repo.settings.branches.switch_default_branch"}}">
@@ -67,7 +67,7 @@
 			</div>
 		{{end}}
 
-		<h4 class="ui top attached header tw-flex tw-items-center tw-justify-between">
+		<h4 class="ui top attached header tw-flex tw-items-center tw-justify-between soda-p-heading">
 			<div class="tw-flex tw-items-center">
 				{{ctx.Locale.Tr "repo.branches"}}
 			</div>

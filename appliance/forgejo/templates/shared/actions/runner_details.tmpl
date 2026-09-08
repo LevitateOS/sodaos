@@ -1,5 +1,5 @@
 <div class="runner-container soda-shared-runner soda-shared-runner-details">
-	<h4 class="ui top attached header">
+	<h4 class="ui top attached header soda-p-heading">
 		{{ctx.Locale.Tr "actions.runners.runner_title" .Runner.Name}}
 		{{if .Runner.Editable $.RunnerOwnerID $.RunnerRepoID}}
 			<div class="ui right">
@@ -110,7 +110,7 @@
 		</dl>
 	</div>
 
-	<h4 class="ui top attached header">
+	<h4 class="ui top attached header soda-p-heading">
 		{{if .IsRepo}}
 			{{ctx.Locale.Tr "actions.runners.task_list_repo"}}
 		{{else if .IsOrg}}

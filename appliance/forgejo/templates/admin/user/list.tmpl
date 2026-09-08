@@ -3,13 +3,13 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 4bb9ad9fa86b8ea034004ef268c8b3e81243c77aba9babe2a287aae98d8f3bf3 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin user")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--user-list">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.users.user_manage_panel"}} ({{ctx.Locale.Tr "admin.total" .Total}})
 			<div class="ui right">
 				<a class="ui primary tiny button" href="{{AppSubUrl}}/admin/users/new">{{ctx.Locale.Tr "admin.users.new_account"}}</a>
 			</div>
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form ignore-dirty" id="user-list-search-form">
 
 				<!-- Right Menu -->
@@ -20,22 +20,22 @@ Embedded source SHA-256: 4bb9ad9fa86b8ea034004ef268c8b3e81243c77aba9babe2a287aae
 						{{svg "octicon-triangle-down" 14 "dropdown icon"}}
 						<div class="menu">
 							<a class="item j-reset-status-filter">{{ctx.Locale.Tr "admin.users.list_status_filter.reset"}}</a>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[is_admin]" value="1"> {{ctx.Locale.Tr "admin.users.list_status_filter.is_admin"}}</label>
 							<label class="item"><input type="radio" name="status_filter[is_admin]" value="0"> {{ctx.Locale.Tr "admin.users.list_status_filter.not_admin"}}</label>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[is_active]" value="1"> {{ctx.Locale.Tr "admin.users.list_status_filter.is_active"}}</label>
 							<label class="item"><input type="radio" name="status_filter[is_active]" value="0"> {{ctx.Locale.Tr "admin.users.list_status_filter.not_active"}}</label>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[is_restricted]" value="0"> {{ctx.Locale.Tr "admin.users.list_status_filter.not_restricted"}}</label>
 							<label class="item"><input type="radio" name="status_filter[is_restricted]" value="1"> {{ctx.Locale.Tr "admin.users.list_status_filter.is_restricted"}}</label>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[is_prohibit_login]" value="0"> {{ctx.Locale.Tr "admin.users.list_status_filter.not_prohibit_login"}}</label>
 							<label class="item"><input type="radio" name="status_filter[is_prohibit_login]" value="1"> {{ctx.Locale.Tr "admin.users.list_status_filter.is_prohibit_login"}}</label>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[is_2fa_enabled]" value="1"> {{ctx.Locale.Tr "admin.users.list_status_filter.is_2fa_enabled"}}</label>
 							<label class="item"><input type="radio" name="status_filter[is_2fa_enabled]" value="0"> {{ctx.Locale.Tr "admin.users.list_status_filter.not_2fa_enabled"}}</label>
-							<div class="divider"></div>
+							<div class="divider soda-p-gap"></div>
 							<label class="item"><input type="radio" name="status_filter[account_type]" value="0"> {{ctx.Locale.Tr "admin.users.local"}}</label>
 							<label class="item"><input type="radio" name="status_filter[account_type]" value="2"> {{ctx.Locale.Tr "admin.users.reserved"}}</label>
 							<label class="item"><input type="radio" name="status_filter[account_type]" value="4"> {{ctx.Locale.Tr "admin.users.bot"}}</label>
@@ -63,7 +63,7 @@ Embedded source SHA-256: 4bb9ad9fa86b8ea034004ef268c8b3e81243c77aba9babe2a287aae
 				{{template "shared/search/combo" dict "Value" .Keyword "Placeholder" (ctx.Locale.Tr "search.user_kind")}}
 			</form>
 		</div>
-		<div class="ui attached table segment">
+		<div class="ui attached table segment soda-p-section">
 			<table class="ui very basic striped table unstackable">
 				<thead>
 					<tr>

@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/repo/editor/commit_form.tmpl (GPL-3.0-or-later); upstream SHA-256 035bfa6d45ab6af8988c5695b74aa332e723f300d237ca8ff0c184a19793fb68. Presentation changes only. */}}
 <div class="commit-form-wrapper">
 	{{ctx.AvatarUtils.Avatar .SignedUser 48 "commit-avatar"}}
-	<div class="commit-form soda-form-section">
+	<div class="commit-form soda-form-section soda-p-section">
 		<h3 class="soda-code-commit-title">{{- if .CanCommitToBranch.WillSign}}
 			<span title="{{ctx.Locale.Tr "repo.signing.will_sign" .CanCommitToBranch.SigningKey}}">{{svg "octicon-lock" 24}}</span>
 			{{ctx.Locale.Tr "repo.editor.commit_signed_changes"}}

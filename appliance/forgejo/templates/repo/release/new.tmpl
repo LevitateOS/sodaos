@@ -2,7 +2,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository new release soda-repository-content soda-release-editor">
 	{{template "repo/header" .}}
 	<div class="ui container">
-		<h2 class="ui dividing header">
+		<h2 class="ui dividing header soda-p-heading">
 			{{if .PageIsEditRelease}}
 				{{ctx.Locale.Tr "repo.release.edit_release"}}
 				<div class="sub header">{{ctx.Locale.Tr "repo.release.edit_subheader"}}</div>
@@ -12,7 +12,7 @@
 			{{end}}
 		</h2>
 		{{template "base/alert" .}}
-		<form class="ui form" action="{{.Link}}" method="post">
+		<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<div class="ui seven wide target">
 				<div class="inline field {{if .Err_TagName}}error{{end}}">
 					{{if .PageIsEditRelease}}
@@ -105,7 +105,7 @@
 					</div>
 				{{end}}
 			</div>
-			<div class="divider"></div>
+			<div class="divider soda-p-gap"></div>
 			<div class="ui">
 				<div>
 					<fieldset>
@@ -130,7 +130,7 @@
 							</label>
 						{{end}}
 					</fieldset>
-					<div class="divider tw-mt-0"></div>
+					<div class="divider tw-mt-0 soda-p-gap"></div>
 					{{if .PageIsEditRelease}}
 						<div class="button-sequence tw-justify-between">
 							<a class="danger button delete-button" data-url="{{$.RepoLink}}/releases/delete" data-id="{{.ID}}" data-modal-id="delete-release">

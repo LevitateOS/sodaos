@@ -2,11 +2,11 @@
 <div role="main" aria-label="{{.Title}}" class="page-content soda-page soda-auth soda-native-forms user signin" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	<div class="ui middle very relaxed page grid">
 		<div class="column">
-			<form class="ui form tw-max-w-2xl tw-m-auto" action="{{.Link}}" method="post">
-				<h3 class="ui top attached header">
+			<form class="ui form tw-max-w-2xl tw-m-auto soda-p-form" action="{{.Link}}" method="post">
+				<h3 class="ui top attached header soda-p-heading">
 					{{ctx.Locale.Tr "twofa_scratch"}}
 				</h3>
-				<div class="ui attached segment">
+				<div class="ui attached segment soda-p-section">
 					{{template "base/alert" .}}
 					<div class="required field">
 						<label for="token">{{ctx.Locale.Tr "auth.scratch_code"}}</label>

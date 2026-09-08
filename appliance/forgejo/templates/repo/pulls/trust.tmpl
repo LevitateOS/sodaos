@@ -12,7 +12,7 @@ Template Attributes:
 {{if .CanReadUnitActions}}
 	{{if and .UserCanDelegateTrustWithPullRequest .PullRequestPosterIsExplicitlyTrustedWithActions}}
 		<div class="pull-request-trust-panel soda-pull-trust-panel" id="pull-request-trust-panel">
-			<div class="divider"></div>
+			<div class="divider soda-p-gap"></div>
 			<div class="item item-section">
 				<div data-tooltip-content="{{ctx.Locale.Tr "repo.pulls.poster_is_trusted.tooltip"}}">
 					{{ctx.Locale.Tr "repo.pulls.poster_is_trusted" "https://forgejo.org/docs/latest/user/actions/security-pull-request/"}}
@@ -25,7 +25,7 @@ Template Attributes:
 		</div>
 	{{else if .SomePullRequestRunsNeedApproval}}
 		<div class="pull-request-trust-panel soda-pull-trust-panel" id="pull-request-trust-panel">
-			<div class="divider"></div>
+			<div class="divider soda-p-gap"></div>
 			<div class="item item-section">
 				<div data-tooltip-content="{{ctx.Locale.Tr "repo.pulls.poster_requires_approval.tooltip"}}">
 					{{svg "octicon-alert" 16 "text red"}}

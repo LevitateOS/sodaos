@@ -4,7 +4,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 32px 18px;
+  padding: 32px 16px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -18,7 +18,7 @@
   box-sizing: border-box;
   width: 76px;
   height: 76px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: 24px 24px 24px 8px;
   background: var(--soda-page-canvas);
@@ -41,7 +41,7 @@
 }
 
 .soda-empty .soda-empty-title, .soda-list > #empty-feed > h2 {
-  margin: 0 0 14px;
+  margin: 0 0 12px;
   color: var(--soda-page-text);
   font: 600 clamp(26px, 3vw, 34px)/1.2 "Fraunces Variable", Georgia, serif;
   letter-spacing: -.025em;
@@ -59,9 +59,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px 18px;
+  gap: 16px 16px;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .soda-empty-actions a {
@@ -75,7 +75,7 @@
 
 .soda-empty-actions .soda-empty-primary {
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 12px 16px;
   color: var(--soda-page-on-action);
   background: var(--soda-page-action);
 }
@@ -95,9 +95,9 @@
 }
 
 /* Native dashboard guide keeps its translated links and directory visibility gates. */
-.soda-list > #empty-feed { padding: 32px 18px !important; }
+.soda-list > #empty-feed { padding: 32px 16px !important; }
 .soda-list > #empty-feed > svg { padding: 16px; }
-.soda-list > #empty-feed > .help { margin: 16px auto 18px; }
+.soda-list > #empty-feed > .help { margin: 16px auto 16px; }
 .soda-list > #empty-feed > div { line-height: 2; }
 @media (max-width: 700px) {
   .soda-list > #empty-feed { padding: 24px 16px !important; }
@@ -105,7 +105,7 @@
 
 /* Native issue search feedback remains inside its result list. */
 .soda-list #issue-list > .tw-text-center {
-  padding: 32px 18px !important;
+  padding: 32px 16px !important;
 }
 
 .soda-list #issue-list > .tw-text-center h3 {

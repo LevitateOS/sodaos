@@ -9,7 +9,7 @@
 				<a class="{{if eq .ShowGoroutineList "stacktrace"}}active {{end}}item" href="?show=stacktrace">{{ctx.Locale.Tr "admin.monitor.stacktrace"}}</a>
 			</div>
 		</div>
-		<form target="_blank" action="{{AppSubUrl}}/admin/monitor/diagnosis" class="ui form soda-form tw-flex tw-gap-3">
+		<form target="_blank" action="{{AppSubUrl}}/admin/monitor/diagnosis" class="ui form soda-form tw-flex tw-gap-3 soda-p-form">
 			<label class="tw-flex tw-gap-2 tw-items-center tw-whitespace-nowrap">
 				{{ctx.Locale.Tr "admin.monitor.duration"}}
 				<input type="number" name="seconds" max="300" min="0" value="10">
@@ -18,15 +18,15 @@
 		</form>
 	</div>
 
-	<div class="divider"></div>
+	<div class="divider soda-p-gap"></div>
 
-	<h4 class="ui top attached header">
+	<h4 class="ui top attached header soda-p-heading">
 		{{printf "%d Goroutines" .GoroutineCount}}{{/* Goroutine is non-translatable*/}}
 		{{- if .ProcessCount -}}, {{ctx.Locale.Tr "admin.monitor.processes_count" .ProcessCount}}{{- end -}}
 	</h4>
 
 	{{if .ProcessStacks}}
-	<div class="ui attached segment">
+	<div class="ui attached segment soda-p-section">
 		<div class="ui relaxed divided list">
 			{{range .ProcessStacks}}
 				{{template "admin/stacktrace-row" dict "Process" . "root" $}}

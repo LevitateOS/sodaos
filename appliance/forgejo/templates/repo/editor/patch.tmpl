@@ -4,7 +4,7 @@
 	{{template "repo/header" .}}
 	<div class="ui container">
 		{{template "base/alert" .}}
-		<form class="soda-form ui edit form" method="post" action="{{.RepoLink}}/_diffpatch/{{.BranchName | PathEscapeSegments}}">
+		<form class="soda-form ui edit form soda-p-form" method="post" action="{{.RepoLink}}/_diffpatch/{{.BranchName | PathEscapeSegments}}">
 			<input type="hidden" name="last_commit" value="{{.last_commit}}">
 			<input type="hidden" name="page_has_posted" value="{{.PageHasPosted}}">
 			<div class="repo-editor-header">
@@ -25,7 +25,7 @@
 					</div>
 					<button class="secondary button" id="editor-find" type="button">{{svg "octicon-search"}}<span class="text not-mobile">Search</span></button>
 				</div>
-				<div class="ui bottom attached active tab segment" data-tab="write">
+				<div class="ui bottom attached active tab segment soda-p-section" data-tab="write">
 					<textarea id="edit_area" name="content" class="tw-hidden" data-id="repo-{{.Repository.Name}}-patch"
 						data-context="{{.RepoLink}}"
 						data-line-wrap-extensions="{{.LineWrapExtensions}}">

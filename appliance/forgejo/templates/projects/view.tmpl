@@ -3,7 +3,7 @@
 {{$canWriteProject := and .CanWriteProjects (or (not .Repository) (not .Repository.IsArchived))}}
 
 <div class="ui container tw-max-w-full soda-project-board-header">
-	<div class="tw-flex max-sm:tw-flex-col tw-justify-between tw-items-center tw-mb-4 tw-gap-3 soda-toolbar soda-toolbar--plain soda-project-board-toolbar">
+	<div class="tw-flex max-sm:tw-flex-col tw-justify-between tw-items-center tw-mb-4 tw-gap-3 soda-toolbar soda-toolbar--plain soda-project-board-toolbar soda-p-toolbar">
 		<h2 class="tw-mb-0 tw-flex-1 tw-break-anywhere">{{.Project.Title}}</h2>
 		{{if $canWriteProject}}
 			<div class="ui compact mini menu">
@@ -62,7 +62,7 @@
 
 	<div class="content markup soda-project-board-description">{{$.Project.RenderedContent}}</div>
 
-	<div class="divider"></div>
+	<div class="divider soda-p-gap"></div>
 </div>
 
 <div id="project-board" class="soda-project-board">
@@ -155,7 +155,7 @@
 						</div>
 					{{end}}
 				</div>
-				<div class="divider"{{if .Color}} style="color: {{ContrastColor .Color}} !important"{{end}}></div>
+				<div class="divider soda-p-gap"{{if .Color}} style="color: {{ContrastColor .Color}} !important"{{end}}></div>
 				<div class="ui cards" data-url="{{$.Link}}/{{.ID}}" data-project="{{$.Project.ID}}" data-board="{{.ID}}" id="board_{{.ID}}">
 					{{range (index $.IssuesMap .ID)}}
 						<div class="issue-card tw-break-anywhere {{if $canWriteProject}}tw-cursor-grab{{end}}" data-issue="{{.ID}}">

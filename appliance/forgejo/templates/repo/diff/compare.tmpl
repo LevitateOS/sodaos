@@ -4,7 +4,7 @@
 	{{template "repo/header" .}}
 	{{$showDiffBox := false}}
 	{{$canReadPullRequests := .Permission.CanRead $.UnitTypePullRequests}}
-	<div class="ui container fluid padded">
+	<div class="ui container fluid padded soda-p-form-host">
 	<h2 class="ui header">
 		{{if and $.PageIsComparePull $.IsSigned (not .Repository.IsArchived)}}
 			{{if $canReadPullRequests}}

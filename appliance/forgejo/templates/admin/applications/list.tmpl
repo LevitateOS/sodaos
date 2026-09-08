@@ -3,7 +3,7 @@ Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 30c2f9040fba74ba77bcf3f17c4ef191b827a1aca11b43f190f6fec0716b8cb9 */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--applications">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 				{{ctx.Locale.Tr "settings.applications"}}
 		</h4>
 		{{template "user/settings/applications_oauth2_list" .}}

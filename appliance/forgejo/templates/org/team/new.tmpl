@@ -6,11 +6,11 @@
 	<div class="ui container">
 		<div class="ui grid">
 			<div class="column">
-				<form class="ui form soda-form" action="{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}" data-delete-url="{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete" method="post">
-					<h3 class="ui top attached header">
+				<form class="ui form soda-form soda-p-form" action="{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}" data-delete-url="{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete" method="post">
+					<h3 class="ui top attached header soda-p-heading">
 						{{if .PageIsOrgTeamsNew}}{{ctx.Locale.Tr "org.create_new_team"}}{{else}}{{ctx.Locale.Tr "org.teams.settings"}}{{end}}
 					</h3>
-					<div class="ui attached segment">
+					<div class="ui attached segment soda-p-section">
 						{{template "base/alert" .}}
 						<div class="required field {{if .Err_TeamName}}error{{end}}">
 							<label for="team_name">{{ctx.Locale.Tr "org.team_name"}}</label>

@@ -1,13 +1,13 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications.tmpl (GPL-3.0-or-later); upstream SHA-256 113a38dd2baa98b0bcf9bb3ecb252b486fc5c6441807a7364687bda399d3930d. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--applications applications")}}
 	<div class="user-setting-content soda-account-details soda-account-details--applications">
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.manage_access_token"}}
 			<div class="ui right">
 				<a class="ui primary tiny button" href="{{AppSubUrl}}/user/settings/applications/tokens/new">{{ctx.Locale.Tr "settings.new_access_token"}}</a>
 			</div>
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<div class="flex-list">
 				<div class="flex-item">
 					{{ctx.Locale.Tr "settings.tokens_desc"}}

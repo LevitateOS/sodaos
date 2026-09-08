@@ -3,16 +3,16 @@
 	<div class="user-setting-content soda-account-details soda-account-details--appearance">
 
 		<!-- Theme -->
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.manage_themes"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<div class="ui email list">
 				<div class="item">
 					{{ctx.Locale.Tr "settings.theme_desc"}}
 				</div>
 
-			<form class="ui form soda-form" action="{{.Link}}/theme" method="post">
+			<form class="ui form soda-form soda-p-form" action="{{.Link}}/theme" method="post">
 					<div class="field">
 						<label for="ui">{{ctx.Locale.Tr "settings.ui"}}</label>
 						<div class="ui selection dropdown" id="ui">
@@ -42,10 +42,10 @@
 		</div>
 
 		<!-- Language -->
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.language.title"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}/language" method="post">
 				<div class="tw-mb-4">
 					{{ctx.Locale.Tr "settings.language.description"}}
@@ -72,10 +72,10 @@
 		</div>
 
 		<!-- Hints -->
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.hints"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<form class="ui form" action="{{.Link}}/hints" method="post">
 				<div class="inline field">
 					<div class="ui checkbox" data-tooltip-content="{{ctx.Locale.Tr "settings.additional_repo_units_hint_description"}}">
@@ -90,10 +90,10 @@
 		</div>
 
 		<!-- Shown comment event types -->
-		<h4 class="ui top attached header">
+		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "settings.hidden_comment_types"}}
 		</h4>
-		<div class="ui attached segment">
+		<div class="ui attached segment soda-p-section">
 			<p class="help">
 				{{ctx.Locale.Tr "settings.hidden_comment_types_description"}}
 			</p>
