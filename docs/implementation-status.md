@@ -6,7 +6,7 @@
 | --- | --- |
 | Selected frontend | Stock Forgejo native pages plus delivered **Sodaspaces** repository button/right environment drawer (no new tab) |
 | Soda UI source | Explicit stable-ID create/key/join/own-connection controls passed bounded native x86_64 build/export/browser/Copy/SSH at `bdbce8e`. Copied private-v3 migration/paired rollback and separately approved retained cutover passed, with native browser and own-access observations. Both standalone frontends remain removed |
-| Browser terminal | Fixed native helper/launcher/client and local tests implemented; actual project PTY/teardown gate pending. No public terminal endpoint/UI or deployment yet |
+| Browser terminal | Fixed native helper/launcher/client passed bounded x86_64 existing-account/PTY/teardown and SSH-preservation proof. Public terminal endpoint/UI remain unimplemented; installed helper unchanged |
 | Retained backend | `cmd/soda-dashboard`, Go API/OAuth, schema-v5 SQLite with unchanged grant encryption, real create/join/access integration and restricted helper/project OS |
 | Retained operator frontend | Separate Cockpit React/PatternFly Tailnet/Runners, backing native logic/dependencies/tests |
 | Installed affected components | Built `bdbce8e` dashboard/strict-config runners CLI, native hooks and namespaced proxy/config on `soda-test`; schema v5 and stock Forgejo 15.0.7. Unchanged helper/default project image/other native components retain prior `8b823db` provenance; old frontends are no longer served |
@@ -788,6 +788,9 @@ unimplemented. Native helper changes and retained rollout need their applicable 
 
 ## Native terminal boundary source
 
+This records the initial `10321ce` source checkpoint; approved native execution is
+recorded in the following section.
+
 Implemented the first source slice of the [terminal plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal):
 fixed embedded project-local Python PTY launcher, bounded private Unix WebSocket
 operation/client, immutable-container-ID/namespace checks, marker/account validation,
@@ -807,13 +810,13 @@ it uses a temporary root-private helper, not an installed service replacement, a
 records only its bounded account/TTY/explicit-close scope. Lost-helper, unrelated
 SSH/workload preservation and full browser evidence remain separate required checks.
 
-Evidence: `.artifacts/research/terminal-native-163ccf9/`. No VM/installed/helper service,
-retained project, key, membership, routing or provider state changed. **Do not wire UI
-until the actual Rocky/Podman identity/PTY/teardown gate passes.** Next requires the
-applicable exact isolated-target native execution scope; retained `soda-test` rollout
-still needs separate approval and a current backup.
+Evidence: `.artifacts/research/terminal-native-163ccf9/`. At this initial checkpoint no
+VM/installed/helper service, retained project, key, membership, routing or provider
+state changed. UI wiring was held until the actual native gate; the separately
+approved proof below now closes that bounded gate, not browser delivery. Retained
+`soda-test` rollout still needs separate approval and a current backup.
 
-## Approved native terminal fixture preflight
+## Approved native terminal fixture proof
 
 The user approved temporary root-private helper/PTY proof on the existing isolated
 `soda-native-spaces-658f2af`, without installed service replacement/restart, project
@@ -828,6 +831,40 @@ are reported as `private`. Inspected exact upstream source and observed UID/GID 
 not just a create-time mode name. No runtime configuration/capability was changed to
 fit the check. Original failed preflight and reviewed inputs remain under
 `.artifacts/terminal-vm-10321ce/` and guest `/var/lib/soda-terminal-10321ce/`.
+
+**Bounded native gate passed.** Final native test binary from `fae1696`, with verified
+builder/guest SHA256 equality, passed on existing Rocky project
+`p4a530c394bcd53e563d3076d`: both original accounts' real/effective/saved UID/GID,
+supplementary groups, HOME/cwd, real PTY, resize/Ctrl-C, current sudo boundary and
+shared mise/project-Podman profile settings. A mismatched marker/actor was refused.
+Explicit close and independent observations proved actual owned login termination.
+EOF, a real silent 60-second lease and SIGKILL of only the test-owned temporary helper
+also ended the login, foreground job and project-local launcher. Final observation
+times were approximately 0.19s, 60.18s and 0.20s respectively—not merely socket-close
+or host-CLI exit observations.
+
+Both users' ordinary own-key SSH processes survived throughout (14 paired observations
+in final `run-e`), over the existing management SSH direct-TCP forwarding path to
+project `10.90.0.2`; no laptop/direct-builder-route claim. The earlier bridge client
+was already stopped and was left untouched. Original preflight and `run-a` parser
+failures remain; the latter reached a native PTY but did not recognize Bash CSI/CR
+output. The probe parser, not the shell/profile, was corrected. Successful earlier
+`run-b`–`run-d` observations and all new private inputs/binaries/results remain.
+
+Final verification confirmed unchanged container/image/running identity, installed
+helper bytes and affected native service PIDs/start times, product rows and native
+marker/accounts/groups, SSH host key and DB integrity. No candidate helper/launcher
+remained. No installed service replacement/restart, account/key/lifecycle/provider or
+routing change occurred; ordinary shell/sudo bookkeeping was permitted, not claimed
+absent. `soda-test` was not contacted. Full browser authorization/transport, logout
+races, drawer/renderer/packaging and genuine browser proof are **still unimplemented**;
+proceed with plan step 2, not a new architecture or installed rollout.
+
+Final local regressions passed: full uncached Go suite, host/command race tests,
+49 Python build tests, documentation links and whitespace checks. The default local
+suite skips the explicitly opted-in native probe. Only the native package test
+binaries were built/transferred; no whole-appliance build/stage/export, renderer
+dependency installation or deployment ran during this proof.
 
 ## Remaining work and permission boundary
 

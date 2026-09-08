@@ -147,7 +147,7 @@ General upstream service/error logging remains native. Native configuration and
 query-free OAuth request observations are recorded in the phase-5 handoff; old private
 journals/evidence are retained, not cleared or described as never having logged state.
 
-## Native terminal boundary probe — authored, not executed
+## Native terminal boundary probe
 
 `internal/host/terminal_native_test.go::TestInstalledTerminalBoundary` is an opt-in
 product test, not browser proof or permission to open a shell. Build the matching-native
@@ -162,16 +162,22 @@ The root-only probe creates an exclusive marker and temporary 0600 Unix socket b
 that 0600 file in its private directory. It runs the candidate helper in-process,
 without replacing/restarting the installed helper or touching project images/accounts/
 keys. It opens existing-account shells, checks identity/home/groups/TTY, resize,
-Ctrl-C and current sudo permissions, explicitly closes them and independently checks
-login-process disappearance. Native shell/sudo bookkeeping may write normal history/
+Ctrl-C, real/effective/saved credentials, shared-profile settings and current sudo
+permissions; it refuses a mismatched marker/actor without repair. It explicitly closes
+logins and independently checks process disappearance. Further cases cover transport
+EOF, a real 60-second silent lease and SIGKILL of only a test-owned child helper;
+independent exec observations must confirm the login, foreground job and launcher
+are gone. The internal child-mode environment flag is used only by that parent test,
+not a standalone invocation or installed-service control. Native shell/sudo bookkeeping may write normal history/
 audit state; no transcripts or credentials are captured. Keep inputs, marker and
 result; an occupied run refuses replay. `terminal-proof.json` records only this scope.
 
-This authored probe does **not** close the whole native gate: independently observe
-lost-helper/lease teardown, unrelated SSH/workload survival and existing shared-tool
-profile behavior before UI wiring. The later genuine browser journey stays separate.
-No native target, process execution, service update or scope expansion is authorized
-by compiling the test or setting its opt-in variables.
+The [approved isolated x86_64 proof](implementation-status.md#approved-native-terminal-fixture-proof)
+passed this probe plus independent continuously held own-key SSH/process-preservation
+observations. This closes only that existing-account native boundary, not the later
+public browser/OAuth/proxy journey or installed delivery. Further executions still
+need their exact target/action scope; compiling a test or setting opt-in variables
+is not permission to open shells, kill helpers or change services.
 
 ## Read-only installed observations
 

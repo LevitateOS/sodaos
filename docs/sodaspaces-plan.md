@@ -551,10 +551,12 @@ observations. This does not accept the entire appliance or independent aarch64 w
 
 ## Next item: existing-account browser terminal
 
-**Native-boundary source candidate implemented; native fixture proof pending.**
-The fixed launcher, private helper stream/client and shutdown handling have local Go
-and real unprivileged PTY tests. The public endpoint/UI remain unwired until the
-native gate below passes; xterm assets have not been added. See the [handoff](implementation-status.md#native-terminal-boundary-source).
+**Native boundary passed bounded x86_64 fixture proof; public transport/UI next.**
+The fixed launcher and private helper stream/client passed actual existing-account,
+PTY/profile, EOF/lease/owned-helper-loss and independent SSH-preservation checks on
+`soda-native-spaces-658f2af`, with no installed helper replacement. The public endpoint
+and UI remain unwired; xterm assets have not been added. See the [proof and remaining
+scope](implementation-status.md#approved-native-terminal-fixture-proof).
 Deliver one explicit **Open terminal** action for an existing member of a provisioned,
 running environment. Show the original project login and open its native login shell
 in its existing home. Keep the terminal inside the existing dialog, widened when
