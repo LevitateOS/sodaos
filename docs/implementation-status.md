@@ -11,7 +11,9 @@ the checklist. Local templates were reloaded; no migration or fixture mutation.
 Repository fork now also has distinct connected-notebook artwork, verified with
 focused onboarding tests and 1440/390px native light-theme captures. Migration
 progress retains native state visuals without extra decorative art. Other pages
-remain pending, starting with notification subscriptions. The 404 page now has
+remain pending, starting with Watching. Notification subscriptions now uses its
+own conversation-bookmark scene; focused native-boundary/preview tests and
+desktop/mobile light-theme captures were checked, with Watching unchanged. The 404 page now has
 small neutral wayfinding artwork; native general/repository contexts were checked
 at 1440/390px. A status stylesheet version bump fixed observed cached sizing;
 focused status tests passed. The 413 page remains a concise diagnostic without art. No blanket native or

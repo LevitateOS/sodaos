@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: notification subscriptions — `user/notification/notification_subscriptions.tmpl`. It reuses inbox artwork; inspect whether a distinct watching/subscription scene suits the page.
+Next: Watching — `/notifications/watching`, the second branch of `user/notification/notification_subscriptions.tmpl`. Its desktop layout is inspected; decide and generate a repository-watching scene distinct from bookmarks and inbox mail.
 
 ## Per-template inventory
 
@@ -207,7 +207,7 @@ Next: notification subscriptions — `user/notification/notification_subscriptio
 | Existing — verify | [`user/dashboard/issues.tmpl`](../appliance/forgejo/templates/user/dashboard/issues.tmpl) | `issues-papercraft.png`, `pulls-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`user/dashboard/milestones.tmpl`](../appliance/forgejo/templates/user/dashboard/milestones.tmpl) | `milestones-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`user/notification/notification_div.tmpl`](../appliance/forgejo/templates/user/notification/notification_div.tmpl) | `notifications-papercraft.png` | Not yet reviewed in this goal. |
-| Existing — verify | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `notifications-papercraft.png` | Not yet reviewed in this goal. |
+| Variants — see below | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | Subscriptions: `subscriptions-papercraft.png`; Watching: existing inbox art | Subscriptions complete; Watching remains pending. |
 | Partial — trace caller | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
@@ -228,6 +228,11 @@ Next: notification subscriptions — `user/notification/notification_subscriptio
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
 ## Additional page variants
+
+| Status | Page variant | Decision / evidence |
+| --- | --- | --- |
+| Done | `/notifications/subscriptions` (`Status == 1`) | Dedicated conversation-bookmark scene integrated; desktop/mobile captures inspected. |
+| Pending | `/notifications/watching` (`Status == 2`) | Desktop inspected; still uses inbox art. Next in queue. |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
 - [ ] Trace account, organization, repository and administrator shared layouts for native routes without leaf overrides.
@@ -260,3 +265,11 @@ Next: notification subscriptions — `user/notification/notification_subscriptio
 - Initial captures exposed cached status CSS and oversized artwork (`capture-bFddDz`, `capture-ziCjI7`); rejected. Bumped status.css to v3 and reloaded local templates.
 - Final native screenshot-helper captures inspected: `.artifacts/screenshots/capture-wbiIF7/{001,002}.png` at 1440×1000 and `capture-geC5uV/{001,002}.png` at 390×844. The two routes are `/soda-art-missing-page` and `/bob/activity-field-notes/src/branch/soda-art-missing-branch`. Error text, illustration and repository navigation fit with no visible clipping. Baseline: `capture-D1CnJg/001.png`.
 - No data mutation. Light theme inspected; dark theme and conditional recovery-link runtime state not exercised. The 413 decision is a source/layout judgment, not newly triggered runtime evidence.
+
+### Notification subscriptions
+
+- Appropriate in the existing intro. The robot bookmarks conversation cards, distinguishing followed discussions from inbox delivery. [Exact generation/correction prompts](../assets/branding/forgejo/subscriptions-art-prompt.md).
+- Initial RGB/checkerboard output rejected; one built-in cutout edit produced verified 1536×1024 RGBA with transparent corners. The existing `Status == 1` native branch selects the new asset; no native controls, filtering, list logic or status mutations changed.
+- Focused offline shared-page-boundary and notification-preview Go tests passed. Local templates reloaded.
+- Actual fixture screenshots inspected: `.artifacts/screenshots/capture-Pe7Zti/001.png` (1440×1000 subscriptions), `capture-MrHjH1/001.png` (390×844 subscriptions), and `capture-Pe7Zti/002.png` (Watching isolation check). The decorative scene is contained, native tabs/filters and truthful empty state remain. Watching still shows the original inbox art. Baseline `capture-fZfjV8/001.png`.
+- Initial Chrome launch failed transiently; read-only process/lock inspection found no live fixture browser or lock, and a second launch succeeded without deleting profile data. No subscription, account or fixture changes. Populated list, dark appearance and bulk actions were not exercised.
