@@ -48,6 +48,7 @@ routing are separate configuration—not inferred from an old port or hostname.
 | Area | Source / documentation |
 | --- | --- |
 | Product decisions and remaining work | [Architecture](docs/architecture.md), [Sodaspaces plan](docs/sodaspaces-plan.md), [deferred scope](docs/deferred.md) |
+| CoreOS product direction and proposed priorities | [OS strategy](docs/os-product-strategy.md): host value, service boundaries, effort estimates and bounded first slices |
 | API/auth/native integration | `cmd/`, `internal/`, [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md), [Forgejo customization](docs/forgejo-frontend-integration.md) |
 | Installation/operator access | `appliance/`, `scripts/`, [installation](docs/installation.md), [bootstrap](docs/operator-setup.md), [native validation](docs/native-validation.md) |
 | Project environments | `project-os/`, [Project OS baseline](docs/project-os.md), [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |

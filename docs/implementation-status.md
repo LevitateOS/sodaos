@@ -1,5 +1,34 @@
 # Current handoff
 
+## CoreOS product strategy — documentation only
+
+Recorded the user's custom CoreOS-based distro direction in the
+[OS product strategy](os-product-strategy.md), linked from the architecture, leading
+plan, deferred guide and README. It ranks host health/first-boot guidance, native
+runner/project resource protection, real private connectivity, maintenance windows,
+backup/cold restore and future boot/storage ownership. Each proposal has a bounded
+first slice, user outcome, acceptance conditions and qualified effort estimates.
+
+The fastest recommendation is the existing-console/CLI health report; resource
+enforcement is the strongest near-term host investment. Boot/provisioning/lifecycle
+ownership provides the strongest long-term distro case. A sufficiently privileged
+service could manage these mechanisms, so the strategy makes no artificial claim
+that portability must become impossible. Current delivery still provisions upstream
+CoreOS; a Soda boot artifact, verified boot chain and general recovery are proposals.
+
+Source review distinguished native runner descendants from external engine work,
+and actual project cgroups from the outer Podman launcher unit. Estimates separate
+source candidates from bounded native proof. The strategy leaves immediate tmux/
+workspace work, deferred implementation scope, provider authority and the separately
+reserved Updates work with their existing owners.
+
+Checks: reviewed production source and official upstream documentation; touched-doc
+relative links/anchors and whitespace passed. Evidence is retained under
+`.artifacts/research/os-product-strategy-eb758ff/`. No product code, package/dependency
+changes, builds/product tests, native execution, project/provider/network mutations,
+deployment or push. This records direction and recommendations, not implemented
+features or additional execution authority.
+
 ## Merged presentation and Sodaspaces payload
 
 Merged upstream `416180e` with local `8d9b2eb`, preserving both histories and their

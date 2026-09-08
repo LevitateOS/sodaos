@@ -25,6 +25,11 @@ work; the older delivery/terminal sections retain the previous implementation an
 its evidence, not permission to reintroduce that UX. See the leading
 [handoff](implementation-status.md) for exact bytes, failures and limits.
 
+The [CoreOS product strategy](os-product-strategy.md) ranks proposed host capabilities
+and explains their OS/service boundary and estimated effort. It is longer-term
+product guidance; resumable terminals remain the immediate implementation slice.
+New capacity/recovery/boot-delivery work is not a prerequisite or execution grant.
+
 ## Project OS foundation
 
 The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,

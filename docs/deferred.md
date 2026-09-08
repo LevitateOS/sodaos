@@ -11,6 +11,12 @@ cannot change production policy or make optional installer media a product prere
 
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
 
+The user-requested [CoreOS product strategy](os-product-strategy.md) now evaluates
+resource protection, backup/recovery, maintenance and host boot/storage ownership
+as future investments, with effort estimates and narrow first slices. Writing that
+strategy does not select their implementation, import the predecessor Updates
+platform or authorize native actions. Existing selected work keeps its current scope.
+
 The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. The predecessor's operator Cockpit **Tailnet and Runners pages and backing logic are selected for reuse, not deferred**. Deferral is not a request to strip their existing working validation or focused error handling.
 
 The user subsequently selected the bounded authenticated **Spaces** listing and
