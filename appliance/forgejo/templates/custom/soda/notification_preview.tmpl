@@ -1,0 +1,20 @@
+<div class="soda-notification-preview-list" data-soda-notification-fragment>
+	{{if .Notifications}}
+	<ul>
+		{{range .Notifications}}
+		<li>
+			<a href="{{.Link ctx}}">
+				<span class="soda-notification-preview-icon">{{if .Issue}}{{template "shared/issueicon" .Issue}}{{else}}{{svg "octicon-repo" 16}}{{end}}</span>
+				<span class="soda-notification-preview-entry">
+					<span class="soda-notification-preview-repo">{{.Repository.FullName}}{{if .Issue}} #{{.Issue.Index}}{{end}}</span>
+					<span class="soda-notification-preview-title">{{if .Issue}}{{RenderRefIssueTitle $.Context .Issue.Title}}{{else}}{{.Repository.FullName}}{{end}}</span>
+					<span class="soda-notification-preview-time">{{DateUtils.TimeSince .UpdatedUnix}}{{if eq .Status 3}} <span class="soda-notification-preview-pin">{{svg "octicon-pin" 13}} Pinned</span>{{end}}</span>
+				</span>
+			</a>
+		</li>
+		{{end}}
+	</ul>
+	{{else}}
+	<p class="soda-notification-preview-empty">No unread or pinned notifications.</p>
+	{{end}}
+</div>

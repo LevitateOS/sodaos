@@ -1,3 +1,6 @@
+{{if and (ctx.Context.FormBool "div-only") (ctx.Context.FormBool "soda-preview")}}
+	{{template "custom/soda/notification_preview" .}}
+{{else}}
 <div role="main" aria-label="{{.Title}}" class="page-content user notification soda-page soda-notifications" data-signed="true" id="notification_div" data-sequence-number="{{.SequenceNumber}}">
 	<div class="ui container soda-page-container">
         {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" "notifications-papercraft.png"}}
@@ -122,3 +125,4 @@
 		{{template "base/paginate" .}}
 	</div>
 </div>
+{{end}}

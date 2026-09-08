@@ -13,6 +13,27 @@ sign-in, account-link mode, password settings, CAPTCHA, providers, WebAuthn erro
 registration and password-recovery controls. Native head/footer and scripts remain.
 No authentication handlers, form fields or security middleware are replaced.
 
+## Notification bell preview
+
+Source now includes a signed-in `custom/footer.tmpl` panel, a compact branch in
+`user/notification/notification_div.tmpl`, `custom/soda/notification_preview.tmpl`
+and `notification-preview.{css,js}` under the branding asset directory. It requests
+Forgejo's own session-authenticated HTML fragment using its existing HTMX bundle,
+not a Soda API or a JSON-to-HTML proxy. The preview displays up to five native inbox
+entries (unread plus pinned), with a permanent “View all notifications” link.
+
+Both desktop/mobile bells keep their native links/badges; only ordinary clicks
+are enhanced after HTMX initializes. The script uses DOM events because the bundle
+does not expose `window.htmx`. Preview IDs/styles are deliberately separate from
+native full-page notification replacement hooks. Keep that boundary on upgrades.
+
+Focused Go and browser-fixture checks pass; authenticated native rendering and
+visual review are pending. No template reload or deployment occurred. The new
+footer and compact branch require an authorized reload in the local preview;
+production delivery remains separately pending. See the
+[plan/evidence](../../docs/notification-preview-plan.md). Do not mark entries read
+or change fixture data merely to activate or preview this feature.
+
 ## Asset mapping
 
 | Source | Forgejo custom destination |

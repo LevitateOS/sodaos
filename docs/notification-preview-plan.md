@@ -1,10 +1,28 @@
 # Notification bell preview implementation plan
 
-Status: **planned, not implemented**. Based on the
-[15.0.7 investigation](forgejo-frontend-integration.md#notification-bell-quick-view-investigation).
+Status: **source implemented; native authenticated review and delivery pending**.
+Based on the [15.0.7 investigation](forgejo-frontend-integration.md#notification-bell-quick-view-investigation).
 This is a focused native Forgejo customization, independent of the unfinished
 Sodaspaces drawer/authentication work. No downstream Forgejo build or Go API adapter.
-Planning does not authorize login, fixture mutations, service reloads or deployment.
+Implementation does not authorize login, fixture mutations, service reloads or deployment.
+
+## Implementation evidence
+
+The compact fragment, signed-in footer hook, scoped CSS and small lifecycle script
+are authored. The real bundle has no `window.htmx`; implementation uses its existing
+declarative attributes and DOM lifecycle/custom events instead. Native template-context
+shape and both rendering branches are covered by focused Go tests. Browser tests load
+the real local Forgejo bundle with browser-only signed-in markup/response fixtures;
+they do not prove authenticated native fragment rendering. Checks passed for both bells,
+loading/empty/error/retry, delayed-response rejection, keyboard/modified clicks,
+Escape/outside/focus dismissal, mobile containment, HTMX redirects and no-JS/no-HTMX/
+no-popover fallback. Explore/milestone and guest-theme regressions also passed.
+
+Remaining: authorized template reload, native context-expression/rendering verification,
+actual authenticated inbox/badge/full-page coexistence and user visual review; real
+notification navigation/status changes require their own fixture scope. Production
+staging/delivery remains pending. The sequence below remains the feature contract,
+not a claim that these remaining validation/delivery steps ran.
 
 ## Experience and scope
 

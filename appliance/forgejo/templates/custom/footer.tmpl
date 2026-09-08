@@ -1,0 +1,13 @@
+{{if .IsSigned}}
+<div id="soda-notification-preview" class="soda-notification-preview" popover="auto" role="region" aria-labelledby="soda-notification-preview-title">
+	<div class="soda-notification-preview-header">
+		<strong id="soda-notification-preview-title">{{ctx.Locale.Tr "notifications"}}</strong>
+		<button type="button" class="soda-notification-preview-close" aria-label="{{ctx.Locale.Tr "close"}}">{{svg "octicon-x" 16}}</button>
+	</div>
+	<p class="soda-notification-preview-status" role="status" aria-live="polite"></p>
+	<div class="soda-notification-preview-content" hx-get="{{AppSubUrl}}/notifications?div-only=true&amp;soda-preview=true&amp;q=unread&amp;page=1&amp;perPage=5" hx-trigger="soda-notification-open" hx-target="this" hx-swap="innerHTML" hx-indicator="this" hx-sync="this:replace" hx-request='{"timeout":10000}'></div>
+	<button type="button" class="soda-notification-preview-retry" hidden>Retry</button>
+	<a class="soda-notification-preview-all" href="{{AppSubUrl}}/notifications">View all notifications</a>
+</div>
+<script src="{{AssetUrlPrefix}}/soda/forgejo/notification-preview.js?v=1"></script>
+{{end}}

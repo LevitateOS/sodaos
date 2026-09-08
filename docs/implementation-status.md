@@ -25,7 +25,42 @@ Keep [API](dashboard-api.md), [credential migration](dashboard-credentials.md),
 Acting grants/current native ownership from `fed66cb` remain in retained callers;
 no setup-token, stale-creator or copied-permission fallback was restored.
 
-## Notification bell quick-view investigation (not implemented)
+## Notification bell quick-view source implementation
+
+The requested [plan](notification-preview-plan.md) is implemented in source using
+the existing native notification fragment and bundled HTMX. A signed-in-only footer
+hook enhances both stock bell anchors; a presentation query flag selects a compact
+list of the five native unread-plus-pinned entries. Dedicated markup avoids full-page
+notification IDs/hooks. Native destinations, auth, queries, badge updates and read
+behavior remain Forgejo-owned. There is no Soda backend, upstream patch, new library,
+status POST or second poller. Missing JavaScript/HTMX/popover support retains native
+bell navigation. The panel handles loading/errors/retry, cancellation, response
+identity, focus/Escape/outside dismissal and native HTMX redirects. A 10-second
+request timeout bounds the loading state. Retry/View all/Pinned/loading/empty/error
+copy is custom English pending localization; existing notification/close keys are reused.
+
+Performed locally:
+- Offline readonly focused Go `./scripts -run TestForgejo`: passed, including compact
+  and ordinary fragment branches, faithful embedded template-context method lookup,
+  zero/one/five rows, pinned/content escaping, native subpath links and signed-in hooks.
+- `SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 node --test tests/forgejo/notification-preview.test.mjs`:
+  passed against the real native HTMX bundle with browser-only signed-in markup and
+  notification-response fixtures. Both bells, long five-row content, 320/390/768/1440px,
+  dark/light scheme requests, loading/empty/errors/retry, stale responses, Enter/Escape,
+  modified clicks, focus/outside dismissal, GET-only preview traffic, HX-Redirect and
+  no-JS/no-HTMX/no-popover native fallback were checked. No authenticated fixture data
+  or existing private credentials were accessed. Initial tests exposed a null detail
+  on custom abort events; events now supply the native expected element detail.
+- Existing Explore overflow, milestone layout and seven guest-theme tests passed.
+  `git diff --check` passed. No dependency installation or full native build occurred.
+
+Native authenticated rendering, actual unread/pinned data, badge/full-page coexistence,
+real account switching and user visual review remain unverified. No template reload,
+service restart, notification mutation or appliance deployment occurred. Existing local
+mounts expose asset source, but changed/new templates require an explicitly authorized
+reload to activate. Production template/asset staging remains separately pending.
+
+## Notification bell quick-view investigation (historical, before implementation)
 
 The requested [implementation plan](notification-preview-plan.md) is now authored:
 prove compact native rendering, enhance both bells using bundled HTMX, validate
