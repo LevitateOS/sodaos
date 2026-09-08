@@ -21,7 +21,7 @@ const password = (await readFile(passwordFile, 'utf8')).replace(/\r?\n$/, '');
 assert(password && !/[\r\n]/.test(password));
 const profile = path.join(browserHome, 'cockpit-profile');
 await mkdir(profile, { mode: 0o700 }); // exclusive; no inherited login/cookie state
-const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
+const require = createRequire(new URL('../../package.json', import.meta.url));
 const { chromium } = require('playwright');
 let context;
 let stage = 'trusted browser startup';

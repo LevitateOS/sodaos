@@ -263,6 +263,20 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 - Do not fabricate `go.sum`, dependency checksums, binaries or validation records. Real Go metadata was resolved during the first native x86_64 build; review intentional dependency changes.
 - Both native x86_64 and aarch64 are targets. Do not add a sibling-build barrier or call cross-compilation/emulation native installed evidence.
 
+## Bun and TypeScript conventions
+
+- Use the root Bun workspace and single `bun.lock`; root `package.json` owns the
+  Bun pin and shared tooling. Cockpit keeps its UI dependencies and Vite+ build.
+- Follow [TypeScript development](docs/typescript.md). New authored JS-family code
+  is `.ts`/`.tsx`; keep browser, tooling/test and Cockpit compiler boundaries clear.
+- Pass `bun run typecheck` with strict checking, checked indexed access and exact
+  optional properties. Legacy JS/MJS inclusion is temporary, not typed-source proof.
+- Keep types with their owner, use `import type`, and validate untrusted data from
+  `unknown`. No blanket `any`, disabled checks or unchecked casts to evade errors.
+- Port callers/tests with each source group. Generate browser JS into ignored build
+  output and wire staging/previews before changing served sources. Preserve upstream
+  assets and the current explicit installed-test authorization gates.
+
 ## Retained source and assets
 
 Preserve both Cockpit pages **and their backing logic/tests**, not just their appearance, until an explicitly coordinated replacement. The user subsequently selected moving Soda's runner capacity/service configuration into operator-only settings in the unified native SodaOS/Forgejo interface. This is remaining work: inspect official administrator extension points, reuse the backing logic/tests and keep the Cockpit Runners page until its replacement works. Tailnet remains in Cockpit. Do not revive a standalone dashboard or equate Forgejo site administration with Soda operator authority. Providers own CI workflows, scheduling, registration authority and results; Soda manages local capacity.
@@ -281,7 +295,7 @@ The predecessor repository is separate. Do not modify it, close its issues or im
 | `scripts/test-vm.sh` | Starts the prepared KVM guest, opens SSH/tunnels or reads status/console; SSH commands may mutate the guest, so inspect the subcommand and target first |
 | `tests/installed/` | Opt-in installed journeys; some read state, others build/start real workloads. Inspect each before execution |
 
-Dependency baselines belong in `go.mod`, Cockpit manifests/lockfile, image recipes
+Dependency baselines belong in `go.mod`, root/Cockpit manifests and root `bun.lock`, image recipes
 and the lockfiles under `appliance/` and `project-os/`, not duplicated version
 rules here. Do not incidentally upgrade them or fabricate `go.sum`, checksums, artifacts or PASS records.
 Generated build outputs belong in ignored `.artifacts/`, not hand-authored

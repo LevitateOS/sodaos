@@ -130,7 +130,7 @@ try {
   result.asset_revalidation = 'conditional reads of current bytes; not an update/cutover proof';
 
   stage = 'trusted browser startup';
-  const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
+  const require = createRequire(new URL('../../package.json', import.meta.url));
   const {chromium} = require('playwright');
   assert(!interrupted);
   const {launchNativeBrowser} = await import('./native-browser.mjs');

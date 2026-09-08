@@ -8,9 +8,9 @@ import {chmod} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {StringDecoder} from 'node:string_decoder';
 import path from 'node:path';
-const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
-// Reuse the existing Cockpit jsdom lock's WebSocket dependency; no new manifest.
-const {WebSocketServer} = createRequire(require.resolve('jsdom'))('ws');
+const require = createRequire(new URL('../../package.json', import.meta.url));
+// The native browser bridge owns a direct root WebSocket dependency.
+const {WebSocketServer} = require('ws');
 
 export async function launchNativeBrowser(chromium, run, home) {
   const socket = path.join(run, 'cdp.sock');

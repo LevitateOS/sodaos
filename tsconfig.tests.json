@@ -1,20 +1,20 @@
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": [
       "ES2022",
       "DOM",
       "DOM.Iterable"
     ],
-    "jsx": "react-jsx",
     "types": [
+      "bun",
       "node"
-    ]
+    ],
+    "allowJs": true,
+    "checkJs": false
   },
   "include": [
-    "src",
-    "tests",
-    "build",
-    "vite.config.ts"
+    "tests/**/*.ts",
+    "tests/**/*.mjs"
   ]
 }

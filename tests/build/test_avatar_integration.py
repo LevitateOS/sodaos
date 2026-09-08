@@ -82,7 +82,7 @@ class AvatarPackaging(unittest.TestCase):
             # Actual public inputs; only the build observations below are synthetic.
             for source in ('go.mod', 'go.sum', 'project-os/locks/tea-source.toml',
                            'appliance/locks/github-runner-source.toml', 'appliance/locks/coreos-qemu.json',
-                           'cockpit/package.json', 'cockpit/bun.lock', 'scripts/install-native.sh',
+                           'package.json', 'cockpit/package.json', 'bun.lock', 'scripts/install-native.sh',
                            'docs/native-support-notices.md', 'project-os/licenses/tea-LICENSE',
                            'appliance/licenses/avatar-dependencies.txt', 'LICENSE', 'NOTICE'):
                 destination = root / source

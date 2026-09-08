@@ -195,7 +195,7 @@ backdrop-click handling does not treat an empty internal area as an outside clic
 
 ### Source checks
 
-With the existing pinned Go/Node tools and prepared Cockpit dependencies, local
+With the existing pinned Go/Node tools and prepared root Bun workspace dependencies, local
 checks are `go test -mod=readonly ./scripts` and
 `node --test tests/frontend/*.test.mjs`. The latter uses actual Soda markup
 and script with jsdom/API/dialog doubles. No new frontend dependency or build is

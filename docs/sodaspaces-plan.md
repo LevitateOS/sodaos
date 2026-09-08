@@ -756,8 +756,9 @@ retained-appliance delivery remain unproven by that run.
 
 - Retain `scripts/sodaspaces_templates_test.go` for the two Soda templates and
   `tests/frontend/sodaspaces.test.mjs` for the actual script's DOM/fetch behavior.
-  Use Node's test runner and the already-pinned Cockpit `jsdom` dependency, not a
-  root frontend manifest. `scripts/check-native.sh` runs `tests/frontend/*.test.mjs`;
+  Use Node's test runner and the pinned root workspace `jsdom` dependency. The
+  root manifest owns tooling, not a frontend application; see [TypeScript development](typescript.md).
+  `scripts/check-native.sh` calls root checks including `tests/frontend/*.test.mjs`;
   preserve that wiring and the standalone source-check command. The aggregate requires
   a clean revision and actual stage. Fixture context/dialog doubles are not upstream
   rendering, CSS, focus or native browser evidence.

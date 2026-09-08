@@ -27,11 +27,12 @@ export function packageInventory(root: string): Record<string, string> {
               return item.n;
             });
     for (const reference of references) {
+      if (reference === undefined) throw new Error(`Missing asset reference in ${name}`);
       if (name === "index.html" && reference === "../base1/cockpit.js") continue;
       if (reference.startsWith("data:")) continue;
       if (reference.startsWith("/") || /^[a-z]+:/i.test(reference))
         throw new Error(`External runtime asset: ${name}: ${reference}`);
-      const target = resolve(dirname(path), reference.split(/[?#]/)[0]);
+      const target = resolve(dirname(path), reference.replace(/[?#].*$/, ""));
       if (relative(root, target).startsWith("..") || !statSync(target).isFile())
         throw new Error(`Asset escapes package: ${name}: ${reference}`);
     }

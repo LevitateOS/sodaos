@@ -22,7 +22,11 @@ export default defineConfig({
   },
   builder: {
     async buildApp(builder) {
-      for (const page of pages) await builder.build(builder.environments[page]);
+      for (const page of pages) {
+        const environment = builder.environments[page];
+        if (!environment) throw new Error(`Missing Cockpit build environment: ${page}`);
+        await builder.build(environment);
+      }
     },
   },
   environments: Object.fromEntries(

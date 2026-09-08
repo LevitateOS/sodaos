@@ -27,13 +27,10 @@ development instance and may not exist in another checkout or on another machine
 
 ### Setup and manual login
 
-Use Node.js, installed Google Chrome and the Playwright dependency already declared
-in `cockpit/package.json`. The helper uses a persistent browser context so mobile
-captures use the requested CSS viewport rather than cropping a desktop window.
-On the current development machine, ignored `node_modules/playwright` links to the
-already installed desktop runtime package; no package installation was needed.
-Other machines can use the existing Cockpit development dependencies or `NODE_PATH`
-pointing to an installed Playwright package directory.
+Use the pinned Node.js, installed Google Chrome and the root Playwright dependency.
+Run `bun install --frozen-lockfile` from the repository root to prepare the workspace.
+The helper uses a persistent browser context so mobile captures use the requested
+CSS viewport rather than cropping a desktop window. See [tooling](typescript.md).
 
 Log in once in its dedicated browser window, then press Enter in the terminal:
 

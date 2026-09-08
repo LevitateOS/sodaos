@@ -69,7 +69,7 @@ approved helper read scope; an absent reservation suffices for initial OAuth pro
 Use a fresh restricted browser home with the selected CA already trusted by
 Chromium. Keep `HOME/sodaspaces-run/cdp.sock` within 103 bytes. All input/password/CA files are absolute regular mode-0600 files; the
 home is mode 0700. No TLS bypass or sandbox disabling is selected. Reuse prepared
-pinned Playwright/Chromium and Cockpit's existing jsdom/WebSocket dependency; the
+pinned Playwright/Chromium and the root workspace's pinned WebSocket dependency; the
 probe does not download browsers. `native-browser.mjs` launches stock sandboxed
 Chromium and attaches through a private Unix socket/pipe with `noDefaults`, not a
 TCP debugger port. This avoids Playwright's always-focused/visible override and

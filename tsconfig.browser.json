@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "assets/branding/forgejo/*.ts",
+    "assets/branding/forgejo/*.js",
+    "appliance/forgejo/public/assets/*.ts",
+    "appliance/forgejo/public/assets/*.js"
+  ]
+}

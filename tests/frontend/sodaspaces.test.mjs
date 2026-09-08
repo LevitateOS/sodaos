@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {mountDrawer} from '../../appliance/forgejo/public/assets/sodaspaces.js';
-const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
+const require = createRequire(new URL('../../package.json', import.meta.url));
 const {JSDOM} = require('jsdom');
 const footer = readFileSync(new URL('../../appliance/forgejo/templates/custom/footer.tmpl', import.meta.url), 'utf8');
 const json = (body, status = 200) => new Response(JSON.stringify(body), {status, headers: {'Content-Type': 'application/json'}});

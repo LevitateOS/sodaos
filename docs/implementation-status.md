@@ -1,5 +1,40 @@
 # Current handoff
 
+## Root Bun workspace and TypeScript scaffolding
+
+The root `package.json` now owns Bun 1.4.2, shared script/test dependencies and
+one generated `bun.lock`, with Cockpit as its UI workspace. Playwright and the
+native browser helper's direct WebSocket dependency belong to the root. Existing
+require loaders now resolve from that owner. All prior locked package versions
+survive; additions are Bun/JSDOM/WebSocket types and their declaration dependencies.
+Native build/check callers use the root commands; public input collection and the
+bundle allowlist carry the root manifest/lock plus the Cockpit manifest.
+
+[TypeScript development](typescript.md) and AGENTS.md establish migration rules.
+Shared strict settings include checked indexed access and exact optional properties,
+with separate scripts, browser, tests and Cockpit configurations. Cockpit passes
+these settings after bounded missing-value guards, explicit potentially undefined
+props, and stronger fixture assertions. Its stream character access and exit-node
+selection retain their current behavior. Root JS/MJS remains included with
+`checkJs: false`: those files are not yet ported or claimed type checked. New TS
+files inherit strict checks. Forgejo browser transpilation/emission and source
+conversion remain the next migration work; current served JS paths stay intact.
+
+Local macOS arm64 validation used Bun 1.4.2, Node 24.20.0 and TypeScript 7.0.2:
+fresh workspace frozen install, all four compiler projects, 54 frontend checks,
+16 Forgejo checks, 60 Cockpit tests and both Cockpit builds passed. Fifteen opt-in
+browser checks remained skipped. Six Go bundle/input tests passed with Go 1.27.1;
+two metadata fixtures passed with the optional Caddy check skipped. A negative
+compiler probe confirmed strict/indexed/optional checks and rejection of Bun/Node
+globals in the browser configuration. Screenshot help and the native-browser helper
+import passed without launching a browser. Shell syntax and whitespace checks passed.
+
+Validation logs/probes and previous dependency directories are retained under
+`.artifacts/typescript-scaffold/`. Initial compiler failures are preserved there;
+they were resolved without disabling strict options. No native appliance build,
+installed journey, retained project/provider mutation, deployment or push occurred.
+Earlier migration evidence below remains tied to its original package layout.
+
 ## Cockpit package management — Bun
 
 The Bun pin was corrected to 1.4.2 after the initial migration. The official

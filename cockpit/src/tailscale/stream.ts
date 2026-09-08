@@ -11,7 +11,7 @@ export function authenticationStream(onMessage: (message: AuthenticationMessage)
       const offset = buffer.length;
       buffer += chunk;
       for (let index = offset; index < buffer.length; index++) {
-        const character = buffer[index];
+        const character = buffer.charAt(index);
         if (quoted) {
           if (escaped) escaped = false;
           else if (character === "\\") escaped = true;

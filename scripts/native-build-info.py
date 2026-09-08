@@ -28,8 +28,9 @@ def collect(root, arch, revision):
         ('project-os/locks/tea-source.toml', 'tea-source.toml'),
         ('appliance/locks/github-runner-source.toml', 'github-runner-source.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
+        ('package.json', 'package.json'),
         ('cockpit/package.json', 'cockpit-package.json'),
-        ('cockpit/bun.lock', 'cockpit-bun.lock'),
+        ('bun.lock', 'bun.lock'),
     ):
         shutil.copyfile(root / source, inputs / name)
     shutil.copyfile(root / 'scripts/install-native.sh', stage / 'install-native.sh')

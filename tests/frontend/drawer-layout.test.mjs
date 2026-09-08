@@ -10,7 +10,7 @@ import {createHash} from 'node:crypto';
 const root = path.resolve(import.meta.dirname, '../..');
 
 test('integrated drawer source: desktop/mobile themes and native-page coexistence', {skip: process.env.SODA_DRAWER_LAYOUT !== '1'}, async t => {
-  const require = createRequire(path.join(root, 'cockpit/package.json'));
+  const require = createRequire(path.join(root, 'package.json'));
   const {chromium} = require('playwright');
   const payload = JSON.parse(await readFile(path.join(root, 'internal/nativebuild/forgejo-payload.json'), 'utf8'));
   const vendor = new Map();

@@ -52,7 +52,8 @@ for command in cmd/*; do
 done
 go mod verify
 # Soda is a Go API/OAuth service; Cockpit keeps its separate frontend build.
-(cd cockpit && bun install --frozen-lockfile && bun run build)
+bun install --frozen-lockfile
+bun run build
 python3 scripts/build-project-tools.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac
 # Resolve the unchanged core-owned base and service references for this platform.

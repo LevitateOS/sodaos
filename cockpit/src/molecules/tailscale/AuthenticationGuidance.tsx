@@ -6,7 +6,7 @@ export function AuthenticationGuidance({
   status,
   authURL,
 }: {
-  status?: Status;
+  status: Status | undefined;
   authURL: string | null;
 }) {
   return (

@@ -6,7 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-const require = createRequire(new URL('../cockpit/package.json', import.meta.url));
+const require = createRequire(new URL('../package.json', import.meta.url));
 const { chromium } = require('playwright');
 const [preview, evidence] = process.argv.slice(2);
 assert(preview && evidence && process.argv.length === 4,

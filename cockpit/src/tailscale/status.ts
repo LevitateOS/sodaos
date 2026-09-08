@@ -57,8 +57,11 @@ export function authenticationURL(value: string | undefined) {
 export function exitSelection({ status, prefs }: Snapshot) {
   let selected = prefs.ExitNodeIP || "";
   const choices = exitNodeChoices(status).filter((peer) => peer.TailscaleIPs?.[0]);
-  for (const peer of choices) if (peer.ID === prefs.ExitNodeID) selected = peer.TailscaleIPs![0];
-  if (prefs.ExitNodeID && !choices.some((peer) => selected && peer.TailscaleIPs![0] === selected))
+  for (const peer of choices) {
+    const address = peer.TailscaleIPs?.[0];
+    if (peer.ID === prefs.ExitNodeID && address) selected = address;
+  }
+  if (prefs.ExitNodeID && !choices.some((peer) => selected && peer.TailscaleIPs?.[0] === selected))
     selected = status.ExitNodeStatus?.TailscaleIPs?.[0] || selected || "unavailable";
   return selected;
 }

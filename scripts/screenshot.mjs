@@ -86,9 +86,9 @@ async function main() {
   await mkdir(profile, { recursive: true, mode: 0o700 });
   let chromium;
   try {
-    ({ chromium } = createRequire(new URL('../cockpit/package.json', import.meta.url))('playwright'));
+    ({ chromium } = createRequire(new URL('../package.json', import.meta.url))('playwright'));
   } catch {
-    throw new Error('Playwright is missing. Prepare the existing Cockpit development dependencies, or expose an installed Playwright through NODE_PATH.');
+    throw new Error('Playwright is missing. Run bun install --frozen-lockfile from the repository root, or expose an installed Playwright through NODE_PATH.');
   }
   let output;
   if (!values.login && values.out) {

@@ -1,0 +1,33 @@
+{
+  "name": "sodaos",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "node": "24.20.0"
+  },
+  "workspaces": [
+    "cockpit"
+  ],
+  "trustedDependencies": [
+    "@parcel/watcher"
+  ],
+  "scripts": {
+    "build": "bun run --cwd cockpit build",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.browser.json && tsc -p tsconfig.tests.json && bun run --cwd cockpit typecheck",
+    "test": "bun run test:frontend && bun run test:forgejo && bun run --cwd cockpit test",
+    "test:frontend": "node --test tests/frontend/*.test.mjs",
+    "test:forgejo": "node --test tests/forgejo/*.test.mjs tests/forgejo/presentation/*.test.mjs",
+    "screenshot": "node scripts/screenshot.mjs"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/jsdom": "30.0.0",
+    "@types/node": "24.10.1",
+    "@types/ws": "8.18.1",
+    "jsdom": "30.0.1",
+    "playwright": "1.63.0",
+    "typescript": "7.0.2",
+    "ws": "8.21.3"
+  }
+}

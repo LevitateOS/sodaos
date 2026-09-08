@@ -13,8 +13,8 @@ revision=$(git rev-parse HEAD)
 [[ -z $(git status --porcelain --untracked-files=normal) ]] || { echo 'Check requires a clean exact-revision checkout' >&2; exit 1; }
 ".artifacts/native/$arch/tools/soda-artifacts" verify --source "$PWD/.artifacts/native/$arch" --arch "$arch" --revision "$revision"
 go test -mod=readonly ./...
-node --test tests/frontend/*.test.mjs
-(cd cockpit && bun run typecheck && bun run test)
+bun run typecheck
+bun run test
 python3 -m unittest discover -s tests/build
 SODA_STAGE="$PWD/.artifacts/native/$arch/rootfs" python3 -m unittest discover -s tests/packaging
 [[ $(git rev-parse HEAD) == "$revision" && -z $(git status --porcelain --untracked-files=normal) ]]

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import assert from "node:assert/strict";
 import { test, expect, vi } from "vite-plus/test";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { RunnersPage } from "./RunnersPage";
@@ -23,6 +24,8 @@ const data: ListResponse = {
     },
   ],
 };
+const fixtureRunner = data.runners[0];
+assert.ok(fixtureRunner);
 async function ready() {
   const invoke = vi.fn<Invoke>().mockResolvedValue(data);
   render(<RunnersPage store={createRunnersStore(invoke as Invoke)} forgejoURL="https://forgejo.example.test" />);
@@ -202,7 +205,7 @@ test("registration with a retained runner reconciles the list, closes creation, 
     ...data,
     runners: [
       {
-        ...data.runners[0],
+        ...fixtureRunner,
         id: "new",
         service: { load: "loaded", active: "inactive", sub: "dead", enabled: "disabled" },
       },
@@ -269,7 +272,7 @@ test("failed lifecycle changes still re-read native listener status", async () =
     active_listeners: 0,
     runners: [
       {
-        ...data.runners[0],
+        ...fixtureRunner,
         service: { load: "loaded", active: "inactive", sub: "dead", enabled: "disabled" },
       },
     ],

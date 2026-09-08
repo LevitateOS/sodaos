@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mountSodaspaces} from '../../appliance/forgejo/public/assets/sodaspaces-drawer.js';
-const require = createRequire(new URL('../../cockpit/package.json', import.meta.url));
+const require = createRequire(new URL('../../package.json', import.meta.url));
 const {JSDOM} = require('jsdom');
 const env = 'p0123456789abcdef01234567', fp = 'SHA256:' + 'A'.repeat(43);
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));

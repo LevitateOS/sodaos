@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import assert from "node:assert/strict";
 import { afterEach, test, expect, vi } from "vite-plus/test";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { StrictMode } from "react";
@@ -325,6 +326,8 @@ test("effect replay closes the old adapter and constructs a new one without repl
   );
   await flush();
   expect(factory).toHaveBeenCalledTimes(2);
+  assert.ok(instances[0]);
+  assert.ok(instances[1]);
   expect(instances[0].close).toHaveBeenCalledOnce();
   expect(instances[1].close).not.toHaveBeenCalled();
   expect(app.native.signIn).not.toHaveBeenCalled();
