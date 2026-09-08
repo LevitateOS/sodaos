@@ -18,6 +18,23 @@ separately approved cutover. A build permit is not install/restart, disk erasure
 provider registration, routing or fixture permission. Record reused evidence by
 exact bytes/target, not a second independent PASS. Missing access is **unverified**.
 
+## Project OS baseline checks
+
+The [Project OS baseline](project-os.md) is a source-backed contract, not another
+readiness gate. Extend existing image/tool, account/access, project-state/workload
+and terminal tests for the actual candidate. Required commands/terminfo, genuine
+login/groups/shared paths and managed-service cgroup ownership need native checks;
+package metadata or disabled inner workload cgroups alone prove none of those.
+
+For existing-root additions, declare the exact native maintenance transaction and
+fresh backup/interruption scope; verify the original CID, accounts/keys, configuration,
+homes/shared tools and workload data survive. Prove the selected tmux session's same
+process and owned cleanup independently from its socket. The existing request-owned
+terminal probe assertions below are historical behavior, not acceptance of new
+reattachment/navigation retention; revise them with the implementation, not by
+relabelling their old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented).
+No project/package/service mutation is authorized by these requirements.
+
 ## Native source and build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.

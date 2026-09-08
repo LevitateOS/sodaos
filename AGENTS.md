@@ -6,6 +6,7 @@ Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
 - `docs/sodaspaces-plan.md` — short current implementation sequence and ownership
+- `docs/project-os.md` — project userspace baseline, native ownership, persistence and bounded same-root maintenance
 - `docs/native-support.md` — authored support-tool contracts, private inputs, phase effects and retention; not execution permission or native proof
 - `docs/deferred.md` — deliberately deferred and excluded work
 - `docs/implementation-status.md` — implemented source, assumptions and execution evidence

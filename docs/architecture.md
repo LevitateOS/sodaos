@@ -39,10 +39,12 @@ or a replacement for ordinary SSH, and it adds no separate public terminal serve
 
 **Forgejo is a standalone container, not a Podman pod.** A pod groups containers;
 it is not a user database, init system or filesystem. Project containers share the
-host kernel; Rocky supplies userspace. See `appliance/services/`, `project-os/`,
-[installation](installation.md) and [development environment](development-environment.md)
-for actual paths, images, units and permissions. Dependency baselines belong in
-source recipes/locks, not repeated prose version requirements.
+host kernel; Rocky supplies userspace. The [Project OS baseline](project-os.md)
+consolidates native ownership, supported tools, persistent/runtime state and bounded
+same-root maintenance. It is not a new OS backend or a universal-workstation roadmap.
+See `appliance/services/`, `project-os/`, [installation](installation.md) and
+[development environment](development-environment.md) for implementation and usage.
+Dependency baselines belong in source recipes/locks, not repeated prose version rules.
 
 The `soda-dashboard` command/container/config/data names still identify the Go backend.
 Do not rename persistent records or roots simply because the UI is called Sodaspaces.
@@ -72,6 +74,8 @@ and terminal routes share that origin under `/-/soda/` with their normal credent
   Stable Forgejo identity binds membership to its original Linux login. Native rename
   or transfer does not silently remap Linux users, ownership or already installed keys.
   Linux eligibility restrictions belong to provisioning, not Forgejo account creation.
+  Current web administration and native wheel/SSH rights are not automatically
+  synchronized on transfer; see the [native authority boundary](project-os.md#ownership-and-trust).
 - Runtime identities such as Soda UID/GID 2000 and native runner accounts are not
   developer host onboarding. The web process's privileges and human authorization
   are separate boundaries.
@@ -109,10 +113,12 @@ operator boundary server-side; Forgejo site administration is not a substitute.
 
 ## Projects and explicit joining
 
-**Add me to this project** must install the person's development public keys and
-create the intended real project-local Linux account, then record membership only
-after confirmed native success. A row, mock or manual-command checklist is not the
-feature. The creator also explicitly joins. Never request a private SSH key.
+**Add me to this project** must create the intended real project-local Linux account
+and install any explicitly selected external-SSH public keys, then record membership
+only after confirmed native success. The current implementation still requires a
+nonempty key set; the selected browser-only account path is unimplemented. A row,
+mock or manual-command checklist is not the feature. The creator explicitly joins
+as well. Never request a private SSH key.
 
 The root:soda Unix-socket helper exposes fixed operations, not arbitrary commands,
 host Podman flags or a generic forwarding surface. Resolve actor and native target
@@ -124,7 +130,7 @@ Joining is separate from native Git authorization. Later key rotation/revocation
 Linux offboarding and unrelated active-session termination are not automatically
 synchronized. The requested browser terminal uses the user's existing project-local
 account/home; opening it must not create, join, start a project or expose host root.
-Its [bounded implementation plan](sodaspaces-plan.md#next-item-existing-account-browser-terminal)
+Its [resumable terminal plan](sodaspaces-plan.md#resumable-terminal-decision--tmux)
 is separate from ordinary SSH access and does not collect private SSH keys.
 
 ## Shared resources and persistence

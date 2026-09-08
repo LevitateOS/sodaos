@@ -37,7 +37,9 @@ is **not implemented**. Do not deploy this slice as completed session continuity
 The [leading plan](sodaspaces-plan.md#resumable-terminal-decision--tmux) selects
 **stock Rocky-packaged tmux**, not interchangeable backends. Existing source still
 launches a request-owned login shell; no package, unit, resumable API or retention
-implementation was added by this decision.
+implementation was added by this decision. The [Project OS baseline](project-os.md)
+owns the shared account/profile/state and same-root delivery contract; this guide
+owns the terminal mechanism. No broader OS redesign is a prerequisite.
 
 ### Source comparison
 
@@ -92,9 +94,11 @@ Research inputs and comparisons are retained in `.artifacts/research/terminal-op
   Plain `attach` can start a server and execute startup configuration: **`-N` matters**.
 - **Supervise the server, not only its PTY client.** `-D` disables daemonization but
   also turns `exit-empty` off; it does not implement expiry or guarantee clean startup.
-  Bound startup, empty-server lifetime and shutdown. A project-local guard and
-  systemd cgroup must cover the server and remaining owned descendants, including
-  guard/server/helper failure and jobs ignoring hangup. Keep restart/resurrection
+  Bound startup, empty-server lifetime and shutdown. Respect the separate
+  [project/systemd/nested-workload owners](project-os.md#runtime-and-supervision-boundaries);
+  disabled inner workload cgroups are not proof of terminal cgroup supervision.
+  A project-local guard and systemd cgroup must cover the server and remaining owned
+  descendants, including guard/server/helper failure and jobs ignoring hangup. Keep restart/resurrection
   disabled. End/expiry terminates only that managed service's processes, not a UID,
   default tmux server, other browser terminals or independently managed SSH/services.
   Jobs still inside that cgroup are included even if they ignored PTY hangup; this is

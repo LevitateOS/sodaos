@@ -20,6 +20,12 @@ Go/template ownership, authorization and unresolved page-shell integration. This
 selection does not reopen deletion, reconciliation, resource branching or a general
 replacement dashboard. Future Runners navigation remains Soda-operator-only.
 
+The [Project OS baseline](project-os.md) additionally selects bounded native
+maintenance for required package/helper/config additions to the **same** retained
+project. It does not reopen image replacement, a fleet updater or general recovery.
+Concrete delivery must preserve state and declare its package/service effects; no
+silent installation on terminal Open or permission to run maintenance follows.
+
 Deferring machinery does not mean hiding native errors or granting developers unrestricted host administration.
 
 ## 1. Deferred: private toolchain and service branches

@@ -33,8 +33,10 @@ Fedora CoreOS host — operator administration only
 Forgejo, Soda and Caddy are separate containers; **Forgejo is not a Podman pod**.
 See [architecture](docs/architecture.md) and `appliance/services/` for ownership and
 placement. The repository's human owner administers its project, not the host.
-Each user explicitly joins with a public development key; native Git authorization
-is separate. Normal startup preserves the existing container/root, not replacement.
+Each user explicitly joins; today's implementation requires a public development
+key, while key-free browser onboarding is selected but unimplemented. Native Git
+authorization is separate. Normal startup preserves the existing container/root,
+not replacement; see the [Project OS baseline](docs/project-os.md).
 
 Project access is ordinary `user@project-ip`, SCP/SFTP and native service ports.
 Clients need a real route; host Tailnet enrollment alone does not provide it.
@@ -48,7 +50,7 @@ routing are separate configuration—not inferred from an old port or hostname.
 | Product decisions and remaining work | [Architecture](docs/architecture.md), [Sodaspaces plan](docs/sodaspaces-plan.md), [deferred scope](docs/deferred.md) |
 | API/auth/native integration | `cmd/`, `internal/`, [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md), [Forgejo customization](docs/forgejo-frontend-integration.md) |
 | Installation/operator access | `appliance/`, `scripts/`, [installation](docs/installation.md), [bootstrap](docs/operator-setup.md), [native validation](docs/native-validation.md) |
-| Project environments | `project-os/`, [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |
+| Project environments | `project-os/`, [Project OS baseline](docs/project-os.md), [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |
 | Cockpit and outside tooling | `cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
 | Branding and reuse | `assets/`, [attribution](docs/predecessor-reuse.md), [console](docs/console-welcome.md), [branding review](docs/branding-review.md), [capture rules](docs/screenshot-capture.md) |
 | Public handbook | [Release-day handbook](docs/public/10-Start-here/10-index.md), [authoring/sync](docs/public/README.md), [editorial review](docs/public-docs-review.md); intended product documentation, not current acceptance |

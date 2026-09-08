@@ -183,4 +183,10 @@ Cockpit initially binds loopback 9090; use an operator SSH tunnel unless private
 
 Project environments are created once and started/stopped as existing containers. Do not run `podman system prune`, delete project containers, use `--rm`, or replace their writable roots as ordinary management. That root stores account records, installed packages/tools and service data. Backups/recovery and automatic image replacement remain deferred.
 
+Required new native support, such as tmux, follows the [Project OS same-root
+maintenance contract](project-os.md#deliver-required-additions-without-replacing-roots).
+New image builds/defaults do not update retained roots. Exact package/file/service
+maintenance recipes and compatibility checks still need implementation, rehearsal
+and applicable target/action scope; first-install/activation are not those recipes.
+
 Run the later [native validation guide](native-validation.md) only with explicit targets and permissions. Installation/activation command success is not validation. Keep source, build and installed evidence separate.

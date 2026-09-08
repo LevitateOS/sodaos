@@ -1,5 +1,43 @@
 # Current handoff
 
+## Project OS baseline consolidated — documentation only
+
+At the user's request, replaced the stale, unlinked [Project OS guide](project-os.md)
+with the existing foundation: native accounts/sudo/trust, supported tools and ordinary
+extension points, persistent versus runtime state, separate SSH/browser/Git credentials,
+service/cgroup ownership and same-container lifecycle. Linked it from the leading
+plan, architecture, agent/readme and feature/installation/validation guides. Corrected
+old claims that the image/GitHub CLI packaging and default-bridge/lifecycle checks
+had never completed; retained evidence remains bounded to its original bytes/targets.
+
+Two source distinctions matter: web management consumes current Forgejo authority,
+while native wheel grants use the creation-time owner label and are not revoked by
+that account helper; inner workload cgroups being disabled does not prove terminal
+systemd/cgroup cleanup. Do not invent synchronization, new capabilities or broad
+native compatibility to hide either boundary.
+
+The selected required-addition delivery is bounded **same-root native maintenance**:
+reviewed package/dependency/scriptlet/file/service effects, original CID/accounts and
+fresh matching preserved-state scope, no image replacement or install on Open. Its
+concrete recipe/checks remain source work for tmux delivery, not a fleet updater or
+execution permission. Tmux supervision/retention remains the immediate slice; zero-key
+real onboarding and the unresolved personal Git credential model are separate later
+work. No new universal Project OS planning phase is selected.
+
+Review used production source and the saved public
+`.artifacts/e2e-dad2945/export/x86_64/inputs/native-build.json`: that prior x86_64 image
+record includes `vim-minimal`, `less`, CA packages and the selected Tea/GitHub CLI
+versions, not tmux. It is not an audit of retained projects or evidence for current
+HEAD. Notes/document checks are retained under
+`.artifacts/research/project-os-baseline-0848079/`.
+
+Checks performed: source/retained-metadata review, Markdown relative-link/anchor
+inspection and `git diff --check`. No product code, dependency/package installation,
+build/test, terminal execution, VM contact, service/project/key/provider mutation,
+deployment or push. Source layout `4cb7f7d`, installed isolated `2aa4960`, retained
+`soda-test`, both isolated project roots, credentials and earlier evidence are unchanged.
+Tmux/native delivery and new acceptance remain unimplemented/unverified.
+
 ## Resumable terminal selection — tmux, documentation only
 
 Following the user's request to find the best native persistence option, the

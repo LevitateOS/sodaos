@@ -25,6 +25,21 @@ work; the older delivery/terminal sections retain the previous implementation an
 its evidence, not permission to reintroduce that UX. See the leading
 [handoff](implementation-status.md) for exact bytes, failures and limits.
 
+## Project OS foundation
+
+The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,
+account/sudo, shared-state, SSH/credential, native-service and persistence contracts.
+Keep that foundation, not a new distribution or a design for every possible user tool.
+Its concrete gaps feed the slices below: tmux supervision/required-tool checks now,
+real zero-key onboarding and agreed Git credentials afterwards. Current Forgejo
+administration and already issued Linux sudo/SSH rights are distinct, not synchronized.
+
+Required additions to retained roots use [bounded same-root native maintenance](project-os.md#deliver-required-additions-without-replacing-roots),
+not image replacement, installation on Open or a fleet updater. The exact recipe and
+native cgroup/continuity proof belong to the terminal feature before existing-target
+delivery. No separate OS-planning phase is a prerequisite for that source work.
+No project/package/capability changes or execution scope are granted by the baseline.
+
 ## Spaces page — selected, not implemented
 
 This replaces the earlier exclusion of an environment catalog. It is a bounded Soda
@@ -351,8 +366,9 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
-- Implement/prove the selected tmux boundary in `internal/host/` and `project-os/`,
-  then reattach it through `internal/web/terminal.go` and the existing drawer. Keep
+- Implement/prove the selected tmux boundary in `internal/host/` and `project-os/`
+  against the [Project OS baseline](project-os.md), then reattach it through
+  `internal/web/terminal.go` and the existing drawer. Keep
   create and attach separate; supervise the native server, not just its client.
   Package through the existing project image/build owners and refuse missing native
   support without silently installing it on Open or replacing a retained project.

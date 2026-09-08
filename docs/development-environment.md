@@ -1,10 +1,12 @@
 # Working inside a project
 
-Adapted from the predecessor's developer handbook for project-local identities and shared resources. The retained x86_64 fixtures now have direct SSH/file-transfer, personal Git and shared-tool evidence. This is not complete product/persistence acceptance; see the [current handoff](implementation-status.md#accepted-native-evidence).
+Adapted from the predecessor's developer handbook for project-local identities and shared resources. The [Project OS baseline](project-os.md) owns supported userspace, native permissions, persistent state and same-root maintenance. Recorded x86_64 clients have bounded SSH/file-transfer, personal Git, shared-tool and lifecycle evidence, not general laptop/client or final-product acceptance; see the [current handoff](implementation-status.md#accepted-native-evidence).
 
 ## Join, verify and connect
 
-Sign in through Forgejo, register your public development-access key in Soda's Profile, and select **Add me to this project**. The creator joins explicitly too. No private key is uploaded and no human account is created on the appliance host.
+Sign in through Forgejo and explicitly connect Sodaspaces. Today's Join requires a saved public development-access key: use the drawer's key controls, then select **Add me to this project**. The creator joins explicitly too. No private key is uploaded and no human account is created on the appliance host.
+
+The selected browser-only path will provision the same real account without an external SSH key; it is not implemented yet. The browser terminal itself uses Soda's bridge, not SSH. Optional reviewed Forgejo profile-key selection and automated outbound Git setup are separate unfinished actions, not current behavior. SSH/editor instructions below remain native alternatives, not the intended prerequisite for development in the drawer.
 
 Use the project's displayed IP, not its label as a hostname. The operator must establish the real client route to the project subnet; a bridge address alone is not connectivity. Before accepting a first SSH host-key prompt, obtain the project's fingerprint through trusted operator access. On the authorized host, the operator can inspect the public host key using:
 
@@ -39,13 +41,13 @@ VS Code's **Remote - SSH** extension can connect to the same account/IP; open yo
 
 - `~/shared` accesses `/srv/project/shared`, shared through the native `soda-project` group.
 - Clone ordinary repositories into your home, such as `~/repo-name`; there is no mandatory repository schema or Soda checkout synchronization.
-- The environment's Forgejo repository association determines its administrator. Other ordinary checkouts, including external Git hosts, do not change that authority or the Forgejo identity provider.
+- The environment's Forgejo repository association determines web management authority. Existing native wheel/SSH rights are not automatically synchronized after transfer; see the [authority boundary](project-os.md#ownership-and-trust). Other checkouts do not change either authority or the Forgejo identity provider.
 
 ## Git credentials and collaboration
 
 Soda's registered public key authenticates **inbound project SSH**, not Git operations from inside the project. Use your own native Forgejo/external-host Git credentials. There is no automatic key generation, registration, agent forwarding or copied browser session for Git.
 
-If you need an outbound SSH key, generate it inside your project home using native `ssh-keygen`, with a passphrase and an unused filename. Register only its public part through the Git host's key settings. Keep its private part in that home with normal restrictive permissions; never store it in `~/shared` or the repository. Verify the Git host's fingerprint through its operator/published guidance before accepting it. HTTPS credentials are a separate native option.
+For deliberate manual Git setup, generate an outbound SSH key inside your project home using native `ssh-keygen`, with a passphrase and an unused filename. Register only its public part through the Git host's key settings. Keep its private part in that home with normal restrictive permissions; never store it in `~/shared` or the repository. A Forgejo profile key carries your normal cross-repository permissions; project-local storage does not scope it to one repository or hide it from project sudo/appliance root. Verify the Git host's fingerprint through its operator/published guidance before accepting it. HTTPS credentials are a separate native option. This manual workflow does not settle the [automated credential model](sodaspaces-plan.md#ssh-directions-and-the-proposed-git-setup).
 
 Copy the actual clone URL from Forgejo; do not construct it from the project IP or an old appliance port. Configure Git author identity as appropriate and use the ordinary workflow:
 
@@ -93,7 +95,7 @@ Personal tools can coexist under personal paths, with explicit personal mise env
 
 ## Services, ports and persistence
 
-The project owner administers the shared nested engine; other members consume its normal service endpoints. See [project services](project-services.md) for that boundary and the ordinary Compose example. Unlike the predecessor, different project environments do not share one host network namespace, so coordinate ports within the project rather than assuming an appliance-wide workspace port pool.
+Project-native root/wheel administrators administer the shared nested engine; other members consume its normal service endpoints. See [project services](project-services.md) for that boundary and the ordinary Compose example. Unlike the predecessor, different project environments do not share one host network namespace, so coordinate ports within the project rather than assuming an appliance-wide workspace port pool.
 
 For a service listening only on the project's loopback interface, forward it from your client:
 
@@ -103,4 +105,4 @@ ssh -N -L 8080:127.0.0.1:8080 alice@PROJECT_IP
 
 Open `http://127.0.0.1:8080` on that client. For team access, bind/publish to the intended reachable project interface and use the deployment's permitted private route. Never open public ingress merely to bypass a routing problem.
 
-Open a new shell after changing shell configuration; this is native shell behavior, not live propagation by Soda. Coordinate service changes and authorized stop/start with teammates. Normal startup preserves the existing project's writable root, but broader recovery/image replacement remains deferred. Native account/shared-tool checks now have installed evidence. Default nested bridge networking and restart/reboot persistence still need the [installed journey](native-validation.md); project-network workload evidence does not establish those.
+Open a new shell after changing shell configuration; this is native shell behavior, not live propagation by Soda. Coordinate service changes and authorized stop/start with teammates. Normal startup preserves the existing writable root; a new image does not update it. Follow [bounded same-root maintenance](project-os.md#deliver-required-additions-without-replacing-roots) for required platform additions; its concrete delivery recipe is still source work, not permission to upgrade a project. General recovery/image replacement remains deferred. Recorded default-bridge and stop/start/reboot evidence is bounded to its candidate/target; repeat affected [installed checks](native-validation.md) for a new runtime, rather than treating those results as universal compatibility or terminal-process persistence.
