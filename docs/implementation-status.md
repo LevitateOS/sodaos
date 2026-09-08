@@ -54,7 +54,13 @@ fixture maintenance installed public files as 0644. All bytes match; the explici
 mode differences are retained in `final-check-reviewed.json`, not hidden as exact
 mode equivalence. Source staging now normalizes only its run-owned public adaptation
 files/directories, with a private-checkout regression test. The corrected packaging
-still needs a clean native build/check; no new application behavior was introduced.
+passed a clean native build, `check-native.sh x86_64` and verified export at
+`dad2945`, retained in `.artifacts/e2e-dad2945/`. Every staged Forgejo public asset now has
+0644 file/0755 directory modes even from the private worktree. No new application
+behavior was introduced: production application/helper source remains the tested
+`2aa4960` code. The newer whole bundle is not installed; current fixture runtime
+and its 11 explicitly recorded mode differences remain bound to the evidence above.
+No additional restart or retained rollout was performed to hide that distinction.
 
 ## Integrated E2E execution started — isolated fixture only
 

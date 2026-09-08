@@ -90,9 +90,10 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 ## Remaining work — ordered
 
 1. **Close packaging and delivery of the validated native drawer.** The bounded
-   integrated x86_64 journeys passed at the handoff's exact scope. Normalize the
-   legacy public-asset staging modes and run a clean build/check before selecting
-   a delivery candidate; no retained rollout is implied. The
+   integrated x86_64 journeys passed at the handoff's exact scope. Legacy public
+   staging modes are corrected and clean native build/check/export passed at
+   `dad2945`; production application source is unchanged from tested `2aa4960`.
+   Select an exact delivery candidate and scope; no retained rollout is implied. The
    established hooks now mount the complete content through the
    [existing contract](terminal-integration.md), preserving create/key/join/connection
    actions. Local component/layout checks are not native acceptance. Validate the
@@ -140,13 +141,14 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    not lossless rollback. A terminal milestone may ship before later management work;
    every delivered milestone still needs its relevant checks, not just a final sweep.
 
-### Immediate next step — packaging correction and scoped delivery
+### Immediate next step — scoped delivery
 
 - The mount, immutable context hints, asset loading and disposal are integrated.
   Preserve native forms/navigation, explicit terminal Open and mandatory full-page
   reload after close/stale context. Packaging now uses the exact complete presentation
-  inventory and locked full English locale; source fixture checks are not a native
-  candidate stage. Verify all controls together against actual deployed bytes.
+  inventory and locked full English locale; its native build/check/export and
+  bounded integrated fixture journeys now passed as recorded in the handoff.
+  Preserve their byte/target boundaries for the separately approved next delivery.
 - Build/check/stage the merged candidate from a clean exact revision. Extend the
   existing installed journey with an explicit terminal opt-in, using real OAuth,
   trusted sandboxed Chromium, Caddy and the fixed helper. Check both existing users,

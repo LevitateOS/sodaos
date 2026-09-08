@@ -81,7 +81,11 @@ overrides, shared presentation assets/fonts/notices, the mounted Sodaspaces cont
 terminal and five locked renderer/CSS/MIT-notice files, beneath
 `/var/lib/soda/forgejo/gitea/`. See the [mounting contract](terminal-integration.md).
 Adding an arbitrary template is still refused; expand the reviewed inventory explicitly.
-This source change has local fixture coverage, not a new native build/install proof.
+Clean native build/check/export passed at `dad2945`, including public-mode
+normalization for private checkouts. The preceding `2aa4960` application/helper
+passed bounded installed integration on the isolated fixture; see the handoff for
+its exact bytes and recorded legacy public-mode differences. The newer whole
+bundle is not an installed-appliance or retained-rollout result.
 
 The build fetches locked terminal distributions into `terminal-assets` and verifies
 Forgejo 15.0.7's complete English catalog via `appliance/forgejo/locale.lock.json` before
