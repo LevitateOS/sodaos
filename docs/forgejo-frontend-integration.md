@@ -61,7 +61,7 @@ backdrop-click handling does not treat an empty internal area as an outside clic
 
 With the existing pinned Go/Node tools and prepared Cockpit dependencies, local
 checks are `go test -mod=readonly ./scripts` and
-`node --test tests/frontend/sodaspaces.test.mjs`. The latter uses actual Soda markup
+`node --test tests/frontend/*.test.mjs`. The latter uses actual Soda markup
 and script with jsdom/API/dialog doubles. No new frontend dependency or build is
 needed. The full `scripts/check-native.sh ARCH` still requires a clean revision and
 actual native stage. Browser focus, styling, cookies and stock hook rendering need

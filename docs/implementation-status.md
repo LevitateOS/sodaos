@@ -408,8 +408,14 @@ for the visible drawer plus completed ARIA state, not a box on the empty region.
 Probe `ebab030` then passed anonymous/native-cookie-only contexts but failed during
 the first real OAuth sequence. The probe now records fixed route labels/status codes
 and precise OAuth substeps, never URLs/queries/bodies or exception text.
-OAuth/account switching/accessibility/BFCache proof is still pending at this point;
-these failures are not a product pass. Full native build/stage, installed checks,
+Diagnostics at `5cbcdd8`/`fcedb04` showed real OAuth callback/repository return and
+session/provider/repository reads succeeding. The assertion was in the probe:
+Playwright route callbacks omit redirect hops, so its authorization counter and
+redirect guard did not run there. The probe now uses CDP Fetch on its exercised
+pages to inspect each hop before transmission; focused doubles test allowed and
+refused hops. Separate native DOM diagnosis observed the matching actor and real
+absent-environment state. Account switching/accessibility/BFCache and a complete
+journey are still pending; these failures are not a milestone pass. Full native build/stage, installed checks,
 retained-state rehearsal and cutover remain unperformed.
 
 ## Remaining work and permission boundary

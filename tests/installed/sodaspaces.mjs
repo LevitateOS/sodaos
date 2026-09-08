@@ -127,21 +127,32 @@ try {
   let environmentReads = 0;
   let authorizations = 0;
   const writes = new Set(['/user/login', '/user/logout', '/login/oauth/grant', '/-/soda/api/session/logout']);
-  await context.route('**/*', async route => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const denied = url.origin !== origin.origin ||
-      (!['GET', 'HEAD'].includes(request.method()) && !writes.has(url.pathname));
-    if (denied) { refusedRequest = true; await route.abort(); return; }
-    if (url.pathname === '/login/oauth/authorize') {
-      if (url.searchParams.get('client_id') !== input.oauth_client_id) {
-        refusedRequest = true; await route.abort(); return;
+  async function guardedPage() {
+    const p = await context.newPage();
+    const cdp = await context.newCDPSession(p);
+    // Playwright route handlers omit redirect hops. CDP Fetch pauses each hop
+    // before transmission, including the authorization redirect from Soda.
+    cdp.on('Fetch.requestPaused', async ({requestId, request}) => {
+      try {
+        const url = new URL(request.url);
+        const denied = url.origin !== origin.origin ||
+          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname)) ||
+          (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
+        if (denied) {
+          refusedRequest = true;
+          await cdp.send('Fetch.failRequest', {requestId, errorReason: 'BlockedByClient'});
+          return;
+        }
+        if (url.pathname === '/login/oauth/authorize') authorizations++;
+        if (url.pathname.startsWith('/-/soda/api/environments')) environmentReads++;
+        await cdp.send('Fetch.continueRequest', {requestId}); // No response substitution.
+      } catch {
+        if (!interrupted) refusedRequest = true;
       }
-      authorizations++;
-    }
-    if (url.pathname.startsWith('/-/soda/api/environments')) environmentReads++;
-    await route.continue(); // Never fulfill/replace a native response.
-  });
+    });
+    await cdp.send('Fetch.enable', {patterns: [{urlPattern: '*', requestStage: 'Request'}]});
+    return p;
+  }
   await context.addInitScript(() => {
     window.addEventListener('pageshow', event => { window.sodaspacesProbeRestored = event.persisted; });
   });
@@ -153,7 +164,7 @@ try {
     const pathname = new URL(response.url()).pathname;
     if (observedRoutes.has(pathname) && result.http.length < 128) result.http.push({route: pathname, status: response.status()});
   });
-  const page = await context.newPage();
+  const page = await guardedPage();
   const repoURL = origin.origin + input.repository_path;
   const drawer = page.locator('#sodaspaces-drawer');
   async function settled(p = page) {
@@ -276,7 +287,7 @@ try {
   stage = 'native-only account switch and stale tab';
   await open();
   const beforeSwitch = environmentReads;
-  const other = await context.newPage();
+  const other = await guardedPage();
   await other.goto(repoURL);
   await nativeLogout(other);
   await nativeLogin(other, 1);

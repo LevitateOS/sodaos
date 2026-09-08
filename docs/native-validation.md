@@ -30,7 +30,10 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 It uses stock 15.0.7, the candidate's served CSS/JS, real native forms and OAuth,
 then read-only drawer states. It never seeds cookies/sessions, substitutes responses,
 creates repositories/environments, joins or installs keys. Protective request
-interception aborts unapproved origins/writes and makes the run fail, not pass.
+interception on the two exercised pages aborts unapproved origins/writes and makes
+the run fail, not pass. Chromium CDP Fetch pauses each redirect hop before sending
+it; Playwright route callbacks do not include those hops. No request/response is
+fulfilled or replaced by the probe.
 
 Execution needs explicit target and authentication-transition permission. Supply
 an existing approved **public repository with Issues enabled and a plain new-issue
