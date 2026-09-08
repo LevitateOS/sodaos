@@ -17,7 +17,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: Watching — `/notifications/watching`, the second branch of `user/notification/notification_subscriptions.tmpl`. Its desktop layout is inspected; decide and generate a repository-watching scene distinct from bookmarks and inbox mail.
+Next: public contributor profile — `user/profile.tmpl`. Inspect whether generated artwork adds value alongside the person’s existing avatar, biography and repository content.
 
 ## Per-template inventory
 
@@ -207,7 +207,7 @@ Next: Watching — `/notifications/watching`, the second branch of `user/notific
 | Existing — verify | [`user/dashboard/issues.tmpl`](../appliance/forgejo/templates/user/dashboard/issues.tmpl) | `issues-papercraft.png`, `pulls-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`user/dashboard/milestones.tmpl`](../appliance/forgejo/templates/user/dashboard/milestones.tmpl) | `milestones-papercraft.png` | Not yet reviewed in this goal. |
 | Existing — verify | [`user/notification/notification_div.tmpl`](../appliance/forgejo/templates/user/notification/notification_div.tmpl) | `notifications-papercraft.png` | Not yet reviewed in this goal. |
-| Variants — see below | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | Subscriptions: `subscriptions-papercraft.png`; Watching: existing inbox art | Subscriptions complete; Watching remains pending. |
+| Done | [`user/notification/notification_subscriptions.tmpl`](../appliance/forgejo/templates/user/notification/notification_subscriptions.tmpl) | `subscriptions-papercraft.png`, `watching-papercraft.png` | Both page variants have separate integrated artwork and inspected native captures. |
 | Partial — trace caller | [`user/overview/header.tmpl`](../appliance/forgejo/templates/user/overview/header.tmpl) | — | Not yet reviewed in this goal. |
 | Pending | [`user/overview/package_versions.tmpl`](../appliance/forgejo/templates/user/overview/package_versions.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
 | Pending | [`user/overview/packages.tmpl`](../appliance/forgejo/templates/user/overview/packages.tmpl) | `org/header`, `user/overview/header` | Not yet reviewed in this goal. |
@@ -232,7 +232,7 @@ Next: Watching — `/notifications/watching`, the second branch of `user/notific
 | Status | Page variant | Decision / evidence |
 | --- | --- | --- |
 | Done | `/notifications/subscriptions` (`Status == 1`) | Dedicated conversation-bookmark scene integrated; desktop/mobile captures inspected. |
-| Pending | `/notifications/watching` (`Status == 2`) | Desktop inspected; still uses inbox art. Next in queue. |
+| Done | `/notifications/watching` (`Status == 2`) | Dedicated binoculars/repositories scene; desktop/mobile native captures inspected. |
 
 - [ ] Split combined Explore users/organizations, dashboard issues/pulls and personal/organization page branches into individual decisions.
 - [ ] Trace account, organization, repository and administrator shared layouts for native routes without leaf overrides.
@@ -273,3 +273,11 @@ Next: Watching — `/notifications/watching`, the second branch of `user/notific
 - Focused offline shared-page-boundary and notification-preview Go tests passed. Local templates reloaded.
 - Actual fixture screenshots inspected: `.artifacts/screenshots/capture-Pe7Zti/001.png` (1440×1000 subscriptions), `capture-MrHjH1/001.png` (390×844 subscriptions), and `capture-Pe7Zti/002.png` (Watching isolation check). The decorative scene is contained, native tabs/filters and truthful empty state remain. Watching still shows the original inbox art. Baseline `capture-fZfjV8/001.png`.
 - Initial Chrome launch failed transiently; read-only process/lock inspection found no live fixture browser or lock, and a second launch succeeded without deleting profile data. No subscription, account or fixture changes. Populated list, dark appearance and bulk actions were not exercised.
+
+### Watched repositories
+
+- Appropriate in the existing header. Binoculars and repository folders distinguish watching whole repositories from inbox messages and bookmarked discussions. [Exact prompt](../assets/branding/forgejo/watching-art-prompt.md).
+- Verified 1536×1024 RGBA with transparent corners. The shared template defaults to Watching artwork and retains its existing subscriptions-specific override; no native controls or watch records changed.
+- Focused offline shared presentation-boundary and notification-preview Go tests passed. Local templates reloaded.
+- Native screenshot-helper evidence inspected: `.artifacts/screenshots/capture-kRrPCS/001.png` (1440×1000 Watching), `capture-aNBSUP/001.png` (390×844 Watching), `capture-kRrPCS/002.png` (Subscriptions isolation check). Image, search and filter controls fit; the original truthful empty result remains. Baseline: `capture-Pe7Zti/002.png`.
+- No account/fixture/watch mutation. Populated repositories, dark appearance and filter interactions were not newly exercised.

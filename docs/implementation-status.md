@@ -3,21 +3,21 @@
 ## Page illustration goal
 
 The [per-page checklist](page-illustration-checklist.md) inventories 203 current
-overrides/helpers and tracks page/caller assessment individually. Repository
-migration now uses a distinct generated history-transfer illustration; only its
-intro asset reference changed. RGBA checks and focused offline onboarding tests
-passed; actual 1440/390px light-theme captures were inspected, with evidence in
-the checklist. Local templates were reloaded; no migration or fixture mutation.
-Repository fork now also has distinct connected-notebook artwork, verified with
-focused onboarding tests and 1440/390px native light-theme captures. Migration
-progress retains native state visuals without extra decorative art. Other pages
-remain pending, starting with Watching. Notification subscriptions now uses its
-own conversation-bookmark scene; focused native-boundary/preview tests and
-desktop/mobile light-theme captures were checked, with Watching unchanged. The 404 page now has
-small neutral wayfinding artwork; native general/repository contexts were checked
-at 1440/390px. A status stylesheet version bump fixed observed cached sizing;
-focused status tests passed. The 413 page remains a concise diagnostic without art. No blanket native or
-dark-theme acceptance is implied. Existing staged/unstaged work was preserved.
+overrides/helpers and tracks shared-template page variants separately. Migration,
+fork, 404, discussion subscriptions and watched repositories now have distinct
+illustrations. Native forms, state, permissions and meaningful status text remain
+upstream-owned. Migration progress and 413 retain concise native diagnostics
+without additional decorative art. Public contributor profiles are next.
+
+Each new PNG was visually inspected and verified as transparent RGBA. Focused
+onboarding, status, presentation-boundary and notification-preview tests passed
+for their respective changes. Local templates were reloaded and actual fixture
+light-theme pages were inspected at 1440/390px; 404 covered general/repository
+contexts, and subscriptions/watching covered shared-template isolation. A status
+stylesheet version bump corrected observed cached sizing. Exact prompts, rejected
+outputs, capture paths and per-page limits are in the checklist and linked records.
+No fixture/account state or provider resources were changed. Dark appearance,
+POST journeys and production deployment are not implied by these captures.
 
 ## Source versus installed state
 
