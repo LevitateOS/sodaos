@@ -4,6 +4,8 @@
 	{{template "repo/header" .}}
 	<div class="ui container {{if .IsBlame}}fluid padded{{end}}">
 		{{template "base/alert" .}}
+		{{$sodaSidebar := and (eq (len .TreeNames) 0) (not .IsViewFile) (not .IsBlame) (not .HideRepoInfo)}}
+		{{if $sodaSidebar}}<div class="soda-repo-layout"><aside class="soda-repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.desc"}}">{{end}}
 		{{if and (not .HideRepoInfo) (not .IsBlame)}}
 		<div class="repo-description">
 			<div id="repo-desc" class="tw-break-anywhere tw-text-16">
@@ -38,6 +40,8 @@
 		</div>
 		{{end}}
 
+		{{if $sodaSidebar}}{{template "repo/sub_menu" .}}</aside><div class="soda-repo-main">{{end}}
+
 		{{if RepoFlagsEnabled}}
 			{{template "custom/repo_flag_banners" .}}
 			{{if .SignedUser.IsAdmin}}
@@ -54,7 +58,7 @@
 				{{end}}
 			</div>
 		{{end}}
-		{{template "repo/sub_menu" .}}
+		{{if not $sodaSidebar}}{{template "repo/sub_menu" .}}{{end}}
 		{{$n := len .TreeNames}}
 		{{$l := Eval $n "-" 1}}
 		{{$isHomepage := (eq $n 0)}}
@@ -189,6 +193,7 @@
 			{{end}}
 			{{template "repo/view_list" .}}
 		{{end}}
+		{{if $sodaSidebar}}</div></div>{{end}}
 	</div>
 </div>
 {{template "base/footer" .}}

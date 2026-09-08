@@ -396,3 +396,55 @@
   }
   .soda-code-actions #repo-action-view { width: calc(100% - 32px); }
 }
+
+/* Repository landing metadata has one native owner, beside the code content. */
+.soda-repo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-areas: "code sidebar";
+  gap: 28px;
+  align-items: start;
+}
+.soda-repo-main { grid-area: code; min-width: 0; }
+.soda-repo-sidebar {
+  grid-area: sidebar;
+  min-width: 0;
+  padding-left: 22px;
+  border-left: 1px solid var(--soda-page-edge);
+  overflow-wrap: anywhere;
+}
+.soda-repo-sidebar .repo-description { margin-bottom: 12px; }
+.soda-repo-sidebar #repo-desc .link { display: block; margin-top: 8px; }
+.soda-repo-sidebar .repo-topics { display: flex; flex-wrap: wrap; gap: 6px; }
+.soda-repo-sidebar .repo-topics .repo-topic { margin: 0; font-size: 12px; }
+.soda-repo-sidebar #manage_topic { flex-basis: 100%; text-align: left; margin-top: 4px; }
+.soda-repo-sidebar #topic_edit { flex-wrap: wrap; }
+.soda-repo-sidebar #topic_edit > .dropdown { flex-basis: 100%; min-width: 0; }
+.soda-repo-sidebar .soda-code-summary.ui.segments {
+  margin-top: 18px !important;
+  border: 0;
+  border-top: 1px solid var(--soda-page-edge);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.soda-repo-sidebar .soda-code-summary .repository-menu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 16px 0;
+  border: 0;
+  background: transparent;
+}
+.soda-repo-sidebar .repository-menu .item { display: flex; align-items: center; justify-content: flex-start; gap: 6px; }
+.soda-repo-sidebar #language-stats { border-top: 1px solid var(--soda-page-edge); padding-top: 16px; }
+.soda-repo-sidebar #language-stats > ul { padding: 12px 0; }
+.soda-repo-sidebar #language-stats > ul > li { margin: 6px 0; }
+.soda-repo-main .repo-button-row.soda-toolbar { padding: 0; border: 0; background: transparent; }
+.soda-repo-main .clone-panel { min-width: 0; max-width: 100%; }
+.soda-repo-main .clone-panel input { min-width: 0; }
+@media (max-width: 1000px) {
+  .soda-repo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "code"; gap: 18px; }
+  .soda-repo-sidebar { padding: 0 0 16px; border-left: 0; border-bottom: 1px solid var(--soda-page-edge); }
+  .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 18px; }
+}

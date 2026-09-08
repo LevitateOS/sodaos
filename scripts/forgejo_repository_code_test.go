@@ -62,6 +62,17 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 			if !ok || !strings.HasPrefix(contents, "{{/* Adapted from Forgejo 15.0.7 templates/") {
 				t.Fatal("missing pinned upstream attribution")
 			}
+			if tc.path == "repo/home.tmpl" {
+				native = strings.ReplaceAll(native, `
+		{{$sodaSidebar := and (eq (len .TreeNames) 0) (not .IsViewFile) (not .IsBlame) (not .HideRepoInfo)}}
+		{{if $sodaSidebar}}<div class="soda-repo-layout"><aside class="soda-repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.desc"}}">{{end}}`, "")
+				native = strings.ReplaceAll(native, `
+		{{if $sodaSidebar}}{{template "repo/sub_menu" .}}</aside><div class="soda-repo-main">{{end}}
+`, "")
+				native = strings.ReplaceAll(native, `{{if not $sodaSidebar}}{{template "repo/sub_menu" .}}{{end}}`, `{{template "repo/sub_menu" .}}`)
+				native = strings.ReplaceAll(native, `
+		{{if $sodaSidebar}}</div></div>{{end}}`, "")
+			}
 			for _, pair := range tc.undo {
 				if !strings.Contains(native, pair[0]) {
 					t.Fatalf("missing presentation seam %q", pair[0])

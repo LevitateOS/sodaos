@@ -1,5 +1,23 @@
 # Current handoff
 
+## Repository metadata sidebar
+
+The repository code landing override now places existing description, website,
+topics and their native editor, counts/size and conditional language statistics
+in a right sidebar. Metadata is rendered once with its existing permission gates;
+file, directory and blame views keep their previous layout. Below 1000px the
+metadata stacks above the code. The main toolbar no longer has an enclosing card.
+No release/contributor data fetch or backend change was added.
+
+All focused Forgejo source checks passed, including upstream body recovery after
+removing the explicit layout changes. Reloaded templates only in the existing
+local preview. Inspected desktop/mobile captures (`capture-br6UQ5`,
+`capture-mLOcnf` under `.artifacts/screenshots/`); browser measurements confirmed
+1440px and 390px document widths, one sidebar/topics/summary instance, and no
+sidebar on the README file view. The screenshot fixture lacks topic-admin rights;
+interactive topic editing and populated language statistics were not exercised.
+No appliance deployment or native acceptance.
+
 ## Soda robot avatars — source implementation
 
 Original `soda-robot-v1` artwork now has 44 modular SVG variants and an eight-by-four
