@@ -1,0 +1,42 @@
+{{/* Soda presentation of Forgejo 15.0.7 templates/admin/self_check.tmpl; GPL-3.0-or-later. Upstream SHA-256: d3160640928f95ef34c7a44767ffec4f1a8406ae78b67d3523f97d6820703c28. */}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin config")}}
+
+<div class="admin-setting-content soda-admin-monitoring soda-admin-monitoring--self-check">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "admin.self_check"}}
+	</h4>
+	<div class="ui attached segment">
+		{{if .DatabaseCheckHasProblems}}
+			{{if .DatabaseType.IsMySQL}}
+				<div class="tw-p-2">{{ctx.Locale.Tr "admin.self_check.database_fix_mysql"}}</div>
+			{{end}}
+			{{if .DatabaseCheckCollationMismatch}}
+				<div class="ui red message">{{ctx.Locale.Tr "admin.self_check.database_collation_mismatch" .DatabaseCheckResult.ExpectedCollation}}</div>
+			{{end}}
+			{{if .DatabaseCheckCollationCaseInsensitive}}
+				<div class="ui warning message">{{ctx.Locale.Tr "admin.self_check.database_collation_case_insensitive" .DatabaseCheckResult.DatabaseCollation}}</div>
+			{{end}}
+			{{if .DatabaseCheckInconsistentCollationColumns}}
+				<div class="ui red message">
+					{{ctx.Locale.Tr "admin.self_check.database_inconsistent_collation_columns" .DatabaseCheckResult.DatabaseCollation}}
+					<ul class="tw-w-full">
+					{{range .DatabaseCheckInconsistentCollationColumns}}
+						<li>{{.}}</li>
+					{{end}}
+					</ul>
+				</div>
+			{{end}}
+		{{else}}
+			<div class="tw-p-2">{{ctx.Locale.Tr "admin.self_check.no_problem_found"}}</div>
+		{{end}}
+
+		{{if .CacheError}}
+			<div class="ui red message">{{ctx.Locale.Tr "admin.config.cache_test_failed" .CacheError}}</div>
+		{{end}}
+		{{if .CacheSlow}}
+			<div class="ui warning message">{{ctx.Locale.Tr "admin.config.cache_test_slow" .CacheSlow}}</div>
+		{{end}}
+	</div>
+</div>
+
+{{template "admin/layout_footer" .}}

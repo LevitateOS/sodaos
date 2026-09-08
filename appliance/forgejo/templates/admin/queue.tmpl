@@ -1,0 +1,36 @@
+{{/* Soda presentation of Forgejo 15.0.7 templates/admin/queue.tmpl; GPL-3.0-or-later. Upstream SHA-256: 3c6cfd943d32b45d9f2c58633875d4ede46d14be1c31745720fe72b99fd5ed3f. */}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin monitor")}}
+<div class="admin-setting-content soda-admin-monitoring soda-admin-monitoring--queue">
+	<h4 class="ui top attached header">
+		{{ctx.Locale.Tr "admin.monitor.queues"}}
+	</h4>
+	<div class="ui attached table segment soda-monitoring-table">
+		<table class="ui very basic striped table unstackable">
+			<thead>
+			<tr>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.name"}}</th>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.type"}}</th>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.exemplar"}}</th>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.numberworkers"}}</th>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.activeworkers"}}</th>
+				<th>{{ctx.Locale.Tr "admin.monitor.queue.numberinqueue"}}</th>
+				<th></th>
+			</tr>
+			</thead>
+			<tbody>
+			{{range $qid, $q := .Queues}}
+			<tr>
+				<td>{{$q.GetName}}</td>
+				<td>{{$q.GetType}}</td>
+				<td>{{$q.GetItemTypeName}}</td>
+				<td>{{$q.GetWorkerNumber}}</td>
+				<td>{{$q.GetWorkerActiveNumber}}</td>
+				<td>{{$sum := $q.GetQueueItemNumber}}{{if lt $sum 0}}-{{else}}{{$sum}}{{end}}</td>
+				<td><a href="{{$.Link}}/{{$qid}}" class="button">{{ctx.Locale.Tr "admin.monitor.queue.review_add"}}</a></td>
+			</tr>
+			{{end}}
+			</tbody>
+		</table>
+	</div>
+</div>
+{{template "admin/layout_footer" .}}
