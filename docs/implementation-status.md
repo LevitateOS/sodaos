@@ -551,6 +551,32 @@ worktrees/artifacts and private credentials/evidence remain untouched. Step 4's 
 exit is satisfied; step 5 must bind updated delivered UI/backend/helper/project bytes
 to real account/key/SSH results before native access is claimed.
 
+## Phase-5 execution started
+
+The user requested phases 5 and 6 after `658f2af`. A fresh native x86_64 KVM fixture
+`soda-native-spaces-658f2af` is retained under `.artifacts/access-vm-658f2af/`, with a
+new overlay over the preserved CoreOS base, localhost SSH 22230/browser 33443,
+private generated host/client keys/password/Ignition inputs and the existing operator
+public key. Native extension layering completed; one fixture-only activation reboot
+was requested. The first SSH observation incorrectly assumed Python existed before
+activating the layered deployment; exit 127/broken-pipe evidence is retained. The
+retained `soda-test` hostname, architecture and application/helper service status were
+read only; no retained service, configuration, callback, database or project changed.
+An initial socket check used the wrong path; the actual `/run/soda/host.sock` is
+root:soda 0660 and its socket unit is active.
+
+The existing native browser journey now has an explicit, single-use actor/path/body-
+bound access mode; the retained SSH/PTY/SCP/SFTP probe takes declared Sodaspaces
+connections instead of historical fixed U08 fixture names. Stock 15.0.7's native
+Copy tooltip appends to the document body by default; Soda's Copy button now uses
+its supported `data-tooltip-appendto="parent"` attribute so feedback stays inside
+the modal top layer. This is source-backed preparation, not a completed native Copy
+or access pass. Phase 5 will use a separate fixture-local client network namespace;
+no builder routing change or laptop-route proof is implied. Phase-6 preserved-state
+rehearsal and live cutover have not begun. Local source checks passed: 89 Node tests,
+37 Python build fixtures and focused Go scripts/nativebuild tests, plus documentation
+links/anchors and whitespace. They do not establish a native access result.
+
 ## Remaining work and permission boundary
 
 - Preserve the two implemented security fixes and native-page context regression

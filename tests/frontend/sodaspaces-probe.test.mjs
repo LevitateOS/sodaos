@@ -25,7 +25,7 @@ test('native probe guards every paused redirect before transmission', async () =
     async send(method, params) { calls.push({method, params}); },
   };
   const scope = {URL, origin: new URL('https://fixture.invalid'), input: {oauth_client_id: 'synthetic-client'},
-    writes: new Set(['/user/login']), result: {}, refusedRequest: false, interrupted: false,
+    writes: new Set(['/user/login']), accessWrite: null, result: {}, refusedRequest: false, interrupted: false,
     authorizations: 0, environmentReads: 0,
     context: {async newPage() { return page; }, async newCDPSession(p) { assert.equal(p, page); return cdp; }}};
   assert.equal(await runInNewContext(probe.slice(start, end) + '\nguardedPage()', scope), page);
@@ -51,6 +51,20 @@ test('native probe guards every paused redirect before transmission', async () =
     assert.equal(scope.authorizations, 1);
     assert.equal(scope.environmentReads, 0);
   }
+  const intent = {path: '/-/soda/api/environments', body: '{"repository_id":"42"}', actor: '1'};
+  const allowed = {url: 'https://fixture.invalid' + intent.path, method: 'POST', postData: intent.body, headers: {'X-Soda-Expected-User-ID': '1'}};
+  for (const request of [{...allowed, postData: '{"repository_id":"43"}'}, {...allowed, headers: {'X-Soda-Expected-User-ID': '2'}}, {...allowed, url: allowed.url + '?extra=1'}]) {
+    scope.accessWrite = intent;
+    await paused({requestId: 'wrong-access', request});
+    assert.equal(calls.at(-1).method, 'Fetch.failRequest');
+    assert.equal(scope.accessWrite, intent);
+  }
+  scope.accessWrite = intent;
+  await paused({requestId: 'one-access', request: allowed});
+  assert.equal(calls.at(-1).method, 'Fetch.continueRequest');
+  assert.equal(scope.accessWrite, null);
+  await paused({requestId: 'replay-access', request: allowed});
+  assert.equal(calls.at(-1).method, 'Fetch.failRequest');
 });
 
 test('native browser refuses long private socket paths before starting a process', async () => {

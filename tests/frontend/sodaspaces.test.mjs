@@ -304,6 +304,7 @@ test('explicit stable-ID create, key save and join are separate, then own native
   assert.equal(f.$('command').value, 'ssh alice-original@10.89.0.2');
   assert(f.$('command').readOnly);
   assert.equal(f.$('copy').getAttribute('data-clipboard-target'), '#sodaspaces-command');
+  assert.equal(f.$('copy').getAttribute('data-tooltip-appendto'), 'parent');
   assert.match(f.$('fingerprint').textContent, /SHA256:/);
   await f.refresh(); f.$('close').click(); await f.open();
   assert.equal(writes(f).length, 3);

@@ -24,7 +24,7 @@ class SodaspacesPackaging(unittest.TestCase):
             source = root / 'input.json'
             source.write_text('invalid JSON SYNTHETIC_AUTH_SECRET_MARKER')
             source.chmod(0o600)
-            for permission in ([], ['--allow-auth-transitions']):
+            for permission in ([], ['--allow-auth-transitions'], ['--allow-auth-transitions', '--allow-environment-access']):
                 result = subprocess.run(['node', str(ROOT / 'tests/installed/sodaspaces.mjs'),
                                          str(source), str(root / 'not-created'), *permission],
                                         capture_output=True, text=True, timeout=15)
@@ -32,6 +32,20 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertIn('private input validation', result.stdout)
                 self.assertNotIn('SYNTHETIC_AUTH_SECRET_MARKER', result.stdout + result.stderr)
                 self.assertFalse((root / 'not-created').exists())
+
+    def test_access_probe_rejects_private_bad_request_before_native_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            root.chmod(0o700)
+            request = root / 'target.json'
+            request.write_text('{"SYNTHETIC_PRIVATE_MARKER":true}')
+            request.chmod(0o600)
+            result = subprocess.run(['python3', str(ROOT / 'tests/installed/developer-access.py'), str(root)],
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Developer access incomplete', result.stderr)
+            self.assertNotIn('SYNTHETIC_PRIVATE_MARKER', result.stdout + result.stderr)
+            self.assertEqual(list(root.iterdir()), [request])
 
     def test_browser_probe_does_not_finalize_an_occupied_run(self):
         with tempfile.TemporaryDirectory() as tmp:

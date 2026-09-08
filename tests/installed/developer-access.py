@@ -1,35 +1,68 @@
 #!/usr/bin/env python3
-"""Opt-in U08 direct project-IP SSH/PTY/SCP/SFTP and sudo checks.
+"""Opt-in Sodaspaces direct project-IP SSH/PTY/SCP/SFTP and sudo checks.
 
-Uses retained private fixture inputs; never transfers private keys. Creates only
-new run-owned probe directories in the three selected project memberships and
-retains them as evidence. No lifecycle changes or automatic cleanup.
+Consumes the native browser's public access result and an independently verified
+public host key. Private authentication keys stay on this client. Retains only
+new run-owned probe directories; no lifecycle actions or automatic cleanup.
+Historical U08 fixed-name invocation remains in Git, not a second access scenario.
 """
+import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import subprocess
 import sys
 import uuid
 
 
+def private_file(name, limit=65536):
+    p = Path(name)
+    st = p.lstat()
+    assert p.is_absolute() and p.is_file() and not p.is_symlink()
+    assert not st.st_mode & 0o077 and st.st_size <= limit
+    return p.read_bytes()
+
+
 def main():
-    assert os.environ.get('SODA_NATIVE_VALIDATE') == 'soda-test'
+    os.umask(0o077)
     assert len(sys.argv) == 2
     root = Path(sys.argv[1])
-    assert root.is_absolute()
-    st = root.lstat()
-    assert root.is_dir() and not root.is_symlink() and st.st_uid == os.getuid() and not st.st_mode & 0o077
-    scenario = json.loads((root / 'target.json').read_text()) if (root / 'target.json').exists() else None
-    run_name = 'u08-access-' + uuid.uuid4().hex
-    output = root / run_name
+    assert root.is_absolute() and root.is_dir() and not root.is_symlink()
+    assert not root.stat().st_mode & 0o077
+    request = json.loads(private_file(root / 'target.json'))
+    assert set(request) == {'target', 'revision', 'project_id', 'subnet', 'browser_result', 'host_key_file', 'users'}
+    assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,252}', request['target'])
+    assert os.environ.get('SODA_NATIVE_VALIDATE') == request['target']
+    assert re.fullmatch(r'[0-9a-f]{40}', request['revision'])
+    identifier = request['project_id']
+    assert re.fullmatch(r'p[0-9a-f]{24}', identifier)
+    subnet = ipaddress.IPv4Network(request['subnet'])
+    assert subnet.is_private
+    browser = json.loads(private_file(request['browser_result']))
+    assert browser['target'] == request['target'] and browser['revision'] == request['revision']
+    assert browser['outcome'] == 'passed-scoped-journey' and browser['access']['native_join_confirmed'] is True
+    assert browser['access']['reservation_id'] == identifier
+    public = private_file(request['host_key_file']).decode().strip()
+    assert re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/]{68}(?: [^\r\n]*)?', public)
+    public = ' '.join(public.split()[:2])
+    assert len(request['users']) == len(browser['access']['users']) == 2
+    assert len({u['id'] for u in request['users']}) == 2
+    for user in request['users']:
+        assert set(user) == {'id', 'login', 'key_file', 'administrator'}
+        assert re.fullmatch(r'[1-9][0-9]{0,18}', user['id'])
+        assert re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', user['login']) and user['login'] != 'root'
+        assert isinstance(user['administrator'], bool)
+        private_file(user['key_file'], 16384)  # Validate the file; never transfer or print its contents.
+    assert request['users'][0]['administrator'] and not request['users'][1]['administrator']
+
+    output = root / ('sodaspaces-access-' + uuid.uuid4().hex)
     output.mkdir(mode=0o700)
-    payload = (run_name + '\n').encode() * 8192
-    source = output / 'payload'
-    source.write_bytes(payload)
-    source.chmod(0o600)
-    results = []
+    results = {'revision': request['revision'], 'target': request['target'], 'project': identifier,
+               'client': platform.node(), 'client_arch': platform.machine(),
+               'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), 'users': []}
 
     def execute(args, data=None):
         return subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
@@ -37,81 +70,79 @@ def main():
     def checked(args, data=None):
         result = execute(args, data)
         if result.returncode:
-            # Never dump SSH command logs, environment or credential material.
             raise RuntimeError('Selected access operation failed (exit %d)' % result.returncode)
         return result.stdout
 
-    for who in ('alice', 'bob'):
-        login = 'u08-' + who + '-8417'
-        key = root / who / 'development'
-        ks = key.lstat()
-        assert key.is_file() and not key.is_symlink() and ks.st_uid == os.getuid() and not ks.st_mode & 0o077
-        known = root / (login + '-known-hosts')
-        assert known.is_file() and not known.is_symlink()
-        connections = json.loads((root / (login + '-connections.json')).read_text())
-        assert len(connections) == (1 if scenario or who == 'alice' else 2)
-        bindings = json.loads((root / 'observed-bindings.json').read_text())
-        for connection in connections:
-            identifier, ip = connection['id'], connection['ip']
-            assert re.fullmatch(r'p[0-9a-f]{24}', identifier)
-            assert re.fullmatch(r'10\.89\.0\.[0-9]{1,3}', ip) and 1 < int(ip.split('.')[-1]) < 255
-            assert connection['login'] == login
-            binding = next(b for b in bindings if b['environmentID'] == identifier)
-            target = login + '@' + ip
+    try:
+        fingerprint = checked(['ssh-keygen', '-lf', request['host_key_file']]).decode().split()[1]
+        assert re.fullmatch(r'SHA256:[A-Za-z0-9+/]{43}', fingerprint)
+        payload = (output.name + '\n').encode() * 8192
+        source = output / 'payload'
+        source.write_bytes(payload)
+        endpoints = []
+        for user, connection in zip(request['users'], browser['access']['users']):
+            login = user['login']
+            assert connection['id'] == user['id'] and connection['login'] == login
+            native = connection['connection']
+            assert native['environment']['id'] == identifier and native['environment']['running'] is True
+            ip = str(ipaddress.IPv4Address(native['environment']['ip']))
+            assert ipaddress.IPv4Address(ip) in subnet and ip not in (str(subnet.network_address), str(subnet.broadcast_address))
+            assert native['host_key'].strip() == public and native['fingerprint'] == fingerprint
+            endpoints.append(ip)
+            known = output / (login + '-known-hosts')
+            known.write_text(ip + ' ' + public + '\n')
             options = ['-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
                        '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
-                       '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known), '-i', str(key)]
+                       '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known), '-i', user['key_file']]
             ssh = ['ssh', *options]
-            print('Checking direct project access:', login, identifier, ip, flush=True)
+            target = login + '@' + ip
             identity = checked(ssh + [target, 'id -un; id -u; printf "%s\\n" "$HOME"']).decode().splitlines()
             assert identity[0] == login and int(identity[1]) != 0 and identity[2] == '/home/' + login
             mapping = checked(ssh + [target, '/usr/bin/head -n 1 /proc/self/uid_map']).decode().split()
             assert int(mapping[0]) == 0 and int(mapping[1]) != 0, 'Project root must not map to host root'
             terminal = checked(ssh + ['-tt', target], b'test -t 0 && printf "\\nSODA-PTY:%s\\n" "$(id -un)"\nexit\n')
             assert ('SODA-PTY:' + login).encode() in terminal.replace(b'\r', b'').splitlines()
-            assert checked(ssh + [target, 'command -v sudo']).strip() == b'/usr/bin/sudo'
             privilege = execute(ssh + [target, 'sudo -n /usr/bin/id -u'])
-            administrator = binding['login'] == login
-            if administrator:
+            if user['administrator']:
                 assert privilege.returncode == 0 and privilege.stdout.strip() == b'0'
             else:
-                assert privilege.returncode == 1 and (b'password is required' in privilege.stderr or b'not allowed' in privilege.stderr or b'not in the sudoers' in privilege.stderr)
-            destination = '/home/' + login + '/' + run_name
+                assert privilege.returncode == 1 and any(s in privilege.stderr for s in [b'password is required', b'not allowed', b'not in the sudoers'])
+            destination = '/home/' + login + '/' + output.name
             checked(ssh + [target, 'umask 077; mkdir ' + destination])
-            prefix = login + '-' + identifier
-            received = output / (prefix + '-scp')
+            received = output / (login + '-scp')
             checked(['scp', *options, str(source), target + ':' + destination + '/scp'])
             checked(['scp', *options, target + ':' + destination + '/scp', str(received)])
             assert received.read_bytes() == payload
-            sftp_copy = output / (prefix + '-sftp')
-            # Local paths are quoted for the native SFTP batch grammar.
+            sftp_copy = output / (login + '-sftp')
+
             def quote(p):
                 s = str(p)
                 assert not any(c in s for c in '\r\n')
                 return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
             batch = 'put ' + quote(source) + ' ' + destination + '/sftp\nget ' + destination + '/sftp ' + quote(sftp_copy) + '\n'
             checked(['sftp', *options, '-b', '-', target], batch.encode())
             assert sftp_copy.read_bytes() == payload
-            results.append({'login': login, 'project': identifier, 'ip': ip, 'project_administrator': administrator,
-                            'direct_ssh': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
-                            'probe_directory': destination})
-            (output / 'results.json').write_text(json.dumps(results, indent=2))
-    if scenario:
-        bob_ip = scenario['isolation_ip']
-        assert re.fullmatch(r'10\.89\.0\.[0-9]{1,3}', bob_ip) and 1 < int(bob_ip.split('.')[-1]) < 255
-    else:
-        bob_project = next(b for b in bindings if b['login'] == 'u08-bob-8417')
-        bob_ip = next(c['ip'] for c in connections if c['id'] == bob_project['environmentID'])
-    # Bob's known-host file contains independently verified keys for both projects.
-    # It is public trust material, not Bob's authentication credential.
-    denied = execute(['ssh', '-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
-                      '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
-                      '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known),
-                      '-i', str(root / 'alice/development'), 'u08-alice-8417@' + bob_ip, 'true'])
-    assert denied.returncode == 255 and b'Permission denied (publickey' in denied.stderr, 'Require actual cross-project authentication denial, not a routing/host-key failure'
-    (output / 'cross-project-denial.json').write_text(json.dumps({'alice_to_bob_project': 'public-key authentication denied'}))
-    print('Selected memberships passed direct SSH, interactive PTY, bidirectional SCP/SFTP and expected sudo boundaries; Alice cannot authenticate to the unjoined second project.')
-    print('Shared tools, personal Git, nested workloads and persistence are separate checks.')
+            results['users'].append({'id': user['id'], 'login': login, 'ip': ip, 'project_administrator': user['administrator'],
+                                     'direct_ssh': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
+                                     'probe_directory': destination})
+        assert endpoints[0] == endpoints[1]
+        # Same host key and reachable endpoint: require public-key denial, not a transport failure.
+        first, second = request['users']
+        denied = execute(['ssh', '-F', '/dev/null', '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
+                          '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
+                          '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known),
+                          '-i', first['key_file'], second['login'] + '@' + endpoints[1], 'true'])
+        assert denied.returncode == 255 and b'Permission denied (publickey' in denied.stderr
+        results['cross_user_key'] = 'public-key authentication denied'
+        results['outcome'] = 'passed-scoped-access'
+    except Exception:
+        results['outcome'] = 'failed; retained partial access state'
+        raise
+    finally:
+        (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+    print('Declared memberships passed direct project-IP SSH, PTY, SCP/SFTP, owner sudo and cross-user key denial.')
+    print('Client placement/routing is recorded separately; not laptop, lifecycle or workload acceptance.')
 
 
 if __name__ == '__main__':

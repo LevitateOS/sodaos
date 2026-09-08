@@ -98,6 +98,36 @@ not a synthetic pass; failure exits 1. Exit 0 is only this scoped journey. Curre
 asset revalidation is not an update rehearsal; native provisioning/SSH, final product,
 backend artifact binding, cutover and independent aarch64 acceptance remain separate.
 
+## Explicit Sodaspaces access mode
+
+Append `--allow-environment-access` to the existing browser invocation and add a
+`public_key_file` (absolute mode-0600 public Ed25519 key file) to each declared user.
+This mode requires the read-only journey and real BFCache proof first, then refuses
+an already reserved repository. It performs a real nonowner create denial, one owner
+create, each user's separate public-key save/join and own connection observation.
+CDP admits only one exact actor/path/body-bound write per explicit test action; extra,
+wrong-target or repeated requests fail before transmission. No private SSH key goes
+to the browser/backend. Native Copy must produce native success feedback and paste
+its command through the real clipboard into the run's own unsaved issue title; that
+form is never submitted. A failed provisioning attempt is retained, not replayed on
+a new profile. This is browser/helper confirmation, not SSH proof by itself.
+
+`tests/installed/developer-access.py /private/client-run` then consumes the passed
+browser result, an independently operator-verified public project host key and
+client-local private keys. Its private `target.json` has `target`, `revision`,
+`project_id`, `subnet`, `browser_result`, `host_key_file` and ordered `users` matching
+the browser result. Each user declares `id`, `login`, `key_file`, `administrator`
+(first user true, second false). `SODA_NATIVE_VALIDATE` must match `target`. All input
+files are absolute restricted regular files; no host-key scan or trust bypass occurs.
+It records actual client hostname/architecture and script hash, tests project-IP SSH,
+PTY, SCP/SFTP, owner/nonowner sudo and cross-user key denial, and retains its own new
+home probe directories/results. Historical fixed-name U08 invocation remains in Git;
+no old fixture is silently retargeted. Record the actual client namespace and route:
+a fixture-local client does not establish builder/laptop or Tailnet reachability.
+
+Neither authored entrypoint is native evidence until its exact run passes. Phase 6
+still requires preserved-state rehearsal before retained-appliance cutover.
+
 ## Read-only installed observations
 
 After separately authorized installation, inspect:

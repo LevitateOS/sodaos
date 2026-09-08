@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 // Opt-in real stock Forgejo/Caddy journey. Existing public repository and two users;
-// authentication mutations only. No response fakes, cookie seeding or provisioning.
+// Authentication-only by default; explicit access mode permits narrowly bound
+// create/key/join requests. No response fakes, cookie seeding or private-key upload.
 import assert from 'node:assert/strict';
 import {lstat, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -15,6 +16,7 @@ let context, run, result, nativeBrowser;
 let interrupted = false;
 let refusedRequest = false;
 let failure = false;
+let accessMode = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
@@ -32,7 +34,9 @@ async function privateFile(file, limit) {
 }
 try {
   const [inputFile, home, permission, ...extra] = process.argv.slice(2);
-  assert(permission === '--allow-auth-transitions' && extra.length === 0);
+  assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
+    (extra.length === 1 && extra[0] === '--allow-environment-access')));
+  accessMode = extra.length === 1;
   const input = JSON.parse(await privateFile(inputFile, 16384));
   assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', 'users']);
   const origin = new URL(input.origin);
@@ -44,7 +48,8 @@ try {
   assert(typeof input.oauth_client_id === 'string' && input.oauth_client_id.length > 0 && input.oauth_client_id.length <= 256);
   assert(Array.isArray(input.users) && input.users.length === 2);
   for (const user of input.users) {
-    assert.deepEqual(Object.keys(user).sort(), ['id', 'login', 'password_file']);
+    assert.deepEqual(Object.keys(user).sort(), accessMode ? ['id', 'login', 'password_file', 'public_key_file'] : ['id', 'login', 'password_file']);
+    if (accessMode) assert(/^[a-z][a-z0-9_-]{0,30}$/.test(user.login) && user.login !== 'root');
     assert(validID(user.id) && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(user.login));
   }
   assert(input.users[0].id !== input.users[1].id && input.users[0].login !== input.users[1].login);
@@ -57,6 +62,11 @@ try {
     assert(password && !/[\r\n]/.test(password));
     return password;
   }));
+  const publicKeys = accessMode ? await Promise.all(input.users.map(async user => {
+    const key = (await privateFile(user.public_key_file, 16384)).trim();
+    assert(/^ssh-ed25519 [A-Za-z0-9+/]{68}(?: [^\r\n]*)?$/.test(key));
+    return key;
+  })) : [];
   const root = new URL('../../', import.meta.url);
   assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], {cwd: root, encoding: 'utf8'}).trim(), input.revision);
   assert.equal(execFileSync('git', ['status', '--porcelain'], {cwd: root, encoding: 'utf8'}).trim(), '');
@@ -123,6 +133,7 @@ try {
   let environmentReads = 0;
   let authorizations = 0;
   const writes = new Set(['/user/login', '/user/logout', '/login/oauth/grant', '/-/soda/api/session/logout']);
+  let accessWrite = null; // One exact expected request, consumed before transmission.
   async function guardedPage() {
     const p = await context.newPage();
     await p.setViewportSize({width: 1280, height: 900});
@@ -134,8 +145,12 @@ try {
         const url = new URL(request.url);
         // Native logout's link action posts this fixed navigation-only form.
         const logoutRedirect = request.method === 'POST' && url.pathname === '/-/fetch-redirect' && request.postData === 'redirect=%2F';
+        const expectedAccess = accessWrite && url.origin === origin.origin && !url.search &&
+          request.method === 'POST' && url.pathname === accessWrite.path && request.postData === accessWrite.body &&
+          Object.entries(request.headers || {}).some(([name, value]) => name.toLowerCase() === 'x-soda-expected-user-id' && value === accessWrite.actor);
+        if (expectedAccess) accessWrite = null;
         const denied = url.origin !== origin.origin ||
-          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname) && !logoutRedirect) ||
+          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname) && !logoutRedirect && !expectedAccess) ||
           (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
         if (denied) {
           refusedRequest = true;
@@ -388,6 +403,107 @@ try {
     await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
     assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
   }
+  if (accessMode) {
+    assert(result.bfcache_restored, 'Access writes require the read-only journey to complete first');
+    await other.close();
+    await page.goto(repoURL);
+    await open();
+    stage = 'access fixture must initially have no reservation';
+    assert.equal(await page.locator('#sodaspaces-status').innerText(), 'No shared environment.');
+    result.access = {reservation_id: null, users: [], copy_native_paste: []};
+    const permit = (index, route, body) => {
+      assert(!accessWrite && !interrupted && !refusedRequest);
+      accessWrite = {actor: input.users[index].id, path: '/-/soda' + route, body: JSON.stringify(body)};
+    };
+    stage = 'nonowner native create denial';
+    permit(1, '/api/environments', {repository_id: input.repository_id});
+    const denial = await page.evaluate(async ({actor, repository}) => {
+      const s = await (await fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error'})).json();
+      if (s.user.id !== actor) throw new Error('actor mismatch');
+      const response = await fetch('/-/soda/api/environments', {method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
+        headers: {'Content-Type': 'application/json', 'X-Soda-Expected-User-ID': actor, 'X-CSRF-Token': s.csrf_token}, body: JSON.stringify({repository_id: repository})});
+      return {status: response.status, code: (await response.json()).error.code};
+    }, {actor: input.users[1].id, repository: input.repository_id});
+    assert.deepEqual(denial, {status: 403, code: 'owner_required'});
+    assert.equal(accessWrite, null);
+    result.access.nonowner_create = 'denied';
+    for (const index of [0, 1]) {
+      stage = `access user ${index}: native login and OAuth`;
+      if (await drawer.isVisible()) await page.locator('#sodaspaces-close').click();
+      await nativeLogout(page);
+      await nativeLogin(page, index);
+      await open();
+      await oauth(index);
+      if (index === 0) {
+        stage = 'explicit native shared-environment creation';
+        permit(index, '/api/environments', {repository_id: input.repository_id});
+        const completed = page.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/environments' && r.request().method() === 'POST', {timeout: 300000});
+        await page.locator('#sodaspaces-create').click();
+        const response = await completed;
+        const created = await response.json();
+        const id = created.id || created.environment?.id;
+        if (typeof id === 'string' && /^p[0-9a-f]{24}$/.test(id)) result.access.reservation_id = id;
+        assert.equal(response.status(), 201);
+        assert.equal(created.repository_id, input.repository_id);
+        assert(result.access.reservation_id && created.provisioned === true && accessWrite === null);
+        await settled();
+        assert.equal(await page.locator('#sodaspaces-login').innerText(), '');
+        assert(await page.locator('#sodaspaces-connection').isHidden());
+      }
+      stage = `access user ${index}: explicit public key registration`;
+      await page.locator('#sodaspaces-public-key').fill(publicKeys[index]);
+      permit(index, '/api/me/development-keys', {public_key: publicKeys[index]});
+      const saved = page.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/me/development-keys' && r.request().method() === 'POST');
+      await page.locator('#sodaspaces-save-key').click();
+      assert.equal((await saved).status(), 200);
+      await settled();
+      assert.equal(accessWrite, null);
+      assert.equal(await page.locator('#sodaspaces-login').innerText(), '');
+      stage = `access user ${index}: explicit native account join`;
+      permit(index, `/api/environments/${result.access.reservation_id}/join`, {});
+      const joined = page.waitForResponse(r => new URL(r.url()).pathname === `/-/soda/api/environments/${result.access.reservation_id}/join` && r.request().method() === 'POST', {timeout: 300000});
+      await page.locator('#sodaspaces-join').click();
+      const joinedResponse = await joined;
+      assert.equal(joinedResponse.status(), 200);
+      assert.equal((await joinedResponse.json()).login, input.users[index].login);
+      await settled();
+      assert.equal(accessWrite, null);
+      await page.locator('#sodaspaces-connection').waitFor({state: 'visible'});
+      const command = await page.locator('#sodaspaces-command').inputValue();
+      stage = `access user ${index}: current own connection`;
+      const own = await page.evaluate(async ({actor, id}) => {
+        const response = await fetch(`/-/soda/api/environments/${id}/connection`, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': actor}});
+        if (response.status !== 200) throw new Error('connection unavailable');
+        return response.json(); // Public connection fields only; no bootstrap credentials.
+      }, {actor: input.users[index].id, id: result.access.reservation_id});
+      assert.equal(own.login, input.users[index].login);
+      assert.equal(own.connection.environment.id, result.access.reservation_id);
+      assert.equal(own.connection.environment.running, true);
+      assert.equal(own.routing_verified, false);
+      assert.equal(command, `ssh ${own.login}@${own.connection.environment.ip}`);
+      assert.match(own.connection.host_key.trim(), /^ssh-ed25519 [A-Za-z0-9+/]{68}$/);
+      assert.match(own.connection.fingerprint, /^SHA256:[A-Za-z0-9+/]{43}$/);
+      result.access.users.push({id: input.users[index].id, ...own});
+      stage = `access user ${index}: native Copy and real paste`;
+      const copied = await page.evaluate(() => window.config.i18n.copy_success);
+      assert(typeof copied === 'string' && copied.length > 0);
+      await page.locator('#sodaspaces-copy').click();
+      await page.getByRole('tooltip').filter({hasText: copied}).waitFor({state: 'visible'});
+      await page.locator('#sodaspaces-close').click();
+      await page.goto(repoURL + '/issues/new');
+      await page.locator('#issue_title').focus();
+      await page.keyboard.press('Control+V');
+      assert.equal(await page.locator('#issue_title').inputValue(), command);
+      result.access.copy_native_paste.push(input.users[index].id);
+      // Discard only the command pasted by this run; never submit the issue.
+      page.on('dialog', discardFixture);
+      try { await page.goto(repoURL); } finally { page.off('dialog', discardFixture); }
+      await open();
+      assert.equal(await page.locator('#sodaspaces-command').inputValue(), command);
+      assert(await page.locator('#sodaspaces-join').isHidden());
+    }
+    result.access.native_join_confirmed = true;
+  }
   assert(!refusedRequest && !interrupted);
 } catch (error) {
   if (result) result.failure_kind = error?.name === 'TimeoutError' ? 'timeout'
@@ -400,7 +516,7 @@ try {
   const outcome = failure ? 'failed' : result?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
   if (run) {
     try {
-      await writeFile(path.join(run, 'result.json'), JSON.stringify({...result, outcome, stage, environment_mutations: 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
+      await writeFile(path.join(run, 'result.json'), JSON.stringify({...result, outcome, stage, environment_mutations: accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
     } catch { failure = true; }
   }
   console.log(failure ? `Sodaspaces journey failed at ${stage}; private profile/evidence retained if created.` : `Sodaspaces journey: ${outcome}; not whole-product or backend-artifact acceptance.`);
