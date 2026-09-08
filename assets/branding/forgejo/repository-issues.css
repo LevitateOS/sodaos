@@ -209,8 +209,7 @@
   box-shadow: none;
 }
 
-/* Milestone actions: one primary action, a neutral edit button and a quiet
-   lifecycle action. Keep native link-action handling and permission gates. */
+/* Compact milestone actions retain native tooltips and link-action handling. */
 .soda-milestone-detail-title {
   flex-wrap: wrap;
   gap: 12px 18px;
@@ -220,48 +219,29 @@
 .soda-milestone-detail-title > .button-row {
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-left: auto;
 }
 
-.soda-milestone-detail-title > .button-row > .ui.button {
+.soda-milestone-detail-title .soda-milestone-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   margin: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--soda-page-edge);
+  padding: 0;
+  border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--soda-page-text);
-  font: 600 14px/18px Barlow, Arial, sans-serif;
+  color: var(--soda-page-muted);
   box-shadow: none;
 }
 
-.soda-milestone-detail-title > .button-row > .ui.button:hover {
+.soda-milestone-detail-title .soda-milestone-action:is(:hover, :focus-visible) {
   background: var(--soda-page-hover);
-}
-
-.soda-milestone-detail-title > .button-row > .ui.button.link-action {
-  border-color: transparent;
-  color: var(--soda-page-muted);
-}
-
-.soda-milestone-detail-title > .button-row > .ui.primary.button:not(.link-action) {
-  border-color: var(--soda-page-action);
-  background: var(--soda-page-action);
-  color: var(--soda-page-on-action);
-}
-
-.soda-milestone-detail-title > .button-row > .ui.primary.button:not(.link-action):hover {
-  border-color: var(--soda-page-action-hover);
-  background: var(--soda-page-action-hover);
-}
-
-.soda-milestone-detail-title > .button-row > .ui.primary.button:not(.link-action):active {
-  border-color: var(--soda-page-action-pressed);
-  background: var(--soda-page-action-pressed);
+  color: var(--soda-page-text);
 }
 
 /* Existing stock milestone leaves share stable native page classes. */

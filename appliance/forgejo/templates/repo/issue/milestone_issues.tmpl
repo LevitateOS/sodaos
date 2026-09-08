@@ -9,13 +9,13 @@
 				<div class="tw-flex button-row">
 					{{if or .CanWriteIssues .CanWritePulls}}
 						{{if .Milestone.IsClosed}}
-							<a class="ui primary button link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/open">{{ctx.Locale.Tr "repo.milestones.open"}}</a>
+							<a class="soda-milestone-action link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/open" aria-label="{{ctx.Locale.Tr "repo.milestones.open"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.open"}}">{{svg "octicon-issue-reopened" 18}}</a>
 						{{else}}
-							<a class="ui red button link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/close">{{ctx.Locale.Tr "repo.milestones.close"}}</a>
+							<a class="soda-milestone-action link-action" href data-url="{{$.RepoLink}}/milestones/{{.MilestoneID}}/close" aria-label="{{ctx.Locale.Tr "repo.milestones.close"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.close"}}">{{svg "octicon-check" 18}}</a>
 						{{end}}
-						<a class="ui button" href="{{.RepoLink}}/milestones/{{.MilestoneID}}/edit">{{ctx.Locale.Tr "repo.milestones.edit"}}</a>
+						<a class="soda-milestone-action" href="{{.RepoLink}}/milestones/{{.MilestoneID}}/edit" aria-label="{{ctx.Locale.Tr "repo.milestones.edit"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.milestones.edit"}}">{{svg "octicon-pencil" 18}}</a>
 					{{end}}
-					<a class="ui primary button" href="{{.RepoLink}}/issues/new{{if .NewIssueChooseTemplate}}/choose{{end}}?milestone={{.MilestoneID}}">{{ctx.Locale.Tr "repo.issues.new"}}</a>
+					<a class="soda-milestone-action" href="{{.RepoLink}}/issues/new{{if .NewIssueChooseTemplate}}/choose{{end}}?milestone={{.MilestoneID}}" aria-label="{{ctx.Locale.Tr "repo.issues.new"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.issues.new"}}">{{svg "octicon-plus" 18}}</a>
 				</div>
 			{{end}}
 		</div>
