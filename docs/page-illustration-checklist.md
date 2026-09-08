@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: repository issue lists, creation and conversation pages; assess those distinct workflows. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: repository issue/PR lists, labels and milestones. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -114,15 +114,15 @@ Next: repository issue lists, creation and conversation pages; assess those dist
 | No image | [`repo/graph.tmpl`](../appliance/forgejo/templates/repo/graph.tmpl) | Actual Git graph | The graph itself is the illustration of ancestry. Ref selection, monochrome/color modes and loading state need no decorative scene. Full wrapper source reviewed; populated native graph captured. |
 | Partial — trace caller | [`repo/header.tmpl`](../appliance/forgejo/templates/repo/header.tmpl) | — | Not yet reviewed in this goal. |
 | No image | [`repo/home.tmpl`](../appliance/forgejo/templates/repo/home.tmpl) | Repository-owned content | Full wrapper reviewed across home/directory/file/blame, branch/tag/commit context, topics, flags/archive messages, template use and clone controls. No decorative hero competing with the repository description, file tree or README. Native home/file/blame captures below. |
-| Pending | [`repo/issue/choose.tmpl`](../appliance/forgejo/templates/repo/issue/choose.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/issue/choose.tmpl`](../appliance/forgejo/templates/repo/issue/choose.tmpl) | Repository-authored template choices | Full chooser reviewed: template names/descriptions, external contact links, optional blank issue and invalid-config warning. No decorative scene competing with the repository-specific choices. Source-based; chooser state not captured. |
 | Pending | [`repo/issue/labels.tmpl`](../appliance/forgejo/templates/repo/issue/labels.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/list.tmpl`](../appliance/forgejo/templates/repo/issue/list.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/milestone_issues.tmpl`](../appliance/forgejo/templates/repo/issue/milestone_issues.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/milestone_new.tmpl`](../appliance/forgejo/templates/repo/issue/milestone_new.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Pending | [`repo/issue/milestones.tmpl`](../appliance/forgejo/templates/repo/issue/milestones.tmpl) | `repo/header` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`repo/issue/navbar.tmpl`](../appliance/forgejo/templates/repo/issue/navbar.tmpl) | — | Not yet reviewed in this goal. |
-| Pending | [`repo/issue/new.tmpl`](../appliance/forgejo/templates/repo/issue/new.tmpl) | `repo/header` | Not yet reviewed in this goal. |
-| Pending | [`repo/issue/view.tmpl`](../appliance/forgejo/templates/repo/issue/view.tmpl) | `repo/header` | Not yet reviewed in this goal. |
+| No image | [`repo/issue/new.tmpl`](../appliance/forgejo/templates/repo/issue/new.tmpl) | Author and report form | Full wrapper and stock new_form reviewed: blank/template fields, report text, attachments and permission-gated metadata. Keep writing space and actual author avatar; no decorative image. Native blank form inspected. |
+| No image | [`repo/issue/view.tmpl`](../appliance/forgejo/templates/repo/issue/view.tmpl) | Authored conversation and timeline | Full wrapper and stock view_content reviewed. Real author avatars, state, timeline, attachments and comment controls supply the visuals. Issue/PR discussion uses no extra art; native closed issue inspected, PR-specific state source-only. |
 | Done | [`repo/migrate/migrate.tmpl`](../appliance/forgejo/templates/repo/migrate/migrate.tmpl) | `migrate-papercraft.png` | Dedicated history/import scene; desktop/mobile native captures inspected. See record below. |
 | No image | [`repo/migrate/migrating.tmpl`](../appliance/forgejo/templates/repo/migrate/migrating.tmpl) | Native loading/error visuals | Live progress, failure and retry/cancel controls already communicate operation state. Extra decorative art would compete with those signals; source reviewed, no operation launched. |
 | Partial — no image | [`repo/migrate/options.tmpl`](../appliance/forgejo/templates/repo/migrate/options.tmpl) | Native provider-form callers | Reusable inline mirror/LFS fields, not a page or introduction. Do not insert decorative artwork among native provider options; provider page assessment remains separate. |
@@ -647,3 +647,9 @@ All decisions here are source-based. The authorized screenshot fixture has no wr
 Empty repository was individually assessed across writer quickstart, reader empty message, archived restrictions and broken feedback. No decorative illustration: the writer needs executable Git instructions and the reader has no initialization action; broken/archived states must not suggest successful setup or recovery. The public API repository inventory returned 25 repositories, all `empty: false`; this is no native empty-state proof and no fixture was created.
 
 Fork and watcher wrappers plus stock Forgejo 15.0.7 user_cards were read in full. Watchers and stargazers use actual identity cards and explicit empty feedback; fork rows use actual owner avatars/repository links. Native desktop captures under `.artifacts/screenshots/capture-JgGgfp/` were inspected: `001.png` forks, `002.png` watchers, `003.png` empty stargazers, all on existing `/bob/activity-field-notes`. No stars, watches or forks were changed. No-image decisions recorded for each; no implementation changes or test runs.
+
+## Issue creation and discussion
+
+Read full chooser/new/view overrides and selected Forgejo 15.0.7 embedded new_form and view_content. The blank editor and structured-template dispatch, title defaults, metadata permission gates, maintainer-edit choice for cross-repository PRs, authored conversation, timeline, archived/blocked/locked/sign-in feedback and comment controls all benefit from focused native content. No decorative artwork is appropriate. Individual nested field/comment/sidebar implementations were not audited as code changes; none were changed.
+
+Native desktop screenshots inspected: `capture-QF2Yhi/001.png` blank `/bob/activity-field-notes/issues/new` form and `capture-pf4GoU/001.png` closed issue `/issues/9`, showing actual author, timeline and comment area. No issue/comment/upload/reaction/subscription was submitted. Template chooser, structured issue forms and PR conversation branches remain source-based decisions. Tests were not rerun for documentation-only assessment.
