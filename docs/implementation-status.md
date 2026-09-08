@@ -10,8 +10,6 @@ All current administrator layout callers are source-assessed. Admin artwork is n
 
 Administrator account creation now selects a distinct transparent identity-card illustration through an explicit presentation input. The generated asset and exact prompt are retained; focused administrator parity/presentation tests passed. Native admin capture remains pending.
 
-Administrator runner/Actions pages, configuration, OAuth application inventory, authentication-source creation/editing, account editing, user/repository/email/authentication-source lists, dashboard, OAuth credential editing, queue, scheduled-job, notice, self-check and stacktrace pages now explicitly suppress inherited home-dashboard decoration. Focused administrator source-parity/parse, native-boundary and shared-presentation tests passed. Native admin screenshots remain pending; other admin callers still require individual assessment.
-
 Wiki welcome now uses a distinct transparent reference-book illustration, preserving native text and the writer/mirror action gate. Repository content source-parity/gate tests passed; native read-only welcome was captured at desktop/mobile widths. Repository project wrappers and shared callers are assessed in the checklist.
 
 Personal/organization project creation now uses a distinct planning-board illustration; editing excludes it. Personal creation was visually checked at desktop and mobile widths, and focused context/presentation tests passed. Organization and edit-state captures remain pending; checklist records list/board no-image decisions and the remaining repository callers.
