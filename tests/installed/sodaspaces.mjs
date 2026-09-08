@@ -18,6 +18,7 @@ let interrupted = false;
 let refusedRequest = false;
 let failure = false;
 let accessMode = false;
+let terminalMode = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
@@ -36,8 +37,9 @@ async function privateFile(file, limit) {
 try {
   const [inputFile, home, permission, ...extra] = process.argv.slice(2);
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
-    (extra.length === 1 && ['--allow-environment-access', '--private-repository'].includes(extra[0]))));
+    (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0]))));
   accessMode = extra[0] === '--allow-environment-access';
+  terminalMode = extra[0] === '--allow-existing-terminal';
   const privateRepository = extra[0] === '--private-repository';
   const input = JSON.parse(await privateFile(inputFile, 16384));
   assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', 'users']);
@@ -528,6 +530,80 @@ try {
       assert(await page.locator('#sodaspaces-join').isHidden());
     }
     result.access.native_join_confirmed = true;
+  }
+  if (terminalMode) {
+    result.terminals = [];
+    for (let index = 0; index < input.users.length; index++) {
+      stage = `terminal user ${index}: real native login and consent`;
+      await page.goto(repoURL);
+      if (await page.locator('a[data-url="/user/logout"]').count()) await nativeLogout(page);
+      await nativeLogin(page, index);
+      await page.goto(repoURL);
+      await open();
+      if (await page.locator('#sodaspaces-sign-out').isVisible()) {
+        await page.locator('#sodaspaces-sign-out').click();
+        await settled();
+        await page.reload();
+        await open();
+      }
+      await oauth(index);
+      await settled();
+      assert(await page.locator('#sodaspaces-connection').isVisible());
+      const marker = `SODA_E2E_${index}_${Date.now()}`;
+      let wire = '', facts, sockets = 0, closed = false;
+      const observe = ws => {
+        const url = new URL(ws.url());
+        assert.equal(url.origin, origin.origin.replace('https:', 'wss:'));
+        assert.match(url.pathname, /^\/-\/soda\/api\/environments\/p[0-9a-f]{24}\/terminal$/);
+        assert(!url.search);
+        sockets++;
+        ws.on('close', () => { closed = true; });
+        ws.on('framereceived', ({payload}) => {
+          // Inspect only a bounded transient buffer for our own structured facts.
+          // Never retain terminal transcript, authentication frames or input.
+          try {
+            const frame = JSON.parse(payload);
+            if (frame.type !== 'output') return;
+            wire = (wire + Buffer.from(frame.data, 'base64').toString('utf8')).slice(-16384);
+            const line = wire.split('\n').find(s => s.startsWith(marker + ':'));
+            if (line) facts = JSON.parse(line.slice(marker.length + 1).trim());
+          } catch { /* A frame can end partway through the fact line. */ }
+        });
+      };
+      page.on('websocket', observe);
+      stage = `terminal user ${index}: explicit real shell`;
+      await page.getByRole('button', {name: 'Open terminal', exact: true}).click();
+      await page.getByText(`Connected as ${input.users[index].login}.`, {exact: true}).waitFor();
+      const code = "import os,pwd,json; print(" + JSON.stringify(marker + ':') + "+json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,uid=os.getuid(),gid=os.getgid(),groups=os.getgroups(),home=os.environ['HOME'],cwd=os.getcwd(),tty=os.isatty(0),shell_pid=os.getppid(),shell_start=open('/proc/%d/stat'%os.getppid()).read().split()[21])))";
+      const command = "python3 -c '" + code.replaceAll("'", "'\\''") + "'";
+      const screen = page.locator('.soda-terminal .xterm-helper-textarea');
+      await screen.focus();
+      await page.keyboard.insertText(command);
+      await page.keyboard.press('Enter');
+      const deadline = Date.now() + 15000;
+      while (!facts && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+      assert(facts && facts.uid > 0 && facts.login === input.users[index].login && facts.tty);
+      assert.equal(facts.home, `/home/${input.users[index].login}`);
+      assert.equal(facts.cwd, facts.home);
+      assert.equal(sockets, 1);
+      await page.keyboard.press('Escape');
+      assert(await drawer.isVisible());
+      await page.keyboard.press('Control+Shift+Enter');
+      assert(await page.getByRole('button', {name: 'Disconnect', exact: true}).evaluate(e => e === document.activeElement));
+      await page.getByRole('button', {name: 'Disconnect', exact: true}).click();
+      const closeDeadline = Date.now() + 10000;
+      while (!closed && Date.now() < closeDeadline) await new Promise(resolve => setTimeout(resolve, 100));
+      assert(closed);
+      await page.locator('#sodaspaces-refresh').click();
+      await settled();
+      assert.equal(sockets, 1);
+      assert(!(await page.getByRole('button', {name: 'Open terminal', exact: true}).count()));
+      page.off('websocket', observe);
+      wire = '';
+      result.terminals.push({actor: input.users[index].id, ...facts, socket_closed: true, refresh_did_not_reconnect: true});
+      // Host-side process disappearance must be independently checked, not inferred
+      // from this socket closure or from shell facts alone.
+    }
   }
   assert(!refusedRequest && !interrupted);
 } catch (error) {

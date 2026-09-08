@@ -179,6 +179,18 @@ clipboard and BFCache; source component tests or injected browser state do not r
 that integrated proof. Any retained deployment still needs current paired backups and
 its exact affected-component scope, including the changed helper.
 
+## Integrated existing-account browser terminal mode
+
+Append `--allow-existing-terminal` to the authenticated public-repository probe
+using its ordinary private input. This requires explicit native shell permission
+for both existing members. It completes the ordinary OAuth/BFCache journey, then
+uses real native login/OAuth and the mounted Open/Disconnect controls for each user.
+Only a bounded transient socket-output buffer recognizes run-owned identity/home/TTY
+facts; no transcript or authentication frames are retained. Escape, focus escape,
+explicit disconnect and no remount on Refresh are checked. Returned shell PID/start
+facts require independent host-side disappearance checks: socket closure alone is
+not process-cleanup proof. No create/join/start/key action is permitted by this flag.
+
 ## Native terminal boundary probe
 
 `internal/host/terminal_native_test.go::TestInstalledTerminalBoundary` is an opt-in

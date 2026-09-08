@@ -23,6 +23,23 @@ was not changed. Focused host/web tests passed; the corrected candidate still ne
 its own clean build/check and integrated native execution. Initial bundle/evidence
 remain preserved, not relabeled as the corrected build or E2E success.
 
+Follow-up: clean `2aa4960` passed full native build/check/export. Its exact dashboard,
+helper and full customization payload were installed only on the isolated fixture,
+after a fresh quiesced paired backup (guest `/var/lib/soda-e2e-2aa4960/backup`, local
+`.artifacts/e2e-2aa4960/fixture-backup.tar`). Original project CID/image/running state,
+Soda rows/grant ciphertext and credentials were preserved; project defaults/units,
+accounts/keys, routing and `soda-test` were untouched. Two pre-write maintenance
+refusals are retained: the full payload also contains 11 legacy theme/logo files,
+and this fixture used its original verified `:dev` reference rather than the retained
+target's image-pinned unit. The fixture now uses the candidate's immutable image pin.
+
+The real guarded public-repository OAuth/browser journey passed against this installed
+candidate (`browser-a`): trusted TLS, actual native forms and two identities, actor/
+CSRF denials, native theme/focus/form coexistence and real BFCache. This is not
+yet terminal/lifecycle/key E2E proof. An explicit existing-member terminal mode is
+now authored in the same installed entrypoint; native execution and independent
+process-disappearance checks are next. Stop/Start and key rotation remain unexecuted.
+
 ## Mounted Sodaspaces management and terminal in the established UI
 
 The native repository button/right dialog now mounts the complete control component
