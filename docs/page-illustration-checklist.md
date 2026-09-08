@@ -664,8 +664,8 @@ Read-only enumeration of Forgejo 15.0.7 embedded admin templates found these 15 
 | Pending | `admin/config_settings.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/hook_new.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/hooks.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/moderation/report_details.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
-| Pending | `admin/moderation/reports.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
+| Integrated — verify | `admin/moderation/report_details.tmpl` | Full stock page reviewed: content reference, reporter/date/category, remarks and retained shadow-copy details form an evidence review. No decorative illustration is appropriate. Inherited fallback art still needs suppression; generic admin pageClass cannot distinguish this caller. No native admin capture. |
+| Integrated — verify | `admin/moderation/reports.tmpl` | Full stock page reviewed: real content-type icons, report counts/categories/remarks and handled/ignored/content actions are the useful information. No decorative image is appropriate, including the no-open-reports state. Inherited fallback art still needs suppression; generic admin pageClass cannot distinguish this caller. No native admin capture. |
 | Pending | `admin/org/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/packages/list.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
 | Pending | `admin/repo/unadopted.tmpl` | Inspect native page purpose and source; decide artwork and integrate only where appropriate. |
