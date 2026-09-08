@@ -181,8 +181,8 @@ Next: authentication pages, repository Actions and remaining shared callers. Adm
 | Partial — trace caller | [`shared/actions/runner_edit.tmpl`](../appliance/forgejo/templates/shared/actions/runner_edit.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
 | Partial — trace caller | [`shared/actions/runner_list.tmpl`](../appliance/forgejo/templates/shared/actions/runner_list.tmpl) | — | Personal caller reviewed; status table needs no art. Other owner pages remain pending. |
 | Partial — trace caller | [`shared/actions/runner_setup.tmpl`](../appliance/forgejo/templates/shared/actions/runner_setup.tmpl) | — | Personal, organization, repository and admin callers now assessed without decorative artwork; admin suppression is source-integrated, native capture pending. |
-| Partial — trace caller | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Not yet reviewed in this goal. |
-| Partial — trace caller | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Not yet reviewed in this goal. |
+| Partial — no image | [`shared/blocked_users_list.tmpl`](../appliance/forgejo/templates/shared/blocked_users_list.tmpl) | — | Full helper and native personal/organization settings callers reviewed. Real avatars, names, blocked dates and unblock actions are the relevant visuals; empty state stays compact. No decorative image. |
+| Partial — no image | [`shared/quota_overview.tmpl`](../appliance/forgejo/templates/shared/quota_overview.tmpl) | — | Full helper and native personal/organization storage_overview callers reviewed. Actual rule status, usage/limit totals and subject breakdown bars are the meaningful visuals; no decorative image. |
 | Partial — trace caller | [`shared/secrets/add_list.tmpl`](../appliance/forgejo/templates/shared/secrets/add_list.tmpl) | — | Personal caller reviewed; inline list and add/edit dialogs need no art. Other owner pages remain pending. |
 | Partial — trace caller | [`shared/variables/variable_list.tmpl`](../appliance/forgejo/templates/shared/variables/variable_list.tmpl) | — | Personal caller reviewed; exact configuration and dialogs need no art. Other owner pages remain pending. |
 | Done | [`status/404.tmpl`](../appliance/forgejo/templates/status/404.tmpl) | `not-found-papercraft.png` | Small neutral wayfinding scene; native general/repository 404 captures inspected at desktop/mobile widths. |
@@ -794,3 +794,9 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 - Full clone-buttons and issue-navbar helpers inspected; local callers traced. Clone controls serve repository home/empty and wiki view/revision. Issue navigation serves lists, chooser, labels, milestone creation/list and project board.
 - Keep protocol/URL/copy controls and labels/milestones links free of decorative artwork. Page-level art decisions remain with their assessed callers; this trace does not add native state coverage.
 - Documentation-only change, no commands copied/executed or resources changed; no tests rerun.
+
+### Blocked-user and quota helper callers
+
+- Read both complete helpers and all four native personal/organization blocked_users/storage_overview wrappers in Forgejo 15.0.7. Native caller paths are explicit; these are settings content rather than separate illustration owners.
+- Preserve actual identity imagery, unblock targets, quota acceptance/exceeded indicators, totals and breakdown bars. No additional decorative art is appropriate. Existing page-level assessments and their native limitations still apply.
+- No users blocked/unblocked or quota settings changed. Source-only caller trace; documentation-only update, no tests rerun.
