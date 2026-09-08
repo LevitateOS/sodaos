@@ -86,6 +86,12 @@
   min-height: 36px;
   border-color: var(--soda-page-edge);
   border-radius: 9px;
+  /* Counter labels attach directly to the action's right edge. */
+  &:has(+ .ui.label) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
   box-shadow: none;
