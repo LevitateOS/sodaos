@@ -1,0 +1,165 @@
+/* Package and code-search layout only. Shared shell, intro, toolbar, list and form
+   controls remain owned by the component stylesheets. */
+.soda-explore-code .soda-toolbar--plain {
+	margin-bottom: 14px;
+}
+
+.soda-code-search {
+	min-width: 0;
+}
+
+.soda-code-search > .ui.form {
+	margin: 0 0 22px;
+	padding: 20px var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-code-search > .ui.user.list {
+	margin: 0;
+	padding: var(--soda-panel-inset);
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-code-search > .ui.user.list:empty {
+	display: none;
+}
+
+.soda-code-search .breadcrumb,
+.soda-code-search .text.grey,
+.soda-code-search relative-time {
+	color: var(--soda-page-muted) !important;
+}
+
+.soda-packages .soda-page-intro--compact {
+	margin: 22px 0;
+}
+
+.soda-packages.user.profile .soda-page-intro--compact {
+	margin-top: 18px;
+}
+
+.soda-package-toolbar > .ui.form {
+	flex: 1;
+	min-width: 0;
+}
+
+.soda-package-toolbar > .ui.form > .ui.action.input {
+	display: flex;
+	gap: 10px;
+}
+
+.soda-package-list > .flex-list + .flex-list {
+	border-top: 0;
+	border-radius: 0;
+}
+
+.soda-package-list > .flex-list:first-child:not(:last-of-type) {
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
+.soda-package-list > .flex-list:last-of-type:not(:first-child) {
+	border-bottom-right-radius: var(--soda-panel-radius);
+	border-bottom-left-radius: var(--soda-panel-radius);
+}
+
+.soda-package-list .ui.label {
+	margin-left: 8px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: 6px;
+	background: var(--soda-page-canvas);
+	color: var(--soda-page-muted);
+}
+
+.soda-package-empty {
+	margin-top: 0;
+}
+
+.soda-package-empty > .soda-empty-description {
+	max-width: 680px;
+	margin: -12px auto 0;
+	padding: 0 var(--soda-panel-inset) 28px;
+	text-align: center;
+}
+
+.soda-package-no-result,
+.soda-package-breadcrumb {
+	color: var(--soda-page-muted);
+}
+
+.soda-package-view .issue-title-header {
+	margin: 20px 0 24px;
+	padding: 24px;
+	border: 1px solid var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+}
+
+.soda-package-view .issue-title h1 {
+	color: var(--soda-page-text);
+	font: 600 32px/1.25 "Fraunces Variable", Georgia, serif;
+	letter-spacing: -.025em;
+	overflow-wrap: anywhere;
+}
+
+.soda-package-view .issue-content-left,
+.soda-package-view .issue-content-right.ui.segment {
+	min-width: 0;
+	border-color: var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+	color: var(--soda-page-text);
+	box-shadow: none;
+}
+
+.soda-package-view .issue-content-left {
+	padding: 24px;
+}
+
+.soda-package-view :is(.markup, .file-size, .divider) {
+	color: var(--soda-page-muted);
+	border-color: var(--soda-page-edge);
+}
+
+.soda-package-settings .soda-page-container {
+	padding-top: 24px;
+}
+
+.soda-package-settings .ui.top.attached.header:not(.error) {
+	border-color: var(--soda-page-edge);
+	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
+	background: var(--soda-page-surface);
+	color: var(--soda-page-text);
+}
+
+.soda-package-settings .ui.attached.segment:not(.error) {
+	margin-bottom: 24px;
+	border-color: var(--soda-page-edge);
+	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+	background: var(--soda-page-surface);
+	color: var(--soda-page-text);
+	box-shadow: none;
+}
+
+@media (max-width: 700px) {
+	.soda-package-toolbar > .ui.form > .ui.action.input {
+		flex-wrap: wrap;
+	}
+
+	.soda-package-toolbar > .ui.form > .ui.action.input > :is(input, .ui.input, select, .dropdown) {
+		width: 100%;
+	}
+
+	.soda-package-view .issue-content {
+		display: block;
+	}
+
+	.soda-package-view .issue-content-right.ui.segment {
+		width: 100%;
+		margin-top: 18px;
+	}
+}
