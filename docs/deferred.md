@@ -2,9 +2,11 @@
 
 This is the scope boundary for the [current architecture](architecture.md). It records parked ideas and edge-case work so they are not repeatedly promoted into prerequisites for the first version.
 
-The [Sodaspaces plan](sodaspaces-plan.md) integrates environments into native Forgejo;
-it does not reopen these deferrals. OS-profile selection, lifecycle controls and
-resource-limit/usage extensions remain unselected. [Outside support tools](native-support.md)
+The [Sodaspaces minimum-controls plan](sodaspaces-plan.md#minimum-end-to-end-user-controls)
+now selects basic Start/Stop and explicit own-project development-key apply/revoke as
+bounded follow-up work. These do not reopen broader lifecycle/reconciliation work.
+OS-profile selection and resource-limit/usage extensions remain unselected; destruction
+still requires its explicit scope decision. [Outside support tools](native-support.md)
 cannot change production policy or make optional installer media a product prerequisite.
 
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
@@ -35,13 +37,13 @@ If this idea is revisited, the expected workflow is still developer-owned: commi
 
 Keep out of the first-version implementation scope:
 
-- propagating later key rotations/revocations across existing memberships;
+- automatically propagating later key rotations/revocations across memberships;
 - coordinating Forgejo disablement, Soda membership removal and Linux access revocation;
 - terminating already authenticated sessions;
 - automated member departure, deprovisioning and manual account/key drift repair;
 - invitation/approval systems and generalized permission synchronization.
 
-Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. These deferrals concern Soda's cross-system/project access machinery, not Forgejo's own required invitations, account-security, grant/session revocation or identity lifecycle workflows. Preserve native workflows and conforming Soda associations without generalized Linux offboarding. The requested existing-account browser terminal includes its own connection/session lifetime; that is not permission to terminate unrelated SSH sessions or shared workloads. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
+Initial Forgejo-backed authentication, public-key registration and join-time account/key installation remain in scope. The minimum-controls revision additionally requires own saved-key removal and an explicit, authorized apply/revoke action for one's existing project account, with real native effects and SSH verification. Saving/removing a preference alone is not revocation; other projects and already authenticated SSH sessions stay untouched. This is planned, not implemented or execution permission. Automatic synchronization and generalized offboarding remain deferred. These deferrals concern broader Soda cross-system/project access machinery, not Forgejo's own required invitations, account-security, grant/session revocation or identity lifecycle workflows. Preserve native workflows and conforming Soda associations without generalized Linux offboarding. The requested existing-account browser terminal includes its own connection/session lifetime; that is not permission to terminate unrelated SSH sessions or shared workloads. Do not request private SSH keys or claim that changing one system automatically revokes access in the others.
 
 ## 3. Deferred: identity and ownership remapping
 
