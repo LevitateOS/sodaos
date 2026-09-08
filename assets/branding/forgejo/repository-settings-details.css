@@ -1,12 +1,12 @@
 /* Detail presentation for exact Forgejo 15.0.7 repository settings leaves. */
 .soda-repository-settings.soda-page {
-	padding-bottom: 56px;
+	padding-bottom: 40px;
 }
 
 .soda-repository-settings .soda-settings-layout {
 	width: min(1120px, calc(100% - 48px)) !important;
 	align-items: flex-start;
-	gap: 26px;
+	gap: 20px;
 }
 
 .soda-repository-settings .soda-settings-layout > .flex-container-nav {
@@ -31,7 +31,7 @@
 
 .soda-repo-settings-detail .flex-list > .flex-item {
 	gap: 16px;
-	padding: 18px 4px;
+	padding: 16px 4px;
 	border-color: var(--soda-page-edge);
 }
 
@@ -65,7 +65,7 @@
 .soda-repo-settings-units > .ui.form > :is(.ui.segment, fieldset),
 .soda-repo-settings-protected-branch > .ui.form > fieldset {
 	min-width: 0;
-	margin: 0 0 22px;
+	margin: 0 0 18px;
 	padding: var(--soda-panel-inset);
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
@@ -102,7 +102,7 @@
 }
 
 .soda-repo-settings-options .ui.attached.segment .divider {
-	margin-block: 24px;
+	margin-block: 18px;
 	border-color: var(--soda-page-edge);
 }
 

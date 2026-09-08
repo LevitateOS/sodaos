@@ -1,11 +1,11 @@
 /* Account settings compose Forgejo's native 15.0.7 templates inside the Soda page shell. */
 .soda-settings {
-	padding-top: 42px;
+	padding-top: 32px;
 }
 
 .soda-settings .soda-settings-layout {
 	align-items: flex-start;
-	gap: 32px;
+	gap: 24px;
 }
 
 .soda-settings .flex-container-nav {
@@ -36,12 +36,12 @@
 
 @media (max-width: 900px) {
 	.soda-settings {
-		padding-top: 30px;
+		padding-top: 24px;
 	}
 
 	.soda-settings .soda-settings-layout {
 		flex-direction: column;
-		gap: 24px;
+		gap: 18px;
 	}
 
 	.soda-settings .flex-container-nav {

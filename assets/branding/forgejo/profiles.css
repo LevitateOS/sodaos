@@ -1,6 +1,6 @@
 /* Owner profile components retain Forgejo's native identity, relationship and repository workflows. */
 .soda-profile {
-  padding-top: 40px;
+  padding-top: 32px;
 }
 
 .soda-profile .soda-profile-layout {
@@ -39,7 +39,7 @@
 
 .soda-profile .soda-profile-content > .soda-tabs {
   width: 100%;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .soda-profile .soda-tabs .ui.label {
@@ -50,7 +50,7 @@
 }
 
 .soda-profile #visibility-hint {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   border-color: var(--soda-page-edge);
   background: var(--soda-page-surface);
   color: var(--soda-page-muted);
@@ -80,7 +80,7 @@
 }
 
 @media (max-width: 767px) {
-  .soda-profile { padding-top: 24px; }
+  .soda-profile { padding-top: 18px; }
   .soda-profile .soda-profile-identity,
   .soda-profile .soda-profile-content { width: 100% !important; }
 }

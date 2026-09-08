@@ -3,7 +3,7 @@
 .soda-admin-layout {
 	align-items: flex-start;
 	flex-wrap: wrap;
-	gap: 24px;
+	gap: 18px;
 }
 
 .soda-admin-layout > .soda-page-intro {

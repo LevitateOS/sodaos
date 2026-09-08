@@ -1,6 +1,6 @@
 /* Milestone counts, progress and dates remain native Forgejo values. */
 /* Stock Forgejo sets .flex-container to flex !important; this page owns a grid. */
-.soda-milestones .flex-container { display: grid !important; grid-template-columns: 240px minmax(0,1fr); gap: 24px; align-items: start; }
+.soda-milestones .flex-container { display: grid !important; grid-template-columns: 240px minmax(0,1fr); gap: 18px; align-items: start; }
 .soda-milestones .flex-container-nav { width: 100%; min-width: 0; }
 .soda-milestones .flex-container-nav > .ui.menu { width: 100%; margin: 0; padding: 10px; border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius) !important; background: var(--soda-page-surface) !important; }
 .soda-milestones .flex-container-nav .item { padding: 12px 10px; color: var(--soda-page-muted); font: 600 14px/1.5 Barlow,sans-serif; border-radius: 8px; }
@@ -9,20 +9,20 @@
 .soda-milestones .flex-container-nav .active.item { background: var(--soda-page-canvas) !important; color: var(--soda-page-link) !important; }
 .soda-milestones .flex-container-nav .divider { border-color: var(--soda-page-edge); }
 .soda-milestones .milestone-list { margin: 0; }
-.soda-milestones .milestone-card { list-style: none; padding: 24px; margin: 0 0 18px; border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius); background: var(--soda-page-surface); }
-.soda-milestones .milestone-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; }
+.soda-milestones .milestone-card { list-style: none; padding: 18px; margin: 0 0 16px; border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius); background: var(--soda-page-surface); }
+.soda-milestones .milestone-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
 .soda-milestones .milestone-header h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; font: 600 23px/1.4 "Fraunces Variable",Georgia,serif; color: var(--soda-page-text); }
 .soda-milestones .milestone-header h3 > .label { flex-basis: 100%; width: fit-content; padding: 0; margin: 0 0 4px; background: transparent; color: var(--soda-page-muted); font: 400 12px/1.5 "IBM Plex Mono",monospace; overflow-wrap: anywhere; }
 .soda-milestones .milestone-header h3 a { color: var(--soda-page-text); }
 .soda-milestones .milestone-header progress { width: 120px; accent-color: var(--soda-page-link); }
-.soda-milestones .milestone-toolbar { margin-top: 18px; color: var(--soda-page-muted); font: 400 13px/1.7 Barlow,sans-serif; }
-.soda-milestones .milestone-toolbar .group { display: flex; flex-wrap: wrap; gap: 10px 18px; }
-.soda-milestones .milestone-card .markup { margin-top: 18px; color: var(--soda-page-muted); font: 400 15px/1.7 Barlow,sans-serif; }
+.soda-milestones .milestone-toolbar { margin-top: 16px; color: var(--soda-page-muted); font: 400 13px/1.7 Barlow,sans-serif; }
+.soda-milestones .milestone-toolbar .group { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.soda-milestones .milestone-card .markup { margin-top: 16px; color: var(--soda-page-muted); font: 400 15px/1.7 Barlow,sans-serif; }
 .soda-milestones progress { height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--soda-page-edge); }
 .soda-milestones progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
 .soda-milestones progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
 .soda-milestones progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }
 @media (max-width:700px) {
  .soda-milestones .flex-container { grid-template-columns: minmax(0,1fr); }
- .soda-milestones .milestone-card { padding: 20px; }
+ .soda-milestones .milestone-card { padding: 16px; }
 }

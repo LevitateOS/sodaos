@@ -2,7 +2,7 @@
    adapts that exact 15.0.7 markup to the Soda full-page presentation shell. */
 .soda-forgejo-setup {
   position: relative;
-  padding-block: 48px 64px;
+  padding-block: 36px 48px;
 }
 
 .soda-forgejo-setup .soda-setup-theme {
@@ -26,12 +26,12 @@
 }
 
 .soda-forgejo-setup .soda-page-intro {
-  margin-bottom: 28px;
+  margin-bottom: 22px;
 }
 
 .soda-forgejo-setup .soda-setup-panel.ui.segment {
   margin: 0;
-  padding: 28px;
+  padding: 22px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -39,14 +39,14 @@
 }
 
 .soda-forgejo-setup .soda-form > p {
-  margin: 0 0 24px;
+  margin: 0 0 18px;
   color: var(--soda-page-muted);
   line-height: 1.6;
   text-align: left;
 }
 
 .soda-forgejo-setup .soda-form > .ui.dividing.header {
-  margin: 32px 0 20px;
+  margin: 24px 0 16px;
   padding-bottom: 12px;
   border-color: var(--soda-page-edge);
   color: var(--soda-page-text);
@@ -59,7 +59,7 @@
 
 .soda-forgejo-setup .soda-form .optional.field {
   margin: 0 0 16px;
-  padding: 18px 20px;
+  padding: 16px 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-canvas);
@@ -71,7 +71,7 @@
 }
 
 .soda-forgejo-setup .soda-form .optional.field[open] > summary {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .soda-forgejo-setup .soda-form .reinstall-message {
@@ -95,7 +95,7 @@
 
 .soda-forgejo-setup .soda-form > .divider {
   height: 1px;
-  margin: 32px 0;
+  margin: 24px 0;
   background: var(--soda-page-edge);
 }
 
@@ -112,7 +112,7 @@
 .soda-forgejo-setup-completing .soda-setup-completing {
   width: min(520px, 100%);
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 32px 18px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -139,7 +139,7 @@
 
 @media (max-width: 700px) {
   .soda-forgejo-setup {
-    padding-block: 32px 48px;
+    padding-block: 24px 36px;
   }
 
   .soda-forgejo-setup .soda-setup-theme {
@@ -148,7 +148,7 @@
   }
 
   .soda-forgejo-setup .soda-setup-panel.ui.segment {
-    padding: 20px 16px;
+    padding: 16px 16px;
   }
 
   .soda-forgejo-setup .soda-form > .ui.dividing.header {

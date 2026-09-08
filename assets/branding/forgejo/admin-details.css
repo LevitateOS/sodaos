@@ -6,7 +6,7 @@
 
 .soda-admin-details .ui.form > .divider {
 	height: 1px;
-	margin: 26px 0;
+	margin: 20px 0;
 	background: var(--soda-page-edge);
 }
 
@@ -15,7 +15,7 @@
 }
 
 .soda-admin-details .ui.form .secondary.segment {
-	padding: 20px;
+	padding: 16px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-control-radius);
 	background: var(--soda-page-canvas);
@@ -33,7 +33,7 @@
 .soda-admin-details--config .admin-dl-horizontal {
 	display: grid;
 	grid-template-columns: minmax(180px, .42fr) minmax(0, 1fr);
-	gap: 11px 22px;
+	gap: 11px 18px;
 }
 
 .soda-admin-details--config .admin-dl-horizontal > :is(dt, dd) {
@@ -98,7 +98,7 @@
 /* Large identity and authentication forms use the shared native-form adapter.
    These local rules handle only their page-specific grouping and action rows. */
 :is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
-	padding: 26px;
+	padding: 20px;
 }
 
 :is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) .ui.form > .field:has(> .button) {
@@ -108,7 +108,7 @@
 }
 
 .soda-admin-details--auth-edit #ldap-group-options {
-	margin-block: 22px;
+	margin-block: 18px;
 }
 
 .soda-admin-details--auth-new > .ui.attached.segment :is(h5, p),
@@ -118,7 +118,7 @@
 
 /* OAuth application lists and forms remain the shared upstream partials. */
 .soda-admin-details--applications .flex-list > .flex-item {
-	padding-block: 18px;
+	padding-block: 16px;
 	border-color: var(--soda-page-edge);
 }
 
@@ -176,7 +176,7 @@
 }
 
 :is(.soda-admin-details--auth-list, .soda-admin-details--user-list, .soda-admin-details--email-list, .soda-admin-details--repo-list) tbody td[colspan] {
-	padding-block: 32px;
+	padding-block: 24px;
 	color: var(--soda-page-muted);
 }
 
@@ -188,7 +188,7 @@
 
 @media (max-width: 700px) {
 	:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
-		padding: 18px 16px;
+		padding: 16px 16px;
 	}
 
 	.soda-admin-details--config .admin-dl-horizontal {

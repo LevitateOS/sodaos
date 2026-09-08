@@ -63,7 +63,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  margin-block: 20px;
+  margin-block: 16px;
 }
 
 .soda-admin-monitoring--queue-manage .soda-form input[name="max-number"] {
@@ -72,7 +72,7 @@
 }
 
 .soda-admin-monitoring--notice > .ui.table td[colspan="6"] {
-  padding: 40px 20px;
+  padding: 32px 16px;
   color: var(--soda-page-muted);
   font-size: 17px;
 }
@@ -108,12 +108,12 @@
 }
 
 .soda-admin-monitoring--stacktrace .ui.relaxed.divided.list > .item {
-  padding-block: 18px;
+  padding-block: 16px;
 }
 
 .soda-admin-monitoring--self-check > .ui.segment > .ui.message {
   margin-block: 16px;
-  padding: 18px 20px;
+  padding: 16px 16px;
   border-radius: var(--soda-control-radius);
   line-height: 1.6;
 }

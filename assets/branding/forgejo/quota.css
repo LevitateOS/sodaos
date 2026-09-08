@@ -2,7 +2,7 @@
    treatment own the surrounding surface and keyboard indication. */
 .soda-quota-overview details.stats {
 	margin-block: 6px;
-	padding: 18px;
+	padding: 16px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-control-radius);
 	background: var(--soda-page-canvas);

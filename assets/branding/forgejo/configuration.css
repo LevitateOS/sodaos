@@ -2,7 +2,7 @@
    permission gates. Shared settings cards own their surrounding surfaces. */
 .soda-config-list > .flex-list > .flex-item {
 	gap: 16px;
-	padding-block: 20px;
+	padding-block: 16px;
 	border-color: var(--soda-page-edge);
 }
 

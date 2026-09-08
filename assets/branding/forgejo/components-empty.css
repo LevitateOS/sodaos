@@ -4,7 +4,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 44px 24px;
+  padding: 32px 18px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -18,7 +18,7 @@
   box-sizing: border-box;
   width: 76px;
   height: 76px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
   border: 1px solid var(--soda-page-edge);
   border-radius: 24px 24px 24px 8px;
   background: var(--soda-page-canvas);
@@ -59,9 +59,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px 24px;
+  gap: 16px 18px;
   flex-wrap: wrap;
-  margin-top: 26px;
+  margin-top: 20px;
 }
 
 .soda-empty-actions a {
@@ -75,7 +75,7 @@
 
 .soda-empty-actions .soda-empty-primary {
   border-radius: 999px;
-  padding: 12px 22px;
+  padding: 12px 18px;
   color: var(--soda-page-on-action);
   background: var(--soda-page-action);
 }
@@ -91,21 +91,21 @@
 .soda-empty-actions .soda-empty-primary:active { background: var(--soda-page-action-pressed); }
 
 @media (max-width: 700px) {
-  .soda-empty { padding: 32px 20px; }
+  .soda-empty { padding: 24px 16px; }
 }
 
 /* Native dashboard guide keeps its translated links and directory visibility gates. */
-.soda-list > #empty-feed { padding: 44px 24px !important; }
-.soda-list > #empty-feed > svg { padding: 20px; }
-.soda-list > #empty-feed > .help { margin: 16px auto 24px; }
+.soda-list > #empty-feed { padding: 32px 18px !important; }
+.soda-list > #empty-feed > svg { padding: 16px; }
+.soda-list > #empty-feed > .help { margin: 16px auto 18px; }
 .soda-list > #empty-feed > div { line-height: 2; }
 @media (max-width: 700px) {
-  .soda-list > #empty-feed { padding: 32px 20px !important; }
+  .soda-list > #empty-feed { padding: 24px 16px !important; }
 }
 
 /* Native issue search feedback remains inside its result list. */
 .soda-list #issue-list > .tw-text-center {
-  padding: 40px 24px !important;
+  padding: 32px 18px !important;
 }
 
 .soda-list #issue-list > .tw-text-center h3 {

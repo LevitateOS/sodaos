@@ -49,8 +49,8 @@
 }
 
 :is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
-	margin-top: 24px;
-	padding: 18px var(--soda-panel-inset);
+	margin-top: 18px;
+	padding: 16px var(--soda-panel-inset);
 	border: 1px solid var(--soda-page-edge);
 	border-bottom: 0;
 	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;

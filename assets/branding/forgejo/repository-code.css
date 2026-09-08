@@ -2,14 +2,14 @@
    their own behavior; these adapters use the established Soda primitives. */
 .soda-code :is(.repo-editor-header,.soda-code-finder,.soda-code-branch-picker) {
   gap: 12px;
-  padding: 18px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
 }
 
-.soda-code .soda-code-finder { margin-bottom: 20px; }
+.soda-code .soda-code-finder { margin-bottom: 16px; }
 .soda-code .soda-code-finder > .input { min-width: 0; }
 .soda-code #repo-file-find-input {
   min-width: 0;
@@ -26,7 +26,7 @@
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
 }
-.soda-code #repo-find-file-table td { padding: 14px 20px; }
+.soda-code #repo-find-file-table td { padding: 14px 16px; }
 .soda-code .repo-button-row.soda-toolbar { justify-content: space-between; }
 .soda-code .repo-button-row.soda-toolbar > .button-sequence { flex-wrap: wrap; }
 .soda-code-browser .repo-description {
@@ -49,8 +49,8 @@
 .soda-code-summary .repository-menu {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 24px;
-  padding: 18px 24px;
+  gap: 12px 18px;
+  padding: 16px 18px;
   border-color: var(--soda-page-edge);
   background: var(--soda-page-surface);
 }
@@ -59,7 +59,7 @@
   font: 500 14px/1.6 Barlow,Arial,sans-serif;
 }
 .soda-code-summary .repository-menu .item:is(:hover,.active) { color: var(--soda-page-link) !important; }
-.soda-code-summary #language-stats > ul { padding: 16px 24px; }
+.soda-code-summary #language-stats > ul { padding: 16px 18px; }
 .soda-code-ref-selector .branch-dropdown-button {
   min-height: var(--soda-control-height);
   padding-inline: 14px;
@@ -81,7 +81,7 @@
   color: var(--soda-page-text) !important;
   font: 400 12px/1.5 "IBM Plex Mono",monospace !important;
 }
-.soda-code-commit-heading { padding: 24px !important; }
+.soda-code-commit-heading { padding: 18px !important; }
 .soda-code-commit-heading .commit-summary {
   color: var(--soda-page-text);
   font: 600 25px/1.4 "Fraunces Variable",Georgia,serif;
@@ -89,8 +89,8 @@
 }
 .soda-code-commit-heading .commit-header-buttons { flex-wrap: wrap; gap: 8px; }
 .soda-code-diff > .diff-detail-box {
-  margin-block: 20px;
-  padding: 16px 20px;
+  margin-block: 16px;
+  padding: 16px 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -107,7 +107,7 @@
   background: var(--soda-page-surface);
 }
 .soda-code-files.ui.table thead th {
-  padding-block: 18px;
+  padding-block: 16px;
   background: var(--soda-page-hover);
   border-color: var(--soda-page-edge);
 }
@@ -124,7 +124,7 @@
   background: var(--soda-page-surface) !important;
 }
 .soda-code-file .file-header {
-  padding: 18px 22px;
+  padding: 16px 18px;
   gap: 12px;
   border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0 !important;
 }
@@ -136,8 +136,8 @@
 .soda-code .markup { color: var(--soda-page-text); }
 .soda-code-commits-heading.ui.header { flex-wrap: wrap; gap: 12px; }
 .soda-code-browser:is(.commits,.branches,.tags) > .ui.container > .ui.top.attached.header {
-  margin-top: 24px;
-  padding: 18px var(--soda-panel-inset);
+  margin-top: 18px;
+  padding: 16px var(--soda-panel-inset);
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
   background: var(--soda-page-surface);
@@ -168,7 +168,7 @@
   background: var(--soda-page-surface);
 }
 .soda-code-browser:is(.branches,.tags) table td {
-  padding-block: 18px;
+  padding-block: 16px;
   border-color: var(--soda-page-edge);
 }
 .soda-code-browser.tags .release-tag-name a {
@@ -195,21 +195,21 @@
   width: 100%;
   max-width: none;
 }
-.soda-code-editor .commit-form.soda-form-section { margin-top: 24px; }
+.soda-code-editor .commit-form.soda-form-section { margin-top: 18px; }
 .soda-code-commit-title {
-  margin: 0 0 24px;
+  margin: 0 0 18px;
   font: 600 25px/1.35 "Fraunces Variable",Georgia,serif;
   color: var(--soda-page-text);
 }
 .soda-code-editor .quick-pull-choice {
-  padding: 18px;
-  margin-block: 20px;
+  padding: 16px;
+  margin-block: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-canvas);
 }
 .soda-code-editor .repo-editor-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .soda-code-editor .repo-editor-header .breadcrumb {
   flex-wrap: wrap;
@@ -286,7 +286,7 @@
   background: var(--soda-page-surface);
 }
 .soda-code-browser.quickstart .empty-repo-guide > .item {
-  padding: 22px var(--soda-panel-inset);
+  padding: 18px var(--soda-panel-inset);
 }
 .soda-code-browser.quickstart .empty-repo-guide h3 small {
   color: var(--soda-page-muted);
@@ -301,7 +301,7 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-block: 10px;
-  padding: 18px 22px !important;
+  padding: 16px 18px !important;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -324,7 +324,7 @@
   background: var(--soda-page-surface);
 }
 .soda-code-actions .flex-list > .flex-item {
-  padding: 18px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
   border-color: var(--soda-page-edge);
 }
 .soda-code-actions .actions-menu {
@@ -347,12 +347,12 @@
   margin-inline: auto;
 }
 .soda-code-no-workflows > svg {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
   color: var(--soda-page-link);
 }
 .soda-code-workflows .filter.menu {
   padding: 10px 12px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   gap: 8px;
   flex-wrap: wrap;
   border: 1px solid var(--soda-page-edge);
@@ -369,7 +369,7 @@
 .soda-code-runs .flex-item-body { color: var(--soda-page-muted); line-height: 1.6; }
 .soda-code-dispatch { flex-wrap: wrap; gap: 12px; border-radius: var(--soda-panel-radius); }
 .soda-code-dispatch #workflow_dispatch_dropdown > .menu {
-  padding: 20px;
+  padding: 16px;
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);

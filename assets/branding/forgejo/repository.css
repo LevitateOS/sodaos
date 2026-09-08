@@ -1,7 +1,7 @@
 /* Repository presentation for stock Forgejo 15.0.7. The native templates own
    repository state, permissions, forms, scripts, and all workflow behavior. */
 .page-content:has(> .soda-repository-header) {
-  padding-bottom: 56px;
+  padding-bottom: 40px;
   color: var(--soda-page-text);
   font-family: Barlow, Arial, sans-serif;
 }
@@ -13,8 +13,8 @@
 
 /* Repository identity and native unit navigation. */
 .soda-repository-header {
-  padding: 30px 0 0;
-  margin: 0 0 28px;
+  padding: 24px 0 0;
+  margin: 0 0 22px;
   background:
     radial-gradient(circle at 12% 0, color-mix(in srgb, var(--soda-page-selected) 72%, transparent) 0 13%, transparent 38%),
     linear-gradient(180deg, var(--soda-page-surface), var(--soda-page-canvas));
@@ -27,9 +27,9 @@
 
 .soda-repository-header .repo-header {
   align-items: center;
-  gap: 24px;
+  gap: 18px;
   min-height: 74px;
-  padding: 0 0 24px;
+  padding: 0 0 18px;
 }
 
 .soda-repository-header .repo-header > .flex-item {
@@ -97,7 +97,7 @@
 }
 
 .soda-repository-header .fork-flag {
-  margin: -12px 0 18px;
+  margin: -12px 0 16px;
   color: var(--soda-page-muted);
 }
 
@@ -167,7 +167,7 @@
   }
 
   .soda-repository-header {
-    padding-top: 22px;
+    padding-top: 18px;
   }
 
   .soda-repository-header .repo-header {

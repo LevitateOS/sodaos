@@ -8,7 +8,7 @@
 }
 
 .soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) > :is(.flex-item,.notifications-item) {
-  padding: 24px 0 !important;
+  padding: 16px 0 !important;
   gap: 16px;
   border-color: var(--soda-page-edge);
 }

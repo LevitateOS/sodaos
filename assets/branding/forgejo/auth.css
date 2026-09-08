@@ -1,6 +1,6 @@
 /* Secondary authentication routes retain Forgejo 15.0.7 forms and security hooks. */
 .soda-auth {
-	padding: 64px 24px;
+	padding: 48px 18px;
 }
 
 .soda-auth > :is(.ui.page.grid, .ui.container) {
@@ -17,7 +17,7 @@
 
 .soda-auth :is(h2, h3, h4).ui.top.attached.header {
 	margin: 0;
-	padding: 24px var(--soda-panel-inset) 18px;
+	padding: 18px var(--soda-panel-inset) 16px;
 	border: 1px solid var(--soda-page-edge);
 	border-bottom: 0;
 	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
@@ -47,7 +47,7 @@
 }
 
 .soda-auth .ui.container.fluid + .ui.container.fluid {
-	margin-top: 18px;
+	margin-top: 16px;
 }
 
 .soda-auth.webauthn-prompt .ui.attached.segment {
@@ -60,7 +60,7 @@
 
 @media (max-width: 700px) {
 	.soda-auth {
-		padding: 36px 16px;
+		padding: 28px 16px;
 	}
 
 	.soda-auth :is(h2, h3, h4).ui.top.attached.header {

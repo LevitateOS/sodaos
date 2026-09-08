@@ -2,11 +2,11 @@
    owned by the component stylesheets. */
 
 .soda-packages .soda-page-intro--compact {
-	margin: 22px 0;
+	margin: 18px 0;
 }
 
 .soda-packages.user.profile .soda-page-intro--compact {
-	margin-top: 18px;
+	margin-top: 16px;
 }
 
 .soda-package-toolbar > .ui.form {
@@ -49,7 +49,7 @@
 .soda-package-empty > .soda-empty-description {
 	max-width: 680px;
 	margin: -12px auto 0;
-	padding: 0 var(--soda-panel-inset) 28px;
+	padding: 0 var(--soda-panel-inset) 22px;
 	text-align: center;
 }
 
@@ -59,8 +59,8 @@
 }
 
 .soda-package-view .issue-title-header {
-	margin: 20px 0 24px;
-	padding: 24px;
+	margin: 16px 0 18px;
+	padding: 18px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
 	background: var(--soda-page-surface);
@@ -84,7 +84,7 @@
 }
 
 .soda-package-view .issue-content-left {
-	padding: 24px;
+	padding: 18px;
 }
 
 .soda-package-view :is(.markup, .file-size, .divider) {
@@ -93,7 +93,7 @@
 }
 
 .soda-package-settings .soda-page-container {
-	padding-top: 24px;
+	padding-top: 18px;
 }
 
 .soda-package-settings .ui.top.attached.header:not(.error) {
@@ -104,7 +104,7 @@
 }
 
 .soda-package-settings .ui.attached.segment:not(.error) {
-	margin-bottom: 24px;
+	margin-bottom: 18px;
 	border-color: var(--soda-page-edge);
 	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
 	background: var(--soda-page-surface);
@@ -113,7 +113,7 @@
 }
 
 .soda-package-section {
-	margin-bottom: 24px;
+	margin-bottom: 18px;
 	color: var(--soda-page-text);
 }
 
@@ -187,7 +187,7 @@
 
 	.soda-package-view .issue-content-right.ui.segment {
 		width: 100%;
-		margin-top: 18px;
+		margin-top: 16px;
 	}
 
 	.soda-package-section-heading > .ui.right {

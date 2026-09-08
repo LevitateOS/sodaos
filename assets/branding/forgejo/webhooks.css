@@ -22,7 +22,7 @@
 
 .soda-webhook-events {
   min-width: 0;
-  padding: 22px;
+  padding: 18px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-canvas);
@@ -41,9 +41,9 @@
 
 .soda-webhook-events .simple-grid {
   min-width: 0;
-  padding: 20px;
-  margin-top: 20px;
-  gap: 20px;
+  padding: 16px;
+  margin-top: 16px;
+  gap: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-surface);
@@ -51,7 +51,7 @@
 
 .soda-webhook-events .simple-grid > legend { padding-inline: 8px; }
 .soda-webhook-events .simple-grid > label { min-width: 0; overflow-wrap: anywhere; }
-.soda-webhook-events .help { display: block; padding-left: 24px; }
+.soda-webhook-events .help { display: block; padding-left: 18px; }
 
 @media (max-width: 700px) {
   .soda-webhook-events { padding: 14px; }

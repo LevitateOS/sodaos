@@ -10,7 +10,7 @@
 .soda-account-details--profile form > fieldset {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 22px;
+  gap: 16px 18px;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -18,8 +18,8 @@
 }
 
 .soda-account-details--profile form > fieldset + fieldset {
-  margin-top: 26px;
-  padding-top: 24px;
+  margin-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid var(--soda-page-edge);
 }
 
@@ -51,7 +51,7 @@
 
 .soda-account-details--profile form > fieldset + fieldset > label .help {
   display: block;
-  margin: 5px 0 0 24px;
+  margin: 5px 0 0 18px;
 }
 
 .soda-account-details :is(.button-sequence, .field:has(> .ui.primary.button + a)) {
@@ -130,14 +130,14 @@
 
 .soda-account-details--access-token #scoped-access-form > .field > fieldset {
   margin: 0;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-canvas);
 }
 
 .soda-account-details--access-token #repo-selector-wrapper {
-  padding: 20px;
+  padding: 16px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
   background: var(--soda-page-canvas);
@@ -148,7 +148,7 @@
 }
 
 .soda-account-details--access-token #repo-selector > * + * {
-  padding-left: 24px;
+  padding-left: 18px;
   border-left: 1px solid var(--soda-page-edge);
 }
 
@@ -171,7 +171,7 @@
 }
 
 .soda-account-details--oauth2-edit .ui.attached.segment.form > .field {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .soda-account-details--oauth2-edit .ui.attached.segment.form input[readonly] {
@@ -182,7 +182,7 @@
   display: block;
   width: min(240px, 100%);
   height: auto;
-  margin: 20px auto;
+  margin: 16px auto;
   padding: 12px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-control-radius);
@@ -226,7 +226,7 @@
   }
 
   .soda-account-details--access-token #repo-selector > * + * {
-    padding-top: 20px;
+    padding-top: 16px;
     padding-left: 0;
     border-top: 1px solid var(--soda-page-edge);
     border-left: 0;

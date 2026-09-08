@@ -18,7 +18,7 @@
 .soda-shared-runner dl > .item {
 	display: grid;
 	grid-template-columns: minmax(130px, .4fr) minmax(0, 1fr);
-	gap: 12px 24px;
+	gap: 12px 18px;
 	padding: 14px 0;
 	border-bottom: 1px solid var(--soda-page-edge);
 }

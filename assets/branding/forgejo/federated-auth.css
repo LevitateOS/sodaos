@@ -10,7 +10,7 @@
   justify-content: center;
   width: min(100%, 1120px);
   margin-inline: auto;
-  padding: 56px 24px;
+  padding: 40px 18px;
 }
 
 .soda-federated-auth > .soda-theme-toggle {
@@ -45,13 +45,13 @@
 }
 
 .soda-federated-auth .ui.top.attached.header {
-  padding: 22px var(--soda-panel-inset) 16px;
+  padding: 18px var(--soda-panel-inset) 16px;
   color: var(--soda-page-text);
   font: 600 27px/1.25 "Fraunces Variable", Georgia, serif;
 }
 
 .soda-federated-auth .ui.attached.segment {
-  padding: 20px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
 }
 
 .soda-federated-auth .ui.attached.segment p {
@@ -65,7 +65,7 @@
 
 .soda-federated-auth > .secondary-nav {
   width: min(100%, 680px);
-  margin: 0 auto 24px !important;
+  margin: 0 auto 18px !important;
   border-color: var(--soda-page-edge) !important;
 }
 
@@ -86,7 +86,7 @@
 @media (max-width: 700px) {
   .soda-federated-auth {
     justify-content: flex-start;
-    padding: 32px 16px;
+    padding: 24px 16px;
   }
 
   .soda-federated-auth .ui.top.attached.header {

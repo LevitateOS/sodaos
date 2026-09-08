@@ -1,5 +1,23 @@
 # Current handoff
 
+## Tighter template spacing
+
+Reduced larger margins, padding and layout gaps across 42 Forgejo presentation
+stylesheets. Shared panels use an 18px desktop inset (16px narrow), list rows use
+16px vertical padding, and page intros use a 192px minimum with 224px artwork.
+Typography, control minimum heights and native workflow markup remain unchanged.
+Changed stylesheet URLs are versioned in the header hook.
+
+Focused Forgejo source checks passed with local Go and dependency resolution
+disabled (`go test -mod=readonly ./scripts -run TestForgejo -count=1`); whitespace
+checks passed. Inspected local candidate-CSS captures of repository exploration,
+repository milestones and profile settings at 1440×1000 and 390×844. Captures:
+`.artifacts/screenshots/capture-rkXrOj/` and `capture-LQW7zh/`; desktop baseline:
+`capture-PA9rin/`. Settings mobile autofocus scrolls to the form. Repository
+milestone cards already had flush content in the baseline; that native styling
+is unchanged. Other page variants and dark mode were not newly visually checked.
+No service reload, deployment or native acceptance was performed.
+
 ## Page illustration goal
 
 The accumulated Forgejo-focused scripts suite passes (`go test ./scripts -run TestForgejo -count=1`) after correcting three stale parity normalizers for intentional artwork suppression. All 34 literal illustration references resolve to local assets. Native restricted-page rendering remains outstanding; neither check establishes that visual evidence.

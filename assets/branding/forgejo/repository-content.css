@@ -4,8 +4,8 @@
 /* Wiki empty state, index, editor, and revision history. */
 .soda-wiki-start > .ui.container > .ui.center.segment {
 	max-width: 760px;
-	margin: 42px auto 0;
-	padding: 56px 32px !important;
+	margin: 32px auto 0;
+	padding: 40px 24px !important;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
 	background: var(--soda-page-surface);
@@ -17,7 +17,7 @@
 	width: 240px;
 	max-width: 100%;
 	height: auto;
-	margin: 0 auto 20px;
+	margin: 0 auto 16px;
 }
 
 .soda-wiki-start h2,
@@ -29,7 +29,7 @@
 }
 
 .soda-wiki-start p {
-	margin: 12px auto 24px;
+	margin: 12px auto 18px;
 	max-width: 520px;
 	color: var(--soda-page-muted);
 	font-size: 16px;
@@ -37,7 +37,7 @@
 }
 
 .soda-wiki-pages > .ui.container > h2 {
-	margin: 32px 0 18px;
+	margin: 24px 0 16px;
 	font-size: 28px;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .soda-wiki-pages .wiki-pages-list td {
-	padding: 18px var(--soda-panel-inset);
+	padding: 16px var(--soda-panel-inset);
 	border-color: var(--soda-page-edge);
 }
 
@@ -65,12 +65,12 @@
 
 .soda-wiki-editor > .ui.container {
 	max-width: 960px !important;
-	padding-top: 32px;
+	padding-top: 24px;
 }
 
 .soda-wiki-editor > .ui.container > .ui.header {
 	margin-bottom: 0;
-	padding: 20px var(--soda-panel-inset);
+	padding: 16px var(--soda-panel-inset);
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
 	background: var(--soda-page-surface);
@@ -86,7 +86,7 @@
 }
 
 .soda-wiki-editor > .ui.container > form > .help {
-	margin: -6px 0 18px;
+	margin: -6px 0 16px;
 	color: var(--soda-page-muted);
 }
 
@@ -95,11 +95,11 @@
 }
 
 .soda-wiki-revisions > .ui.container {
-	padding-top: 32px;
+	padding-top: 24px;
 }
 
 .soda-wiki-revisions .ui.top.attached.header {
-	padding: 18px var(--soda-panel-inset);
+	padding: 16px var(--soda-panel-inset);
 	border-color: var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
 	background: var(--soda-page-surface);
@@ -119,7 +119,7 @@
 }
 
 .soda-release-editor > .ui.container {
-	padding-top: 32px;
+	padding-top: 24px;
 }
 
 .soda-release-editor > .ui.container > form {
@@ -155,9 +155,9 @@
 }
 
 .soda-release-list #release-list > li {
-	gap: 24px;
-	margin-bottom: 18px;
-	padding: 24px;
+	gap: 18px;
+	margin-bottom: 16px;
+	padding: 18px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
 	background: var(--soda-page-surface);
@@ -185,11 +185,11 @@
 
 @media (max-width: 700px) {
 	.soda-release-list #release-list > li {
-		padding: 20px 16px;
+		padding: 16px 16px;
 	}
 
 	.soda-wiki-start > .ui.container > .ui.center.segment {
-		padding: 40px 20px !important;
+		padding: 32px 16px !important;
 	}
 
 	.soda-wiki-pages > .ui.container > h2 {

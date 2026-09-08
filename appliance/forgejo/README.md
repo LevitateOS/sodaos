@@ -98,6 +98,11 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
   `head` or `navbar`. It shares the anonymous route gate between the script and
   navbar toggle; native sign-in/home/setup wrappers own their local toggle.
 
+Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
+list rows use 16px vertical padding, and section gaps generally use 16–24px.
+Use the shared components before adding page-specific spacing; preserve readable
+type and native control targets.
+
 Each responsibility has one CSS owner:
 
 | Owner | Contract |

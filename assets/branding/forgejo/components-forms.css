@@ -22,8 +22,8 @@
 
   & .soda-form-section {
     min-width: 0;
-    margin: 0 0 24px;
-    padding: 24px;
+    margin: 0 0 18px;
+    padding: 18px;
     border: 1px solid var(--soda-page-edge);
     border-radius: var(--soda-panel-radius);
     background: var(--soda-page-surface);
@@ -32,7 +32,7 @@
   & .soda-form-section > legend {
     float: left;
     width: 100%;
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     padding: 0;
     border: 0;
     color: var(--soda-page-text);
@@ -61,7 +61,7 @@
 
   & :is(.soda-form-section > label, details > label, .hide-unless-checked > label) {
     display: block;
-    margin: 0 0 20px;
+    margin: 0 0 16px;
   }
 
   & :is(.soda-form-section > label:last-child, details > label:last-child, .hide-unless-checked > label:last-child) {
@@ -93,11 +93,11 @@
   }
 
   & .hide-unless-checked {
-    margin-top: 20px;
+    margin-top: 16px;
   }
 
   & .soda-form-body > p {
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     color: var(--soda-page-muted);
     text-align: left;
     line-height: 1.6;
@@ -162,7 +162,7 @@
 
   & .primary.button {
     min-height: 48px;
-    padding: 12px 24px;
+    padding: 12px 18px;
     border: 0;
     border-radius: var(--soda-control-radius);
     font: 600 16px/1.5 Barlow, sans-serif;
@@ -176,7 +176,7 @@
 
   @media (max-width: 700px) {
     & .soda-form-section {
-      padding: 20px 16px;
+      padding: 16px 16px;
     }
 
     & .soda-form-section > legend {

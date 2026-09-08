@@ -2,7 +2,7 @@
    permissions, mutations, drag/drop state, cards, and dialogs. */
 .soda-projects-list > .ui.container,
 .soda-projects-new > .ui.container {
-	padding-top: 32px;
+	padding-top: 24px;
 }
 
 .soda-shared-project-list {
@@ -27,7 +27,7 @@
 
 .soda-projects-list .milestone-card {
 	list-style: none;
-	padding: 22px var(--soda-panel-inset);
+	padding: 18px var(--soda-panel-inset);
 }
 
 .soda-projects-list .milestone-header h3 {
@@ -44,12 +44,12 @@
 	display: flex;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: 10px 20px;
+	gap: 10px 16px;
 	margin-top: 14px;
 }
 
 .soda-projects-view > .ui.container.padded {
-	padding-top: 28px !important;
+	padding-top: 22px !important;
 }
 
 .soda-projects-view #project-board {
@@ -63,13 +63,13 @@
 }
 
 .soda-projects-view #project-board .board {
-	gap: 18px;
-	padding: 18px;
+	gap: 16px;
+	padding: 16px;
 	background: var(--soda-page-canvas);
 }
 
 .soda-project-board-page {
-	padding-bottom: 24px;
+	padding-bottom: 18px;
 	color: var(--soda-page-text);
 }
 
@@ -87,8 +87,8 @@
 }
 
 .soda-project-board-description {
-	margin-bottom: 20px;
-	padding: 20px var(--soda-panel-inset);
+	margin-bottom: 16px;
+	padding: 16px var(--soda-panel-inset);
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
 	background: var(--soda-page-surface);

@@ -1,7 +1,7 @@
 /* Native abuse reports retain their target, validation, permission gate, and form action. */
 .soda-moderation > .ui.page.grid {
   width: min(720px,calc(100% - 48px));
-  margin: 48px auto;
+  margin: 36px auto;
   padding-inline: 0;
 }
 
@@ -11,7 +11,7 @@
 }
 
 .soda-moderation .soda-form > .ui.header {
-  padding: 24px;
+  padding: 18px;
   border-color: var(--soda-page-edge);
   border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
   background: var(--soda-page-surface);
@@ -20,7 +20,7 @@
 }
 
 .soda-moderation .soda-form > .ui.segment {
-  padding: 24px;
+  padding: 18px;
   border-color: var(--soda-page-edge);
   border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -28,7 +28,7 @@
 
 .soda-moderation fieldset > label {
   display: block;
-  margin-block: 22px;
+  margin-block: 18px;
 }
 
 .soda-moderation .actions {
@@ -42,7 +42,7 @@
 .soda-blocked-users > .flex-item {
   gap: 16px;
   margin-block: 12px;
-  padding: 20px 24px;
+  padding: 16px 18px;
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
   background: var(--soda-page-surface);
@@ -65,12 +65,12 @@
 @media (max-width: 700px) {
   .soda-moderation > .ui.page.grid {
     width: calc(100% - 32px);
-    margin-block: 28px;
+    margin-block: 22px;
   }
 
   .soda-blocked-users > .flex-item {
     flex-wrap: wrap;
-    padding: 18px;
+    padding: 16px;
   }
 
   .soda-blocked-users .flex-item-trailing {

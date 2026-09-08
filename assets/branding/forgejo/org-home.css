@@ -21,12 +21,12 @@
 }
 
 .soda-org-home .flex-list > .flex-item {
-  padding-block: 20px;
+  padding-block: 16px;
   border-color: var(--soda-page-edge);
 }
 
 .soda-org-home #readme_profile {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
   padding: var(--soda-panel-inset);
   border: 1px solid var(--soda-page-edge);
   border-radius: var(--soda-panel-radius);
@@ -39,7 +39,7 @@
 }
 
 .soda-org-home .soda-org-home-main > .soda-toolbar {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .soda-org-home .soda-org-home-sidebar > .center.aligned {
@@ -50,7 +50,7 @@
 
 .soda-org-home .soda-org-home-sidebar > .ui.header {
   gap: 12px;
-  padding: 18px var(--soda-panel-inset);
+  padding: 16px var(--soda-panel-inset);
   font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
 }
 
@@ -59,7 +59,7 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: var(--soda-panel-inset);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .soda-org-home .soda-org-home-sidebar .teams > .item {

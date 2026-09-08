@@ -1,7 +1,7 @@
 /* Native organization header, tabs, and settings shell. Page-specific cards
    and lists remain with their organization leaf stylesheets. */
 .page-content.organization:has(.soda-org-header) {
-	padding-bottom: 56px;
+	padding-bottom: 40px;
 }
 
 .page-content.organization:has(.soda-org-header) > .ui.container:not(.fluid) {
@@ -12,9 +12,9 @@
 	box-sizing: border-box;
 	align-items: center;
 	min-height: 196px;
-	margin-top: 28px;
-	margin-bottom: 18px;
-	padding: 30px 34px;
+	margin-top: 22px;
+	margin-bottom: 16px;
+	padding: 24px 26px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-panel-radius);
 	background:
@@ -66,7 +66,7 @@
 .soda-org-header .meta {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px 20px;
+	gap: 8px 16px;
 	color: var(--soda-page-muted) !important;
 	font: 400 13px/1.55 "IBM Plex Mono", monospace;
 }
@@ -78,7 +78,7 @@
 }
 
 .page-content.organization:has(.soda-org-header) > .soda-org-header + .ui.container overflow-menu {
-	margin-bottom: 26px !important;
+	margin-bottom: 20px !important;
 	padding: 8px;
 	border: 1px solid var(--soda-page-edge) !important;
 	border-radius: var(--soda-control-radius);
@@ -99,7 +99,7 @@
 
 .soda-org-settings-layout {
 	align-items: flex-start;
-	gap: 24px;
+	gap: 18px;
 }
 
 .soda-org-settings-layout > .flex-container-nav {
@@ -153,7 +153,7 @@
 	.soda-org-header {
 		align-items: flex-start;
 		min-height: 0;
-		padding: 22px 18px;
+		padding: 18px 16px;
 	}
 
 	.soda-org-header > .org-avatar {
