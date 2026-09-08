@@ -1,5 +1,28 @@
 # Current handoff
 
+## Integrated E2E execution started — isolated fixture only
+
+The user authorized proceeding with E2E testing after the explicit build/native
+journey, Stop/Start and temporary SSH-key rotation proposal. Execution is bounded
+to this x86_64 builder and `soda-native-spaces-658f2af`; preserve its original project,
+accounts, keys, later writes and evidence. Fresh paired backup precedes fixture
+service changes. No `soda-test`, provider, routing, project deletion or host reboot
+is included. New work/evidence: `.artifacts/e2e-806d0d9/`.
+
+Clean `806d0d9` passed full native build, `check-native.sh x86_64` and verified bundle
+export from its own detached worktree. Read-only pinned-SSH preflight confirmed the
+original CID/image, one project/two memberships/two keys, schema5, running services
+and query-free native logging. No fixture mutation or browser proof yet.
+
+Preflight reproduced a real lifecycle compatibility blocker: systemd
+`259.8-1.fc44` supplies the global `service.d/10-timeout-abort.conf`, setting only
+`TimeoutStopFailureMode=abort`. The helper wrongly required no drop-ins whatsoever.
+Source now admits exactly that stock vendor path (or no drop-ins), while refusing
+all other/combined overrides and retaining fixed unit/CID validation. Host policy
+was not changed. Focused host/web tests passed; the corrected candidate still needs
+its own clean build/check and integrated native execution. Initial bundle/evidence
+remain preserved, not relabeled as the corrected build or E2E success.
+
 ## Mounted Sodaspaces management and terminal in the established UI
 
 The native repository button/right dialog now mounts the complete control component

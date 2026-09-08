@@ -86,7 +86,11 @@ query parameters and never accept caller-selected Linux identities, targets or f
   administration is freshly resolved through the acting grant; the explicitly
   configured Soda operator is a distinct permitted authority. Ordinary members or
   arbitrary site administrators cannot stop/start. Require a provisioned project,
-  existing isolated container and the selected project unit path with no drop-ins.
+  existing isolated container and the selected project unit path. Only an empty
+  drop-in list or Fedora's stock global
+  `/usr/lib/systemd/system/service.d/10-timeout-abort.conf` is admitted; arbitrary
+  or project-specific overrides still refuse. This trusts installed host-root
+  configuration, not caller-selected policy or byte attestation of root edits.
   As with creation, the installed root-owned project unit is trusted configuration;
   this is not a byte attestation against arbitrary host-root edits.
   Start enables the unit for host boot and starts it; Stop disables boot start and

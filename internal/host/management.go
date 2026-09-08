@@ -116,7 +116,11 @@ func (d *Daemon) lifecycle(ctx context.Context, in Lifecycle) (LifecycleState, e
 			}
 			fields[key] = value
 		}
-		if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != "/etc/systemd/system/soda-project@.service" || fields["DropInPaths"] != "" || (fields["UnitFileState"] != "enabled" && fields["UnitFileState"] != "disabled") {
+		// Fedora's stock systemd package applies this global stop-timeout policy
+		// to every service. Like FragmentPath, this trusts installed host-root
+		// configuration, not arbitrary per-project overrides or caller paths.
+		dropIns := fields["DropInPaths"]
+		if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != "/etc/systemd/system/soda-project@.service" || (dropIns != "" && dropIns != "/usr/lib/systemd/system/service.d/10-timeout-abort.conf") || (fields["UnitFileState"] != "enabled" && fields["UnitFileState"] != "disabled") {
 			return false, errors.New("native unit is not the selected project unit")
 		}
 		return fields["UnitFileState"] == "enabled", nil
