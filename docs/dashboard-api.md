@@ -13,9 +13,14 @@ rejected modal/focus-loss terminal behavior and mandatory manual SSH setup for b
 development. The first source split-view slice retains a live mount/socket across
 focus, view and Hide changes, without changing this backend API. The
 [leading plan](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form)
-still requires real session reattachment; browser-only joining and Forgejo-key
-integration are not implemented API capabilities yet. Do not infer new
-reattachment/key endpoints, consent or provider mutations from that plan.
+selects [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
+for real reattachment. Browser-only joining and Forgejo-key integration are also
+unimplemented API capabilities. No new reattachment/key endpoints, consent or
+provider mutations follow from the plan. The future terminal contract must separate
+explicit creation, attach-only, detach and End; authorize stable terminal locators
+against the original user/project/login/context and reject missing/expired targets
+without spawning. No URL bearer tickets, arbitrary tmux commands or weakened
+actor/CSRF/logout checks. Today's endpoint below remains request-owned and unchanged.
 
 ## Planned Spaces page — not an implemented endpoint
 

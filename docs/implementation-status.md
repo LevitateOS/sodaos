@@ -1,5 +1,41 @@
 # Current handoff
 
+## Resumable terminal selection — tmux, documentation only
+
+Following the user's request to find the best native persistence option, the
+[leading plan](sodaspaces-plan.md#resumable-terminal-decision--tmux) now selects
+**stock Rocky-packaged tmux** for the next single resumable terminal. The
+[terminal contract](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented)
+records the comparison, exact upstream sources, native ownership and proof required.
+
+Source review found the decisive shpool v0.11.4 limitation: no require-existing
+option in its CLI/attach protocol; missing/exited sessions can create a new shell.
+List-before-attach still races. Tmux 3.2a supports exact attach-only with `-N`,
+private sockets and a foreground server. Rocky 9 metadata lists `3.2a-5.el9` for
+both x86_64/aarch64; this is availability, not installed package/native proof.
+Research is retained under `.artifacts/research/terminal-options/`.
+
+The selected candidate keeps xterm/Soda authentication and uses one private,
+project-local supervised tmux server per managed browser terminal, under the
+original Linux account. Creation, attachment, retention and End are separate.
+Systemd/cgroup ownership plus the native safety lease must supervise the server and
+remaining owned descendants, not just its attachment client. Ordinary SSH/tmux and
+other terminals stay separate. Tmux history/selection/paste need actual UX review;
+its hidden status bar does not make scrollback identical to a plain xterm shell.
+
+**Still unimplemented:** package/unit/config, detached lifetime owner, resumable
+API/metadata, Refresh/navigation continuity and new native tests. First prove one
+session; multi-terminal tabs and Spaces reuse it afterwards. Existing first-layout
+source `4cb7f7d`, installed isolated `2aa4960`, retained `soda-test`, both isolated
+project roots and all earlier evidence are unchanged. No automatic shell replacement,
+restart resurrection, forced SSH configuration or runtime package installation.
+
+Checks performed: public upstream source/release/package-metadata inspection,
+documentation relative-link/anchor inspection and `git diff --check`. No product
+build/test, dependency installation, tmux/shpool session execution, VM contact,
+service/project/key/provider change, deployment or push occurred. This selects the
+source candidate, not runtime acceptance or new execution scope.
+
 ## Global Spaces page selected — documentation revision only
 
 The user selected a global Spaces link alongside native navigation and a Soda-owned

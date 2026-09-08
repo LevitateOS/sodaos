@@ -20,6 +20,11 @@ This is a planned, bounded extension of the API-only backend, not restoration of
 Forgejo workflow adapters or either removed frontend. The listing, OAuth return and
 page shell are not implemented; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
 owns this scope. Terminal continuity remains the immediate implementation task.
+The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
+is stock Rocky tmux under each original project account, with a private supervised
+server per managed browser terminal. Soda retains access/lifetime authority; tmux
+retains the live terminal state. This is planned, not an installed topology change
+or a replacement for ordinary SSH, and it adds no separate public terminal server.
 
 ## Topology
 

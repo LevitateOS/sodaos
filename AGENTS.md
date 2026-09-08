@@ -109,8 +109,12 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   terminal component through a non-modal aside; the historical duplicate API
   caller is removed. Focus/view/Hide changes preserve the live mount/socket, but
   navigation, Refresh and transport loss still end the terminal. Bounded server-owned
-  reattachment is the immediate coding task. Local component/layout checks are not
-  native navigation/session proof or deployment; no implicit launch or mutation replay.
+  reattachment is the immediate coding task: stock Rocky tmux, one private supervised
+  server per managed browser terminal, behind the existing authenticated bridge.
+  This is selected, not installed/implemented; follow the leading plan and terminal
+  guide. Do not force ordinary SSH/tmux sessions into Soda or auto-create on reconnect.
+  Local component/layout checks are not native navigation/session proof or deployment;
+  no implicit launch or mutation replay.
   The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
   explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,

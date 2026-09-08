@@ -117,6 +117,42 @@ See the [current component contract](terminal-integration.md).
   Bounded reattachment must preserve fresh authorization and logout-winning races,
   not weaken them to retain a renderer.
 
+### Resumable terminal decision — tmux
+
+**Select stock Rocky-packaged tmux for the next single resumable terminal**, behind
+xterm and the existing authenticated Soda/native-helper boundary. Soda owns browser
+tabs and access policy; project-local tmux owns the live shell, terminal screen and
+bounded history. No separate web-terminal server, replacement frontend or custom
+terminal emulator. This is a source-backed choice, **not implemented/native-proven**.
+
+The decisive comparison is attach-only behavior. Reviewed shpool **v0.11.4** has no
+require-existing option in its CLI or attach protocol; its server can create a new
+shell when the named session is missing or has exited. Listing first still races.
+Tmux **3.2a**, the base version published by Rocky 9 for both target architectures,
+already supports explicit creation and exact existing-session attachment with server
+autostart disabled. No custom latest-tmux build is needed for those mechanisms.
+See the [source comparison and native contract](terminal-integration.md#selected-persistence-mechanism--tmux-not-implemented),
+including tmux's scrollback trade-off and remaining package/runtime checks.
+
+Use **one private foreground tmux server/session per managed browser terminal**, as
+its original project account, with project-local systemd/cgroup supervision and an
+independent safety-lease owner. This gives End/expiry a concrete process boundary,
+without touching another terminal or ordinary SSH/tmux. Simply replacing today's
+login-shell command with a daemonizing tmux client is not sufficient. Browser tabs
+remain the primary UI; hide tmux's status bar by default, retain native copy-mode/
+splits and do not force ordinary SSH logins into a Soda-managed session.
+
+The immediate slice is still **one terminal**: explicit new Open, authenticated
+same-session reattachment, bounded detached retention and explicit End. A missing,
+ended or expired session reports that fact, never creates a replacement. Preserve
+logout/rotation races, original-account isolation and all existing IO bounds. Refresh
+and management rendering must stop owning terminal lifetime. Prove the same native
+shell/editor/build across navigation/reload/network loss, and actual owned cleanup,
+before adding multiple session tabs/`＋` or treating this as a delivery candidate.
+Reuse that mechanism from Spaces; its unresolved page shell is not a prerequisite.
+The retention recommendations above remain unimplemented. No package installation,
+retained-project change or new native execution authority follows from this decision.
+
 ### SSH directions and the proposed Git setup
 
 The terminal itself uses the authenticated Soda/helper PTY, **not SSH**. Requiring
@@ -265,7 +301,9 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    account provisioning. Follow the existing [component/API ownership](terminal-integration.md),
    but deliberately revise its rejected lifecycle contract and tests. Preserve prior
    `2aa4960` native evidence and `dad2945` packaging correction; neither proves or
-   delivers the new UX. Terminal continuity is the immediate coding task. Include the
+   delivers the new UX. The immediate coding task is the single
+   [managed tmux terminal](#resumable-terminal-decision--tmux), not another backend
+   comparison or a multi-session framework. Include the
    selected [Spaces page](#spaces-page--selected-not-implemented) in this workspace
    sequence after resolving its page-shell boundary, sharing the same sessions and
    validating both entry points. No retained rollout is implied.
@@ -313,6 +351,11 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
+- Implement/prove the selected tmux boundary in `internal/host/` and `project-os/`,
+  then reattach it through `internal/web/terminal.go` and the existing drawer. Keep
+  create and attach separate; supervise the native server, not just its client.
+  Package through the existing project image/build owners and refuse missing native
+  support without silently installing it on Open or replacing a retained project.
 - Implement and review the product correction above before treating the old drawer
   as a delivery candidate. Preserve native forms/navigation and explicit new-terminal
   launch, but replace modal blocking, blur teardown and forced reload-after-close.
@@ -889,6 +932,14 @@ below remain the maintenance contract, not permission to replay it.
 observations. This does not accept the entire appliance or independent aarch64 work.
 
 ## Next item: existing-account browser terminal
+
+**Historical first-terminal contract.** The initial request-owned PTY and its earlier
+proof are retained below. The [current tmux decision](#resumable-terminal-decision--tmux)
+supersedes its blur/close/transport teardown and prohibition on reattachment/session
+metadata; the active-age cap is under revision, not an immutable persistence rule.
+None of those new lifetime mechanisms is implemented by this documentation change.
+Keep the existing authorization, bounds, native-account
+checks and focused negative tests while replacing the old lifetime owner.
 
 **Native boundary proved; protected transport/component source implemented.**
 The fixed launcher and private helper stream/client passed actual existing-account,
