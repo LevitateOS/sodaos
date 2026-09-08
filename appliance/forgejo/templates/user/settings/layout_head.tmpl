@@ -9,6 +9,7 @@
 		{{else if .ctxData.PageIsSettingsSecurity}}{{$artwork = "settings-security-papercraft.png"}}
 		{{else if .ctxData.PageIsSettingsKeys}}{{$artwork = "settings-keys-papercraft.png"}}
 		{{else if .ctxData.PageIsSettingsApplications}}{{$artwork = "settings-applications-papercraft.png"}}{{end}}
+		{{if .hideArtwork}}{{$artwork = ""}}{{end}}
 		{{template "custom/soda/page_intro" (dict "TitleID" "soda-settings-title" "Eyebrow" "Account settings" "Title" .ctxData.Title "Description" "Manage your profile, sign-in options, developer access, and account preferences." "Artwork" $artwork "Class" "soda-page-intro--compact")}}
 		<div class="flex-container soda-settings-layout">
 			{{template "user/settings/navbar" .ctxData}}

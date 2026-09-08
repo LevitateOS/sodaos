@@ -36,7 +36,10 @@ screenshot helper now has an optional `--scroll-top` flag, exercised to inspect
 headers after native form autofocus; default capture behavior is unchanged.
 Account artwork was retained and verified on desktop/mobile, with native forms
 left untouched. Appearance swatch artwork was also retained and verified on desktop/mobile,
-without changing saved preferences. Security and enrollment are next; individual decisions and unexercised variants remain in the checklist.
+without changing saved preferences. Security landing artwork was verified on desktop/mobile. Enrollment/re-enrollment
+now explicitly suppress decorative art to prioritize the QR/passcode flow; native
+enrollment capture remains unperformed. Focused shared-presentation tests passed.
+Keys and applications are next; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed

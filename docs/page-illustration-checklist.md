@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: security settings and two-factor enrollment; verify existing artwork and assess subpage inheritance. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: SSH/GPG key settings and applications. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -226,8 +226,8 @@ Next: security settings and two-factor enrollment; verify existing artwork and a
 | Done | [`user/settings/organization.tmpl`](../appliance/forgejo/templates/user/settings/organization.tmpl) | `settings-organizations-papercraft.png` | Distinct membership-card scene; desktop/mobile empty-state captures checked. |
 | Done | [`user/settings/packages.tmpl`](../appliance/forgejo/templates/user/settings/packages.tmpl) | `settings-packages-papercraft.png` | Native landing-page content preserved; explicit artwork input excludes cleanup pages. |
 | Done | [`user/settings/profile.tmpl`](../appliance/forgejo/templates/user/settings/profile.tmpl) | `settings-profile-papercraft.png` via layout | Existing portrait-frame artwork retained; native desktop/mobile header captures inspected. |
-| Pending | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
-| Pending | [`user/settings/security/twofa_enroll.tmpl`](../appliance/forgejo/templates/user/settings/security/twofa_enroll.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| Done | [`user/settings/security/security.tmpl`](../appliance/forgejo/templates/user/settings/security/security.tmpl) | `settings-security-papercraft.png` | Existing security scene retained; native desktop/mobile landing captures inspected. |
+| No image | [`user/settings/security/twofa_enroll.tmpl`](../appliance/forgejo/templates/user/settings/security/twofa_enroll.tmpl) | `user/settings/layout_head` | Explicitly suppress decoration for enrollment/re-enrollment; QR and passcode are the task. Native capture unperformed. |
 | Partial — trace caller | [`webhook/new.tmpl`](../appliance/forgejo/templates/webhook/new.tmpl) | — | Not yet reviewed in this goal. |
 | Partial — trace caller | [`webhook/shared-settings.tmpl`](../appliance/forgejo/templates/webhook/shared-settings.tmpl) | — | Not yet reviewed in this goal. |
 
@@ -450,3 +450,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Read the complete appearance override: theme and language choices, repository-unit hints and hidden comment-event groups. The approved swatch scene directly represents visual preferences; retain it in the introduction without duplicating art within the individual forms. Original prompt/provenance remains in `settings-art-prompts.md`.
 - Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-WrtaPc/001.png` (1440×1000) and `capture-vGSLyp/001.png` (390×844). The swatch illustration fits beside the heading; theme/language controls remain separate. Mobile settings navigation precedes the forms below the viewport.
 - No asset, template, theme, language, hints or comment preferences changed. No tests/reload needed for verification-only work. Light rendering with the fixture's follow-system preference was observed; dark rendering, dropdown interaction and submitted preferences were not exercised.
+
+### Security landing and two-factor enrollment
+
+- Read complete security landing and enrollment overrides. Retain the existing security scene on the landing page, separate from truthful native enrollment status and WebAuthn controls. Native captures inspected: `.artifacts/screenshots/capture-lVl9Ud/001.png` (1440×1000) and `capture-0XYdZL/001.png` (390×844); artwork fits without overlap. Existing prompt/provenance remains unchanged.
+- Enrollment and re-enrollment need the actual QR code, secret instructions and passcode field as their visual focus. Added an explicit `hideArtwork` layout input on that shared enrollment template, applied after default artwork selection. Native enrollment content, QR source and form remain untouched. No new decorative image generated.
+- Focused offline shared-presentation tests passed (command also selected matching security tests if present); local templates reloaded. This is not native enrollment verification. Enrollment was not opened or submitted, avoiding creation/capture of a live enrollment secret; its render check remains outstanding. Landing capture shows the fixture's unenrolled state only.
+- No two-factor setting, security key or account link changed. Forced enrollment, enabled TOTP, re-enrollment, OpenID and dark theme runtime states were not exercised.

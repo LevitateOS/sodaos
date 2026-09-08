@@ -1,5 +1,5 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/security/twofa_enroll.tmpl (GPL-3.0-or-later); upstream SHA-256 fdd8187cd87d5c5ed07f78a49a7b5402c69b6f5c08fac5aa75f3ce307f94ea70. */}}
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--twofa-enroll twofa" "HideNavbarLinks" .HideNavbarLinks)}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--twofa-enroll twofa" "HideNavbarLinks" .HideNavbarLinks "hideArtwork" true)}}
 	<div class="user-setting-content soda-account-details soda-account-details--twofa-enroll">
 		<h4 class="ui top attached header">
 			{{if .ReenrollTwofa}}
