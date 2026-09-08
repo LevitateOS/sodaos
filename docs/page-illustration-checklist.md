@@ -18,7 +18,7 @@ Scope starts with every current override below. Shared layout coverage can inclu
 
 ## Current page
 
-Next: SSH/GPG key settings and applications. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
+Next: applications settings and OAuth application edit variants. Enrollment artwork suppression has source/test evidence; native enrollment capture remains unperformed. Personal registry settings artwork is complete; organization registry settings was assessed without extra art. Keep cleanup add/edit/preview pages free of inherited decorative art. Organization registry artwork is integrated, but native verification awaits an existing accessible organization.
 
 ## Per-template inventory
 
@@ -220,7 +220,7 @@ Next: SSH/GPG key settings and applications. Enrollment artwork suppression has 
 | Pending | [`user/settings/applications_oauth2_edit.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_edit.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
 | Partial — trace caller | [`user/settings/applications_oauth2_list.tmpl`](../appliance/forgejo/templates/user/settings/applications_oauth2_list.tmpl) | — | Not yet reviewed in this goal. |
 | Done | [`user/settings/hooks.tmpl`](../appliance/forgejo/templates/user/settings/hooks.tmpl) | `settings-webhooks-papercraft.png` | Personal webhook list only; desktop/mobile and new-form isolation checked. |
-| Pending | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `user/settings/layout_head` | Not yet reviewed in this goal. |
+| Done | [`user/settings/keys.tmpl`](../appliance/forgejo/templates/user/settings/keys.tmpl) | `settings-keys-papercraft.png` via layout | Existing key-rack scene retained; native desktop/mobile landing captures inspected. |
 | Partial — trace caller | [`user/settings/layout_footer.tmpl`](../appliance/forgejo/templates/user/settings/layout_footer.tmpl) | — | Not yet reviewed in this goal. |
 | Existing — verify | [`user/settings/layout_head.tmpl`](../appliance/forgejo/templates/user/settings/layout_head.tmpl) | `settings-account-papercraft.png`, `settings-appearance-papercraft.png`, `settings-applications-papercraft.png`, `settings-keys-papercraft.png`, `settings-profile-papercraft.png`, `settings-security-papercraft.png` | Not yet reviewed in this goal. |
 | Done | [`user/settings/organization.tmpl`](../appliance/forgejo/templates/user/settings/organization.tmpl) | `settings-organizations-papercraft.png` | Distinct membership-card scene; desktop/mobile empty-state captures checked. |
@@ -457,3 +457,10 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Enrollment and re-enrollment need the actual QR code, secret instructions and passcode field as their visual focus. Added an explicit `hideArtwork` layout input on that shared enrollment template, applied after default artwork selection. Native enrollment content, QR source and form remain untouched. No new decorative image generated.
 - Focused offline shared-presentation tests passed (command also selected matching security tests if present); local templates reloaded. This is not native enrollment verification. Enrollment was not opened or submitted, avoiding creation/capture of a live enrollment secret; its render check remains outstanding. Landing capture shows the fixture's unenrolled state only.
 - No two-factor setting, security key or account link changed. Forced enrollment, enabled TOTP, re-enrollment, OpenID and dark theme runtime states were not exercised.
+
+### Existing SSH/GPG keys artwork
+
+- Read the key landing override and complete native SSH, principal and GPG partials through the running binary's embedded viewer. Retain the approved key-rack introduction; native fingerprints, verification status and activity icons remain distinct within the lists.
+- Add-key panels, principal controls, SSH/GPG signature verification blocks and deletion confirmations need no independent decorative art: key material, command/token instructions and exact actions are their content. These are inline states under the existing page header, not new image destinations. Principal availability and disabled-management branches remain native.
+- Native captures inspected with `--scroll-top`: `.artifacts/screenshots/capture-iM0k3F/001.png` (1440×1000) and `capture-6KKAv1/001.png` (390×844). Illustration fits without overlap; actual empty lists and the local SSH-disabled/signing-only explanation remain intact. Mobile navigation precedes the key sections below the viewport.
+- No keys, signatures, principals or verification challenges were submitted/generated; no configuration changed. Populated lists, add/verify states, deletion modals and dark theme are source assessments/unexercised runtime states. Existing asset and prompt retained; no tests/reload needed for verification-only work.
