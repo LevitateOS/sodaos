@@ -127,3 +127,27 @@ own-user/project-boundary behavior is verified.
 ## Review
 
 Compare each caption and alt text with the actual image. Use only images that clarify an instruction; inspect narrow/wide layouts and relevant light/dark modes before publishing. Keep required warnings and distinguish observed state from unverified actions. The [branding component review](branding-review.md) is a separate visual/style check, not a screenshot source for claiming the full appliance works.
+
+### Verified presentation captures
+
+For the existing local Forgejo preview, use `--verify` to reject HTTP errors,
+redirects (including login), unexpected status pages, missing visible main
+landmarks, stale template revision/stylesheet registry or bytes, and browser
+errors before saving a PNG. `--landmark CSS` tightens the expected page landmark.
+`--theme light` or `--theme dark` changes only the capture browser's stylesheet
+and document theme; it does not submit or persist an account preference.
+
+```sh
+node scripts/screenshot.mjs --verify --landmark .soda-repo-issue-editor \
+  --profile .local/screenshot-fixture-profile --theme dark --scroll-top \
+  http://localhost:3300/vince/activity-playground/issues/new
+```
+
+Every accepted verified PNG has a JSON sidecar with requested/actual URL,
+HTTP status, visible-landmark selector, viewport, theme, template revision,
+registry hash, per-stylesheet hashes and timestamp. Bump the presentation meta
+revision and changed stylesheet versions in `custom/header.tmpl` when activating
+a new candidate. Rejected runs preserve earlier captures and report the reason;
+a failed route is not coverage. Verification requires real server assets and
+cannot be combined with `--local-css`. A valid capture still requires visual
+inspection, and a viewport image does not prove offscreen content or interactions.

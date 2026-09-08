@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Local page captures with a dedicated, reusable manual-login profile.
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -21,6 +22,9 @@ Options:
   --wait N         Extra settling time in milliseconds (default: 1500)
   --scroll-top     Scroll to the page top after settling, before capture
   --local-css      Use this checkout's Soda CSS on localhost:3300; server templates stay unchanged
+  --verify         Reject redirects, error responses, missing landmarks, stale Soda assets and browser errors
+  --landmark CSS   Expected visible page selector (requires --verify)
+  --theme NAME     Browser-only light/dark preview; does not change saved preferences
   --help           Show this help
 
 Requires Node.js, the existing Playwright dependency, and Google Chrome.
@@ -34,6 +38,9 @@ async function main() {
     options: {
       login: { type: 'boolean' }, help: { type: 'boolean' },
       'local-css': { type: 'boolean' },
+      verify: { type: 'boolean' },
+      landmark: { type: 'string' },
+      theme: { type: 'string' },
       'scroll-top': { type: 'boolean' },
       profile: { type: 'string', default: path.join(root, '.local/screenshot-profile') },
       out: { type: 'string' },
@@ -57,6 +64,13 @@ async function main() {
   if (values['local-css'] && (values.login || urls.some(url => new URL(url).origin !== 'http://localhost:3300'))) {
     throw new Error('--local-css is only for captures of the local Forgejo preview.');
   }
+  if (values.theme && !['light', 'dark'].includes(values.theme)) throw new Error('--theme must be light or dark');
+  if ((values.verify || values.theme) && urls.some(url => new URL(url).origin !== 'http://localhost:3300')) throw new Error('Verification and theme previews are local Forgejo only');
+  if (values.landmark && !values.verify) throw new Error('--landmark requires --verify');
+  if (values.verify && values['local-css']) throw new Error('Verified native captures must load server assets without --local-css');
+  const registrySource = await readFile(path.join(root, 'appliance/forgejo/templates/custom/header.tmpl'), 'utf8');
+  const expectedRevision = registrySource.match(/name="soda-presentation-revision" content="([^"]+)"/)?.[1];
+  const expectedStyles = [...registrySource.matchAll(/\/soda\/forgejo\/([a-z-]+\.css)\?v=([0-9]+)/g)].map(([, name, version]) => ({ name, version }));
   for (const option of ['width', 'height', 'wait']) {
     if (!/^\d+$/.test(values[option]) || !Number.isSafeInteger(Number(values[option])) || Number(values[option]) < 1) {
       throw new Error(`--${option} must be a positive integer.`);
@@ -129,10 +143,40 @@ async function main() {
       console.log(`Profile kept at ${profile}`);
       return;
     }
+    const browserErrors = [];
+    page.on('pageerror', error => browserErrors.push(error.message));
+    page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()); });
     for (const [index, url] of urls.entries()) {
       const filename = path.join(output, `${String(index + 1).padStart(3, '0')}.png`);
       try {
-        await page.goto(url, { waitUntil: 'load' });
+        browserErrors.length = 0;
+        const response = await page.goto(url, { waitUntil: 'load' });
+        if (values.verify) {
+          if (!response || !response.ok()) throw new Error(`HTTP ${response?.status()}`);
+          if (page.url() !== url) throw new Error('Requested URL redirected');
+          await page.locator(values.landmark || '[role="main"], main').first().waitFor({ state: 'visible' });
+          if (await page.locator('.soda-status, .error-code').count()) throw new Error('Unexpected status page');
+          if (!expectedRevision || await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content') !== expectedRevision) throw new Error('Stale template revision');
+          const loaded = await page.locator('link[rel="stylesheet"]').evaluateAll(links => links.map(link => link.href));
+          for (const {name, version} of expectedStyles) {
+            const asset = `http://localhost:3300/assets/soda/forgejo/${name}?v=${version}`;
+            if (!loaded.includes(asset)) throw new Error(`Stale stylesheet registry: ${name}`);
+            const remote = await page.request.get(asset);
+            const local = await readFile(path.join(root, 'assets/branding/forgejo', name));
+            expectedStyles.find(style => style.name === name).sha256 = createHash('sha256').update(local).digest('hex');
+            if (!remote.ok() || !(await remote.body()).equals(local)) throw new Error(`Stale stylesheet bytes: ${name}`);
+          }
+        }
+        if (values.theme) {
+          await page.evaluate(async theme => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet'; link.href = `/assets/css/theme-forgejo-${theme}.css`;
+            await new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; document.head.append(link); });
+            document.documentElement.dataset.theme = `forgejo-${theme}`;
+            document.documentElement.dataset.sodaLoginTheme = theme;
+            document.documentElement.style.colorScheme = theme;
+          }, values.theme);
+        }
         if (localStyles) {
           // Use the candidate registry/order too, including added or removed sheets.
           await page.evaluate(async names => {
@@ -150,9 +194,18 @@ async function main() {
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(Number(values.wait));
         if (values['scroll-top']) await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+        if (values.verify && browserErrors.length) throw new Error(`Browser errors: ${browserErrors.join('; ')}`);
         await page.screenshot({ path: filename });
-      } catch {
-        throw new Error(`Capture ${index + 1} failed. Earlier captures remain in ${output}`);
+        if (values.verify) await writeFile(filename.replace('.png', '.json'), JSON.stringify({
+          requestedURL: url, actualURL: page.url(), landmark: values.landmark || '[role="main"], main',
+          status: response.status(), theme: values.theme || 'native',
+          viewport: page.viewportSize(), browserErrors,
+          presentationRevision: expectedRevision,
+          registrySHA256: createHash('sha256').update(registrySource).digest('hex'),
+          styles: expectedStyles, verifiedAt: new Date().toISOString(),
+        }, null, 2));
+      } catch (error) {
+        throw new Error(`Capture ${index + 1} failed (${error.message}). Earlier captures remain in ${output}`);
       }
       console.log(filename);
     }
