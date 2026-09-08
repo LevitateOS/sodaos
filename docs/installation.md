@@ -67,6 +67,11 @@ sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP \
 
 Activation applies file ownership for the unprivileged dashboard, retains operator-only native access, binds Caddy and Forgejo Git SSH to the selected private IP, and starts the actual services. If Tailnet Git access is intended, enroll through operator Cockpit before activation and select that Tailnet private IP; later advertisement refresh refuses to substitute a Tailnet address while Git SSH only binds a LAN IP. Configured browser origins must resolve through the deployment's normal browser/network setup; this is unrelated to project SSH, which uses project IPs directly. Native Forgejo Git SSH uses port 2222; project SSH uses each project IP's port 22.
 
+First activation also derives the local [Soda avatar provider](avatars.md) from
+the configured Forgejo origin. Enable provider avatars and disable federation
+through Forgejo's native administration settings. Saved database-backed settings
+and explicit offline mode are not silently overridden by activation.
+
 ### Existing-state dashboard migration
 
 The current dashboard requires `grant_key_file` and schema-v3 encrypted session

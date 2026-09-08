@@ -202,7 +202,10 @@ actor/repository identity, origin/CSRF and native WebAuthn/session boundaries; t
 
 Concrete current constraint: `internal/web/api.go` requires a Soda session cookie,
 Soda CSRF token, exact `PublicURL` Origin and same-origin fetch metadata for writes;
-`proxy.Caddyfile` exposes Soda and Forgejo on separate origins. Native Forgejo CSRF
+`proxy.Caddyfile` keeps Soda API/OAuth and Forgejo on separate origins, with one
+implemented exception: the public `/-/soda/avatars/*` image route goes to Soda on
+the Forgejo origin. [Robot avatars](avatars.md) need no session/grant and do not
+establish the authenticated drawer contract. Native Forgejo CSRF
 or `fetch('/api/...')` is not a substitute. A fixed same-origin Soda API/OAuth namespace
 through existing Caddy is a candidate to verify, not an implemented route: callback,
 cookie/path, configured-origin and native-route collision contracts need review.

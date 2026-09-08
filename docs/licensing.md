@@ -12,6 +12,12 @@ template overrides; no patched executable or native source-build path is selecte
 
 ## Distribution obligations
 
+Original Soda robot v1 artwork is Apache-2.0, with provenance in
+[`internal/avatar/README.md`](../internal/avatar/README.md). The renderer uses no
+Bottts artwork. Exact DiceBear/core-schema/validator/text dependency license texts
+are retained in [`avatar-dependencies.txt`](../appliance/licenses/avatar-dependencies.txt)
+and copied into new native bundles; this is not broader distribution clearance.
+
 - Forgejo's overall GPL-3.0-or-later and its per-file/template terms remain applicable.
   Swagger's MIT grant is not the Forgejo distribution license. Using an official
   image or overriding a template does not waive corresponding-source/notice duties.

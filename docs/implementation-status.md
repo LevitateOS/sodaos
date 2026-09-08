@@ -1,5 +1,51 @@
 # Current handoff
 
+## Soda robot avatars — source implementation
+
+Original `soda-robot-v1` artwork now has 44 modular SVG variants and an eight-by-four
+background/accent palette in one embedded DiceBear JSON definition. The pinned Go
+renderer serves public GET/HEAD `/-/soda/avatars/v1/{hash}` with bounded inputs,
+deterministic ETags and no session, identity/database lookup or outbound fetch.
+The development-only catalog uses the same renderer and is not appliance payload.
+
+Caddy source routes only `/-/soda/avatars/*` on the Forgejo origin to the existing
+backend, dropping Cookie/Authorization for those requests. First activation derives
+the supported provider URL from `forgejo_url`; native database-backed avatar
+settings and explicit offline mode remain operator-owned. Uploaded photos/files
+are preserved. This does not implement the broader Sodaspaces origin/session work.
+New bundles include and require the exact avatar dependency notices. See
+[behavior, configuration and restoration](avatars.md).
+
+Local checks on 2026-09-08: full `go test -mod=readonly ./...` passed with Go 1.26.7
+on macOS arm64; avatar/web race suites passed. The backend binary built locally
+with the same toolchain and `go mod verify` passed. All 34 Python build fixtures passed,
+including real Caddy 2.10.2 routing against test-owned loopback upstreams, mocked
+first activation and actual notice collection. Caddy was downloaded into ignored
+tooling and verified against its published SHA-512 checksum, not installed.
+Some unchanged Go results were cached. Initial broader runs failed on macOS's
+symlinked temp path and BSD `cp`; using a real workspace TMPDIR and the already
+installed GNU coreutils resolved them without changing runner/provisioning code.
+The first Caddy checksum comparison mistakenly used SHA-256; the correct SHA-512
+comparison passed before the binary was executed. Earlier failed records remain.
+
+Inspected all parts, all 32 palette pairs and the generated 100-robot grids.
+Chrome checked all 100 images at 24/32/64/128px across light/dark and square/circular
+modes, with no missing images or external resource requests. Six production HTTP
+images also matched reference pixels under the restrictive response CSP, with no
+browser errors or external requests. The first pixel comparison used different
+screen positions; the corrected check uses the same position to avoid SVG
+antialiasing differences. Final preview and
+captures: `.artifacts/avatars/preview-606454540/`; check logs:
+`.artifacts/avatars/checks/`. These are artwork/local-test evidence, not Forgejo
+screenshots or native installed acceptance.
+
+No live Forgejo settings, avatar uploads/deletions, retained fixture data, services,
+appliance routing or installed artifacts were changed by this avatar work. Native
+profile/list/discussion and upload/delete smoke checks, local proxy/backend rehearsal
+and appliance rollout remain pending their target-specific authorization. The
+direct-port local Forgejo preview cannot exercise this route through a template
+reload alone.
+
 ## Tighter template spacing
 
 Reduced larger margins, padding and layout gaps across 42 Forgejo presentation

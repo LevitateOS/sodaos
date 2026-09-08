@@ -1,14 +1,23 @@
 {
-  admin off
-  auto_https disable_redirects
+	admin off
+	auto_https disable_redirects
 }
 {$SODA_ORIGIN} {
-  bind {$SODA_BIND}
-  tls /etc/soda/tls/cert.pem /etc/soda/tls/key.pem
-  reverse_proxy 127.0.0.1:8080
+	bind {$SODA_BIND}
+	tls /etc/soda/tls/cert.pem /etc/soda/tls/key.pem
+	reverse_proxy 127.0.0.1:8080
 }
 {$FORGEJO_ORIGIN} {
-  bind {$SODA_BIND}
-  tls /etc/soda/tls/cert.pem /etc/soda/tls/key.pem
-  reverse_proxy 127.0.0.1:3000
+	bind {$SODA_BIND}
+	tls /etc/soda/tls/cert.pem /etc/soda/tls/key.pem
+	# Public image generation only; the existing API/OAuth origin is unchanged.
+	handle /-/soda/avatars/* {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up -Cookie
+			header_up -Authorization
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
 }

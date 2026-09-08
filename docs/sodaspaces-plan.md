@@ -21,6 +21,9 @@ its authenticated integration are **not implemented**. All steps below are pendi
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   This is a candidate to implement and verify, not an existing proxy/API contract.
+  The separate [robot-avatar feature](avatars.md) implements only the narrower
+  `/-/soda/avatars/*` image route. Preserve it when implementing the full namespace;
+  it does not establish the authenticated browser contract below.
 - **Authority:** Forgejo owns identity, native sessions, permissions, Git keys,
   collaboration and administration. Soda owns its additional data and real
   environment/access integration—not copied roles or another password authority.

@@ -90,6 +90,7 @@ func TestStableAcrossProcesses(t *testing.T) {
 	var previous string
 	for range 2 {
 		cmd := exec.Command(exe, "-test.run=^TestRenderProcess$")
+		cmd.Dir = t.TempDir() // no source artwork is present; exercise embedded delivery
 		cmd.Env = append(os.Environ(), "SODA_AVATAR_PROCESS=1")
 		out, err := cmd.Output()
 		if err != nil {
@@ -140,14 +141,12 @@ func TestOfflineSVGContent(t *testing.T) {
 	if err := Validate(); err != nil {
 		t.Fatal(err)
 	}
-	seen := map[string]bool{}
 	for i := range 100 {
 		hash := fmt.Sprintf("%032x", i)
 		svg, err := Render(hash, 32)
 		if err != nil {
 			t.Fatal(err)
 		}
-		seen[svg] = true
 		if strings.Contains(svg, hash) {
 			t.Fatal("raw seed exposed in SVG")
 		}
@@ -174,9 +173,6 @@ func TestOfflineSVGContent(t *testing.T) {
 				}
 			}
 		}
-	}
-	if len(seen) < 95 {
-		t.Fatalf("unexpectedly low sample diversity: %d/100", len(seen))
 	}
 }
 

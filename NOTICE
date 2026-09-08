@@ -4,6 +4,11 @@ Original SodaOS code, documentation and configuration are licensed under the
 Apache License, Version 2.0; see LICENSE and the licensing section of README.md.
 This statement does not relicense inherited or third-party material.
 
+The original Soda robot v1 SVG style in internal/avatar/style-v1.json is also
+Apache-2.0. It uses DiceBear's MIT-licensed Go renderer; no Bottts artwork is
+included. Exact renderer dependency notices are retained in
+appliance/licenses/avatar-dependencies.txt and included in new native bundles.
+
 Selected code and canonical branding were adapted or imported from Soda OS
 (https://github.com/LevitateOS/soda-os), including the source at revision
 bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c. See docs/predecessor-reuse.md,
