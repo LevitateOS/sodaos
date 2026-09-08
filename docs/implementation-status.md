@@ -40,8 +40,8 @@ without changing saved preferences. Security landing artwork was verified on des
 now explicitly suppress decorative art to prioritize the QR/passcode flow; native
 enrollment capture remains unperformed. Focused shared-presentation tests passed.
 Keys artwork was retained and verified on desktop/mobile; native SSH, GPG and
-principal subpanels were source-reviewed without added decoration. Applications
-and OAuth edit variants are next; individual decisions and unexercised variants remain in the checklist.
+principal subpanels were source-reviewed without added decoration. Applications landing artwork was retained and verified on desktop/mobile;
+OAuth edit and token creation remain queued separately; individual decisions and unexercised variants remain in the checklist.
 
 Each new PNG was visually inspected and verified as transparent RGBA. Focused
 onboarding, status, presentation-boundary and notification-preview tests passed
