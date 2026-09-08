@@ -1,7 +1,7 @@
 /* Native quota disclosure content; shared settings cards and global focus
    treatment own the surrounding surface and keyboard indication. */
 .soda-quota-overview details.stats {
-	margin-block: 6px;
+	margin-block: 4px;
 	padding: 16px;
 	border: 1px solid var(--soda-page-edge);
 	border-radius: var(--soda-control-radius);
@@ -21,6 +21,6 @@
 }
 
 .soda-quota-overview details.stats ul li {
-	padding-block: 10px;
+	padding-block: 8px;
 	color: var(--soda-page-muted);
 }

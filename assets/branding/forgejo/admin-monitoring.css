@@ -29,7 +29,7 @@
 
 .soda-admin-monitoring .soda-monitoring-table .ui.table :is(th, td),
 .soda-admin-monitoring--notice > .ui.table :is(th, td) {
-  padding: 14px 16px;
+  padding: 12px 16px;
   vertical-align: middle;
 }
 

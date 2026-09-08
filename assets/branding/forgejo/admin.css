@@ -3,7 +3,7 @@
 .soda-admin-layout {
 	align-items: flex-start;
 	flex-wrap: wrap;
-	gap: 18px;
+	gap: 16px;
 }
 
 .soda-admin-layout > .soda-page-intro {
@@ -42,7 +42,7 @@
 	border-color: var(--soda-page-edge);
 }
 
-@media (max-width: 800px) {
+@media (max-width: 900px) {
 	.soda-admin-layout > .flex-container-nav {
 		position: static;
 		flex-basis: 100%;

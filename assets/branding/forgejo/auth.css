@@ -1,6 +1,6 @@
 /* Secondary authentication routes retain Forgejo 15.0.7 forms and security hooks. */
 .soda-auth {
-	padding: 48px 18px;
+	padding: 32px 16px;
 }
 
 .soda-auth > :is(.ui.page.grid, .ui.container) {
@@ -15,35 +15,8 @@
 	margin-inline: auto !important;
 }
 
-.soda-auth :is(h2, h3, h4).ui.top.attached.header {
-	margin: 0;
-	padding: 18px var(--soda-panel-inset) 16px;
-	border: 1px solid var(--soda-page-edge);
-	border-bottom: 0;
-	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
-	background: var(--soda-page-surface);
-	color: var(--soda-page-text);
-	font: 600 27px/1.25 "Fraunces Variable", Georgia, serif;
-}
-
-.soda-auth .ui.attached.segment {
-	padding: var(--soda-panel-inset);
-	border-color: var(--soda-page-edge);
-	background: var(--soda-page-surface);
-	color: var(--soda-page-text);
-	box-shadow: none;
-}
-
-.soda-auth .ui.attached.segment:last-child {
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
-}
-
 .soda-auth .ui.attached.segment :is(p, .text) {
 	line-height: 1.6;
-}
-
-.soda-auth .ui.attached.segment.header.top {
-	border-radius: var(--soda-panel-radius);
 }
 
 .soda-auth .ui.container.fluid + .ui.container.fluid {
@@ -60,13 +33,10 @@
 
 @media (max-width: 700px) {
 	.soda-auth {
-		padding: 28px 16px;
+		padding: 24px 16px;
 	}
 
-	.soda-auth :is(h2, h3, h4).ui.top.attached.header {
-		font-size: 23px;
 	}
-}
 
 /* The native prohibited-login response keeps PageIsSignIn; its toggle is local. */
 .soda-auth > .soda-guest-theme-toggle {

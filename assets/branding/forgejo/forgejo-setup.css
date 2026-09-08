@@ -2,7 +2,7 @@
    adapts that exact 15.0.7 markup to the Soda full-page presentation shell. */
 .soda-forgejo-setup {
   position: relative;
-  padding-block: 36px 48px;
+  padding-block: 32px 32px;
 }
 
 .soda-forgejo-setup .soda-setup-theme {
@@ -26,43 +26,31 @@
 }
 
 .soda-forgejo-setup .soda-page-intro {
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .soda-forgejo-setup .soda-setup-panel.ui.segment {
   margin: 0;
-  padding: 22px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
 .soda-forgejo-setup .soda-form > p {
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   color: var(--soda-page-muted);
   line-height: 1.6;
   text-align: left;
 }
 
-.soda-forgejo-setup .soda-form > .ui.dividing.header {
-  margin: 24px 0 16px;
-  padding-bottom: 12px;
-  border-color: var(--soda-page-edge);
-  color: var(--soda-page-text);
-  font: 600 23px/1.35 "Fraunces Variable", Georgia, serif;
-}
-
-.soda-forgejo-setup .soda-form > .ui.dividing.header:first-of-type {
-  margin-top: 0;
-}
-
 .soda-forgejo-setup .soda-form .optional.field {
   margin: 0 0 16px;
-  padding: 16px 16px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-control-radius);
-  background: var(--soda-page-canvas);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-forgejo-setup .soda-form .optional.field > summary {
@@ -93,12 +81,6 @@
   color: var(--soda-page-text);
 }
 
-.soda-forgejo-setup .soda-form > .divider {
-  height: 1px;
-  margin: 24px 0;
-  background: var(--soda-page-edge);
-}
-
 .soda-forgejo-setup-completing {
   display: grid;
   min-height: min(620px, calc(100svh - 120px));
@@ -112,10 +94,10 @@
 .soda-forgejo-setup-completing .soda-setup-completing {
   width: min(520px, 100%);
   margin: 0 auto;
-  padding: 32px 18px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   text-align: center;
 }
 
@@ -139,7 +121,7 @@
 
 @media (max-width: 700px) {
   .soda-forgejo-setup {
-    padding-block: 24px 36px;
+    padding-block: 24px 32px;
   }
 
   .soda-forgejo-setup .soda-setup-theme {
@@ -148,14 +130,10 @@
   }
 
   .soda-forgejo-setup .soda-setup-panel.ui.segment {
-    padding: 16px 16px;
-  }
-
-  .soda-forgejo-setup .soda-form > .ui.dividing.header {
-    font-size: 21px;
+    padding: 0;
   }
 
   .soda-forgejo-setup .soda-form .optional.field {
-    padding: 16px;
+    padding: 0;
   }
 }

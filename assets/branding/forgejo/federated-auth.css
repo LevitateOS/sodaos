@@ -10,7 +10,7 @@
   justify-content: center;
   width: min(100%, 1120px);
   margin-inline: auto;
-  padding: 40px 18px;
+  padding: 32px 16px;
 }
 
 .soda-federated-auth > .soda-theme-toggle {
@@ -44,28 +44,14 @@
   overflow: hidden;
 }
 
-.soda-federated-auth .ui.top.attached.header {
-  padding: 18px var(--soda-panel-inset) 16px;
-  color: var(--soda-page-text);
-  font: 600 27px/1.25 "Fraunces Variable", Georgia, serif;
-}
-
-.soda-federated-auth .ui.attached.segment {
-  padding: 16px var(--soda-panel-inset);
-}
-
 .soda-federated-auth .ui.attached.segment p {
   color: var(--soda-page-muted);
   line-height: 1.6;
 }
 
-.soda-federated-auth .ui.red.button {
-  border-radius: var(--soda-control-radius);
-}
-
 .soda-federated-auth > .secondary-nav {
   width: min(100%, 680px);
-  margin: 0 auto 18px !important;
+  margin: 0 auto 16px !important;
   border-color: var(--soda-page-edge) !important;
 }
 
@@ -89,7 +75,4 @@
     padding: 24px 16px;
   }
 
-  .soda-federated-auth .ui.top.attached.header {
-    font-size: 23px;
   }
-}

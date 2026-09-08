@@ -7,10 +7,10 @@
 
 .soda-status-card {
   max-width: 760px !important;
-  padding: 48px 24px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .soda-status-card .error-code {
@@ -22,7 +22,7 @@
 
 .soda-status-card > p:not(.soda-status-version) {
   max-width: 620px;
-  margin: 0 auto 22px;
+  margin: 0 auto 24px;
   color: var(--soda-page-text);
   font-size: 20px;
   line-height: 1.5;
@@ -43,7 +43,7 @@
   width: 220px;
   max-width: 65%;
   height: auto;
-  margin: 0 auto 18px;
+  margin: 0 auto 16px;
 }
 
-@media (max-width: 700px) { .soda-status-card { padding: 36px 16px; } }
+@media (max-width: 700px) { .soda-status-card { padding: 0; } }
