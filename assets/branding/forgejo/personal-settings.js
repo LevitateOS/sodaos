@@ -53,10 +53,42 @@ if (settings) {
     // Ambiguous server errors keep every potentially affected editor visible.
     editor.open = Boolean(hasErrors);
   });
+  const avatarEditor = settings.querySelector('#avatar-settings');
+  const avatarDialog = settings.querySelector('#avatar-dialog');
+  const avatarTrigger = settings.querySelector('.soda-avatar-trigger');
+  // Server errors retain the expanded inline editor and authoritative page alerts.
+  // Without JS (or dialog support), the avatar link reaches the same native form.
+  let openAvatar;
+  if (avatarEditor && avatarDialog?.showModal && avatarTrigger && !hasErrors) {
+    avatarDialog.append(avatarEditor.querySelector('.soda-settings-disclosure-body'));
+    avatarEditor.hidden = true;
+    avatarTrigger.setAttribute('role', 'button');
+    avatarTrigger.setAttribute('aria-haspopup', 'dialog');
+    avatarTrigger.setAttribute('aria-controls', 'avatar-dialog');
+    openAvatar = () => { if (!avatarDialog.open) avatarDialog.showModal(); };
+    avatarTrigger.addEventListener('click', event => { event.preventDefault(); openAvatar(); });
+    avatarTrigger.addEventListener('keydown', event => {
+      if (event.key === ' ') { event.preventDefault(); openAvatar(); }
+    });
+    avatarDialog.querySelector('.soda-avatar-close').addEventListener('click', () => avatarDialog.close());
+    avatarDialog.addEventListener('click', event => {
+      const rect = avatarDialog.getBoundingClientRect();
+      if (event.target === avatarDialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) avatarDialog.close();
+    });
+    avatarDialog.addEventListener('keydown', event => {
+      if (event.key !== 'Tab') return;
+      const controls = [...avatarDialog.querySelectorAll('button, input:not([type=hidden]), a[href], select, textarea')].filter(el => !el.disabled && el.tabIndex >= 0 && el.checkVisibility());
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
+    avatarDialog.addEventListener('close', () => avatarTrigger.focus({preventScroll: true}));
+  }
   const revealHash = () => {
     if (!location.hash) return;
     let target;
     try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
+    if (openAvatar && (target === avatarEditor || avatarDialog.contains(target))) { openAvatar(); return; }
     const editor = target?.closest('[data-settings-editor]');
     if (editor) {
       editor.open = true; editor.scrollIntoView({block: 'start'});

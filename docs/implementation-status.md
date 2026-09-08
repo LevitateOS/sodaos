@@ -1,5 +1,24 @@
 # Current handoff
 
+## Clickable avatar and modal dialog
+
+The actual profile portrait now opens the native avatar form in a browser modal
+dialog. A translucent dark pencil overlay appears on hover/focus and remains
+visible on coarse pointers. The same form is moved, never copied; native upload,
+source selection and deletion hooks remain intact. Escape, explicit close and
+backdrop clicks restore focus; Tab wraps within the dialog. Without JavaScript,
+unsupported dialogs or with server errors, the expanded inline editor remains
+available alongside authoritative alerts. The local preview is active at
+`2026-09-08.13` via template reload only.
+
+The Go Forgejo suite, four source/inventory checks and eleven settings browser
+checks passed, covering seven widths, keyboard/overlay/modal behavior and the
+actual native no-JavaScript fallback. Verified dark 1440px and light 320px captures
+in `.artifacts/avatar-modal/release-{desktop,mobile}/` were visually reviewed.
+Earlier captures in that directory tree expose a corrected native dialog-style
+conflict and are not final evidence. No upload/delete POST was submitted; native
+server-error and lookup-enabled submission journeys remain unverified.
+
 ## Avatar source simplification
 
 The avatar editor now starts directly with file selection when Gravatar is disabled;

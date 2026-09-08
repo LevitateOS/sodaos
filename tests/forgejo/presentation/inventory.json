@@ -843,7 +843,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0e1135f9e088ab22c830d8402776601ff804886eba8bb759aeb66f93e6252861",
+      "beforeRoleHash": "a3f04a7701b8b87ae2f1a56175877b0d846f4711db7a624b985c16341504800c",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -7743,7 +7743,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "cd4c896f5fb15c14e85a56663db9ff1f8a52caec51347556ae1b84b5b03894cb",
+      "beforeRoleHash": "2826b40c979778a52006a922eebe763da60302f24d5085ff9ee9e78cd47edefd",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -8037,7 +8037,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/006.png"
         ]
       },
-      "beforeRoleHash": "223e7d085933b3b89c2cbf3a72b88a76301bce3def40284d36914660f947eab0",
+      "beforeRoleHash": "b317fd7bf1bdb40def7a63f8fb67462478f3d7aa2f3e10669c33254eedcb27ae",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",

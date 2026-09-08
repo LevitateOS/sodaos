@@ -517,7 +517,11 @@ quota and webhook dispatch remain native. Child titles move into the shell;
 shared cleanup/runner adapters explicitly rebind native root context and suppress
 only personal duplicate headings. Other callers retain their headers and data.
 
-`personal-settings.js` only enhances navigation, disclosure visibility and focus.
+`personal-settings.js` only enhances navigation, disclosure visibility, the avatar
+modal and focus. The avatar link progressively opens one native `<dialog>` with
+the existing form moved into it. Without enhancement or on server errors the
+inline editor remains accessible; no form or authoritative alert is duplicated.
+Avatar overlay and dialog styles are scoped in `account-details.css`.
 There is one DOM copy of every destination. Without JavaScript the grouped links
 and optional editors remain expanded. Ambiguous server errors open every editor;
 fragment links reveal the addressed editor. No submission interception, autosave,

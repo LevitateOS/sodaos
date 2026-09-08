@@ -2,7 +2,10 @@
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--profile profile")}}
 	<div class="user-setting-content soda-account-details soda-account-details--profile">
 <aside class="soda-profile-portrait">
-		{{ctx.AvatarUtils.Avatar .SignedUser 112}}
+		<a class="soda-avatar-trigger" href="#avatar-settings" aria-label="{{ctx.Locale.Tr "edit"}}: {{ctx.Locale.Tr "settings.avatar"}}">
+			{{ctx.AvatarUtils.Avatar .SignedUser 112}}
+			<span class="soda-avatar-overlay" aria-hidden="true">{{svg "octicon-pencil" 24}}</span>
+		</a>
 <details id="avatar-settings" class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.avatar"}}</summary>
 		<div class="soda-settings-disclosure-body">
 			<form class="ui form soda-p-form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
@@ -42,6 +45,12 @@
 			</form>
 		</div>
 </details>
+<dialog id="avatar-dialog" class="soda-avatar-dialog" aria-labelledby="avatar-dialog-title">
+	<header class="soda-avatar-dialog-header">
+		<h2 id="avatar-dialog-title">{{ctx.Locale.Tr "settings.avatar"}}</h2>
+		<button type="button" class="soda-avatar-close" aria-label="{{ctx.Locale.Tr "cancel"}}">{{svg "octicon-x" 20}}</button>
+	</header>
+</dialog>
 </aside>
 		<div class="soda-profile-editor">
 			<form class="ui form soda-p-form" action="{{.Link}}" method="post">

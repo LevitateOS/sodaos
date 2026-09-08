@@ -12,33 +12,33 @@
 .soda-profile-editor input[type=checkbox] { margin-right: 8px; }
 /* The narrow portrait editor uses the native file chooser without a second input
    frame. Keep the filename and browser file-selection behavior intact. */
-#avatar-settings .soda-settings-disclosure-body { margin-top: 4px; }
-#avatar-settings .ui.form > .field { margin: 0 0 16px; }
-#avatar-settings .ui.form .radio.checkbox label { font-weight: 400; }
-#avatar-settings .soda-avatar-upload > label { display: block; margin: 0 0 8px; }
-#avatar-settings .ui.form input[type=file] {
+:is(#avatar-settings, #avatar-dialog) .soda-settings-disclosure-body { margin-top: 4px; }
+:is(#avatar-settings, #avatar-dialog) .ui.form > .field { margin: 0 0 16px; }
+:is(#avatar-settings, #avatar-dialog) .ui.form .radio.checkbox label { font-weight: 400; }
+:is(#avatar-settings, #avatar-dialog) .soda-avatar-upload > label { display: block; margin: 0 0 8px; }
+:is(#avatar-settings, #avatar-dialog) .ui.form input[type=file] {
  width: 100%; max-width: 100%; min-height: 44px; padding: 0;
  border: 0; border-radius: 0; background: transparent;
  font: var(--soda-font-meta); color: var(--soda-page-muted);
 }
-#avatar-settings input[type=file]::file-selector-button {
+:is(#avatar-settings, #avatar-dialog) input[type=file]::file-selector-button {
  min-height: 44px; margin-right: 8px; padding: 8px 12px;
  border: 1px solid var(--soda-page-edge); border-radius: var(--soda-control-radius);
  background: var(--soda-page-surface); color: var(--soda-page-text);
  font: inherit; cursor: pointer;
 }
-#avatar-settings input[type=file]::file-selector-button:hover { border-color: var(--soda-page-link); }
-#avatar-settings input[type=file]:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 4px; }
-#avatar-settings .soda-avatar-upload .help { display: block; margin-top: 8px; font-size: 13px; line-height: 1.5; }
-#avatar-settings .button-sequence { display: flex; flex-direction: column; align-items: start; gap: 4px; }
-#avatar-settings .button-sequence .primary.button { width: auto; }
-#avatar-settings .button-sequence .danger.button {
+:is(#avatar-settings, #avatar-dialog) input[type=file]::file-selector-button:hover { border-color: var(--soda-page-link); }
+:is(#avatar-settings, #avatar-dialog) input[type=file]:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 4px; }
+:is(#avatar-settings, #avatar-dialog) .soda-avatar-upload .help { display: block; margin-top: 8px; font-size: 13px; line-height: 1.5; }
+:is(#avatar-settings, #avatar-dialog) .button-sequence { display: flex; flex-direction: column; align-items: start; gap: 4px; }
+:is(#avatar-settings, #avatar-dialog) .button-sequence .primary.button { width: auto; }
+:is(#avatar-settings, #avatar-dialog) .button-sequence .danger.button {
  min-height: 44px; max-width: 100%; margin: 0; padding: 8px 0;
  border: 0; background: transparent; box-shadow: none;
  color: var(--color-error-text); font-size: 14px; text-align: left;
 }
-#avatar-settings .button-sequence .danger.button:hover { text-decoration: underline; }
-#avatar-settings .button-sequence .danger.button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+:is(#avatar-settings, #avatar-dialog) .button-sequence .danger.button:hover { text-decoration: underline; }
+:is(#avatar-settings, #avatar-dialog) .button-sequence .danger.button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .soda-settings-preference form:not([data-settings-checklist]) { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
 .soda-settings-preference form > .tw-mb-4 { flex-basis: 100%; }
 .soda-settings-preference form > .field { margin: 0 !important; flex: 1 1 240px; }
@@ -70,3 +70,23 @@
  .soda-account-details--access-token .access-token-category { grid-template-columns: minmax(0,1fr); gap: 8px; }
  .soda-settings-preference form > .field { min-width: 0; }
 }
+
+/* One native editor is moved into a modal only after progressive enhancement. */
+.soda-avatar-trigger { display: inline-flex; position: relative; width: 112px; height: 112px; border-radius: 8px; overflow: clip; }
+.soda-avatar-trigger img { width: 100%; height: 100%; object-fit: cover; }
+.soda-avatar-overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 55%); color: white; opacity: 0; transition: opacity 120ms; }
+.soda-avatar-trigger:is(:hover, :focus-visible) .soda-avatar-overlay { opacity: 1; }
+.soda-avatar-trigger:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 4px; }
+#avatar-dialog.soda-avatar-dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 24px; border: 1px solid var(--soda-page-edge); border-radius: 8px; background: var(--soda-page-surface); color: var(--soda-page-text); overflow-y: auto; }
+.soda-avatar-dialog::backdrop { background: rgb(0 0 0 / 60%); }
+#avatar-dialog .soda-avatar-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding: 0; border: 0; }
+.soda-avatar-dialog-header h2 { margin: 0; font: var(--soda-font-heading); }
+.soda-avatar-close { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+.soda-avatar-close:hover { background: var(--soda-page-canvas); }
+.soda-avatar-close:focus-visible { outline: 2px solid var(--soda-page-link); }
+@media (max-width: 899px) { .soda-avatar-trigger { width: 64px; height: 64px; flex: 0 0 auto; } }
+@media (pointer: coarse) { .soda-avatar-overlay { opacity: 1; } .soda-avatar-close { width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .soda-avatar-overlay { transition: none; } }
+
+/* Native dialog defaults use a flex row and padded header; this editor stacks. */
+#avatar-dialog[open] { display: block; }

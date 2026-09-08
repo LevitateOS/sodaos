@@ -237,7 +237,7 @@ func TestForgejoAccountDetailsCSSIsScoped(t *testing.T) {
 	// Avatar actions and the native file-selector button are intentionally styled.
 	// Keep those exceptions scoped to the editor, never generic button rules.
 	for _, line := range strings.Split(css, "\n") {
-		if (strings.Contains(line, ".danger.button") || strings.Contains(line, "button {")) && !strings.HasPrefix(strings.TrimSpace(line), "#avatar-settings ") {
+		if (strings.Contains(line, ".danger.button") || strings.Contains(line, "button {")) && !strings.HasPrefix(strings.TrimSpace(line), ":is(#avatar-settings, #avatar-dialog) ") {
 			t.Errorf("unscoped avatar button rule: %s", line)
 		}
 	}

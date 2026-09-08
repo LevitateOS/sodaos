@@ -23,7 +23,25 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     if(width<900){await trigger.click();assert(await nav.locator('a[href$="/applications"]').isVisible());assert(await nav.locator('a[href$="/repos"]').isVisible());await page.keyboard.press('Escape');}
     const bounds=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth,title:document.querySelector('h1').getBoundingClientRect().top,task:document.querySelector('.soda-profile-portrait').getBoundingClientRect().top,left:document.querySelector('h1').getBoundingClientRect().left}));
     assert.equal(bounds.scroll,bounds.w);assert(bounds.title<300);assert(bounds.task<300);if(width<900)assert.equal(bounds.left,16);
-    await page.locator('#avatar-settings summary').click();assert(await page.locator('#new-avatar').isVisible());
+    const avatar=page.locator('.soda-avatar-trigger');
+    await avatar.focus();
+    await page.waitForFunction(()=>getComputedStyle(document.querySelector('.soda-avatar-overlay')).opacity==='1');
+    await page.keyboard.press('Enter');
+    const dialog=page.locator('#avatar-dialog');
+    assert(await dialog.evaluate(el=>el.matches(':modal')));
+    assert(await page.locator('#new-avatar').isVisible());
+    assert.equal(await page.locator('input[name=avatar]').count(),1);
+    await page.keyboard.press('Shift+Tab');
+    assert(await dialog.evaluate(el=>el.contains(document.activeElement)));
+    await page.keyboard.press('Escape');
+    assert(!(await dialog.isVisible()));
+    assert(await avatar.evaluate(el=>document.activeElement===el));
+    await page.keyboard.press('Space');
+    await page.mouse.click(2,2);
+    assert(!(await dialog.isVisible()));
+    await avatar.click();
+    await page.locator('.soda-avatar-close').click();
+    assert(await avatar.evaluate(el=>document.activeElement===el));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    });
   }
@@ -67,4 +85,14 @@ test('component error disclosures and long navigation labels remain accessible',
   await page.locator('.soda-settings-current').click();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  }finally{await browser.close();}
+});
+
+test('native avatar editor stays usable without JavaScript', {skip:!enabled || process.env.SODA_PERSONAL_SETTINGS_NATIVE!=='1'}, async()=>{
+ const context=await chromium.launchPersistentContext('.local/screenshot-fixture-profile',{channel:'chrome',headless:true,javaScriptEnabled:false,viewport:{width:390,height:844}});
+ try {
+  const page=await context.newPage();const response=await page.goto(origin+'/user/settings');assert.equal(response.status(),200);
+  assert(await page.locator('#avatar-settings #new-avatar').isVisible());
+  assert.equal(await page.locator('input[name=avatar]').count(),1);
+  assert(!(await page.locator('#avatar-dialog').isVisible()));
+ } finally { await context.close(); }
 });
