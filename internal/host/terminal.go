@@ -178,7 +178,7 @@ func (p *nativeTerminal) Close() {
 
 var containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-const terminalInspect = `{"id":{{json .Id}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}}}`
+const terminalInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
 
 func (d *Daemon) terminalContainer(ctx context.Context, id string) (string, error) {
 	if !projectID.MatchString(id) {
@@ -195,15 +195,35 @@ func (d *Daemon) terminalContainer(ctx context.Context, id string) (string, erro
 		Owner      string `json:"owner"`
 		Privileged bool   `json:"privileged"`
 		Userns     string `json:"userns"`
+		Mappings   struct {
+			UIDMap []string `json:"UidMap"`
+			GIDMap []string `json:"GidMap"`
+		} `json:"mappings"`
 	}
 	if err = strictjson.Decode(bytes.NewReader(data), &v); err != nil {
 		return "", errors.New("invalid terminal inspection")
 	}
 	owner, e := strconv.ParseInt(v.Owner, 10, 64)
-	if !containerID.MatchString(v.ID) || !v.Running || v.Project != id || e != nil || owner <= 0 || v.Privileged || !(v.Userns == "auto" || strings.HasPrefix(v.Userns, "auto:")) {
+	if !containerID.MatchString(v.ID) || !v.Running || v.Project != id || e != nil || owner <= 0 || v.Privileged || v.Userns != "private" || !terminalIDMap(v.Mappings.UIDMap) || !terminalIDMap(v.Mappings.GIDMap) {
 		return "", errors.New("terminal target not ready or isolated")
 	}
 	return v.ID, nil
+}
+
+// Podman reports the resulting namespace as "private", not its create-time
+// "auto" selector. Require the production candidate's single 262144-ID mapping
+// with container root shifted away from host root; do not infer isolation from
+// the mode string alone or introduce identity-remapping policy.
+func terminalIDMap(values []string) bool {
+	if len(values) != 1 {
+		return false
+	}
+	parts := strings.Split(values[0], ":")
+	if len(parts) != 3 || parts[0] != "0" || parts[2] != "262144" {
+		return false
+	}
+	base, err := strconv.ParseUint(parts[1], 10, 32)
+	return err == nil && strconv.FormatUint(base, 10) == parts[1] && base > 0 && base+262144 <= 4294967295
 }
 
 // Shutdown closes both pending and live streams; HTTP Shutdown alone does not

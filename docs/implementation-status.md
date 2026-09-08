@@ -813,6 +813,22 @@ until the actual Rocky/Podman identity/PTY/teardown gate passes.** Next requires
 applicable exact isolated-target native execution scope; retained `soda-test` rollout
 still needs separate approval and a current backup.
 
+## Approved native terminal fixture preflight
+
+The user approved temporary root-private helper/PTY proof on the existing isolated
+`soda-native-spaces-658f2af`, without installed service replacement/restart, project
+lifecycle/account/key or routing changes. Preflight independently confirmed both
+native accounts, marker IDs, groups/homes, the existing container/image and unchanged
+installed helper/services/product rows. No terminal had launched at this observation.
+
+Actual Podman is **5.8.4**, not the builder's 5.8.2. Native preflight caught two source
+assumptions: Go templates require `.ID` inside `json`, and auto-created namespaces
+are reported as `private`. Inspected exact upstream source and observed UID/GID maps
+`0:1000000:262144`; the candidate now checks private mode plus actual shifted mappings,
+not just a create-time mode name. No runtime configuration/capability was changed to
+fit the check. Original failed preflight and reviewed inputs remain under
+`.artifacts/terminal-vm-10321ce/` and guest `/var/lib/soda-terminal-10321ce/`.
+
 ## Remaining work and permission boundary
 
 - Preserve the implemented security, native-page context and explicit-action

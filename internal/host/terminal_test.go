@@ -71,7 +71,7 @@ func (p *terminalFakeProcess) Output() (TerminalFrame, error) {
 func terminalFixture(t *testing.T) (*Daemon, *Client, *terminalFake) {
 	t.Helper()
 	p := &terminalFakeProcess{closed: make(chan struct{}), input: make(chan TerminalFrame, 4), output: make(chan TerminalFrame, 4)}
-	f := &terminalFake{inspect: []byte(`{"id":"` + strings.Repeat("a", 64) + `","project":"p0123456789abcdef01234567","owner":"2","running":true,"privileged":false,"userns":"auto:size=262144"}`), process: p}
+	f := &terminalFake{inspect: []byte(`{"id":"` + strings.Repeat("a", 64) + `","project":"p0123456789abcdef01234567","owner":"2","running":true,"privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`), process: p}
 	d := &Daemon{Exec: f}
 	socket := t.TempDir() + "/host.sock"
 	listener, err := net.Listen("unix", socket)
@@ -268,6 +268,17 @@ func TestTerminalPrivateRouteRefusesOriginAndQueries(t *testing.T) {
 	defer f.mu.Unlock()
 	if f.calls != 0 || f.starts != 0 {
 		t.Fatal("invalid request reached native state")
+	}
+}
+
+func TestTerminalNativeMappingShape(t *testing.T) {
+	if !terminalIDMap([]string{"0:1000000:262144"}) {
+		t.Fatal("native auto mapping refused")
+	}
+	for _, value := range [][]string{nil, {"0:0:262144"}, {"0:1000000:1"}, {"1:1000000:262144"}, {"0:4294967295:262144"}, {"0:+1000000:262144"}, {"0:1000000:262144", "1:2:3"}} {
+		if terminalIDMap(value) {
+			t.Fatal("invalid native mapping accepted")
+		}
 	}
 }
 
