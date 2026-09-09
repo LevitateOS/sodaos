@@ -27,6 +27,24 @@ The [handoff](implementation-status.md) records actual `22d8591` isolated browse
 same-shell reload/End evidence and remaining native probe gaps. Older source-slice
 status language below is not an assertion that nothing has since been deployed.
 
+## Open product question — browser-terminal compatibility
+
+The user has put the browser-terminal direction into question before treating it as
+settled product design. Soda expects modern interactive command-line applications,
+including Codex CLI, Claude Code and Pi. A browser xterm renderer and WebSocket
+attachment may be a useful convenience, but source-level protocol support or a
+successful basic shell session does not establish that these applications are usable
+there.
+
+This is a deferral and an explicit compatibility concern, not a decision to remove
+the browser terminal, replace tmux, change transport, or select another renderer.
+Before relying on the browser terminal as a primary development surface, obtain
+target-appropriate evidence using the actual selected CLIs: Unicode and cursor
+behavior, alternate-screen redraw, mouse and paste input, resize, scrollback, long
+streaming output, reconnect/retention and ordinary SSH coexistence. Native SSH in a
+capable local terminal remains the comparison path; it is not evidence that the
+browser-terminal experience is equivalent.
+
 ## Current workspace layout and continuity
 
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
