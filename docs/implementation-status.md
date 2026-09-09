@@ -1,5 +1,19 @@
 # Current handoff
 
+## Requested Rocky 10.2 baseline upgrade — build pending
+
+The user requested upgrading the Rocky baseline to 10.2. Both project and Go
+backend Containerfiles now select the official 10.2 image; no unrelated tool or
+host OS baseline changed. Registry metadata advertises amd64 and arm64 variants.
+A native x86_64 builder inspection confirmed `/etc/os-release` 10.2 and availability
+of the existing systemd/Python/tmux/Podman/fuse-overlayfs/slirp4netns requirements.
+The inspection container and logs remain under `.artifacts/rocky-10.2/`; no retained
+project or VM was changed. Full production build/check and native compatibility
+remain to follow. Changing the default image cannot upgrade either existing
+writable root. Recreating those roots or attempting a major-version in-place
+transaction needs a separate exact decision; the earlier backup waiver is not
+silently treated as permission to erase projects. `soda-test` stays excluded.
+
 ## Available for testing — isolated deployment `22d8591`
 
 **Installed affected-component candidate:**

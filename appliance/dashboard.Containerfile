@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=quay.io/rockylinux/rockylinux:9.6
+ARG BASE_IMAGE=quay.io/rockylinux/rockylinux:10.2
 FROM ${BASE_IMAGE}
 ARG ARTIFACT_DIR
 RUN dnf -y install ca-certificates && dnf clean all
