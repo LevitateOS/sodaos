@@ -6,6 +6,6 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal-toolbar { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 8px; }
 .soda-terminal-toolbar p { margin: 0; font-size: 12px; }
 .soda-terminal.is-connected > h3, .soda-terminal.is-connected > p, .soda-terminal.is-connected .soda-terminal-toolbar > button:first-child { display: none; }
-.soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: 4px; background: #000; overflow: hidden; }
+.soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: 4px; box-sizing: content-box; background: #000; overflow: hidden; }
 .soda-terminal-screen[hidden] { display: none; }
 .soda-terminal-screen .xterm { height: 100%; }

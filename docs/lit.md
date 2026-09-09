@@ -42,9 +42,9 @@ build uses each module's payload destination to emit a relative runtime URL:
 
 This works beneath Forgejo's `AppSubUrl` too, without a CDN, import map or a second
 TypeScript resolver. Existing native and terminal imports keep their public URLs.
-Core Lit imports are supported initially. Subpath imports such as
-`lit/directives/repeat.js` fail clearly until their exports are added to the shared
-runtime and build mapping together; each future addition must keep one runtime.
+Core Lit and `lit/directives/repeat.js` imports share this runtime; repeat is used
+for stable pane/tab chrome. Other subpath imports fail until exports and build
+mapping are added together. Each addition must keep one runtime.
 
 ## Authoring
 

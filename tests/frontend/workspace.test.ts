@@ -19,7 +19,7 @@ before(async () => {
     if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : 'application/octet-stream'}});}
     if (url.pathname.startsWith('/assets/soda-terminal/')) return new Response(Bun.file(path.join(root, '.artifacts/browser-terminal/vendor', path.basename(url.pathname))), {headers: {'Content-Type': url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript'}});
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:850px}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
@@ -179,6 +179,36 @@ test('failed v2 write preserves v1 and leaves live terminals usable', async t =>
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
   await page.getByText('Live workspace remains usable', {exact: false}).waitFor();
+});
+
+test('real xterm panes preserve hosts and sockets through split, move, resize and compact projection', async t => {
+  const page = await fixture(t); await page.setViewportSize({width: 1920, height: 1440});
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  for (const name of ['Build', 'Edit', 'Other project']) {await page.locator('.soda-workspace-existing button').filter({hasText: name}).click(); await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();}
+  const screens = await page.locator('.xterm').elementHandles(), hosts = await page.locator('.soda-workspace-terminal').elementHandles();
+  const before = await page.evaluate(() => window.workspaceFixture.calls.length);
+  await page.getByRole('button', {name: 'Split right', exact: true}).click();
+  assert.equal(await page.locator('.soda-pane-chrome').count(), 2);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), before);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 3);
+  const areas = await page.locator('.soda-pane-chrome').evaluateAll(nodes => nodes.map(n => n.getAttribute('data-pane'))); assert(areas[1]);
+  try {await page.getByLabel('Move terminal to pane', {exact: true}).selectOption(areas[1]);}
+  catch (error) {console.error(await page.locator('.soda-workspace-canvas').evaluate(el => ({box: el.getBoundingClientRect().toJSON(), panes: [...el.querySelectorAll('.soda-pane-chrome, select')].map(n => ({html: n.outerHTML, box: n.getBoundingClientRect().toJSON()}))}))); throw error;}
+  await page.waitForFunction(() => document.querySelectorAll('.soda-workspace-terminal:not([hidden])').length === 2);
+  const cells = await page.evaluate(() => window.workspaceFixture.sockets.map(s => s.sent.filter(f => f.type === 'resize').at(-1)));
+  assert(cells.every(c => Number(c?.cols) >= 56 && Number(c?.rows) >= 12));
+  await page.getByRole('separator', {name: 'Resize panes'}).focus(); await page.keyboard.press('ArrowLeft');
+  const stored = await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1'));
+  await page.getByRole('button', {name: 'Maximize pane', exact: true}).click(); assert.equal(await page.locator('.soda-pane-chrome').count(), 1);
+  await page.getByRole('button', {name: 'Restore panes', exact: true}).click(); assert.equal(await page.locator('.soda-pane-chrome').count(), 2);
+  await page.setViewportSize({width: 720, height: 900}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 1);
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), stored);
+  await page.setViewportSize({width: 1920, height: 1440}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 2);
+  await page.getByRole('button', {name: 'Consolidate panes', exact: true}).click(); assert.equal(await page.locator('.soda-pane-chrome').count(), 1);
+  for (const handle of [...screens, ...hosts]) assert(await handle.evaluate(el => el.isConnected));
+  assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(s => s.closed)), [0, 0, 0]);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), before);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.flatMap(s => s.sent).filter(f => f.type === 'resize' && (!f.cols || !f.rows)).length), 0);
 });
 
 test('departure during authorization cannot dispatch a later collection read', async t => {

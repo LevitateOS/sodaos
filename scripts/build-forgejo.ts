@@ -28,7 +28,7 @@ export async function buildForgejoModule(source: string, destination: string) {
       setup(build) {
         build.onResolve({filter: /.*/}, args => {
           if (args.kind === 'entry-point-build') return;
-          if (args.path === 'lit') return {path: runtimeURL, external: true};
+          if (args.path === 'lit' || args.path === 'lit/directives/repeat.js') return {path: runtimeURL, external: true};
           if (/^(?:lit\/|lit-element(?:\/|$)|lit-html(?:\/|$)|@lit(?:-labs)?\/)/.test(args.path)) {
             throw Error(`Unsupported Lit submodule ${args.path}: add an explicit shared-runtime export before using it`);
           }

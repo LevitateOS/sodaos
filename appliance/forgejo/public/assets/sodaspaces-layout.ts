@@ -58,6 +58,63 @@ export function sameLocator(a: TerminalLocator, b: TerminalLocator) {
   return a.kind === 'existing' && b.kind === 'existing' ? a.id === b.id : a.kind === 'pending' && b.kind === 'pending' ? a.requestId === b.requestId : false;
 }
 
+export function splitPane(layout: WorkspaceLayout, paneKey: string, axis: Split['axis'], emptyKey: string, splitKey: string): WorkspaceLayout {
+  check(panes(layout.tree).length < layoutLimit && panes(layout.tree).some(p => p.key === paneKey));
+  const fresh: Pane = {kind: 'pane', key: emptyKey, tabs: [], selected: null};
+  function divide(tree: PaneTree): PaneTree {
+    if (tree.kind === 'pane') return tree.key === paneKey ? {kind: 'split', key: splitKey, axis, ratio: 0.5, first: tree, second: fresh} : tree;
+    return {...tree, first: divide(tree.first), second: divide(tree.second)};
+  }
+  return {...layout, tree: divide(layout.tree), focused: emptyKey};
+}
+export function moveTab(layout: WorkspaceLayout, key: string, destination: string, before?: string): WorkspaceLayout {
+  check(layout.entries.some(entry => entry.key === key) && panes(layout.tree).some(pane => pane.key === destination));
+  const source = paneFor(layout.tree, key);
+  const tree = source?.key === destination ? layout.tree : withoutTab(layout.tree, key);
+  return {...layout, focused: destination, tree: changePane(tree, destination, pane => {
+    const tabs = pane.tabs.filter(tab => tab !== key), index = before ? tabs.indexOf(before) : -1;
+    tabs.splice(index < 0 ? tabs.length : index, 0, key); return {...pane, tabs, selected: key};
+  })};
+}
+export function resizeSplit(tree: PaneTree, key: string, ratio: number): PaneTree {
+  check(Number.isFinite(ratio) && ratio > 0 && ratio < 1);
+  if (tree.kind === 'pane') return tree;
+  return tree.key === key ? {...tree, ratio} : {...tree, first: resizeSplit(tree.first, key, ratio), second: resizeSplit(tree.second, key, ratio)};
+}
+export function consolidate(layout: WorkspaceLayout): WorkspaceLayout {
+  const focused = focusedPane(layout), ordered = panes(layout.tree).flatMap(p => p.tabs);
+  const tabs = focused.selected ? [focused.selected, ...ordered.filter(key => key !== focused.selected)] : ordered;
+  return {...layout, tree: {...focused, tabs, selected: tabs[0] || null}};
+}
+export interface Area {x: number; y: number; width: number; height: number}
+export interface Minimum {width: number; height: number}
+export interface PaneArea extends Area {pane: Pane}
+export interface DividerArea extends Area {key: string; axis: Split['axis']; ratio: number; minimum: number; maximum: number; origin: number; extent: number}
+export interface Projection {panes: PaneArea[]; dividers: DividerArea[]; compact: boolean}
+export const paneGap = 6;
+export function minimumSize(tree: PaneTree, minimum: (pane: Pane) => Minimum): Minimum {
+  if (tree.kind === 'pane') return minimum(tree);
+  const a = minimumSize(tree.first, minimum), b = minimumSize(tree.second, minimum);
+  return tree.axis === 'right' ? {width: a.width + b.width + paneGap, height: Math.max(a.height, b.height)} : {width: Math.max(a.width, b.width), height: a.height + b.height + paneGap};
+}
+export function projectLayout(layout: WorkspaceLayout, area: Area, minimum: (pane: Pane) => Minimum, single = false, maximized?: string): Projection {
+  const needed = minimumSize(layout.tree, minimum), compact = single || needed.width > area.width || needed.height > area.height;
+  const shown = panes(layout.tree).find(p => p.key === maximized) || (compact ? focusedPane(layout) : undefined);
+  if (shown) return {panes: [{...area, pane: shown}], dividers: [], compact};
+  const output: Projection = {panes: [], dividers: [], compact};
+  function place(tree: PaneTree, rect: Area) {
+    if (tree.kind === 'pane') {output.panes.push({...rect, pane: tree}); return;}
+    const a = minimumSize(tree.first, minimum), b = minimumSize(tree.second, minimum), right = tree.axis === 'right';
+    const extent = (right ? rect.width : rect.height) - paneGap, low = (right ? a.width : a.height) / extent, high = 1 - (right ? b.width : b.height) / extent;
+    const ratio = Math.max(low, Math.min(high, tree.ratio)), length = extent * ratio;
+    output.dividers.push({...rect, key: tree.key, axis: tree.axis, ratio, minimum: low, maximum: high, origin: right ? rect.x : rect.y, extent,
+      ...(right ? {x: rect.x + length, width: paneGap} : {y: rect.y + length, height: paneGap})});
+    place(tree.first, {...rect, ...(right ? {width: length} : {height: length})});
+    place(tree.second, {...rect, ...(right ? {x: rect.x + length + paneGap, width: extent - length} : {y: rect.y + length + paneGap, height: extent - length})});
+  }
+  place(layout.tree, area); return output;
+}
+
 // Closed-shape, depth/node/byte-bounded parser. Never "repair" untrusted storage by
 // silently dropping a locator, selecting a newest session, or overwriting its bytes.
 export function parseLayout(text: string): WorkspaceLayout {

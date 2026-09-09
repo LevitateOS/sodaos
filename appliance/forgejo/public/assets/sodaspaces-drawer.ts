@@ -1,14 +1,15 @@
 import {LitElement, html} from 'lit';
+import {repeat} from 'lit/directives/repeat.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
-import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, migrateLayout, serializeLayout, layoutLimit} from './sodaspaces-layout.js';
-import type {WorkspaceLayout, LayoutEntry} from './sodaspaces-layout.js';
+import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, migrateLayout, serializeLayout, layoutLimit, panes, splitPane, moveTab, resizeSplit, consolidate, projectLayout, minimumSize} from './sodaspaces-layout.js';
+import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
 import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata} from './sodaspaces-api.js';
 export type DrawerContext = {kind: 'native'; expectedUserId?: string | undefined; repositoryId: string} | {kind: 'page'; expectedUserId: string};
 type TerminalFactory = typeof mountTerminal;
-interface Slot {key: string; binding: TerminalContext; metadata?: TerminalMetadata; host: HTMLElement; terminal: ReturnType<typeof mountTerminal>}
+interface Slot {key: string; binding: TerminalContext; metadata?: TerminalMetadata; minimum?: Minimum; host: HTMLElement; terminal: ReturnType<typeof mountTerminal>}
 // The only workspace owner on either surface. Terminal hosts occupy one stable,
 // flat layer; tab/project changes never move them through a different parent.
 export class SodaSpaces extends LitElement {
@@ -37,6 +38,28 @@ export class SodaSpaces extends LitElement {
   private available = false;
   private storageKey = '';
   private lifetime = new AbortController();
+  private canvasSize = {width: 0, height: 0};
+  private cell = {width: 9, height: 20};
+  private observer: ResizeObserver | undefined;
+  private maximized: string | undefined;
+  private dragged: string | undefined;
+  private get projection() {return projectLayout(this.layout, {x: 0, y: 0, ...this.canvasSize}, pane => this.paneMinimum(pane), this.binding?.kind !== 'page' || this.canvasSize.width < 800, this.maximized);}
+  private paneMinimum(pane: Pane): Minimum {const min = this.slots.find(s => s.key === pane.selected)?.minimum; return {width: min?.width || Math.ceil(this.cell.width * 56 + 24), height: (min?.height || Math.ceil(this.cell.height * 12 + 120)) + 40};}
+  protected firstUpdated() {
+    const canvas = this.querySelector('.soda-workspace-canvas'); if (!canvas) return;
+    this.observer = new ResizeObserver(this.measure); this.observer.observe(canvas);
+    document.fonts.addEventListener('loadingdone', this.measure, {signal: this.lifetime.signal});
+    window.visualViewport?.addEventListener('resize', this.measure, {signal: this.lifetime.signal});
+    void document.fonts.ready.then(() => this.measure());
+  }
+  protected updated() {this.display();}
+  private measure = () => {
+    if (this.disposed || this.stale) return;
+    const canvas = this.querySelector<HTMLElement>('.soda-workspace-canvas'), cells = this.querySelector('.soda-cell-measure')?.getBoundingClientRect();
+    if (!canvas?.clientWidth || !canvas.clientHeight) return;
+    const width = canvas.clientWidth, height = canvas.clientHeight, cell = cells?.width && cells.height ? {width: cells.width / 16, height: cells.height} : this.cell;
+    if (width !== this.canvasSize.width || height !== this.canvasSize.height || cell.width !== this.cell.width || cell.height !== this.cell.height) {this.canvasSize = {width, height}; this.cell = cell; this.requestUpdate();}
+  };
   constructor() {super(); this.spaces = []; this.status = 'Refresh to inspect Spaces.'; this.busy = this.management = this.stale = false; this.project = ''; this.storageNotice = ''; this.layout = emptyLayout(crypto.randomUUID());}
   protected createRenderRoot() {return this;}
   configure(context: DrawerContext, factory: TerminalFactory) {
@@ -59,9 +82,10 @@ export class SodaSpaces extends LitElement {
         <button class="ui button" ?disabled=${blocked || !this.binding?.expectedUserId || (!current && this.binding?.kind !== 'native')} @click=${() => this.showManagement()}>Environment / access</button>
         ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked || !this.binding.expectedUserId} @click=${() => {this.project = ''; void this.showManagement();}}>Repository on the left</button>` : ''}
         <button class="ui button" ?disabled=${this.stale} @click=${() => {this.management = false; this.display();}}>Terminals</button></div>
-      <div class="soda-workspace-tabs" role="tablist" aria-label="Terminal sessions">${this.openSlots().map(slot => html`<button role="tab" class="ui button" aria-controls=${'soda-owner-' + slot.key} tabindex=${slot.key === this.selected ? '0' : '-1'} @keydown=${(e: KeyboardEvent) => this.tabKey(e, slot)} aria-selected=${String(this.selected === slot.key && !this.management)} @click=${() => this.selectSlot(slot)}>${this.slotName(slot)}</button>`)}</div>
+      ${this.binding?.kind === 'page' ? html`<div class="soda-pane-actions"><button class="ui button" ?disabled=${!this.canSplit('right')} title="Each child needs 56 columns and 12 rows" @click=${() => this.split('right')}>Split right</button><button class="ui button" ?disabled=${!this.canSplit('below')} title="Each child needs 56 columns and 12 rows" @click=${() => this.split('below')}>Split below</button><button class="ui button" @click=${() => {this.maximized = this.maximized ? undefined : this.layout.focused; this.requestUpdate();}}>${this.maximized ? 'Restore panes' : 'Maximize pane'}</button><button class="ui button" @click=${() => this.arrange(consolidate(this.layout))}>Consolidate panes</button></div>` : ''}
+      ${panes(this.layout.tree).length > 1 ? html`<label>Panes (${panes(this.layout.tree).length}) <select aria-label="Focused pane" .value=${this.layout.focused} @change=${(e: Event) => {if (e.target instanceof HTMLSelectElement) this.focusPane(e.target.value);}}>${panes(this.layout.tree).map((pane, index) => html`<option value=${pane.key}>Pane ${index + 1}</option>`)}</select></label>` : ''}
       <div class="soda-workspace-label" ?hidden=${this.management || !this.slots.some(slot => slot.key === this.selected)}>${this.slots.filter(slot => slot.key === this.selected).map(slot => html`<span>${slot.binding.login} · ${slot.binding.environmentId}</span><button class="ui button" ?disabled=${this.stale} @click=${() => this.hideSlot(slot)}>Hide session</button>${slot.metadata ? html`<span>Retained until ${new Date(slot.metadata.effective_until * 1000).toLocaleString()} (hard limit ${new Date(slot.metadata.hard_until * 1000).toLocaleString()})</span>` : html`<span>Lifetime metadata not yet observed. Refresh reads it without extending retention.</span>`}<label>Session name <input maxlength="160" .value=${slot.metadata?.name || ''} ?disabled=${blocked || this.locator(slot).kind !== 'existing'} @change=${(e: Event) => {if (e.target instanceof HTMLInputElement) void this.rename(slot, e.target.value);}}></label>`)}</div>
-      <div class="soda-workspace-owners" ?hidden=${this.management}></div><div class="soda-workspace-management" ?hidden=${!this.management}></div>
+      <div class="soda-workspace-canvas" ?hidden=${this.management}><span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span><div class="soda-workspace-chrome">${repeat(this.projection.panes, area => area.pane.key, area => this.paneChrome(area.pane, area))}${this.projection.dividers.map(divider => html`<div class="soda-pane-divider" role="separator" tabindex="0" aria-label="Resize panes" aria-orientation=${divider.axis === 'right' ? 'vertical' : 'horizontal'} aria-valuemin=${Math.ceil(divider.minimum * 100)} aria-valuemax=${Math.floor(divider.maximum * 100)} aria-valuenow=${Math.round(divider.ratio * 100)} style=${this.rectangle(divider)} @pointerdown=${(e: PointerEvent) => {if (e.button === 0 && e.currentTarget instanceof HTMLElement) {e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault();}}} @pointermove=${(e: PointerEvent) => this.dragDivider(e, divider)} @pointerup=${(e: PointerEvent) => {if (e.currentTarget instanceof HTMLElement && e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);}} @keydown=${(e: KeyboardEvent) => this.keyDivider(e, divider)}></div>`)}</div><div class="soda-workspace-owners"></div></div><div class="soda-workspace-management" ?hidden=${!this.management}></div>
       <p ?hidden=${this.slots.length !== 0 || this.management}>Select a project and explicitly create a terminal, or open an existing session below. Nothing is created by loading this workspace.</p>
       <div class="soda-workspace-hidden" aria-label="Hidden sessions">${this.slots.filter(slot => this.isHidden(slot)).map(slot => html`<button class="ui button" ?disabled=${this.stale} @click=${() => this.selectSlot(slot)}>Show ${slot.metadata?.name || slot.binding.login + ' · ' + slot.binding.environmentId}</button>`)}</div>
       <div class="soda-workspace-unresolved" ?hidden=${this.management}>${this.layout.entries.filter(entry => !this.slots.some(slot => slot.key === entry.key)).map(entry => {const space = this.spaces.find(s => s.environment.id === entry.environmentId); return space && !space.authority_unavailable && space.login ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.openSaved(entry)}>Review saved ${entry.locator.kind} terminal in ${space.environment.repository || space.environment.id}</button>` : '';})}</div>
@@ -85,7 +109,7 @@ export class SodaSpaces extends LitElement {
   async refresh() {
     if (this.busy || this.stale || this.disposed || !this.binding) return;
     if (!this.binding.expectedUserId) {this.status = 'Connect through a signed native Forgejo page; no actor was inferred.'; return;}
-    const n = ++this.epoch; this.busy = true; this.request?.abort(); const request = this.request = new AbortController();
+    const n = this.epoch; this.busy = true; this.request?.abort(); const request = this.request = new AbortController();
     const timer = window.setTimeout(() => request.abort(), 15000);
     try {
       const session = sessionResponse(await this.api('/api/session', undefined, request.signal), location.origin);
@@ -137,15 +161,17 @@ export class SodaSpaces extends LitElement {
         if (!this.selected) this.layout = selectTab(this.layout, entry.key);
       } catch { /* Optional legacy import cannot replace known working-set locators. */ }
     }
-    const entry = this.layout.entries.find(e => e.key === this.selected);
-    const space = this.spaces.find(s => s.environment.id === entry?.environmentId);
-    if (entry && space && !space.authority_unavailable && space.login && this.live(n)) {
-      const slot = await this.addSlot(space, entry);
-      if (slot && this.live(n)) {this.display(); await slot.terminal.restore();}
+    await this.updateComplete; this.measure(); await this.updateComplete;
+    for (const area of this.projection.panes) {
+      const entry = this.layout.entries.find(e => e.key === area.pane.selected), space = this.spaces.find(s => s.environment.id === entry?.environmentId);
+      if (entry && space && !space.authority_unavailable && space.login && this.live(n) && !signal.aborted) {
+        const slot = await this.addSlot(space, entry);
+        if (slot && this.live(n)) {this.display(); await slot.terminal.restore();}
+      }
     }
     this.persist();
   }
-  private openSlots() {return this.layout.entries.filter(entry => paneFor(this.layout.tree, entry.key)).flatMap(entry => {const slot = this.slots.find(s => s.key === entry.key); return slot ? [slot] : [];});}
+  private openSlots() {return panes(this.layout.tree).flatMap(pane => pane.tabs).flatMap(key => {const slot = this.slots.find(s => s.key === key); return slot ? [slot] : [];});}
   private slotName(slot: Slot) {const locator = this.locator(slot); return slot.metadata?.name || slot.binding.login + ' · ' + (locator.kind === 'existing' ? locator.id.slice(0, 8) : locator.kind);}
   private confirmedEnd(key: string) {
     const slot = this.slots.find(s => s.key === key);
@@ -189,12 +215,56 @@ export class SodaSpaces extends LitElement {
       const locator = this.locator(slot); if (locator.kind !== 'existing') return;
       try {const metadata = terminalMetadata(event.detail, slot.binding); if (metadata.id === locator.id) {slot.metadata = metadata; this.requestUpdate();}} catch { /* Invalid observation cannot change the binding. */ }
     });
+    host.addEventListener('soda-terminal-geometry', event => {
+      if (!(event instanceof CustomEvent) || this.stale || this.disposed) return;
+      const value = object(event.detail); if (typeof value.width !== 'number' || typeof value.height !== 'number' || !Number.isFinite(value.width) || !Number.isFinite(value.height) || value.width <= 0 || value.height <= 0 || value.width > 10000 || value.height > 10000) return;
+      slot.minimum = {width: value.width, height: value.height}; this.requestUpdate();
+    });
+    host.addEventListener('focusin', () => {const pane = paneFor(this.layout.tree, key); if (pane && this.layout.focused !== pane.key) this.focusPane(pane.key);});
     this.display(); return slot;
   }
   private selectSlot(slot: Slot) {if (this.stale || this.disposed) return; this.layout = selectTab(this.layout, slot.key); this.project = slot.binding.environmentId; this.management = false; this.requestUpdate(); this.display(); this.persist(); if (this.locator(slot).kind !== 'new') void slot.terminal.restore();}
-  private display() {for (const slot of this.slots) slot.host.hidden = this.stale || this.isHidden(slot) || this.management || slot.key !== this.selected; for (const [id, project] of this.projects) project.host.hidden = !this.management || id !== (this.spaces.find(s => s.environment.id === this.project)?.environment.repository_id || (this.binding?.kind === 'native' ? this.binding.repositoryId : ''));}
+  private display() {
+    const projection = this.projection;
+    for (const slot of this.slots) {
+      const area = projection.panes.find(area => area.pane.selected === slot.key);
+      slot.host.hidden = this.stale || this.management || !area;
+      if (area) {slot.host.style.cssText = this.rectangle({...area, y: area.y + 40, height: Math.max(0, area.height - 40)}); slot.host.setAttribute('aria-labelledby', 'soda-tab-' + slot.key);}
+      slot.terminal.setVisible(!slot.host.hidden && !this.closest('[hidden]'));
+    }
+    for (const [id, project] of this.projects) project.host.hidden = !this.management || id !== (this.spaces.find(s => s.environment.id === this.project)?.environment.repository_id || (this.binding?.kind === 'native' ? this.binding.repositoryId : ''));
+  }
+  private rectangle(area: Area) {return `left:${area.x}px;top:${area.y}px;width:${area.width}px;height:${area.height}px`;}
+  private paneChrome(pane: Pane, area: Area) {
+    const slots = this.binding?.kind === 'native' ? this.openSlots() : pane.tabs.flatMap(key => {const slot = this.slots.find(s => s.key === key); return slot ? [slot] : [];});
+    return html`<section class="soda-pane-chrome" data-pane=${pane.key} style=${this.rectangle({...area, height: 40})}>
+      <div class="soda-workspace-tabs" role="tablist" aria-label="Terminal sessions" @dragover=${(e: DragEvent) => {if (this.dragged) e.preventDefault();}} @drop=${(e: DragEvent) => {if (this.dragged) {e.preventDefault(); this.move(this.dragged, pane.key); this.dragged = undefined;}}}>${repeat(slots, slot => slot.key, slot => html`<button id=${'soda-tab-' + slot.key} role="tab" class="ui button" draggable=${this.binding?.kind === 'page' ? 'true' : 'false'} @dragstart=${(e: DragEvent) => {if (this.binding?.kind === 'page') {this.dragged = slot.key; e.dataTransfer?.setData('application/x-soda-tab', slot.key);}}} @dragend=${() => {this.dragged = undefined;}} aria-controls=${'soda-owner-' + slot.key} tabindex=${slot.key === pane.selected ? '0' : '-1'} @keydown=${(e: KeyboardEvent) => this.tabKey(e, slot)} aria-selected=${String(slot.key === pane.selected)} @click=${() => this.selectSlot(slot)}>${this.slotName(slot)}</button>`)}</div>
+      ${!pane.tabs.length ? html`<button class="ui button" @click=${() => {this.focusPane(pane.key); this.querySelector<HTMLElement>('.soda-workspace-existing button')?.focus();}}>Use existing terminal</button>` : ''}
+      ${this.binding?.kind === 'page' && pane.selected ? html`<select aria-label="Move terminal to pane" .value=${pane.key} @change=${(e: Event) => {if (e.target instanceof HTMLSelectElement && pane.selected) this.move(pane.selected, e.target.value);}}>${panes(this.layout.tree).map((p, index) => html`<option value=${p.key}>Pane ${index + 1}</option>`)}</select>` : ''}
+    </section>`;
+  }
+  private arrange(layout: WorkspaceLayout) {if (this.stale || this.disposed) return; this.layout = layout; if (!panes(layout.tree).some(p => p.key === this.maximized)) this.maximized = undefined; this.persist(); this.requestUpdate();}
+  private focusPane(key: string) {if (panes(this.layout.tree).some(p => p.key === key)) this.arrange({...this.layout, focused: key});}
+  private canSplit(axis: Split['axis']) {
+    if (this.stale || this.management || this.binding?.kind !== 'page' || this.maximized || panes(this.layout.tree).length >= layoutLimit) return false;
+    const area = this.projection.panes.find(a => a.pane.key === this.layout.focused); if (!area || this.projection.compact) return false;
+    const min = this.paneMinimum(area.pane), empty = this.paneMinimum({kind: 'pane', key: '', tabs: [], selected: null});
+    return axis === 'right' ? area.width >= min.width + empty.width + 6 && area.height >= Math.max(min.height, empty.height) : area.height >= min.height + empty.height + 6 && area.width >= Math.max(min.width, empty.width);
+  }
+  private split(axis: Split['axis']) {if (!this.canSplit(axis)) return; this.arrange(splitPane(this.layout, this.layout.focused, axis, crypto.randomUUID(), crypto.randomUUID()));}
+  private move(key: string, destination: string) {try {this.arrange(moveTab(this.layout, key, destination));} catch {this.status = 'The pane destination changed; no terminal was replaced.';}}
+  private dragDivider(event: PointerEvent, divider: DividerArea) {
+    if (!(event.currentTarget instanceof HTMLElement) || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    const canvas = this.querySelector('.soda-workspace-canvas')?.getBoundingClientRect(); if (!canvas) return;
+    this.adjustDivider(divider, ((divider.axis === 'right' ? event.clientX - canvas.x : event.clientY - canvas.y) - divider.origin) / divider.extent);
+  }
+  private keyDivider(event: KeyboardEvent, divider: DividerArea) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); this.adjustDivider(divider, event.key === 'Home' ? divider.minimum : event.key === 'End' ? divider.maximum : divider.ratio + (event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -0.05 : 0.05));
+  }
+  private adjustDivider(divider: DividerArea, ratio: number) {this.arrange({...this.layout, tree: resizeSplit(this.layout.tree, divider.key, Math.max(divider.minimum, Math.min(divider.maximum, ratio)))});}
   private tabKey(event: KeyboardEvent, slot: Slot) {
-    const tabs = this.openSlots(), index = tabs.indexOf(slot);
+    const pane = paneFor(this.layout.tree, slot.key), tabs = this.openSlots().filter(s => this.binding?.kind === 'native' || pane?.tabs.includes(s.key)), index = tabs.indexOf(slot);
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); const next = tabs[event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + tabs.length) % tabs.length];
     if (next) {this.selectSlot(next); void this.updateComplete.then(() => this.querySelector<HTMLElement>('[aria-controls="soda-owner-' + next.key + '"]')?.focus());}
@@ -250,7 +320,7 @@ export class SodaSpaces extends LitElement {
   async retain() {await Promise.all(this.slots.map(s => s.terminal.retain()));}
   async returnToWork() {if (!this.restored) await this.refresh(); const slot = this.slots.find(s => s.key === this.selected); if (!this.stale && !this.closest('[hidden]')) await slot?.terminal.returnToWork();}
   invalidate() {if (this.stale) return; this.stale = true; ++this.epoch; this.request?.abort(); this.busy = false; for (const slot of this.slots) slot.terminal.invalidate(); for (const project of this.projects.values()) project.api.invalidate(); this.spaces = []; this.display(); this.status = 'Page or Soda identity changed. Reload; no action was replayed.';}
-  dispose() {if (this.disposed) return; this.invalidate(); this.disposed = true; this.lifetime.abort(); for (const slot of this.slots) slot.terminal.dispose(); for (const project of this.projects.values()) project.api.dispose(); this.remove();}
+  dispose() {if (this.disposed) return; this.invalidate(); this.disposed = true; this.observer?.disconnect(); this.lifetime.abort(); for (const slot of this.slots) slot.terminal.dispose(); for (const project of this.projects.values()) project.api.dispose(); this.remove();}
 }
 customElements.define('soda-spaces', SodaSpaces);
 export function mountSodaspaces(root: HTMLElement, context: DrawerContext, factory: TerminalFactory = mountTerminal) {

@@ -21,4 +21,17 @@
 .soda-spaces-page .ui.button, .soda-workspace .ui.button { min-height: 44px; padding: 8px 12px; }
 .soda-workspace-label { flex-wrap: wrap; font-size: 12px; }
 .soda-workspace-label input { max-width: 160px; }
+.soda-workspace-canvas { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.soda-workspace-canvas .soda-workspace-owners, .soda-workspace-chrome { position: absolute; inset: 0; pointer-events: none; }
+.soda-workspace-canvas .soda-workspace-terminal { pointer-events: auto; overflow: hidden; }
+.soda-workspace-chrome { z-index: 2; }
+.soda-pane-chrome { position: absolute; display: flex; min-width: 0; background: light-dark(#f2f2f2, #202631); pointer-events: auto; }
+.soda-pane-chrome .soda-workspace-tabs { flex: 1; padding: 0; min-width: 0; }
+.soda-pane-chrome .ui.button { min-height: 36px; height: 36px; padding: 4px 8px; margin: 0; }
+.soda-pane-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.soda-pane-divider { position: absolute; pointer-events: auto; touch-action: none; background: #8892a444; }
+.soda-pane-divider[aria-orientation=vertical] { cursor: col-resize; }
+.soda-pane-divider[aria-orientation=horizontal] { cursor: row-resize; }
+.soda-pane-divider:focus-visible { outline: 2px solid #4583db; }
+.soda-cell-measure { position: absolute; visibility: hidden; white-space: pre; font: 14px/1.4 'IBM Plex Mono', monospace; }
 @media (max-width: 600px) { .soda-spaces-page header { padding: 8px; gap: 8px; } .soda-spaces-page header span { font-size: 12px; } }

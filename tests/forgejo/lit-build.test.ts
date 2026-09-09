@@ -11,11 +11,11 @@ test('Lit submodules cannot silently become unresolved or duplicate runtimes', a
   const directory = await mkdtemp(join(tmpdir(), 'soda-lit-build-'));
   t.after(() => rm(directory, {recursive: true, force: true}));
   const source = join(directory, 'unsupported.ts');
-  await writeFile(source, "export {repeat} from 'lit/directives/repeat.js';\n");
+  await writeFile(source, "export {classMap} from 'lit/directives/class-map.js';\n");
   await assert.rejects(buildForgejoModule(source, 'public/assets/component.js'), (error: unknown) => {
     assert(error instanceof AggregateError);
     assert(error.errors.some((diagnostic: unknown) => diagnostic instanceof Error &&
-      diagnostic.message.includes('Unsupported Lit submodule lit/directives/repeat.js')));
+      diagnostic.message.includes('Unsupported Lit submodule lit/directives/class-map.js')));
     return true;
   });
 });

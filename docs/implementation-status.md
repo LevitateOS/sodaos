@@ -1,5 +1,28 @@
 # Current handoff
 
+## Step 5 pane/geometry foundation — local source, remaining chrome/compact work
+
+After `9ad7847`, pure split/move/reorder/resize/consolidation and compact projection
+now drive stable flat terminal hosts. Split creates an empty view, not a shell;
+maximizing/shrinking preserves desired layout/ratios. Page mode supports simultaneous
+visible panes; native mode flattens the same tabs without changing group membership.
+Keyboard separators and named move destinations are wired. Xterm/input visibility
+and visible-only fit have presentation-only facades; actual rendered cell metrics
+supply split minimums. Geometry waits for the xterm render frame: measuring the old
+grid against its already-updated column count reproduced a layout loop, now corrected.
+The keyed pane/tab chrome uses `repeat` through the single shared runtime; both public
+asset roots and an unsupported-directive refusal remain tested.
+
+**Local checks:** strict TypeScript; frontend **160 pass / 2 existing opt-in skips**;
+explicit Lit **100 pass**; Forgejo **26 pass / 18 optional skips**. The real-xterm
+browser case checks host/renderer/socket continuity, actual resize cells and no
+native actions across split/move/resize/maximize/compact/consolidation. Logs and early
+geometry/directive-fixture failures: `.artifacts/spaces-step5-f28f86e/` (`*-5b*`,
+`panes-*`). These are synthetic-peer checks, not native process/CLI evidence.
+Final chrome/sidebar/chooser/menus, drag-edge/reorder affordances, full compact native
+coexistence and installed-journey ports still need completion in step 5. No deployment,
+retained target/lifecycle/provider action or push occurred.
+
 ## Step 5a — bounded layout storage and exact restoration, local source
 
 Started step 5 from `f28f86e`. `sodaspaces-layout.ts` now owns the pure typed pane/

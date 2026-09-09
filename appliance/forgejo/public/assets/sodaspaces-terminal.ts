@@ -41,6 +41,10 @@ export class SodaTerminal extends LitElement {
   private timer: number | undefined;
   private request: AbortController | undefined;
   private actionRequest: AbortController | undefined;
+  private viewVisible = true;
+  private lastSize = '';
+  private minimumSize: {width: number; height: number} | undefined;
+  private geometryFrame: number | undefined;
   constructor() {
     super(); this.endConfirmed = false; this.state = 'idle'; this.sessionID = undefined; this.uncertainCreate = this.screenVisible = this.actionBusy = false; this.message = 'Not connected.';
   }
@@ -58,6 +62,8 @@ export class SodaTerminal extends LitElement {
       else if (terminalID(saved)) this.sessionID = saved;
       else if (saved === 'pending') this.uncertainCreate = true; // Old ambiguity must never select another session.
     } catch { /* locator only */ }
+    document.fonts.addEventListener('loadingdone', this.resize, {signal: this.lifetime.signal});
+    window.visualViewport?.addEventListener('resize', this.resize, {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pageshow', event => {if (event.persisted) this.invalidate();}, {signal: this.lifetime.signal});
   }
@@ -90,8 +96,9 @@ export class SodaTerminal extends LitElement {
     window.clearTimeout(this.timer); this.request?.abort(); this.request = undefined;
     this.actionRequest?.abort(); this.actionRequest = undefined; this.actionBusy = false;
     this.observer?.disconnect(); this.observer = undefined;
+    if (this.geometryFrame !== undefined) cancelAnimationFrame(this.geometryFrame); this.geometryFrame = undefined;
     const old = this.socket; this.socket = undefined; if (old && old.readyState < 2) old.close();
-    this.terminal?.dispose(); this.terminal = undefined; this.fit = undefined;
+    this.terminal?.dispose(); this.terminal = undefined; this.fit = undefined; this.lastSize = '';
     this.querySelector('.soda-terminal-screen')?.replaceChildren(); this.screenVisible = false; this.message = message;
   }
   invalidate() {this.detach('Page context changed. No action was replayed; reconnect through a fresh authorized page.', true);}
@@ -160,10 +167,29 @@ export class SodaTerminal extends LitElement {
   }
   private resize = () => {
     const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
-    if (!this.terminal || !this.fit || this.state !== 'ready' || !screen?.isConnected || !screen.clientWidth || !screen.clientHeight) return;
+    if (!this.terminal || !this.fit || !this.viewVisible || this.closest('[hidden]') || this.state !== 'ready' || !screen?.isConnected || !screen.clientWidth || !screen.clientHeight) return;
     this.fit.fit();
-    if (this.terminal.cols >= 2 && this.terminal.cols <= 500 && this.terminal.rows >= 2 && this.terminal.rows <= 300) this.send({type: 'resize', cols: this.terminal.cols, rows: this.terminal.rows});
+    const {cols, rows} = this.terminal, fitted = cols + ':' + rows;
+    if (cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && this.lastSize !== fitted) {this.lastSize = fitted; this.send({type: 'resize', cols, rows});}
+    // Xterm changes cols/rows before its rendered grid catches up. Measuring in
+    // this same callback would divide the old grid by the new column count.
+    if (this.geometryFrame === undefined) this.geometryFrame = requestAnimationFrame(() => {this.geometryFrame = undefined; this.measureMinimum();});
   };
+  private measureMinimum() {
+    const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
+    if (!this.terminal || this.state !== 'ready' || !this.viewVisible || !screen?.isConnected || this.closest('[hidden]')) return;
+    const {cols, rows} = this.terminal;
+    // Read only geometry of the locked xterm-owned descendants.
+    const grid = screen.querySelector<HTMLElement>('.xterm-screen')?.getBoundingClientRect();
+    if (grid?.width && grid.height && cols && rows) {
+      const css = getComputedStyle(screen), scrollbar = screen.querySelector<HTMLElement>('.scrollbar.vertical')?.getBoundingClientRect().width || 0;
+      const minimum = {width: Math.ceil(grid.width / cols * 56 + scrollbar + parseFloat(css.paddingLeft) + parseFloat(css.paddingRight)) + 2,
+        height: Math.ceil(grid.height / rows * 12 + this.offsetHeight - screen.offsetHeight + parseFloat(css.paddingTop) + parseFloat(css.paddingBottom)) + 2};
+      if (minimum.width > 0 && minimum.height > 0 && (minimum.width !== this.minimumSize?.width || minimum.height !== this.minimumSize?.height)) {
+        this.minimumSize = minimum; this.dispatchEvent(new CustomEvent('soda-terminal-geometry', {bubbles: true, detail: minimum}));
+      }
+    }
+  }
   private async connect(automatic = false) {
     if (this.disposed || !this.binding || this.state === 'stale' || this.state === 'opening' || this.state === 'ready' || this.actionBusy) return;
     if (this.managedEnded) {this.message = 'This exact session ended. Use New terminal for a different shell.'; return;}
@@ -197,7 +223,9 @@ export class SodaTerminal extends LitElement {
       await this.updateComplete; if (!this.live(n)) return;
       if (!this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
       const screen = this.querySelector<HTMLElement>('.soda-terminal-screen'); if (!screen) throw Error('Missing terminal screen');
-      const terminal = this.terminal = new Terminal({allowProposedApi: true, disableStdin: true, scrollback: 1000, windowOptions: {}, convertEol: false, cols: 80, rows: 24});
+      await document.fonts.ready; if (!this.live(n)) return;
+      if (!this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
+      const terminal = this.terminal = new Terminal({allowProposedApi: true, disableStdin: true, scrollback: 1000, windowOptions: {}, convertEol: false, cols: 80, rows: 24, fontFamily: '"IBM Plex Mono", monospace', fontSize: 14, lineHeight: 1.4});
       const fit = this.fit = new FitAddon(); terminal.loadAddon(fit);
       for (const code of [0, 1, 2, 8, 52]) terminal.parser.registerOscHandler(code, () => true);
       terminal.attachCustomKeyEventHandler(event => {
@@ -210,7 +238,7 @@ export class SodaTerminal extends LitElement {
         return true;
       });
       terminal.onData(data => {
-        if (!this.live(n)) return;
+        if (!this.live(n) || !this.viewVisible || this.closest('[hidden]')) return;
         if (data.length > 65536) {this.detach('Input too large. Nothing was replayed.'); return;}
         const bytes = new TextEncoder().encode(data);
         for (let i = 0; i < bytes.length; i += 16384) if (!this.send({type: 'input', data: btoa(String.fromCharCode(...bytes.subarray(i, i + 16384)))})) break;
@@ -237,7 +265,7 @@ export class SodaTerminal extends LitElement {
           if (frame.type === 'session' && keys === 'attachment_id,id,request_id,type' && this.state === 'opening' && !located && terminalID(frame.id) && terminalID(frame.request_id) && terminalID(frame.attachment_id) && (!this.sessionID || frame.id === this.sessionID) && (!this.requestID || frame.request_id === this.requestID)) {
             located = true; this.sessionID = frame.id; this.requestID = frame.request_id; this.attachmentID = frame.attachment_id; this.uncertainCreate = false; this.remember(frame.id);
           } else if (frame.type === 'ready' && keys === 'type' && this.state === 'opening' && this.sessionID && located) {
-            window.clearTimeout(this.timer); this.state = 'ready'; this.retries = 0; terminal.options.disableStdin = false;
+            window.clearTimeout(this.timer); this.state = 'ready'; this.retries = 0; terminal.options.disableStdin = !this.viewVisible;
             this.message = action === 'create' ? `Connected as ${login}.` : `Reconnected as ${login}. Choose Continue working to renew a detached deadline.`;
             void this.screenReady(n, terminal, screen);
             if (this.managed) {
@@ -273,6 +301,12 @@ export class SodaTerminal extends LitElement {
       this.observer = new ResizeObserver(this.resize); this.observer.observe(screen); this.resize();
     } catch {if (this.live(n)) this.detach('Terminal rendering failed. No input or creation was replayed.');}
   }
+  setVisible(visible: boolean) {
+    this.viewVisible = visible;
+    if (this.terminal) this.terminal.options.disableStdin = !visible || this.state !== 'ready';
+    if (visible) this.resize(); // Presentation only: never connect, focus or Return.
+  }
+  focus() {if (this.viewVisible && !this.closest('[hidden]') && this.state === 'ready') this.terminal?.focus();}
   open() {return this.connect();}
   get started() {return this.state !== 'idle';}
   restore() {if (this.sessionID || this.requestID) return this.connect(true);}
@@ -288,6 +322,6 @@ export function mountTerminal(root: HTMLElement, context: TerminalContext, loadR
   if (root.ownerDocument !== document || !identifier(expectedUserId) || !identifier(repositoryId) || !/^p[0-9a-f]{24}$/.test(environmentId) || !/^[a-z][a-z0-9_-]{0,30}$/.test(login) || login === 'root') throw Error('Invalid terminal mounting context');
   if (locator?.kind === 'existing' && !terminalID(locator.id) || locator?.kind === 'pending' && !terminalID(locator.requestId)) throw Error('Invalid terminal locator');
   const terminal = new SodaTerminal(); terminal.configure(context, loadRenderer, locator); root.append(terminal);
-  return {open: () => terminal.open(), get started() {return terminal.started;}, get ready() {return terminal.updateComplete;}, restore: () => terminal.restore(), retain: () => terminal.retain(), returnToWork: () => terminal.returnToWork(),
+  return {setVisible: (visible: boolean) => terminal.setVisible(visible), focus: () => terminal.focus(), open: () => terminal.open(), get started() {return terminal.started;}, get ready() {return terminal.updateComplete;}, restore: () => terminal.restore(), retain: () => terminal.retain(), returnToWork: () => terminal.returnToWork(),
     invalidate: () => terminal.invalidate(), disconnect: () => terminal.disconnect(), dispose: () => terminal.dispose()};
 }

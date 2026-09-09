@@ -99,7 +99,10 @@ test('Lit production runtime upgrades and updates independent elements in Chromi
   const second = page.locator('soda-lit-smoke').nth(1).locator('button');
   assert.equal(await first.innerText(), 'First: 0');
   assert.equal(await second.innerText(), 'Second: 0');
+  const keyed = await page.locator('soda-lit-smoke').first().locator('[data-key=a]').elementHandle(); assert(keyed);
   await first.click();
+  assert.equal(await page.locator('soda-lit-smoke').first().locator('.keyed').innerText(), 'ba');
+  assert(await keyed.evaluate(el => el.isConnected));
   await first.click();
   await second.click();
   assert.equal(await first.innerText(), 'First: 2');

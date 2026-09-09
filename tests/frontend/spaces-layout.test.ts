@@ -1,6 +1,6 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, migrateLayout} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
+import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, migrateLayout, splitPane, moveTab, resizeSplit, consolidate, projectLayout, panes} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
 import type {WorkspaceLayout, LayoutEntry} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
 const key = (n: number) => n.toString(16).padStart(8, '0') + '-0000-0000-0000-000000000000';
 const env = 'p' + '1'.repeat(24), terminal = 'a'.repeat(32), request = 'b'.repeat(32);
@@ -55,6 +55,33 @@ for (const [name, change] of Object.entries<(layout: WorkspaceLayout) => unknown
 for (const ratio of [0, 1, -0.1, 1.1, null, '0.5']) test('refuses split ratio ' + ratio, () => {
   const layout = original(); assert.throws(() => parseLayout(JSON.stringify({...layout, tree: {kind: 'split', key: key(4), axis: 'right', ratio, first: layout.tree, second: {kind: 'pane', key: key(5), tabs: [], selected: null}}})));
 });
+test('split/move/reorder/consolidate retain locators and collapse only emptied sources', () => {
+  const initial = original(), split = splitPane(initial, key(1), 'right', key(3), key(4));
+  assert.equal(panes(split.tree).length, 2); assert.equal(focusedPane(split).selected, null);
+  assert.equal(split.entries, initial.entries);
+  const moved = moveTab(split, entry.key, key(3));
+  assert.equal(moved.tree.kind, 'pane'); assert.equal(moved.tree.key, key(3));
+  const second = {...entry, key: key(5), locator: {kind: 'existing' as const, id: terminal}};
+  const again = splitPane(selectTab(putEntry(moved, second), second.key), key(3), 'below', key(6), key(7));
+  const two = moveTab(again, second.key, key(6)); assert.equal(panes(two.tree).length, 2);
+  const combined = consolidate(two); assert.deepEqual(focusedPane(combined).tabs, [second.key, entry.key]);
+  assert.deepEqual(combined.entries, two.entries); assert.deepEqual(parseLayout(serializeLayout(two)), two);
+  assert.deepEqual(initial, original());
+});
+test('measured compact projection and maximize do not rewrite desired tree or ratios', () => {
+  const layout = splitPane(original(), key(1), 'right', key(3), key(4)); layout.tree = resizeSplit(layout.tree, key(4), 0.6);
+  const before = serializeLayout(layout), minimum = () => ({width: 500, height: 280});
+  const wide = projectLayout(layout, {x: 0, y: 0, width: 1400, height: 800}, minimum);
+  assert.equal(wide.panes.length, 2); assert.equal(wide.dividers.length, 1);
+  assert(wide.panes.every(p => p.width >= 500 && p.height >= 280));
+  const narrow = projectLayout(layout, {x: 0, y: 0, width: 900, height: 800}, minimum);
+  assert(narrow.compact); assert.equal(narrow.panes[0]?.pane.key, key(3));
+  const maximize = projectLayout(layout, {x: 0, y: 0, width: 1400, height: 800}, minimum, false, key(1));
+  assert.equal(maximize.panes.length, 1); assert.equal(maximize.panes[0]?.pane.key, key(1));
+  assert.equal(serializeLayout(layout), before);
+  assert.deepEqual(projectLayout(layout, {x: 0, y: 0, width: 1400, height: 800}, minimum), wide);
+});
+
 test('capacity, byte and tree bounds refuse rather than truncate unknown locators', () => {
   let layout = emptyLayout(key(1));
   for (let n = 2; n <= 65; n++) layout = putEntry(layout, {key: key(n), environmentId: env, locator: {kind: 'existing', id: n.toString(16).padStart(32, '0')}});

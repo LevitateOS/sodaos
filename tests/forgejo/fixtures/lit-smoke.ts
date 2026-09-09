@@ -1,4 +1,5 @@
 import {LitElement, css, html, nothing, render} from 'lit';
+import {repeat} from 'lit/directives/repeat.js';
 
 class SodaLitSmoke extends LitElement {
   static properties = {
@@ -27,6 +28,7 @@ class SodaLitSmoke extends LitElement {
     return html`
       <button type="button" @click=${this.increment}>${this.label}: ${this.count}</button>
       ${this.count === 0 ? nothing : html`<output>${this.count}</output>`}
+      <div class="keyed">${repeat(this.count % 2 ? ['b', 'a'] : ['a', 'b'], key => key, key => html`<span data-key=${key}>${key}</span>`)}</div>
     `;
   }
 }
