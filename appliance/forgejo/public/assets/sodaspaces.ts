@@ -98,7 +98,7 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
   };
   const hide = () => {void controller?.retain?.(); drawer.hidden = true; doc.body.classList.remove('sodaspaces-open'); size(); button.setAttribute('aria-expanded', 'false'); persist(); button.focus();};
   const release = () => {++generation; loading = undefined; controller?.dispose(); controller = undefined; content.replaceChildren();};
-  button.addEventListener('click', () => show(true), options); close.addEventListener('click', hide, options);
+  button.addEventListener('click', () => {if (drawer.hidden) show(true); else if (!departed) {surface = 'terminal'; size();}}, options); close.addEventListener('click', hide, options);
   forge.addEventListener('click', () => {surface = 'forge'; size(); if (nativeFocus?.isConnected && !nativeFocus.inert) nativeFocus.focus({preventScroll: true});}, options);
   terminal.addEventListener('click', () => {surface = 'terminal'; size();}, options);
   doc.addEventListener('focusin', event => {if (event.target instanceof browser.HTMLElement && !root.contains(event.target)) nativeFocus = event.target;}, options);

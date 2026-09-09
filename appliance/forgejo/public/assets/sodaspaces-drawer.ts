@@ -61,6 +61,7 @@ export class SodaSpaces extends LitElement {
     this.view = 'terminal'; this.search = this.storageNotice = ''; this.creation = this.editing = null; this.layout = emptyLayout(crypto.randomUUID());
   }
   protected createRenderRoot() {return this;}
+  private get activeSurface() {return this.surfaceVisible && this.isConnected && !this.closest('[hidden], [inert]');}
   private get selected() {return focusedPane(this.layout).selected || '';}
   private get compact() {return this.binding?.kind !== 'page' || this.workspaceWidth < (this.layout.sidebar || 220) + this.paneMinimum(focusedPane(this.layout)).width + 6;}
   private get projection() {return projectLayout(this.layout, {x: 0, y: 0, ...this.canvasSize}, pane => this.paneMinimum(pane), this.compact, this.maximized);}
@@ -157,7 +158,7 @@ export class SodaSpaces extends LitElement {
   }
   private projectName(space: Space) {return space.environment.repository || space.environment.name || space.environment.id;}
   private rows(space: Space): Row[] {
-    if (space.authority_unavailable) return [];
+    if (space.authority_unavailable || !space.login) return [];
     const entries = this.layout.entries.filter(e => e.environmentId === space.environment.id), seen = new Set<string>();
     const rows = space.terminals.map(metadata => {
       const entry = entries.find(e => sameLocator(e.locator, {kind: 'existing', id: metadata.id}) || sameLocator(e.locator, {kind: 'pending', requestId: metadata.request_id}));
@@ -179,8 +180,8 @@ export class SodaSpaces extends LitElement {
   }
   private paneChrome(pane: Pane, area: Area, navigation = false) {
     const keys = this.binding?.kind === 'native' ? panes(this.layout.tree).flatMap(p => p.tabs) : pane.tabs;
-    const entries = keys.flatMap(key => {const entry = this.layout.entries.find(e => e.key === key), space = this.spaces.find(s => s.environment.id === entry?.environmentId); return entry && space && !space.authority_unavailable ? [{entry, space, slot: this.slots.find(s => s.key === key)}] : [];});
-    return html`<section class="soda-pane-chrome" data-pane=${pane.key} style=${this.rectangle({...area, height: this.tabHeight})}>
+    const entries = keys.flatMap(key => {const entry = this.layout.entries.find(e => e.key === key), space = this.spaces.find(s => s.environment.id === entry?.environmentId); return entry && space && space.login && !space.authority_unavailable ? [{entry, space, slot: this.slots.find(s => s.key === key)}] : [];});
+    return html`<section class="soda-pane-chrome" role="group" aria-label=${'Pane ' + (panes(this.layout.tree).findIndex(p => p.key === pane.key) + 1)} aria-owns=${!navigation && this.slots.some(s => s.key === pane.selected && !s.unavailable) ? 'soda-owner-' + pane.selected : ''} data-pane=${pane.key} style=${this.rectangle({...area, height: this.tabHeight})}>
       <div class="soda-workspace-tabs" role="tablist" aria-label="Terminal sessions" @dragover=${(e: DragEvent) => {if (this.dragged) e.preventDefault();}} @drop=${(e: DragEvent) => {if (this.dragged) {e.preventDefault(); this.move(this.dragged, pane.key); this.dragged = undefined;}}}>
         ${repeat(entries, ({entry}) => entry.key, ({entry, space, slot}) => html`<button id=${(navigation ? 'soda-navtab-' : 'soda-tab-') + entry.key} role="tab" class="ui button" draggable=${this.binding?.kind === 'page' ? 'true' : 'false'} title=${this.projectName(space)} aria-label=${(slot ? this.slotName(slot) : this.rowName({key: entry.key, entry})) + ' · ' + this.projectName(space)} aria-controls=${'soda-owner-' + entry.key} tabindex=${entry.key === pane.selected ? '0' : '-1'} aria-selected=${String(entry.key === pane.selected)}
           @dragstart=${(e: DragEvent) => {if (this.binding?.kind === 'page') {this.dragged = entry.key; e.dataTransfer?.setData('application/x-soda-tab', entry.key); this.requestUpdate();}}} @dragend=${() => {this.dragged = undefined; this.requestUpdate();}}
@@ -188,8 +189,8 @@ export class SodaSpaces extends LitElement {
           @keydown=${(e: KeyboardEvent) => this.tabKey(e, entry.key, keys)} @click=${() => this.openSaved(entry)}>${slot ? this.slotName(slot) : this.rowName({key: entry.key, entry})}</button>`)}
       </div>
       <details class="soda-menu soda-tab-overflow"><summary aria-label="Open tabs">⌄</summary><div><input type="search" aria-label="Find an open tab" @input=${(e: Event) => {if (e.target instanceof HTMLInputElement && e.currentTarget instanceof HTMLElement) {const text = e.target.value.toLocaleLowerCase(); for (const button of e.currentTarget.parentElement?.querySelectorAll('button') || []) button.hidden = !button.textContent?.toLocaleLowerCase().includes(text);}}}>${entries.map(({entry, space, slot}) => html`<button class="ui button" @click=${() => this.openSaved(entry)}>${slot ? this.slotName(slot) : 'Saved terminal'} · ${this.projectName(space)}</button>`)}</div></details>
-      ${this.binding?.kind === 'page' && pane.selected ? html`<details class="soda-menu"><summary aria-label="Move terminal to pane" title="Move terminal to pane">⇢</summary><div>${panes(this.layout.tree).map((destination, i) => html`<button class="ui button" @click=${() => {this.closeMenus(); if (pane.selected) this.move(pane.selected, destination.key);}}>Pane ${i + 1}${destination.key === pane.key ? ' — move to end' : ''}</button>`)}</div></details>` : ''}
-      ${!navigation && (!pane.selected || !entries.some(e => e.entry.key === pane.selected && e.slot)) ? html`<div class="soda-empty-pane" style=${`width:${area.width}px;height:${Math.max(0, area.height - this.tabHeight)}px;top:${this.tabHeight}px`}><p>${pane.selected ? 'Saved terminal is not attached. Select it after current authorization.' : 'No terminal in this pane. Splitting creates no shell.'}</p><button class="ui button" ?disabled=${!this.available || this.stale} @click=${() => this.showSessions(pane.key)}>Use existing terminal</button><button class="ui button" ?disabled=${!this.available || this.stale || this.creating} @click=${() => this.newTerminal(pane.key)}>New terminal here</button></div>` : ''}
+      ${this.binding?.kind === 'page' && pane.selected ? html`<details class="soda-menu"><summary aria-label="Move terminal to pane" title="Move terminal to pane">⇢</summary><div>${panes(this.layout.tree).map((destination, i) => html`<button class="ui button" @click=${() => {this.closeMenus(); if (pane.selected) this.move(pane.selected, destination.key);}}>Pane ${i + 1}${destination.key === pane.key ? ' — move to end' : ''}</button>`)}${pane.tabs.filter(key => key !== pane.selected).map(before => html`<button class="ui button" @click=${() => {this.closeMenus(); if (pane.selected) this.move(pane.selected, pane.key, before);}}>Move before ${entries.find(item => item.entry.key === before)?.slot?.metadata?.name || 'saved tab'}</button>`)}</div></details>` : ''}
+      ${!navigation && (!pane.selected || !entries.some(e => e.entry.key === pane.selected && e.slot && !e.slot.unavailable)) ? html`<div class="soda-empty-pane" style=${`width:${area.width}px;height:${Math.max(0, area.height - this.tabHeight)}px;top:${this.tabHeight}px`}><p>${pane.selected ? 'Saved terminal is not attached. Select it after current authorization.' : 'No terminal in this pane. Splitting creates no shell.'}</p><button class="ui button" ?disabled=${!this.available || this.stale} @click=${() => this.showSessions(pane.key)}>Use existing terminal</button><button class="ui button" ?disabled=${!this.available || this.stale || this.creating} @click=${() => this.newTerminal(pane.key)}>New terminal here</button></div>` : ''}
       ${this.dragged && this.binding?.kind === 'page' ? (['right', 'below'] as const).map(axis => html`<div class=${'soda-drop-edge ' + axis} ?hidden=${!this.canSplit(axis, pane.key)} style=${axis === 'right' ? `left:${area.width - 32}px;height:${area.height}px` : `top:${area.height - 32}px;width:${area.width}px`} @dragover=${(e: DragEvent) => {if (this.dragged && this.canSplit(axis, pane.key)) e.preventDefault();}} @drop=${(e: DragEvent) => {if (this.dragged && this.canSplit(axis, pane.key)) {e.preventDefault(); const key = this.dragged, next = splitPane(this.layout, pane.key, axis, crypto.randomUUID(), crypto.randomUUID()); this.arrange(moveTab(next, key, next.focused)); this.dragged = undefined;}}}>Split ${axis}</div>`) : ''}
     </section>`;
   }
@@ -211,11 +212,11 @@ export class SodaSpaces extends LitElement {
   }
   private closeMenus() {for (const menu of this.querySelectorAll<HTMLDetailsElement>('.soda-menu')) menu.open = false;}
   private rememberFocus() {this.invoker = document.activeElement instanceof HTMLElement ? document.activeElement : undefined; this.closeMenus();}
-  private restoreFocus() {const target = this.invoker, active = document.activeElement; void this.updateComplete.then(() => {if (!this.stale && target?.isConnected && (document.activeElement === active || document.activeElement === document.body)) target.focus();});}
-  private showSessions(pane?: string) {this.rememberFocus(); this.choosingPane = pane; this.thisPage = false; this.view = 'sessions'; const active = document.activeElement; void this.updateComplete.then(() => {if (!this.stale && this.view === 'sessions' && (document.activeElement === active || document.activeElement === document.body)) this.querySelector<HTMLInputElement>('.soda-workspace-navigation input')?.focus();});}
+  private restoreFocus() {const target = this.invoker, active = document.activeElement; void this.updateComplete.then(() => {if (!this.stale && this.activeSurface && target?.isConnected && (document.activeElement === active || document.activeElement === document.body)) target.focus();});}
+  private showSessions(pane?: string) {this.rememberFocus(); this.choosingPane = pane; this.thisPage = false; this.view = 'sessions'; const active = document.activeElement; void this.updateComplete.then(() => {if (!this.stale && this.activeSurface && this.view === 'sessions' && (document.activeElement === active || document.activeElement === document.body)) this.querySelector<HTMLInputElement>('.soda-workspace-navigation input')?.focus();});}
   private back() {this.view = 'terminal'; this.choosingPane = undefined; this.restoreFocus();}
   private newTerminal(pane = this.layout.focused) {
-    if (this.stale || this.creating || !this.available) return;
+    if (this.stale || this.creating || !this.available || !this.activeSurface) return;
     this.rememberFocus(); const selected = this.slots.find(s => s.key === this.selected);
     const native = this.binding?.kind === 'native' ? this.binding.repositoryId : undefined;
     const space = this.spaces.find(s => s.environment.id === selected?.binding.environmentId) || this.spaces.find(s => s.environment.repository_id === native) || this.spaces[0];
@@ -249,7 +250,7 @@ export class SodaSpaces extends LitElement {
       this.spaces = collection.items; this.available = true; this.status = collection.complete ? '' : 'Spaces is incomplete or partly unavailable; missing rows are not proof of absence.';
       for (const slot of this.slots) {
         const space = this.spaces.find(s => s.environment.id === slot.binding.environmentId);
-        if (space?.authority_unavailable || !space && collection.complete) {slot.unavailable = true; slot.metadata = undefined; slot.terminal.invalidate();}
+        if (space && (space.authority_unavailable || space.login !== slot.binding.login) || !space && collection.complete) {slot.unavailable = true; slot.metadata = undefined; slot.terminal.invalidate(); continue;}
         const locator = this.locator(slot), metadata = space?.terminals.find(t => locator.kind === 'existing' && t.id === locator.id);
         if (metadata) {if (metadata.state === 'ended') this.confirmedEnd(slot.key); else {slot.metadata = metadata; slot.terminal.setName(metadata.name);}}
       }
@@ -299,19 +300,24 @@ export class SodaSpaces extends LitElement {
   }
   private slotName(slot: Slot) {const locator = this.locator(slot); return slot.metadata?.name || 'Terminal ' + (locator.kind === 'existing' ? locator.id.slice(0, 8) : locator.kind);}
   private confirmedEnd(key: string) {
-    const slot = this.slots.find(s => s.key === key);
+    const slot = this.slots.find(s => s.key === key), entry = this.layout.entries.find(e => e.key === key);
+    if (entry) this.spaces = this.spaces.map(space => space.environment.id !== entry.environmentId ? space : {...space, terminals: space.terminals.filter(metadata => !(entry.locator.kind === 'existing' && metadata.id === entry.locator.id || entry.locator.kind === 'pending' && metadata.request_id === entry.locator.requestId))});
     this.layout = forgetEntry(this.layout, key); this.slots = this.slots.filter(s => s.key !== key); this.maximized = undefined;
     this.persist(); this.display(); this.status = 'Native cleanup confirmed for that exact terminal.';
     queueMicrotask(() => {slot?.terminal.dispose(); slot?.host.remove();});
   }
-  private async openSaved(entry: LayoutEntry, destination?: string) {
-    if (this.stale || this.disposed || !this.available) return;
+  private async openSaved(entry: LayoutEntry, destination?: string, focus = true) {
+    const invoker = document.activeElement;
+    if (this.stale || this.disposed || !this.available || !this.activeSurface) return;
     const space = this.spaces.find(s => s.environment.id === entry.environmentId); if (!space || space.authority_unavailable || !space.login) return;
     try {
       this.closeMenus(); this.layout = destination ? moveTab(this.layout, entry.key, destination) : selectTab(this.layout, entry.key);
       this.view = 'terminal'; this.choosingPane = undefined; if (this.maximized) this.maximized = this.layout.focused; this.persist();
       const n = this.epoch, slot = await this.addSlot(space, entry); await this.updateComplete;
-      if (slot && this.live(n) && !slot.unavailable) {this.display(); if (this.locator(slot).kind !== 'new') await slot.terminal.restore();}
+      if (slot && this.live(n) && !slot.unavailable) {
+        this.display(); if (this.locator(slot).kind !== 'new') await slot.terminal.restore();
+        if (focus && this.live(n) && this.activeSurface && this.selected === slot.key && document.activeElement === invoker) slot.terminal.focus();
+      }
     } catch {if (!this.stale) this.status = 'The exact saved terminal could not be selected; no replacement was requested.';}
   }
   private identity(space: Space): TerminalContext {return {expectedUserId: this.binding?.expectedUserId || '', repositoryId: space.environment.repository_id, environmentId: space.environment.id, login: space.login, projectName: this.projectName(space)};}
@@ -340,6 +346,7 @@ export class SodaSpaces extends LitElement {
       const locator = this.locator(slot); if (locator.kind !== 'existing') return;
       try {const metadata = terminalMetadata(event.detail, slot.binding); if (metadata.id === locator.id) {slot.metadata = metadata; terminal.setName(metadata.name); this.requestUpdate();}} catch { /* Invalid observation cannot change the binding. */ }
     });
+    host.addEventListener('soda-terminal-authority-lost', () => {if (!this.disposed) this.invalidate();});
     host.addEventListener('soda-terminal-command', event => {
       if (!(event instanceof CustomEvent) || this.stale || this.disposed || slot.host.hidden || slot.unavailable) return;
       this.rememberFocus();
@@ -360,7 +367,7 @@ export class SodaSpaces extends LitElement {
     for (const slot of this.slots) {
       const area = projection.panes.find(area => area.pane.selected === slot.key);
       slot.host.hidden = this.stale || slot.unavailable || this.view !== 'terminal' || !area;
-      if (area) {slot.host.style.cssText = this.rectangle({...area, y: area.y + this.tabHeight, height: Math.max(0, area.height - this.tabHeight)}); slot.host.setAttribute('aria-labelledby', 'soda-tab-' + slot.key);}
+      if (area) {slot.host.style.cssText = this.rectangle({...area, y: area.y + this.tabHeight, height: Math.max(0, area.height - this.tabHeight)}) + `;--soda-terminal-height:${Math.max(0, area.height - this.tabHeight)}px`; slot.host.setAttribute('aria-labelledby', 'soda-tab-' + slot.key);}
       slot.terminal.setVisible(this.surfaceVisible && !slot.host.hidden && !this.closest('[hidden]'));
     }
     for (const [id, project] of this.projects) project.host.hidden = this.view !== 'project' || id !== this.project;
@@ -395,12 +402,12 @@ export class SodaSpaces extends LitElement {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); const index = keys.indexOf(key), next = keys[event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + keys.length) % keys.length];
     const entry = this.layout.entries.find(e => e.key === next);
-    if (entry) {void this.openSaved(entry); void this.updateComplete.then(() => {if (!this.stale && this.surfaceVisible && this.view === 'terminal' && this.selected === entry.key) this.querySelector<HTMLElement>('#soda-tab-' + entry.key)?.focus();});}
+    if (entry) {void this.openSaved(entry, undefined, false); void this.updateComplete.then(() => {if (!this.stale && this.surfaceVisible && this.view === 'terminal' && this.selected === entry.key) this.querySelector<HTMLElement>('#soda-tab-' + entry.key)?.focus();});}
   }
   private async hideSlot(slot: Slot) {if (this.stale || this.disposed) return; this.arrange(hideTab(this.layout, slot.key)); await slot.terminal.retain();}
   private async createTerminal() {
     const draft = this.creation;
-    if (!draft || this.creating || !this.available || this.stale || this.disposed || !validName(draft.name)) return;
+    if (!draft || this.creating || !this.available || this.stale || this.disposed || !this.activeSurface || !validName(draft.name)) return;
     const space = this.spaces.find(p => p.environment.id === draft.environmentId);
     if (!space?.login || !space.environment.provisioned || space.authority_unavailable || space.observed?.running !== true) return;
     if (!panes(this.layout.tree).some(p => p.key === draft.pane)) {this.status = 'The destination pane changed. Choose New terminal again.'; return;}
@@ -413,7 +420,7 @@ export class SodaSpaces extends LitElement {
     } finally {this.creating = false;}
   }
   private async openExisting(space: Space, metadata: TerminalMetadata, destination?: string) {
-    if (this.stale || this.disposed || !this.available || space.authority_unavailable) return;
+    if (this.stale || this.disposed || !this.activeSurface || !this.available || space.authority_unavailable) return;
     try {
       let entry = this.layout.entries.find(e => sameLocator(e.locator, {kind: 'existing', id: metadata.id}) || sameLocator(e.locator, {kind: 'pending', requestId: metadata.request_id}));
       if (entry) check(entry.environmentId === space.environment.id);
@@ -423,7 +430,7 @@ export class SodaSpaces extends LitElement {
     } catch {if (!this.stale) this.status = 'The exact session could not be opened. No locator was replaced or creation requested.';}
   }
   private async showManagement(repositoryId: string) {
-    if (!id(repositoryId) || !this.binding?.expectedUserId || !this.available || this.stale || this.disposed) return;
+    if (!id(repositoryId) || !this.binding?.expectedUserId || !this.available || this.stale || this.disposed || !this.activeSurface) return;
     this.rememberFocus(); this.project = repositoryId; this.view = 'project'; const n = this.epoch;
     await this.updateComplete; if (!this.live(n)) return;
     let project = this.projects.get(repositoryId);
@@ -435,7 +442,7 @@ export class SodaSpaces extends LitElement {
     this.display();
   }
   private async rename(slot: Slot, name: string) {
-    if (this.renaming.has(slot.key) || this.stale || this.disposed || this.closest('[hidden]') || !validName(name) || this.editing?.key !== slot.key) return;
+    if (this.renaming.has(slot.key) || this.stale || this.disposed || !this.activeSurface || !validName(name) || this.editing?.key !== slot.key) return;
     const locator = this.locator(slot); if (locator.kind !== 'existing') return;
     const id = locator.id, n = this.epoch; this.renaming.add(slot.key); this.requestUpdate();
     const request = new AbortController(), timeout = window.setTimeout(() => request.abort(), 15000);
@@ -445,7 +452,7 @@ export class SodaSpaces extends LitElement {
   }
   setVisible(visible: boolean) {this.surfaceVisible = visible; this.display();}
   async retain() {await Promise.all(this.slots.map(s => s.terminal.retain()));}
-  async returnToWork() {if (!this.restored) await this.refresh(); const slot = this.slots.find(s => s.key === this.selected); if (!this.stale && !this.closest('[hidden]')) await slot?.terminal.returnToWork();}
+  async returnToWork() {if (!this.restored) await this.refresh(); const slot = this.slots.find(s => s.key === this.selected); if (!this.stale && this.surfaceVisible && this.view === 'terminal' && !this.closest('[hidden]') && slot?.metadata?.retain_until && (slot.metadata.state === 'ready' || slot.metadata.state === 'opening')) await slot.terminal.returnToWork();}
   invalidate() {
     if (this.stale) return; this.stale = true; ++this.epoch; this.request?.abort(); this.busy = false; this.creation = this.editing = null;
     for (const slot of this.slots) {slot.metadata = undefined; slot.terminal.invalidate();} for (const project of this.projects.values()) project.api.invalidate();

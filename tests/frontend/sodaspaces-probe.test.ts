@@ -49,15 +49,15 @@ test('private anonymous probe requires native denial without Soda repository rea
 });
 
 test('read-only probe records only a usable displayed own connection', async () => {
-  const from = probe.indexOf("    if (await page.locator('#sodaspaces-connection').isVisible()) {");
+  const from = probe.indexOf("    if (await control('connection').isVisible()) {");
   const to = probe.indexOf('    const cookies = await context.cookies', from);
   assert(from > 0 && to > from);
   for (const disabled of [false, true]) {
-    const scope = {assert, input: {users: [{id: '2'}], repository_id: '1'}, user: {id: '2'}, index: 0, result: {} as Evidence, page: {
-      locator() { return {async isVisible() { return true; }, async inputValue() { return 'ssh alice@10.89.0.2'; },
+    const scope = {assert, input: {users: [{id: '2'}], repository_id: '1'}, user: {id: '2'}, index: 0, result: {} as Evidence,
+      control() { return {async isVisible() { return true; }, async inputValue() { return 'ssh alice@10.89.0.2'; },
         async innerText() { return 'Ed25519 host-key fingerprint: SHA256:' + 'A'.repeat(43); },
-        async getAttribute() { return '#sodaspaces-command'; }, async isDisabled() { return disabled; }}; },
-    }};
+        async getAttribute() { return '#soda-command-1'; }, async isDisabled() { return disabled; }}; },
+    };
     const run = runInNewContext('(async () => {\n'+probe.slice(from, to)+'\n})()', scope);
     if (disabled) await assert.rejects(async () => await run);
     else { await run; assert.equal(scope.result.own_connections?.[0]?.user_id, '2'); assert.equal(scope.result.own_connections?.[0]?.command, 'ssh alice@10.89.0.2'); }

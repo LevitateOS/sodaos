@@ -142,6 +142,16 @@ test('hidden access view cannot remove a key through a synthetic click', async t
   await page.evaluate(() => window.drawerFixture.button('Remove saved key').click());
   assert.deepEqual(await writes(page), []);
 });
+test('compact-surface inert project controls cannot dispatch through a synthetic click', async t => {
+  const page = await fixture(t); await refresh(page);
+  await click(page, 'Access'); await page.locator('textarea').fill('ssh-ed25519 YWJj');
+  const changed = await page.evaluate(async () => {
+    const f = window.drawerFixture, button = await window.drawerFixture.showButton('Save public key');
+    button.closest('soda-project-controls')?.setAttribute('inert', '');
+    const before = f.calls.length; button.click(); return f.calls.length - before;
+  });
+  assert.equal(changed, 0); assert.deepEqual(await writes(page), []);
+});
 test('create never implicitly joins, saves keys or starts; rapid clicks dispatch once', async t => {
   const page = await fixture(t, {absent: true}); await refresh(page);
   await page.evaluate(async () => {const b = await window.drawerFixture.showButton('Create environment'); b.click(); b.click();});

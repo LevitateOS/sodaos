@@ -12,18 +12,24 @@ the [terminal contract](terminal-integration.md) owns native lifetime, and the
 emitted-browser and layout checks. Step 3's ID registry/collection and caller contracts
 are source-implemented with local Go/race/browser coverage. Step 4's authenticated
 page/fixed return and shared multi-session workspace now have local source/browser
-coverage at `18aceb2`; steps 5–6 remain unimplemented.** The remaining sequence below
+coverage at `18aceb2`. Step 5a–5d now has local source/browser/geometry coverage:
+bounded v2 layout, stable measured panes, shared chrome, compact native coexistence,
+current journey source ports and actual Go HTML→emitted-page integration. Step 6
+attention and candidate/native/CLI closure remain outstanding.** The sequence below
 is reconciled with that source, not another design cycle. Xterm/transport and native
 tmux ownership stay imperative; no Preact, second frontend or backend redesign is
 selected. Canonical branding and complete-public preview projections exist; changing
 live mounts and installed acceptance remain separately scoped. See the handoff for
-actual evidence. Steps 1–4 below retain their completed source-slice contracts;
+actual evidence. Steps 1–5 below retain their completed source-slice contracts;
 their historical singleton/port instructions are not tasks to repeat. Do not port
 the superseded mockup or reintroduce grid presets/fake state machines.
 The user subsequently requested end-to-end implementation and local testing.
 Deployment, new appliance fixtures and project recreation remain separately scoped.
 
 ## 1. Starting point and decisions
+
+These were the step-4 starting facts, not a claim that the completed step-5 work
+is still absent. The handoff records exact revisions and checks.
 
 | Source fact | Consequence |
 | --- | --- |
@@ -52,8 +58,8 @@ handlers from a template override.
 
 ## 2. Concrete owners
 
-Paths are repository-relative. Only `sodaspaces-layout.ts` is a new proposed module;
-the step-4 page/workspace/project owners already exist. Keep new layout logic there
+Paths are repository-relative. `sodaspaces-layout.ts` was added in step 5a;
+the page/workspace/project owners remain shared. Keep new layout logic there
 only when it is pure and shared by concrete callers, not to build a generic store.
 
 | Owner | Responsibility |
@@ -336,6 +342,17 @@ End confirmation shows the named account/project and follows metadata, not trans
 text or socket-close ordering. The page and drawer have one implementation of actions.
 
 ### Step 5 — full layout and native-left/drawer-right behavior
+
+**Locally source-complete:** 5a (`9ad7847`), 5b (`54686d0`), shared chrome/compact
+adapter (`d2821fa`) and the subsequent journey/Go-page/geometry closure recorded in
+the handoff. `bun run test:layout` now owns the 20-case measured synthetic fixture
+and is included in `bun run test`; `test:spaces-page` consumes actual Go handler
+HTML/CSP with emitted assets and synthetic read-only API responses. Current installed
+journeys use scoped shared controls and exact `terminal_actions: ["create", "end"]`
+for their bounded single-terminal path. They were ported and locally exercised,
+**not run against an installed candidate**. Native form integration, physical-device
+keyboard behavior, real concurrent processes and selected CLIs remain step-6 proof.
+The requirements below describe the implemented slice, not instructions to repeat it.
 
 Implement the approved designs on `18aceb2`'s shared workspace, in the following
 commit-sized slices. Each slice includes its own callers, focused tests and handoff;
@@ -644,7 +661,7 @@ source journey ports or deterministic local failure checks unfinished.
 | --- | --- |
 | Local source/build | Frozen pinned Bun inputs with dependency lifecycle scripts disabled; `bun run typecheck`, `test:frontend`, `test:forgejo`, `test:lit`, retained Cockpit tests, Go tests/races for changed web/store/host callers. Required browser cases fail when the browser cannot run. |
 | Storage/layout | V1→v2 migration, pending promotion, hidden/unresolved records, stable selection/order, malformed/bounded/future data and storage failure. Pure transforms send no effects; actual reload/partial metadata tests verify unchanged exact targets and no replay/Return. |
-| Component/geometry | Extend `tests/frontend/drawer-layout.test.ts` (`SODA_DRAWER_LAYOUT=1`) and full-page workspace tests with real xterm/synthetic IO. Observe actual fitted columns/rows and transmitted resize frames after fonts/chrome settle, not a 216px proxy. Record host/screen/renderer/socket identity and disposal counts, focus/input isolation, clipping/overlays and screenshots through all pane/surface operations. |
+| Component/geometry | Run `bun run test:layout` (`tests/frontend/drawer-layout.test.ts`, `SODA_DRAWER_LAYOUT=1`) and full-page workspace tests with real xterm/synthetic IO. Observe actual fitted columns/rows and transmitted resize frames after fonts/chrome settle, not a 216px proxy. Record host/screen/renderer/socket identity and disposal counts, focus/input isolation, clipping/overlays and screenshots through all pane/surface operations. |
 | Widths/themes | Light/dark; page 1920/1440/960/800/720/390/320; drawer 1440 with viable 35/50/65% ratios and widths just above/below the measured compact threshold. Long labels, warnings, menus, font load/change, zoom, orientation and visual keyboard viewport. Assert disabled unviable splits and exact desired-layout restoration, not tiny fonts or forced ratios. Simulated viewport checks are not real-device keyboard proof. |
 | Native coexistence | Code/diffs/PR comments, forms/unsent values, native menus/modals/notifications, Copy, cancellation of beforeunload, Back/Forward and signed non-repository resume. Check the 1000px pane breakpoint, not just viewport size. |
 | Payload | `build:forgejo`, production payload/inventory and focused Python/Go staging checks. Exactly one runtime/directive instance from both public asset roots; missing/unreadable runtime and new component assets fail. AppSubUrl-safe **assets** do not enable currently unsupported backend subpath deployment. |

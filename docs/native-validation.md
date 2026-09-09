@@ -29,10 +29,10 @@ package metadata or disabled inner workload cgroups alone prove none of those.
 For existing-root additions, declare the exact native maintenance transaction and
 fresh backup/interruption scope; verify the original CID, accounts/keys, configuration,
 homes/shared tools and workload data survive. Prove the selected tmux session's same
-process and owned cleanup independently from its socket. The existing request-owned
-terminal probe assertions below are historical behavior, not acceptance of new
-reattachment/navigation retention; revise them with the implementation, not by
-relabelling their old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate).
+process and owned cleanup independently from its socket. Historical request-owned
+terminal probe results do not accept managed reattachment/navigation retention.
+Current authored probes and UI ports require new, scoped execution; do not relabel
+old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate).
 No project/package/service mutation is authorized by these requirements.
 
 ## Native source and build evidence
@@ -40,6 +40,25 @@ No project/package/service mutation is authorized by these requirements.
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
 
 Record actual source revision, native OS/architecture/tool versions, commands, output and defects in an ordinary operator log or issue. Do not manufacture PASS lines or an acceptance schema. No CI workflow runs automatically.
+
+## Local workspace checks and installed-journey source ports
+
+The step-5 workspace and current journey controls have local coverage, not current
+installed acceptance. `bun run test:spaces-page` exports real authorized Go handler
+HTML/CSP into a retained isolated artifact directory, then loads the production page
+module/assets against synthetic GET-only API replies. `bun run test:layout` exercises
+20 width/theme/running-state combinations with real emitted Lit/xterm, a native-form
+fixture and synthetic peers. Both are in `bun run test`; neither contacts a retained
+appliance. Pointer/keyboard panes, sidebar/tab overflow, compact visibility, form
+selection, beforeunload cancellation and stable owners have focused browser coverage.
+Physical keyboards, actual Forgejo menus/forms/diff/comment/clipboard behavior and
+native process/CLI continuity still need the applicable installed scope.
+
+`tests/installed/sodaspaces-controls.ts` follows actual project views, New chooser
+and per-terminal menus; it does not authorize requests or substitute API writes.
+The runner retains its target/actor/path/body/private-input/replay guards. Its latest
+source ports were locally exercised, not rerun on retained projects. Old terminal
+permission does not authorize six sessions, shared Stop, fault injection or CLI use.
 
 ## Read-only Sodaspaces browser probe
 
@@ -201,15 +220,21 @@ its exact affected-component scope, including the changed helper.
 
 ## Integrated existing-account browser terminal mode
 
-Append `--allow-existing-terminal` to the authenticated public-repository probe
-using its ordinary private input. This requires explicit native shell permission
-for both existing members. It completes the ordinary OAuth/BFCache journey, then
-uses real native login/OAuth and the mounted Open/Disconnect controls for each user.
+Append `--allow-existing-terminal` to the authenticated probe and add the exact
+private-input declaration `"terminal_actions": ["create", "end"]`. Old read-only
+inputs and mixed environment-access/terminal scope are refused. This requires
+explicit native shell creation/End permission for both existing members; it does not
+expand older approvals. After the ordinary OAuth/BFCache journey, each user follows
+the shared project/name New chooser and named per-terminal End confirmation.
+
 Only a bounded transient socket-output buffer recognizes run-owned identity/home/TTY
 facts; no transcript or authentication frames are retained. Escape, focus escape,
-explicit disconnect and no remount on Refresh are checked. Returned shell PID/start
-facts require independent host-side disappearance checks: socket closure alone is
-not process-cleanup proof. No create/join/start/key action is permitted by this flag.
+same-target Refresh and explicit HTTP End are checked. The admitted End is bound to
+the exact environment/session ID observed in that user's socket frame. An accepted
+`ending: true`, socket closure or absent metadata is **not native cleanup proof**;
+returned shell PID/start facts require independent host-side cleanup observations.
+No environment creation, Join, lifecycle or key action is permitted by this mode.
+The current UI port is authored and locally fixture-tested, not installed proof.
 
 ## Integrated existing-project management mode
 
@@ -223,7 +248,9 @@ checks. Successful completion removes only the two new saved keys through the UI
 explicitly reapplies originals and verifies the original managed files/identities.
 Failure does not trigger automatic restoration, mutation replay or cleanup of keys.
 
-The private management JSON has exactly `target`, `project`, `cid`, `ssh_config`,
+Its base browser input also requires `terminal_actions: ["create", "end"]` for
+those terminal operations; the separate management scope still authorizes Stop/Start
+and the declared key changes. The private management JSON has exactly `target`, `project`, `cid`, `ssh_config`,
 `key_a`, `key_a_public`, `key_b`, `key_b_public`, `original_alice`, `original_bob`.
 All file references are absolute restricted regular files. The trusted SSH config
 must define pinned `soda-e2e-host`, `soda-e2e-alice` and `soda-e2e-bob` aliases for

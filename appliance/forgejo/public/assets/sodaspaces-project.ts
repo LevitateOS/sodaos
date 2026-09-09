@@ -68,12 +68,12 @@ export class SodaProjectControls extends LitElement {
     const target = views[next]; if (!target) return;
     this.select(target); const epoch = this.epoch;
     await this.updateComplete;
-    if (this.active(epoch) && !this.closest('[hidden]') && this.selected === target) this.querySelector<HTMLElement>('[data-view="' + target + '"]')?.focus();
+    if (this.active(epoch) && !this.closest('[hidden], [inert]') && this.selected === target) this.querySelector<HTMLElement>('[data-view="' + target + '"]')?.focus();
   }
   // Busy is checked synchronously, not only via Lit's eventually updated disabled attribute.
   private command(event: Event, action: () => void | Promise<void>, allowUncertain = false) {
     const button = event.currentTarget;
-    if (!(button instanceof HTMLButtonElement) || button.disabled || button.closest('[hidden]') || this.busy || this.stale || this.disposed || (this.uncertain && !allowUncertain)) return;
+    if (!(button instanceof HTMLButtonElement) || button.disabled || button.closest('[hidden], [inert]') || this.busy || this.stale || this.disposed || (this.uncertain && !allowUncertain)) return;
     void action();
   }
   protected render() {
@@ -81,7 +81,7 @@ export class SodaProjectControls extends LitElement {
     if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
     const stopped = !this.lifecycle?.running && !this.lifecycle?.boot;
     const preview = this.keyPreview;
-    return html`<section data-project-controls class="soda-spaces-controls" aria-busy=${String(this.busy && !this.stale)}>
+    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls" aria-busy=${String(this.busy && !this.stale)}>
       <div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">${views.map(view => html`
         <button type="button" class="ui basic button" data-view=${view} role="tab" aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
           aria-selected=${String(this.selected === view)} tabindex=${this.selected === view ? 0 : -1}
@@ -138,7 +138,7 @@ export class SodaProjectControls extends LitElement {
     </section>`;
   }
   private async copyConnection() {
-    if (!this.binding?.page || this.blocked || !this.connection) return;
+    if (!this.binding?.page || this.blocked || !this.connection || this.selected !== 'access' || this.closest('[hidden], [inert]')) return;
     try {await navigator.clipboard.writeText(this.connection.command); if (!this.disposed) this.outcome = 'SSH connection copied.';}
     catch {if (!this.disposed) this.outcome = 'Copy failed. Select and copy the displayed SSH command.';}
   }

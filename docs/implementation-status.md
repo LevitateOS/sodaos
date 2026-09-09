@@ -1,5 +1,61 @@
 # Current handoff
 
+## Step 5 source closure — local checks passed; no installed or CLI acceptance
+
+Step 5a–5d is now locally source-complete, following `9ad7847`, `54686d0` and
+`d2821fa`. The shared workspace retains bounded v2 locators/layout, flat stable
+xterm owners, measured panes, sidebar/tab navigation, original-target New/Rename/End
+and compact Forge/Terminal visibility. Final review added inert/hidden action and
+focus guards, screen-focused managed input, sibling invalidation on definite terminal
+actor/authority loss, finite-retention eligibility and named pane ownership. Reopening
+an already-open native surface cannot Return. Confirmed cleanup removes only the
+matching locator/navigation observation; accepted End and uncertainty do not.
+
+**Journey and integration closure:** existing installed callers now follow scoped
+project controls, Environment/Access, the project/name chooser and named End menu.
+Their UI-only helpers are exercised against the actual emitted workspace. Terminal
+mode requires exact private `terminal_actions: ["create", "end"]`; the End request
+is admitted only for the original actor/environment/session observed on the socket.
+The chooser's environment must match the original observed project before submission;
+a local wrong-target case proves refusal without a socket. Old read-only inputs cannot
+silently authorize it. These are source ports and local
+fixtures, **not execution on an installed candidate**. Asset revalidation covers all
+canonical Sodaspaces modules/styles and the shared Lit runtime.
+
+`test:spaces-page` now consumes actual authorized Go handler HTML/CSP and production
+page/assets, with synthetic GET-only API responses. `test:layout` runs 20 combinations
+(1440/1024/900/390/320 × light/dark × running/stopped), with actual fitted cells,
+≥480px desktop native-left, compact form/selection preservation, beforeunload cancel,
+reduced-height menu/terminal fitting and exact Hide/Return distinction. Both are in
+`bun run test`. Pointer reorder/edge split, sidebar bounds/collapse, overflow search,
+compact pane selection and stable host/renderer/socket behavior have focused checks.
+The fixture's native form and synthetic socket are not stock Forgejo or tmux proof.
+
+**Executed locally**, pinned Bun 1.4.2 / Go 1.26.7:
+- Strict TypeScript; frontend **168 pass / 3 gated skips** (Go-page and layout cases
+  then run separately; the private browser-pipe opt-in remains skipped).
+- Go HTML/browser **1 pass**; measured layout **20 cases pass**; explicit Lit
+  **105 pass**; Forgejo **26 pass / 18 optional skips**; Cockpit **60 pass**.
+- All Go packages; race checks for web/store/host; **7** temporary-filesystem
+  packaging and **3** canonical-payload tests. No installed-stage test was substituted.
+- Isolated preview generation and byte equality for **136** canonical public files
+  plus branding projection. No live mount/service changed. Formatting/whitespace,
+  changed-document links and the unchanged compatibility-question text were checked.
+
+Evidence: `.artifacts/spaces-step5-f28f86e/`, especially `*-closure.log`,
+`packaging-final.log`, `payload-final.log`, `preview-bytes-closure.log`,
+`layout-1788992027945/` and `.artifacts/spaces-page-sqv4Og/`. Earlier failures remain
+retained. The user's **Open product question — browser-terminal compatibility**
+from `7afde63` is byte-identical.
+
+**Next: step 6**, observed unread/lifecycle attention, exact candidate build/coverage
+closure and separately scoped concurrent/native/CLI acceptance. Actual Codex CLI,
+Claude Code and Pi, physical keyboards, stock Forgejo form/menu/diff/comment/clipboard
+coexistence, native process/cleanup and the historical failed framing probe remain
+unverified. No native build/export/delivery, retained target/project mutation,
+provider action, root recreation or push occurred in this closure. Prior native
+results and Rocky 10.2's undeployed candidate retain their separate provenance.
+
 ## Step 5 shared chrome and compact adapter — local, journey closure still pending
 
 The shared workspace now supplies the page sidebar, flat native tabs/right-content

@@ -12,11 +12,13 @@ with local emitted-browser/layout coverage. Xterm and transport stay imperative.
 The ID-keyed backend, exact correlation/cleanup outcomes, name metadata and bounded
 authorized collection now have local Go/race/browser coverage. The Spaces page,
 fixed OAuth return and shared multi-session UI now have local source/browser coverage.
-Advanced layouts and attention remain unimplemented. The
-[Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
-sequence: steps 1–4 are locally implemented at `18aceb2`; next come the layout/storage
-model, pane operations, page/drawer projections and compact native coexistence (5a–5d),
-then observed attention, candidate coverage and scoped native/CLI proof (6a–6c).
+Bounded v2 layout, stable measured panes, shared navigation/actions and compact
+native coexistence now have local source/browser coverage, alongside current journey
+source ports and actual Go HTML→emitted-page integration. The
+[Lit workspace implementation plan](lit-migration-plan.md) remains the single detailed
+sequence: steps 1–5 are locally implemented; observed attention, candidate closure and
+scoped native/CLI proof (6a–6c) remain. No installed journey or CLI acceptance is
+inferred from the synthetic layout/socket fixtures.
 The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
 
 **Execution is revision-specific.** Original access/cutover and later single-terminal
@@ -350,10 +352,10 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 ## Remaining work — ordered
 
 1. **Finish Spaces and its companion drawer with Lit.** The single
-   [detailed sequence](lit-migration-plan.md) records locally completed steps 1–4.
-   Next implement 5a–5d: safe locator/layout migration, pane operations, both projections
-   and compact/native coexistence, including installed-journey source ports. Then
-   6a–6c add observed attention, candidate coverage and scoped native/selected-CLI proof.
+   [detailed sequence](lit-migration-plan.md) records locally completed steps 1–5,
+   including bounded layout migration, measured panes, both projections,
+   compact/native coexistence and installed-journey source ports. Next, 6a–6c add
+   observed attention, candidate closure and scoped native/selected-CLI proof.
    Preserve existing native reattachment, management/access/security and
    incoming responsive Forgejo controls. Validate native-left/form coexistence and
    the remaining real session/cleanup matrix before claiming acceptance or delivery.
@@ -401,14 +403,14 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    not lossless rollback. A terminal milestone may ship before later management work;
    every delivered milestone still needs its relevant checks, not just a final sweep.
 
-### Immediate next step — workspace correction, then scoped delivery
+### Immediate next step — observed attention, then scoped candidate proof
 
-- Start [Lit step 5a](lit-migration-plan.md#5a--layout-model-and-locator-migration)
-  against the implemented `Slot`/locator owners. Preserve pending/hidden v1 locators
-  while adding bounded pane layout/selection; no new DB/API or framework is needed.
-- Follow 5b–5d's focused exits: stable-owner pane operations, measured 56-column/12-row
-  split viability, shared page/drawer projections and same-document compact behavior.
-  Port the installed journeys as controls move, not after a candidate rollout.
+- Implement [Lit step 6a](lit-migration-plan.md#6a--observed-unread-and-lifecycle-attention) over the existing
+  stable owners and original bindings. Keep unread observation bounded and current;
+  do not infer semantic agent states or renew lifetime on focus/output.
+- Preserve step 5's v2 migration, measured 56-column/12-row split viability, shared
+  projections and document-local compact visibility. Its journey source ports and
+  local fixtures are complete; actual installed execution still requires exact scope.
   Native form drafts/selection and terminal renderer/socket identity must survive.
 - Keep actual unread/lifecycle attention in step 6, not fake filters during layout.
   Preserve original bindings, finite lifetime, confirmed HTTP End/cleanup and unknown

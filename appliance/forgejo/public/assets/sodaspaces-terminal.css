@@ -12,6 +12,7 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 /* Managed workspace: one identity line, menu and exceptional status only. */
 .soda-terminal.is-managed { position: relative; padding: 0; border: 0; }
 .soda-terminal-context { display: flex; align-items: center; justify-content: space-between; min-height: 32px; flex-shrink: 0; gap: 6px; padding-left: 8px; }
+.soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px)); }
 .soda-terminal-context > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .soda-terminal.is-managed > .soda-terminal-status { margin: 0; padding: 4px 8px; max-height: 30%; overflow: auto; }
 .soda-terminal-confirm { position: absolute; top: 36px; left: 8px; right: 8px; max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: light-dark(#faf8f5, #202631); color: light-dark(#20252b, #e0e5ed); padding: 12px; border: 1px solid #c77e45; box-shadow: 0 6px 16px #0005; }

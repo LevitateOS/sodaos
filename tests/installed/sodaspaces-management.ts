@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {lstat} from 'node:fs/promises';
 import type {Page, Locator} from 'playwright';
+import {projectView, newManagedTerminal} from './sodaspaces-controls.ts';
 import {object, type JourneyInput, type ManagementRequest} from './sodaspaces-input.ts';
 import {savedKeysResponse, keyPreviewResponse, type SavedKey} from '../../appliance/forgejo/public/assets/sodaspaces-api.ts';
 export interface ManagementEvidence extends Record<string, unknown> {
@@ -77,6 +78,7 @@ export async function exerciseManagement({page, input, request, authenticate, se
     await settled();
     return value;
   }
+  const control = (name: string) => page.locator(`[data-project-controls][data-repository-id="${input.repository_id}"] [data-control="${name}"]`);
   const life = `/api/environments/${request.project}/lifecycle`;
   const access = `/api/environments/${request.project}/access-keys`;
   async function apply() {
@@ -89,14 +91,15 @@ export async function exerciseManagement({page, input, request, authenticate, se
     assert.equal(changed.applied,true);
   }
   async function save(key: string) {
-    await page.locator('#sodaspaces-public-key').fill(key);
-    const saved = await action('/api/me/development-keys',{public_key:key},page.locator('#sodaspaces-save-key'));
+    await projectView(page, input.repository_id, 'Access');
+    await control('public-key').fill(key);
+    const saved = await action('/api/me/development-keys',{public_key:key},control('save-key'));
     const entry = savedKeysResponse(saved).find(k => k.public_key?.trim()===key);
     assert(entry && /^[1-9][0-9]*$/.test(entry.id));
     return entry;
   }
   async function remove(entry: SavedKey) {
-    const button = page.locator('#sodaspaces-key-list li').filter({hasText:entry.fingerprint}).getByRole('button',{name:'Remove saved key',exact:true});
+    const button = control('key-list').locator('li').filter({hasText:entry.fingerprint}).getByRole('button',{name:'Remove saved key',exact:true});
     const response = await action('/api/me/development-keys/'+entry.id,{},button,'DELETE');
     assert.equal(response.existing_project_access_changed,false);
   }
@@ -135,18 +138,21 @@ export async function exerciseManagement({page, input, request, authenticate, se
   await authenticate(0);
   const before=snapshot(true);
   result.before=before;
-  assert.equal(await page.locator('#sodaspaces-command').inputValue(),'ssh alice@'+projectIP);
+  const controls = await projectView(page, input.repository_id, 'Access');
+  assert.equal(await controls.getAttribute('data-environment-id'), request.project);
+  assert.equal(await control('command').inputValue(),'ssh alice@'+projectIP);
   // Persist a new exact run-owned home marker; never alter existing files.
   const name='.soda-e2e-'+Date.now();
   const create=`from pathlib import Path\np=Path.home()/${JSON.stringify(name)}\np.mkdir(mode=0o700)\n(p/'marker').write_text('persistent E2E marker\\n')\nprint(p.name)\n`;
   assert.equal(ssh('alice',request.original_alice,create).trim(),name);
   stage('management: Stop interrupts the explicitly opened browser terminal');
   const opened=page.waitForEvent('websocket');
-  await page.getByRole('button',{name:'Open terminal',exact:true}).click();
+  assert(input.terminal_actions?.includes('create'));
+  await newManagedTerminal(page, input.repository_path.slice(1), 'Management stop observation', request.project);
   const socket=await opened; let terminalClosed=false;
   socket.on('close',()=>{terminalClosed=true;});
-  await page.getByText('Connected as alice.',{exact:true}).waitFor();
   stage('management: explicit Stop and disabled host-boot start');
+  await projectView(page, input.repository_id);
   await page.getByLabel(/I understand Stop interrupts/).check();
   await action(life,{action:'stop',confirm_stop:true},page.getByRole('button',{name:'Stop',exact:true}));
   result.stopped=snapshot(false);
@@ -158,7 +164,8 @@ export async function exerciseManagement({page, input, request, authenticate, se
   stage('management: stable state after Start');
   result.started=snapshot(true);
   assert.deepEqual(result.started,before);
-  assert.equal(await page.locator('#sodaspaces-command').inputValue(),'ssh alice@'+projectIP);
+  await projectView(page, input.repository_id, 'Access');
+  assert.equal(await control('command').inputValue(),'ssh alice@'+projectIP);
   stage('management: SSH availability and home persistence after Start');
   const readyUntil=Date.now()+30000;
   for (;;) {
@@ -173,6 +180,7 @@ export async function exerciseManagement({page, input, request, authenticate, se
   result.lifecycle={same_container:true,boot_policy:true,accounts_keys_host_key_preserved:true,terminal_interrupted:true,home_marker:name};
   stage('management: nonadministrator has no lifecycle control');
   await authenticate(1);
+  await projectView(page, input.repository_id);
   assert(await page.getByRole('button',{name:'Stop',exact:true}).isHidden());
   permit(1,life,{action:'stop',confirm_stop:true});
   const denied = await page.evaluate(async ({actor,route}) => {

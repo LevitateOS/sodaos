@@ -5,6 +5,7 @@ import path from 'node:path';
 import payload from '../../internal/nativebuild/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
+import {projectView, newManagedTerminal, terminalMenu} from '../installed/sodaspaces-controls.ts';
 import {parseLayout, focusedPane} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -92,6 +93,17 @@ test('changed actor invalidates siblings and clears private navigation observati
   assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).isDisabled(), true);
   assert.equal(await page.locator('.soda-session-list button').count(), 0);
+});
+test('a terminal admission actor mismatch invalidates every sibling without creating a replacement', async t => {
+  const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openSession(page, 'Build'); await openSession(page, 'Edit');
+  await page.getByRole('button', {name: 'New terminal', exact: true}).click();
+  await page.evaluate(() => window.workspaceFixture.setUser('2'));
+  await page.getByRole('button', {name: 'Create terminal', exact: true}).click();
+  await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(socket => socket.closed)), [1, 1]);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.flatMap(socket => socket.sent).filter(frame => frame.action === 'create').length), 0);
+  assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
 });
 test('Hide preserves renderer/socket and showing through the shared navigation does not Return', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
@@ -193,11 +205,57 @@ test('real xterm owners survive pane moves, keyboard divider, maximize, compact 
   await paneAction(page, 'Restore panes'); assert.equal(await page.locator('.soda-pane-chrome').count(), 2);
   await page.setViewportSize({width: 720, height: 900}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 1);
   assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), stored);
+  await page.getByLabel('Focused pane', {exact: true}).selectOption({label: 'Pane 1'});
+  await page.getByRole('group', {name: 'Pane 1', exact: true}).waitFor();
+  const compactSelection = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
+  assert.deepEqual(compactSelection.tree, parseLayout(stored || '').tree);
+  assert.equal(compactSelection.sidebar, parseLayout(stored || '').sidebar);
   await page.setViewportSize({width: 1920, height: 1440}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 2);
   await paneAction(page, 'Consolidate panes'); assert.equal(await page.locator('.soda-pane-chrome').count(), 1);
   for (const handle of [...screens, ...hosts]) assert(await handle.evaluate(el => el.isConnected));
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(s => s.closed)), [0, 0, 0]); assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), before);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.flatMap(s => s.sent).filter(f => f.type === 'resize' && (!f.cols || !f.rows)).length), 0);
+});
+test('sidebar bounds, tab overflow, pointer reorder and edge split preserve owners without IO', async t => {
+  const page = await fixture(t); await page.setViewportSize({width: 1920, height: 1440}); await page.evaluate(() => window.workspaceFixture.api.refresh());
+  for (const name of ['Build', 'Edit', 'Other project']) await openSession(page, name);
+  const hosts = await page.locator('.soda-workspace-terminal').elementHandles(), before = await page.evaluate(() => window.workspaceFixture.calls.length);
+  const sidebar = page.getByRole('separator', {name: 'Resize project sidebar', exact: true});
+  await sidebar.press('End'); assert.equal(await sidebar.getAttribute('aria-valuenow'), '360');
+  const box = await sidebar.boundingBox(); assert(box); await page.mouse.move(box.x + 3, box.y + 80); await page.mouse.down(); await page.mouse.move(230, box.y + 80); await page.mouse.up();
+  const layout = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
+  assert(layout.sidebar !== null && layout.sidebar >= 220 && layout.sidebar < 360);
+  await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Toggle sidebar', exact: true}).click();
+  assert.equal(parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || '')).sidebar, null);
+  await page.keyboard.press('Escape'); await page.getByLabel('Open tabs', {exact: true}).click(); await page.getByLabel('Find an open tab', {exact: true}).fill('Build');
+  assert.equal(await page.locator('.soda-tab-overflow button:visible').count(), 1); await page.locator('.soda-tab-overflow button:visible').click();
+  assert.equal(await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).getAttribute('aria-selected'), 'true');
+  await page.getByRole('tab', {name: 'Other project · alice/Beta', exact: true}).dragTo(page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}));
+  assert.match((await page.getByRole('tab').allTextContents())[0] || '', /Other project/);
+  const edit = page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}), origin = await edit.boundingBox(); assert(origin);
+  await page.mouse.move(origin.x + origin.width / 2, origin.y + origin.height / 2); await page.mouse.down(); await page.mouse.move(origin.x + 25, origin.y + 65, {steps: 8});
+  const edge = await page.locator('.soda-drop-edge.right:visible').boundingBox(); assert(edge);
+  await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2, {steps: 8}); await page.mouse.up();
+  await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 2);
+  for (const host of hosts) assert(await host.evaluate(node => node.isConnected));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), before);
+  assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(socket => socket.closed)), [0, 0, 0]);
+});
+test('installed control paths use the actual emitted project, chooser and original-target End UI', async t => {
+  const page = await fixture(t, 'native'); await page.evaluate(() => window.workspaceFixture.api.refresh());
+  const controls = await projectView(page, '7', 'Access');
+  assert.equal(await controls.getAttribute('data-environment-id'), 'p' + '1'.repeat(24));
+  assert.equal(await controls.locator('[data-control=copy]').getAttribute('data-clipboard-target'), '#soda-command-7');
+  await assert.rejects(() => newManagedTerminal(page, 'alice/Alpha', 'Wrong target', 'p' + '2'.repeat(24)), /observed original project/);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  await page.getByRole('dialog', {name: 'New terminal', exact: true}).getByRole('button', {name: 'Cancel', exact: true}).click();
+  await newManagedTerminal(page, 'alice/Alpha', 'Installed path fixture', 'p' + '1'.repeat(24));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  await terminalMenu(page, 'End terminal…');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'end').length), 0);
+  await page.getByRole('dialog', {name: 'End terminal confirmation', exact: true}).getByRole('button', {name: 'End terminal', exact: true}).click();
+  await page.waitForFunction(() => !document.querySelector('soda-terminal'));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'end').length), 1);
 });
 test('departure during authorization cannot dispatch a late collection read', async t => {
   const page = await fixture(t); await page.evaluate(async () => {const f = window.workspaceFixture; let release: (() => void) | undefined; f.pause(new Promise<void>(resolve => {release = resolve;})); const pending = f.api.refresh(); f.api.dispose(); release?.(); await pending;});

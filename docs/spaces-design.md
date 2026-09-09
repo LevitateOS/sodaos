@@ -5,11 +5,13 @@ permission.** This replaces the earlier grid-first proposal and interactive mock
 The user requested this redesign after researching existing multi-terminal/agent tools.
 The [leading plan](sodaspaces-plan.md) owns scope; the [handoff](implementation-status.md)
 owns execution evidence. The [Lit implementation plan](lit-migration-plan.md) now owns
-the detailed source sequence for this page and its companion drawer. Steps 1–4 are
-locally implemented at `18aceb2`: Lit controls, ID-keyed sessions/collection, authenticated
-page/fixed return and the shared workspace. Steps 5–6 own remaining pane layouts,
-compact projections, attention and native/selected-CLI acceptance. Static sheets are
-still design references, not evidence that those remaining behaviors work.
+the detailed source sequence for this page and its companion drawer. Steps 1–5 are
+locally implemented: Lit controls, ID-keyed sessions/collection, authenticated
+page/fixed return, bounded v2 layout, measured stable panes and shared page/drawer
+chrome with compact projections. Current journey source ports and Go-page integration
+have local fixture coverage. Step 6 still owns observed attention, candidate closure
+and native/selected-CLI acceptance. Static sheets remain design references, not
+runtime evidence.
 
 **Direction:** a project/session sidebar for finding work, tabs for switching within
 a pane, and direct splits for the few terminals being viewed together. Native CLI

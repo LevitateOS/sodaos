@@ -1,9 +1,12 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -51,6 +54,22 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			}
 			if strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self' 'unsafe-inline'") {
 				t.Fatal("inline script permission")
+			}
+			// The browser test consumes the real authorized handler output, not a
+			// handwritten shell or copied template. Only synthetic HTML/CSP/origin
+			// leave this fixture; never cookies, grants or request headers.
+			if output := os.Getenv("SODA_SPACES_PAGE_HTML"); mode == "authorized" && output != "" {
+				if !filepath.IsAbs(output) {
+					t.Fatal("absolute fixture output required")
+				}
+				file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer file.Close()
+				if err := json.NewEncoder(file).Encode(map[string]string{"html": body, "csp": w.Header().Get("Content-Security-Policy"), "origin": s.Config.ForgejoURL}); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}

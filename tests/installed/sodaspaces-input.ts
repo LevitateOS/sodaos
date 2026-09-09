@@ -5,6 +5,7 @@ export interface JourneyUser { id: string; login: string; password_file: string;
 export interface JourneyInput {
   ca_file: string; oauth_client_id: string; origin: string; repository_id: string;
   repository_path: string; revision: string; target: string; users: [JourneyUser, JourneyUser];
+  terminal_actions?: ['create', 'end'];
 }
 export function object(value: unknown): Record<string, unknown> {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'Expected an object');
@@ -12,9 +13,11 @@ export function object(value: unknown): Record<string, unknown> {
 }
 export const validID = (value: unknown): value is string => typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value) &&
   (value.length < 19 || value <= '9223372036854775807');
-export function journeyInput(value: unknown, accessMode: boolean): JourneyInput {
+export function journeyInput(value: unknown, accessMode: boolean, terminalMode = false): JourneyInput {
   const input = object(value);
-  assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', 'users']);
+  assert(!accessMode || !terminalMode);
+  assert.deepEqual(Object.keys(input).sort(), ['ca_file', 'oauth_client_id', 'origin', 'repository_id', 'repository_path', 'revision', 'target', ...(terminalMode ? ['terminal_actions'] : []), 'users']);
+  if (terminalMode) assert.deepEqual(input.terminal_actions, ['create', 'end']);
   const {ca_file, oauth_client_id, origin, repository_id, repository_path, revision, target} = input;
   assert(typeof ca_file === 'string' && typeof origin === 'string');
   assert(typeof target === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(target));
@@ -37,7 +40,8 @@ export function journeyInput(value: unknown, accessMode: boolean): JourneyInput 
   });
   const [first, second] = users;
   assert(first && second && first.id !== second.id && first.login !== second.login);
-  return {ca_file, oauth_client_id, origin, repository_id, repository_path, revision, target, users: [first, second]};
+  const terminal_actions: ['create', 'end'] = ['create', 'end'];
+  return {ca_file, oauth_client_id, origin, repository_id, repository_path, revision, target, users: [first, second], ...(terminalMode ? {terminal_actions} : {})};
 }
 export interface ManagementRequest {
   cid: string; key_a: string; key_a_public: string; key_b: string; key_b_public: string;

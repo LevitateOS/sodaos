@@ -4,10 +4,11 @@
 the full-page [Spaces design](spaces-design.md) and requested an equally concrete
 right-half drawer. This specifies that complementary surface—not another workspace,
 terminal implementation or UI stack. The [Lit implementation plan](lit-migration-plan.md)
-owns the shared sequence for both surfaces. Steps 1–4 are locally implemented at
-`18aceb2`, including Lit controls and the shared multi-session page/drawer. Steps 5–6
-now specify the remaining layout/compact projections, truthful attention and native/
-selected-CLI acceptance. Shared session/action/attention semantics remain in the
+owns the shared sequence for both surfaces. Steps 1–5 are locally implemented,
+including Lit controls, the shared multi-session workspace, bounded v2 layout,
+measured panes and compact Forge/Terminal projection. Current journey ports have
+local fixture coverage, not installed execution. Step 6 still specifies observed
+attention, candidate closure and native/selected-CLI acceptance. Shared session/action/attention semantics remain in the
 parent design and [terminal contract](terminal-integration.md).
 
 The [visual sheets](design/spaces/README.md) show native-forge browsing alongside

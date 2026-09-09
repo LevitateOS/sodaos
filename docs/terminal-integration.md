@@ -12,7 +12,8 @@ reuse the same managed session mechanism, not separate terminal owners. The
 [Lit implementation plan](lit-migration-plan.md) now owns the rendering ports and
 subsequent concurrency/page/layout sequence. Management and terminal controls now
 use Lit; the shared multi-session page/drawer now has local emitted-browser checks.
-Full pane layouts, compact behavior and attention remain pending.
+Bounded v2 pane layouts, shared chrome and compact behavior now have local coverage;
+observed attention and native/selected-CLI acceptance remain pending.
 It preserves current HTTP End and exact restore, not the older socket-close contract. The
 [drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
 composition, a flat view of this window's open tabs without destroying full-page
@@ -51,29 +52,44 @@ The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
 shell mounting `mountSodaspaces` once on explicit opening. The shell now uses a
 **non-modal aside**, not `showModal`, a backdrop or outside-click dismissal.
 Desktop starts at half width; a pointer/keyboard separator adjusts it between
-35–65 percent. Native body/container widths adapt, without replacing navigation,
-forms, notifications or beforeunload. Below 800px the workspace fills the viewport;
-Hide returns to the native page. Real native route/pane-width compatibility still
-needs validation; the synthetic layout fixture is not that proof.
+35–65 percent where measured terminal cells and a 480px native-left region fit.
+Otherwise document-local **Forge / Terminal** controls select a full-width surface,
+without Hide, Return, disposal or a saved Terminal-visible flag. Desired width is
+preserved; new navigation/BFCache defaults to Forge unless explicitly opened.
+Native body/container widths adapt without cloning/reparenting forms or replacing
+navigation, notifications or beforeunload. Real native route/pane-width compatibility
+still needs validation; the 20-case synthetic layout fixture is not that proof.
 
 The page and drawer now share one Lit workspace with session tabs and independent
 Environment/Access controls bound to each named project. Explicit New creates a
 correlated session; selecting an existing session attaches only that ID. Flat terminal
-hosts remain in one owner layer when tabs/details change. Rename, Hide, Continue/Keep
-and confirmed End retain the original account/project. The versioned working set
-stores bounded actor-scoped locators, never credentials, names, transcripts or input.
-Unknown outcomes survive reload; legacy pending is never guessed. Initial one-pane
-multi-session UI has local emitted-browser coverage, not concurrent native proof.
+hosts remain in one flat owner layer through pane moves, splits, maximize, compact
+projection and details. The page has a resizable/collapsible project/session sidebar;
+the drawer flattens the same desired tree, with right-content-only Sessions and an
+explicit This page filter. Splits create views, never shells, and require measured
+56-column × 12-row children after chrome. Rename, Hide, Continue/Keep and named,
+Cancel-first End confirmation retain the original account/project. Actions live in
+per-terminal menus; Stop remains in named project management with its shared warning.
+
+`soda-spaces:v2:<actor>` stores bounded locators, pane membership/order/selection,
+finite split ratios and sidebar preference: at most 32 KiB, 64 retained entries/leaves,
+127 nodes and depth 64. It stores no names, credentials, transcripts or input. V1 imports
+only when v2 is absent, preserving hidden/exact/pending entries and old bytes. Invalid
+present v2 is preserved rather than overwritten or silently replaced from v1. Storage
+failure does not destroy live owners. Unknown outcomes survive reload; legacy pending
+is never guessed. This has local emitted-browser coverage, not concurrent native proof.
 
 **Focus/visibility changes and Hide/reopen retain the same component and socket.**
 Focus and switching already attached views do not fetch, provision, restart or
 replay anything. Selecting an unattached exact ID reauthorizes attachment only.
 Hide requests finite retention for this document's owned attachments; deliberate
-reopen Returns only the selected session, not the entire working set. Pending operations
+reopen Returns only an eligible, finitely retained selected terminal in terminal view,
+not the entire working set. Clicking an already-open workspace does not Return.
+Pending operations
 remain guarded in that same component; hiding is not cancellation. End terminal is
 a separate action. No outside click dismisses the pane and no focus trap blocks the
-native page. Escape inside xterm remains shell input; Ctrl+Shift+Enter focuses End
-terminal. The complete component retains the existing action-time session/provider
+native page. Escape inside xterm remains shell input; Ctrl+Shift+Enter focuses the
+terminal actions menu. Managed input requires its visible screen to own focus. The complete component retains the existing action-time session/provider
 checks and uncertain-mutation guard.
 
 Refresh now preserves the renderer for the same environment/login. Pagehide retires
@@ -256,7 +272,8 @@ parallel backend or support-tool gate. Refresh and unrelated management updates
 must not end a running terminal. Navigation/reload restores the authorized selected
 session, not the left page's repository; pagehide disposes only this document's
 attachment. Same-document tab/layout changes retain the live renderer/socket.
-The current singleton limit is removed in the backend slice, not by UI bypass.
+The singleton limit was removed by the implemented ID-keyed backend slice, not a
+UI bypass; the browser layout does not change the server's bounded capacity.
 
 Prove a real unchanged shell PID/start identity, unsaved editor state and running
 build across native navigation, reload, temporary network loss and drawer/view
@@ -268,9 +285,10 @@ cleanup preserves unrelated SSH/tmux and other accounts/terminals. Source tests 
 real OAuth/trusted-browser/native observations are required; old request-PTY cleanup
 passes and synthetic layout tests are not this proof. Restart/reboot resurrection
 of running terminals is not selected; retained files and normal project persistence
-remain separate. Current API/lease/native-unit code exists; ID-keyed metadata,
-creation correlation and bounded confirmed-cleanup receipts are proposed changes,
-not current wire behavior. No further native execution is granted by this plan.
+remain separate. ID-keyed metadata, creation correlation and bounded confirmed-cleanup
+receipts are current source contracts with local Go/race/browser coverage. The
+current installed-journey ports are authored, not installed execution evidence.
+No further native execution is granted by this plan.
 
 [tmux-man]: https://github.com/tmux/tmux/blob/3b929f332aafa7f1080eacc31feb11ffbb1d1841/tmux.1
 [tmux-client]: https://github.com/tmux/tmux/blob/3b929f332aafa7f1080eacc31feb11ffbb1d1841/client.c

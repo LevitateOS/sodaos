@@ -2,6 +2,9 @@
 import {chromium, type Page, type Dialog, type WebSocket} from 'playwright';
 import {journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
+import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
+import {terminalID} from '../../appliance/forgejo/public/assets/sodaspaces-api.ts';
+import forgejoPayload from '../../internal/nativebuild/forgejo-payload.json';
 import type {launchNativeBrowser} from './native-browser.ts';
 // SPDX-License-Identifier: Apache-2.0
 // Opt-in real stock Forgejo/Caddy journey. Existing repository and two users;
@@ -52,7 +55,7 @@ try {
   terminalMode = extra[0] === '--allow-existing-terminal' || managementMode;
   const privateRepository = extra[0] === '--private-repository';
   assert(inputFile && home);
-  const input = journeyInput(JSON.parse(await privateFile(inputFile, 16384)), accessMode);
+  const input = journeyInput(JSON.parse(await privateFile(inputFile, 16384)), accessMode, terminalMode);
   assert(!managementMode || extra[1]);
   const managementRequest = managementMode && extra[1] ? managementInput(JSON.parse(await privateFile(extra[1], 16384))) : null;
   const origin = new URL(input.origin);
@@ -116,17 +119,18 @@ try {
   const forgejoVersion = object(JSON.parse(version.body.toString())).version;
   assert(typeof forgejoVersion === 'string');
   assert.match(forgejoVersion, /^15\.0\.7(?:\+gitea-1\.22\.0)?$/);
-  for (const file of ['sodaspaces.css', 'sodaspaces.js']) {
-    const response = await rawRead(`/assets/${file}`);
+  for (const [destination, source] of Object.entries(forgejoPayload).filter(([target]) => /^public\/assets\/sodaspaces[^/]*\.(?:js|css)$/.test(target) || target === 'public/assets/soda/forgejo/lit.js')) {
+    const asset = destination.slice('public'.length);
+    const response = await rawRead(asset);
     assert.equal(response.status, 200);
     assert.match(response.headers['cache-control'] || '', /max-age=0/);
     assert.match(response.headers['cache-control'] || '', /must-revalidate/);
-    const expected = await Bun.file(path.join(root, file.endsWith('.js') ? '.artifacts/forgejo-js' : 'appliance/forgejo/public/assets', file)).bytes();
+    const expected = await Bun.file(source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : path.join(root, source)).bytes();
     assert.equal(new Bun.CryptoHasher('sha256').update(response.body).digest('hex'), new Bun.CryptoHasher('sha256').update(expected).digest('hex'));
     const validator: Record<string, string> = {};
     if (response.headers.etag) validator['If-None-Match'] = response.headers.etag;
     else {assert(response.headers['last-modified']); validator['If-Modified-Since'] = response.headers['last-modified'];}
-    assert.equal((await rawRead(`/assets/${file}`, validator)).status, 304);
+    assert.equal((await rawRead(asset, validator)).status, 304);
   }
   result.asset_revalidation = 'conditional reads of current bytes; not an update/cutover proof';
 
@@ -192,21 +196,20 @@ try {
   const page = await guardedPage();
   const repoURL = origin.origin + input.repository_path;
   const drawer = page.locator('#sodaspaces-drawer');
+  const control = (name: string, p = page) => p.locator(`[data-project-controls][data-repository-id="${input.repository_id}"] [data-control="${name}"]`);
+  const permitTerminalEnd = (actor: string, environment: string, id: string) => {
+    assert(terminalMode && input.terminal_actions?.includes('end') && !accessWrite && !interrupted && !refusedRequest);
+    assert(/^p[0-9a-f]{24}$/.test(environment) && terminalID(id));
+    accessWrite = {actor, path: `/-/soda/api/environments/${environment}/terminal-sessions/${id}`, body: JSON.stringify({action: 'end'})};
+  };
   async function settled(p = page) {
     await p.locator('#sodaspaces-drawer').waitFor({state: 'visible'});
-    // An unauthenticated/empty data region has zero height in native CSS.
-    // Completion is its ARIA state, not whether that empty region has a box.
-    await p.waitForFunction(() => document.getElementById('sodaspaces-data')?.getAttribute('aria-busy') === 'false' || document.getElementById('sodaspaces-content')?.getAttribute('aria-busy') === 'false');
+    await p.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    const project = p.locator('[data-project-controls]:visible');
+    if (await project.count()) await p.locator('[data-project-controls]:visible[aria-busy=false]').waitFor();
   }
   async function open(p = page) {
     if (!(await p.locator('#sodaspaces-drawer').isVisible())) await p.locator('#sodaspaces-button').click();
-    if (await p.locator('#sodaspaces-reload').isVisible()) {
-      // Closing now ends the whole drawer/terminal context. Exercise its explicit
-      // full-page reload rather than remounting a stale component in the probe.
-      await Promise.all([p.waitForEvent('domcontentloaded'), p.locator('#sodaspaces-reload').click()]);
-      await p.locator('#sodaspaces-button').waitFor({state: 'visible'});
-      if (!(await p.locator('#sodaspaces-drawer').isVisible())) await p.locator('#sodaspaces-button').click();
-    }
     await settled(p);
   }
   async function nativeLogin(p: Page, index: number) {
@@ -250,7 +253,7 @@ try {
     const before = authorizations;
     const journey = stage;
     stage = journey + ': authorization navigation';
-    await page.locator('#sodaspaces-sign-in').click();
+    await page.getByRole('link', {name: 'Connect to Soda', exact: true}).click();
     await Promise.race([
       page.waitForURL(url => url.pathname === input.repository_path && url.hash === '#sodaspaces'),
       page.locator('#authorize-app').waitFor({state: 'visible'}),
@@ -270,19 +273,21 @@ try {
     stage = journey + ': native actor';
     assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), user.id);
     stage = journey + ': displayed Soda actor';
-    assert.match(await page.locator('#sodaspaces-actor').innerText(), new RegExp(`ID ${user.id}\\)`));
+    await projectView(page, input.repository_id);
+    assert.match(await control('actor').innerText(), new RegExp(`ID ${user.id}\\)`));
     stage = journey + ': environment state';
-    const state = await page.locator('#sodaspaces-status').innerText();
+    const state = await control('status').innerText();
     assert(/^(No shared environment\.|Environment (running\.|stopped\.)|Provisioning incomplete\.|Native state unavailable;)/.test(state));
     result.states.push(state.startsWith('No shared') ? 'absent' : state.startsWith('Environment running') ? 'running'
       : state.startsWith('Environment stopped') ? 'stopped' : state.startsWith('Provisioning incomplete') ? 'incomplete' : 'live-status-unavailable');
-    if (await page.locator('#sodaspaces-connection').isVisible()) {
-      const command = await page.locator('#sodaspaces-command').inputValue();
-      const fingerprint = await page.locator('#sodaspaces-fingerprint').innerText();
+    await projectView(page, input.repository_id, 'Access');
+    if (await control('connection').isVisible()) {
+      const command = await control('command').inputValue();
+      const fingerprint = await control('fingerprint').innerText();
       assert.match(command, /^ssh [a-z][a-z0-9_-]{0,30}@[0-9a-fA-F:.]+$/);
       assert.match(fingerprint, /^Ed25519 host-key fingerprint: SHA256:[A-Za-z0-9+/]{43}$/);
-      assert.equal(await page.locator('#sodaspaces-copy').getAttribute('data-clipboard-target'), '#sodaspaces-command');
-      assert(!(await page.locator('#sodaspaces-copy').isDisabled()));
+      assert.equal(await control('copy').getAttribute('data-clipboard-target'), '#soda-command-' + input.repository_id);
+      assert(!(await control('copy').isDisabled()));
       (result.own_connections ||= []).push({user_id: user.id, repository_id: input.repository_id, command, fingerprint});
     }
     const cookies = await context.cookies(origin.origin + '/-/soda/api/session');
@@ -306,7 +311,7 @@ try {
     assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-signed'), 'false');
     await open();
     assert.equal(environmentReads, 0);
-    await page.locator('#sodaspaces-sign-in').waitFor({state: 'visible'});
+    await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor({state: 'visible'});
   }
   await nativeLogin(page, 0);
   await open();
@@ -332,31 +337,17 @@ try {
   }, input.users[1].id);
   assert.deepEqual(guards, [{status: 403, code: 'identity_mismatch'}, {status: 403, code: 'invalid_csrf'}]);
 
-  stage = 'native keyboard focus and browser chrome';
-  let chromeFocus = false;
-  for (let i = 0; i < 8; i++) {
-    await page.keyboard.press('Tab');
-    const focus = await drawer.evaluate(node => ({inside: node.contains(document.activeElement),
-      chrome: document.activeElement === document.body,
-      stale: document.getElementById('sodaspaces-reload')?.hidden === false,
-      cleared: document.getElementById('sodaspaces-actor')?.textContent === ''}));
-    // Chromium's chrome/body focus transition can briefly report hasFocus true.
-    // Require actual blur clearing there, and never allow background form focus.
-    assert(focus.inside || focus.chrome);
-    if (focus.chrome) { chromeFocus = true; assert(focus.stale && focus.cleared); }
-  }
-  if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Tab');
-  assert(await drawer.evaluate(node => node.contains(document.activeElement)));
-  stage = 'Escape and asynchronous focus return';
-  await page.keyboard.press('Escape');
-  await drawer.waitFor({state: 'hidden'});
-  await page.waitForFunction(() => document.activeElement?.id === 'sodaspaces-button');
-  await open();
-  result.keyboard_chrome_invalidation = chromeFocus;
-  stage = 'backdrop and automatic theme selection';
-  await page.mouse.click(10, 400);
-  await drawer.waitFor({state: 'hidden'});
-  await page.waitForFunction(() => document.activeElement?.id === 'sodaspaces-button');
+  stage = 'non-modal native keyboard and outside-click coexistence';
+  const mountedWorkspace = await page.locator('soda-spaces').elementHandle();
+  const beforeFocus = environmentReads;
+  for (let i = 0; i < 8; i++) await page.keyboard.press('Tab');
+  await page.getByRole('button', {name: 'Sessions', exact: true}).focus();
+  await page.keyboard.press('Escape'); assert(await drawer.isVisible());
+  await page.mouse.click(4, 800); assert(await drawer.isVisible());
+  assert(await mountedWorkspace?.evaluate(node => node.isConnected));
+  assert.equal(environmentReads, beforeFocus);
+  result.native_focus_preserves_workspace = true;
+  stage = 'automatic theme and measured compact selection';
   const theme = await page.locator('html').getAttribute('data-theme'); assert(theme); assert.match(theme, /auto/);
   const backgrounds = [];
   for (const [width, colorScheme] of [[360, 'light'], [1280, 'dark']] as const) {
@@ -365,7 +356,9 @@ try {
     await page.emulateMedia({colorScheme});
     await open();
     const box = await drawer.boundingBox();
-    assert(box && box.x >= -1 && box.width <= width + 1 && Math.abs(box.x + box.width - width) < 2 && box.height >= 898);
+    assert(box && box.x >= -1 && box.width <= width + 1 && Math.abs(box.x + box.width - width) < 2);
+    if (width === 360) {assert(box.height >= 854); assert.equal(await page.getByRole('button', {name: 'Terminal', exact: true}).getAttribute('aria-pressed'), 'true');}
+    else {assert(box.height >= 898 && box.x >= 480);}
     backgrounds.push(await drawer.evaluate(node => getComputedStyle(node).backgroundColor));
     await page.locator('#sodaspaces-close').click();
   }
@@ -378,8 +371,7 @@ try {
   const other = await guardedPage();
   await other.goto(repoURL);
   await other.bringToFront();
-  await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
-  assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
+  assert(await mountedWorkspace?.evaluate(node => node.isConnected));
   assert.equal(environmentReads, beforeSwitch);
   stage = 'native logout in second page';
   await nativeLogout(other);
@@ -391,10 +383,9 @@ try {
   // Forgejo's native logout broadcast may already have navigated this tab home.
   // Do not suppress its worker/events or pretend it retained the old document.
   result.native_logout_navigation = new URL(page.url()).pathname !== input.repository_path;
-  if (result.native_logout_navigation) await page.goto(repoURL + '#sodaspaces');
-  else await page.locator('#sodaspaces-reload').click();
-  await settled();
-  assert.match(await page.locator('#sodaspaces-status').innerText(), /identities differ/);
+  await page.goto(repoURL + '#sodaspaces'); await settled();
+  assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[1].id);
+  assert(await page.getByRole('link', {name: 'Connect to Soda', exact: true}).isVisible());
   assert.equal(environmentReads, beforeSwitch);
   stage = 'second real OAuth repository return';
   await oauth(1);
@@ -403,11 +394,13 @@ try {
   await other.bringToFront();
   await other.goto(repoURL);
   await open(other);
-  await other.locator('#sodaspaces-sign-out').click();
-  await other.waitForFunction(() => document.getElementById('sodaspaces-status')?.textContent?.includes('Signed out of Soda, not Forgejo or Linux'));
+  await projectView(other, input.repository_id);
+  const loggedOut = other.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/session/logout' && r.request().method() === 'POST');
+  await control('sign-out', other).click(); assert.equal((await loggedOut).status(), 200);
   await page.bringToFront();
-  await page.locator('#sodaspaces-reload').click();
-  await page.locator('#sodaspaces-sign-in').waitFor({state: 'visible'});
+  await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).click();
+  await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor({state: 'visible'});
+  assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
   assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[1].id);
   await oauth(1);
 
@@ -417,11 +410,28 @@ try {
   await open();
   await other.bringToFront();
   await page.bringToFront();
-  await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
+  assert(await drawer.isVisible());
+  const draft = await page.locator('#issue_title').elementHandle();
   assert.equal(await page.locator('#issue_title').inputValue(), 'Unsaved Sodaspaces fixture text');
+  await page.locator('#issue_title').focus();
+  await page.setViewportSize({width: 390, height: 900});
+  await page.getByRole('button', {name: 'Forge', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Terminal', exact: true}).click();
+  assert(await page.locator('#issue_title').isHidden());
+  assert(await draft?.evaluate(node => node.isConnected));
+  await page.getByRole('button', {name: 'Forge', exact: true}).click();
+  assert.equal(await page.locator('#issue_title').inputValue(), 'Unsaved Sodaspaces fixture text');
+  await page.getByRole('button', {name: 'Terminal', exact: true}).click();
   assert.equal(new URL(page.url()).pathname, input.repository_path + '/issues/new');
   await page.locator('#sodaspaces-close').click();
   assert.equal(await page.locator('#issue_title').inputValue(), 'Unsaved Sodaspaces fixture text');
+  stage = 'cancel ordinary Open in Spaces navigation with native beforeunload';
+  await open();
+  const cancelled = page.waitForEvent('dialog').then(async dialog => {assert.equal(dialog.type(), 'beforeunload'); await dialog.dismiss();});
+  await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click(); await cancelled;
+  assert(await draft?.evaluate(node => node.isConnected));
+  assert.equal(new URL(page.url()).pathname, input.repository_path + '/issues/new');
+  result.beforeunload_cancelled_without_detach = true;
   stage = 'discard only synthetic form text';
   const discardFixture = async (dialog: Dialog) => {
     if (dialog.type() === 'beforeunload') await dialog.accept();
@@ -436,17 +446,27 @@ try {
   await page.goBack({waitUntil: 'commit'});
   result.bfcache_restored = await page.evaluate(() => window.sodaspacesProbeRestored === true);
   if (result.bfcache_restored) {
-    // An open dialog is retained by BFCache, but its private data must not be.
-    await page.locator('#sodaspaces-reload').waitFor({state: 'visible'});
-    assert.equal(await page.locator('#sodaspaces-actor').innerText(), '');
+    await page.getByRole('button', {name: 'Forge', exact: true}).waitFor();
+    assert.equal(await page.getByRole('button', {name: 'Forge', exact: true}).getAttribute('aria-pressed'), 'true');
+    assert(await drawer.isHidden());
   }
+  await page.setViewportSize({width: 1280, height: 900});
+  stage = 'authenticated Go Spaces page and native links';
+  await open(); await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
+  await page.waitForURL(url => url.pathname === '/-/soda/spaces');
+  await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  assert.equal(await page.locator('#spaces-page').getAttribute('data-soda-actor'), input.users[1].id);
+  assert.equal(await page.locator('soda-spaces').count(), 1);
+  assert.equal(await page.getByRole('navigation', {name: 'Native Forgejo', exact: true}).getByRole('link', {name: 'Issues', exact: true}).getAttribute('href'), origin.origin + '/issues');
+  await page.goto(repoURL); await open();
   if (accessMode) {
     assert(result.bfcache_restored, 'Access writes require the read-only journey to complete first');
     await other.close();
     await page.goto(repoURL);
     await open();
     stage = 'access fixture must initially have no reservation';
-    assert.match(await page.locator('#sodaspaces-status').innerText(), /^No shared environment\./);
+    await projectView(page, input.repository_id);
+    assert.match(await control('status').innerText(), /^No shared environment\./);
     const access: AccessEvidence = {reservation_id: null, users: [], copy_native_paste: []};
     result.access = access;
     const permit = (index: number, route: string, body: unknown) => {
@@ -477,11 +497,12 @@ try {
       await nativeLogin(page, index);
       await open();
       await oauth(index);
+      await projectView(page, input.repository_id);
       if (index === 0) {
         stage = 'explicit native shared-environment creation';
         permit(index, '/api/environments', {repository_id: input.repository_id});
         const completed = page.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/environments' && r.request().method() === 'POST', {timeout: 300000});
-        await page.locator('#sodaspaces-create').click();
+        await control('create').click();
         const response = await completed;
         const created = object(await response.json());
         const id = created.id || (created.environment ? object(created.environment).id : undefined);
@@ -490,29 +511,32 @@ try {
         assert.equal(created.repository_id, input.repository_id);
         assert(access.reservation_id && created.provisioned === true && accessWrite === null);
         await settled();
-        assert.equal(await page.locator('#sodaspaces-login').innerText(), '');
-        assert(await page.locator('#sodaspaces-connection').isHidden());
+        assert.equal(await control('login').innerText(), '');
+        assert(await control('connection').isHidden());
       }
       stage = `access user ${index}: explicit public key registration`;
-      await page.locator('#sodaspaces-public-key').fill(publicKey);
+      await projectView(page, input.repository_id, 'Access');
+      await control('public-key').fill(publicKey);
       permit(index, '/api/me/development-keys', {public_key: publicKey});
       const saved = page.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/me/development-keys' && r.request().method() === 'POST');
-      await page.locator('#sodaspaces-save-key').click();
+      await control('save-key').click();
       assert.equal((await saved).status(), 200);
       await settled();
       assert.equal(accessWrite, null);
-      assert.equal(await page.locator('#sodaspaces-login').innerText(), '');
+      assert.equal(await control('login').innerText(), '');
       stage = `access user ${index}: explicit native account join`;
+      await projectView(page, input.repository_id);
       permit(index, `/api/environments/${access.reservation_id}/join`, {});
       const joined = page.waitForResponse(r => new URL(r.url()).pathname === `/-/soda/api/environments/${access.reservation_id}/join` && r.request().method() === 'POST', {timeout: 300000});
-      await page.locator('#sodaspaces-join').click();
+      await control('join').click();
       const joinedResponse = await joined;
       assert.equal(joinedResponse.status(), 200);
       assert.equal(object(await joinedResponse.json()).login, user.login);
       await settled();
       assert.equal(accessWrite, null);
-      await page.locator('#sodaspaces-connection').waitFor({state: 'visible'});
-      const command = await page.locator('#sodaspaces-command').inputValue();
+      await projectView(page, input.repository_id, 'Access');
+      await control('connection').waitFor({state: 'visible'});
+      const command = await control('command').inputValue();
       stage = `access user ${index}: current own connection`;
       const own = object(await page.evaluate(async ({actor, id}) => {
         const response = await fetch(`/-/soda/api/environments/${id}/connection`, {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': actor}});
@@ -532,7 +556,7 @@ try {
       stage = `access user ${index}: native Copy and real paste`;
       const copied = await page.evaluate(() => window.config.i18n.copy_success);
       assert(typeof copied === 'string' && copied.length > 0);
-      await page.locator('#sodaspaces-copy').click();
+      await control('copy').click();
       await page.getByRole('tooltip').filter({hasText: copied}).waitFor({state: 'visible'});
       await page.locator('#sodaspaces-close').click();
       await page.goto(repoURL + '/issues/new');
@@ -544,8 +568,10 @@ try {
       page.on('dialog', discardFixture);
       try { await page.goto(repoURL); } finally { page.off('dialog', discardFixture); }
       await open();
-      assert.equal(await page.locator('#sodaspaces-command').inputValue(), command);
-      assert(await page.locator('#sodaspaces-join').isHidden());
+      await projectView(page, input.repository_id, 'Access');
+      assert.equal(await control('command').inputValue(), command);
+      await projectView(page, input.repository_id);
+      assert(await control('join').isHidden());
     }
     access.native_join_confirmed = true;
   }
@@ -555,8 +581,10 @@ try {
     await nativeLogin(page, index);
     await page.goto(repoURL);
     await open();
-    if (await page.locator('#sodaspaces-sign-out').isVisible()) {
-      await page.locator('#sodaspaces-sign-out').click();
+    if (await page.getByRole('button', {name: 'New terminal', exact: true}).isEnabled()) {
+      await projectView(page, input.repository_id);
+      const response = page.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/session/logout' && r.request().method() === 'POST');
+      await control('sign-out').click(); assert.equal((await response).status(), 200);
       await settled();
       await page.reload();
       await open();
@@ -572,9 +600,12 @@ try {
       const user = input.users[index]; assert(user);
       stage = `terminal user ${index}: real native login and consent`;
       await authenticateExisting(index);
-      assert(await page.locator('#sodaspaces-connection').isVisible());
+      assert(await control('connection').isVisible());
+      const controls = await projectView(page, input.repository_id, 'Access'), environment = await controls.getAttribute('data-environment-id');
+      assert(environment && /^p[0-9a-f]{24}$/.test(environment));
       const marker = `SODA_E2E_${index}_${Date.now()}`;
       let wire = '', facts: ShellFacts | undefined, sockets = 0, closed = false;
+      let target: {environment: string; id: string} | undefined;
       const observe = (ws: WebSocket) => {
         const url = new URL(ws.url());
         assert.equal(url.origin, origin.origin.replace('https:', 'wss:'));
@@ -587,6 +618,7 @@ try {
           // Never retain terminal transcript, authentication frames or input.
           try {
             const frame = object(JSON.parse(typeof payload === 'string' ? payload : payload.toString()));
+            if (frame.type === 'session') {assert(!target && url.pathname === `/-/soda/api/environments/${environment}/terminal` && terminalID(frame.id)); target = {environment, id: frame.id}; return;}
             if (frame.type !== 'output' || typeof frame.data !== 'string') return;
             wire = (wire + Buffer.from(frame.data, 'base64').toString('utf8')).slice(-16384);
             const normalized = wire.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replaceAll('\r', '');
@@ -605,8 +637,8 @@ try {
       };
       page.on('websocket', observe);
       stage = `terminal user ${index}: explicit real shell`;
-      await page.getByRole('button', {name: 'Open terminal', exact: true}).click();
-      await page.getByText(`Connected as ${user.login}.`, {exact: true}).waitFor();
+      assert(input.terminal_actions?.includes('create'));
+      await newManagedTerminal(page, input.repository_path.slice(1), marker, environment);
       const code = "import os,pwd,json; print(" + JSON.stringify(marker + ':') + "+json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,uid=os.getuid(),gid=os.getgid(),groups=os.getgroups(),home=os.environ['HOME'],cwd=os.getcwd(),tty=os.isatty(0),shell_pid=os.getppid(),shell_start=open('/proc/%d/stat'%os.getppid()).read().split()[21])))";
       const command = "python3 -c '" + code.replaceAll("'", "'\\''") + "'";
       const screen = page.locator('.soda-terminal .xterm-helper-textarea');
@@ -625,17 +657,25 @@ try {
       await page.keyboard.press('Escape');
       assert(await drawer.isVisible());
       await page.keyboard.press('Control+Shift+Enter');
-      assert(await page.getByRole('button', {name: 'Disconnect', exact: true}).evaluate(e => e === document.activeElement));
-      stage = `terminal user ${index}: explicit disconnect`;
-      await page.getByRole('button', {name: 'Disconnect', exact: true}).click();
+      assert(await page.getByLabel('Terminal actions', {exact: true}).evaluate(e => e === document.activeElement));
+      stage = `terminal user ${index}: explicit original-target End`;
+      assert(target);
+      await terminalMenu(page, 'End terminal…');
+      assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Cancel');
+      const endingTarget = target;
+      permitTerminalEnd(user.id, endingTarget.environment, endingTarget.id);
+      const ended = page.waitForResponse(r => new URL(r.url()).pathname === `/-/soda/api/environments/${endingTarget.environment}/terminal-sessions/${endingTarget.id}` && r.request().method() === 'POST');
+      await page.getByRole('dialog', {name: 'End terminal confirmation', exact: true}).getByRole('button', {name: 'End terminal', exact: true}).click();
+      const endResponse = await ended; assert.equal(endResponse.status(), 200); assert.equal(object(await endResponse.json()).ending, true);
+      result[`terminal_${index}_locator`] = target; // Locator only, not native cleanup proof.
       const closeDeadline = Date.now() + 10000;
       while (!closed && Date.now() < closeDeadline) await new Promise(resolve => setTimeout(resolve, 100));
       assert(closed);
       stage = `terminal user ${index}: no reconnect after Refresh`;
-      await page.locator('#sodaspaces-refresh').click();
+      await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).click();
       await settled();
       assert.equal(sockets, 1);
-      assert(!(await page.getByRole('button', {name: 'Open terminal', exact: true}).count()));
+      assert.equal(await page.locator('.soda-workspace-terminal:visible .is-connected').count(), 0);
       page.off('websocket', observe);
       wire = '';
       const terminal = terminals.at(-1); assert(terminal);

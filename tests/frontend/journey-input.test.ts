@@ -24,6 +24,15 @@ test('public-key inputs require explicit access mode and valid project logins', 
   assert.throws(() => journeyInput({...withKeys, users: withKeys.users.map(user => ({...user, login: 'root'}))}, true));
 });
 
+test('managed terminal input requires explicit create/End scope and cannot reuse old read-only inputs', () => {
+  assert.throws(() => journeyInput(input(), false, true));
+  const scoped = {...input(), terminal_actions: ['create', 'end']};
+  assert.deepEqual(journeyInput(scoped, false, true), scoped);
+  assert.throws(() => journeyInput(scoped, false));
+  assert.throws(() => journeyInput(scoped, true, true));
+  for (const terminal_actions of [[], ['create'], ['end'], ['create', 'end', 'stop'], ['create', 'end', 'create']]) assert.throws(() => journeyInput({...input(), terminal_actions}, false, true));
+});
+
 test('management input rejects extra authority fields and malformed container targets', () => {
   const request = {cid: 'a'.repeat(64), project: 'p' + 'b'.repeat(24), target: 'fixture', ssh_config: '/synthetic/ssh',
     key_a: '/synthetic/a', key_a_public: '/synthetic/a.pub', key_b: '/synthetic/b', key_b_public: '/synthetic/b.pub',
