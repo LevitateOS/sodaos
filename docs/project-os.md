@@ -212,8 +212,14 @@ packaging **and** a reviewed existing-root maintenance recipe:
    If the existing creation profile cannot support the feature without replacement,
    stop for a decision rather than migrate IDs/storage or recreate it in secret.
 
-The recipe/compatibility checks are **not implemented yet** and do not authorize
-maintenance. Keep `scripts/build-native.sh`, native build metadata, staging/verifier
+An exact isolated-root recipe was executed for `22d8591` delivery on
+`soda-native-spaces-658f2af`, after the user explicitly waived backups for that
+target. It admitted the original CIDs/files, verified the native tmux RPM signature
+and dependency transaction, and updated only tmux and the two Soda-owned files.
+See the [handoff](implementation-status.md) for retained recipes, failed attempts
+and bounded browser continuity/cleanup evidence. This exception is not a general
+backup waiver, fleet-maintenance tool or permission for another root/target.
+Keep `scripts/build-native.sh`, native build metadata, staging/verifier
 and [installation](installation.md) as production owners. Do not use first-install
 or activation as upgrade tools. Project administrators own their ordinary native
 tool/service changes; required platform additions/security maintenance need deliberate

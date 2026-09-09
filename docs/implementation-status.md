@@ -1,5 +1,48 @@
 # Current handoff
 
+## Available for testing — isolated deployment `22d8591`
+
+**Installed affected-component candidate:**
+`22d85916c861b540d959336dafbe46b84ab3d795` on
+`soda-native-spaces-658f2af`, browser origin `https://localhost:33443` through the
+existing infra forward. This is not automatic laptop reachability. The user
+explicitly waived backups and requested deployment again. No backups, root
+replacement, project restart, capability/network/provider changes or push occurred;
+`soda-test` was not contacted. Both original project CIDs and sshd PIDs (40/72)
+remain unchanged. Retained Cockpit was not redeployed.
+
+The sysfs correction below was built from a fresh clean exact-revision worktree
+with Go 1.26.7/Bun 1.4.2. Full production build/check/export completed; all 11 actual
+stage packaging tests passed. The first check had a local synthetic PTY interrupt
+failure; its log remains, and a separately logged complete repeat passed (69 Python
+fixtures, one opt-in skip). The verified export's `build-info.json` SHA256 is
+`003725ecaa56e1c8cf9db18941c97762856ce623593644be5925c9a413210e21`.
+The corrected helper/backend/default project image and exact program in both
+retained roots were rolled forward, without changing their capabilities or roots.
+Generated Forgejo files match the corrected candidate (unchanged from `3c2a7d4`).
+Live helper/backend executable hashes and all four service states were checked.
+
+**Real browser smoke passed:** stock Forgejo Alice login and OAuth, explicit
+terminal creation, actual shell input/output, full page reload with the same shell
+PID and retained shell variable, explicit End acknowledged by the API, and fresh
+metadata reporting no terminal after native cleanup. An independent native read
+then confirmed that shell PID absent and zero managed units in both roots.
+The first browser attempt reached End but expected a transient status message;
+the corrected check observes the actual End response and cleanup metadata instead.
+This does not establish broader screen/history/editor/BFCache/expiry/Stop acceptance.
+
+The separate Go native probe now creates/attaches successfully, but its raw-output
+facts parser still failed against tmux output. Experimental multiline/base64 framing
+attempts and logs are retained; the tracked probe was restored rather than calling
+those failures passes. Its full two-account/resize/interrupt/same-start/lease/helper-loss
+journey remains unproven. The failed initial native runtime record is retained, not
+adopted or deleted. Browser proof is a bounded installed result, not a substitute
+for those remaining cases or aarch64/product acceptance.
+
+Exact recipes, failed attempts, source-bound build/check/export, strict-typed
+browser smoke and final native observations are under
+`.artifacts/deploy-3c2a7d4/` and `.artifacts/deploy-22d8591/`.
+
 ## Isolated deployment and native sysfs admission correction
 
 The user explicitly declined backups and renewed the deployment request.

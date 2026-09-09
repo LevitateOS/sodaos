@@ -185,8 +185,10 @@ Project environments are created once and started/stopped as existing containers
 
 Required new native support, such as tmux, follows the [Project OS same-root
 maintenance contract](project-os.md#deliver-required-additions-without-replacing-roots).
-New image builds/defaults do not update retained roots. Exact package/file/service
-maintenance recipes and compatibility checks still need implementation, rehearsal
-and applicable target/action scope; first-install/activation are not those recipes.
+New image builds/defaults do not update retained roots. The handoff records one
+exact isolated-root tmux transaction with native signature/dependency checks and
+bounded browser proof; the user waived backups only for that target. Other
+package/file/service transactions still need their own compatibility review and
+applicable target/action scope; first-install/activation are not those recipes.
 
 Run the later [native validation guide](native-validation.md) only with explicit targets and permissions. Installation/activation command success is not validation. Keep source, build and installed evidence separate.
