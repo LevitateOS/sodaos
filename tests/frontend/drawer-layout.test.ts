@@ -102,10 +102,11 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
       const canvas = getComputedStyle(probe).color; probe.remove();
       return {background: style.backgroundColor, canvas, scheme: style.colorScheme, font: style.fontFamily,
         nativeBackground: getComputedStyle(document.body).backgroundColor,
-        nativeFont: getComputedStyle(document.querySelector('main')!).fontFamily};
+        nativeFont: getComputedStyle(document.querySelector('main')!).fontFamily,
+        hideFont: getComputedStyle(document.querySelector('#sodaspaces-close')!).fontFamily};
     });
     assert.equal(presentation.background, presentation.canvas);
-    assert.equal(presentation.scheme, theme); assert.match(presentation.font, /Barlow/);
+    assert.equal(presentation.scheme, theme); assert.match(presentation.font, /Barlow/); assert.match(presentation.hideFont, /Barlow/);
     assert.equal(presentation.nativeBackground, 'rgba(0, 0, 0, 0)', 'island tokens must not activate full-page styling');
     assert.doesNotMatch(presentation.nativeFont, /Barlow/);
     const metrics = await drawer.evaluate(node => ({width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, overflow: node.scrollWidth > node.clientWidth, compact: document.body.classList.contains('sodaspaces-compact')}));

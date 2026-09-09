@@ -1,5 +1,33 @@
 # Current handoff
 
+## Frontend improvement — follow-up guards and combined local checks
+
+Hardened the scoped visual guard for named/fallback colors, TypeScript terminal
+font literals, spacing and radii; the only raw padding exception is the exact
+native Hide hit-region reservation. The analyzer now refuses authored nested
+browser files omitted by the compiler inventory, renamed unconfigured HTML tags,
+empty template discovery and unknown arguments. Fixtures exercise empty/missing
+input refusal. Screenshot review caught default browser styling on the unmarked
+native Hide/Forge/Terminal controls; those now consume canonical roles too, with
+computed-font and native-noninterference assertions. Packaging fixtures now retain
+and compare the analysis manifest in build inputs without runtime delivery.
+
+Combined local `bun run test` passed: frontend **176 /3 gated skips**, actual Go
+HTML/CSP browser **1**, **20** layout cases, Forgejo **29 /18 optional skips**,
+Cockpit **60**. Required typecheck/analyzer/fixtures, `go test -mod=readonly ./...`,
+**7** temporary-filesystem packaging tests and **3** canonical-payload tests passed.
+The explicit Lit suite previously passed **114** on this slice. No native stage,
+installed journey, selected CLI, provider call or deployment was run. Screenshots
+remain synthetic native-form/xterm evidence, not stock Forgejo acceptance.
+The dependency graph comparison found no removed existing package versions.
+All logs/failures are retained under `.artifacts/frontend-improvement-f45b74c/`.
+
+**This is a partial implementation of the requested plan**, not source closure:
+remaining typed presentation, source organization, 6a attention and 6b candidate/
+installed-driver work are still undone. These source tasks are not blocked by
+native authorization. Existing failed terminal evidence and compatibility questions
+remain unchanged; native/CLI 6c keeps its separate exact scope.
+
 ## Frontend improvement — required analyzer and first typed view
 
 After styling commit `cdfb6e8`, the root workspace/single lock now owns the

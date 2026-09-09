@@ -1,5 +1,21 @@
 /* Non-modal native-page/workspace split. The native document remains interactive. */
 #sodaspaces-root [hidden] { display: none !important; }
+/* Native adapter controls are Soda islands too, including on unmarked pages. */
+:is(#sodaspaces-button, #sodaspaces-close, #sodaspaces-surfaces button) {
+  box-sizing: border-box;
+  min-height: var(--soda-workspace-control);
+  padding: var(--soda-space-1) var(--soda-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--soda-button-radius);
+  font: var(--soda-font-button);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+}
+:is(#sodaspaces-button, #sodaspaces-close, #sodaspaces-surfaces button):is(:hover, :focus-visible) {
+  background: var(--soda-page-hover);
+  outline-color: var(--soda-page-focus);
+}
+#sodaspaces-surfaces [aria-pressed=true] { color: var(--soda-page-link); background: var(--soda-page-selected); }
 #sodaspaces-button.sodaspaces-global-resume { position: fixed; bottom: var(--soda-space-3); right: var(--soda-space-3); z-index: 90; }
 body.sodaspaces-open #sodaspaces-button.sodaspaces-global-resume { display: none; }
 body.sodaspaces-open { width: calc(100% - var(--soda-space-width, 50vw)); min-width: 0; }

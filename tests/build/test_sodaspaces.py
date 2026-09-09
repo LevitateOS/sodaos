@@ -174,7 +174,7 @@ class SodaspacesPackaging(unittest.TestCase):
         module = runpy.run_path(str(ROOT / 'scripts/native-build-info.py'))
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for name in ('appliance', 'project-os', 'cockpit', 'docs', 'scripts',
+            for name in ('appliance', 'project-os', 'cockpit', 'docs', 'scripts', 'tools',
                          'go.mod', 'go.sum', 'package.json', 'bun.lock', 'bunfig.toml', 'LICENSE', 'NOTICE'):
                 (root / name).symlink_to(ROOT / name)
             stage = root / '.artifacts/native/x86_64'
@@ -185,6 +185,8 @@ class SodaspacesPackaging(unittest.TestCase):
                 return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
             with patch.dict(module['collect'].__globals__, output=synthetic_output), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
                 module['collect'](root, 'x86_64', '1' * 40)
+            self.assertEqual((stage / 'inputs/lit-check-package.json').read_bytes(),
+                             (ROOT / 'tools/lit-check/package.json').read_bytes())
             for source, name in (('LICENSE', 'soda-LICENSE'), ('NOTICE', 'soda-NOTICE')):
                 self.assertEqual((stage / 'notices' / name).read_bytes(), (ROOT / source).read_bytes())
 

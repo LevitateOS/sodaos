@@ -17,6 +17,16 @@ assert(!configFile.error, 'Browser config is unreadable');
 const config = ts.parseJsonConfigFileContent(configFile.config, ts.sys, root);
 assert.equal(config.errors.length, 0, ts.formatDiagnosticsWithColorAndContext(config.errors, {getCurrentDirectory: () => root, getCanonicalFileName: p => p, getNewLine: () => '\n'}));
 assert(config.fileNames.length > 0, 'Empty browser source inventory');
+const authored: unknown = configFile.config.include;
+assert(Array.isArray(authored) && authored.length > 0, 'Missing authored browser roots');
+for (const pattern of authored) {
+  assert(typeof pattern === 'string' && pattern.endsWith('/*.ts'), 'Review changed browser discovery pattern');
+  const directory = resolve(root, pattern.slice(0, -5));
+  for (const file of ts.sys.readDirectory(directory, ['.ts'], undefined, ['**/*.ts'])) {
+    assert(config.fileNames.includes(file), `Authored browser source skipped by compiler/analyzer: ${file}`);
+  }
+}
+assert(Bun.argv.slice(2).every(arg => arg === '--fixtures'), 'Unknown checker argument');
 
 function analyze(files: string[]): LitDiagnostic[] {
   assert(files.length > 0, 'Empty template input');
@@ -34,6 +44,8 @@ function analyze(files: string[]): LitDiagnostic[] {
 
 if (Bun.argv.includes('--fixtures')) {
   const fixtures = resolve(root, 'tools/lit-check/fixtures');
+  assert.throws(() => analyze([]), /Empty template input/);
+  assert.throws(() => analyze([resolve(fixtures, 'missing-input.ts')]), /Skipped source/);
   const positive = analyze([resolve(fixtures, 'positive.ts')]);
   assert.deepEqual(positive, [], 'Normal typed/static-properties authoring must pass');
   const negatives: Record<string, string> = {
@@ -51,6 +63,18 @@ if (Bun.argv.includes('--fixtures')) {
   console.log('Positive fixture and ten independent negative contracts passed. Callable event parameter kinds remain unchecked.');
 } else {
   // Use the actual compiler inventory, not three hardcoded historical component names.
+  let templates = 0;
+  for (const file of config.fileNames) {
+    const text = ts.sys.readFile(file); assert(text !== undefined, `Missing browser source ${file}`);
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+    const visit = (node: ts.Node): void => {
+      if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && node.tag.text === 'html') templates++;
+      if (ts.isImportSpecifier(node) && node.propertyName?.text === 'html') assert.equal(node.name.text, 'html', 'Renamed template tags need explicit analyzer coverage');
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  assert(templates > 0, 'No authored Lit templates were found');
   const diagnostics = analyze(config.fileNames);
   for (const d of diagnostics) console.error(`${relative(root, d.file.fileName)}:${d.location.start} [${d.severity}/${d.source}] ${d.message}`);
   console.log(`Analyzed ${config.fileNames.length} browser sources with classic TS ${ts.version}; product compiler unchanged.`);
