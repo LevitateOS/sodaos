@@ -22,9 +22,10 @@ The current baseline still includes usable project-local accounts and SSH, genui
 The user subsequently selected the bounded authenticated **Spaces** listing and
 global navigation link; the earlier environment-catalog exclusion is superseded.
 See the [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented) for
-Go/template ownership, authorization and unresolved page-shell integration. This
-selection does not reopen deletion, reconciliation, resource branching or a general
-replacement dashboard. Future Runners navigation remains Soda-operator-only.
+Go/template ownership, authorization and the selected Soda-owned page shell. The
+[Lit plan](lit-migration-plan.md) implements this workspace and its companion drawer,
+not Forgejo workflows. This selection does not reopen deletion, reconciliation,
+resource branching or a general replacement dashboard. Future Runners navigation remains Soda-operator-only.
 
 The [Project OS baseline](project-os.md) additionally selects bounded native
 maintenance for required package/helper/config additions to the **same** retained

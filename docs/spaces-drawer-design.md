@@ -3,8 +3,10 @@
 **Design specification, not deployed behavior.** The user approved the direction of
 the full-page [Spaces design](spaces-design.md) and requested an equally concrete
 right-half drawer. This specifies that complementary surface—not another workspace,
-terminal implementation or UI framework. Shared session/action/attention semantics
-remain in the parent design and [terminal contract](terminal-integration.md).
+terminal implementation or UI stack. The [Lit implementation plan](lit-migration-plan.md)
+owns the shared component/backend sequence for both surfaces; no production Lit
+component is ported yet. Shared session/action/attention semantics remain in the
+parent design and [terminal contract](terminal-integration.md).
 
 The [visual sheets](design/spaces/README.md) show native-forge browsing alongside
 terminal work, the drawer's session switcher, and compact Forge/Terminal switching.
@@ -64,7 +66,9 @@ room for roughly 80 columns; wider displays provide more.
 Native media queries may use viewport width even when Soda narrows the body. The
 implementation must review the actual selected Forgejo pages and use supported,
 Soda-scoped layout adaptation where needed—not assume `body {width: 50%}` proves
-navbar, diff, form and popover compatibility. Code/diff horizontal scrolling can
+navbar, diff, form and popover compatibility. Keep the merged native repository
+header's inline actions above 1000px pane width and its disclosure at/below that
+width; the schematic sheets do not override that real behavior. Code/diff horizontal scrolling can
 stay inside the native file region; the whole page must not disappear under the drawer.
 
 ## 2. Compact, terminal-first drawer chrome

@@ -9,6 +9,9 @@ focus versus advisory attention, measured compact behavior and the same drawer v
 Static annotated sheets supersede the old grid-first interactive mockup; no semantic
 agent status is real without an explicitly implemented signal adapter. These designs
 reuse the same managed session mechanism, not separate terminal owners. The
+[Lit implementation plan](lit-migration-plan.md) now owns the rendering ports and
+subsequent concurrency/page/layout sequence; no production component is ported.
+It preserves current HTTP End and exact restore, not the older socket-close contract. The
 [drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
 composition, a flat view of this window's open tabs without destroying full-page
 pane layout, and the difference between native navigation, right-side view changes,
@@ -22,7 +25,7 @@ The [handoff](implementation-status.md) records actual `22d8591` isolated browse
 same-shell reload/End evidence and remaining native probe gaps. Older source-slice
 status language below is not an assertion that nothing has since been deployed.
 
-## Workspace layout slice — source, not deployed
+## Current single-session layout and continuity
 
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
 shell mounting `mountSodaspaces` once on explicit opening. The shell now uses a
@@ -55,7 +58,7 @@ locator preserves the selected repository instead of following the left page. It
 contains no credential, transcript or queued command. Switching repositories is
 explicit. Signed non-repository pages have a resume hook, not a Spaces listing.
 
-## Managed terminal source candidate — not native-proven
+## Managed terminal implementation and proof limits
 
 The image recipe adds stock tmux and required terminfo/tools, and copies the single
 helper-owned Python source to `/usr/libexec/soda/project-terminal`. Project init
@@ -85,7 +88,7 @@ is a Linux-account deletion or shared-project idle stop.
 The protected `terminal-session` API reports metadata and accepts explicit End,
 Return and finite retention. The socket first selects create or exact attach, emits
 a locator then readiness, and carries only input/resize thereafter. See the
-[wire contract](dashboard-api.md#terminal-websocket--source-implemented-delivery-pending).
+[wire contract](dashboard-api.md#terminal-websocket--managed-tmux-contract).
 End acknowledges **ending**, not process disappearance. Slots remain reserved until
 native cleanup acknowledgment; a lost/uncertain dispatch or cleanup reports
 `unconfirmed` and refuses replacement. No automatic reconciliation/retry frees it.
@@ -93,14 +96,17 @@ The native guard/safety lease remains independent; an operator must inspect unce
 outcomes. Cleanup proves the selected cgroup empty before removing only admitted
 runtime files; unsafe or changed state is retained, not recursively deleted.
 
-Local HTTP/DOM/temporary-filesystem/PTY doubles are not a running tmux/systemd proof.
-The revised opt-in native probe requires fresh `terminal_protocol: managed-tmux-v1`
-and exact `container_id` inputs; old private approvals cannot accidentally run it.
-It authors same-shell PID/start/memory reattachment and owned teardown checks. Actual
-Rocky packages, unit properties/cgroups, native screen/history/editor/build continuity,
-independent SSH/tmux/workload preservation and real browser journeys remain unverified.
-The exact same-root maintenance recipe/rehearsal is still unfinished: no retained root
-has been updated, and a new image is not its upgrade path.
+Local HTTP/DOM/temporary-filesystem/PTY doubles are not native proof. The isolated
+`22d8591` run added tmux/program bytes to both original roots and verified actual
+browser same-PID/memory reload and acknowledged/independently observed cleanup.
+The separate native probe still fails raw-output confirmation; its complete two-
+account/resize/interrupt/lease/helper-loss journey is not passed. Broader screen/
+history/editor/build/network and unrelated-workload proof remains required.
+
+That probe requires `terminal_protocol: managed-tmux-v1` and exact container inputs;
+old private approvals cannot accidentally run it. The isolated maintenance recipe
+and scoped backup waiver are in the handoff, not permission for another root/target.
+A new image still does not upgrade a retained writable root.
 
 ## Selected persistence mechanism — tmux, source candidate
 
@@ -207,15 +213,15 @@ Research inputs and comparisons are retained in `.artifacts/research/terminal-op
   on Open, fall back to the disposable PTY or replace a project. Existing-project
   package/helper delivery requires its exact maintenance scope, preserving later work.
 
-### Immediate implementation and proof
+### Remaining native proof and multi-session extension
 
-Implement **one** resumable terminal before multi-session UI. Revise the existing
-helper/API/renderer and product-owned tests, not a parallel prototype backend or
-support-tool readiness gate. Refresh and unrelated management updates must not
-unmount/end a running terminal. Navigation/reload restores the authorized selected
-environment/session, not the repository currently displayed on the left. Pagehide
-may dispose this document's renderer/attachment, not send End. Retain the current
-Hide/view live-mount behavior alongside the separate retention protocol.
+The single managed terminal is implemented. Preserve its helper/API/renderer
+boundaries in the [Lit ports and ID-keyed extension](lit-migration-plan.md), not a
+parallel backend or support-tool gate. Refresh and unrelated management updates
+must not end a running terminal. Navigation/reload restores the authorized selected
+session, not the left page's repository; pagehide disposes only this document's
+attachment. Same-document tab/layout changes retain the live renderer/socket.
+The current singleton limit is removed in the backend slice, not by UI bypass.
 
 Prove a real unchanged shell PID/start identity, unsaved editor state and running
 build across native navigation, reload, temporary network loss and drawer/view
@@ -227,8 +233,9 @@ cleanup preserves unrelated SSH/tmux and other accounts/terminals. Source tests 
 real OAuth/trusted-browser/native observations are required; old request-PTY cleanup
 passes and synthetic layout tests are not this proof. Restart/reboot resurrection
 of running terminals is not selected; retained files and normal project persistence
-remain separate. Exact API/storage/lease messages and native units are still source
-work. No install, native runtime test or deployment occurred in this decision.
+remain separate. Current API/lease/native-unit code exists; ID-keyed metadata,
+creation correlation and bounded confirmed-cleanup receipts are proposed changes,
+not current wire behavior. No further native execution is granted by this plan.
 
 [tmux-man]: https://github.com/tmux/tmux/blob/3b929f332aafa7f1080eacc31feb11ffbb1d1841/tmux.1
 [tmux-client]: https://github.com/tmux/tmux/blob/3b929f332aafa7f1080eacc31feb11ffbb1d1841/client.c
@@ -294,7 +301,8 @@ renderer disposal detaches, while End is the separate protected operation.
 
 Load `/assets/sodaspaces{,-drawer,-terminal}.css` and
 `/assets/soda-terminal/xterm.css`. The renderer is lazy-loaded from local
-`/assets/soda-terminal/{xterm,addon-fit}.mjs`; no CDN or frontend framework is added.
+`/assets/soda-terminal/{xterm,addon-fit}.mjs`; no CDN. Lit will own controls through
+the already scaffolded shared runtime, never the xterm-owned screen descendants.
 Keep xterm-specific styles scoped, so native form rules do not corrupt its textarea.
 Browser cookies remain HttpOnly; actor/CSRF travels only in the bounded first socket
 frame. No credential or terminal transcript belongs in logs. Terminal-driven OSC

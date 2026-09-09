@@ -4,7 +4,9 @@
 permission.** This replaces the earlier grid-first proposal and interactive mockup.
 The user requested this redesign after researching existing multi-terminal/agent tools.
 The [leading plan](sodaspaces-plan.md) owns scope; the [handoff](implementation-status.md)
-owns execution evidence. The page and true multi-session backend remain unimplemented.
+owns execution evidence. The [Lit implementation plan](lit-migration-plan.md) now owns
+the detailed source sequence for this page and its companion drawer. Lit is scaffolded;
+no production component, Spaces page or true multi-session backend is implemented.
 
 **Direction:** a project/session sidebar for finding work, tabs for switching within
 a pane, and direct splits for the few terminals being viewed together. Native CLI
@@ -78,7 +80,8 @@ All  |  Attention (1) │ api / Auth refactor   api / Review auth !   …   +
 ### Chrome and dimensions
 
 Use canonical Soda assets and existing light/dark palette, Barlow interface text
-and Plex Mono terminal text. No new component library, decoration-heavy cards,
+and Plex Mono terminal text. Reuse the shared Lit runtime; no additional UI kit,
+decoration-heavy cards,
 hero section, environment statistics or always-open management inspector.
 
 - Native-like navigation: about 56px; compact workspace bar: 44px.
@@ -317,21 +320,22 @@ cannot recreate terminal renderers, replace IDs or become a keep-alive mechanism
 
 ## 9. Implementation and review acceptance
 
-1. **Real vertical slice:** supported navbar link, authenticated Go shell/fixed return,
-   authorized sidebar and multiple ID-bound sessions (two in one project and one in
-   another). Reuse drawer ownership; explicit create/attach/rename/hide/end with actual
-   error and authority paths. No fake agent statuses or new preview deployment.
-2. **Layout:** cross-project tabs/splits, move/resize/maximize/consolidate, overflow and
-   keyboard/compact behavior without native effects. Test measured pane dimensions,
-   focus, original identity and real renderer continuity, not static SVG appearance.
-3. **Attention:** real unread output and lifecycle problems first; implement/review
-   any selected explicit agent signal adapter before showing its semantic states.
-   Test read versus waiting, stale events, rate bounds and no focus/input side effects.
-4. **Native acceptance under applicable scope:** six sessions/two projects; unchanged
-   PID/start and shell memory/editor/build state through navigation, reload, panes,
-   drawer and temporary network loss. End one while siblings/unrelated SSH/services
-   survive; duplicate writer, Stop, logout/rotation, expiry and uncertain cleanup still
-   win. Real editor/paste/history/resize, mobile keyboard and both themes need review.
+Follow the single [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices):
+two behavior-preserving rendering ports, then real ID-bound concurrency/collection,
+authenticated page/shared drawer, direct layouts and actual attention. The native
+helper/tmux owner is preserved, not replaced by the frontend migration.
+
+Review must show both surfaces working against real authorized sessions, with the
+original identity, measured readable panes, stable renderer/attachment lifetime and
+no native effects from layout. Real unread/lifecycle states precede any explicitly
+selected semantic signal adapter; no fake statuses or additional preview origin.
+
+Native acceptance under applicable scope still requires six sessions/two projects:
+unchanged PID/start and shell memory/editor/build state through navigation, reload,
+layout, drawer and network loss; End preserves siblings/unrelated SSH/services;
+duplicate writer, Stop, logout/rotation, expiry and uncertain cleanup win. Real
+editor/paste/history/resize, mobile keyboard and both themes need review. See the
+implementation plan's source/browser/native matrix, not a second progress checklist.
 
 Static sheet rendering is design review only. It does not resolve the outstanding
 native probe, authorize project recreation for Rocky 10.2, change retained services or

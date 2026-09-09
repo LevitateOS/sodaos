@@ -1,5 +1,54 @@
 # Current handoff
 
+## Spaces page/drawer with Lit — merged-source implementation plan
+
+The user requested pulling/resolving origin/main, learning the incoming Lit direction,
+and planning both real Spaces surfaces with it. Merge `619c5d9` completed the Git
+portion below. Reworked `docs/lit-migration-plan.md` into the single detailed sequence
+under the leading Sodaspaces plan: preserve behavior in the management/terminal
+rendering ports, then implement ID-keyed sessions/authorized collection, the Go page
+and shared Lit workspace, direct layouts/compact drawer and truthful attention.
+The full-page and companion-drawer designs remain UX inputs, not fake implementations.
+
+The plan keeps light DOM, one shared runtime, static strict-TS properties, native
+adapters/Cockpit and xterm's imperative screen ownership. It corrects the incoming
+pre-tmux assumptions: current same-target Refresh preserves the terminal, restore
+attaches an exact ID, HTTP End acknowledges ending, and document disposal detaches.
+It explicitly handles Lit async readiness/retirement and per-render-part keyed identity;
+the selected layout candidate keeps terminal hosts in a stable flat layer instead of
+reparenting/remounting them on pane moves. Its real browser/focus proof is future work.
+
+Proposed backend deltas are kept distinct from implemented wire: per-ID metadata/
+actions, request-correlated creation, attachment-bound default Hide/active Return,
+actual capped deadlines and bounded short-lived native-cleanup receipts. The page
+uses Soda-owned Go HTML, configured native links and a labelled Soda actor, not
+fabricated Forgejo session/CSRF/notification context. Fixed Spaces OAuth intent,
+page-only CSP, shared styles/clipboard, canonical payload/preview projection,
+legacy-locator refusal and source/browser/native acceptance are included. No new
+agent signal adapter, event bus, router, UI kit, native broker or dependency is added.
+
+Updated the leading plan, Lit guide, design links, architecture, current API/terminal/
+Project OS status, deferred boundary and AGENTS guidance to remove stale unimplemented-
+tmux/page-shell assumptions. Historical delivery/failure evidence is preserved and
+labelled, not converted into new acceptance. The actual API/backend/frontend/native
+implementation did not change after the merge resolution.
+
+Read official Lit lifecycle/properties/render-root/list documentation and the locked
+LitElement/reactive-element/repeat source versions. Snapshots and notes:
+`.artifacts/research/lit-spaces-619c5d9/`. Markdown path/anchor and whitespace checks
+passed; the focused Go/template-inventory merge checks are recorded below. No Lit
+install/build/typecheck/browser suite, application preview update, native execution,
+service/project/provider/credential change or rollout was performed for the plan.
+No push command was issued by this session; during planning the remote-tracking
+reflog recorded an external/concurrent push updating `origin/main` to `619c5d9`.
+The working source stayed on that merge throughout.
+
+**Next source slice:** Lit step 1, with converted action/race tests and the existing
+stable terminal host. No production component, multi-session backend or Spaces HTML
+handler is ported/implemented yet. Installed isolated `22d8591`, the separate Rocky
+10.2 root decision, `soda-test` exclusion and incomplete native safety/UX proof stay
+unchanged. This plan does not authorize deployment or imply final product acceptance.
+
 ## Merge of origin/main `8f03910` — resolved, focused source checks only
 
 At the user's request, fetched origin and merged its six commits into local

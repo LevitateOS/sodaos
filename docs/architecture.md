@@ -25,12 +25,14 @@ Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sess
 This is a planned, bounded extension of the API-only backend, not restoration of
 Forgejo workflow adapters or either removed frontend. The listing, OAuth return and
 page shell are not implemented; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
-owns this scope. Terminal continuity remains the immediate implementation task.
+owns this scope. The [Lit implementation sequence](lit-migration-plan.md) now covers
+both surfaces, starting with ports that preserve current managed-session behavior.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
 is stock Rocky tmux under each original project account, with a private supervised
 server per managed browser terminal. Soda retains access/lifetime authority; tmux
-retains the live terminal state. This is planned, not an installed topology change
-or a replacement for ordinary SSH, and it adds no separate public terminal server.
+retains the live terminal state. This source is implemented with bounded isolated
+`22d8591` same-shell reload/cleanup evidence; broader native safety/UX proof remains
+open. It is not a replacement for ordinary SSH or a separate public terminal server.
 
 ## Topology
 
@@ -110,11 +112,13 @@ WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned
 
 The planned Spaces HTML handler uses Soda's own session/acting grant to authorize
 its listing and actions server-side. Its fixed OAuth return must be transaction-bound;
-the current callback does not yet support that destination. Loading Forgejo assets
-cannot supply native template context, CSRF or authenticated navigation, and template
-overrides cannot install Go handlers upstream. Supported page-shell composition
-remains unresolved: no copied native authentication logic, HTML relay or borrowed
-cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
+the current callback does not yet support that destination. The selected shell uses
+canonical Soda assets, configured-origin native links and an explicitly labelled
+Soda account—not a fabricated Forgejo navbar/account/notification context. Loading
+assets cannot supply native CSRF or authentication, and template overrides cannot
+install Go handlers upstream. Lit renders only the Soda workspace. Page-only CSP,
+styles/clipboard, fixed return and real integration still need implementation/tests;
+no copied native authentication logic, HTML relay or borrowed cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
 remain intact. A future global Runners link/page must enforce the configured Soda
 operator boundary server-side; Forgejo site administration is not a substitute.
 

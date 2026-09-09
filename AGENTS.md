@@ -101,22 +101,24 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
   button/right-drawer addition, not a new repository tab. Drawer view/session tabs
   are selected. A global Spaces link and bounded Soda-owned Go/template listing page
-  are also selected but unimplemented; see the leading plan for authentication and
-  the unresolved page-shell boundary. [Lit](docs/lit.md) is scaffolded for
-  Soda-owned components. Existing components remain unchanged; no Bootstrap UI is selected.
+  are also selected but unimplemented; the shell uses Soda-owned Go HTML, canonical
+  assets, fixed native links and a labelled Soda account, not fabricated native
+  authentication/notification context. [Lit](docs/lit.md) is scaffolded for both
+  Soda-owned surfaces; the [implementation sequence](docs/lit-migration-plan.md)
+  owns their ports and real concurrency/layout work. No Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
   Cockpit React/PatternFly pages. Current hooks mount one complete management/
   terminal component through a non-modal aside; the historical duplicate API
-  caller is removed. Focus/view/Hide changes preserve the live mount/socket, but
-  navigation, Refresh and transport loss still end the terminal. Bounded server-owned
-  reattachment is the immediate coding task: stock Rocky tmux, one private supervised
-  server per managed browser terminal, behind the existing authenticated bridge.
-  This is selected, not installed/implemented; follow the leading plan and terminal
-  guide. Do not force ordinary SSH/tmux sessions into Soda or auto-create on reconnect.
-  Local component/layout checks are not native navigation/session proof or deployment;
-  no implicit launch or mutation replay.
+  caller is removed. Managed tmux now preserves exact native sessions across
+  attachment loss; same-target Refresh and focus/view/Hide preserve the live mount.
+  Isolated `22d8591` has bounded same-shell reload/cleanup evidence, not full native
+  safety/UX acceptance. Lit ports must preserve `restore`, finite retain/Return and
+  HTTP End; document disposal detaches, not End. Multiple sessions still need an
+  ID-keyed backend; extra tabs alone cannot bypass the current context/project slot.
+  Do not force ordinary SSH/tmux into Soda, auto-create on reconnect or call local
+  rendering checks native process proof. Follow the current plan and terminal guide.
   The read-only hook/drawer/context caller passed
   its native x86_64 build/stage/export and isolated exported-payload browser checks;
   explicit mutation controls have local coverage and bounded native create/key/join/Copy/SSH proof on the separately recorded fresh fixture, not retained-appliance cutover. Source has same-origin `/-/soda/` routing/scoped cookies,
@@ -257,7 +259,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Current root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is currently served. The selected Spaces Go/template page is a bounded future exception for Soda-owned data, not a replacement Forgejo frontend. Its fixed OAuth return and supported page shell are still unimplemented/unresolved; follow the leading plan. Lit is scaffolded for future Soda-owned components, with no current ports; follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Current root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is currently served. The selected Spaces Go/template page is a bounded future exception for Soda-owned data, not a replacement Forgejo frontend. Its fixed OAuth return and selected Soda-owned shell remain unimplemented; follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Lit is scaffolded with no production ports; preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

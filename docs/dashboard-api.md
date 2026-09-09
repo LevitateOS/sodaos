@@ -8,19 +8,21 @@ by separately approved preserved-state cutover and existing-account observations
 See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
 configuration, client reachability and acceptance limits.
 
-**Resumable terminal source candidate, not deployed:** the split-view drawer now
-uses [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
-with separate creation, attach-only, detach and End. Browser-only joining, optional
-Forgejo-key selection and Git credential integration remain unimplemented. No new
-provider consent or mutation is implied. Native continuity and same-root delivery
-remain unverified; installed fixtures still have the older request-owned terminal.
+The split-view drawer uses
+[managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
+with separate creation, exact attach, detach and HTTP End. Isolated `22d8591` has
+bounded same-shell reload/cleanup evidence, not the full native safety/UX matrix.
+Browser-only joining, optional Forgejo-key selection and Git credentials remain
+unimplemented. The [Lit plan](lit-migration-plan.md) proposes new concurrency/page
+contracts; they are **not** implemented by merging the scaffold or writing the plan.
 
 ## Planned Spaces page — not an implemented endpoint
 
 `/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
 Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
-defines the authorized listing and unresolved page-shell boundary. No page handler,
-collection contract or Spaces OAuth return has been implemented. The current required
+defines the authorized workspace and selected Soda-owned shell (canonical assets,
+fixed native links and labelled Soda identity, not fabricated native context). No
+page handler, collection contract or Spaces OAuth return has been implemented. The current required
 `repository_id` collection API below remains unchanged; do not remove its guard to
 resurrect the old unrestricted catalog.
 
@@ -31,7 +33,11 @@ Spaces destination, never an arbitrary `return_to`. Authorize rows/counts/metada
 before rendering, retain truthful unavailable states and recheck every action's
 permissions. Do not borrow native cookies/CSRF or assume CSS imports Forgejo's
 session/template context. The page opens the same authorized drawer/sessions, not a
-new terminal implementation. These requirements are planning, not runtime evidence.
+new terminal implementation. The [Lit sequence](lit-migration-plan.md) proposes
+`GET /api/spaces`, per-ID `/api/environments/{id}/terminal-sessions/{terminalID}`
+metadata/actions, create-request correlation and fixed `destination=spaces` OAuth
+intent. None exists yet; the singleton endpoints below remain current. Update this
+wire guide and validators with the actual backend commits, not ahead of them.
 
 ## Browser namespace
 
@@ -65,7 +71,7 @@ The terminal WebSocket is the sole transport-specific exception: browsers cannot
 send custom actor/CSRF headers on upgrade. Its first bounded message carries those
 values instead; ordinary JSON API guards are unchanged.
 
-## Terminal WebSocket — source implemented, delivery pending
+## Terminal WebSocket — managed-tmux contract
 
 `GET /api/environments/{id}/terminal` requires WebSocket, with no query string (even
 bare `?`), subprotocol bearer value or cross-origin upgrade. Require a valid Soda
@@ -122,7 +128,9 @@ state is in memory, not resurrected after backend restart. Native failure cleanu
 uses the separate guard/lease, not browser availability.
 
 See the [component contract](terminal-integration.md) for navigation/Refresh restore
-and remaining native/same-root delivery proof. No retained target has these changes.
+and the exact limits of installed `22d8591` versus remaining native/delivery proof.
+The designed cleanup receipts, names and multiple-session routes are not implemented;
+current disappearance after End is not by itself independent native cleanup proof.
 
 ## Explicit lifecycle and own SSH key updates — source, not installed proof
 
@@ -297,8 +305,9 @@ The backend sees a Soda session and a declared page actor, **not Forgejo's live
 browser session**. It catches a changed Soda cookie versus the old page actor;
 it cannot detect native-only login/logout in another tab while the Soda session
 is unchanged. The source workspace now retains its mount/socket on focus/visibility
-and Hide changes; those are not authentication loss. Actual pagehide/BFCache still
-retires the document's component and requires explicit reload. The initial native
+and Hide changes; those are not authentication loss. Actual pagehide retires the
+document's component/attachment; the shell re-mounts and reauthorizes on BFCache
+restoration, and native navigation/reload can restore the exact surviving session. The initial native
 page/session/provider IDs are compared, and each mutation rechecks the current Soda
 session/provider. Another Soda fetch is not fresh native-session authentication;
 show the actual Soda actor and do not promise atomic native-only logout. Never

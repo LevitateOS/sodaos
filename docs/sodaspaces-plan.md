@@ -2,41 +2,39 @@
 
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**, plus a global **Spaces** navigation link
-and Soda-owned Go/template listing page. No new Forgejo repository tab; tabs
-**inside the drawer** are required. The Spaces page is selected, not implemented.
-Both old Soda frontends and duplicate forge adapters are removed. The read-only
-hooks/context caller and real isolated x86_64 Forgejo/Caddy/browser journey now
-pass; see [exact evidence and limits](implementation-status.md#isolated-local-sodaspaces-browser-execution).
-Step 2's backend repository reads/new-join checks are implemented. Step 3's bounded
-x86_64 exit passed at `ee8091a`: real native build/stage/export and an exported-payload
-browser journey. Step 4 is now source-implemented with local handler/DOM coverage;
-step 5's bounded native x86_64 access exit passed at `bdbce8e`. Step 6's separately approved retained cutover and native browser/SSH observations also passed. The [security review](implementation-status.md#security-review-and-fix-plan)
-confirmed two existing gaps: callbacks could outlive Soda logout, and new joins
-did not check repository access. Both fixes below are now source-implemented and
-locally tested, then delivered in the approved retained cutover. Deterministic race
-coverage remains handler/store evidence; installed observations have their own scope.
+and Soda-owned Go/template workspace page. No new Forgejo repository tab; tabs
+**inside the drawer and Spaces panes** are required. Both surfaces will use the
+shared **Lit** component implementation, not separate frontends.
 
-**The original delivery sequence is complete only at its bounded technical x86_64
-scope, not UX acceptance.** The user rejected the modal management-form layout,
-blocked left-hand native page and focus-loss terminal termination. Those are product
-failures despite the recorded native passes. The installed fixture still implements
-that rejected behavior; the first source layout slice is described below. The correction below governs the next
-work; the older delivery/terminal sections retain the previous implementation and
-its evidence, not permission to reintroduce that UX. See the leading
-[handoff](implementation-status.md) for exact bytes, failures and limits.
+**Current source:** native Forgejo hooks, real management/access integration and
+managed-tmux reattachment exist; Lit is scaffolded but no production component is
+ported. The Spaces page, ID-keyed multiple sessions, session names/collection and
+new layout/attention controls remain unimplemented. The
+[Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
+sequence: preserve the current behavior in two rendering ports, then implement real
+concurrency, the authenticated page/shared drawer, layouts and truthful attention.
+The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
 
-The [CoreOS product strategy](os-product-strategy.md) ranks proposed host capabilities
-and explains their OS/service boundary and estimated effort. It is longer-term
-product guidance; resumable terminals remain the immediate implementation slice.
-New capacity/recovery/boot-delivery work is not a prerequisite or execution grant.
+**Execution is revision-specific.** Original access/cutover and later single-terminal
+results are bounded x86_64 evidence, not full UX/product acceptance. Isolated
+`22d8591` passed actual same-shell reload and acknowledged/independently checked
+cleanup; the broader native probe/editor/build/network/failure matrix remains open.
+The user-rejected modal/blur-ending behavior is historical, not the selected contract.
+Preserve all earlier failures/evidence in the [handoff](implementation-status.md).
+This plan is not deployment permission or completion of the native acceptance gaps.
+
+The [CoreOS product strategy](os-product-strategy.md) is longer-term host guidance.
+Capacity/recovery/boot work, the separate Rocky 10.2 retained-root decision and
+credential onboarding are not prerequisites to the Lit source ports.
 
 ## Project OS foundation
 
 The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,
 account/sudo, shared-state, SSH/credential, native-service and persistence contracts.
 Keep that foundation, not a new distribution or a design for every possible user tool.
-Its concrete gaps feed the slices below: tmux supervision/required-tool checks now,
-real zero-key onboarding and agreed Git credentials afterwards. Current Forgejo
+Its concrete gaps remain native tmux safety/required-tool coverage, real zero-key
+onboarding and agreed Git credentials; the existing session mechanism is preserved
+while the Lit workspace is implemented. Current Forgejo
 administration and already issued Linux sudo/SSH rights are distinct, not synchronized.
 
 Required additions to retained roots use [bounded same-root native maintenance](project-os.md#deliver-required-additions-without-replacing-roots),
@@ -71,7 +69,8 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
 - **Page ownership:** a Soda-owned, server-rendered Go/template page at
   `/-/soda/spaces`, inside the existing proxy namespace. This deliberately extends
   today's API-only Go service for Soda data; Forgejo-owned workflows stay native.
-  No Forgejo executable changes, iframe, HTML relay or replacement frontend framework.
+  Lit owns only Soda's interactive workspace inside that HTML shell. No Forgejo
+  executable changes, iframe, HTML relay or replacement of native workflows.
 - **Listing:** show the environments this actor is authorized to see, with repository,
   membership and observed running/stopped/unavailable state. Authorize before rendering
   rows, counts or metadata, using legitimate Soda associations and current acting-user
@@ -84,22 +83,24 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
   not a caller-supplied redirect URL. Preserve PKCE/state, encrypted grants, logout-
   winning behavior, fresh operation-specific authorization and API actor/CSRF checks.
   Same origin is not a shared session; native-only logout is not atomic Soda logout.
-- **One workspace:** Open workspace selects the same drawer and authorized terminal
-  sessions used from repository pages. The list remains usable on the left. Opening
-  never creates, joins, starts or repairs a project, launches a replacement shell or
-  replays commands. Do not build a second terminal/session implementation.
-- **Unresolved page shell:** shared CSS/assets do not supply Forgejo's authenticated
-  template context, native CSRF token, navigation or notification state. Template
-  overrides do not install Go handlers in Forgejo. Resolve and review the supported
-  page-shell composition before building this HTML page; do not duplicate upstream
-  authentication/workflow logic or borrow cookies/CSRF to make it appear native.
+- **One workspace:** the page has project/session navigation and pane-local tabs;
+  the drawer is its single-visible-terminal projection, not another catalog/owner.
+  Opening/restoring never creates, joins, starts or repairs a project or replays input.
+  Full-page navigation preserves exact session IDs and the saved pane tree, not DOM
+  objects across documents. One writer per ID still wins across windows.
+- **Selected page shell:** use the design's Soda-owned Go shell, canonical assets,
+  fixed native links and explicitly labelled Soda account. Shared CSS does not supply
+  native CSRF/session/notification context; do not load native scripts against invented
+  context, copy upstream authentication, relay HTML or borrow cookies. The Lit plan
+  includes page-only CSP, styling/clipboard, fixed OAuth return and staging checks.
 
 The navbar/page, authorized collection and fixed OAuth return are all unimplemented.
-Validate authentication/expiry/logout, denied and unavailable listings without private
-metadata leaks, action-time authorization and same-session drawer use across both
-entry points. Existing drawer tests are not Spaces-page evidence. **Terminal continuity
-remains the immediate coding task**; this page joins the current workspace implementation
-and validation sequence, not a new prerequisite planning project or deployment grant.
+The [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) now specifies
+concrete owners and exits for these features. Validate authentication/expiry/logout,
+denied/unavailable listings, per-ID actions and same-session drawer use across both
+entry points. Existing drawer checks are not Spaces-page evidence; missing broad
+native continuity proof remains an acceptance obligation, not a reason to rewrite
+already implemented tmux or postpone independent Lit/source work.
 
 ## Product correction — development workspace, not a modal form
 
@@ -107,9 +108,11 @@ The drawer is where the developer does their work, not an onboarding panel point
 them elsewhere for development. These layout requirements are user-selected;
 full implementation and acceptance are pending. The first source slice now has a
 non-modal resizable aside, full-height Terminal/Environment/Access views and same-
-component focus/Hide continuity. Local DOM and 16 synthetic layout cases passed;
-real native page reflow, multiple terminal sessions, navigation/network reattachment
-and browser-only onboarding/Git remain unimplemented or unverified. Nothing deployed.
+component focus/Hide continuity. Managed single-session navigation/Refresh restore
+and finite retention are implemented; `22d8591` has bounded installed browser evidence.
+Incoming native pane/header adaptations also have separately scoped preview evidence.
+Multiple terminals, the designed Lit surfaces, broader native coexistence/continuity
+and browser-only onboarding/Git remain unimplemented or incompletely verified.
 See the [current component contract](terminal-integration.md).
 
 The [detailed drawer design](spaces-drawer-design.md) now complements the full-page
@@ -142,14 +145,12 @@ still need implementation and validation. No new endpoint/preview port is select
   environment visibly identified and do not retarget a running shell merely because
   the left pane navigated to another repository. Native routes remain native, not an
   iframe, scraped page or new SPA navigation layer.
-- **Bounded retention, not permanent detached shells.** The preceding lifecycle
-  recommendation uses a 30-minute detached/closed-drawer grace and an explicit finite
-  longer keep-running choice. These are working defaults for the revised contract,
-  not runtime behavior. An open background browser tab is not automatically a lost
-  client. Server-owned deadlines, bounded session counts/buffers and actual authority
-  checks remain necessary; output/reconnect loops cannot renew abandonment forever.
-  Revisit the current unconditional two-hour active-session cap without discarding
-  native safety leases or authentication expiry. No input or mutation replay.
+- **Bounded retention, not permanent detached shells.** Preserve implemented
+  30-minute detached retention, explicit two-hour Keep/Return, original authentication
+  and the 12-hour hard cap. A background browser tab is not automatically detached.
+  Layout/view changes and automatic restoration cannot renew abandonment. Show actual
+  effective deadlines; uncertain requests do not promise a grace period. Keep native
+  safety leases, 64 global slots including uncertainty, bounded IO and no replay.
 - **Separate Hide, End terminal and Stop environment.** End affects that terminal;
   Stop is the existing authorized shared-impact operation. No automatic container
   stop on browser inactivity, loss of focus or drawer closure. Explicit Soda logout
@@ -160,12 +161,13 @@ still need implementation and validation. No new endpoint/preview port is select
 
 ### Resumable terminal decision — tmux
 
-**Select stock Rocky-packaged tmux for the next single resumable terminal**, behind
+**Keep the implemented stock Rocky-packaged tmux mechanism**, behind
 xterm and the existing authenticated Soda/native-helper boundary. Soda owns browser
 tabs and access policy; project-local tmux owns the live shell, terminal screen and
 bounded history. No separate web-terminal server, replacement frontend or custom
-terminal emulator. A source candidate is now implemented; **native proof and delivery
-remain pending**. See the leading handoff for checks and remaining gaps.
+terminal emulator. The source is implemented and isolated `22d8591` has bounded
+browser continuity/cleanup proof. Broader native safety/UX and other delivery remain
+pending; see the handoff rather than treating this decision as an unstarted port.
 
 The decisive comparison is attach-only behavior. Reviewed shpool **v0.11.4** has no
 require-existing option in its CLI or attach protocol; its server can create a new
@@ -184,19 +186,18 @@ login-shell command with a daemonizing tmux client is not sufficient. Browser ta
 remain the primary UI; hide tmux's status bar by default, retain native copy-mode/
 splits and do not force ordinary SSH logins into a Soda-managed session.
 
-The immediate slice is still **one terminal**: explicit new Open, authenticated
-same-session reattachment, bounded detached retention and explicit End. A missing,
-ended or expired session reports that fact, never creates a replacement. Preserve
-logout/rotation races, original-account isolation and all existing IO bounds. Refresh
-and management rendering must stop owning terminal lifetime. Prove the same native
-shell/editor/build across navigation/reload/network loss, and actual owned cleanup,
-before adding multiple session tabs/`＋` or treating this as a delivery candidate.
-Reuse that mechanism from Spaces; its unresolved page shell is not a prerequisite.
-The source candidate now implements 30-minute detached retention, explicit finite
-extension/return and an original-session-bound 12-hour maximum. It reserves uncertain
-cleanup slots rather than replacing them. Native history/editor/build/browser proof
-and exact same-root delivery remain unfinished. No package installation, retained-
-project change or new native execution authority follows from this implementation.
+The **existing single-session source is the starting point**, not the next task to
+reimplement. Keep explicit create versus exact attach, finite retention, independent
+native supervision, same-target Refresh preservation and cleanup reservations. The
+Lit ports retain that wire/lifetime before the planned ID-keyed registry removes the
+per-context/project singleton. Multiple IDs must keep the same original binding,
+Stop/logout gates and one-writer checks, with correlated uncertain creation rather
+than selecting the newest session. No missing/ended/expired target creates a shell.
+
+The remaining real shell/editor/build/history/network and cleanup/failure proof is
+required for the new feature's acceptance and separately approved delivery. Independent
+source work can proceed; no new package/root/capability action is granted. The prior
+isolated same-root maintenance is recorded in the handoff, not a universal updater.
 
 ### SSH directions and the proposed Git setup
 
@@ -288,7 +289,7 @@ Retain the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach existing sessions without replay; separate hiding from ending | Current single-stream component survives focus/view/Hide changes, but not navigation/reload or transport loss; multiple sessions and bounded reattachment are unimplemented |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed single-session restore/retention exists with bounded installed proof; Lit controls, multiple sessions, names and full-page/drawer layout remain source work |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -338,20 +339,15 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Correct the development workspace before another delivery.** Implement the
-   user-selected non-modal, terminal-filling, tabbed split view and bounded native
-   session reattachment above. Review the layout with a usable left native pane,
-   not another management-form console. Resolve the Git-credential trust/consent
-   choice, remove mandatory device-key entry from browser onboarding and retain real
-   account provisioning. Follow the existing [component/API ownership](terminal-integration.md),
-   but deliberately revise its rejected lifecycle contract and tests. Preserve prior
-   `2aa4960` native evidence and `dad2945` packaging correction; neither proves or
-   delivers the new UX. The immediate coding task is the single
-   [managed tmux terminal](#resumable-terminal-decision--tmux), not another backend
-   comparison or a multi-session framework. Include the
-   selected [Spaces page](#spaces-page--selected-not-implemented) in this workspace
-   sequence after resolving its page-shell boundary, sharing the same sessions and
-   validating both entry points. No retained rollout is implied.
+1. **Implement Spaces and its companion drawer with Lit.** Follow the single
+   [detailed sequence](lit-migration-plan.md): management rendering port, current
+   managed-terminal controls port, real ID-keyed sessions/collection, authenticated
+   page and shared workspace, then direct layouts/compact behavior and truthful
+   attention. Preserve existing native reattachment, management/access/security and
+   incoming responsive Forgejo controls. Validate native-left/form coexistence and
+   the remaining real session/cleanup matrix before claiming acceptance or delivery.
+   Keyless real Join and the agreed Git-credential workflow remain separate follow-up
+   source work, not silent dependencies or native mutations inside this UI port.
 2. **Preserve the proved minimum environment/access controls above.** Bounded
    native Stop/Start and temporary-key replacement/revocation passed, along with
    fresh Create/Join/SSH. Distinct operator/provider and broader acceptance remain
@@ -396,31 +392,19 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
-- Implement/prove the selected tmux boundary in `internal/host/` and `project-os/`
-  against the [Project OS baseline](project-os.md), then reattach it through
-  `internal/web/terminal.go` and the existing drawer. Keep
-  create and attach separate; supervise the native server, not just its client.
-  Package through the existing project image/build owners and refuse missing native
-  support without silently installing it on Open or replacing a retained project.
-- Implement and review the product correction above before treating the old drawer
-  as a delivery candidate. Preserve native forms/navigation and explicit new-terminal
-  launch, but replace modal blocking, blur teardown and forced reload-after-close.
-  Native page navigation must restore the existing authorized session, not silently
-  open a replacement. Update the corresponding old test assertions, not just CSS.
-  Packaging's exact full presentation inventory and locked English locale remain
-  product-owned; preserve earlier byte/target evidence for any later scoped delivery.
-- Build/check/stage the merged candidate from a clean exact revision. Extend the
-  existing installed journey with an explicit terminal opt-in, using real OAuth,
-  trusted sandboxed Chromium, Caddy and the fixed helper. Check both existing users,
-  original login/home/profile, editing/Unicode/paste/resize/Ctrl-C, a run-owned file
-  visible over SSH, denials, logout/stale/BFCache/no-replay and actual owned-process
-  exit while unrelated access survives. Reuse the [native guide](native-validation.md)
-  and [terminal exit checks](#implementation-order-and-exit-checks), not another plan.
-- Record failures and exact passing bytes; fix reproduced gaps. **Exit:** the real
-  native-page feature works, existing drawer actions regress cleanly and evidence
-  identifies its scope. Local renderer/helper doubles alone do not close this step.
-  Declare exact fixture/service/process/file effects before native execution and get
-  any missing scope; retained deployment remains separately approved.
+- Begin [Lit step 1](lit-migration-plan.md#step-1--port-the-current-management-drawer)
+  with the merged current source and existing strict Bun build. Port real action/race
+  tests into the correct browser realm. Preserve the stable terminal host and complete
+  facade; await render readiness without late mounts/focus or implicit mutations.
+- Port the **current managed** terminal controls next, not the superseded PTY behavior:
+  exact restore, finite retain/Return, HTTP End, attachment-only disposal. Neither
+  render updates nor native document replacement are instructions to create a shell.
+- Follow the subsequent multi-session/page/layout slices and their focused exits in
+  that plan. Native safety failures remain real acceptance gaps. Before any delivery,
+  build/check/export exact bytes and run the applicable installed journey with real
+  OAuth/helper/tmux, preserving both users, roots and unrelated workloads.
+- Record actual runs and failures. No alternate preview endpoint, unrequested service
+  refresh, native fixture action or project recreation is implied by this planning.
 
 This list is planning, not permission to stop retained environments, destroy data,
 change provider/network resources or deploy. Detail only the next item when it is
@@ -442,9 +426,9 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   the existing Bun build. The drawer and other existing modules remain vanilla
   TypeScript; no component migration is part of the scaffold. Keep native
   forms/lists/scripts and Cockpit's separate stack.
-  The [Lit migration plan](lit-migration-plan.md) covers the subsequent drawer and
-  terminal presentation ports; terminal continuity and native delivery retain
-  their separate product contracts below.
+  The [Lit implementation plan](lit-migration-plan.md) covers the two rendering ports
+  and the real Spaces/shared-drawer feature, keeping native lifetime and delivery
+  authority separate. It is the detailed sequence, not another parallel roadmap.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   The isolated browser journey now exercises this routing; appliance cutover is separate.
@@ -465,11 +449,18 @@ Standardize existing custom pages before adding new ones. The current local
 Forgejo preview composes shared page intros, empty content and guest theme controls,
 with explicit toolbar, form and native-list CSS adapters. Page styles own only
 page-specific layout. This is a presentation system inside Forgejo's customization
-surface; the authenticated drawer and appliance delivery below remain pending.
-Do not convert native forms/lists to web components. Review each override and its
+surface. Incoming preview evidence and isolated appliance evidence have separate
+bytes/targets; neither validates the new Lit workspace. Do not convert native
+forms/lists to web components. Review each override and its
 script-sensitive markup against the exact selected Forgejo version on upgrades.
 
 ## Delivery sequence
+
+**Historical delivery contracts/reference, not the next implementation checklist.**
+The six original slices below retain their evidence links and prior requirements.
+The current API/terminal guides and Lit sequence above supersede obsolete modal,
+blur-ending, JavaScript-source and singleton-only UI instructions. Do not implement
+these old slices again or use their tests as new Spaces/Lit/native acceptance.
 
 Keep each slice coherent, with its focused tests and affected guide updates in the
 same change. The [API guide](dashboard-api.md) describes today's retained endpoints;
@@ -1141,8 +1132,8 @@ the replacement works and its removal is coordinated. Tailnet stays in Cockpit.
 Repository ownership or arbitrary Forgejo site administration does not confer Soda
 operator authority. This is remaining work, not a delivered move or deployment grant.
 
-Basic Start/Stop and explicit own-key controls are now source implemented; integrated
-native proof and delivery remain in the remaining-work list.
+Basic Start/Stop and explicit own-key controls have source coverage and bounded
+recorded native proof; preserve their regressions and remaining operator/client scope.
 Destruction still requires the explicit scope decision above. Resource charts,
 member-management screens, private-resource branching, generalized recovery and an
 update platform remain outside this work. The bounded authorized Spaces listing is

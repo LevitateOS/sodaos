@@ -4,8 +4,11 @@ Lit is scaffolded for Soda-owned interactive UI in the native Forgejo frontend.
 No existing component has been ported. Forgejo continues to own its pages, forms,
 permissions, authentication and native scripts; Cockpit keeps React/PatternFly.
 
-The [migration plan](lit-migration-plan.md) defines the drawer-first port sequence,
-the terminal rendering boundary, retained native adapters and required validation.
+The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first
+ports, then the real multi-session backend, shared page/drawer workspace, layouts
+and attention. It incorporates the existing managed-tmux contract; it does not
+restart the older request-owned terminal migration. Retained native adapters and
+required validation remain explicit.
 
 ## Runtime and builds
 
@@ -80,7 +83,16 @@ or HTMX-owned fragments.
 Keep state changes separate from effectful commands. Rendering must not create or
 join an environment, replay mutations or reopen terminals. Preserve terminal DOM
 and socket lifetimes across reactive updates, view changes and Hide. Clean up
-external listeners and observers through component lifecycle callbacks.
+external listeners and observers through component lifecycle callbacks. Use the
+current terminal facade, including exact `restore`, finite `retain`, deliberate
+`returnToWork` and HTTP End. Document/element disposal detaches, not native End.
+
+A keyed list preserves identity within its own render part, not across different
+pane parents. The workspace plan selects a stable terminal layer; moving/maximizing
+views must not disconnect/recreate terminal elements. Add `repeat` through the
+shared runtime/export mapping when it is actually used, not an independent bundle.
+A parent's `updateComplete` does not wait for all children or layout: await the
+relevant child, recheck retirement and use ResizeObserver for terminal geometry.
 
 The loopback browser smoke test compiles a test-only component through the real
 build and loads the emitted runtime over HTTP. Native browser/access journeys

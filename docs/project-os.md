@@ -9,8 +9,9 @@ gaps. [Terminal](terminal-integration.md), [development](development-environment
 
 The earlier “unbuilt/unvalidated” description is obsolete. There are native builds
 and bounded x86_64 account, shared-tool, nested-workload and persistence results;
-[the handoff](implementation-status.md) owns their exact bytes/targets. Tmux sessions,
-key-free browser onboarding and their combined workflow are still unimplemented.
+[the handoff](implementation-status.md) owns their exact bytes/targets. Managed tmux
+is implemented with bounded isolated reload/cleanup proof; broader native safety/UX,
+key-free browser onboarding and the combined Git workflow remain incomplete.
 This baseline is documentation, not a new build, installed inventory or acceptance.
 
 ## Ownership and trust
@@ -18,7 +19,7 @@ This baseline is documentation, not a new build, installed inventory or acceptan
 | Owner | Responsibility |
 | --- | --- |
 | Appliance/operator | CoreOS/kernel, host Podman/network/storage, restricted helper and approved delivery of required platform integration. No human developer host accounts. |
-| Project OS | Systemd PID 1, native accounts/groups, SSH, shared directories/tools, project-local workload engine and the selected future terminal supervision. |
+| Project OS | Systemd PID 1, native accounts/groups, SSH, shared directories/tools, project-local workload engine and managed-terminal supervision. |
 | Soda backend | Stable repository/project/user associations, original membership login, browser authorization and bounded terminal lifetime. Not native passwords, copied Forgejo permissions or a general guest-management agent. |
 | Developers/project administrators | Personal checkouts/preferences/credentials; native shared package/tool/service administration through the existing project-local permissions. Forgejo owns Git/collaboration authority. |
 
@@ -58,7 +59,7 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
   those editor/pager/CA packages, but not tmux. That is a past image inventory, not a
   current survey of retained roots. Make required tools explicit in recipe/check
   ownership rather than relying indefinitely on transitive base-image contents.
-- Add the selected **tmux** package and bounded native supervision for browser
+- Keep the implemented **tmux** package and bounded native supervision for browser
   terminals; do not swap in a new web IDE or multiplexer backend. Bash remains the
   initial supported login shell. Preserve personal dotfiles, `EDITOR`/`VISUAL` and
   native editor choices; do not force ordinary SSH logins or personal tmux servers
@@ -98,9 +99,9 @@ catalog or private-resource branching system.
   membership only after confirmed success. Failed/unconfirmed operations are not
   automatically replayed.
 - **Open/Refresh/navigation/Hide** never create, join, start, repair or update a project.
-  The tmux contract will preserve/reattach its selected authorized session; today's
-  request-owned PTY still does not survive navigation/transport loss.
-- **End terminal/terminal expiry** will end that managed terminal's supervised
+  Managed tmux preserves/reattaches the selected authorized session within its
+  deadlines. Lit rendering and future layouts cannot replace that native owner.
+- **End terminal/terminal expiry** ends that managed terminal's supervised
   processes, not delete files or stop independent SSH/services/workloads. Anything
   deliberately launched outside that service follows its own native lifecycle.
 - **Stop** disables host-boot start and stops the existing container, interrupting
@@ -236,8 +237,9 @@ operator/project coordination. No automatic fleet patching is currently supplied
 | Current Forgejo authority versus already issued Linux sudo/SSH rights | Explicit limitation on rename/transfer/offboarding claims; no automatic native permission reconciliation is selected. |
 
 The existing foundation does not justify a new OS backend or universal-workstation
-planning phase. Continue with one resumable terminal, then onboarding and the real
-combined workflow. Extend the existing [product validation](native-validation.md)
+planning phase. The [Lit workspace sequence](lit-migration-plan.md) preserves this
+implemented terminal mechanism while adding real multi-session UI/backend support.
+Onboarding and the combined Git workflow keep their separate scope. Extend the existing [product validation](native-validation.md)
 entrypoints for fresh and maintained projects; package lists, source tests or socket
 closure are not native continuity/preservation proof. Broader operator/client and
 native aarch64 acceptance stay independent. [Deferred scope](deferred.md) remains

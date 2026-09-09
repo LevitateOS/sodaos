@@ -18,7 +18,10 @@ not live UI, another app to connect to, or installed-product screenshots.
 | [`drawer-compact.svg`](drawer-compact.svg) | Compact Forge/Terminal switching, compared with native navigation, full-page Spaces and explicit Hide |
 
 Native pages are schematic context, not newly authored replacements for Forgejo's
-UI or captures of its actual handlers. All session names, output and state are fictional. “Working” / “Waiting” require a
+UI or captures of its actual handlers. In particular, keep the merged native compact
+repository header/action disclosure rather than reproducing schematic native chrome.
+The [Lit implementation plan](../../lit-migration-plan.md) owns the real shared
+page/drawer sequence; these sheets are design inputs, not a component prototype. All session names, output and state are fictional. “Working” / “Waiting” require a
 real explicit signal integration before the product may show them. The sheets do not
 supply that integration, real xterm rendering, authentication, multiple native sessions,
 mobile keyboard behavior or retention/process proof. Refer to the specification for
