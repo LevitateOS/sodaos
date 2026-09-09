@@ -7,6 +7,10 @@ below are recommendations for review, not silently accepted implementation decis
 The [leading plan](sodaspaces-plan.md) owns product scope; the
 [handoff](implementation-status.md) distinguishes installed evidence from this proposal.
 
+An [interactive design preview](design/spaces/README.md) now illustrates the desktop,
+mobile and retained/error cases with explicitly fictional sessions. It is not the
+Spaces implementation or native evidence; it stays outside production staging.
+
 ## 1. Product model
 
 Spaces is the place to **do work across projects**, not a dashboard of environment

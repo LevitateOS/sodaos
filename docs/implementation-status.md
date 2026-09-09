@@ -1,5 +1,40 @@
 # Current handoff
 
+## Spaces visual review — interactive mockup, no product changes
+
+Continued the user-requested design phase with `docs/design/spaces/`: an explicitly
+labeled HTML/CSS/strict-TypeScript mockup using the existing canonical symbol,
+Barlow/Plex fonts and shared palette. It shows six fictional sessions across two
+projects, mixed-project tabs/panes, layouts/maximize, move via menu, search,
+project-scoped sample creation, rename, Hide versus confirmed End, retention/error
+states, non-modal project details and compact single-pane/session switching.
+There is no live xterm, API, auth, process or persistence implementation. The default
+proposal remains a single pane; the initial two-pane scene demonstrates concurrency.
+
+Both design compiler boundaries (extending existing strict configurations) and the
+sandboxed Chromium design-only checks passed. Seven captures and the source-hash /
+revision-dirty record are retained at `.artifacts/spaces-design/1788951512029/`.
+Reviewed final desktop dark, mobile light and retained/offline images, plus the prior
+mobile switcher and 320px retention images. The earlier capture exposed clipped
+native-select text with Barlow on Chromium. Native selects now use a system font;
+corrected captures/checks passed. Earlier captures remain at `1788950997794/` and
+`1788951252411/`; none is installed-product evidence.
+The checks cover stable sample IDs through keyboard/move/layout/filter/detail changes,
+explicit creation, Hide/End cancellation and sibling isolation, mobile selection,
+page overflow and absence of external requests/page errors. Touch keyboards,
+real terminal rendering/resize/retention and native authority remain unverified.
+
+`review.ts --serve` is an opt-in loopback-only design server; `--check` starts and
+closes its own temporary server/browser and writes ignored outputs. These are not
+production build/staging paths or a second product readiness gate. A separate design
+server is running on **127.0.0.1:33450** on this builder; its PID/log are recorded in
+`.artifacts/spaces-design/preview-server.{pid,log}`. Verified the preview title and
+404 for the Soda API route. Remote access needs its own explicit client forward;
+this is not the deployed Spaces route. No existing Forgejo preview mount, account,
+credential, VM, project, package baseline or installed service was changed; no
+dependency install or deployment/push occurred. Rocky 10.2 remains pending its
+separate project-recreation decision. See the [preview guide](design/spaces/README.md).
+
 ## Spaces multi-project UI/UX — design proposal only
 
 The user requested design first for the Spaces top-bar destination and multiple

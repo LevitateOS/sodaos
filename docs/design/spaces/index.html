@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Spaces — design preview, not a live workspace</title>
+  <link rel="stylesheet" href="/palette.css">
+  <link rel="stylesheet" href="/preview.css">
+  <script type="module" src="/preview.js"></script>
+</head>
+<body>
+  <a class="skip" href="#canvas">Skip to terminal views</a>
+  <div class="preview-bar">
+    <strong>DESIGN PREVIEW</strong><span class="preview-explanation">Sample sessions only · no project connections</span>
+    <label>Scene <select id="scene"><option value="working">Working</option><option value="away">Away & errors</option></select></label>
+    <button id="theme" aria-label="Switch to light theme">Light theme</button>
+  </div>
+  <header class="navbar">
+    <a class="brand" href="#" data-native aria-label="Soda home (preview)"><img src="/symbol.svg" width="27" height="32" alt="">soda</a>
+    <nav aria-label="Main navigation">
+      <a href="#issues" data-native class="wide-link">Issues</a><a href="#pulls" data-native class="wide-link">Pull requests</a><a href="#milestones" data-native class="wide-link">Milestones</a><a href="#explore" data-native>Explore</a><a href="#spaces" aria-current="page">Spaces</a>
+    </nav>
+    <span class="identity"><span class="avatar" aria-hidden="true">A</span><span>Alex <small>Soda account · sample</small></span></span>
+  </header>
+  <main>
+    <div class="workspace-toolbar">
+      <button id="toggle-nav" class="icon-button" aria-label="Show projects and terminals" aria-expanded="true" aria-controls="navigator">☰</button>
+      <h1>Spaces</h1><span id="summary" class="summary"></span>
+      <div class="toolbar-actions">
+        <label class="layout-label"><span>Layout</span><select id="layout"><option value="single">Single pane</option><option value="columns" selected>Side by side</option><option value="rows">Stacked</option><option value="grid">Four panes</option></select></label>
+        <button class="primary" id="new-terminal">+ <span>New terminal</span></button>
+      </div>
+    </div>
+    <div id="workspace" class="workspace" data-nav="true">
+      <aside id="navigator" aria-label="Projects and terminals">
+        <div class="navigator-top"><label class="search-label" for="search">Find a project or terminal</label><input id="search" type="search" placeholder="Search projects or terminals…" autocomplete="off"></div>
+        <div class="navigator-list" id="project-list"></div>
+        <div class="navigator-bottom"><strong>Your terminals, this sign-in</strong><span>Hidden tabs stay here until they expire.</span></div>
+      </aside>
+      <section class="canvas-wrap" aria-label="Terminal workspace">
+        <div class="compact-switcher"><label>Visible pane <select id="pane-switch"></select></label><button id="switch-terminal">Switch terminal</button></div>
+        <div id="canvas" class="canvas" data-layout="columns" tabindex="-1"></div>
+      </section>
+      <aside id="inspector" class="inspector" aria-label="Project details" hidden></aside>
+    </div>
+  </main>
+  <div id="notice" role="status" class="notice" hidden></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"><form method="dialog"><div class="dialog-heading"><h2 id="dialog-title"></h2><button value="cancel" class="icon-button" aria-label="Close dialog">×</button></div><div id="dialog-body"></div><div id="dialog-actions" class="dialog-actions"></div></form></dialog>
+</body>
+</html>
