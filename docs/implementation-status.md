@@ -1,5 +1,21 @@
 # Current handoff
 
+## Continued frontend implementation — coherent source ownership
+
+Authored Spaces modules/styles now live in `frontend/spaces/`; the shared owner
+is `sodaspaces-workspace.ts` with `WorkspaceContext`, not a drawer-only controller.
+Public URLs remain unchanged through explicit build mapping and the canonical
+payload. Compiler/analyzer discovery, fixture/installed-driver imports, CSS payload
+origins, temporary/installed staging callers and source links moved together.
+Emitted fixtures now serve from their declared public locations rather than source
+URL rewrites. No compatibility copy, second runtime or live mount was added.
+
+Checks: typecheck/analyzer/fixtures, frontend **176 /3 gated skips**, Forgejo
+**30 /18 optional skips**, actual Go HTML/CSP browser **1**, temporary packaging
+**7**, whitespace. A new build test covers moved workspace imports from both
+public asset roots. See `frontend/spaces/README.md` and the continuation evidence.
+Attention and candidate/driver coverage continue next; no native execution occurred.
+
 ## Continued frontend implementation — typed presentation checkpoint
 
 Preserved `cdfb6e8`, `04a8e37` and `512afb0`. Stateless typed views now render

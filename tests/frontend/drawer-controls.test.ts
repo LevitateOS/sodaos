@@ -15,8 +15,8 @@ before(async () => {
   assert(footer);
   server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname === '/tests/frontend/fixtures/drawer-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
-    const target = 'public' + url.pathname.replace(/^\/appliance\/forgejo\/public/, '');
+    if (url.pathname === '/assets/drawer-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
+    const target = 'public' + url.pathname;
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source?.startsWith('@build/forgejo-js/')) return new Response(Bun.file(path.join(root, '.artifacts/forgejo-js', path.basename(source))), {headers: {'Content-Type': 'text/javascript'}});
     if (source && !source.startsWith('@build/')) return new Response(Bun.file(path.join(root, source)));
@@ -27,7 +27,7 @@ before(async () => {
       return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
     }
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/tests/frontend/fixtures/drawer-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/assets/drawer-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });

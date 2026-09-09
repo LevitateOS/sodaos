@@ -34,6 +34,18 @@ test('analysis tools cannot enter browser payloads through external imports', as
   }
 });
 
+test('moved workspace source imports retain canonical public URLs from either asset root', async () => {
+  for (const [destination, expected] of [
+    ['public/assets/probe.js', './sodaspaces-drawer.js'],
+    ['public/assets/soda/forgejo/probe.js', '../../sodaspaces-drawer.js'],
+  ]) {
+    assert(destination && expected);
+    const built = await buildForgejoModule(join(root, 'frontend/spaces/sodaspaces-page.ts'), destination);
+    assert((await built.text()).includes(expected));
+    assert(!(await built.text()).includes('frontend/spaces'));
+  }
+});
+
 test('staged Lit notice matches the resolved browser dependency licenses', async () => {
   const license = await readFile(join(root, 'appliance/licenses/lit-LICENSE'), 'utf8');
   const litEntry = Bun.resolveSync('lit', root);

@@ -701,7 +701,7 @@ slices. This completed gate permits step-4 implementation, not a claim that muta
 controls or native provisioning have passed.
 
 **New product source:** `appliance/forgejo/templates/custom/{header,footer}.tmpl`
-and `appliance/forgejo/public/assets/sodaspaces.{css,js}`. No new backend endpoint,
+and `frontend/spaces/sodaspaces.{css,js}`. No new backend endpoint,
 schema change, frontend build, component library or upstream executable is planned.
 
 #### Native context and authenticated reads

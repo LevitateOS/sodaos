@@ -12,11 +12,11 @@ before(async () => {
   const module = await buildForgejoModule(path.join(root, 'tests/frontend/fixtures/terminal-fixture.ts'), 'public/assets/terminal-fixture.js');
   server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(request) {
     const pathname = new URL(request.url).pathname;
-    if (pathname === '/tests/frontend/fixtures/terminal-fixture.js') return new Response(module, {headers: {'Content-Type': 'text/javascript'}});
-    const target = 'public' + pathname.replace(/^\/appliance\/forgejo\/public/, ''), source = Object.entries(payload).find(([destination]) => destination === target)?.[1];
+    if (pathname === '/assets/terminal-fixture.js') return new Response(module, {headers: {'Content-Type': 'text/javascript'}});
+    const target = 'public' + pathname, source = Object.entries(payload).find(([destination]) => destination === target)?.[1];
     if (source) return new Response(Bun.file(source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : path.join(root, source)), {headers: {'Content-Type': pathname.endsWith('.css') ? 'text/css' : 'text/javascript'}});
     if (pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;height:500px;width:800px"></div><script type="module" src="/tests/frontend/fixtures/terminal-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;height:500px;width:800px"></div><script type="module" src="/assets/terminal-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });

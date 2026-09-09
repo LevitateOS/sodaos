@@ -6,7 +6,7 @@ import payload from '../../internal/nativebuild/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
 import {projectView, newManagedTerminal, terminalMenu} from '../installed/sodaspaces-controls.ts';
-import {parseLayout, focusedPane} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
+import {parseLayout, focusedPane} from '../../frontend/spaces/sodaspaces-layout';
 
 const root = path.resolve(import.meta.dirname, '../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
@@ -14,12 +14,12 @@ before(async () => {
   const fixture = await buildForgejoModule(path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts'), 'public/assets/workspace-fixture.js');
   server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname === '/workspace-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
-    const target = 'public' + url.pathname.replace(/^\/appliance\/forgejo\/public/, '');
+    if (url.pathname === '/assets/workspace-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
+    const target = 'public' + url.pathname;
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : 'application/octet-stream'}});}
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });

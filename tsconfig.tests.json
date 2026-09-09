@@ -13,7 +13,7 @@
   },
   "include": [
     "tests/**/*.ts",
-    "appliance/forgejo/public/assets/terminal-vendor.d.ts",
+    "frontend/spaces/terminal-vendor.d.ts",
     "assets/branding/forgejo/forgejo-events.d.ts",
     "internal/web/testdata/**/*.ts"
   ]

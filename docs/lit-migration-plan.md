@@ -82,7 +82,7 @@ only when it is pure and shared by concrete callers, not to build a generic stor
 
 | Owner | Responsibility |
 | --- | --- |
-| `appliance/forgejo/public/assets/sodaspaces.ts` | Native repository button/resume hook, outer split/compact surface, width, native DOM coexistence and page lifecycle. No session inventory or API mutations of its own. |
+| `frontend/spaces/sodaspaces.ts` | Native repository button/resume hook, outer split/compact surface, width, native DOM coexistence and page lifecycle. No session inventory or API mutations of its own. |
 | `…/sodaspaces-drawer.ts`, `<soda-spaces>` | Shared workspace, live child handles and original bindings; effects, storage IO and authorized restore. Step 5 adds one pane model with page/drawer projections; step 6 adds bounded observed attention. Keep `mountSodaspaces` and its discriminated bootstrap, not a new page controller. |
 | `…/sodaspaces-terminal.ts`, `<soda-terminal>` | One immutable terminal binding and its xterm/attachment resources, IO guards, status and explicit terminal commands. Keep `mountTerminal` and injection seams during the ports. |
 | `…/sodaspaces-project.ts`, `<soda-project-controls>` | Implemented named-project management/access, drafts and pending/uncertain writes. Layouts reuse these instances; they do not change their targets or duplicate their requests. |

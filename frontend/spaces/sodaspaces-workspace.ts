@@ -9,7 +9,7 @@ import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerAr
 import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata} from './sodaspaces-api.js';
 
-export type DrawerContext = {kind: 'native'; expectedUserId?: string | undefined; repositoryId: string; pageRepositoryId?: string} | {kind: 'page'; expectedUserId: string};
+export type WorkspaceContext = {kind: 'native'; expectedUserId?: string | undefined; repositoryId: string; pageRepositoryId?: string} | {kind: 'page'; expectedUserId: string};
 type TerminalFactory = typeof mountTerminal;
 interface Slot {key: string; binding: TerminalContext; metadata: TerminalMetadata | undefined; minimum?: Minimum; unavailable: boolean; host: HTMLElement; terminal: ReturnType<typeof mountTerminal>}
 interface Row {key: string; entry?: LayoutEntry; metadata?: TerminalMetadata}
@@ -32,7 +32,7 @@ export class SodaSpaces extends LitElement {
   declare private creation: Creation | null;
   declare private creating: boolean;
   declare private editing: {key: string; name: string} | null;
-  private binding: DrawerContext | undefined;
+  private binding: WorkspaceContext | undefined;
   private factory: TerminalFactory = mountTerminal;
   private slots: Slot[] = [];
   private projects = new Map<string, {host: HTMLElement; api: ReturnType<typeof mountProjectControls>}>();
@@ -72,7 +72,7 @@ export class SodaSpaces extends LitElement {
     return {width: min?.width || Math.ceil(this.cell.width * 56 + 24), height: (min?.height || Math.ceil(this.cell.height * 12 + 40)) + this.tabHeight};
   }
   private get tabHeight() {return this.workspaceWidth < 800 ? 48 : 40;}
-  configure(context: DrawerContext, factory: TerminalFactory) {
+  configure(context: WorkspaceContext, factory: TerminalFactory) {
     if (this.binding) throw Error('Workspace binding is immutable'); this.binding = {...context}; this.factory = factory;
     this.storageKey = 'soda-spaces:v2:' + context.expectedUserId;
     window.addEventListener('pagehide', () => this.invalidate(), {signal: this.lifetime.signal});
@@ -471,7 +471,7 @@ export class SodaSpaces extends LitElement {
   dispose() {if (this.disposed) return; this.invalidate(); this.disposed = true; this.observer?.disconnect(); this.lifetime.abort(); for (const slot of this.slots) slot.terminal.dispose(); for (const project of this.projects.values()) project.api.dispose(); this.remove();}
 }
 customElements.define('soda-spaces', SodaSpaces);
-export function mountSodaspaces(root: HTMLElement, context: DrawerContext, factory: TerminalFactory = mountTerminal) {
+export function mountSodaspaces(root: HTMLElement, context: WorkspaceContext, factory: TerminalFactory = mountTerminal) {
   check(root.ownerDocument === document && (context.kind === 'native' ? id(context.repositoryId) && (context.expectedUserId === undefined || id(context.expectedUserId)) && (context.pageRepositoryId === undefined || id(context.pageRepositoryId)) : context.kind === 'page' && id(context.expectedUserId)));
   const box = new SodaSpaces(); box.configure(context, factory); root.append(box);
   return {setVisible: (visible: boolean) => box.setVisible(visible), refresh: () => box.refresh(), invalidate: () => box.invalidate(), retain: () => box.retain(), returnToWork: () => box.returnToWork(), get ready() {return box.updateComplete;}, dispose: () => box.dispose()};

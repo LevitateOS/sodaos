@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {chromium} from 'playwright';
 import payload from '../../internal/nativebuild/forgejo-payload.json';
-import {object} from '../../appliance/forgejo/public/assets/sodaspaces-api';
+import {object} from '../../frontend/spaces/sodaspaces-api';
 
 test('authorized Go HTML/CSP boots one emitted Spaces page with its original actor', {skip: !process.env.SODA_SPACES_PAGE_HTML}, async () => {
   const root = path.resolve(import.meta.dirname, '../..');

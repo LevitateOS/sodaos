@@ -1,6 +1,6 @@
 // Native navigation remains native. Repository/width/open are hints, never
 // session authority. Compact Forge/Terminal visibility belongs to this document.
-import type {DrawerContext} from './sodaspaces-drawer.js';
+import type {WorkspaceContext} from './sodaspaces-workspace.js';
 import {object} from './sodaspaces-api.js';
 const identifier = (v: unknown): v is string => typeof v === 'string' && /^[1-9][0-9]{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n;
 export function workspaceWidths(viewport: number, terminalMinimum: number, desired: number) {
@@ -8,7 +8,7 @@ export function workspaceWidths(viewport: number, terminalMinimum: number, desir
   return {compact: minimum > maximum, minimum, maximum, actual: Math.max(minimum, Math.min(maximum, desired))};
 }
 export interface DrawerContent {readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; setVisible?(visible: boolean): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined}
-export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: Extract<DrawerContext, {kind: 'native'}>) => DrawerContent) {
+export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: Extract<WorkspaceContext, {kind: 'native'}>) => DrawerContent) {
   const roots = doc.querySelectorAll<HTMLElement>('#sodaspaces-root'), rows = doc.querySelectorAll('.repo-header .repo-buttons');
   if (roots.length !== 1 || rows.length > 1) return;
   const root = roots[0], win = doc.defaultView; if (!root || !win || root.dataset.mounted) return;
@@ -24,7 +24,7 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
   if (rows.length === 0 && !saved) return;
   const selectedRepository = saved?.repositoryId || nativeRepository; if (!identifier(selectedRepository)) return;
   const repositoryId = selectedRepository;
-  const context: DrawerContext = {kind: 'native', expectedUserId: signed === 'true' ? userId : undefined, repositoryId: identifier(nativeRepository) ? nativeRepository : repositoryId, ...(identifier(nativeRepository) ? {pageRepositoryId: nativeRepository} : {})};
+  const context: WorkspaceContext = {kind: 'native', expectedUserId: signed === 'true' ? userId : undefined, repositoryId: identifier(nativeRepository) ? nativeRepository : repositoryId, ...(identifier(nativeRepository) ? {pageRepositoryId: nativeRepository} : {})};
   const button = root.querySelector<HTMLElement>('#sodaspaces-button'), drawer = root.querySelector<HTMLElement>('#sodaspaces-drawer');
   const close = root.querySelector<HTMLElement>('#sodaspaces-close'), content = root.querySelector<HTMLElement>('#sodaspaces-content'), divider = root.querySelector<HTMLElement>('#sodaspaces-divider');
   if (!button || !drawer || !close || !content || !divider) return;
@@ -72,7 +72,7 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
     if (mountContent) {controller = mountContent(content, context); controller.setVisible?.(visible); void controller.refresh(); return;}
     if (loading) return loading;
     const epoch = generation;
-    loading = import('./sodaspaces-drawer.js').then(module => {
+    loading = import('./sodaspaces-workspace.js').then(module => {
       if (departed || generation !== epoch || drawer.hidden) return;
       controller = module.mountSodaspaces(content, context); controller.setVisible?.(!compact || surface === 'terminal'); void controller.refresh();
     }).catch(() => {if (!departed && generation === epoch && !drawer.hidden) content.textContent = 'Workspace could not load. Reload the page; no action was sent.';})

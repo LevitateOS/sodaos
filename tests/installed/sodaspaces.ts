@@ -3,7 +3,7 @@ import {chromium, type Page, type Dialog, type WebSocket} from 'playwright';
 import {journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
 import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
-import {terminalID} from '../../appliance/forgejo/public/assets/sodaspaces-api.ts';
+import {terminalID} from '../../frontend/spaces/sodaspaces-api.ts';
 import forgejoPayload from '../../internal/nativebuild/forgejo-payload.json';
 import type {launchNativeBrowser} from './native-browser.ts';
 // SPDX-License-Identifier: Apache-2.0

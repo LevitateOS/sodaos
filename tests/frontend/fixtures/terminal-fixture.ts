@@ -1,4 +1,4 @@
-import {mountTerminal} from '../../../appliance/forgejo/public/assets/sodaspaces-terminal.js';
+import {mountTerminal} from '../../../frontend/spaces/sodaspaces-terminal.js';
 import type {ITerminalOptions, ITerminalInitOnlyOptions} from '@xterm/xterm';
 export const environmentID = 'p0123456789abcdef01234567';
 interface Existing {id: string; login: string; repository_id: string; request_id?: string; state?: string; retain_until?: number}

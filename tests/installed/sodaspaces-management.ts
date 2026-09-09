@@ -5,7 +5,7 @@ import {lstat} from 'node:fs/promises';
 import type {Page, Locator} from 'playwright';
 import {projectView, newManagedTerminal} from './sodaspaces-controls.ts';
 import {object, type JourneyInput, type ManagementRequest} from './sodaspaces-input.ts';
-import {savedKeysResponse, keyPreviewResponse, type SavedKey} from '../../appliance/forgejo/public/assets/sodaspaces-api.ts';
+import {savedKeysResponse, keyPreviewResponse, type SavedKey} from '../../frontend/spaces/sodaspaces-api.ts';
 export interface ManagementEvidence extends Record<string, unknown> {
   last_ssh_failure?: {user: string; exit: number; kind: 'authentication' | 'transport' | 'command'};
   observed_addresses?: string[];
