@@ -45,9 +45,11 @@ does not infer an HTML property's or event's type from its position in a string.
 The [frontend improvement guide](frontend-improvement-plan.md#required-analyzer-integration)
 specifies a required analyzer alongside the existing compiler checks, with its own
 compatible development-only compiler resolved through the single root lock. Research
-demonstrated this path in isolation; production integration remains to be implemented.
-An editor plugin alone is not a command-line gate, and the product compiler must not
-be downgraded to satisfy the analyzer. Typed view-helper APIs remain ordinary checked
+demonstrated this path in isolation; the required workflow now runs actual-source
+analysis and checker fixtures via [the owned tool](../tools/lit-check/README.md).
+Its analysis-only bundle resolves bare compiler imports explicitly; clean frozen-lock
+installation is tested without changing the product compiler. An editor plugin alone
+is not a command-line gate. Typed view-helper APIs remain ordinary checked
 TypeScript and complement, rather than replace, internal template analysis.
 
 | Configuration | Owner and runtime |
@@ -56,6 +58,7 @@ TypeScript and complement, rather than replace, internal template analysis.
 | `tsconfig.tests.json` | Root tests; Bun plus browser/JSDOM fixtures |
 | `tsconfig.browser.json` | Forgejo branding and Sodaspaces browser scripts; DOM types, no automatic Bun/Node globals |
 | `cockpit/tsconfig.json` | Existing Cockpit TS/TSX, test and Vite+ build code |
+| `tools/lit-check/tsconfig.json` | Analyzer runner checked by product TS7 against its classic compiler API; no browser runtime |
 
 All authored scripts, browser modules and tests are TypeScript. No compiler
 configuration admits unchecked JavaScript with `allowJs`/`checkJs`. Browser code

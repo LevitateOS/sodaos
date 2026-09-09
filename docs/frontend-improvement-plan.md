@@ -18,6 +18,18 @@ repeat the rendering ports, replace the session model or mark step 6 complete.
 If implementation has advanced since this review, preserve that work and apply
 the same contracts to the current owners rather than restoring this checkout.
 
+## Implementation progress after the reviewed baseline
+
+The first implementation slices now expose/consume canonical workspace tokens,
+add computed page/drawer checks and a scoped visual-literal guard, and integrate
+required actual-source Lit analysis plus independent fixtures. The first typed
+extraction is the project lifecycle section; its state and command admission remain
+in the project owner. See the [current handoff](implementation-status.md) for exact
+checks and remaining work, and [checker resolution](../tools/lit-check/README.md)
+for the analysis-only build adapter needed by the locked upstream packages.
+The remaining presentation/source-clarity slices and steps 6a/6b are not complete.
+Dated research observations below remain historical, not current gate status.
+
 ## 1. Reading order and document ownership
 
 Read this guide for the consolidated decision, evidence and cleanup requirements.

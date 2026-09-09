@@ -76,7 +76,7 @@ export class SodaTerminal extends LitElement {
   protected render() {
     const disabled = this.disposed || this.state === 'stale';
     return html`<section class=${'soda-terminal' + (this.state === 'ready' ? ' is-connected' : '') + (this.managed ? ' is-managed' : '')}>
-      ${this.managed ? html`<div class="soda-terminal-context"><span title=${this.binding?.projectName}>${this.binding?.login} @ ${this.binding?.projectName || this.binding?.environmentId}</span>
+      ${this.managed ? html`<div class="soda-terminal-context"><span title=${this.binding?.projectName || ''}>${this.binding?.login} @ ${this.binding?.projectName || this.binding?.environmentId}</span>
         <details class="soda-menu" @keydown=${(e: KeyboardEvent) => {if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); this.closeMenu(); this.querySelector<HTMLElement>('summary')?.focus();}}}><summary aria-label="Terminal actions" data-action="controls">⋯</summary><div>
           <button type="button" class="ui button" ?disabled=${disabled} @click=${() => this.workspaceCommand('project')}>Environment / access</button>
           <button type="button" class="ui button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.workspaceCommand('rename')}>Rename terminal</button>

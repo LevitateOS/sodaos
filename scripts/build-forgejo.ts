@@ -23,11 +23,15 @@ export async function buildForgejoModule(source: string, destination: string) {
     target: 'browser',
     format: 'esm',
     minify: true,
-    plugins: runtime ? [] : [{
+    plugins: [{
       name: 'forgejo-public-imports',
       setup(build) {
         build.onResolve({filter: /.*/}, args => {
           if (args.kind === 'entry-point-build') return;
+          if (/^(?:lit-analyzer|typescript|web-component-analyzer|ts-simple-type)(?:\/|$)/.test(args.path) || args.path.includes('tools/lit-check')) {
+            throw Error(`Development-only analysis tool cannot enter browser payload: ${args.path}`);
+          }
+          if (runtime) return;
           if (args.path === 'lit' || args.path === 'lit/directives/repeat.js') return {path: runtimeURL, external: true};
           if (/^(?:lit\/|lit-element(?:\/|$)|lit-html(?:\/|$)|@lit(?:-labs)?\/)/.test(args.path)) {
             throw Error(`Unsupported Lit submodule ${args.path}: add an explicit shared-runtime export before using it`);

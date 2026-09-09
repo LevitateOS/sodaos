@@ -17,9 +17,8 @@ required validation remain explicit.
 The [frontend improvement guide](frontend-improvement-plan.md) consolidates the
 researched cleanup after locally completed step 5: mandatory canonical tokens,
 enforced template diagnostics, typed view composition and clearer source ownership.
-It preserves this renderer and the existing action/terminal owners. The analyzer
-worked in isolated research; its integration into the required checks is still
-implementation work, not a passing production gate.
+It preserves this renderer and the existing action/terminal owners. The analyzer is now integrated into required local checks through the root Bun
+workspace; see [tool ownership and resolution](../tools/lit-check/README.md).
 
 ## Runtime and builds
 
@@ -60,11 +59,12 @@ Strict TypeScript checks expressions and typed helper calls inside/around `html`
 templates, but does not check their native/custom property, boolean or event binding
 positions. A language-service plugin listed in `tsconfig` does not run under `tsc`.
 Follow the [checker contract](frontend-improvement-plan.md#required-analyzer-integration):
-retain the product compiler and integrate the demonstrated compatible analyzer through
-a separate development-only compiler dependency under the root workspace/single lock.
-Explicitly enable unknown-event diagnostics and make required rules fail the check.
-Callable-event parameter compatibility remains a known analyzer gap. Do not describe
-the proposed gate as installed, fully TSX-equivalent or native behavior proof.
+`bun run typecheck` retains the product compiler and requires actual-source analysis
+plus independent checker fixtures. The development-only runner binds bare analyzer
+compiler imports to its workspace's classic compiler; a package alias alone is not
+sufficient. Unknown-event checking is enabled and warnings also fail the gate.
+Callable-event parameter compatibility remains a known analyzer gap. This local gate
+is not fully TSX-equivalent checking or installed/native behavior proof.
 
 Use readable multiline templates and typed functions for stateless sections and
 wrappers. A wrapper may accept a `TemplateResult` body and specific typed callbacks;

@@ -30,6 +30,7 @@ def collect(root, arch, revision):
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
         ('package.json', 'package.json'),
         ('cockpit/package.json', 'cockpit-package.json'),
+        ('tools/lit-check/package.json', 'lit-check-package.json'),
         ('bun.lock', 'bun.lock'),
         ('bunfig.toml', 'bunfig.toml'),
     ):

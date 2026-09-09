@@ -1,6 +1,7 @@
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html, nothing} from 'lit';
+import type {TemplateResult} from 'lit';
 import {object, check, id, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import type {Session, Environment, Detail, KeyPreview, SavedKey} from './sodaspaces-api.js';
 export interface ProjectContext { expectedUserId?: string | undefined; repositoryId: string; page?: boolean }
@@ -8,6 +9,35 @@ export interface ProjectContext { expectedUserId?: string | undefined; repositor
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
 const views = ['environment', 'access'] as const;
 type View = typeof views[number];
+type Lifecycle = {running: boolean; boot: boolean};
+
+// Stateless presentation: the concrete project owner admits every command and
+// retains the original target, confirmation and asynchronous request lifetime.
+function renderLifecycle(
+  lifecycle: Lifecycle | undefined,
+  blocked: boolean,
+  confirmed: boolean,
+  start: (event: MouseEvent) => void,
+  stop: (event: MouseEvent) => void,
+  confirm: (checked: boolean) => void,
+): TemplateResult {
+  const stopped = !lifecycle?.running && !lifecycle?.boot;
+  return html`
+    <fieldset ?hidden=${!lifecycle}>
+      <legend>Shared environment</legend>
+      <p>${lifecycle ? `Running: ${lifecycle.running ? 'yes' : 'no'}; starts on host boot: ${lifecycle.boot ? 'yes' : 'no'}. Start restores boot start; Stop disables it.` : ''}</p>
+      <button type="button" class="ui primary button" ?hidden=${!!lifecycle?.running && lifecycle.boot}
+        ?disabled=${blocked} @click=${start}>Start</button>
+      <button type="button" class="ui button danger" ?hidden=${stopped}
+        ?disabled=${blocked} @click=${stop}>Stop</button>
+      <label ?hidden=${stopped}>
+        <input type="checkbox" .checked=${confirmed}
+          @change=${(event: Event) => {if (event.target instanceof HTMLInputElement) confirm(event.target.checked);}}>
+        I understand Stop interrupts everyone’s SSH, terminals and workloads, and disables next-boot start.
+      </label>
+    </fieldset>
+  `;
+}
 
 export class SodaProjectControls extends LitElement {
   static properties = {
@@ -25,7 +55,7 @@ export class SodaProjectControls extends LitElement {
   declare private detail: Detail | undefined;
   declare private saved: SavedKey[] | undefined;
   declare private keyPreview: KeyPreview | undefined;
-  declare private lifecycle: {running: boolean; boot: boolean} | undefined;
+  declare private lifecycle: Lifecycle | undefined;
   declare private connection: {command: string; fingerprint: string} | undefined;
   declare private busy: boolean;
   declare private stale: boolean;
@@ -79,17 +109,16 @@ export class SodaProjectControls extends LitElement {
   protected render() {
     const intent = new URLSearchParams({repository_id: this.binding?.repositoryId || ''});
     if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
-    const stopped = !this.lifecycle?.running && !this.lifecycle?.boot;
     const preview = this.keyPreview;
-    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls" aria-busy=${String(this.busy && !this.stale)}>
+    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls" aria-busy=${this.busy && !this.stale ? 'true' : 'false'}>
       <div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">${views.map(view => html`
         <button type="button" class="ui basic button" data-view=${view} role="tab" aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
-          aria-selected=${String(this.selected === view)} tabindex=${this.selected === view ? 0 : -1}
+          aria-selected=${this.selected === view ? 'true' : 'false'} tabindex=${this.selected === view ? 0 : -1}
           @click=${() => this.select(view)} @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}>${view[0]?.toUpperCase()}${view.slice(1)}</button>`)}</div>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-environment'} class="soda-spaces-view" role="tabpanel" aria-label="Environment" ?hidden=${this.selected !== 'environment'}>
         <p>Shared resources, explicit actions. Hiding does not undo work already sent.</p>
         <a data-control="sign-in" class="ui primary button" href=${'/-/soda/login?' + intent} ?hidden=${!this.connectVisible || this.stale}
-          aria-disabled=${String(this.busy || this.stale)} @click=${(e: Event) => {if (this.busy || this.stale || this.disposed) e.preventDefault();}}>Connect to Soda</a>
+          aria-disabled=${this.busy || this.stale ? 'true' : 'false'} @click=${(e: Event) => {if (this.busy || this.stale || this.disposed) e.preventDefault();}}>Connect to Soda</a>
         <div class="soda-spaces-actions">
           <button data-control="refresh" type="button" class="ui basic button" ?disabled=${this.busy || this.stale} @click=${(e: Event) => this.command(e, () => this.refresh(), true)}>Refresh status</button>
           <button data-control="reload" type="button" class="ui basic button" ?hidden=${!this.stale} @click=${(e: Event) => {if (!this.disposed && e.currentTarget instanceof HTMLElement && !e.currentTarget.closest('[hidden]')) window.location.reload();}}>Reload repository page</button>
@@ -100,12 +129,10 @@ export class SodaProjectControls extends LitElement {
           <button data-control="join" type="button" class="ui primary button" ?hidden=${!this.detail?.environment.provisioned || !!this.detail.login || !this.running || !this.saved?.length} ?disabled=${this.blocked}
             @click=${(e: Event) => this.command(e, () => {if (this.environment) return this.mutate('/api/environments/' + this.environment.id + '/join', {}, 'Native join confirmed. Later saved-key changes require a separate explicit Apply.');})}>Join environment</button>
         </div>
-        <fieldset ?hidden=${!this.lifecycle}><legend>Shared environment</legend>
-          <p>${this.lifecycle ? `Running: ${this.lifecycle.running ? 'yes' : 'no'}; starts on host boot: ${this.lifecycle.boot ? 'yes' : 'no'}. Start restores boot start; Stop disables it.` : ''}</p>
-          <button type="button" class="ui primary button" ?hidden=${!!this.lifecycle?.running && this.lifecycle.boot} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}>Start</button>
-          <button type="button" class="ui button danger" ?hidden=${stopped} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(true))}>Stop</button>
-          <label ?hidden=${stopped}><input type="checkbox" .checked=${this.stopConfirmed} @change=${(e: Event) => {if (e.target instanceof HTMLInputElement) this.stopConfirmed = e.target.checked;}}> I understand Stop interrupts everyone’s SSH, terminals and workloads, and disables next-boot start.</label>
-        </fieldset>
+        ${renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed,
+          event => this.command(event, () => this.changeLifecycle(false)),
+          event => this.command(event, () => this.changeLifecycle(true)),
+          checked => {this.stopConfirmed = checked;})}
       </section>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-access'} class="soda-spaces-view" role="tabpanel" aria-label="Access" ?hidden=${this.selected !== 'access'}>
         <fieldset data-control="connection" ?hidden=${!this.connection}><legend>SSH / editor connection</legend>

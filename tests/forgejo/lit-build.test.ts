@@ -20,6 +20,20 @@ test('Lit submodules cannot silently become unresolved or duplicate runtimes', a
   });
 });
 
+test('analysis tools cannot enter browser payloads through external imports', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'soda-analysis-boundary-'));
+  t.after(() => rm(directory, {recursive: true, force: true}));
+  const source = join(directory, 'tool-import.ts');
+  for (const name of ['lit-analyzer', 'typescript', 'web-component-analyzer', '../../tools/lit-check/check.ts']) {
+    await writeFile(source, `import ${JSON.stringify(name)};\n`);
+    await assert.rejects(buildForgejoModule(source, 'public/assets/component.js'), (error: unknown) => {
+      assert(error instanceof AggregateError);
+      assert(error.errors.some((diagnostic: unknown) => diagnostic instanceof Error && diagnostic.message.includes('Development-only analysis tool')));
+      return true;
+    });
+  }
+});
+
 test('staged Lit notice matches the resolved browser dependency licenses', async () => {
   const license = await readFile(join(root, 'appliance/licenses/lit-LICENSE'), 'utf8');
   const litEntry = Bun.resolveSync('lit', root);

@@ -1,5 +1,39 @@
 # Current handoff
 
+## Frontend improvement — required analyzer and first typed view
+
+After styling commit `cdfb6e8`, the root workspace/single lock now owns the
+analysis-only `tools/lit-check` package. Product TS7 remains unchanged. Required
+`typecheck` includes tool-source checking, actual browser-source analysis and ten
+independent negative fixtures plus positive static-properties/nested-template/repeat
+coverage. Unknown events are enabled; warnings, missing sources and crashes fail.
+The seven actual-source diagnostics were resolved with literal ARIA strings and
+explicit empty ordinary attributes, preserving their DOM semantics. A typed,
+stateless project lifecycle section keeps confirmations/admission/requests in its
+existing owner. Callable-event parameter compatibility remains explicitly unproven.
+
+The analyzer omits its runtime compiler dependency: naive workspace installation
+resolved its bare imports to TS7; preserve-symlinks lost transitive dependencies.
+A bounded development-only Bun build now resolves all compiler imports to the tool's
+classic compiler. UMD language services remain external after a first fully bundled
+runner failed relative module resolution. No dependency patch, product downgrade,
+lifecycle hook or Node runtime was introduced. See [resolution ownership](../tools/lit-check/README.md).
+A fresh isolated **frozen-lock, ignore-scripts** install reproduced passing analysis
+and fixtures; the runner verifies its analyzer context's default compiler. Browser
+builds explicitly reject analysis-tool imports. Native input metadata now retains the
+tool manifest; no analysis executable/compiler is shipped as a runtime asset.
+
+Checks actually run: required strict typecheck/analyzer/fixtures; frontend **176 pass
+/3 gated skips**; explicit Lit/browser **114 pass**; Forgejo **29 pass /18 optional
+skips**; `go test -mod=readonly ./internal/nativebuild`; whitespace. Evidence (including
+failed iterations and clean-install path) remains in `.artifacts/frontend-improvement-f45b74c/`.
+The preceding styling matrix/page check remains attributed to that slice, not a new
+native run. Corrected its workspace count below from 31 to the actual 29.
+
+**Still incomplete:** remaining presentation extraction, source reorganization,
+attention 6a and candidate/installed-driver 6b closure. No native build/export,
+deployment, retained mutation, provider action or selected-CLI acceptance occurred.
+
 ## Frontend improvement — canonical styling slice
 
 The shared page/drawer/project/terminal CSS now consumes canonical semantic roles
@@ -11,7 +45,7 @@ Warnings remain distinct from selection. Native full-page primary color is prese
 
 Local checks: strict product TypeScript; frontend **168 pass /3 gated skips**;
 20-case emitted adapter/Lit/xterm layout matrix; actual Go HTML/CSP page test;
-Forgejo **28 pass /18 optional skips**; then workspace **31 pass**, including eight
+Forgejo **28 pass /18 optional skips**; then workspace **29 pass**, including eight
 new page/native × light/dark × wide/compact computed-token/focus/warning cases.
 The raw-color/typography/radius guard covers all eleven authored workspace CSS/TS
 modules and tests deliberate bad samples. These are synthetic/local browser checks,

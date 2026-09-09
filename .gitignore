@@ -7,3 +7,4 @@ __pycache__/
 *.db
 *.db-shm
 *.db-wal
+/tools/lit-check/node_modules/
