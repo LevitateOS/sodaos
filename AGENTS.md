@@ -115,8 +115,10 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   attachment loss; same-target Refresh and focus/view/Hide preserve the live mount.
   Isolated `22d8591` has bounded same-shell reload/cleanup evidence, not full native
   safety/UX acceptance. Lit ports must preserve `restore`, finite retain/Return and
-  HTTP End; document disposal detaches, not End. Multiple sessions still need an
-  ID-keyed backend; extra tabs alone cannot bypass the current context/project slot.
+  HTTP End; document disposal detaches, not End. The ID-keyed backend, exact
+  correlation/cleanup receipts and bounded authorized collection now have local
+  Go/race/browser coverage; the multi-session UI and concurrent native proof remain
+  pending. Do not revive the singleton metadata endpoint or select a newest session.
   Do not force ordinary SSH/tmux into Soda, auto-create on reconnect or call local
   rendering checks native process proof. Follow the current plan and terminal guide.
   The read-only hook/drawer/context caller passed

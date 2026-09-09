@@ -11,6 +11,7 @@ import (
 
 var errRepositoryConsent = errors.New("repository and user consent required")
 var errProviderIdentity = errors.New("provider identity differs from Soda session")
+var errRepositoryDenied = errors.New("repository is not visible")
 
 // Request-local verified facts, never serialized or persisted as copied roles.
 type repositoryAccess struct {
@@ -40,6 +41,10 @@ func (s *Server) visibleRepository(r *http.Request, v store.Session, id int64) (
 	}
 	repo, err := s.Forgejo.RepositoryByID(r.Context(), grant.Access, id)
 	if err != nil {
+		var native *forgejo.HTTPError
+		if errors.As(err, &native) && (native.Status == 403 || native.Status == 404) {
+			err = errors.Join(errRepositoryDenied, err)
+		}
 		return access, err
 	}
 	return repositoryAccess{actor, repo, grant}, nil
@@ -65,33 +70,45 @@ func (s *Server) environmentAdministrator(r *http.Request, a repositoryAccess) (
 type environmentReader struct {
 	login                               string
 	administrator, authorityUnavailable bool
+	repositoryVisible                   bool
 }
 
 // Only existing membership or the explicit Soda operator permits degraded reads.
 // New/nonmember readers fail before any metadata or native inspection is exposed.
-func (s *Server) authorizeEnvironmentRead(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (environmentReader, bool) {
+var errEnvironmentReadStore = errors.New("could not read membership")
+
+func (s *Server) readEnvironmentAuthority(r *http.Request, v store.Session, p store.Project) (environmentReader, error) {
 	var reader environmentReader
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	member := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		jsonError(w, 503, "store_unavailable", "Could not read membership.")
-		return reader, false
+		return reader, errEnvironmentReadStore
 	}
 	reader.login = login
 	if v.User.ID == s.Config.OperatorID {
 		reader.administrator = true
-		return reader, true
+		return reader, nil
 	}
 	access, err := s.visibleRepository(r, v, p.RepositoryID)
 	if err != nil {
 		if !member {
-			providerError(w, err)
-			return reader, false
+			return reader, err
 		}
 		reader.authorityUnavailable = true
-		return reader, true
+		return reader, nil
 	}
+	reader.repositoryVisible = true
 	reader.administrator, err = s.environmentAdministrator(r, access)
 	reader.authorityUnavailable = err != nil
-	return reader, true
+	return reader, nil
+}
+
+func (s *Server) authorizeEnvironmentRead(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (environmentReader, bool) {
+	reader, err := s.readEnvironmentAuthority(r, v, p)
+	if errors.Is(err, errEnvironmentReadStore) {
+		jsonError(w, 503, "store_unavailable", "Could not read membership.")
+	} else if err != nil {
+		providerError(w, err)
+	}
+	return reader, err == nil
 }

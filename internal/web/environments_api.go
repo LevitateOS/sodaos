@@ -24,7 +24,12 @@ func (s *Server) environmentRoutes() {
 	s.mux.HandleFunc("/api/environments/{id}/lifecycle", s.apiProtected(s.apiLifecycle, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}/access-keys", s.apiProtected(s.apiAccessKeys, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}/terminal", s.apiTerminal)
-	s.mux.HandleFunc("/api/environments/{id}/terminal-session", s.apiProtected(s.apiTerminalSession, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/environments/{id}/terminal-session", s.apiProtected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
+		jsonError(w, 410, "terminal_client_obsolete", "Reload this page; terminal actions now require an exact ID.")
+	}, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.apiProtected(s.apiTerminalSession, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/environments/{id}/terminal-attempts/{requestID}", s.apiProtected(s.apiTerminalAttempt, http.MethodGet))
+	s.mux.HandleFunc("/api/spaces", s.apiProtected(s.apiSpaces, http.MethodGet))
 	s.mux.HandleFunc("/api/environments", s.apiProtected(s.apiEnvironments, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}", s.apiProtected(s.apiEnvironment, "GET"))
 	s.mux.HandleFunc("/api/environments/{id}/join", s.apiProtected(s.apiJoinEnvironment, "POST"))

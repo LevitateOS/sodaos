@@ -8,7 +8,7 @@ Cockpit keeps React/PatternFly. See the handoff for actual local checks; no new
 installed browser/CLI compatibility proof follows from the port.
 
 The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first
-ports, then the real multi-session backend, shared page/drawer workspace, layouts
+ports and ID-keyed backend (now locally implemented), shared page/drawer workspace, layouts
 and attention. It incorporates the existing managed-tmux contract; it does not
 restart the older request-owned terminal migration. Retained native adapters and
 required validation remain explicit.

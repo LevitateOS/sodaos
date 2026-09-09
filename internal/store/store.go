@@ -160,6 +160,30 @@ const projectColumns = `id,name,repository_id,owner_id,repository,ip,ready`
 func (s *Store) Project(ctx context.Context, id string) (Project, error) {
 	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE id=?`, id))
 }
+
+// SpaceProjects is a bounded scan of Soda associations, not an authorized catalog.
+// NULL deliberately rejects oversized stored labels instead of silently truncating
+// them or allocating arbitrary DB text. Callers must authorize every returned row.
+func (s *Store) SpaceProjects(ctx context.Context) ([]Project, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT CASE WHEN length(CAST(id AS BLOB))<=128 THEN id END,
+ CASE WHEN length(CAST(name AS BLOB))<=1024 THEN name END,repository_id,owner_id,
+ CASE WHEN length(CAST(repository AS BLOB))<=2048 THEN repository END,
+ CASE WHEN length(CAST(ip AS BLOB))<=128 THEN ip END,ready FROM projects ORDER BY id LIMIT 129`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Project{}
+	for rows.Next() {
+		p, err := scanProject(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) ProjectByRepository(ctx context.Context, id int64) (Project, error) {
 	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE repository_id=?`, id))
 }

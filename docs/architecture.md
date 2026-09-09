@@ -23,8 +23,9 @@ See the [handoff](implementation-status.md) for source versus installed evidence
 The user also selected a global **Spaces** link and authenticated Soda-owned
 Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sessions.
 This is a planned, bounded extension of the API-only backend, not restoration of
-Forgejo workflow adapters or either removed frontend. The listing, OAuth return and
-page shell are not implemented; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+Forgejo workflow adapters or either removed frontend. The HTML listing, OAuth return and
+page shell are not implemented; the bounded `/api/spaces` collection and ID-keyed
+terminal contracts now have local source/test coverage, not native proof; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
 owns this scope. The [Lit implementation sequence](lit-migration-plan.md) now covers
 both surfaces, starting with ports that preserve current managed-session behavior.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
@@ -100,7 +101,7 @@ integration cannot meet a requirement, explain its actual constraint and return
 for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
 iframe or weakened native security. Management and terminal controls now use
 [Lit](lit.md), loaded on demand; xterm/transport remain imperative and the further
-multi-session/page/layout workspace features are unimplemented. Local rendering tests are not installed
+multi-session UI/page/layout workspace features are unimplemented. Local rendering tests are not installed
 CLI compatibility or full terminal acceptance.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized

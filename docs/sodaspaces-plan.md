@@ -8,9 +8,10 @@ shared **Lit** component implementation, not separate frontends.
 
 **Current source:** native Forgejo hooks, real management/access integration and
 managed-tmux reattachment exist; management and terminal controls are ported to Lit
-with local emitted-browser/layout coverage. Xterm and transport stay imperative. The Spaces
-page, ID-keyed multiple sessions, session names/collection and
-new layout/attention controls remain unimplemented. The
+with local emitted-browser/layout coverage. Xterm and transport stay imperative.
+The ID-keyed backend, exact correlation/cleanup outcomes, name metadata and bounded
+authorized collection now have local Go/race/browser coverage. The Spaces page,
+shared multi-session UI and new layout/attention controls remain unimplemented. The
 [Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
 sequence: preserve the current behavior in two rendering ports, then implement real
 concurrency, the authenticated page/shared drawer, layouts and truthful attention.
@@ -95,7 +96,8 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
   context, copy upstream authentication, relay HTML or borrow cookies. The Lit plan
   includes page-only CSP, styling/clipboard, fixed OAuth return and staging checks.
 
-The navbar/page, authorized collection and fixed OAuth return are all unimplemented.
+The authorized collection is source-implemented and locally tested; the navbar/page,
+shared multi-session UI and fixed OAuth return are unimplemented.
 The [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) now specifies
 concrete owners and exits for these features. Validate authentication/expiry/logout,
 denied/unavailable listings, per-ID actions and same-session drawer use across both
@@ -190,8 +192,8 @@ splits and do not force ordinary SSH logins into a Soda-managed session.
 The **existing single-session source is the starting point**, not the next task to
 reimplement. Keep explicit create versus exact attach, finite retention, independent
 native supervision, same-target Refresh preservation and cleanup reservations. The
-Lit ports retain that wire/lifetime before the planned ID-keyed registry removes the
-per-context/project singleton. Multiple IDs must keep the same original binding,
+Lit ports retained that wire/lifetime; the subsequent ID-keyed registry now removes
+the per-context/project singleton in source, with local double-based coverage. Multiple IDs must keep the same original binding,
 Stop/logout gates and one-writer checks, with correlated uncertain creation rather
 than selecting the newest session. No missing/ended/expired target creates a shell.
 
@@ -290,7 +292,7 @@ Retain the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed single-session restore/retention exists with bounded installed proof; Lit controls, multiple sessions, names and full-page/drawer layout remain source work |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls and ID-keyed backend/name APIs have local coverage, while multi-session UI and full-page/drawer layout remain source work |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -393,15 +395,15 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
-- Begin [Lit step 1](lit-migration-plan.md#step-1--port-the-current-management-drawer)
-  with the merged current source and existing strict Bun build. Port real action/race
-  tests into the correct browser realm. Preserve the stable terminal host and complete
-  facade; await render readiness without late mounts/focus or implicit mutations.
-- Port the **current managed** terminal controls next, not the superseded PTY behavior:
-  exact restore, finite retain/Return, HTTP End, attachment-only disposal. Neither
-  render updates nor native document replacement are instructions to create a shell.
-- Follow the subsequent multi-session/page/layout slices and their focused exits in
-  that plan. Native safety failures remain real acceptance gaps. Before any delivery,
+- Continue with [Lit step 4](lit-migration-plan.md#step-4--one-real-lit-workspace-in-both-entry-points):
+  authenticated Spaces HTML/fixed OAuth return and the shared multi-session workspace.
+  The management/terminal ports and ID registry/collection contracts are implemented
+  locally; preserve their action/race/authority tests and exact locators.
+- Build the stable terminal owner layer and both projections before adding pane
+  movement/layout. Neither render updates nor document replacement creates a shell;
+  disposal detaches, End acknowledgement is not native cleanup, and absent records
+  remain unknown.
+- Follow the later layout/attention slices and their focused exits in that plan. Native safety failures remain real acceptance gaps. Before any delivery,
   build/check/export exact bytes and run the applicable installed journey with real
   OAuth/helper/tmux, preserving both users, roots and unrelated workloads.
 - Record actual runs and failures. No alternate preview endpoint, unrequested service

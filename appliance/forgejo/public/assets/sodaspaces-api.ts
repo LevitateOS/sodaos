@@ -70,6 +70,51 @@ export function keyPreviewResponse(value: unknown, login: string): KeyPreview {
   check(installed.every(fingerprint) && saved.every(fingerprint));
   return { login, revision: data.revision, installed_fingerprints: installed, saved_fingerprints: saved };
 }
+export const terminalID = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
+export interface TerminalIdentity {expectedUserId: string; repositoryId: string; environmentId: string; login: string}
+export interface TerminalMetadata {
+  id: string; request_id: string; environment_id: string; repository_id: string; user_id: string; login: string; name: string;
+  created_at: number; hard_until: number; retain_until: number; effective_until: number;
+  ready: boolean; attached: boolean; state: 'opening' | 'ready' | 'ending' | 'unconfirmed' | 'ended';
+}
+export function terminalMetadata(value: unknown, binding: TerminalIdentity): TerminalMetadata {
+  const data = object(value);
+  check(terminalID(data.id) && terminalID(data.request_id) && data.environment_id === binding.environmentId && data.repository_id === binding.repositoryId && data.user_id === binding.expectedUserId && data.login === binding.login);
+  check(typeof data.name === 'string' && Array.from(data.name).length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(data.name));
+  const timestamp = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  check(timestamp(data.created_at) && timestamp(data.hard_until) && timestamp(data.retain_until) && timestamp(data.effective_until));
+  check(data.created_at > 0 && data.hard_until >= data.created_at && data.hard_until <= data.created_at + 43200 && (data.retain_until === 0 || data.retain_until <= data.hard_until) && data.effective_until === (data.retain_until || data.hard_until));
+  check(typeof data.ready === 'boolean' && typeof data.attached === 'boolean' && (data.state === 'opening' || data.state === 'ready' || data.state === 'ending' || data.state === 'unconfirmed' || data.state === 'ended'));
+  check(data.state === 'ready' || !data.ready); check(!['ending', 'unconfirmed', 'ended'].includes(data.state) || !data.attached);
+  return {id: data.id, request_id: data.request_id, environment_id: binding.environmentId, repository_id: binding.repositoryId, user_id: binding.expectedUserId, login: binding.login, name: data.name,
+    created_at: data.created_at, hard_until: data.hard_until, retain_until: data.retain_until, effective_until: data.effective_until, ready: data.ready, attached: data.attached, state: data.state};
+}
+export function terminalResponse(value: unknown, binding: TerminalIdentity): TerminalMetadata | null {
+  const data = object(value); return data.terminal === null ? null : terminalMetadata(data.terminal, binding);
+}
+export interface Space {
+  environment: Environment & {name: string; repository: string; owner_id: string; provisioned: boolean};
+  login: string; environment_administrator: boolean; authority_unavailable: boolean; native_unavailable: boolean;
+  observed: Detail['observed']; terminals: TerminalMetadata[];
+}
+export function spacesResponse(value: unknown, expectedUserId: string): {items: Space[]; complete: boolean} {
+  const data = object(value); check(id(expectedUserId) && typeof data.complete === 'boolean' && Array.isArray(data.items) && data.items.length <= 32);
+  const seen = new Set<string>(), sessions = new Set<string>();
+  const items = data.items.map((value: unknown): Space => {
+    const row = object(value), env = object(row.environment);
+    check(projectId(env.id) && id(env.repository_id) && id(env.owner_id) && typeof env.name === 'string' && typeof env.repository === 'string' && !seen.has(env.id)); seen.add(env.id);
+    const environmentId = env.id, repositoryId = env.repository_id;
+    const detail = detailResponse(row, {id: environmentId, repository_id: repositoryId});
+    check(Array.isArray(row.terminals) && row.terminals.length <= 64 && (!detail.authority_unavailable || (!detail.environment_administrator && row.terminals.length === 0)));
+    const terminals = row.terminals.map((value: unknown) => {
+      const terminal = terminalMetadata(value, {expectedUserId, repositoryId, environmentId, login: detail.login});
+      check(!sessions.has(terminal.id)); sessions.add(terminal.id); return terminal;
+    });
+    check(sessions.size <= 64);
+    return {...detail, environment: {...detail.environment, name: env.name, repository: env.repository, owner_id: env.owner_id}, terminals};
+  });
+  return {items, complete: data.complete};
+}
 export class SodaRequestError extends Error {
   constructor(readonly status: number, readonly code?: string) { super('Soda request failed'); }
 }

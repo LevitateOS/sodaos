@@ -9,7 +9,9 @@ the [terminal contract](terminal-integration.md) owns native lifetime, and the
 [API guide](dashboard-api.md) describes implemented endpoints, not the proposals here.
 
 **Current source: steps 1–2's management and terminal controls are ported, with local
-emitted-browser and layout checks; steps 3–6 remain unimplemented.** Xterm and the
+emitted-browser and layout checks. Step 3's ID registry/collection and caller contracts
+are source-implemented with local Go/race/browser coverage; steps 4–6 remain
+unimplemented.** Xterm and the
 managed transport remain imperative resources; no native lifetime redesign occurred. The public preview projection and full installed acceptance
 remain open; see the handoff for exact evidence. This revises
 `8f03910`'s drawer-first migration plan to incorporate the managed-tmux implementation
@@ -28,7 +30,7 @@ Deployment, new appliance fixtures and project recreation remain separately scop
 | `sodaspaces-drawer.ts` supplies real management/access actions and a terminal facade | Port these owners, guards and tests rather than replacing them with demo controls. |
 | `sodaspaces-terminal.ts` implements create/exact attach, restore, retain, Return and HTTP End | The old socket `{type:'close'}` End and request-owned lifetime are obsolete. |
 | Management Refresh retains a terminal with the same environment/login, but `reset()` still clears management drafts | Preserve current explicit reset boundaries in the rendering-only port; do not claim Refresh already preserves every form value. |
-| `internal/web/terminal.go` keys slots by `{context, project}` | Multiple same-project sessions require real backend work; more tabs cannot bypass the singleton. |
+| `internal/web/{terminal,terminal_sessions,spaces}.go` now implements ID-keyed sessions and a bounded authorized collection | Independent sessions are backend-tested; the shared multi-session UI and native proof remain separate. |
 | Native guard/tmux is already per terminal ID | Keep that mechanism; concurrency needs regression/native proof, not another PTY broker. |
 | `22d8591` has isolated same-shell reload and End/cleanup evidence | Preserve it; full native probe, editor/build/history/network/failure acceptance remains incomplete. |
 | Incoming repository actions are inline above 1000px **pane** width, a disclosure at/below it | Preserve real native form nodes and this correction; schematic drawings do not override native header implementation. |
@@ -43,7 +45,7 @@ handlers from a template override.
 
 ## 2. Concrete owners
 
-Paths are repository-relative; new paths below are proposed source, not existing files.
+Paths are repository-relative; step-4 workspace/page paths below remain proposed.
 
 | Owner | Responsibility |
 | --- | --- |
@@ -54,7 +56,7 @@ Paths are repository-relative; new paths below are proposed source, not existing
 | `…/sodaspaces-layout.ts` (step 5) | Typed pane-tree transformations and bounded locator parsing/serialization, with direct callers/tests. No DOM, network, credentials or generic application store. |
 | `…/sodaspaces-page.ts` (step 4) | Thin entrypoint for the Go page: validate its server-supplied actor context and mount the same workspace in page mode. No client router or second session owner. |
 | `…/sodaspaces-api.ts` | Bounded JSON reader, response validation, concrete API types/errors. Move `readSodaJSON` here from the terminal while updating both callers. |
-| `internal/web/{server,auth,terminal,management}.go`, proposed `spaces.go` | Page/collection, original-context ID-keyed sessions, fresh authorization, cancellation and existing native helper calls. |
+| `internal/web/{server,auth,terminal,terminal_sessions,management,spaces}.go` | Page/collection, original-context ID-keyed sessions, fresh authorization, cancellation and existing native helper calls. |
 | `internal/store/{login,migrations}.go` and focused store queries | Fixed OAuth destination and bounded reads of legitimate Soda associations; no durable terminal registry or copied provider roles. |
 | Existing `internal/host/` and `project-os/` | Native account/guard/tmux/lease/cleanup authority, unchanged unless a concrete tested defect requires a scoped correction. |
 
@@ -188,6 +190,14 @@ These tests are browser/transport-double evidence, not new native tmux proof.
 
 ### Step 3 — real concurrent session and collection contracts
 
+**Source implemented and locally checked.** Exact API contracts and bounds now live
+in [the API guide](dashboard-api.md#exact-session-metadata-actions-and-creation-outcomes).
+The collection scans at most 128 associations, publishes at most 32 rows/64 KiB, and
+uses four request slots, sequential IO and bounded inspection time. The old singleton
+route returns 410; the browser uses exact IDs/correlations and observes cleanup
+receipts. Original native/helper wire is unchanged; no native concurrent/CLI acceptance
+or rollout is claimed. The following requirements record this slice's contract.
+
 Revise `internal/web/terminal.go`, `server.go`, Stop/logout/shutdown callers and
 focused Go tests before making `+` create concurrent sessions. Update the API guide
 and TypeScript validators together when these endpoints actually land.
@@ -202,13 +212,14 @@ and TypeScript validators together when these endpoints actually land.
 2. Add protected GET/POST metadata/actions at
    `/api/environments/{id}/terminal-sessions/{terminalID}`, plus GET `/api/spaces`
    for the authorized project/session collection (all under `/-/soda/`). These are
-   proposed routes, not present endpoints. Keep the existing WebSocket route and
+   implemented source routes, not installed proof. Keep the existing WebSocket route and
    separate create/exact-attach semantics. Names are optional bounded
    metadata (80 Unicode code points, no controls), never shell input or tmux targets.
    Rename must independently authorize the original context/project/account.
 3. Correlate a create attempt with a random 32-hex `request_id` carried in its
    authenticated create frame and retained on the server's reservation. A
-   protected read can find **that attempt**, not the newest terminal in a project.
+   protected `/terminal-attempts/{requestID}` read can find **that attempt**, not the
+   newest terminal in a project.
    Reject duplicate active correlation within the same context; it is neither a
    capability nor an automatic replay/idempotent-create service. If the response or
    record is absent, preserve uncertainty—never infer no native effect and retry.

@@ -33,11 +33,11 @@ Spaces destination, never an arbitrary `return_to`. Authorize rows/counts/metada
 before rendering, retain truthful unavailable states and recheck every action's
 permissions. Do not borrow native cookies/CSRF or assume CSS imports Forgejo's
 session/template context. The page opens the same authorized drawer/sessions, not a
-new terminal implementation. The [Lit sequence](lit-migration-plan.md) proposes
-`GET /api/spaces`, per-ID `/api/environments/{id}/terminal-sessions/{terminalID}`
-metadata/actions, create-request correlation and fixed `destination=spaces` OAuth
-intent. None exists yet; the singleton endpoints below remain current. Update this
-wire guide and validators with the actual backend commits, not ahead of them.
+new terminal implementation. The [Lit sequence](lit-migration-plan.md) now has
+source implementations of `GET /api/spaces`, exact-ID metadata/actions and create
+correlation below. The HTML page, shared multi-session UI and fixed
+`destination=spaces` OAuth intent remain unimplemented. These backend contracts have
+local handler/browser-double evidence, not installed or CLI acceptance.
 
 ## Browser namespace
 
@@ -81,11 +81,16 @@ and provisioned state are checked before upgrade. No operator/site-admin/owner b
 The first text frame (within 5 seconds, at most 4096 bytes, strict JSON) is:
 
 ```json
-{"action":"create","expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
+{"action":"create","request_id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
 ```
 
 Exact existing attachment uses `"action":"attach","id":"32 lowercase hex characters"`
-instead; create forbids `id`. Missing/expired/other-context IDs create nothing.
+instead; attach forbids `request_id` and a nonempty name, create forbids `id` and
+requires a fresh random 32-lowercase-hex `request_id`. Optional create `name` is at
+most 80 Unicode code points, without control/format characters; it is metadata,
+never shell input or a native tmux target. Duplicate correlations in the same context
+are refused while a reservation or receipt exists, even across projects. This is not
+idempotent creation or a retry service. Missing/expired/other-context IDs create nothing.
 Rows are 2–300, columns 2–500. Verify actor, association and the same Origin/CSRF check
 used by JSON mutations, then fresh acting-provider identity, actual user/repository
 consent and repository visibility. Degraded reads cannot launch. Only the stored
@@ -94,43 +99,100 @@ closes with sanitized 1008 status, not provider errors or credentials.
 
 Then accept only text JSON `input` with base64 `data` (1–16384 decoded bytes), `resize`
 with bounded rows/columns, with no extra fields. Browser heartbeats and socket End
-controls are forbidden. First return `session` with `id`, then `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
+controls are forbidden. First return `session` with `id`, original `request_id` and
+this writer's random `attachment_id`, then `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
 `closed`/`reason` frames. Total frames are limited to 32768 bytes; queues/write waits
 are bounded. No command, environment, UID, host address or Podman flags select launch.
 
-One managed terminal per login-context/project and one writer; 64 slots globally
-including detached/cleanup-unconfirmed slots, no eviction. Pending transports are
+An ID-keyed registry retains each original context/token, actor, project/repository,
+Linux login, creation/hard deadline and owner. Multiple same-project sessions are
+independent, with one writer per ID; 64 slots globally including detached/cleanup-
+unconfirmed slots, no eviction. The project-wide pre-upgrade writer refusal is gone;
+exact-ID writer admission happens after the bounded authenticated first frame. Pending transports are
 separately bounded at 128. Lifetime ownership is independent of the socket. Every
 15 seconds recheck current local session/membership and fresh acting-user repository
 authority before renewing the 60-second native safety lease. Original session expiry
 and a 12-hour native maximum remain hard limits. Logout/rotation/Stop/shutdown cancel
-pending and live attachments/owners, serialized against dispatch. No transcript,
+pending and live attachments/owners, serialized with reservation/admission. Stop
+cancels every ID and pending transport of that project, across contexts. Provider and
+native IO run outside the registry lock, with cancellable owners and binding rechecks. No transcript,
 input replay, implicit join/start, cross-context adoption or global Linux/SSH revocation.
 
-`GET /api/environments/{id}/terminal-session` is a protected metadata-only read,
-with fresh repository authority and own original membership. No query parameters.
-It returns `terminal:null` or `id`, `login`, `repository_id`, `ready`, `attached` and
-Unix `retain_until` (zero means deliberately active). Ending/uncertain slots instead
-include `state:"ending"` or `state:"unconfirmed"`, with false readiness/attachment.
-IDs are locators, never credentials. Unknown creation outcomes are looked up, not retried.
+### Exact session metadata, actions and creation outcomes
 
-`POST` at that path uses normal expected-actor/Origin/CSRF protections and strict JSON:
+`GET /api/environments/{id}/terminal-sessions/{terminalID}` requires fresh repository
+authority and the original own account/context/token. No query parameters or ID aliases.
+It returns `{"terminal":null}` for an unknown/unauthorized ID, or a `terminal` object:
+`id`, `request_id`, `environment_id`, `repository_id`, `user_id`, `login`, `name`,
+`created_at`, `hard_until`, `retain_until`, `effective_until`, `ready`, `attached`,
+`state`. Times are Unix seconds. `retain_until:0` means deliberately active;
+`effective_until` is the earlier retention/hard deadline, never zero. States are
+`opening`, `ready`, `ending`, `unconfirmed`, or receipt-only `ended`.
 
-- `{"action":"end","id":"…"}` acknowledges `{"ending":true}`, not native cleanup.
-- `{"action":"return","id":"…"}` clears retention only while attached; otherwise 30 minutes.
-- `{"action":"retain","id":"…","seconds":1800}` or `7200` sets a finite deadline.
+`GET /api/environments/{id}/terminal-attempts/{requestID}` uses the same authority
+and response. It finds only that exact correlated attempt, never the newest session.
+**Null/absent records are unknown**, not proof of cleanup or of no native effect.
+IDs/correlations/attachment generations are locators, not credentials.
 
-Disconnect sets 30 minutes only if no deadline exists. Input/output, automatic
-reattachment and browser noise never renew abandonment. Missing/expired actions
-return 404 and create nothing. Cleanup-unconfirmed slots stay reserved and require
-operator inspection; there is no automatic replacement/reconciliation. Registry
-state is in memory, not resurrected after backend restart. Native failure cleanup
-uses the separate guard/lease, not browser availability.
+`POST` on the exact session path uses normal expected-actor/Origin/CSRF and strict JSON:
 
-See the [component contract](terminal-integration.md) for navigation/Refresh restore
-and the exact limits of installed `22d8591` versus remaining native/delivery proof.
-The designed cleanup receipts, names and multiple-session routes are not implemented;
-current disappearance after End is not by itself independent native cleanup proof.
+- `{"action":"end"}` acknowledges `{"ending":true}`; read that ID afterwards.
+- `{"action":"rename","name":"…"}` sets/clears bounded runtime-only metadata.
+- `{"action":"retain","seconds":1800}` or `7200` explicitly sets finite retention,
+  capped by the original hard/authentication deadline.
+- `{"action":"hide","attachment_id":"…"}` sets 30 minutes **only if unset**.
+- `{"action":"return","attachment_id":"…"}` clears retention only for that current
+  attached writer. Detached Return remains finite (30 minutes); it may omit the
+  generation, but cannot activate a successor writer. A stale supplied generation
+  is refused. Hide never replaces a shorter or longer existing deadline.
+
+A writer generation comes from that socket's `session` frame, not a metadata GET.
+Generation mismatch returns `409 attachment_changed`, missing target actions 404,
+and ending/expired/unconfirmed targets 409. No mutation creates a replacement.
+Disconnect sets 30 minutes only if unset. Input/output, automatic attach and polling
+never renew abandonment. Effective deadlines are admission/renewal limits, not a
+promise that asynchronous native cleanup finishes at that exact instant.
+
+Native acknowledgement alone releases a live slot and may retain an authorized
+`ended` receipt: at most 128, five minutes, capped by original authentication.
+A full receipt bound never evicts another receipt; the released ID can therefore be
+unknown. Expired/absent receipts or backend restart are not cleanup proof. Unconfirmed
+native dispatch/cleanup keeps its slot reserved. There is no durable history,
+reconciliation, restart adoption or automatic replay.
+
+The old `/terminal-session` endpoint returns **410**, requiring a fresh page; it
+never chooses an ID. Old uncorrelated `pending` browser locators remain uncertain.
+New callers persist `pending:<request_id>` before creation and an exact ID afterwards;
+End acknowledgement alone does not erase the locator. Coordinated future backend/
+asset delivery is required; no live rollout occurred here.
+
+### Bounded Spaces collection
+
+`GET /api/spaces` requires the usual actor guard and rejects all queries. It scans
+only Soda associations, authorizes each before exposing names/rows or inspecting the
+helper, and returns `{"items":[…],"complete":true|false}`. Each item has `environment`
+(the existing association DTO, not a live copy of Forgejo names/permissions), original
+`login`, `environment_administrator`, `authority_unavailable`, `native_unavailable`,
+nullable `observed`, and `terminals` for this original context/account only. Ended
+receipts are not history in this collection. Denied nonmembers have no placeholder
+or disclosed count. Existing members retain degraded own observations, but degraded
+authority exposes neither elevated controls nor session metadata; it cannot launch.
+Configured operator observation is not a terminal-authority bypass.
+
+Bounds: four concurrent collection requests; sequential provider/helper calls per
+request; an eight-second inspection budget and two seconds per row (existing failed-
+grant-refresh cleanup can add up to five seconds). Scan at most 128 associations with
+one bounded overflow detection row; publish at most 32 rows and 64 KiB JSON. Stored
+text is bounded before loading (ID/IP 128 bytes, name 1024, repository 2048); oversized
+rows fail unavailable, not silently truncated. Limits/native/authority unavailability
+produce `complete:false` or 503, never a falsely complete empty catalog. There is no
+pagination/cursor or total private count; other associations remain reachable through
+their authorized repository drawer. Collection reads never create, attach or renew
+sessions; expired owners remain subject to their normal cleanup.
+
+See the [component contract](terminal-integration.md) and handoff for installed
+`22d8591` versus this local source evidence. Actual concurrent native/CLI proof,
+Spaces HTML/OAuth and the shared multi-session UI remain separate work.
 
 ## Explicit lifecycle and own SSH key updates — source, not installed proof
 

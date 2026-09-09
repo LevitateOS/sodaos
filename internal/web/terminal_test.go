@@ -20,7 +20,8 @@ import (
 )
 
 const webTerminalProject = "p0123456789abcdef01234567"
-const terminalAuth = `{"action":"create","expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
+const secondTerminalProject = "p1123456789abcdef01234567"
+const terminalAuth = `{"action":"create","request_id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
 
 func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...string) (*Server, *httptest.Server, *atomic.Int32, <-chan struct{}) {
 	t.Helper()
@@ -32,6 +33,8 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 		switch r.URL.Path {
 		case "/api/v1/user":
 			fmt.Fprint(w, `{"id":1,"login":"renamed-alice"}`)
+		case "/api/v1/repositories/8":
+			fmt.Fprint(w, `{"id":8,"name":"second","full_name":"alice/second","owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/repositories/7":
 			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`)
 		default:
@@ -51,6 +54,18 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 	calls := new(atomic.Int32)
 	closed := make(chan struct{}, 64)
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/inspect" {
+			var in host.Create
+			_ = json.NewDecoder(r.Body).Decode(&in)
+			_ = json.NewEncoder(w).Encode(host.Environment{ID: in.ID, Running: true})
+			return
+		}
+		if r.URL.Path == "/lifecycle" {
+			var in host.Lifecycle
+			_ = json.NewDecoder(r.Body).Decode(&in)
+			fmt.Fprintf(w, `{"environment":{"id":%q,"running":false},"boot_enabled":false}`, in.Project)
+			return
+		}
 		calls.Add(1)
 		c, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -63,7 +78,7 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 			return
 		}
 		var in host.TerminalRequest
-		if json.Unmarshal(body, &in) != nil || in.Project != webTerminalProject || in.Login != "original-alice" || in.Identity != 1 {
+		if json.Unmarshal(body, &in) != nil || (in.Project != webTerminalProject && in.Project != secondTerminalProject) || in.Login != "original-alice" || in.Identity != 1 {
 			t.Error("untrusted native dispatch")
 		}
 		if in.Expires > time.Now().Add(12*time.Hour).Unix() {
@@ -170,12 +185,16 @@ func TestBrowserTerminalLogoutDuplicateAndOriginalLogin(t *testing.T) {
 	}
 	defer c.CloseNow()
 	terminalReady(t, c)
-	duplicate, response, err := terminalDial(t, srv, "")
-	if duplicate != nil {
-		duplicate.CloseNow()
+	duplicate, _, err := terminalDial(t, srv, "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err == nil || response.StatusCode != 409 {
-		t.Fatal("duplicate did not refuse")
+	defer duplicate.CloseNow()
+	ctx, done := context.WithTimeout(t.Context(), time.Second)
+	defer done()
+	_ = duplicate.Write(ctx, websocket.MessageText, []byte(terminalAuth))
+	if _, _, err = duplicate.Read(ctx); err == nil {
+		t.Fatal("duplicate correlation accepted")
 	}
 	w := httptest.NewRecorder()
 	req := apiTestRequest("POST", "/api/session/logout", "{}", "alice")

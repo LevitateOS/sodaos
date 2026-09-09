@@ -92,9 +92,14 @@ func (s *Server) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Se
 			}
 			s.terminalStopping[p.ID] = true
 			defer func() { s.terminalMu.Lock(); delete(s.terminalStopping, p.ID); s.terminalMu.Unlock() }()
-			for key, entry := range s.terminals {
-				if key.project == p.ID {
+			for _, entry := range s.terminals {
+				if entry.project.ID == p.ID {
 					entry.cancel()
+				}
+			}
+			for _, peer := range s.terminalPeers {
+				if peer.project == p.ID {
+					peer.cancel()
 				}
 			}
 			s.terminalMu.Unlock()

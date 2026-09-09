@@ -1,5 +1,64 @@
 # Current handoff
 
+## ID-keyed terminals and bounded Spaces API — local step 3, no rollout
+
+Implemented Lit-plan step 3 in source after the user's request to continue.
+`internal/web/terminal.go` owns the browser transport; `terminal_sessions.go` owns
+immutable bindings, lifecycle metadata/actions and native-owner/receipt lifetime;
+`spaces.go` owns the authorized bounded collection. There is no schema, native
+helper/program, project image, provider credential or deployment change.
+
+The registry now admits independent same-project IDs, with one writer per ID,
+64 live/reserved slots and 128 transports. Each entry retains its original context/
+token, actor, project/repository, Linux login and hard lifetime. Stop cancels every
+ID and pending transport of its project across contexts; logout/rotation retains its
+original cancellation boundary. Native/provider IO is outside the registry lock;
+reservation/admission and binding rechecks remain serialized. A paused native dial
+cannot block logout. Unconfirmed dispatch/cleanup retains its exact slot.
+
+New protected routes provide per-ID metadata/End/Return/Keep/Hide/Rename, exact
+`request_id` lookup and `/api/spaces`; [the API guide](dashboard-api.md#exact-session-metadata-actions-and-creation-outcomes)
+owns their fields and concrete bounds. Hide only defaults an unset deadline, and
+Hide/active Return uses that socket's attachment generation. Metadata shows actual
+capped effective/hard deadlines. Native acknowledgement releases a slot and may
+leave an authorized receipt (128 maximum, five minutes/original authentication).
+An absent/expired receipt is unknown, not cleanup proof. Names are bounded runtime
+metadata, not shell input. No native-session adoption, replay or durable history.
+
+The collection authorizes before exposing/inspecting rows, retains degraded own-
+member observations but hides elevated/session data, and distinguishes confirmed
+repository denial from unavailable actor authority. It scans at most 128 associations,
+publishes at most 32 rows/64 KiB and bounds concurrent requests/inspection time.
+Truncation/unavailability is incomplete or 503, not a complete empty catalog.
+The old singleton endpoint returns 410. The Lit caller now saves a correlated
+pending locator, reads only its exact attempt/ID and observes End's result without
+forgetting an unconfirmed ID. Old uncorrelated pending locators never select another
+session. The current drawer still shows one terminal; multi-session UI is step 4.
+
+**Executed locally**, retained in `.artifacts/terminal-ids-a666c63/`: all Go packages;
+web/store/host race suites; strict root/browser/test/Cockpit TypeScript; frontend
+116 pass/2 existing opt-in skips; explicit Lit browser suite 83 pass/no skips;
+Forgejo 26 pass/18 optional skips; Cockpit 60 pass; seven temporary-filesystem
+packaging tests; and the explicit 16-case integrated xterm/layout matrix. Browser
+builds ran through the test commands. Screenshots use the historical fixture prefix
+`.artifacts/merge-5c845a7-560265b/layout-1788970568341/`; 320-light and 1440-dark samples
+were visually reviewed; the final 16-case rerun is also retained at
+`.artifacts/merge-5c845a7-560265b/layout-1788971957875/`. Tests include independent
+IDs/projects/contexts, one writer,
+Stop/logout, correlation, generation/deadline guards, labels, capacity/receipts,
+denied/unavailable/bounded collections, missing outcomes and refusal of attach
+readiness without that socket's new writer locator. Early TS narrowing
+errors and an aggregate-test timeout are retained; the slow-helper fixture now has
+explicit release/teardown, and complete/race reruns passed. These are source/browser/
+helper-double results, not real concurrent tmux or selected-CLI proof.
+
+**Next:** step 4 fixed OAuth return/HTML shell/shared multi-session workspace and
+canonical preview asset projection; then layout/attention and native acceptance.
+No native build/export, installed journey, live-preview update, project/service/
+provider mutation, deployment or push occurred. Installed `22d8591`, its historical
+native probe gap, retained Rocky roots and separate action/target gates are unchanged.
+The user's browser-terminal compatibility note remains preserved and unstaged.
+
 ## Lit terminal-controls port — local proof, backend/workspace still pending
 
 After the user's confirmation, continued with xterm/tmux while retaining actual CLI

@@ -40,8 +40,9 @@ needs validation; the synthetic layout fixture is not that proof.
 The content has Terminal, Environment and Access view tabs with roving keyboard
 focus. Management and SSH forms are no longer above the terminal. The terminal
 fills its available panel; its renderer observes resize and tab/hide restoration.
-There is still **one terminal**, not multiple session tabs or an implemented `+`.
-Multiple session tabs remain later work.
+The current drawer still presents **one terminal**, not session tabs or an implemented
+`+`. The backend now supports independent IDs; the multi-session workspace UI remains
+step 4 work, not something implied by the backend tests.
 
 **Focus/visibility changes and Hide/reopen retain the same component and socket.**
 Focus/view changes do not fetch, provision, restart or replay anything. Hide requests
@@ -75,8 +76,9 @@ it. Private runtime records bind account/identity, lease, socket inode/server pe
 credentials and exclusive writer lock. Socket parent sealing and exact `-N` attach
 refuse replacement/adoption. No personal tmux configuration or default server is used.
 
-The in-memory backend registry is per Soda context/project, 64 slots globally including
-detached and cleanup-unconfirmed slots. It is not restored after backend restart.
+The in-memory backend registry is ID-keyed, retaining the original Soda context/token,
+actor, project/repository and Linux login on each entry. Its 64 global slots include
+detached and cleanup-unconfirmed sessions. It is not restored after backend restart.
 Every 15 seconds, current session/membership and fresh acting-user repository authority
 must allow renewal of the native 60-second safety lease. Detach or explicit Hide
 sets 30-minute retention unless an explicit deadline exists. Output, input, pings
@@ -86,13 +88,22 @@ is 12 hours, never beyond the original Soda session expiry. Logout, rotation,
 confirmed denial, expiry, shutdown and Stop cancel browser access/ownership; none
 is a Linux-account deletion or shared-project idle stop.
 
-The protected `terminal-session` API reports metadata and accepts explicit End,
-Return and finite retention. The socket first selects create or exact attach, emits
-a locator then readiness, and carries only input/resize thereafter. See the
+The protected per-ID `terminal-sessions/{terminalID}` API reports lifecycle/effective
+and hard deadlines, accepts End/Return/Keep/Hide and bounded display-only Rename.
+The separate `terminal-attempts/{requestID}` read resolves an exact uncertain create,
+never the newest session. The old singleton endpoint returns 410. The socket selects
+correlated create or exact attach, emits ID/request/writer-generation locators then
+readiness, and carries only input/resize thereafter. Hide defaults only an unset
+deadline; Hide/active Return must match the original attachment generation. A stale
+window cannot change its successor writer's lifetime. See the
 [wire contract](dashboard-api.md#terminal-websocket--managed-tmux-contract).
 End acknowledges **ending**, not process disappearance. Slots remain reserved until
 native cleanup acknowledgment; a lost/uncertain dispatch or cleanup reports
-`unconfirmed` and refuses replacement. No automatic reconciliation/retry frees it.
+`unconfirmed` and refuses replacement of that ID. Independent explicitly created IDs
+can coexist in the same project within capacity. Only acknowledged cleanup releases
+a slot; up to 128 authorized receipts last at most five minutes/original authentication.
+Absent/expired receipts are unknown, not cleanup proof. The client reads the exact
+result after End and keeps uncertain locators. No automatic reconciliation/retry frees them.
 The native guard/safety lease remains independent; an operator must inspect uncertain
 outcomes. Cleanup proves the selected cgroup empty before removing only admitted
 runtime files; unsafe or changed state is retained, not recursively deleted.

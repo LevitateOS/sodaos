@@ -15,7 +15,7 @@ import (
 func resumeMetadata(t *testing.T, s *Server, origin string) map[string]any {
 	t.Helper()
 	w := httptest.NewRecorder()
-	r := apiTestRequest("GET", "/api/environments/"+webTerminalProject+"/terminal-session", "", "alice")
+	r := apiTestRequest("GET", "/api/environments/"+webTerminalProject+"/terminal-attempts/0123456789abcdef0123456789abcdef", "", "alice")
 	r.Header.Set("Origin", origin)
 	s.ServeHTTP(w, r)
 	if w.Code != 200 {
@@ -31,9 +31,15 @@ func resumeMetadata(t *testing.T, s *Server, origin string) map[string]any {
 }
 func resumeAction(t *testing.T, s *Server, origin, id, action string, seconds int) int {
 	t.Helper()
-	body, _ := json.Marshal(map[string]any{"id": id, "action": action, "seconds": seconds})
+	input := map[string]any{"action": action, "seconds": seconds}
+	s.terminalMu.Lock()
+	if entry := s.terminals[id]; entry != nil && entry.attachment != nil && action == "return" {
+		input["attachment_id"] = entry.attachment.id
+	}
+	s.terminalMu.Unlock()
+	body, _ := json.Marshal(input)
 	w := httptest.NewRecorder()
-	r := apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/terminal-session", string(body), "alice")
+	r := apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/terminal-sessions/"+id, string(body), "alice")
 	r.Header.Set("Origin", origin)
 	s.ServeHTTP(w, r)
 	return w.Code
@@ -55,6 +61,7 @@ func attachAuth(id string) []byte {
 	var in map[string]any
 	_ = json.Unmarshal([]byte(terminalAuth), &in)
 	in["action"] = "attach"
+	delete(in, "request_id")
 	in["id"] = id
 	body, _ := json.Marshal(in)
 	return body
@@ -198,15 +205,15 @@ func TestTerminalExpiredRetentionCannotBeExtendedOrReattached(t *testing.T) {
 		entry.retainUntil = time.Now().Add(-time.Second)
 	}
 	s.terminalMu.Unlock()
-	if resumeAction(t, s, srv.URL, id, "return", 0) != 404 {
+	if resumeAction(t, s, srv.URL, id, "return", 0) != 409 {
 		t.Fatal("expired session revived")
 	}
 	until := time.Now().Add(2 * time.Second)
-	for resumeMetadata(t, s, srv.URL) != nil && time.Now().Before(until) {
+	for resumeMetadata(t, s, srv.URL)["state"] != "ended" && time.Now().Before(until) {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if resumeMetadata(t, s, srv.URL) != nil || calls.Load() != 2 {
-		t.Fatal("expiry created or exposed terminal")
+	if resumeMetadata(t, s, srv.URL)["state"] != "ended" || calls.Load() != 2 {
+		t.Fatal("expiry did not confirm exact cleanup")
 	}
 }
 func TestTerminalUnconfirmedCleanupKeepsSlotAndRefusesReplacement(t *testing.T) {
@@ -253,8 +260,11 @@ func TestTerminalStopGateAndExplicitCreateContract(t *testing.T) {
 			s.terminalMu.Lock()
 			s.terminalStopping = map[string]bool{webTerminalProject: true}
 			s.terminalMu.Unlock()
-			c, _, err := terminalDial(t, srv, "")
+			c, response, err := terminalDial(t, srv, "")
 			if err != nil {
+				if response != nil && response.StatusCode == 409 && calls.Load() == 0 {
+					return
+				}
 				t.Fatal(err)
 			}
 			defer c.CloseNow()
