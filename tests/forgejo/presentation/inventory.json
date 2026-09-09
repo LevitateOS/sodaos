@@ -818,8 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "27344134df7f6cd780b07eeb0defbac8db57f446c137a308bc3e9f0a43449789",
-      "presentationReview": "non-modal workspace aside, keyboard/pointer divider and Hide; notification markup unchanged; source and synthetic layout proof only",
+      "beforeRoleHash": "5b584f9d9dd6e43f82bfcdff5f703ec0aa51a7fc96f9d6a208502b9b9014ab46",
+      "presentationReview": "Workspace button has an accessible name and a text span for narrow containers; repository disclosure script is loaded independently; existing drawer and notification contexts remain unchanged.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -847,7 +847,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8a60572e696fd96a333d9aea0b65243992e4db36e6c0fc7d50c03ea874baea29",
+      "beforeRoleHash": "e4c20b37db68b882d039b1851d684391e28045dce018077fa556cfdec8cd3cdf",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -3535,8 +3535,9 @@
       "roles": [
         "soda-p-gap",
         "soda-page-marker",
-        "soda-repository-eyebrow",
-        "soda-repository-header"
+        "soda-repository-header",
+        "soda-repository-actions",
+        "soda-repository-action-menu"
       ],
       "states": [
         "light",
@@ -3556,12 +3557,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4980cb6811433066d7b0f7c9a60fdfb89ecd15402be01cd0edffd50810b8ac5d",
+      "beforeRoleHash": "5f9af0c70ca3a932ecd0ce27b7465e08de52843877cbaa5eb5273d08f3cc8cb0",
       "upstreamCallers": [
         "repo/flags.tmpl",
         "repo/packages.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Compact identity/workspace row above native tabs; one set of native action forms in a plain HTML disclosure; native guards and partials preserved."
     },
     {
       "template": "repo/home.tmpl",

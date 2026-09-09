@@ -90,6 +90,7 @@
   "public/assets/soda/forgejo/repository-issues.css": "assets/branding/forgejo/repository-issues.css",
   "public/assets/soda/forgejo/repository-settings-details.css": "assets/branding/forgejo/repository-settings-details.css",
   "public/assets/soda/forgejo/repository.css": "assets/branding/forgejo/repository.css",
+  "public/assets/soda/forgejo/repository-actions.js": "@build/forgejo-js/repository-actions.js",
   "public/assets/soda/forgejo/runners.css": "assets/branding/forgejo/runners.css",
   "public/assets/soda/forgejo/settings-account-papercraft.png": "assets/branding/forgejo/settings-account-papercraft.png",
   "public/assets/soda/forgejo/settings-appearance-papercraft.png": "assets/branding/forgejo/settings-appearance-papercraft.png",

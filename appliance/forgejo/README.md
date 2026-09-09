@@ -496,6 +496,16 @@ padded native canvases retain their separate gutter contract. The native
 Releases at desktop/mobile widths so family-specific padding cannot silently
 return on those routes.
 
+The repository masthead has two rows: compact identity and Sodaspaces/actions,
+then native unit navigation. Watch, Star, Fork, feed and gated transfer/report
+controls each retain one native owner inside `.soda-repository-actions`. This is
+a plain HTML disclosure; Forgejo's `details.dropdown` requires direct list-item
+links/buttons and cannot wrap the native HTMX forms intact. The small
+`repository-actions.ts` enhancement only handles Escape, outside click and focus
+leaving the panel. Native submissions, after-settle focus and Fork modals remain
+upstream-owned. At narrow container widths the workspace button keeps its icon
+and accessible name. DOM order matches visual and keyboard order.
+
 
 ## Personal settings structural contract
 

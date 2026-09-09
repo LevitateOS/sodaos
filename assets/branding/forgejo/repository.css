@@ -20,7 +20,8 @@
 
 /* Repository identity and native unit navigation. */
 .soda-repository-header {
-  padding: 24px 0 0;
+  container: repository-header / inline-size;
+  padding: 16px 0 0;
   margin: 0 0 24px;
   background:
     radial-gradient(circle at 12% 0, color-mix(in srgb, var(--soda-page-selected) 72%, transparent) 0 13%, transparent 38%),
@@ -33,9 +34,11 @@
 }
 
 .soda-repository-header .repo-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  min-height: 74px;
+  min-height: 60px;
   padding: 0 0 16px;
 }
 
@@ -44,25 +47,18 @@
 }
 
 .soda-repository-header .repo-header .flex-item-leading svg {
-  width: 48px;
-  height: 48px;
-  padding: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
   color: var(--soda-page-link);
   background: var(--soda-page-selected);
-  border-radius: 10px;
-}
-
-.soda-repository-eyebrow {
-  margin-bottom: 4px;
-  color: var(--soda-page-muted);
-  font: 500 10px/1.4 "IBM Plex Mono", monospace;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  border-radius: 8px;
 }
 
 .soda-repository-header .repo-header .flex-item-title {
+  display: block;
   color: var(--soda-page-text);
-  font: 600 clamp(20px, 3vw, 27px)/1.2 "Fraunces Variable", Georgia, serif;
+  font: 600 22px/1.3 "Fraunces Variable", Georgia, serif;
   overflow-wrap: anywhere;
 }
 
@@ -85,10 +81,77 @@
 
 /* Keep the native repository button row as the stable Sodaspaces insertion seam. */
 .soda-repository-header .repo-header .repo-buttons {
+  position: relative;
   gap: 8px;
   margin-left: auto;
+  flex-wrap: nowrap;
 }
 
+/* Secondary native forms have one owner inside an HTML disclosure.
+   The injected workspace button remains directly in the stable button row. */
+.soda-repository-actions > summary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  color: var(--soda-page-muted);
+  background: var(--soda-page-surface);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: var(--soda-button-radius);
+}
+.soda-repository-actions > summary::-webkit-details-marker { display: none; }
+.soda-repository-actions > summary:hover,
+.soda-repository-actions[open] > summary {
+  color: var(--soda-page-link);
+  background: var(--soda-page-hover);
+}
+.soda-repository-actions > summary:focus-visible {
+  outline: 2px solid var(--soda-page-action);
+  outline-offset: 2px;
+}
+.soda-repository-actions > .soda-repository-action-menu {
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 99;
+  top: calc(100% + 8px);
+  inset-inline: auto 0;
+  min-width: 0;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  padding: 8px;
+  background: var(--soda-page-surface);
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0003;
+}
+.soda-repository-action-menu > * { margin: 0; }
+.soda-repository-action-menu > * + * { margin-top: 4px; }
+.soda-repository-action-menu > form > .ui.labeled.button,
+.soda-repository-action-menu > .ui.labeled.button {
+  display: flex;
+  width: 100%;
+}
+.soda-repository-action-menu > form > .ui.labeled.button > .button,
+.soda-repository-action-menu > .ui.labeled.button > .button {
+  flex: 1;
+  justify-content: flex-start;
+}
+.soda-repository-action-menu > .ui.button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+.soda-repository-action-menu > form > .ui.labeled.button > .button > .not-mobile,
+.soda-repository-action-menu > .ui.labeled.button > .button > .not-mobile { display: inline !important; }
+.soda-repository-action-menu > form > .ui.labeled.button > .label,
+.soda-repository-action-menu > .ui.labeled.button > .label { min-width: 44px; }
 
 /* Native controls enforce their radius with !important. Fork may place its
    dialog between the action and counter, so target the labeled group itself. */
@@ -148,22 +211,13 @@
   display: none;
 }
 
-/* Forgejo reveals the action labels above its narrow navigation breakpoint.
-   Give that complete row its own line before it can squeeze or wrap away from
-   the repository identity in half-width desktop windows. */
-@media (max-width: 1000px) {
-  .soda-repository-header .repo-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .soda-repository-header .repo-header .repo-buttons {
-    width: 100%;
-    margin-left: 0;
-    flex-wrap: wrap;
-    overflow: visible;
-  }
+/* Available header width also follows the native pane beside Sodaspaces. */
+@container repository-header (max-width: 520px) {
+  .soda-repository-header .repo-header { gap: 8px; }
+  .soda-repository-header .repo-header .flex-item-leading { display: none; }
+  .soda-repository-header .repo-header .flex-item-title { font-size: 20px; }
+  .soda-repository-header #sodaspaces-button { width: 44px; min-width: 44px; padding: 0 !important; }
+  .soda-repository-header #sodaspaces-button > span { display: none; }
 }
 
 @media (max-width: 700px) {

@@ -1,15 +1,26 @@
 # Current handoff
 
-## Half-desktop layouts — local preview updated
+## Half-desktop layouts and compact repository header — local preview updated
 
-Repository pages now stack their identity/actions and metadata through 1000 CSS
-pixels, keep a full-width clone row, and remove compounded metadata spacing.
+The repository header now has two rows: a compact repository identity beside the
+actions/Sodaspaces controls, followed by native unit navigation. The redundant
+"Soda repository" eyebrow is removed. Watch, Star, Fork, feed and gated
+transfer/report controls each retain one native owner inside an HTML disclosure;
+the small Soda script only handles dismissal/focus. Forgejo's `details.dropdown`
+was rejected because its direct list-item keyboard contract cannot contain these
+native HTMX forms intact. The disclosure keeps null blur/replacement focus and
+does not intercept native modal events. Container sizing also keeps this header
+compact beside Sodaspaces; the workspace icon retains its accessible name when
+its text is hidden. DOM, visual and keyboard control order agree.
+
+Repository metadata stacks through 1000 CSS pixels, with a full-width clone row
+and no compounded metadata spacing.
 Dashboard feed/repository columns stack before the feed becomes cramped. Explore
 wraps its complete native search/filter group before the input collapses. The
 shared header follows Forgejo's 767px mobile boundary; narrow settings use smaller
 body insets, and profile, organization and administrator compositions stack their
 columns/actions earlier. Native handlers, permissions, controls and navigation
-remain upstream-owned; this changes presentation only.
+remain upstream-owned.
 
 The user explicitly approved updating `sodaos-local-forgejo` at localhost:3300.
 Its generated branding mount is active, with the same named data volume and other
@@ -19,6 +30,29 @@ previous bytes and Compose configuration are retained. This restores preview ass
 loading, not a backend/project/terminal execution proof or appliance delivery.
 Future branding changes require `bun run build:preview`; this does not rebuild the
 separately projected Sodaspaces assets in the local public mount.
+
+The follow-up header redesign is retained under
+`.artifacts/repository-header-redesign/`. The generated branding payload includes
+the new disclosure script; Forgejo's template reload activated the template
+changes locally without recreating the container. Read-only native browser checks
+pass at 1440, 960, 800, 720, 390 and 320 pixels and with 720/480px panes inside a
+1440px browser. They cover one identity/actions row, on-screen disclosure bounds,
+unchanged native guest guards, visible action labels, Enter/Space, Escape/focus,
+outside dismissal, real count-link navigation and no browser exceptions. Five DOM checks also pass, including
+HTMX-like replacement focus and native-modal event isolation; these are simulated
+events, not native form submissions or multi-fork modal runtime proof. Strict
+TypeScript, the Forgejo suite (21 passed, 15 opt-in skipped), the frontend suite
+(57 passed, two opt-in skipped), and Go script tests pass. Initial checks caught
+the unsupported native-dropdown keyboard behavior and a 320px panel alignment
+issue; corrected checks pass. The first Go payload check was denied access to the
+host build cache, separate from test correctness.
+Verified native screenshots cover 800px dark, 720px light and 390px dark; the
+served disclosure script matches the generated production asset byte-for-byte.
+With cache access, the Go suite exposed two macOS temporary-directory symlink
+failures in packaging tests; these are separate from the browser/source checks.
+Both failed packaging tests and the payload readability checks subsequently pass
+with a canonical temporary directory. No appliance delivery or native repository
+action submission was performed.
 
 Evidence is retained under `.artifacts/responsive-half-desktop/`. Chrome measured
 eight real routes at 720, 768, 800, 900, 960, 1440 and 390 pixels: all 56 responses

@@ -7,7 +7,6 @@
 					{{template "repo/icon" .}}
 				</div>
 				<div class="flex-item-main">
-					<div class="soda-repository-eyebrow">Soda repository</div>
 					<div class="flex-item-title tw-font-normal">
 						<a class="muted" href="{{.Owner.HomeLink}}">{{.Owner.Name}}</a>/<a class="muted tw-font-semibold" href="{{$.RepoLink}}">{{.Name}}</a>
 					</div>
@@ -37,43 +36,43 @@
 			</div>
 			{{if not (or .IsBeingCreated .IsBroken)}}
 				<div class="repo-buttons button-row">
-					{{if $.RepoTransfer}}
-						<form method="post" action="{{$.RepoLink}}/action/accept_transfer?redirect_to={{$.RepoLink}}">
-							<div data-tooltip-content="{{if $.CanUserAcceptTransfer}}{{ctx.Locale.Tr "repo.transfer.accept_desc" $.RepoTransfer.Recipient.DisplayName}}{{else}}{{ctx.Locale.Tr "repo.transfer.no_permission_to_accept"}}{{end}}">
-								<button type="submit" class="ui basic button {{if $.CanUserAcceptTransfer}}primary {{end}} ok small"{{if not $.CanUserAcceptTransfer}} disabled{{end}}>
-									{{ctx.Locale.Tr "repo.transfer.accept"}}
-								</button>
-							</div>
-						</form>
-						<form method="post" action="{{$.RepoLink}}/action/reject_transfer?redirect_to={{$.RepoLink}}">
-							<div data-tooltip-content="{{if $.CanUserAcceptTransfer}}{{ctx.Locale.Tr "repo.transfer.reject_desc" $.RepoTransfer.Recipient.DisplayName}}{{else}}{{ctx.Locale.Tr "repo.transfer.no_permission_to_reject"}}{{end}}">
-								<button type="submit" class="ui basic button {{if $.CanUserAcceptTransfer}}red {{end}}ok small"{{if not $.CanUserAcceptTransfer}} disabled{{end}}>
-									{{ctx.Locale.Tr "repo.transfer.reject"}}
-								</button>
-							</div>
-						</form>
-					{{end}}
-					{{if $.EnableFeed}}
-					{{/* An extra div-element is not necessary here, as this button does not secretly contain two buttons. */}}
-					<a class="ui compact small basic button" href="{{$.RepoLink}}.rss" data-tooltip-content="{{ctx.Locale.Tr "rss_feed"}}">
-						{{svg "octicon-rss" 16}}
-					</a>
-					{{end}}
-					{{template "repo/watch_unwatch" $}}
-					{{if not $.DisableStars}}
-					{{template "repo/star_unstar" $}}
-					{{end}}
-					{{if not $.DisableForks}}
-					{{template "repo/header_fork" $}}
-					{{end}}
-					{{if and $.IsModerationEnabled $.IsSigned (not $.IsRepositoryAdmin)}}
-					<button class="ui small compact jump dropdown icon button" data-tooltip-content="{{ctx.Locale.Tr "repo.more_operations"}}" aria-label="{{ctx.Locale.Tr "toggle_menu"}}">
-						{{svg "octicon-kebab-horizontal"}}
-						<div class="menu top left">
-							<a class="item context" href="{{AppSubUrl}}/report_abuse?type=repo&id={{$.Repository.ID}}">{{ctx.Locale.Tr "moderation.report_content"}}</a>
+					<details class="soda-repository-actions">
+						<summary aria-label="{{ctx.Locale.Tr "repo.more_operations"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.more_operations"}}">{{svg "octicon-kebab-horizontal" 16}}</summary>
+						<div class="soda-repository-action-menu">
+							{{if $.RepoTransfer}}
+								<form method="post" action="{{$.RepoLink}}/action/accept_transfer?redirect_to={{$.RepoLink}}">
+									<div data-tooltip-content="{{if $.CanUserAcceptTransfer}}{{ctx.Locale.Tr "repo.transfer.accept_desc" $.RepoTransfer.Recipient.DisplayName}}{{else}}{{ctx.Locale.Tr "repo.transfer.no_permission_to_accept"}}{{end}}">
+										<button type="submit" class="ui basic button {{if $.CanUserAcceptTransfer}}primary {{end}} ok small"{{if not $.CanUserAcceptTransfer}} disabled{{end}}>
+											{{ctx.Locale.Tr "repo.transfer.accept"}}
+										</button>
+									</div>
+								</form>
+								<form method="post" action="{{$.RepoLink}}/action/reject_transfer?redirect_to={{$.RepoLink}}">
+									<div data-tooltip-content="{{if $.CanUserAcceptTransfer}}{{ctx.Locale.Tr "repo.transfer.reject_desc" $.RepoTransfer.Recipient.DisplayName}}{{else}}{{ctx.Locale.Tr "repo.transfer.no_permission_to_reject"}}{{end}}">
+										<button type="submit" class="ui basic button {{if $.CanUserAcceptTransfer}}red {{end}}ok small"{{if not $.CanUserAcceptTransfer}} disabled{{end}}>
+											{{ctx.Locale.Tr "repo.transfer.reject"}}
+										</button>
+									</div>
+								</form>
+							{{end}}
+							{{if $.EnableFeed}}
+							{{/* An extra div-element is not necessary here, as this button does not secretly contain two buttons. */}}
+							<a class="ui compact small basic button" href="{{$.RepoLink}}.rss" data-tooltip-content="{{ctx.Locale.Tr "rss_feed"}}">
+								{{svg "octicon-rss" 16}} {{ctx.Locale.Tr "rss_feed"}}
+							</a>
+							{{end}}
+							{{template "repo/watch_unwatch" $}}
+							{{if not $.DisableStars}}
+							{{template "repo/star_unstar" $}}
+							{{end}}
+							{{if not $.DisableForks}}
+							{{template "repo/header_fork" $}}
+							{{end}}
+							{{if and $.IsModerationEnabled $.IsSigned (not $.IsRepositoryAdmin)}}
+							<a class="ui compact small basic button" href="{{AppSubUrl}}/report_abuse?type=repo&id={{$.Repository.ID}}">{{ctx.Locale.Tr "moderation.report_content"}}</a>
+							{{end}}
 						</div>
-					</button>
-					{{end}}
+					</details>
 				</div>
 			{{end}}
 		</div>
