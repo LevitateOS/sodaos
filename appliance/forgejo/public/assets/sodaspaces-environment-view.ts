@@ -1,0 +1,41 @@
+import {html} from 'lit';
+import type {TemplateResult} from 'lit';
+export interface EnvironmentPresentation {
+  readonly connectURL: string;
+  readonly connectVisible: boolean;
+  readonly busy: boolean;
+  readonly stale: boolean;
+  readonly signedIn: boolean;
+  readonly blocked: boolean;
+  readonly canCreate: boolean;
+  readonly canJoin: boolean;
+}
+export interface EnvironmentCommands {
+  readonly connect: (event: MouseEvent) => void;
+  readonly refresh: (event: MouseEvent) => void;
+  readonly reload: (event: MouseEvent) => void;
+  readonly logout: (event: MouseEvent) => void;
+  readonly create: (event: MouseEvent) => void;
+  readonly join: (event: MouseEvent) => void;
+}
+export function renderEnvironment(view: EnvironmentPresentation, commands: EnvironmentCommands, lifecycle: TemplateResult): TemplateResult {
+  return html`
+    <p>Shared resources, explicit actions. Hiding does not undo work already sent.</p>
+    <a data-control="sign-in" class="ui primary button" href=${view.connectURL}
+      ?hidden=${!view.connectVisible || view.stale} aria-disabled=${view.busy || view.stale ? 'true' : 'false'}
+      @click=${commands.connect}>Connect to Soda</a>
+    <div class="soda-spaces-actions">
+      <button data-control="refresh" type="button" class="ui basic button" ?disabled=${view.busy || view.stale}
+        @click=${commands.refresh}>Refresh status</button>
+      <button data-control="reload" type="button" class="ui basic button" ?hidden=${!view.stale}
+        @click=${commands.reload}>Reload repository page</button>
+      <button data-control="sign-out" type="button" class="ui basic button" ?hidden=${!view.signedIn}
+        ?disabled=${view.busy || view.stale || !view.signedIn} @click=${commands.logout}>Sign out of Soda</button>
+      <button data-control="create" type="button" class="ui primary button" ?hidden=${!view.canCreate}
+        ?disabled=${view.blocked} @click=${commands.create}>Create environment</button>
+      <button data-control="join" type="button" class="ui primary button" ?hidden=${!view.canJoin}
+        ?disabled=${view.blocked} @click=${commands.join}>Join environment</button>
+    </div>
+    ${lifecycle}
+  `;
+}

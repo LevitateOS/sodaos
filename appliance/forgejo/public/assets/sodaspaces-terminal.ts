@@ -1,4 +1,5 @@
-import {LitElement, html} from 'lit';
+import {LitElement} from 'lit';
+import {renderTerminal} from './sodaspaces-terminal-view.js';
 import {object, readSodaJSON, terminalID, terminalResponse, id as identifier} from './sodaspaces-api.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
@@ -75,29 +76,24 @@ export class SodaTerminal extends LitElement {
   disconnectedCallback() {super.disconnectedCallback(); this.dispose();}
   protected render() {
     const disabled = this.disposed || this.state === 'stale';
-    return html`<section class=${'soda-terminal' + (this.state === 'ready' ? ' is-connected' : '') + (this.managed ? ' is-managed' : '')}>
-      ${this.managed ? html`<div class="soda-terminal-context"><span title=${this.binding?.projectName || ''}>${this.binding?.login} @ ${this.binding?.projectName || this.binding?.environmentId}</span>
-        <details class="soda-menu" @keydown=${(e: KeyboardEvent) => {if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); this.closeMenu(); this.querySelector<HTMLElement>('summary')?.focus();}}}><summary aria-label="Terminal actions" data-action="controls">⋯</summary><div>
-          <button type="button" class="ui button" ?disabled=${disabled} @click=${() => this.workspaceCommand('project')}>Environment / access</button>
-          <button type="button" class="ui button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.workspaceCommand('rename')}>Rename terminal</button>
-          <button type="button" class="ui button" ?disabled=${disabled} @click=${() => this.workspaceCommand('hide')}>Hide session</button>
-          ${this.actions(disabled)}
-        </div></details></div>` : html`<h3>Project terminal as ${this.binding?.login} in ${this.binding?.projectName || this.binding?.environmentId}</h3><p>The same tmux session survives navigation and connection loss. Detached or hidden work is retained for 30 minutes, within Soda authentication. Reconnecting alone does not extend retention. Tmux copy-mode holds history; no commands are replayed.</p><div class="soda-terminal-toolbar">${this.actions(disabled)}</div>`}
-      <p class=${'soda-terminal-status' + (this.managed && !this.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">${this.message}</p>
-      ${this.confirming ? html`<div class="soda-terminal-confirm" role="dialog" aria-label="End terminal confirmation" @keydown=${(e: KeyboardEvent) => {if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); this.cancelEnd();}}}>
-        <h4>End “${this.sessionName || this.confirming}” in ${this.binding?.projectName || this.binding?.environmentId}?</h4>
-        <p>Original account: ${this.binding?.login}. This ends this terminal and processes in its managed session. Unsaved in-process work will be lost. Files and independently managed services remain.</p>
-        <button type="button" class="ui button" data-action="cancel-end" @click=${() => this.cancelEnd()}>Cancel</button><button type="button" class="ui button" ?disabled=${disabled || this.actionBusy || this.confirming !== this.sessionID} @click=${() => {this.control('end'); this.confirming = undefined;}}>End terminal</button>
-      </div>` : ''}
-      <div class="soda-terminal-screen" ?hidden=${!this.screenVisible} aria-label=${`Terminal for ${this.binding?.login}; Ctrl+Shift+Enter focuses ${this.managed ? 'terminal controls' : 'End terminal'}`}
-        @keydown=${(event: KeyboardEvent) => {if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation();}}}></div>
-    </section>`;
-  }
-  private actions(disabled: boolean) {
-    return html`<button type="button" class="ui primary button" ?disabled=${disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy} @click=${() => {this.closeMenu(); this.retries = 0; void this.connect();}}>${this.sessionID ? 'Reconnect terminal' : this.uncertainCreate ? 'Find pending terminal' : 'Open terminal'}</button>
-      <button type="button" class="ui basic button" data-action="end" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.managed ? this.confirmEnd() : this.control('end')}>${this.managed ? 'End terminal…' : 'End terminal'}</button>
-      <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy || this.managed && !this.retainUntil} @click=${() => {this.closeMenu(); this.control('return');}}>Continue working</button>
-      <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => {this.closeMenu(); this.control('retain', 7200);}}>Keep for two hours</button>`;
+    return renderTerminal({
+      managed: this.managed, ready: this.state === 'ready', disabled, busy: this.actionBusy,
+      canConnect: !(disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy),
+      canEnd: !disabled && !!this.sessionID && !this.actionBusy,
+      canReturn: !disabled && !!this.sessionID && !this.actionBusy && (!this.managed || !!this.retainUntil),
+      connectLabel: this.sessionID ? 'Reconnect terminal' : this.uncertainCreate ? 'Find pending terminal' : 'Open terminal',
+      login: this.binding?.login || '', project: this.binding?.projectName || this.binding?.environmentId || '',
+      message: this.message, notice: this.notice, screenVisible: this.screenVisible,
+      confirmingName: this.confirming ? this.sessionName || this.confirming : null,
+      canConfirm: !disabled && !this.actionBusy && this.confirming === this.sessionID,
+    }, {
+      connect: () => {this.closeMenu(); this.retries = 0; void this.connect();},
+      end: () => this.managed ? this.confirmEnd() : this.control('end'),
+      confirmEnd: () => {this.control('end'); this.confirming = undefined;}, cancelEnd: () => this.cancelEnd(),
+      return: () => {this.closeMenu(); this.control('return');}, keep: () => {this.closeMenu(); this.control('retain', 7200);},
+      project: () => this.workspaceCommand('project'), rename: () => this.workspaceCommand('rename'), hide: () => this.workspaceCommand('hide'),
+      menuKey: event => {if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); this.closeMenu(); this.querySelector<HTMLElement>('summary')?.focus();}},
+    });
   }
   private closeMenu() {const menu = this.querySelector('details'); if (menu) menu.open = false;}
   private workspaceCommand(command: 'project' | 'rename' | 'hide') {if (this.disposed || this.state === 'stale' || this.closest('[hidden], [inert]')) return; this.closeMenu(); this.dispatchEvent(new CustomEvent('soda-terminal-command', {bubbles: true, detail: command}));}

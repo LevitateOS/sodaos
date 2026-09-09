@@ -1,5 +1,20 @@
 # Current handoff
 
+## Continued frontend implementation — typed presentation checkpoint
+
+Preserved `cdfb6e8`, `04a8e37` and `512afb0`. Stateless typed views now render
+Environment actions/lifecycle, Access connection/keys/review/status, terminal actions
+and End confirmation, navigation rows, session tabs and workspace chooser/rename
+chrome. Concrete project/workspace/terminal owners still admit commands, hold drafts,
+resolve original targets and own all requests/resources. Views receive render-time
+readonly values and typed callbacks, never a second mutable store. The stable xterm
+screen and flat terminal-host parent remain unconditional.
+
+Focused local checks: required typecheck/analyzer/fixtures and explicit Lit suite
+**114 pass**, with the earlier frontend pass also retained. Evidence:
+`.artifacts/frontend-continuation-512afb0/`. Source organization, attention and
+candidate/driver coverage are continuing; this checkpoint is not native acceptance.
+
 ## Frontend improvement — follow-up guards and combined local checks
 
 Hardened the scoped visual guard for named/fallback colors, TypeScript terminal
