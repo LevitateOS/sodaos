@@ -33,7 +33,7 @@
   & .soda-form-section > legend {
     float: left;
     width: 100%;
-    margin: 0 0 16px;
+    margin-block: 0 16px;
     padding: 0;
     border: 0;
     color: var(--soda-page-text);
@@ -120,11 +120,24 @@
     box-shadow: none;
   }
 
-  & input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search) {
+  & :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not(.search)) {
     padding: 8px 12px;
   }
 
+  /* Reserve native inline-icon space after applying standard field padding. */
+  & .ui.icon.input:not(.left) > input { padding-inline-end: 40px; }
+  & .ui.left.icon.input > input { padding-inline-start: 40px; }
+
   & select { padding: 8px 12px; }
+
+  /* Native file inputs have an intrinsic filename width. Bound them to the
+     form column, including inline fields and narrow avatar editors. */
+  & input[type=file] {
+    width: 100%; max-width: 100%; min-height: var(--soda-control-height); padding: 0;
+    border: 0; border-radius: 0; background: transparent;
+    font: var(--soda-font-meta); color: var(--soda-page-muted);
+  }
+  & input[type=file]:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 4px; }
 
   /* Single-value inputs align with the selected 44px action size. Native
      multiple selections and textareas still grow to fit their content. */
@@ -182,9 +195,6 @@
       padding: 0;
     }
 
-    & .soda-form-section > legend {
-      font-size: 21px;
-    }
 
     & .primary.button {
       width: 100%;
@@ -220,3 +230,7 @@
 .ui.form.soda-p-form fieldset { border: 0; padding-block: 0; }
 .ui.form.soda-p-form fieldset + fieldset > legend { border: 0; padding-top: 0; }
 /* Native presentation roles retain their hooks; button sizing is centralized. */
+
+/* Static guidance is always readable. Native form status messages remain gated
+   by their error/info/warning state; only explicitly authored notices opt in. */
+.ui.form .ui.message.soda-notice { display: block; }

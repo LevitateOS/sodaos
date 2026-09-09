@@ -11,17 +11,18 @@
 {{else}}
 	<main aria-label="{{.Title}}" class="page-content user profile soda-page soda-profile soda-owner-code" data-signed="{{.IsSigned}}">
 		<div class="ui container soda-page-container">
-			<div class="ui stackable grid soda-profile-layout">
-				<div class="ui four wide column soda-profile-identity soda-profile-card-context">
+			<div class="soda-profile-layout">
+				<div class="soda-profile-identity soda-profile-card-context">
 					{{template "shared/user/profile_big_avatar" .}}
 				</div>
-				<div class="ui twelve wide column soda-profile-content">
+				<div class="soda-profile-content">
 					{{template "user/overview/header" .}}
-					{{template "custom/soda/page_intro" dict "TitleID" "soda-owner-code-title" "Eyebrow" .ContextUser.Name "Title" (ctx.Locale.Tr "user.code") "Description" "Find code in this contributor’s repositories." "Class" "soda-page-intro--compact"}}
+					<h2 class="soda-profile-task-title">{{ctx.Locale.Tr "user.code"}}</h2>
 					<div class="soda-code-search">{{template "shared/search/code/search" .}}</div>
 				</div>
 			</div>
 		</div>
 	</main>
 {{end}}
+{{if not .ContextUser.IsOrganization}}{{template "custom/soda/profile_block_dialog" .}}{{end}}
 {{template "base/footer" .}}

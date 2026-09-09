@@ -1,6 +1,6 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs")}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs" "title" (ctx.Locale.Tr "repo.settings.lfs_findpointerfiles") "parentURL" .LFSFilesLink "parentTitle" (ctx.Locale.Tr "repo.settings.lfs"))}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-lfs-pointers">
-		<h4 class="ui top attached header soda-p-heading">
+		<h2 class="soda-settings-inventory-heading soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.lfs_pointers.found" .NumPointers .NumAssociated .NumNotAssociated .NumNoExist}}
 			{{if gt .NumAssociatable 0}}
 				<div class="ui right">
@@ -14,8 +14,10 @@
 					</form>
 				</div>
 			{{end}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
+		</h2>
+		<div class="soda-p-section">
+			{{if .Pointers}}
+			<div class="soda-settings-table-scroll">
 			<table id="lfs-files-table" class="ui fixed single line table">
 				<thead>
 					<tr>
@@ -50,6 +52,10 @@
 					{{end}}
 				</tbody>
 			</table>
+			</div>
+			{{else}}
+				<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-file" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>
+			{{end}}
 		</div>
 	</div>
 {{template "repo/settings/layout_footer" .}}

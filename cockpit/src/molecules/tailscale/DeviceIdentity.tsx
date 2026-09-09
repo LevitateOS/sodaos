@@ -6,7 +6,7 @@ import {
 } from "@patternfly/react-core";
 import type { Status } from "../../tailscale/types";
 import { deviceName } from "../../tailscale/status";
-export function DeviceIdentity({ status }: { status?: Status }) {
+export function DeviceIdentity({ status }: { status: Status | undefined }) {
   return (
     <DescriptionList>
       <DescriptionListGroup>

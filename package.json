@@ -1,0 +1,30 @@
+{
+  "name": "sodaos",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "cockpit"
+  ],
+  "trustedDependencies": [],
+  "scripts": {
+    "build": "bun run build:forgejo && bun run --cwd cockpit build",
+    "typecheck": "bun --bun node_modules/typescript/bin/tsc -p tsconfig.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.browser.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.tests.json && bun run --cwd cockpit typecheck",
+    "test": "bun run test:frontend && bun run test:forgejo && bun run --cwd cockpit test",
+    "test:frontend": "bun run build:forgejo && bun test tests/frontend/*.test.ts",
+    "test:forgejo": "bun run build:forgejo && bun test tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts",
+    "screenshot": "bun scripts/screenshot.ts",
+    "build:forgejo": "bun scripts/build-forgejo.ts",
+    "build:preview": "bun scripts/build-forgejo-preview.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/jsdom": "30.0.0",
+    "@types/node": "24.10.1",
+    "jsdom": "30.0.1",
+    "playwright": "1.63.0",
+    "typescript": "7.0.2",
+    "@xterm/xterm": "6.0.0",
+    "@xterm/addon-fit": "0.11.0"
+  }
+}

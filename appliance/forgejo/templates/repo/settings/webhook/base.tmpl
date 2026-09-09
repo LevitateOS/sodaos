@@ -1,5 +1,6 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings webhooks")}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings webhooks" "title" (ctx.Locale.Tr "repo.settings.hooks"))}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-webhook-base">
-		{{template "repo/settings/webhook/list" .}}
+		{{template "repo/settings/webhook/base_list" (dict "SettingsPresentation" true "ctxData" .)}}
+		{{template "repo/settings/webhook/delete_modal" .}}
 	</div>
 {{template "repo/settings/layout_footer" .}}

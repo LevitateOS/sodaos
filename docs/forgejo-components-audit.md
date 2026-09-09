@@ -86,7 +86,7 @@ Focused Go tests check native composition, restored stock hashes and retained
 security/interaction hooks; native seams are stubbed where appropriate.
 
 The local preview binds the main checkout, not this isolated worktree. Candidate
-screenshots use `scripts/screenshot.mjs --local-css` and the existing authorized
+screenshots use `scripts/screenshot.ts --local-css` and the existing authorized
 non-admin fixture profile. Only CSS is substituted in that browser; server HTML
 and scripts remain native and unchanged. The form/profile marker additions,
 migrating guest flag and removed unused override are source-checked, not newly

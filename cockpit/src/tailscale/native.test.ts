@@ -1,4 +1,5 @@
-import { test, expect, vi } from "vite-plus/test";
+import assert from "node:assert/strict";
+import { test, expect, vi } from "bun:test";
 import type { HttpRequest, SpawnOptions } from "../cockpit/types";
 import type { AuthenticationMessage } from "./types";
 import { pendingProcess } from "../../tests/process";
@@ -39,7 +40,9 @@ test("initial sign-in streams URL before completion and closes only the page pro
     .then(() => {
       complete = true;
     });
+  assert.ok(fake.pending[0]);
   fake.pending[0].emit('{\n "AuthURL": "https://login.tailscale.com/a/test"\n}\n');
+  assert.ok(messages[0]);
   expect(messages[0].AuthURL).toBe("https://login.tailscale.com/a/test");
   expect(complete).toBe(false);
   fake.pending[0].emit('{"BackendState":"Running"}');
@@ -52,6 +55,7 @@ test("initial sign-in streams URL before completion and closes only the page pro
   const cancelled = native.signIn({}, () => {});
   native.close();
   await expect(cancelled).rejects.toMatchObject({ problem: "cancelled" });
+  assert.ok(fake.pending[1]);
   expect(fake.pending[1].process.close).toHaveBeenCalledWith("cancelled");
   expect(fake.http.close).toHaveBeenCalledWith("cancelled");
   expect(
@@ -71,7 +75,7 @@ test("native preferences survive reconnect and reauthentication", async () => {
     headers: { "Content-Type": "application/json" },
   });
   await native.signIn({ HaveNodeKey: true, BackendState: "NeedsLogin" }, () => {});
-  expect(fake.http.request.mock.calls[2][0]).toEqual({
+  expect(fake.http.request).toHaveBeenNthCalledWith(3, {
     method: "POST",
     path: "/localapi/v0/login-interactive",
     body: "",
@@ -90,6 +94,7 @@ test("read recovers native auth URL; mutations use only the requested settings",
     superuser: "require",
     headers: { Host: "local-tailscaled.sock" },
   });
+  assert.ok(fake.cockpit.spawn.mock.calls[0]);
   expect(fake.cockpit.spawn.mock.calls[0][1].superuser).toBeUndefined();
   await native.selectExitNode("100.64.0.2", true);
   await native.advertiseExitNode(true);
@@ -116,6 +121,7 @@ test("stream parse errors cancel their native process and preserve the diagnosti
   const fake = fakeCockpit(),
     native = nativeTailscale(fake.cockpit);
   const operation = native.signIn({}, () => {});
+  assert.ok(fake.pending[0]);
   fake.pending[0].emit("not json");
   await expect(operation).rejects.toThrow("Invalid Tailscale authentication response.");
   expect(fake.pending[0].process.close).toHaveBeenCalledWith("cancelled");

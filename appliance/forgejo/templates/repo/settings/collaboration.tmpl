@@ -1,10 +1,15 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings collaboration")}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings collaboration" "title" (ctx.Locale.Tr "repo.settings.collaboration"))}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-collaboration">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "repo.settings.collaboration"}}
-		</h4>
+		<div class="soda-toolbar soda-settings-inventory-actions soda-p-toolbar">
+			<form class="ui form soda-p-form" id="repo-collab-form" action="{{.Link}}" method="post">
+				<div id="search-user-box" class="ui search input tw-align-middle">
+					<input class="prompt" name="collaborator" placeholder="{{ctx.Locale.Tr "search.user_kind"}}" autocomplete="off" required>
+				</div>
+				<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_collaborator"}}</button>
+			</form>
+		</div>
 		{{if .Collaborators}}
-		<div class="ui attached segment soda-p-section">
+		<div class="soda-p-section">
 			<div class="flex-list">
 				{{range .Collaborators}}
 					<div class="flex-item tw-items-center">
@@ -37,23 +42,18 @@
 				{{end}}
 			</div>
 		</div>
+		{{else}}
+			<div class="soda-empty {{if .RepoOwnerIsOrganization}}soda-empty--compact{{else}}soda-empty--page{{end}}">{{template "custom/soda/empty_content" dict "Icon" "octicon-people" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>
 		{{end}}
-		<div class="ui bottom attached segment soda-p-section">
-			<form class="ui form" id="repo-collab-form" action="{{.Link}}" method="post">
-				<div id="search-user-box" class="ui search input tw-align-middle">
-					<input class="prompt" name="collaborator" placeholder="{{ctx.Locale.Tr "search.user_kind"}}" autocomplete="off" autofocus required>
-				</div>
-				<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_collaborator"}}</button>
-			</form>
-		</div>
 
 		{{if .RepoOwnerIsOrganization}}
-		<h4 class="ui top attached header soda-p-heading">
+		<section class="soda-settings-section">
+		<h2 class="soda-settings-inventory-heading soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.teams"}}
-		</h4>
+		</h2>
 		{{$allowedToChangeTeams := (or (.Org.RepoAdminChangeTeamAccess) (.Permission.IsOwner))}}
 		{{if .Teams}}
-		<div class="ui attached segment soda-p-section">
+		<div class="soda-p-section">
 			<div class="flex-list">
 				{{range $t, $team := .Teams}}
 					<div class="flex-item">
@@ -83,21 +83,24 @@
 				{{end}}
 			</div>
 		</div>
+		{{else}}
+			<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-people" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>
 		{{end}}
-		<div class="ui bottom attached segment soda-p-section">
+		<div class="soda-p-section">
 			{{if $allowedToChangeTeams}}
-				<form class="ui form" id="repo-collab-team-form" action="{{.Link}}/team" method="post">
+				<form class="ui form soda-p-form" id="repo-collab-team-form" action="{{.Link}}/team" method="post">
 					<div id="search-team-box" class="ui search input tw-align-middle" data-org-name="{{.OrgName}}">
-						<input class="prompt" name="team" placeholder="{{ctx.Locale.Tr "search.team_kind"}}" autocomplete="off" autofocus required>
+						<input class="prompt" name="team" placeholder="{{ctx.Locale.Tr "search.team_kind"}}" autocomplete="off" required>
 					</div>
 					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_team"}}</button>
 				</form>
 			{{else}}
-				<div class="item">
+				<div class="ui info message soda-notice">
 					{{ctx.Locale.Tr "repo.settings.change_team_access_not_allowed"}}
 				</div>
 			{{end}}
 		</div>
+		</section>
 		{{end}}
 	</div>
 

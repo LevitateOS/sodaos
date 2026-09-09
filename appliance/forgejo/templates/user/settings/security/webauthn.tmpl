@@ -1,10 +1,10 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/security/webauthn.tmpl (GPL-3.0-or-later); upstream SHA-256 ef390d4470815f43e4c198c2c263d85e3c1d3351f1f15ee2de5bd1a3b7bbb7d1. */}}
 
-<section class="soda-settings-section soda-settings-explained "><h2>{{ctx.Locale.Tr "settings.webauthn"}}</h2><div class="soda-settings-section-body">
+<section class="soda-settings-section "><h2>{{ctx.Locale.Tr "settings.webauthn"}}</h2><div class="soda-settings-section-body">
 <div class="soda-settings-section-body">
 	{{template "user/auth/webauthn_error" .}}
 	<div class="flex-list">
-{{if not .WebAuthnCredentials}}<p>{{ctx.Locale.Tr "settings.webauthn"}}: 0</p>{{end}}
+{{if not .WebAuthnCredentials}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>{{end}}
 		{{range .WebAuthnCredentials}}
 			<div class="flex-item">
 				<div class="flex-item-leading">
@@ -25,7 +25,7 @@
 		{{end}}
 	</div>
 	<p>{{ctx.Locale.Tr "settings.webauthn_desc" "https://w3c.github.io/webauthn/#webauthn-authenticator"}}</p>
-	<p>{{ctx.Locale.Tr "settings.webauthn_key_loss_warning"}} {{ctx.Locale.Tr "settings.webauthn_alternative_tip"}}</p>
+	<p class="ui warning message soda-notice">{{ctx.Locale.Tr "settings.webauthn_key_loss_warning"}} {{ctx.Locale.Tr "settings.webauthn_alternative_tip"}}</p>
 	<div class="ui form soda-p-form">
 		<div class="required field">
 			<label for="nickname">{{ctx.Locale.Tr "settings.webauthn_nickname"}}</label>

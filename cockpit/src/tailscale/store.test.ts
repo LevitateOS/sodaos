@@ -1,6 +1,9 @@
-import { afterEach, test, expect, vi } from "vite-plus/test";
+import { install } from "@sinonjs/fake-timers";
+import { beforeEach, afterEach, test, expect, vi } from "bun:test";
 import { createTailscaleStore } from "./store";
 import type { NativeTailscale, Snapshot, AuthenticationMessage } from "./types";
+let clock: ReturnType<typeof install>;
+beforeEach(() => { clock = install({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] }); });
 const snapshot: Snapshot = {
   status: {
     BackendState: "Running",
@@ -23,16 +26,16 @@ function client() {
 const stops: Array<() => void> = [];
 afterEach(() => {
   for (const stop of stops.splice(0)) stop();
-  vi.useRealTimers();
+  clock?.uninstall();
+
 });
 async function ready() {
-  vi.useFakeTimers();
   const native = client();
   const factory = vi.fn(() => native);
   const store = createTailscaleStore(factory);
   const stop = store.getState().start();
   stops.push(stop);
-  await vi.advanceTimersByTimeAsync(0);
+  await clock.tickAsync(0);
   return { native, factory, store, stop };
 }
 test("instances own independent drafts, observers, and cleanup", async () => {
@@ -41,8 +44,8 @@ test("instances own independent drafts, observers, and cleanup", async () => {
   first.store.getState().changeExitNode("100.64.0.9");
   expect(second.store.getState().exitNode).toBe("100.64.0.2");
   first.stop();
-  await vi.advanceTimersByTimeAsync(3000);
-  expect(first.native.read).toHaveBeenCalledOnce();
+  await clock.tickAsync(3000);
+  expect(first.native.read).toHaveBeenCalledTimes(1);
   expect(second.native.read).toHaveBeenCalledTimes(2);
   expect(second.native.close).not.toHaveBeenCalled();
 });
@@ -55,20 +58,20 @@ test("a retired pending read cannot publish into a restarted store", async () =>
         finish = resolve;
       }),
   );
-  await vi.advanceTimersByTimeAsync(3000);
+  await clock.tickAsync(3000);
   stop();
   const next = client();
   factory.mockReturnValueOnce(next);
   stops.push(store.getState().start());
-  await vi.advanceTimersByTimeAsync(0);
+  await clock.tickAsync(0);
   const state = store.getState();
   finish({
     status: { BackendState: "NeedsLogin", AuthURL: "https://login.tailscale.com/a/old" },
     prefs: {},
   });
-  await vi.advanceTimersByTimeAsync(0);
+  await clock.tickAsync(0);
   expect(store.getState()).toBe(state);
-  await vi.advanceTimersByTimeAsync(3000);
+  await clock.tickAsync(3000);
   expect(native.read).toHaveBeenCalledTimes(2);
   expect(next.read).toHaveBeenCalledTimes(2);
 });
@@ -90,12 +93,12 @@ test.each(["before", "during"] as const)(
         }),
     );
     store.getState().changeExitNode("100.64.0.9");
-    if (when === "before") await vi.advanceTimersByTimeAsync(3000);
+    if (when === "before") await clock.tickAsync(3000);
     const save = store.getState().applyExitNode();
-    if (when === "during") await vi.advanceTimersByTimeAsync(3000);
+    if (when === "during") await clock.tickAsync(3000);
     expect(native.read).toHaveBeenCalledTimes(2);
     finishWrite();
-    await vi.advanceTimersByTimeAsync(0);
+    await clock.tickAsync(0);
     expect(store.getState()).toMatchObject({
       exitNode: "100.64.0.9",
       operation: "exit",
@@ -146,10 +149,10 @@ test("direct duplicate commands are rejected and failed saves keep the draft and
   store.getState().changeExitNode("100.64.0.9");
   const save = store.getState().applyExitNode();
   await store.getState().applyExitNode();
-  expect(native.selectExitNode).toHaveBeenCalledOnce();
+  expect(native.selectExitNode).toHaveBeenCalledTimes(1);
   fail(new Error("save outcome unknown"));
   await save;
-  await vi.advanceTimersByTimeAsync(9000);
+  await clock.tickAsync(9000);
   expect(store.getState()).toMatchObject({
     exitNode: "100.64.0.9",
     dirty: { exit: true },
@@ -170,26 +173,26 @@ test("each activation owns a fresh native adapter and retired authentication cal
   emit({ AuthURL: "https://login.tailscale.com/a/old" });
   expect(store.getState().authURL).toContain("/old");
   stop();
-  expect(native.close).toHaveBeenCalledOnce();
+  expect(native.close).toHaveBeenCalledTimes(1);
   expect(store.getState().authURL).toBeNull();
   const next = client();
   factory.mockReturnValueOnce(next);
   stops.push(store.getState().start());
-  await vi.advanceTimersByTimeAsync(0);
+  await clock.tickAsync(0);
   const state = store.getState();
   emit({ AuthURL: "https://login.tailscale.com/a/late" });
   finish();
   await signIn;
   expect(store.getState()).toBe(state);
   expect(factory).toHaveBeenCalledTimes(2);
-  expect(native.read).toHaveBeenCalledOnce();
-  expect(next.read).toHaveBeenCalledOnce();
+  expect(native.read).toHaveBeenCalledTimes(1);
+  expect(next.read).toHaveBeenCalledTimes(1);
 });
 test("Forgejo failure is not retried by polling but explicit retry recovers independently", async () => {
   const { store, native } = await ready();
   native.refreshForgejo.mockRejectedValueOnce(new Error("Forgejo unavailable"));
   await store.getState().retryForgejo();
-  await vi.advanceTimersByTimeAsync(9000);
+  await clock.tickAsync(9000);
   expect(native.refreshForgejo).toHaveBeenCalledTimes(2);
   expect(store.getState()).toMatchObject({
     snapshot,

@@ -23,7 +23,7 @@ class ForgejoPayload(unittest.TestCase):
             self.assertFalse(Path(dest).is_absolute())
             self.assertNotIn('..', Path(source).parts)
             if source.startswith('@build/'):
-                self.assertTrue(source.startswith(('@build/terminal-assets/', '@build/forgejo-locales/')))
+                self.assertTrue(source.startswith(('@build/terminal-assets/', '@build/forgejo-locales/', '@build/forgejo-js/')))
                 continue
             p = ROOT / source
             self.assertTrue(p.is_file(), source)

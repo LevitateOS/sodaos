@@ -43,7 +43,7 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 
 ## Read-only Sodaspaces browser probe
 
-`tests/installed/sodaspaces.mjs` is opt-in. The real isolated local journey passed;
+`tests/installed/sodaspaces.ts` is opt-in. The real isolated local journey passed;
 exact revisions, failures and scope are in the [handoff](implementation-status.md).
 The exported-payload run at `ee8091a` also passed step 3's bounded x86_64 delivery
 checks. This is not installed appliance, project-runtime or release acceptance.
@@ -69,8 +69,8 @@ approved helper read scope; an absent reservation suffices for initial OAuth pro
 Use a fresh restricted browser home with the selected CA already trusted by
 Chromium. Keep `HOME/sodaspaces-run/cdp.sock` within 103 bytes. All input/password/CA files are absolute regular mode-0600 files; the
 home is mode 0700. No TLS bypass or sandbox disabling is selected. Reuse prepared
-pinned Playwright/Chromium and Cockpit's existing jsdom/WebSocket dependency; the
-probe does not download browsers. `native-browser.mjs` launches stock sandboxed
+pinned Playwright/Chromium and the root workspace's pinned WebSocket dependency; the
+probe does not download browsers. `native-browser.ts` launches stock sandboxed
 Chromium and attaches through a private Unix socket/pipe with `noDefaults`, not a
 TCP debugger port. This avoids Playwright's always-focused/visible override and
 BFCache-disabling launch flag; it does not synthesize visibility or restore events. Private request:
@@ -94,7 +94,7 @@ BFCache-disabling launch flag; it does not synthesize visibility or restore even
 Later authorized invocation (not permission):
 
 ```sh
-SODA_NATIVE_VALIDATE=approved-fixture node tests/installed/sodaspaces.mjs \
+SODA_NATIVE_VALIDATE=approved-fixture bun tests/installed/sodaspaces.ts \
   /private/request.json /private/browser-home --allow-auth-transitions
 ```
 

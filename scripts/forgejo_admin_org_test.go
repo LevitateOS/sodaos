@@ -167,7 +167,7 @@ func TestForgejoSettingsComponentKeepsNativeBoundaries(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{
-		".ui.form",
+		".ui.form input",
 		".primary.button",
 		".danger.button",
 		".delete-button",

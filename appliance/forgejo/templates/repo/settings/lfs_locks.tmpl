@@ -1,17 +1,17 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs")}}
-	<div class="user-main-content twelve wide column content repository file list soda-repo-settings-detail soda-repo-settings-lfs-locks">
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings lfs" "title" (ctx.Locale.Tr "repo.settings.lfs_locks") "parentURL" .LFSFilesLink "parentTitle" (ctx.Locale.Tr "repo.settings.lfs"))}}
+	<div class="repo-setting-content user-main-content twelve wide column content repository file list soda-repo-settings-detail soda-repo-settings-lfs-locks">
 		<div class="tab-size-8 non-diff-file-content">
-			<h4 class="ui top attached header soda-p-heading">
-				<a href="{{.LFSFilesLink}}">{{ctx.Locale.Tr "repo.settings.lfs"}}</a> / {{ctx.Locale.Tr "repo.settings.lfs_locks"}} ({{ctx.Locale.Tr "admin.total" .Total}})
-			</h4>
-			<div class="ui attached segment soda-p-section">
-				<form class="ui form ignore-dirty" method="post">
-					<div class="ui fluid action input">
+			<div class="soda-p-section">
+				<p>{{ctx.Locale.Tr "admin.total" .Total}}</p>
+				<form class="ui form ignore-dirty soda-p-form" method="post">
+					<div class="field">
 						<input name="path" value="" placeholder="{{ctx.Locale.Tr "repo.settings.lfs_lock_path"}}" autofocus>
-						<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.lfs_lock"}}</button>
 					</div>
+					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.lfs_lock"}}</button>
 				</form>
 			</div>
+			{{if .LFSLocks}}
+			<div class="soda-settings-table-scroll">
 			<table id="lfs-files-locks-table" class="ui attached segment single line table">
 				<tbody>
 					{{range $index, $lock := .LFSLocks}}
@@ -41,14 +41,14 @@
 								</form>
 							</td>
 						</tr>
-					{{else}}
-						<tr>
-							<td colspan="4">{{ctx.Locale.Tr "repo.settings.lfs_locks_no_locks"}}</td>
-						</tr>
 					{{end}}
 				</tbody>
 			</table>
+			</div>
 			{{template "base/paginate" .}}
+			{{else}}
+				<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-lock" "Title" (ctx.Locale.Tr "repo.settings.lfs_locks_no_locks")}}</div>
+			{{end}}
 		</div>
 	</div>
 {{template "repo/settings/layout_footer" .}}

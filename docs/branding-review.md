@@ -12,13 +12,13 @@ Staging supplies the canonical symbols at Forgejo's native `/assets/img/` paths 
 
 This needs an explicitly approved **disposable matching-native Linux Forgejo deployment** with the same native version and staged Soda styles. It is not a fake replacement for Forgejo CSS or an authenticated production workflow test.
 
-1. Complete the later native dependency/browser prerequisites. The check uses the pinned Playwright in `cockpit/package.json`; installation of that package/browser is a separately authorized operation.
+1. Complete the later native dependency/browser prerequisites. The check uses the pinned Playwright in the root `package.json`; installation of that package/browser is a separately authorized operation.
 2. On that disposable target, copy `assets/branding/forgejo/theme-preview.html` to `/var/lib/soda/forgejo/gitea/public/assets/soda-theme-preview.html`, with the same readability/ownership as adjacent custom assets. This is an explicit target mutation, not part of ordinary packaging. The review sheet is intentionally excluded from the appliance stage.
 3. Inspect it at the target's actual `/assets/soda-theme-preview.html` URL. Use the operator's trusted private route or a loopback tunnel; do not change listener exposure or disable TLS verification for the check.
 4. From the authorized matching-native Linux browser environment, invoke:
 
 ```sh
-SODA_NATIVE_VALIDATE=DISPOSABLE_TARGET node scripts/check-forgejo-branding.mjs \
+SODA_NATIVE_VALIDATE=DISPOSABLE_TARGET bun scripts/check-forgejo-branding.ts \
   https://FORGEJO_ORIGIN/assets/soda-theme-preview.html \
   .artifacts/branding/FRESH_REVIEW_DIRECTORY
 ```

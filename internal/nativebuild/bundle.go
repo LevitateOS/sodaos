@@ -81,7 +81,7 @@ func allowedPayload(p string) bool {
 		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
 	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/cockpit-package.json", "inputs/cockpit-pnpm-lock.yaml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
+	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/github-runner-source.toml", "inputs/coreos-qemu.json", "inputs/package.json", "inputs/cockpit-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
 		return true
 	}
 	return false
@@ -202,7 +202,7 @@ func verifyBuildInputs(root, arch, revision string, images map[string]Image) err
 	if record.Revision != revision || record.Architecture != arch {
 		return errors.New("build inputs revision/platform mismatch")
 	}
-	for _, tool := range []string{"go", "node", "pnpm", "podman", "python", "kernel"} {
+	for _, tool := range []string{"go", "bun", "podman", "python", "kernel"} {
 		if record.Tools[tool] == "" {
 			return fmt.Errorf("missing build tool observation: %s", tool)
 		}

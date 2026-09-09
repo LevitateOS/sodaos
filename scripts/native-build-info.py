@@ -28,8 +28,10 @@ def collect(root, arch, revision):
         ('project-os/locks/tea-source.toml', 'tea-source.toml'),
         ('appliance/locks/github-runner-source.toml', 'github-runner-source.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
+        ('package.json', 'package.json'),
         ('cockpit/package.json', 'cockpit-package.json'),
-        ('cockpit/pnpm-lock.yaml', 'cockpit-pnpm-lock.yaml'),
+        ('bun.lock', 'bun.lock'),
+        ('bunfig.toml', 'bunfig.toml'),
     ):
         shutil.copyfile(root / source, inputs / name)
     shutil.copyfile(root / 'scripts/install-native.sh', stage / 'install-native.sh')
@@ -42,8 +44,8 @@ def collect(root, arch, revision):
     shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')
     shutil.copyfile(root / 'appliance/licenses/avatar-dependencies.txt', notices / 'avatar-dependencies.txt')
     tools = {name: output(command) for name, command in {
-        'go': ['go', 'version'], 'node': ['node', '--version'],
-        'pnpm': ['pnpm', '--version'], 'podman': ['podman', '--version'],
+        'go': ['go', 'version'],
+        'bun': ['bun', '--version'], 'podman': ['podman', '--version'],
         'python': ['python3', '--version'], 'kernel': ['uname', '-r'],
     }.items()}
     images = {}

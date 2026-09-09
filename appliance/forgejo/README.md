@@ -91,8 +91,8 @@ The partials under `templates/custom/soda/` accept fixed presentation data:
 - `page_intro` requires `TitleID` and `Title`; `Eyebrow`, `Description`, `Artwork`
   and `Class` are optional. `Artwork` is a filename below the Soda Forgejo asset
   directory and is decorative.
-- `empty_content` requires `Title`; `Icon`, `Eyebrow`, `Description` and `TitleID`
-  are optional. The caller decides that the native result is empty, owns the
+- `empty_content` accepts `Title`, `Icon`, `Eyebrow`, `Description` and `TitleID`.
+  Provide a title or descriptive message. The caller decides that the native result is empty, owns the
   `.soda-empty` wrapper and renders any permitted actions.
 - `theme_toggle` accepts an optional `Class`. It preserves the single hidden
   `#soda-theme-toggle` hook used by the guest-theme script.
@@ -110,7 +110,8 @@ should retain only specialized editor behavior; avoid reintroducing per-page
 widths, header cards or independent form-control scales.
 
 Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
-list rows use 16px vertical padding, and section gaps generally use 16–24px.
+general list rows use 16px vertical padding, and section gaps generally use
+16–24px. Milestone, issue and PR rows share 24px vertical padding.
 Use the shared components before adding page-specific spacing; preserve readable
 type and native control targets.
 
@@ -123,8 +124,8 @@ Each responsibility has one CSS owner:
 | `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
-| `components-settings.css` | Shared repository/organization/administrator sidebar and open settings sections. Personal settings use their own compact identity/navigation row. Panel padding excludes native tables; nested row/dialog forms are not cards. |
-| `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. The list itself never carries `.soda-list`. |
+| `components-settings.css` | Shared personal/repository settings shell, compact grouped navigation, page gutters, open sections, 40px body inset and inventory action placement. Organization/administrator callers keep their native sidebar. Panel padding excludes native tables; nested row/dialog forms are not cards. |
+| `components-list.css` | `.soda-list` wraps a direct native list; row spacing/metadata and native pagination. Shared work-item appearance covers native `#issue-list` and `.soda-milestone-row`. The list itself never carries `.soda-list`. |
 | `components-empty.css` | `.soda-empty` presentation/actions plus adapters for native dashboard and issue-search feedback. |
 | `components-guest.css` | Guest semantic theme, shared home/login shell and self-contained theme toggle. |
 
@@ -178,8 +179,8 @@ Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme 
 and authenticated account setting remain authoritative for native pages. The
 button never submits an account preference or changes authentication cookies.
 Its accessible label describes the next action; a focus ring appears for keyboard
-use although the resting button has no border. Tests: `node --test
-tests/forgejo/login-theme.test.mjs` from the repository root.
+use although the resting button has no border. Tests: `bun run build:forgejo && bun test
+tests/forgejo/login-theme.test.ts` from the repository root.
 
 ## Public homepage
 
@@ -313,8 +314,8 @@ new checklist artwork, and unified issue panel. Native search syntax, type/sort
 links, open/closed counts, account/org navigation and shared issue list remain
 upstream-owned. The shared template now also applies the design to Pull requests, with its own
 heading, introduction and status icons.
-`issues.css` supplies issue-specific layout around the shared page, toolbar and list
-components; account theme state remains native. The two custom intro strings remain English. Artwork provenance
+Shared page, toolbar and list components own the presentation; the former
+PR-only `issues.css` adapter was removed. Account theme state remains native. The two custom intro strings remain English. Artwork provenance
 and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
 
 Local template reload and Chrome checks covered populated dark-mode rows,
@@ -480,7 +481,7 @@ the actual stylesheet registry and minimal native markup fixtures into ignored
 SODA_FORGEJO_GALLERY=1 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
   go test -mod=readonly ./scripts -run TestForgejoPresentationGallery -count=1
 SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 \
-  node --test tests/forgejo/presentation/*.test.mjs
+  bun run test:forgejo
 ```
 
 Gallery evidence remains separate from native route evidence and does not prove
@@ -491,7 +492,7 @@ Ordinary repository body containers have zero padding. `repository.css` owns
 that rule, and the repository header supplies the gap below navigation. Family
 styles must not add another top inset to the same container. Fluid or explicitly
 padded native canvases retain their separate gutter contract. The native
-`repository-container.test.mjs` regression compares Code, Projects, Issues and
+`repository-container.test.ts` regression compares Code, Projects, Issues and
 Releases at desktop/mobile widths so family-specific padding cannot silently
 return on those routes.
 
@@ -505,8 +506,8 @@ native destination and capability gate, including mandatory enrollment hiding
 ordinary navigation. Personal, Access & integrations, and Resources use Soda
 locale keys; native controls and warnings retain native translations.
 
-`account-settings.css` owns this shell, menus, open explanation/control sections
-and the 900px transition. `account-details.css` owns the portrait/editor grid,
+`components-settings.css` owns the shared shell, menus, open sections with headings above their bodies
+and the 900px transition. `account-settings.css` only owns the personal identity row. `account-details.css` owns the portrait/editor grid,
 preference rows and credential/editor compositions. Shared presentation owns
 fonts, spacing and control roles. `soda-p-form` explicitly styles nested native
 principal forms; `soda-p-control` and `soda-p-compact` retain their presentation
@@ -518,9 +519,11 @@ Profile keeps one identity/address/privacy form and a separate sibling avatar
 form. Account keeps independent email/password/deletion handlers, with password
 on its native page and a Security link to `account#password`. Appearance keeps
 all four saves. Token selection, key verification, WebAuthn, runner configuration,
-quota and webhook dispatch remain native. Child titles move into the shell;
-shared cleanup/runner adapters explicitly rebind native root context and suppress
-only personal duplicate headings. Other callers retain their headers and data.
+quota and webhook dispatch remain native. Child titles move into the shell.
+Shared runner, secret, variable and webhook adapters use the explicit
+`SettingsPresentation` input for personal/repository callers. Cleanup and OAuth
+remain personal-only adapters. Each rebinds native root context and suppresses
+only the opted-in duplicate heading. Other callers retain their headers and data.
 
 `personal-settings.js` only enhances navigation, disclosure visibility, the avatar
 modal and focus. The avatar link progressively opens one native `<dialog>` with
@@ -549,7 +552,8 @@ Pronoun editing, its privacy control and public-profile display are omitted from
 Soda presentation. Personal/admin forms carry existing native values in hidden
 fields solely to avoid resetting data on unrelated saves. Forgejo's database,
 API and native locale catalogs remain upstream-owned. The attributed
-`shared/user/profile_big_avatar` override changes only that display fragment.
+`shared/user/profile_big_avatar` override retains native privacy gates and action hooks
+while composing the public identity header described below.
 
 
 The selected C — Tonal design uses tinted primary surfaces with blue text and
@@ -569,3 +573,175 @@ Native joined internal edges stay square. Explore's desktop tab allowance is
 448px to accommodate the 44px overflow trigger; native tab measurement and menu
 behavior remain intact. The 320px header retains the canonical 128px logo with
 44px mobile actions and reduced gaps instead of undersized targets.
+
+
+Empty states share `custom/soda/empty_content` and `components-empty.css`.
+Use `soda-empty--page` for an empty destination (centered icon/message with a
+bounded breathing space), and `soda-empty--compact` for a section inside a working
+page (smaller icon and left-aligned heading). Existing `soda-empty--inset` callers
+use the compact composition. These are open surfaces without enclosing cards or
+dividers. Native callers own empty conditions, translations and permitted actions;
+never add a create action to a naturally empty state such as Blocked users.
+Blocked-user lists and deploy-key sections now select these roles explicitly.
+
+
+Heading placement follows one rule: page titles precede the page, section headings
+precede their content, and introductory descriptions stay beneath the heading.
+Personal settings no longer use a left-hand explanation column or the obsolete
+`soda-settings-explained` role. `.soda-settings-section` owns a single-column
+composition with a 12px heading/body gap and 32px between sections at every width.
+Inventory actions remain beside headings on desktop and stack below on mobile.
+Content grids (portrait/editor, checklists and native label/value data) are not
+section-title columns and retain their task-specific arrangements.
+
+Every personal/repository settings destination uses one 40px inline-start inset on
+`.user-setting-content` or `.repo-setting-content` inside `.soda-settings-shell`. Section headings and fieldset legends return 40px toward
+the outer edge. This covers native header/segment pairs, inventories and editors
+without requiring the personal section-body wrapper. Nested bodies never add
+another inset. `components-settings.css` owns this layout; shared form styles own
+only the vertical heading spacing and must not reset its inline alignment.
+The native browser check enumerates every permitted settings-menu destination,
+verifying the inset, heading alignment and overflow instead of sampling three pages.
+Shared native section headers, including nested headers, and form legends use
+the same 24px heading token at every width. Disclosure summaries use the shared
+button typography. Icon inputs reserve 40px on the icon side; ordinary field
+padding must not override native icon clearance.
+
+
+Static guidance uses native `ui info message` / `ui warning message` with the
+`soda-notice` role. This opt-in keeps notices visible inside forms without exposing
+inactive native validation messages. Recovery and key-loss guidance precedes the
+relevant action. Account deletion retains its native danger message.
+
+Empty access-token, webhook, membership, repository and cleanup-rule inventories
+use the shared empty content partial only in the native empty branch. A title is
+optional when the translated explanatory sentence already supplies the message.
+Populated rows, permissions and actions remain native. Personal webhooks use a
+real toolbar instead of an empty heading. Inventory actions accompany section
+headings, stacking below on mobile; page-level actions use a left-aligned toolbar.
+Submissions follow their fields and guidance, including all four Appearance saves
+and Cargo/Chef actions. Native absolutely positioned header actions are returned
+to normal flow within the shared settings shell to prevent narrow-screen overlap.
+
+Key, WebAuthn, authorized/owned OAuth and token repository-selection inventories
+use the same compact empty-state role. State the absence explicitly; when native
+copy only explains the inventory, use the existing localized “No results” title
+above that guidance. Empty authorized OAuth content must not
+claim that access has already been granted. Personal Actions secrets, variables
+and runners opt in through explicit context adapters, also used by repository settings;
+organization/administrator callers retain their native empty branches. Runner
+setup's last-chance credential guidance is a static warning in the opted-in settings shell. An empty personal cleanup preview omits its blank
+heading and table, while populated and nonpersonal previews remain native.
+Personal webhook event groups use open fieldsets with their native legends and
+controls, without nested decorative boxes.
+
+Cargo's pinned English description is split into its context and consequence
+sentences, shown as separate info/warning notices before submission. Other locales
+(or unexpected sentence structures) retain the complete translated warning; no
+translation text is discarded or replaced by a guessed split. Existing locale
+catalogs and activation remain unchanged.
+
+
+## Repository settings structural contract
+
+Repository settings compose the native repository header with the same
+`.soda-settings-shell` used by personal settings. The native identity and unit
+navigation remain above one task title and compact destination menus. There is
+no repository settings sidebar or repeated attached task heading. Repository,
+Access & integrations, and the conditional Actions group retain every native
+link and visibility gate. The mobile disclosure exposes all permitted groups in
+one expansion; JavaScript only enhances ordinary navigation and focus.
+
+`components-settings.css` owns the 1120px usable canvas, 24px desktop / 16px
+mobile gutters, 40px body inset, 24px section type and common action rows.
+`repository-settings-details.css` owns only repository-specific composition and
+technical data. Generic repository container rules have lower specificity so
+this explicit shell wins at every breakpoint; ordinary repository pages retain
+their zero-padding contract. File inputs use the shared principal-form width
+constraint, including native inline avatar fields. All actions retain the
+selected C — Tonal 44px dimensions.
+
+General settings use open Basic, Avatar, Federation, Mirrors, Signing,
+Administrator and Danger sections under their existing gates. Units retain one
+native POST form and all four native anchors/save controls. Branch/tag
+protection, collaborators, deploy keys, webhooks, Actions and LFS inventories
+use shared sections, actions, notices and empty states. Child editors receive
+one task title and a parent link. Technical tables use
+`.soda-settings-table-scroll` where their content needs horizontal scrolling;
+code viewers, native dropdowns, provider dispatch and dialog structures remain
+upstream-owned. LFS totals stay visible in inventory summaries.
+
+Ordinary repository-name and collaborator/team search fields no longer take
+initial focus away from the new page heading. Tag creation is an inventory
+landing page; its dedicated edit state retains autofocus. Deliberate child/panel
+focus, submitted values, validation, dirty-form behavior, IDs, permissions,
+methods/actions and destructive confirmations are preserved. No fields are
+submitted, credentials generated or repository state changed by the enhancement.
+
+`repository-settings-native-contracts.json` records exact 15.0.7 controls,
+conditions and script hooks for the 22 settings leaves and four unit partials.
+The Go navigation test compares all 256 feature/permission combinations with the
+exact native navbar. Non-opted organization/administrator shared-partial bodies
+retain explicit native-parity checks. The test-only inventory covers 235
+production overrides/helpers and both local and native callers.
+
+The separate `repository-settings-{light,dark}.html` gallery uses the production
+registry, native SVG assets and the runner editor with minimal native form/inventory
+fixtures. `repository-settings-browser.test.ts` checks seven widths including
+900/899px, no-JavaScript fallback, focus, long labels, gutters, file input and
+table containment. Gallery output and component captures are ignored artifacts,
+not native repository screenshots. Native owner-only, provider, credential,
+mirror and mutation coverage must be recorded separately in the handoff.
+
+
+Milestone list items use `custom/soda/milestone_row` for both global and repository
+callers. `components-list.css` owns the appearance shared with native issue and
+PR rows: uniform transparent backgrounds, 24px vertical padding, one separator
+between complete items, 20px sans-serif linked titles, 13px metadata and matching
+progress tracks. `milestones.css` owns compact Markdown previews, aligned native
+deadline/progress columns and stacked mobile metadata. Keyboard focus reveals the full
+preview when it contains links; the detail page keeps its full native Markdown.
+Repository edit/close/reopen/delete actions retain native permission/archive
+gates and handlers. Global items remain read-only. Page heading, filters,
+navigation, pagination and empty states are outside this partial and unchanged.
+Native project collections also reuse `milestone-card`; their existing styles
+are explicitly excluded from the new row role to avoid changing those lists.
+
+The native `shared/issuelist` template stays unmodified. Its repository, dashboard,
+milestone-content and notification-subscription callers all receive the same row
+contract through native `#issue-list`. Status colors, label colors, selection
+checkboxes, commit-status popups, assignees, comments, review state and native
+links remain intact. Ordinary collections keep their existing 16px rows/18px
+titles. The PR-only spacing adapter and repository list corner adapter are removed.
+`work-item-lists.test.ts` exercises isolated native markup samples with the actual
+registry, long labels/branches, keyboard selection and unrelated-list protection.
+Its component gallery under `.artifacts/work-item-consistency/components/` is
+separate from real-route captures and their verification status.
+
+
+### Public contributor profiles
+
+Public profiles use one compact horizontal identity header (`soda-profile-masthead`),
+with a 72px portrait (56px below 700px), native account metadata and follower links.
+The five caller templates share this header across repositories, README, activity,
+people, projects, packages and code search. The existing native tab menu remains
+responsible for destinations and overflow. No sidebar, hero artwork or enclosing
+profile card is added. Native handler-selected default tabs remain unchanged.
+
+`profiles.css` owns this composition within `soda-profile-card-context`; the native
+HTMX target `profile-avatar-card` retains its identity through follow/unfollow morphs.
+The shared block dialog sits outside that target on every personal caller. Profile
+repository rows use `custom/soda/profile_repositories`, retaining native searches,
+filters, permissions, descriptions, topics and links, with metadata below the body.
+Other repository-list callers retain their existing presentation.
+
+Activity privacy, email visibility, organization visibility, moderation and admin
+conditions remain native. No invented pinned repositories or aggregate activity
+payload is fetched. Code search and package version pages remain capability/data
+ dependent. The read-only browser regression covers available profile destinations;
+private activity additionally has a source-rendered permission matrix in Go tests.
+
+The Forgejo navigation uses the `soda-forge-logo-horizontal` light/dark SVGs:
+canonical Soda symbol and Soda lettering with a cyan “forge” suffix. These are
+separate from the Soda OS assets used elsewhere. `components.css` reserves 152px
+for the wordmark on mobile and 166px on desktop.

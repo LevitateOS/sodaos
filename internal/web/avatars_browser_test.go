@@ -31,7 +31,7 @@ func TestAvatarBrowserRendering(t *testing.T) {
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
-	cmd := exec.Command("node", "testdata/avatar-browser.cjs", server.URL)
+	cmd := exec.Command("bun", "testdata/avatar-browser.ts", server.URL)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("browser rendering: %v\n%s", err, out)
 	} else {

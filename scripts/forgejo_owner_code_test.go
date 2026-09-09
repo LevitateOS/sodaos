@@ -9,7 +9,7 @@ import (
 
 func TestForgejoOwnerCodePreservesNativeSearchContext(t *testing.T) {
 	definition := `
-		{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}
+		{{define "custom/soda/profile_block_dialog"}}{{end}}{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}
 		{{define "org/header"}}org/{{.ContextUser.Name}}{{end}}
 		{{define "shared/user/profile_big_avatar"}}avatar/{{.ContextUser.Name}}{{end}}
 		{{define "user/overview/header"}}tabs/{{.ContextUser.Name}}{{end}}
@@ -35,7 +35,7 @@ func TestForgejoOwnerCodePreservesNativeSearchContext(t *testing.T) {
 			t.Fatal(err)
 		}
 		html := output.String()
-		for _, want := range []string{"search//forge/alice/-/code/&lt;query&gt;", "intro/&lt;owner&gt;/Code", "soda-code-search"} {
+		for _, want := range []string{"search//forge/alice/-/code/&lt;query&gt;", "soda-code-search"} {
 			if !strings.Contains(html, want) {
 				t.Errorf("owner code page lacks %q: %s", want, html)
 			}
@@ -44,6 +44,9 @@ func TestForgejoOwnerCodePreservesNativeSearchContext(t *testing.T) {
 			t.Errorf("owner code page must render one main root and native search: %s", html)
 		}
 		if organization {
+			if !strings.Contains(html, "intro/&lt;owner&gt;/Code") {
+				t.Error("organization introduction changed")
+			}
 			if !strings.Contains(html, "org/&lt;owner&gt;") || strings.Contains(html, "avatar/") || !strings.Contains(html, `data-signed="true"`) {
 				t.Errorf("organization context crossed profile branch: %s", html)
 			}

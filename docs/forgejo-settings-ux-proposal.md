@@ -42,7 +42,7 @@ presentation roles. This overhaul must address both problems together.
 - Native viewport captures were checked visually: 11 dark desktop landing pages,
   six dark mobile landing pages, four light desktop landing pages, and three
   dark child editors at desktop and mobile. All 27 captures use
-  `scripts/screenshot.mjs --verify`, including route, landmark, revision, registry,
+  `scripts/screenshot.ts --verify`, including route, landmark, revision, registry,
   stylesheet-byte and browser-error checks.
 - DOM inspection covered the 11 landing pages at 1440 and 390px; the six core
   pages also at 320 and 768px. No horizontal document overflow was observed in

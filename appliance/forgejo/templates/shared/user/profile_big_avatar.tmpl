@@ -1,53 +1,37 @@
-{{/* Adapted from Forgejo 15.0.7 templates/shared/user/profile_big_avatar.tmpl (GPL-3.0-or-later); upstream SHA-256 983e71a7a824ef867a056a58c0ca8ea7eef11dab38c0547f70c3e625fa022b63. Pronoun display removed; native profile actions retained. */}}
+{{/* Adapted from Forgejo 15.0.7 templates/shared/user/profile_big_avatar.tmpl (GPL-3.0-or-later); upstream SHA-256 983e71a7a824ef867a056a58c0ca8ea7eef11dab38c0547f70c3e625fa022b63. Compact public-profile header; native privacy and HTMX actions retained. */}}
 {{if .IsHTMX}}
 	{{template "base/alert" .}}
 {{end}}
-
 {{$showFollow := and .IsSigned (ne .SignedUserID .ContextUser.ID)}}
-
-<div id="profile-avatar-card" class="ui card" hx-swap="morph">
-	<div id="profile-avatar" class="content tw-flex">
+<div id="profile-avatar-card" class="soda-profile-masthead" hx-swap="morph">
+	<div id="profile-avatar" class="soda-profile-portrait">
 	{{if eq .SignedUserID .ContextUser.ID}}
 		<a class="image" href="{{AppSubUrl}}/user/settings#avatar-settings" data-tooltip-content="{{ctx.Locale.Tr "user.change_avatar"}}">
-			{{/* the size doesn't take affect (and no need to take affect), image size(width) should be controlled by the parent container since this is not a flex layout*/}}
 			{{ctx.AvatarUtils.Avatar .ContextUser 256}}
 		</a>
 	{{else}}
-		<span class="image">
-			{{ctx.AvatarUtils.Avatar .ContextUser 256}}
-		</span>
+		<span class="image">{{ctx.AvatarUtils.Avatar .ContextUser 256}}</span>
 	{{end}}
 	</div>
-	<div class="content tw-break-anywhere profile-avatar-name">
-		{{if .ContextUser.FullName}}<span class="header text center">{{.ContextUser.FullName}}</span>{{end}}
-		<span class="username">{{.ContextUser.Name}}</span>
-		<div class="tw-mt-2 tw-flex tw-items-center tw-gap-2 tw-justify-center">
-			<span>
-				<a class="muted" href="{{.ContextUser.HomeLink}}?tab=followers">{{svg "octicon-people" 18 "tw-mr-1"}}{{ctx.Locale.TrN .NumFollowers "user.followers_one" "user.followers_few" .NumFollowers}}</a> · <a class="muted" href="{{.ContextUser.HomeLink}}?tab=following">{{ctx.Locale.TrN .NumFollowing "user.following_one" "user.following_few" .NumFollowing}}</a>
-			</span>
-			{{if not $showFollow}}
-				{{template "shared/user/actions_menu" .}}
+	<div class="profile-avatar-name">
+		<h1>{{if .ContextUser.FullName}}{{.ContextUser.FullName}}{{else}}{{.ContextUser.Name}}{{end}}</h1>
+		<span class="username">@{{.ContextUser.Name}}</span>
+		{{if .RenderedDescription}}<div class="soda-profile-bio markup">{{.RenderedDescription}}</div>{{end}}
+	</div>
+	<div class="actions button-row soda-profile-actions">
+		{{if $showFollow}}
+		<div class="primary-action" hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card">
+			{{if .IsFollowing}}
+				<button hx-post="{{.ContextUser.HomeLink}}?action=unfollow" class="secondary button">{{svg "octicon-person"}} {{ctx.Locale.Tr "user.unfollow"}}</button>
+			{{else}}
+				<button hx-post="{{.ContextUser.HomeLink}}?action=follow" class="primary button">{{svg "octicon-person"}} {{ctx.Locale.Tr "user.follow"}}</button>
 			{{end}}
 		</div>
+		{{end}}
+		{{template "shared/user/actions_menu" .}}
 	</div>
-	{{if $showFollow}}
-		<div class="actions button-row">
-			<div class="primary-action" hx-target="#profile-avatar-card" hx-indicator="#profile-avatar-card">
-				{{if .IsFollowing}}
-					<button hx-post="{{.ContextUser.HomeLink}}?action=unfollow" class="secondary button tw-w-full">
-						{{svg "octicon-person"}} {{ctx.Locale.Tr "user.unfollow"}}
-					</button>
-				{{else}}
-					<button hx-post="{{.ContextUser.HomeLink}}?action=follow" class="primary button tw-w-full">
-						{{svg "octicon-person"}} {{ctx.Locale.Tr "user.follow"}}
-					</button>
-				{{end}}
-			</div>
-			{{template "shared/user/actions_menu" .}}
-		</div>
-	{{end}}
-	<div class="extra content tw-break-anywhere">
-		<ul>
+	<div class="soda-profile-details">
+		<ul class="soda-profile-facts">
 			{{if .ContextUser.Location}}
 				<li>
 					{{svg "octicon-location"}}
@@ -78,11 +62,6 @@
 					<a target="_blank" rel="noopener noreferrer me" href="{{.ContextUser.Website}}">{{.ContextUser.Website}}</a>
 				</li>
 			{{end}}
-			{{if $.RenderedDescription}}
-				<li>
-					<div class="render-content markup">{{$.RenderedDescription}}</div>
-				</li>
-			{{end}}
 			{{range .OpenIDs}}
 				{{if .Show}}
 					<li>
@@ -102,7 +81,7 @@
 					{{if (or .Visibility.IsPublic (and ($.SignedUser) (or .Visibility.IsLimited (and (.HasMemberWithUserID ctx $.SignedUserID) .Visibility.IsPrivate) ($.IsAdmin))))}}
 					<li>
 						<a href="{{.HomeLink}}" data-tooltip-content="{{.Name}}">
-							{{ctx.AvatarUtils.Avatar .}}
+							{{ctx.AvatarUtils.Avatar .}}<span>{{.Name}}</span>
 						</a>
 					</li>
 					{{end}}
@@ -122,5 +101,8 @@
 			</li>
 			{{end}}
 		</ul>
+		<div class="soda-profile-connections"><span>
+				<a class="muted" href="{{.ContextUser.HomeLink}}?tab=followers">{{svg "octicon-people" 18 "tw-mr-1"}}{{ctx.Locale.TrN .NumFollowers "user.followers_one" "user.followers_few" .NumFollowers}}</a> · <a class="muted" href="{{.ContextUser.HomeLink}}?tab=following">{{ctx.Locale.TrN .NumFollowing "user.following_one" "user.following_few" .NumFollowing}}</a>
+			</span></div>
 	</div>
 </div>

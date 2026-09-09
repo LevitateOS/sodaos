@@ -5,6 +5,12 @@ appliance. Developers use native Forgejo pages, ordinary SSH, Git, mise and cont
 tools. Soda supplies the integration; developers should not have to assemble missing
 account, key or runtime wiring themselves.
 
+The [CoreOS product strategy](os-product-strategy.md) records the user's custom-distro
+direction and proposed host features, their value, effort and limits as service
+features. It distinguishes today's upstream-based delivery from future boot/storage/
+recovery ownership. It does not replace the current implementation plan or select
+the deferred features for execution.
+
 [Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
 inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
 frontends are removed; the Go API/OAuth service remains. A read-only native drawer

@@ -13,8 +13,8 @@ export function TailscaleConnection({
   authURL,
   onSignIn,
 }: {
-  status?: Status;
-  streamState?: string;
+  status: Status | undefined;
+  streamState: string | undefined;
   loading: boolean;
   busy: boolean;
   connected: boolean;

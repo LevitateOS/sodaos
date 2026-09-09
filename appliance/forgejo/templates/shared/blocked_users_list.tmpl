@@ -21,8 +21,8 @@
 			</div>
 		</div>
 	{{else}}
-		<div class="flex-item">
-			<span class="text grey italic">{{ctx.Locale.Tr "settings.blocked_users_none"}}</span>
+		<div class="soda-empty soda-empty--page">
+			{{template "custom/soda/empty_content" dict "Icon" "octicon-shield-check" "Title" (ctx.Locale.Tr "settings.blocked_users_none")}}
 		</div>
 	{{end}}
 </div>

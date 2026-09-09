@@ -1,15 +1,10 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings branches")}}
-	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch">
-		<h4 class="ui top attached header soda-p-heading">
-			{{if .Rule.RuleName}}
-				{{ctx.Locale.Tr "repo.settings.branch_protection" .Rule.RuleName}}
-			{{else}}
-				{{ctx.Locale.Tr "repo.settings.protect_new_rule"}}
-			{{end}}
-		</h4>
-		<form class="ui form attached segment" action="{{.Link}}" method="post">
+{{$taskTitle := ctx.Locale.Tr "repo.settings.protect_new_rule"}}
+{{if .Rule.RuleName}}{{$taskTitle = ctx.Locale.Tr "repo.settings.branch_protection" .Rule.RuleName}}{{end}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings branches" "title" $taskTitle "parentURL" (printf "%s/settings/branches" .RepoLink) "parentTitle" (ctx.Locale.Tr "repo.settings.branches"))}}
+	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch soda-settings-editor">
+		<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<input name="rule_id" type="hidden" value="{{.Rule.ID}}">
-			<fieldset class="branch-protection">
+			<fieldset class="branch-protection soda-form-section">
 				<legend>{{ctx.Locale.Tr "repo.settings.protect_patterns"}}</legend>
 				<label>{{ctx.Locale.Tr "repo.settings.protect_branch_name_pattern"}}
 					<input name="rule_name" type="text" value="{{.Rule.RuleName}}">
@@ -25,7 +20,7 @@
 				</label>
 			</fieldset>
 
-			<fieldset>
+			<fieldset class="soda-form-section">
 				<legend>{{ctx.Locale.Tr "repo.settings.event_push"}}</legend>
 				<label>
 					<input name="enable_push" type="radio" value="none" class="toggle-target-disabled" data-target="#whitelist_box" {{if not .Rule.CanPush}}checked{{end}}>
@@ -87,14 +82,14 @@
 					<span class="help">{{ctx.Locale.Tr "repo.settings.require_signed_commits_desc"}}</span>
 				</label>
 			</fieldset>
-			<fieldset>
+			<fieldset class="soda-form-section">
 				<legend>{{ctx.Locale.Tr "repo.settings.event_pull_request_approvals"}}</legend>
 				<label>
 					{{ctx.Locale.Tr "repo.settings.protect_required_approvals"}}
 					<input name="required_approvals" type="number" value="{{.Rule.RequiredApprovals}}">
 					<span class="help tw-ml-0">{{ctx.Locale.Tr "repo.settings.protect_required_approvals_desc"}}</span>
 				</label>
-				<fieldset>
+				<fieldset class="soda-form-section">
 					<label>
 						<input name="enable_approvals_whitelist" type="checkbox" class="toggle-target-enabled" data-target="#approvals_whitelist_box" {{if .Rule.EnableApprovalsWhitelist}}checked{{end}}>
 						{{ctx.Locale.Tr "repo.settings.protect_approvals_whitelist_enabled"}}
@@ -146,7 +141,7 @@
 						<p class="help">{{ctx.Locale.Tr "repo.settings.ignore_stale_approvals_desc"}}</p>
 					</div>
 				</div>
-				<fieldset>
+				<fieldset class="soda-form-section">
 					<div class="field">
 						<div class="ui checkbox">
 							<input name="enable_status_check" type="checkbox" class="toggle-target-enabled" data-target="#statuscheck_contexts_box" {{if .Rule.EnableStatusCheck}}checked{{end}}>
@@ -155,10 +150,12 @@
 						</div>
 					</div>
 					<div id="statuscheck_contexts_box" class="checkbox-sub-item field {{if not .Rule.EnableStatusCheck}}disabled{{end}}">
-						<label>{{ctx.Locale.Tr "repo.settings.protect_status_check_patterns"}}</label>
-						<textarea id="status_check_contexts" name="status_check_contexts" rows="3">{{.status_check_contexts}}</textarea>
-						<p class="help">{{ctx.Locale.Tr "repo.settings.protect_status_check_patterns_desc"}}</p>
-						<table class="ui celled table">
+					<label>{{ctx.Locale.Tr "repo.settings.protect_status_check_patterns"}}</label>
+					<textarea id="status_check_contexts" name="status_check_contexts" rows="3">{{.status_check_contexts}}</textarea>
+					<p class="help">{{ctx.Locale.Tr "repo.settings.protect_status_check_patterns_desc"}}</p>
+					{{if $.recent_status_checks}}
+					<div class="soda-settings-table-scroll">
+					<table class="ui celled table">
 							<thead>
 								<tr>
 									<th>{{ctx.Locale.Tr "repo.settings.protect_check_status_contexts_list"}}</th>
@@ -172,15 +169,17 @@
 										<span class="status-check-matched-mark tw-hidden" data-status-check="{{.}}">{{ctx.Locale.Tr "repo.settings.protect_status_check_matched"}}</span>
 									</td>
 								</tr>
-							{{else}}
-								<tr><td>-</td></tr>
-							{{end}}
-							</tbody>
-						</table>
+						{{end}}
+						</tbody>
+					</table>
+					</div>
+					{{else}}
+						<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-check" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>
+					{{end}}
 					</div>
 				</fieldset>
 			</fieldset>
-			<fieldset>
+			<fieldset class="soda-form-section">
 				<legend>{{ctx.Locale.Tr "repo.settings.event_pull_request_merge"}}</legend>
 				<div class="grouped fields">
 					<div class="field">
@@ -247,7 +246,7 @@
 					<span class="help">{{ctx.Locale.Tr "repo.settings.block_outdated_branch_desc"}}</span>
 				</label>
 			</fieldset>
-			<fieldset>
+			<fieldset class="soda-form-section">
 				<legend>{{ctx.Locale.Tr "repo.settings.event_pull_request_enforcement"}}</legend>
 				<label>
 					<input name="apply_to_admins" type="checkbox" {{if .Rule.ApplyToAdmins}}checked{{end}}>

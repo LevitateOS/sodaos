@@ -1,19 +1,16 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings")}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings" "title" (ctx.Locale.Tr "repo.settings.deploy_keys"))}}
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-deploy-keys">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "repo.settings.deploy_keys"}}
-			<div class="ui right">
+		<div class="soda-toolbar soda-settings-inventory-actions soda-p-toolbar">
 			{{if not .DisableSSH}}
 				<button class="ui primary tiny show-panel toggle button" data-panel="#add-deploy-key-panel">{{ctx.Locale.Tr "repo.settings.add_deploy_key"}}</button>
 			{{else}}
 				<button class="ui primary tiny button disabled">{{ctx.Locale.Tr "settings.ssh_disabled"}}</button>
 			{{end}}
-			</div>
-		</h4>
-		<div class="ui attached segment soda-p-section">
+		</div>
+		<div class="soda-p-section">
 			<div class="{{if not .HasError}}tw-hidden{{end}} tw-mb-4" id="add-deploy-key-panel">
-				<form class="ui form" action="{{.Link}}" method="post">
-					<div class="field">
+				<form class="ui form soda-p-form" action="{{.Link}}" method="post">
+					<div class="ui info message soda-notice">
 						{{ctx.Locale.Tr "repo.settings.deploy_key_desc"}}
 					</div>
 					<div class="field {{if .Err_Title}}error{{end}}">
@@ -30,8 +27,8 @@
 							<label for="ssh-key-is-writable">
 								{{ctx.Locale.Tr "repo.settings.is_writable"}}
 							</label>
-							<small class="tw-pl-[26px]">{{ctx.Locale.Tr "repo.settings.is_writable_info"}}</small>
 						</div>
+						<p class="ui warning message soda-notice">{{ctx.Locale.Tr "repo.settings.is_writable_info"}}</p>
 					</div>
 					<button class="ui primary button">
 						{{ctx.Locale.Tr "repo.settings.add_deploy_key"}}
@@ -66,7 +63,7 @@
 					{{end}}
 				</div>
 			{{else}}
-				{{ctx.Locale.Tr "repo.settings.no_deploy_keys"}}
+				<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.settings.no_deploy_keys")}}</div>
 			{{end}}
 		</div>
 	</div>

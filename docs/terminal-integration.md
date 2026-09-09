@@ -223,7 +223,10 @@ work. No install, native runtime test or deployment occurred in this decision.
 
 ## Complete content boundary
 
-```js
+Authored modules live in `.ts`; these browser imports address Bun-emitted `.js`
+assets at their stable public URLs, not unchecked JavaScript sources.
+
+```ts
 import {mountSodaspaces} from '/assets/sodaspaces-drawer.js';
 const controls = mountSodaspaces(mountNode, {expectedUserId, repositoryId});
 controls.refresh(); // explicit initial read; mounting alone is inert
@@ -252,7 +255,7 @@ its actual Soda actor rather than treating browser focus as authentication.
 The complete component embeds this itself; never mount a second terminal for the
 same current context/project (the backend rejects duplicate streams).
 
-```js
+```ts
 import {mountTerminal} from '/assets/sodaspaces-terminal.js';
 const terminal = mountTerminal(mountNode, {
   expectedUserId, repositoryId, environmentId, login,
@@ -260,10 +263,12 @@ const terminal = mountTerminal(mountNode, {
 ```
 
 Resolve environment and original own membership login through the protected API,
-not a provider rename or caller-supplied privilege. Mounting starts nothing. Only
-explicit Open loads the local renderer, authorizes and opens the existing account's
-shell; it never creates, joins, starts or repairs a project. `invalidate`,
-`disconnect`, `dispose` and the `started` getter retain their existing API.
+not a provider rename or caller-supplied privilege. Mounting starts nothing. Explicit
+Open may create a terminal for an existing account; `restore()` only attaches a
+stored existing locator after fresh authorization. Neither provisions, joins, starts
+or repairs a project. `retain()` and `returnToWork()` request the bounded lifetime
+operations above. `invalidate`, `disconnect`, `dispose` and `started` remain available;
+renderer disposal detaches, while End is the separate protected operation.
 
 Load `/assets/sodaspaces{,-drawer,-terminal}.css` and
 `/assets/soda-terminal/xterm.css`. The renderer is lazy-loaded from local
@@ -276,8 +281,8 @@ Scrollback, input/output, frames, queues and authorization waits stay bounded.
 
 `internal/web/terminal.go` owns protected transport, context/project slots,
 authorization, logout/rotation and shutdown. `internal/host/` owns native launch,
-process supervision and independent safety lease. Those backend contracts are
-unchanged in this layout slice. Closing a socket is not independent proof of process
+process supervision and independent safety lease. The source candidate revises
+these contracts as described above. Closing a socket is not independent proof of process
 cleanup, and ending a terminal does not undo completed writes or stop all detached
 native workloads. See the [API](dashboard-api.md) and
 [remaining workspace work](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
@@ -291,7 +296,7 @@ and preservation of notification markup. No new dependency or native target acti
 
 Local DOM tests cover view/focus/hide preservation, keyboard controls, no replay,
 action-time denial and old genuine-page-departure retirement. The opt-in
-`tests/frontend/drawer-layout.test.mjs` passed 16 desktop/mobile/theme/state cases
+`tests/frontend/drawer-layout.test.ts` passed 16 desktop/mobile/theme/state cases
 with sandboxed Chromium, real locked xterm and **synthetic APIs/socket/native form**.
 It tests half-width geometry, native-form interaction, keyboard resizing, full-height
 canvas, tab changes and same-socket Hide/reopen. It is not real Forgejo navigation,

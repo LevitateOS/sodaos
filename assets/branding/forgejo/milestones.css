@@ -9,20 +9,46 @@
 .soda-milestones .flex-container-nav .active.item { background: var(--soda-page-canvas) !important; color: var(--soda-page-link) !important; }
 .soda-milestones .flex-container-nav .divider { border-color: var(--soda-page-edge); }
 .soda-milestones .milestone-list { margin: 0; }
-.soda-milestones .milestone-card { list-style: none; padding: 0; margin: 0 0 24px; border: 0; border-radius: 0; background: transparent; }
-.soda-milestones .milestone-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-.soda-milestones .milestone-header h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font: 600 23px/1.4 "Fraunces Variable",Georgia,serif; color: var(--soda-page-text); }
-.soda-milestones .milestone-header h3 > .label { flex-basis: 100%; width: fit-content; padding: 0; margin: 0 0 4px; background: transparent; color: var(--soda-page-muted); font: 400 12px/1.5 "IBM Plex Mono",monospace; overflow-wrap: anywhere; }
-.soda-milestones .milestone-header h3 a { color: var(--soda-page-text); }
-.soda-milestones .milestone-header progress { width: 120px; accent-color: var(--soda-page-link); }
-.soda-milestones .milestone-toolbar { margin-top: 16px; color: var(--soda-page-muted); font: 400 13px/1.7 Barlow,sans-serif; }
-.soda-milestones .milestone-toolbar .group { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.soda-milestones .milestone-card .markup { margin-top: 16px; color: var(--soda-page-muted); font: 400 15px/1.7 Barlow,sans-serif; }
-.soda-milestones progress { height: 8px; border: 0; border-radius: 999px; overflow: hidden; background: var(--soda-page-edge); }
-.soda-milestones progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
-.soda-milestones progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
-.soda-milestones progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }
 @media (max-width:900px) {
  .soda-milestones .flex-container { grid-template-columns: minmax(0,1fr); }
- .soda-milestones .milestone-card { padding: 0; }
+}
+
+/* One shared row for global and repository lists. Keep the native detail page
+   and surrounding navigation/filter compositions outside this boundary. */
+.milestone-list > .soda-milestone-row {
+ display: grid;
+ grid-template-columns: minmax(0, 1fr) 144px 168px;
+ gap: 12px 24px;
+ align-items: start;
+}
+.soda-milestone-main { min-width: 0; padding-inline-start: 32px; }
+.soda-milestone-row .soda-milestone-name { display: flex; align-items: start; gap: 12px; margin: 0 0 4px -32px; }
+.soda-milestone-name > svg { flex: none; margin-top: 4px; color: var(--soda-page-muted); }
+.soda-milestone-repository { margin-bottom: 4px; color: var(--soda-page-muted); font: var(--soda-font-meta); overflow-wrap: anywhere; }
+.soda-milestone-row .soda-milestone-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; color: var(--soda-page-muted); font: 400 14px/1.5 Barlow, sans-serif; overflow-wrap: anywhere; }
+/* Flatten rich Markdown only in the list preview. Full formatting remains on
+   the linked milestone page. Keyboard focus reveals embedded description links. */
+.soda-milestone-description :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre) { display: inline; margin: 0; padding: 0; border: 0; font: inherit; white-space: normal; }
+.soda-milestone-description :is(h1,h2,h3,h4,h5,h6,p,li)::after { content: " "; }
+.soda-milestone-row .soda-milestone-description:focus-within { display: block; -webkit-line-clamp: unset; }
+.soda-milestone-activity { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.soda-milestone-activity:empty { display: none; }
+.soda-milestone-deadline { padding-top: 4px; color: var(--soda-page-muted); font: 400 14px/1.5 Barlow, sans-serif; overflow-wrap: anywhere; }
+.soda-milestone-progress { min-width: 0; padding-top: 4px; }
+.soda-milestone-progress-value { display: flex; align-items: center; gap: 12px; font: 600 14px/1.5 Barlow, sans-serif; font-variant-numeric: tabular-nums; }
+.soda-milestone-progress-value > span { min-width: 4ch; text-align: end; }
+.soda-milestone-row progress { flex: 1; min-width: 0; width: 100%; }
+.soda-milestone-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.soda-milestone-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; margin-inline-start: 32px; }
+.soda-milestone-actions > a { min-height: 44px; font: var(--soda-font-button); }
+@media (max-width: 1100px) {
+ .milestone-list > .soda-milestone-row { grid-template-columns: minmax(0, 1fr) 168px; }
+ .soda-milestone-main { grid-row: 1 / 3; }
+ .soda-milestone-deadline, .soda-milestone-progress { grid-column: 2; }
+}
+@media (max-width: 600px) {
+ .milestone-list > .soda-milestone-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+ .soda-milestone-main { grid-row: auto; }
+ .soda-milestone-deadline, .soda-milestone-progress { grid-column: 1; padding-top: 0; margin-inline-start: 32px; }
+ .soda-milestone-progress { max-width: 240px; }
 }

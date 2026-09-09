@@ -38,9 +38,9 @@ func TestForgejoRepositoryIssuePagesKeepNativeWorkflows(t *testing.T) {
 			`id="clear-date"`, `template "shared/combomarkdowneditor"`, `"MarkdownPreviewUrl"`, `"EasyMDE" true`,
 		},
 		"repo/issue/milestones.tmpl": {
-			`{{range .Milestones}}`, `class="milestone-card"`,
-			`{{if and (or $.CanWriteIssues $.CanWritePulls) (not $.Repository.IsArchived)}}`,
-			`data-url="{{$.RepoLink}}/milestones/delete"`, `template "base/modal_actions_confirm" .`,
+			`{{range .Milestones}}`, `template "custom/soda/milestone_row"`,
+			`"Editable" (and (or $.CanWriteIssues $.CanWritePulls) (not $.Repository.IsArchived))`,
+			`template "base/modal_actions_confirm" .`,
 		},
 		"repo/issue/milestone_issues.tmpl": {
 			`{{if not .Repository.IsArchived}}`, `{{if or .CanWriteIssues .CanWritePulls}}`,
@@ -114,7 +114,7 @@ func TestForgejoRepositoryIssueStylesStayScoped(t *testing.T) {
 	for _, marker := range []string{
 		`.soda-repo-work-items`, `.soda-repo-issue-editor`, `.soda-repo-thread`,
 		`.soda-pull-tabs`, `.soda-commit-status-panel`, `.soda-pull-diff`,
-		`.page-content.repository.milestones`, `.soda-milestone-editor`,
+		`.page-content.repository.milestone-issue-list`, `.soda-milestone-editor`,
 	} {
 		if !strings.Contains(css, marker) {
 			t.Errorf("repository issue stylesheet lost scope %q", marker)

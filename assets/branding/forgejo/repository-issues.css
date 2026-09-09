@@ -43,11 +43,6 @@
   background: var(--soda-page-surface);
 }
 
-.soda-repo-work-items .soda-repo-issue-list > #issue-list {
-  border-top: 0;
-  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
-}
-
 .soda-repo-work-items .soda-pinned-issues {
   gap: 12px;
   margin-bottom: 16px;
@@ -226,21 +221,21 @@
   margin-left: auto;
 }
 
-/* Existing stock milestone leaves share stable native page classes. */
-.page-content.repository.milestones .milestone-card {
+/* Native project collections also reuse milestone-card. Preserve their existing
+   presentation while the dedicated milestone-row role owns the redesigned list. */
+.page-content.repository.milestones .milestone-card:not(.soda-milestone-row) {
   margin-bottom: 24px;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-
 .page-content.repository.milestones .milestone-header,
 .page-content.repository.milestones .milestone-toolbar {
   border-color: var(--soda-page-edge);
 }
 
-.page-content.repository.milestones progress,
+.page-content.repository.milestones .milestone-card:not(.soda-milestone-row) progress,
 .page-content.repository.milestone-issue-list progress {
   accent-color: var(--soda-page-action);
 }

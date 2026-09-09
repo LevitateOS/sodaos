@@ -4,9 +4,9 @@
 </h2>
 <div class="ui attached segment soda-p-section">
 	<div class="flex-list">
-		<div class="flex-item">
+		{{if not .Grants}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results")}}</div>{{else}}<div class="flex-item">
 			{{ctx.Locale.Tr "settings.authorized_oauth2_applications_description"}}
-		</div>
+		</div>{{end}}
 		{{range .Grants}}
 			<div class="flex-item">
 				<div class="flex-item-leading">

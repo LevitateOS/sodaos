@@ -7,49 +7,149 @@
   border-radius: 0;
 }
 
-.soda-list > :is(.flex-list,#issue-list,#activity-feed,#notification_table) > :is(.flex-item,.notifications-item) {
+.soda-list > :is(.flex-list:not(#issue-list),#activity-feed,#notification_table) > :is(.flex-item,.notifications-item) {
   padding: 16px 0 !important;
   gap: 16px;
   border-color: var(--soda-page-edge);
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-main {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .flex-item-main {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .flex-item-title {
   font: 600 18px/1.5 Barlow,sans-serif;
   overflow-wrap: anywhere;
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title > a {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .flex-item-title > a {
   color: var(--soda-page-text);
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-title a.text.primary {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .flex-item-title a.text.primary {
   color: var(--soda-page-link) !important;
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .repo-topics .ui.label {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .repo-topics .ui.label {
   border-radius: 5px;
   background: var(--soda-page-canvas);
   border: 1px solid var(--soda-page-edge);
   color: var(--soda-page-link);
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) .flex-item-body {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .flex-item-body {
   color: var(--soda-page-muted);
   font-size: 13px;
   line-height: 1.7;
 }
 
-.soda-list > :where(.flex-list,#issue-list,#activity-feed) > :where(.flex-item) :is(.flex-item-leading,.flex-item-trailing) {
+.soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) :is(.flex-item-leading,.flex-item-trailing) {
   color: var(--soda-page-muted);
 }
 
 .soda-list #issue-list:empty {
   min-height: 120px;
+}
+
+/* Work-item appearance has one owner. #issue-list is the native shared partial
+   used by repository/dashboard issues and PRs, milestone contents and notification
+   subscriptions. Its ID also defeats native fitted-list padding without !important.
+   Milestone CSS owns only its specialized columns and Markdown preview. */
+#issue-list > .flex-item,
+.milestone-list > .soda-milestone-row {
+  margin: 0;
+  padding: 24px 0;
+  gap: 12px;
+  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#issue-list > .flex-item + .flex-item,
+.milestone-list > .soda-milestone-row + .soda-milestone-row {
+  border-top: 1px solid var(--soda-page-edge);
+}
+
+#issue-list .flex-item-title,
+.soda-milestone-row .soda-milestone-name {
+  font: 600 20px/1.35 Barlow, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+#issue-list .issue-title,
+.soda-milestone-row .soda-milestone-name > a {
+  min-width: 0;
+  color: var(--soda-page-link);
+  overflow-wrap: anywhere;
+}
+
+/* Native issue links enforce their hover color and no-underline utility. */
+#issue-list .issue-title:hover,
+.soda-milestone-row .soda-milestone-name > a:hover {
+  color: light-dark(var(--soda-light-link-hover), var(--soda-dark-link-hover)) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+#issue-list :is(.issue-meta,.flex-item-trailing),
+.soda-milestone-row :is(.soda-milestone-activity,.soda-milestone-counts) {
+  color: var(--soda-page-muted);
+  font: 400 13px/1.5 Barlow, sans-serif;
+}
+
+#issue-list .flex-text-inline,
+.soda-milestone-row .flex-text-inline { gap: 4px; }
+
+#issue-list .flex-item-icon {
+  display: flex;
+  align-items: center;
+  align-self: start;
+  gap: 12px;
+  min-width: 20px;
+  padding-top: 4px;
+}
+#issue-list .flex-item-icon > svg { flex: none; width: 20px; height: 20px; }
+/* Native tw-mr-4 is enforced; the icon rail owns the checkbox gap here. */
+#issue-list .issue-checkbox { flex: none; margin: 0 !important; }
+#issue-list .flex-item-main { align-self: start; gap: 8px; }
+#issue-list .flex-item-header {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: start;
+  gap: 8px 24px;
+}
+#issue-list .flex-item-title { gap: 8px; }
+#issue-list .labels-list { max-width: 100%; }
+#issue-list .labels-list .label { white-space: normal; overflow-wrap: anywhere; }
+#issue-list .flex-item-trailing { gap: 8px 12px; padding-top: 4px; }
+#issue-list .issue-meta { gap: 8px 12px; }
+#issue-list .issue-meta > span:first-child { flex-basis: 100%; min-width: 0; }
+#issue-list .issue-meta > :is(.milestone,.project,.ref,.issue-meta-branch) { max-width: 100%; }
+#issue-list .issue-meta .branch { max-width: 100%; }
+#issue-list .issue-meta .branch a { display: flex; min-width: 0; }
+
+#issue-list .issue-meta .checklist progress,
+.soda-milestone-row progress {
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--soda-page-edge);
+  accent-color: var(--soda-page-link);
+}
+#issue-list .issue-meta .checklist progress::-webkit-progress-bar,
+.soda-milestone-row progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
+#issue-list .issue-meta .checklist progress::-webkit-progress-value,
+.soda-milestone-row progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
+#issue-list .issue-meta .checklist progress::-moz-progress-bar,
+.soda-milestone-row progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }
+
+@media (max-width: 600px) {
+  #issue-list .flex-item-header { grid-template-columns: minmax(0,1fr); }
+  #issue-list .flex-item-trailing { justify-content: start; padding-top: 0; }
 }
 
 .soda-page .ui.pagination.menu {
@@ -70,5 +170,5 @@
 }
 
 @media (max-width: 700px) {
-  .soda-list > :is(.flex-list,#issue-list,#activity-feed) > .flex-item { gap: 8px; }
+  .soda-list > :is(.flex-list:not(#issue-list),#activity-feed) > .flex-item { gap: 8px; }
 }

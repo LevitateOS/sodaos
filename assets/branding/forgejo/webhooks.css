@@ -57,3 +57,12 @@
   .soda-webhook-events { padding: 12px; }
   .soda-webhook-events .simple-grid { grid-template-columns: 1fr; padding: 16px; }
 }
+
+/* Personal editors use open field groups; controls retain their own boundaries. */
+.soda-settings-shell :is(.soda-webhook-events, .soda-webhook-events .simple-grid) {
+ padding: 0; border: 0; border-radius: 0; background: transparent;
+}
+.soda-settings-shell .soda-webhook-events > legend {
+ padding: 0; margin-bottom: 16px; font: var(--soda-font-heading);
+}
+.soda-settings-shell .soda-webhook-events .simple-grid > legend { padding-inline: 0; }

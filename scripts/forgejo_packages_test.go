@@ -11,7 +11,7 @@ import (
 
 func TestForgejoCodeSearchKeepsNativeSearchContext(t *testing.T) {
 	definition := `
-		{{define "base/head"}}head{{end}}
+		{{define "custom/soda/profile_block_dialog"}}{{end}}{{define "base/head"}}head{{end}}
 		{{define "base/footer"}}footer{{end}}
 		{{define "custom/explore_navbar"}}navbar/{{.Route}}{{end}}
 		{{define "shared/search/code/search"}}code-search/{{.Route}}/{{.CodeSearchPath}}{{end}}
@@ -51,7 +51,7 @@ func TestForgejoPackagesOwnerPagesRetainOrganizationAndUserBranches(t *testing.T
 		},
 	}
 	seams := `
-		{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}
+		{{define "custom/soda/profile_block_dialog"}}{{end}}{{define "base/head"}}{{end}}{{define "base/footer"}}{{end}}
 		{{define "org/header"}}org-header/{{.Owner}}{{end}}
 		{{define "shared/user/profile_big_avatar"}}avatar/{{.Owner}}{{end}}
 		{{define "user/overview/header"}}overview/{{.Owner}}{{end}}
@@ -90,7 +90,7 @@ func TestForgejoPackagesOwnerPagesRetainOrganizationAndUserBranches(t *testing.T
 						t.Fatalf("render %s %s page: %v", tt.name, tc.name, err)
 					}
 					output := rendered.String()
-					for _, want := range []string{tc.want, tt.leaf + "/" + data["Owner"].(string), `soda-page soda-packages`} {
+					for _, want := range []string{tc.want, tt.leaf + "/" + data["Owner"].(string), `soda-packages`} {
 						if !strings.Contains(output, want) {
 							t.Errorf("%s %s page lacks %q:\n%s", tt.name, tc.name, want, output)
 						}

@@ -1,0 +1,42 @@
+{{/* Adapted from Forgejo 15.0.7 templates/repo/settings/navbar.tmpl (GPL-3.0-or-later). Native destinations and visibility gates retained. */}}
+<nav class="soda-settings-nav" aria-label="{{ctx.Locale.Tr "repo.settings"}}">
+<button type="button" class="soda-settings-current" aria-expanded="true" aria-controls="soda-settings-destinations">{{.Title}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-destinations" class="soda-settings-destinations">
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-repository">{{ctx.Locale.Tr "repo.settings.options"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-repository" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "repo.settings.options"}}</span>
+<a href="{{.RepoLink}}/settings" {{if .PageIsSettingsOptions}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.options"}}</a>
+<span class="soda-settings-menu-label">{{ctx.Locale.Tr "repo.settings.units.units"}}</span>
+<a href="{{.RepoLink}}/settings/units" {{if .PageIsRepoSettingsUnits}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.units.overview"}}</a>
+<a href="{{.RepoLink}}/settings/units#issues">{{ctx.Locale.Tr "repo.issues"}}</a>
+<a href="{{.RepoLink}}/settings/units#pulls">{{ctx.Locale.Tr "repo.pulls"}}</a>
+<a href="{{.RepoLink}}/settings/units#wiki">{{ctx.Locale.Tr "repo.wiki"}}</a>
+{{if .Repository.UnitEnabled $.Context $.UnitTypeCode}}
+{{if not .Repository.IsEmpty}}<a href="{{.RepoLink}}/settings/branches" {{if .PageIsSettingsBranches}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.branches"}}</a>{{end}}
+<a href="{{.RepoLink}}/settings/tags" {{if .PageIsSettingsTags}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.tags"}}</a>
+{{if .LFSStartServer}}<a href="{{.RepoLink}}/settings/lfs" {{if .PageIsSettingsLFS}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.lfs"}}</a>{{end}}
+{{end}}
+</div></section>
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-access">{{ctx.Locale.Tr "soda.nav_access"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-access" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "soda.nav_access"}}</span>
+<a href="{{.RepoLink}}/settings/collaboration" {{if .PageIsSettingsCollaboration}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.collaboration"}}</a>
+{{if not DisableWebhooks}}<a href="{{.RepoLink}}/settings/hooks" {{if .PageIsSettingsHooks}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.hooks"}}</a>{{end}}
+{{if .Repository.UnitEnabled $.Context $.UnitTypeCode}}
+<a href="{{.RepoLink}}/settings/keys" {{if .PageIsSettingsKeys}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.deploy_keys"}}</a>
+{{if .SignedUser.CanEditGitHook}}<a href="{{.RepoLink}}/settings/hooks/git" {{if .PageIsSettingsGitHooks}}aria-current="page"{{end}}>{{ctx.Locale.Tr "repo.settings.githooks"}}</a>{{end}}
+{{end}}
+</div></section>
+{{if and .EnableActions (not .UnitActionsGlobalDisabled) (.Permission.CanRead $.UnitTypeActions)}}
+<section class="soda-settings-nav-group">
+<button type="button" class="soda-settings-nav-trigger" aria-expanded="true" aria-controls="soda-settings-actions">{{ctx.Locale.Tr "actions.actions"}} {{svg "octicon-chevron-down" 16}}</button>
+<div id="soda-settings-actions" class="soda-settings-menu">
+<span class="soda-settings-group-label">{{ctx.Locale.Tr "actions.actions"}}</span>
+<a href="{{.RepoLink}}/settings/actions/runners" {{if .PageIsSharedSettingsRunners}}aria-current="page"{{end}}>{{ctx.Locale.Tr "actions.runners"}}</a>
+<a href="{{.RepoLink}}/settings/actions/secrets" {{if .PageIsSharedSettingsSecrets}}aria-current="page"{{end}}>{{ctx.Locale.Tr "secrets.secrets"}}</a>
+<a href="{{.RepoLink}}/settings/actions/variables" {{if .PageIsSharedSettingsVariables}}aria-current="page"{{end}}>{{ctx.Locale.Tr "actions.variables"}}</a>
+</div></section>
+{{end}}
+</div></nav>

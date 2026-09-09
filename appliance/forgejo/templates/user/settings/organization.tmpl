@@ -36,7 +36,7 @@
 				</div>
 				{{template "base/paginate" .}}
 			{{else}}
-				{{ctx.Locale.Tr "settings.orgs_none"}}
+				<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-organization" "Title" (ctx.Locale.Tr "settings.orgs_none")}}</div>
 			{{end}}
 		</div>
 	</div>

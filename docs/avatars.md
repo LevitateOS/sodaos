@@ -100,7 +100,7 @@ route. A local integration rehearsal must explicitly provide a loopback candidat
 backend and proxy, name their ports/origin, preserve that container's data/mounts,
 and approve the native configuration/restart and avatar-fixture changes together.
 Do not put an unreachable appliance/private origin into the laptop preview.
-Use [`scripts/screenshot.mjs`](screenshot-capture.md) and its retained fixture
+Use [`scripts/screenshot.ts`](screenshot-capture.md) and its retained fixture
 profile for real Forgejo captures; artwork catalogs are not native UI evidence.
 
 To restore, first restore the previous provider URL/native setting values and

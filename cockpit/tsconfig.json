@@ -1,15 +1,21 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "types": ["node"],
-    "allowImportingTsExtensions": true
+    "types": [
+      "bun",
+      "node"
+    ]
   },
-  "include": ["src", "tests", "build", "vite.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "build",
+    "vite.config.ts"
+  ]
 }

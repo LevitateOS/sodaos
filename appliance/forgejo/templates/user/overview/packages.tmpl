@@ -9,19 +9,20 @@
 		</div>
 	</main>
 {{else}}
-	<main aria-label="{{.Title}}" class="page-content user profile packages soda-page soda-packages soda-packages-index" data-signed="{{.IsSigned}}">
+	<main aria-label="{{.Title}}" class="page-content user profile packages soda-page soda-profile soda-packages soda-packages-index" data-signed="{{.IsSigned}}">
 		<div class="ui container soda-page-container">
-			<div class="ui stackable grid">
-				<div class="ui four wide column soda-profile-card-context">
+			<div class="soda-profile-layout">
+				<div class="soda-profile-identity soda-profile-card-context">
 					{{template "shared/user/profile_big_avatar" .}}
 				</div>
-				<div class="ui twelve wide column tw-mb-4">
+				<div class="soda-profile-content">
 					{{template "user/overview/header" .}}
-					{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Package registry" "Title" (ctx.Locale.Tr "packages.title") "Description" "Published artifacts, ready for the next build." "Artwork" "personal-packages-papercraft.png" "Class" "soda-page-intro--compact"}}
+					<h2 class="soda-profile-task-title">{{ctx.Locale.Tr "packages.title"}}</h2>
 					{{template "package/shared/list" .}}
 				</div>
 			</div>
 		</div>
 	</main>
 {{end}}
+{{if not .ContextUser.IsOrganization}}{{template "custom/soda/profile_block_dialog" .}}{{end}}
 {{template "base/footer" .}}

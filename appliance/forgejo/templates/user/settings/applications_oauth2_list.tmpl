@@ -3,9 +3,9 @@
 {{define "user/settings/applications_oauth2_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <div class="ui attached segment soda-p-section">
 	<div class="flex-list">
-		<div class="flex-item">
+		{{if and $personal (not .Applications)}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-apps" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" (ctx.Locale.Tr "settings.oauth2_application_create_description")}}</div>{{else}}<div class="flex-item">
 			{{ctx.Locale.Tr "settings.oauth2_application_create_description"}}
-		</div>
+		</div>{{end}}
 		{{range .Applications}}
 			<div class="flex-item tw-items-center">
 				<div class="flex-item-leading">

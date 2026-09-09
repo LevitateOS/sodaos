@@ -22,7 +22,7 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
 		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
-		"inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
+		"inputs/package.json", "inputs/cockpit-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
 	paths = append(paths, forgejoFiles...)
 	for _, name := range paths {
@@ -76,7 +76,7 @@ func fixtureBundle(t *testing.T) string {
 		}
 	}
 	tools := map[string]string{}
-	for _, name := range []string{"go", "node", "pnpm", "podman", "python", "kernel"} {
+	for _, name := range []string{"go", "bun", "podman", "python", "kernel"} {
 		tools[name] = "synthetic fixture; not executed"
 	}
 	ids := map[string]any{}

@@ -43,16 +43,34 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 		{"repo/view_file.tmpl", "e2a59d99fab215d2a1b94def6b97380ff220c6aef7789d939ef372fbf2cd9af1", [][2]string{{" non-diff-file-content soda-code-file\"", " non-diff-file-content\""}}},
 		{"repo/view_list.tmpl", "f16a26c269c8bcd8699971cca3de2197b3d407bf9bb94a46b7030f410b253dc0", [][2]string{{"class=\"ui single line table tw-mt-0 soda-code-files\"", "class=\"ui single line table tw-mt-0\""}}},
 		{"repo/watchers.tmpl", "19350d7226014e63bfa7b9d12e48128e1f3d84ee8686f7603bc56e2c0f0b53e8", [][2]string{{"data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-browser page-content ", "class=\"page-content "}}},
-		{"shared/secrets/add_list.tmpl", "c5c7115161b6a2c3a21aab85385bbfed2214e73cd0dac3417a53b6ae50674a04", [][2]string{{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""}}},
-		{"shared/variables/variable_list.tmpl", "53adaccdeba06289d589f2d0da64e1acc382febd598c84043305302c7e88091d", [][2]string{{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""}}},
-		{"webhook/new.tmpl", "581de797cb9a2f83193985ec51e712f15fdd3e7c5008512ecfa114035623e73a", [][2]string{{`{{if not .PersonalSettings}}{{.CustomHeaderTitle}}{{end}}`, `{{.CustomHeaderTitle}}`}, {"class=\"ui top attached header soda-webhook-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-webhook-provider\"", "class=\"ui attached segment\""}}},
-		{"webhook/shared-settings.tmpl", "06576d36e3b23e919aebbae72cefa8743492d8478040928bf7ce47d0622a3fc6", [][2]string{{"class=\"event type soda-webhook-events\"", "class=\"event type\""}}},
+		{"shared/secrets/add_list.tmpl", "c5c7115161b6a2c3a21aab85385bbfed2214e73cd0dac3417a53b6ae50674a04", [][2]string{
+			{`{{if .SettingsPresentation}}{{template "shared/secrets/add_list_body" .}}{{else}}{{template "shared/secrets/add_list_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/secrets/add_list_body"}}{{$settings := .SettingsPresentation}}{{$ := .ctxData}}{{with .ctxData}}
+`, ""},
+			{`{{if $settings}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "secrets.none")}}</div>{{else}}{{ctx.Locale.Tr "secrets.none"}}{{end}}`, `{{ctx.Locale.Tr "secrets.none"}}`},
+			{"\n{{end}}{{end}}\n", "\n"},
+			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
+		}},
+		{"shared/variables/variable_list.tmpl", "53adaccdeba06289d589f2d0da64e1acc382febd598c84043305302c7e88091d", [][2]string{
+			{`{{if .SettingsPresentation}}{{template "shared/variables/variable_list_body" .}}{{else}}{{template "shared/variables/variable_list_body" (dict "ctxData" .)}}{{end}}
+{{define "shared/variables/variable_list_body"}}{{$settings := .SettingsPresentation}}{{$ := .ctxData}}{{with .ctxData}}
+`, ""},
+			{`{{if $settings}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-pencil" "Title" (ctx.Locale.Tr "actions.variables.none")}}</div>{{else}}{{ctx.Locale.Tr "actions.variables.none"}}{{end}}`, `{{ctx.Locale.Tr "actions.variables.none"}}`},
+			{"\n{{end}}{{end}}\n", "\n"},
+			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
+		}},
+		{"webhook/new.tmpl", "581de797cb9a2f83193985ec51e712f15fdd3e7c5008512ecfa114035623e73a", [][2]string{{`{{if not .SettingsPresentation}}{{.CustomHeaderTitle}}{{end}}`, `{{.CustomHeaderTitle}}`}, {"class=\"ui top attached header soda-webhook-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-webhook-provider\"", "class=\"ui attached segment\""}}},
+		{"webhook/shared-settings.tmpl", "06576d36e3b23e919aebbae72cefa8743492d8478040928bf7ce47d0622a3fc6", [][2]string{{"class=\"event type soda-webhook-events\"", "class=\"event type\""}, {"<legend class=\"soda-p-heading\">", "<legend>"}}},
 		{"repo/sub_menu.tmpl", "e9c1b52e5f0a8f766d4bec6897926db92a05f6c2f9147bc704ddf43664518b9e", [][2]string{{"class=\"soda-code-summary ui segments repository-summary", "class=\"ui segments repository-summary"}}},
 		{"repo/branch_dropdown.tmpl", "0d3a657b58fa06b24c459854d60cc49bf9a85b7fe0f167236321748d1c93cf41", [][2]string{{"class=\"soda-code-ref-selector js-branch-tag-selector ", "class=\"js-branch-tag-selector "}}},
 		{"repo/commit_header.tmpl", "83e7c16cf1701969474fe47c62c9f86c717d1611e0373c5b50ac48534f13a194", [][2]string{{"class=\"soda-code-commit-heading ui top attached header clearing segment tw-relative commit-header", "class=\"ui top attached header clearing segment tw-relative commit-header"}}},
 		{"repo/clone_buttons.tmpl", "909f391790b470a2156f0747dd3cb77da5a6702d41f675a3bc4394ea6e30f0bf", [][2]string{{"class=\"js-clone-url soda-code-clone-url\"", "class=\"js-clone-url\""}}},
 		{"repo/diff/box.tmpl", "6a252c2fb44ea9c1dfa0b4b9d22335598b96d560b6bdc8d6285314ba36723eb4", [][2]string{{"<div class=\"soda-code-diff\">", "<div>"}}},
-		{"shared/blocked_users_list.tmpl", "a677d1c59c5c158916f007da2a43161f5b4f615e75a540e8e75d38b92ea385e8", [][2]string{{"class=\"flex-list soda-blocked-users\"", "class=\"flex-list\""}}},
+		{"shared/blocked_users_list.tmpl", "a677d1c59c5c158916f007da2a43161f5b4f615e75a540e8e75d38b92ea385e8", [][2]string{{"class=\"flex-list soda-blocked-users\"", "class=\"flex-list\""}, {`<div class="soda-empty soda-empty--page">
+			{{template "custom/soda/empty_content" dict "Icon" "octicon-shield-check" "Title" (ctx.Locale.Tr "settings.blocked_users_none")}}
+		</div>`, `<div class="flex-item">
+			<span class="text grey italic">{{ctx.Locale.Tr "settings.blocked_users_none"}}</span>
+		</div>`}}},
 		{"shared/quota_overview.tmpl", "c408c33f3919a7a90724320b35b750b79261adff505fd1b6f2a1b9a4fd8909d1", [][2]string{{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-quota-overview\"", "class=\"ui attached segment\""}}},
 	}
 	for _, tc := range cases {

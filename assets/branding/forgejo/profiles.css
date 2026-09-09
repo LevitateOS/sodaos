@@ -1,86 +1,73 @@
-/* Owner profile components retain Forgejo's native identity, relationship and repository workflows. */
-.soda-profile {
-  padding-top: 32px;
-}
-
-.soda-profile .soda-profile-layout {
-  align-items: flex-start;
-}
-
+/* Public contributor pages: one compact identity header, native tab payloads.
+   The shared marker also survives native HTMX follow/block header morphs. */
+.soda-profile { padding-top: 24px; }
+.soda-profile-layout { display: block; }
+.soda-profile-content { min-width: 0; }
 .soda-profile-card-context #profile-avatar-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0,1fr) auto;
+  gap: 16px 24px;
+  align-items: start;
   width: 100%;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  /* Native profile action menus extend beyond the card. */
-  overflow: visible;
-}
-
-.soda-profile-card-context #profile-avatar-card > .content,
-.soda-profile-card-context #profile-avatar-card > .extra.content {
-  border-color: var(--soda-page-edge);
-}
-
-.soda-profile-card-context #profile-avatar-card .profile-avatar-name .header {
-  color: var(--soda-page-text);
-  font-family: "Fraunces Variable", Georgia, serif;
-  font-weight: 650;
-}
-
-.soda-profile-card-context #profile-avatar-card :is(.username, .muted, .extra.content, .extra.content a) {
-  color: var(--soda-page-muted);
-}
-
-.soda-profile-card-context #profile-avatar-card .actions.button-row {
-  border-color: var(--soda-page-edge);
-}
-
-.soda-profile .soda-profile-content > .soda-tabs {
-  width: 100%;
-  margin-bottom: 16px;
-}
-
-.soda-profile .soda-tabs .ui.label {
-  margin-left: 4px;
-  border: 0;
-  background: var(--soda-page-hover);
-  color: inherit;
-}
-
-.soda-profile #visibility-hint {
-  margin: 0 0 16px;
-  border-color: var(--soda-page-edge);
-  background: var(--soda-page-surface);
-  color: var(--soda-page-muted);
-}
-
-.soda-profile :is(#user-heatmap, #activity-feed, .user-cards, .soda-profile-readme) {
-  color: var(--soda-page-text);
-}
-
-.soda-profile #activity-feed,
-.soda-profile .soda-profile-readme,
-.soda-profile .user-cards {
+  margin: 0 0 24px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
+  overflow: visible;
 }
-
-.soda-profile .soda-profile-readme pre {
-  margin: 0;
-  overflow-x: auto;
-  color: var(--soda-page-text);
-}
-
-.soda-profile .user-cards .card {
-  border-color: var(--soda-page-edge);
-}
-
-@media (max-width: 767px) {
+.soda-profile-portrait :is(.image,img) { display: block; width: 72px; height: 72px; }
+.soda-profile-portrait img { border-radius: 8px; object-fit: cover; }
+.soda-profile-card-context .profile-avatar-name { min-width: 0; overflow-wrap: anywhere; }
+.soda-profile-card-context .profile-avatar-name h1 { margin: 0; color: var(--soda-page-text); font: var(--soda-font-title); }
+.soda-profile-card-context .profile-avatar-name .username { display: block; margin-top: 4px; color: var(--soda-page-muted); font: 400 14px/1.5 "IBM Plex Mono",monospace; }
+.soda-profile-bio { margin-top: 8px; color: var(--soda-page-muted); font: var(--soda-font-body); }
+.soda-profile-bio > :first-child { margin-top: 0; }
+.soda-profile-bio > :last-child { margin-bottom: 0; }
+.soda-profile-card-context .soda-profile-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin: 0; }
+.soda-profile-actions > .dropdown > summary { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; border-radius: 8px; color: var(--soda-page-muted); background: transparent; }
+.soda-profile-actions > .dropdown > summary:hover { background: var(--soda-page-hover); color: var(--soda-page-text); }
+.soda-profile-actions > .dropdown > .content { min-width: 220px; max-width: calc(100vw - 32px); }
+.soda-profile-card-context .soda-profile-details { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px 24px; min-width: 0; color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-profile-facts { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 8px 24px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.soda-profile-facts > li { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.soda-profile-facts > li > svg { flex: none; }
+.soda-profile-facts a { min-width: 0; overflow-wrap: anywhere; }
+.soda-profile-card-context :is(.user-orgs,.user-badges) { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.soda-profile-card-context .user-orgs a { display: flex; align-items: center; gap: 8px; }
+.soda-profile-card-context .user-orgs img { width: 24px; height: 24px; }
+.soda-profile-card-context .user-badges img { width: 32px; height: 32px; object-fit: contain; }
+.soda-profile-connections { min-width: 0; line-height: 24px; }
+.soda-profile-connections a { white-space: nowrap; }
+.soda-profile .soda-profile-content > .soda-tabs { width: 100%; margin-bottom: 24px; }
+.soda-profile .soda-tabs .ui.label { margin-left: 4px; border: 0; background: var(--soda-page-hover); color: inherit; }
+.soda-profile-task-title { margin: 0 0 16px; font: var(--soda-font-heading); }
+.soda-profile #visibility-hint { margin: 0 0 16px; color: var(--soda-page-muted); }
+.soda-profile :is(#user-heatmap,#activity-feed,.user-cards,.soda-profile-readme) { color: var(--soda-page-text); }
+.soda-profile :is(#activity-feed,.soda-profile-readme,.user-cards) { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.soda-profile .soda-profile-readme { max-width: 800px; }
+.soda-profile .soda-profile-readme pre { margin: 0; overflow-x: auto; color: var(--soda-page-text); }
+.soda-profile #user-heatmap + .divider { height: 0; border: 0; margin-block: 24px; }
+.soda-profile :is(.soda-profile-repositories,.stars) > .soda-toolbar > .divider { border: 0; margin: 0; }
+.soda-profile :is(.soda-profile-repositories,.stars) > .soda-toolbar { display: block; margin-bottom: 0; }
+.soda-profile :is(.soda-profile-repositories,.stars) .filter.menu { margin: 0; }
+.soda-profile .soda-profile-repo-list > .flex-item { padding: 24px 0 !important; gap: 12px; }
+.soda-profile .soda-profile-repo-list .flex-item-leading { padding-top: 4px; }
+.soda-profile .soda-profile-repo-list .flex-item-leading svg { width: 20px; height: 20px; }
+.soda-profile .soda-profile-repo-list .flex-item-main { gap: 8px; }
+.soda-profile .soda-profile-repo-list .flex-item-title { font: 600 20px/1.35 Barlow,sans-serif; }
+.soda-profile .soda-profile-repo-list .flex-item-body { font: 400 14px/1.5 Barlow,sans-serif; }
+.soda-profile .soda-profile-repo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: var(--soda-page-muted); font: 400 13px/1.5 Barlow,sans-serif; }
+.soda-profile .soda-profile-repo-meta .color-icon { margin-right: 0; }
+.soda-profile .user-cards .list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(260px,100%),1fr)); gap: 24px; }
+.soda-profile .user-cards .card { width: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+@media (max-width: 700px) {
   .soda-profile { padding-top: 16px; }
-  .soda-profile .soda-profile-identity,
-  .soda-profile .soda-profile-content { width: 100% !important; }
+  .soda-profile-card-context #profile-avatar-card { grid-template-columns: 56px minmax(0,1fr); gap: 12px 16px; margin-bottom: 16px; }
+  .soda-profile-portrait :is(.image,img) { width: 56px; height: 56px; }
+  .soda-profile-card-context .soda-profile-actions { grid-column: 2; flex-wrap: wrap; }
+  .soda-profile-card-context .soda-profile-details { gap: 8px; }
+  .soda-profile-facts { flex-basis: 100%; gap: 8px 16px; }
+  .soda-profile .soda-profile-content > .soda-tabs { margin-bottom: 16px; }
 }

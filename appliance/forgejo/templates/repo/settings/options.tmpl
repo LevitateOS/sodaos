@@ -1,15 +1,16 @@
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings options")}}
-	<div class="user-main-content twelve wide column soda-repo-settings-detail soda-repo-settings-options">
-		<h4 class="ui top attached header soda-p-heading">
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings options" "title" (ctx.Locale.Tr "repo.settings.options"))}}
+	<div class="user-main-content twelve wide column repo-setting-content soda-repo-settings-detail soda-repo-settings-options">
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.basic_settings"}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
-			<form class="ui form" action="{{.Link}}" method="post">
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<input type="hidden" name="action" value="update">
 				<div class="required field {{if .Err_RepoName}}error{{end}}">
 					<label>{{ctx.Locale.Tr "repo.repo_name"}}</label>
-					<input name="repo_name" value="{{.Repository.Name}}" data-repo-name="{{.Repository.Name}}" autofocus required>
+					<input name="repo_name" value="{{.Repository.Name}}" data-repo-name="{{.Repository.Name}}" required>
 				</div>
 				<div class="inline field">
 					<label>{{ctx.Locale.Tr "repo.repo_size"}}</label>
@@ -48,9 +49,13 @@
 					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
 				</div>
 			</form>
+		</div>
+		</section>
 
-			<div class="divider soda-p-gap"></div>
-			<form class="ui form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">{{ctx.Locale.Tr "settings.avatar"}}</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
 				<div class="inline field">
 					<label for="avatar">{{ctx.Locale.Tr "settings.choose_new_avatar"}}</label>
 					<input name="avatar" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
@@ -62,18 +67,21 @@
 				</div>
 			</form>
 		</div>
+		</section>
 
 		{{if FederationEnabled}}
-			<h4 class="ui top attached header soda-p-heading">
+			<section class="soda-settings-section">
+			<h2 class="soda-p-heading">
 				{{ctx.Locale.Tr "repo.settings.federation_settings"}}
-			</h4>
-			<div class="ui attached segment soda-p-section">
-				<form class="ui form" method="post">
+			</h2>
+			<div class="soda-settings-section-body">
+				<form class="ui form soda-p-form" method="post">
 					<input type="hidden" name="action" value="federation">
 					<div class="field {{if .Err_FollowingRepos}}error{{end}}">
-						<p>{{ctx.Locale.Tr "repo.settings.federation_apapiurl"}}</p>
-						<p><b>{{.RepositoryAPActorID}}</b></p>
-						<div class="divider soda-p-gap"></div>
+						<div class="ui info message soda-notice">
+							<p>{{ctx.Locale.Tr "repo.settings.federation_apapiurl"}}</p>
+							<p><b>{{.RepositoryAPActorID}}</b></p>
+						</div>
 						<label for="following_repos">{{ctx.Locale.Tr "repo.settings.federation_following_repos"}}</label>
 						<input id="following_repos" name="following_repos" value="{{.FollowingRepos}}">
 					</div>
@@ -82,6 +90,7 @@
 					</div>
 				</form>
 			</div>
+			</section>
 		{{end}}
 
 		{{/* These variables exist to make the logic in the Settings window easier to comprehend and are not used later on. */}}
@@ -96,15 +105,17 @@
 		{{$isWorkingPullMirror := .PullMirror}}
 
 		{{if $showMirrorSettings}}
-			<h4 class="ui top attached header soda-p-heading">
+			<section class="soda-settings-section">
+			<h2 class="soda-p-heading">
 				{{ctx.Locale.Tr "repo.settings.mirror_settings"}}
-			</h4>
-			<div class="ui attached segment soda-p-section">
+			</h2>
+			<div class="soda-settings-section-body">
 				{{if .Repository.IsArchived}}
-					<div class="ui warning message tw-text-center">
+					<div class="ui warning message soda-notice tw-text-center">
 						{{ctx.Locale.Tr "repo.settings.archive.mirrors_unavailable"}}
 					</div>
 				{{else}}
+					<div class="ui info message soda-notice">
 					{{if $newMirrorsEntirelyEnabled}}
 						{{ctx.Locale.Tr "repo.settings.mirror_settings.docs"}}
 						<a target="_blank" rel="noopener noreferrer" href="https://forgejo.org/docs/latest/user/repo-mirror#pushing-to-a-remote-repository">{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.doc_link_title"}}</a><br><br>
@@ -126,6 +137,7 @@
 					{{else}}
 						{{ctx.Locale.Tr "repo.settings.mirror_settings.docs.no_new_mirrors"}} {{ctx.Locale.Tr "repo.settings.mirror_settings.docs.can_still_use"}}<br>
 					{{end}}
+					</div>
 
 					{{if .Repository.IsMirror}}
 					<table class="ui table">
@@ -331,13 +343,15 @@
 					</table>
 				{{end}}
 			</div>
+			</section>
 		{{end}}
 
-		<h4 class="ui top attached header soda-p-heading">
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.signing_settings"}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
-			<form class="ui form" method="post">
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" method="post">
 				<input type="hidden" name="action" value="signing">
 				<div class="field">
 					<label>{{ctx.Locale.Tr "repo.settings.trust_model"}}</label><br>
@@ -370,20 +384,20 @@
 						</div>
 					</div>
 				</div>
-
-				<div class="divider soda-p-gap"></div>
 				<div class="field">
 					<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_settings"}}</button>
 				</div>
 			</form>
 		</div>
+		</section>
 
 		{{if .IsAdmin}}
-		<h4 class="ui top attached header soda-p-heading">
+		<section class="soda-settings-section">
+		<h2 class="soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.admin_settings"}}
-		</h4>
-		<div class="ui attached segment soda-p-section">
-			<form class="ui form" method="post">
+		</h2>
+		<div class="soda-settings-section-body">
+			<form class="ui form soda-p-form" method="post">
 				<input type="hidden" name="action" value="admin">
 				<div class="field">
 					<div class="ui checkbox">
@@ -397,11 +411,10 @@
 				</div>
 			</form>
 
-			<div class="divider soda-p-gap"></div>
-			<form class="ui form" method="post">
+			<form class="ui form soda-p-form tw-mt-6" method="post">
 				<input type="hidden" name="action" value="admin_index">
 				{{if .CodeIndexerEnabled}}
-					<h4 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_code_indexer"}}</h4>
+					<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_code_indexer"}}</h3>
 					<div class="inline fields">
 						<label>{{ctx.Locale.Tr "repo.settings.admin_indexer_commit_sha"}}</label>
 						<span class="field">
@@ -419,14 +432,14 @@
 					</div>
 				{{end}}
 
-				<h4 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.issue_indexer.title"}}</h4>
+				<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.issue_indexer.title"}}</h3>
 				<div class="inline fields">
 					<div class="field">
 						<button class="ui primary button" name="request_reindex_type" value="issues">{{ctx.Locale.Tr "repo.settings.reindex_button"}}</button>
 					</div>
 				</div>
 
-				<h4 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_stats_indexer"}}</h4>
+				<h3 class="ui header soda-p-heading">{{ctx.Locale.Tr "repo.settings.admin_stats_indexer"}}</h3>
 				<div class="inline fields">
 					{{if and .StatsIndexerStatus .StatsIndexerStatus.CommitSha}}
 						<label>{{ctx.Locale.Tr "repo.settings.admin_indexer_commit_sha"}}</label>
@@ -446,13 +459,16 @@
 				</div>
 			</form>
 		</div>
+		</section>
 		{{end}}
 
 		{{if .Permission.IsOwner}}
-		<h4 class="ui top attached error header soda-p-heading">
+		<section class="soda-settings-section soda-settings-danger">
+		<h2 class="ui error header soda-p-heading">
 			{{ctx.Locale.Tr "repo.settings.danger_zone"}}
-		</h4>
-		<div class="ui attached error danger segment">
+		</h2>
+		<div class="soda-settings-section-body">
+		<div class="ui error danger segment">
 			<div class="flex-list">
 				{{if .Repository.IsMirror}}
 					<div class="flex-item">
@@ -553,6 +569,8 @@
 				{{end}}
 			</div>
 		</div>
+		</div>
+		</section>
 		{{end}}
 	</div>
 {{template "repo/settings/layout_footer" .}}

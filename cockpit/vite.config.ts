@@ -1,7 +1,6 @@
 import { packageInventory } from "./build/assets.ts";
 import { licenses } from "./build/licenses.ts";
 import { defineConfig } from "vite-plus";
-import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const pages = ["tailscale", "runners"] as const;
@@ -14,7 +13,7 @@ export default defineConfig({
         "node_modules/@patternfly/patternfly/assets/fonts",
         family,
       );
-      return readdirSync(dir).map((file) => ({
+      return [...new Bun.Glob("*").scanSync({ cwd: dir, onlyFiles: true })].map((file) => ({
         find: `../../static/fonts/${file}`,
         replacement: resolve(dir, file),
       }));
@@ -22,7 +21,11 @@ export default defineConfig({
   },
   builder: {
     async buildApp(builder) {
-      for (const page of pages) await builder.build(builder.environments[page]);
+      for (const page of pages) {
+        const environment = builder.environments[page];
+        if (!environment) throw new Error(`Missing Cockpit build environment: ${page}`);
+        await builder.build(environment);
+      }
     },
   },
   environments: Object.fromEntries(
@@ -34,6 +37,7 @@ export default defineConfig({
           outDir: `dist/soda-${page}`,
           emptyOutDir: true,
           sourcemap: false,
+          minify: true,
           assetsInlineLimit: 0,
           rolldownOptions: { input: resolve(import.meta.dirname, `soda-${page}/index.html`) },
         },
@@ -44,12 +48,12 @@ export default defineConfig({
     {
       name: "soda-cockpit-package",
       enforce: "post",
-      writeBundle() {
-        packageInventory(resolve(import.meta.dirname, `dist/soda-${this.environment.name}`));
+      async writeBundle() {
+        await packageInventory(resolve(import.meta.dirname, `dist/soda-${this.environment.name}`));
       },
       generateBundle: {
         order: "post",
-        handler(_options, bundle) {
+        async handler(_options, bundle) {
           const page = this.environment.name;
           if (!pages.includes(page as (typeof pages)[number])) return;
           const path = `soda-${page}/index.html`;
@@ -62,12 +66,12 @@ export default defineConfig({
           this.emitFile({
             type: "asset",
             fileName: "manifest.json",
-            source: readFileSync(resolve(import.meta.dirname, `soda-${page}/manifest.json`)),
+            source: await Bun.file(resolve(import.meta.dirname, `soda-${page}/manifest.json`)).bytes(),
           });
           this.emitFile({
             type: "asset",
             fileName: "LICENSES.txt",
-            source: licenses(
+            source: await licenses(
               Object.values(bundle).flatMap((item) =>
                 item.type === "chunk" ? Object.keys(item.modules) : [],
               ),
@@ -83,9 +87,4 @@ export default defineConfig({
     ignorePatterns: ["vendor/**", "dist/**", "node_modules/**"],
   },
   fmt: { ignorePatterns: ["vendor/**", "dist/**", "node_modules/**", "soda-*/manifest.json"] },
-  test: {
-    include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.ts"],
-    environment: "node",
-    setupFiles: ["./tests/setup.ts"],
-  },
 });

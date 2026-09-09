@@ -16,12 +16,6 @@
 :is(#avatar-settings, #avatar-dialog) .ui.form > .field { margin: 0 0 16px; }
 :is(#avatar-settings, #avatar-dialog) .ui.form .radio.checkbox label { font-weight: 400; }
 :is(#avatar-settings, #avatar-dialog) .soda-avatar-upload > label { display: block; margin: 0 0 8px; }
-:is(#avatar-settings, #avatar-dialog) .ui.form input[type=file] {
- width: 100%; max-width: 100%; min-height: 44px; padding: 0;
- border: 0; border-radius: 0; background: transparent;
- font: var(--soda-font-meta); color: var(--soda-page-muted);
-}
-:is(#avatar-settings, #avatar-dialog) input[type=file]:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 4px; }
 :is(#avatar-settings, #avatar-dialog) .soda-avatar-upload .help { display: block; margin-top: 8px; font-size: 13px; line-height: 1.5; }
 :is(#avatar-settings, #avatar-dialog) .button-sequence { display: flex; flex-direction: column; align-items: start; gap: 4px; }
 :is(#avatar-settings, #avatar-dialog) .button-sequence .primary.button { width: auto; }
@@ -32,10 +26,9 @@
 }
 :is(#avatar-settings, #avatar-dialog) .button-sequence .danger.button:hover { text-decoration: underline; }
 :is(#avatar-settings, #avatar-dialog) .button-sequence .danger.button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.soda-settings-preference form:not([data-settings-checklist]) { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
-.soda-settings-preference form > .tw-mb-4 { flex-basis: 100%; }
-.soda-settings-preference form > .field { margin: 0 !important; flex: 1 1 240px; }
-.soda-settings-preference form > .field:has(> button) { flex: 0 1 auto; }
+/* Submissions follow their fields; header utilities remain with section titles. */
+.soda-settings-preference form:not([data-settings-checklist]) { display: block; }
+.soda-settings-preference form > .field { margin: 0 0 16px !important; }
 .soda-settings-preference .ui.email.list { margin: 0; }
 .soda-settings-preference .ui.email.list > .item { margin-bottom: 16px; }
 .soda-settings-preference [data-settings-checklist] { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 24px; }

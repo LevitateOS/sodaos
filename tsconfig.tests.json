@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "bun",
+      "node"
+    ]
+  },
+  "include": [
+    "tests/**/*.ts",
+    "appliance/forgejo/public/assets/terminal-vendor.d.ts",
+    "assets/branding/forgejo/forgejo-events.d.ts",
+    "internal/web/testdata/**/*.ts"
+  ]
+}

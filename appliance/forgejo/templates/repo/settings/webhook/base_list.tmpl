@@ -1,19 +1,19 @@
-{{if .PersonalSettings}}{{template "repo/settings/webhook/base_list_body" .}}{{else}}{{template "repo/settings/webhook/base_list_body" (dict "ctxData" .)}}{{end}}
-{{define "repo/settings/webhook/base_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
-<h4 class="ui top attached header soda-webhook-list-header soda-p-heading">
-	{{if not $personal}}{{.Title}}{{end}}
+{{if .SettingsPresentation}}{{template "repo/settings/webhook/base_list_body" .}}{{else}}{{template "repo/settings/webhook/base_list_body" (dict "ctxData" .)}}{{end}}
+{{define "repo/settings/webhook/base_list_body"}}{{$settings := .SettingsPresentation}}{{$ := .ctxData}}{{with .ctxData}}
+{{if $settings}}<div class="soda-toolbar soda-settings-inventory-actions">{{else}}<h4 class="ui top attached header soda-webhook-list-header soda-p-heading">{{end}}
+	{{if not $settings}}{{.Title}}{{end}}
 	<div class="ui right">
 		<div class="ui jump dropdown">
 			<div class="ui primary tiny button soda-p-compact">{{ctx.Locale.Tr "repo.settings.add_webhook"}}</div>
 			{{template "repo/settings/webhook/link_menu" .}}
 		</div>
 	</div>
-</h4>
+{{if $settings}}</div>{{else}}</h4>{{end}}
 <div class="ui attached segment soda-webhook-list soda-p-section">
 	<div class="ui list">
-		<div class="item">
+		{{if and $settings (not .Webhooks)}}<div class="soda-empty soda-empty--page">{{template "custom/soda/empty_content" dict "Icon" "octicon-webhook" "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" .Description}}</div>{{else}}<div class="item">
 			{{.Description}}
-		</div>
+		</div>{{end}}
 		{{range .Webhooks}}
 			<div class="item truncated-item-container">
 				<span class="text {{if eq .LastStatus 1}}green{{else if eq .LastStatus 2}}red{{else}}grey{{end}} tw-mr-2">{{svg "octicon-dot-fill" 22}}</span>

@@ -76,67 +76,7 @@
 			<div class="flex-container-main content">
 				<div class="milestone-list">
 					{{range .Milestones}}
-						<li class="milestone-card">
-							<div class="milestone-header">
-								<h3>
-									<span class="ui large label">
-										{{.Repo.FullName}}
-									</span>
-									{{svg "octicon-milestone" 16}}
-									<a class="muted" href="{{.Repo.Link}}/milestone/{{.ID}}">{{.Name}}</a>
-								</h3>
-								<div class="tw-flex tw-items-center">
-									<span class="tw-mr-2">{{.Completeness}}%</span>
-									<progress value="{{.Completeness}}" max="100"></progress>
-								</div>
-							</div>
-							<div class="milestone-toolbar">
-								<div class="group">
-									<div class="flex-text-block">
-										{{svg "octicon-issue-opened" 14}}
-										{{ctx.Locale.PrettyNumber .NumOpenIssues}}&nbsp;{{ctx.Locale.Tr "repo.issues.open_title"}}
-									</div>
-									<div class="flex-text-block">
-										{{svg "octicon-check" 14}}
-										{{ctx.Locale.PrettyNumber .NumClosedIssues}}&nbsp;{{ctx.Locale.Tr "repo.issues.closed_title"}}
-									</div>
-									{{if .TotalTrackedTime}}
-										<div class="flex-text-block">
-											{{svg "octicon-clock"}}
-											{{.TotalTrackedTime|Sec2Time}}
-										</div>
-									{{end}}
-									{{if .UpdatedUnix}}
-										<div class="flex-text-block">
-											{{svg "octicon-clock"}}
-											{{ctx.Locale.Tr "repo.milestones.update_ago" (DateUtils.TimeSince .UpdatedUnix)}}
-										</div>
-									{{end}}
-									<div class="flex-text-block">
-										{{if .IsClosed}}
-											{{$closedDate:= DateUtils.TimeSince .ClosedDateUnix}}
-											{{svg "octicon-clock" 14}}
-											{{ctx.Locale.Tr "repo.milestones.closed" $closedDate}}
-										{{else}}
-											{{if .DeadlineString}}
-												<span class="flex-text-inline {{if .IsOverdue}}text red{{end}}">
-													{{svg "octicon-calendar" 14}}
-													{{DateUtils.AbsoluteShort (.DeadlineString|DateUtils.ParseLegacy)}}
-												</span>
-											{{else}}
-												{{svg "octicon-calendar" 14}}
-												{{ctx.Locale.Tr "repo.milestones.no_due_date"}}
-											{{end}}
-										{{end}}
-									</div>
-								</div>
-							</div>
-							{{if .Content}}
-								<div class="markup content">
-									{{.RenderedContent}}
-								</div>
-							{{end}}
-						</li>
+						{{template "custom/soda/milestone_row" dict "Page" $ "Milestone" . "Link" (printf "%s/milestone/%d" .Repo.Link .ID) "RepositoryName" .Repo.FullName "Editable" false}}
                     {{else}}
                       <div class="soda-empty">{{template "custom/soda/empty_content" dict "Title" (ctx.Locale.Tr "repo.issues.filter_no_results") "Description" (ctx.Locale.Tr "repo.issues.filter_no_results_placeholder")}}</div>
                     {{end}}

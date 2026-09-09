@@ -1,0 +1,39 @@
+{{/* Native milestone values/actions adapted from Forgejo 15.0.7 user/dashboard/milestones.tmpl and repo/issue/milestones.tmpl (GPL-3.0-or-later). Only list-item presentation is shared here. */}}
+{{$page := .Page}}{{$link := .Link}}{{$repository := .RepositoryName}}{{$editable := .Editable}}
+{{with .Milestone}}
+<li class="milestone-card soda-milestone-row">
+	<div class="soda-milestone-main">
+		<h3 class="soda-milestone-name">{{svg "octicon-milestone" 20}}<a href="{{$link}}">{{.Name}}</a></h3>
+		{{with $repository}}<div class="soda-milestone-repository">{{.}}</div>{{end}}
+		{{if .Content}}<div class="markup soda-milestone-description">{{.RenderedContent}}</div>{{end}}
+		<div class="soda-milestone-activity">
+			{{if .TotalTrackedTime}}<span class="flex-text-inline">{{svg "octicon-clock" 14}}{{.TotalTrackedTime|Sec2Time}}</span>{{end}}
+			{{if .UpdatedUnix}}<span>{{ctx.Locale.Tr "repo.milestones.update_ago" (DateUtils.TimeSince .UpdatedUnix)}}</span>{{end}}
+		</div>
+	</div>
+	<div class="soda-milestone-deadline">
+		{{if .IsClosed}}
+			{{$closedDate:= DateUtils.TimeSince .ClosedDateUnix}}
+			<span class="flex-text-inline">{{svg "octicon-check" 16}}{{ctx.Locale.Tr "repo.milestones.closed" $closedDate}}</span>
+		{{else if .DeadlineString}}
+			<span class="flex-text-inline {{if .IsOverdue}}text red{{end}}">{{svg "octicon-calendar" 16}}{{DateUtils.AbsoluteShort (.DeadlineString|DateUtils.ParseLegacy)}}</span>
+		{{else}}
+			<span class="flex-text-inline">{{svg "octicon-calendar" 16}}{{ctx.Locale.Tr "repo.milestones.no_due_date"}}</span>
+		{{end}}
+	</div>
+	<div class="soda-milestone-progress">
+		<div class="soda-milestone-progress-value"><progress value="{{.Completeness}}" max="100" aria-label="{{.Name}}"></progress><span>{{.Completeness}}%</span></div>
+		<div class="soda-milestone-counts">
+			<span class="flex-text-inline">{{svg "octicon-issue-opened" 14}}{{ctx.Locale.PrettyNumber .NumOpenIssues}}&nbsp;{{ctx.Locale.Tr "repo.issues.open_title"}}</span>
+			<span class="flex-text-inline">{{svg "octicon-check" 14}}{{ctx.Locale.PrettyNumber .NumClosedIssues}}&nbsp;{{ctx.Locale.Tr "repo.issues.closed_title"}}</span>
+		</div>
+	</div>
+	{{if $editable}}
+		<div class="soda-milestone-actions">
+			<a class="flex-text-inline" href="{{$page.Link}}/{{.ID}}/edit">{{svg "octicon-pencil" 14}}{{ctx.Locale.Tr "repo.issues.label_edit"}}</a>
+			{{if .IsClosed}}<a class="link-action flex-text-inline" href data-url="{{$page.Link}}/{{.ID}}/open">{{svg "octicon-check" 14}}{{ctx.Locale.Tr "repo.milestones.open"}}</a>{{else}}<a class="link-action flex-text-inline" href data-url="{{$page.Link}}/{{.ID}}/close">{{svg "octicon-x" 14}}{{ctx.Locale.Tr "repo.milestones.close"}}</a>{{end}}
+			<a class="delete-button flex-text-inline" href="#" data-url="{{$page.RepoLink}}/milestones/delete" data-id="{{.ID}}" data-modal-id="delete-milestone">{{svg "octicon-trash" 14}}{{ctx.Locale.Tr "repo.issues.label_delete"}}</a>
+		</div>
+	{{end}}
+</li>
+{{end}}

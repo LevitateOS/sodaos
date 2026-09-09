@@ -415,6 +415,38 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
+      "template": "admin/queue.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [],
+      "nativeCalls": [
+        "admin/layout_footer"
+      ],
+      "roles": [
+        "soda-admin-monitoring",
+        "soda-admin-monitoring--queue",
+        "soda-monitoring-table",
+        "soda-p-heading",
+        "soda-p-section"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "03a57324dbd730ec40f2ebc22196c6c3651ef6defccb7cf0aa2ca18bee3b9ccb",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
       "template": "admin/queue_manage.tmpl",
       "composition": "operations",
       "owner": "admin",
@@ -446,38 +478,6 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "86cf51543ac17e0030d2584e66900712e0f6f17ce780838fb2428e0a722ba213",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
-      "template": "admin/queue.tmpl",
-      "composition": "operations",
-      "owner": "admin",
-      "callers": [],
-      "nativeCalls": [
-        "admin/layout_footer"
-      ],
-      "roles": [
-        "soda-admin-monitoring",
-        "soda-admin-monitoring--queue",
-        "soda-monitoring-table",
-        "soda-p-heading",
-        "soda-p-section"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "empty",
-        "populated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "03a57324dbd730ec40f2ebc22196c6c3651ef6defccb7cf0aa2ca18bee3b9ccb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -830,7 +830,9 @@
       "composition": "repository-workspace",
       "owner": "custom",
       "callers": [],
-      "nativeCalls": [],
+      "nativeCalls": [
+        "custom/soda/guest_theme"
+      ],
       "roles": [
         "soda-presentation-revision"
       ],
@@ -845,12 +847,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d0aa34586be8e0691f530308ad634391d676c4229aa7d400a6cff0082998960c",
+      "beforeRoleHash": "893394990e74d5fbac774430bd6c1b35e414f6f3d1d2c29e2a7f3374b2a26bcc",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul; mounted Sodaspaces styles; local component proof only"
+      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal styles; native privacy and handler contracts retained; combined native proof pending."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -858,10 +860,37 @@
       "owner": "custom",
       "callers": [
         "custom/explore_empty.tmpl",
+        "package/shared/cleanup_rules/list.tmpl",
+        "package/shared/cleanup_rules/preview.tmpl",
         "package/shared/list.tmpl",
+        "repo/settings/branches.tmpl",
+        "repo/settings/collaboration.tmpl",
+        "repo/settings/deploy_keys.tmpl",
+        "repo/settings/githooks.tmpl",
+        "repo/settings/lfs.tmpl",
+        "repo/settings/lfs_file_find.tmpl",
+        "repo/settings/lfs_locks.tmpl",
+        "repo/settings/lfs_pointers.tmpl",
+        "repo/settings/protected_branch.tmpl",
+        "repo/settings/tags.tmpl",
+        "repo/settings/webhook/base_list.tmpl",
+        "shared/actions/runner_list.tmpl",
+        "shared/blocked_users_list.tmpl",
+        "shared/secrets/add_list.tmpl",
+        "shared/variables/variable_list.tmpl",
         "user/dashboard/milestones.tmpl",
         "user/notification/notification_div.tmpl",
-        "user/notification/notification_subscriptions.tmpl"
+        "user/notification/notification_subscriptions.tmpl",
+        "user/settings/access_token_edit.tmpl",
+        "user/settings/applications.tmpl",
+        "user/settings/applications_oauth2_list.tmpl",
+        "user/settings/grants_oauth2.tmpl",
+        "user/settings/keys_gpg.tmpl",
+        "user/settings/keys_principal.tmpl",
+        "user/settings/keys_ssh.tmpl",
+        "user/settings/organization.tmpl",
+        "user/settings/repos.tmpl",
+        "user/settings/security/webauthn.tmpl"
       ],
       "nativeCalls": [],
       "roles": [
@@ -881,7 +910,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "91b2daddd839a1d308012136d8bd1cc3cf3c47c9496d2988ca275e975701d73d",
+      "beforeRoleHash": "9840ae1952c489b1d9bad177f44972d59f0072e83a60e9e25664f903cdb5863a",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -909,6 +938,50 @@
       "beforeRoleHash": "87aa8cd463786c85ddd3aafeceaaedb3a8e9c4fdb8e2332a174db0c2b8eaa03c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/milestone_row.tmpl",
+      "composition": "collection",
+      "owner": "milestones",
+      "callers": [
+        "repo/issue/milestones.tmpl",
+        "user/dashboard/milestones.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-milestone-actions",
+        "soda-milestone-activity",
+        "soda-milestone-counts",
+        "soda-milestone-deadline",
+        "soda-milestone-description",
+        "soda-milestone-main",
+        "soda-milestone-name",
+        "soda-milestone-progress",
+        "soda-milestone-progress-value",
+        "soda-milestone-repository",
+        "soda-milestone-row"
+      ],
+      "states": [
+        "open",
+        "closed",
+        "no-deadline",
+        "overdue",
+        "zero-completion",
+        "complete-issues-open-milestone",
+        "long-markdown",
+        "narrow",
+        "editable",
+        "read-only"
+      ],
+      "verification": {
+        "source": "shared row retains native counts, dates and action gates",
+        "native": "populated repository lists checked; global fixture empty",
+        "requiredStates": "editable native actions and populated global caller not exercised"
+      },
+      "beforeRoleHash": "35e75e15aecfbac1e2e8dc031dffb6b86bba3674064876089b1d0129306edf45",
+      "upstreamCallers": [],
+      "entryPoint": "shared presentation partial; global/repository milestones only",
+      "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
     },
     {
       "template": "custom/soda/notification_preview.tmpl",
@@ -1003,6 +1076,64 @@
       "beforeRoleHash": "554628eb1f910300b234304208822047e3de1be0f2fd5d827972f7ab9f1a339c",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
+    },
+    {
+      "template": "custom/soda/profile_block_dialog.tmpl",
+      "composition": "overview",
+      "owner": "profiles",
+      "callers": [
+        "org/projects/list.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "native hooks preserved; focused source checks",
+        "native": "see .artifacts/public-profile-redesign",
+        "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
+      },
+      "upstreamCallers": [],
+      "beforeRoleHash": "cd24899eada6d17f206a0d2bf3d3d76810a4368f6910520321653e0f6ed605a6",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
+    },
+    {
+      "template": "custom/soda/profile_repositories.tmpl",
+      "composition": "overview",
+      "owner": "profiles",
+      "callers": [
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/icon"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "native hooks preserved; focused source checks",
+        "native": "see .artifacts/public-profile-redesign",
+        "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
+      },
+      "upstreamCallers": [],
+      "beforeRoleHash": "49dd936325cc9a3673d76e9ecbfd9ec06cdcb1cb13495438593b75599eac28ff",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "custom/soda/theme_toggle.tmpl",
@@ -1187,8 +1318,8 @@
         "soda-home-primary",
         "soda-home-secondary",
         "soda-home-title",
-        "soda-logo-horizontal",
-        "soda-logo-horizontal-dark"
+        "soda-forge-logo-horizontal",
+        "soda-forge-logo-horizontal-dark"
       ],
       "states": [
         "light",
@@ -1201,7 +1332,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5e38c1293b121c29ccccaada2d112f19551e2a5396cea69c020f62b59141c451",
+      "beforeRoleHash": "ea2e0b91ed00dee65908992a8ef27ed80aa20b7b1b35a788a08298dff24f26ea",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -1460,8 +1591,14 @@
       "owner": "org",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "projects/list",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-org-projects",
@@ -1470,8 +1607,7 @@
         "soda-page",
         "soda-page-container",
         "soda-page-intro--compact",
-        "soda-profile-card-context",
-        "soda-user-projects-title"
+        "soda-profile-card-context"
       ],
       "states": [
         "light",
@@ -1484,9 +1620,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2f3eeb43ecb79f0116389e51c642964aa5b299be561794b532cfddda0635e6f8",
+      "beforeRoleHash": "120f4e7ff2ce44e21916887def2364650481c659ec45b6245df950eda9559a08",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "org/projects/new.tmpl",
@@ -1891,11 +2028,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "afd4282ee474b2ade6e29de297ff709ae9cc0668015974aadc21c6b8c8ac9cff",
+      "beforeRoleHash": "d1adeba776a8a68716a701dfd82bab065fb4fab30efce865e567b5402b899126",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "settings-feedback-empty-states-and-actions"
     },
     {
       "template": "package/shared/cleanup_rules/edit.tmpl",
@@ -1973,12 +2111,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d801895ab651c308174afcbe63b0eb04ba3556a25fa7b092b52ce53937d3214d",
+      "beforeRoleHash": "885ddf06793f8e0777814c84ce8fa9b6fee03173bdfe64f663e62b503edbb1c1",
       "upstreamCallers": [
         "org/settings/packages.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "settings-feedback-empty-states-and-actions"
     },
     {
       "template": "package/shared/cleanup_rules/preview.tmpl",
@@ -2009,12 +2147,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a071c1f7f10e74df1a035f8e269b06780f6cb0c03641aa8c421ffd3ab0635649",
+      "beforeRoleHash": "70bfe0e651d0b98960b1e6c32d1d84cb867c9717fc1e7819f67394263fdd3188",
       "upstreamCallers": [
         "org/settings/packages_cleanup_rules_preview.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "package/shared/cleanup_rules/preview_body"
       ]
@@ -2389,34 +2527,6 @@
       "entryPoint": "shared partial"
     },
     {
-      "template": "repo/actions/list_inner.tmpl",
-      "composition": "collection",
-      "owner": "repo",
-      "callers": [
-        "repo/actions/list.tmpl"
-      ],
-      "nativeCalls": [],
-      "roles": [
-        "soda-code-workflows"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "empty",
-        "populated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "82005b007e9fd331aa0003120facc56445099df2208d311009e45ad352dcc440",
-      "upstreamCallers": [],
-      "entryPoint": "shared partial"
-    },
-    {
       "template": "repo/actions/list.tmpl",
       "composition": "collection",
       "owner": "repo",
@@ -2445,6 +2555,34 @@
       "beforeRoleHash": "3076e5db6d7ff3e795af2e195cb6f46fbd10accab0b39e0f494f8f61847ee682",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/actions/list_inner.tmpl",
+      "composition": "collection",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/list.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-workflows"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "82005b007e9fd331aa0003120facc56445099df2208d311009e45ad352dcc440",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
     },
     {
       "template": "repo/actions/no_workflows.tmpl",
@@ -2580,37 +2718,6 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
-      "template": "repo/branch_dropdown.tmpl",
-      "composition": "repository-workspace",
-      "owner": "repo",
-      "callers": [
-        "repo/actions/dispatch.tmpl",
-        "repo/commit_header.tmpl",
-        "repo/commits.tmpl",
-        "repo/home.tmpl",
-        "repo/release/list.tmpl",
-        "repo/search.tmpl"
-      ],
-      "nativeCalls": [],
-      "roles": [
-        "soda-code-ref-selector"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "aca747c60f3b6a6b2f82aa9dc7a680f4f39806b36b69e9aecbfde584cb0be44b",
-      "upstreamCallers": [],
-      "entryPoint": "shared partial"
-    },
-    {
       "template": "repo/branch/list.tmpl",
       "composition": "collection",
       "owner": "repo",
@@ -2658,6 +2765,37 @@
       "beforeRoleHash": "00adf2447ddfbfc74d431f60ab451a7b39c9d62ecd108453ade78392f9ba9257",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "repo/branch_dropdown.tmpl",
+      "composition": "repository-workspace",
+      "owner": "repo",
+      "callers": [
+        "repo/actions/dispatch.tmpl",
+        "repo/commit_header.tmpl",
+        "repo/commits.tmpl",
+        "repo/home.tmpl",
+        "repo/release/list.tmpl",
+        "repo/search.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-code-ref-selector"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "aca747c60f3b6a6b2f82aa9dc7a680f4f39806b36b69e9aecbfde584cb0be44b",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
     },
     {
       "template": "repo/clone_buttons.tmpl",
@@ -2756,6 +2894,37 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
+      "template": "repo/commits.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/head",
+        "base/footer"
+      ],
+      "roles": [
+        "soda-code",
+        "soda-code-browser",
+        "soda-p-toolbar",
+        "soda-page",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "7acc6a70ca642b131aa6fdb69b11f24450578978f86ffcb9b9c1e8c13bab2ba3",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
       "template": "repo/commits_list.tmpl",
       "composition": "detail",
       "owner": "repo",
@@ -2824,37 +2993,6 @@
       "beforeRoleHash": "87fd2662c14c00d1e4a92a4031a1b502a946bb3469c9e1074d37b95031e9f2b3",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
-    },
-    {
-      "template": "repo/commits.tmpl",
-      "composition": "detail",
-      "owner": "repo",
-      "callers": [],
-      "nativeCalls": [
-        "base/head",
-        "base/footer"
-      ],
-      "roles": [
-        "soda-code",
-        "soda-code-browser",
-        "soda-p-toolbar",
-        "soda-page",
-        "soda-toolbar"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "7acc6a70ca642b131aa6fdb69b11f24450578978f86ffcb9b9c1e8c13bab2ba3",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
       "template": "repo/create.tmpl",
@@ -3694,13 +3832,13 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/head",
         "base/alert",
-        "repo/issue/search",
-        "repo/issue/filters",
-        "base/paginate",
+        "base/footer",
+        "base/head",
         "base/modal_actions_confirm",
-        "base/footer"
+        "base/paginate",
+        "repo/issue/filters",
+        "repo/issue/search"
       ],
       "roles": [
         "soda-milestone-list",
@@ -3724,9 +3862,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f380417349773c9e11381b29d5a67007a7e80bf9d9909665a94b5869b92a20b5",
+      "beforeRoleHash": "b4a03a86abb884efd8c3ad9f5ee18ddbc2f73f00e92a23a346263a7d4e07e2a1",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
     },
     {
       "template": "repo/issue/navbar.tmpl",
@@ -4226,43 +4365,6 @@
       "entryPoint": "shared partial"
     },
     {
-      "template": "repo/release_tag_header.tmpl",
-      "composition": "detail",
-      "owner": "repo",
-      "callers": [
-        "repo/release/list.tmpl",
-        "repo/tag/list.tmpl"
-      ],
-      "nativeCalls": [
-        "shared/search/combo"
-      ],
-      "roles": [
-        "soda-p-gap",
-        "soda-p-toolbar",
-        "soda-tabs",
-        "soda-toolbar"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "focus",
-        "error",
-        "disabled",
-        "conditional-fields",
-        "permission-gated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "837c2d235920c72769727aa3fd397fa2f0f656721d79cf7c667a810e798150f0",
-      "upstreamCallers": [],
-      "entryPoint": "shared partial"
-    },
-    {
       "template": "repo/release/list.tmpl",
       "composition": "collection",
       "owner": "repo",
@@ -4343,6 +4445,43 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
+      "template": "repo/release_tag_header.tmpl",
+      "composition": "detail",
+      "owner": "repo",
+      "callers": [
+        "repo/release/list.tmpl",
+        "repo/tag/list.tmpl"
+      ],
+      "nativeCalls": [
+        "shared/search/combo"
+      ],
+      "roles": [
+        "soda-p-gap",
+        "soda-p-toolbar",
+        "soda-tabs",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "837c2d235920c72769727aa3fd397fa2f0f656721d79cf7c667a810e798150f0",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
+    },
+    {
       "template": "repo/search.tmpl",
       "composition": "detail",
       "owner": "repo",
@@ -4377,9 +4516,7 @@
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-actions",
         "soda-repo-settings-detail"
@@ -4391,13 +4528,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ea5ddcab1c9d09ba5938897c5157f8f79b8acbe40604ddb736834536494e5511",
+      "beforeRoleHash": "71624b9fa91d6813e3b1773cc23d4e5f4e7b430cc6e547145208200df67e527a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/branches.tmpl",
@@ -4405,14 +4543,20 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
         "soda-p-section",
         "soda-repo-settings-branches",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
       ],
       "states": [
         "light",
@@ -4427,13 +4571,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c3fe32cb1833fb6337adcba411d8e66e0f7648eb294df6dc42bed5275191525f",
+      "beforeRoleHash": "f4156a9407f17d0dab65ea54db185c7a962c2fa4ae55195da69e72619d2dd7e4",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/collaboration.tmpl",
@@ -4442,14 +4587,23 @@
       "callers": [],
       "nativeCalls": [
         "shared/user/name",
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-empty--page",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
         "soda-p-section",
+        "soda-p-toolbar",
         "soda-repo-settings-collaboration",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-actions",
+        "soda-settings-inventory-heading",
+        "soda-settings-section",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4465,13 +4619,15 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "044fa54c382a0c42e25838cd4d952f1de2dc541e8623934b48cf85b2826105bf",
+      "beforeRoleHash": "6a1684def7d64dbeb230e15fdfb82be1037bee0f97264d30bfd6d4fcd4207505",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native collaborator and team-search autofocus is intentionally removed on this ordinary landing page."
     },
     {
       "template": "repo/settings/deploy_keys.tmpl",
@@ -4479,14 +4635,19 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
+        "soda-p-toolbar",
         "soda-repo-settings-deploy-keys",
-        "soda-repo-settings-detail"
+        "soda-repo-settings-detail",
+        "soda-settings-inventory-actions",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4501,13 +4662,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c97ebd63802193262a68d7cf8c5d24857695aae39781ae6d16c1d619b333b243",
+      "beforeRoleHash": "8270df18ea9fc314e09e92889fc80c5c040f432b91a3c63cd8fcd09b296a6e3f",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/githook_edit.tmpl",
@@ -4515,14 +4677,15 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "shared/codemirror_container",
-        "repo/settings/layout_footer"
+        "shared/codemirror_container"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-githook-edit"
+        "soda-repo-settings-githook-edit",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4535,24 +4698,25 @@
         "conditional-fields"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5d31883389f573ba1dfe29cd9a0a240f3d2e70287c6a61bba7ffca71d6ea7eaa",
+      "beforeRoleHash": "2e4d2f3a3fb6dfa8cd6f87eff59811892248485fcb5471133761cbffefcd8f9d",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/githooks.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-notice",
         "soda-p-section",
         "soda-repo-settings-detail",
         "soda-repo-settings-githooks"
@@ -4566,13 +4730,62 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8423c3e708748d04fd57d8a95a5390300e917518444a914d2ed0e7353389c9db",
+      "beforeRoleHash": "21b7e5afb3abf73b91ab3865345e84564a8049a6ec861b8ce635d465eef8a986",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/layout_footer.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/actions.tmpl",
+        "repo/settings/branches.tmpl",
+        "repo/settings/collaboration.tmpl",
+        "repo/settings/deploy_keys.tmpl",
+        "repo/settings/githook_edit.tmpl",
+        "repo/settings/githooks.tmpl",
+        "repo/settings/lfs.tmpl",
+        "repo/settings/lfs_file.tmpl",
+        "repo/settings/lfs_file_find.tmpl",
+        "repo/settings/lfs_locks.tmpl",
+        "repo/settings/lfs_pointers.tmpl",
+        "repo/settings/options.tmpl",
+        "repo/settings/protected_branch.tmpl",
+        "repo/settings/runner_create.tmpl",
+        "repo/settings/runner_details.tmpl",
+        "repo/settings/runner_edit.tmpl",
+        "repo/settings/runner_setup.tmpl",
+        "repo/settings/secrets.tmpl",
+        "repo/settings/tags.tmpl",
+        "repo/settings/units.tmpl",
+        "repo/settings/webhook/base.tmpl",
+        "repo/settings/webhook/new.tmpl"
+      ],
+      "nativeCalls": [
+        "base/footer"
+      ],
+      "roles": [],
+      "states": [
+        "dark",
+        "light",
+        "narrow",
+        "no-javascript"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "82a9156c5e7285423d5a853934403d36914e9a7db761f8e4a6a142dd2ba448cc",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/layout_head.tmpl",
@@ -4604,14 +4817,20 @@
       ],
       "nativeCalls": [
         "base/head",
-        "repo/settings/navbar",
         "base/alert"
       ],
       "roles": [
         "soda-native-forms",
+        "soda-p-title",
         "soda-page",
+        "soda-page-container",
+        "soda-repo-settings-bar",
         "soda-repository-settings",
-        "soda-settings-layout"
+        "soda-settings-bar",
+        "soda-settings-layout",
+        "soda-settings-parent",
+        "soda-settings-shell",
+        "soda-settings-title"
       ],
       "states": [
         "light",
@@ -4620,144 +4839,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "548488e2d9b092643b1b7586d25a495fe945d2e653c1767233c250d452d10bec",
+      "beforeRoleHash": "def385e8d54d424574d1d667121b16e1706bff2479dde4b1294d59cac61455e8",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
-    },
-    {
-      "template": "repo/settings/lfs_file_find.tmpl",
-      "composition": "settings",
-      "owner": "repo",
-      "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
-      "roles": [
-        "soda-p-heading",
-        "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-file-find"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "empty",
-        "populated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "3e01b869f72938aaa99d57ea53ccb407230ea7151248e895db67d6fc10550586",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
-      "template": "repo/settings/lfs_file.tmpl",
-      "composition": "settings",
-      "owner": "repo",
-      "callers": [],
-      "nativeCalls": [
-        "repo/unicode_escape_prompt",
-        "repo/settings/layout_footer"
-      ],
-      "roles": [
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-file"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "601ef230c1e246b85539fb6f32f866e8fb45acf262e1fddde1ee9f9119242259",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
-      "template": "repo/settings/lfs_locks.tmpl",
-      "composition": "settings",
-      "owner": "repo",
-      "callers": [],
-      "nativeCalls": [
-        "base/paginate",
-        "repo/settings/layout_footer"
-      ],
-      "roles": [
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-locks"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "focus",
-        "error",
-        "disabled",
-        "conditional-fields",
-        "empty",
-        "populated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "a8d70a7eeaf47cf1a44ac22d44784ae089454dc812f6b6da8f5479290eb1957f",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
-      "template": "repo/settings/lfs_pointers.tmpl",
-      "composition": "settings",
-      "owner": "repo",
-      "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
-      "roles": [
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-repo-settings-detail",
-        "soda-repo-settings-lfs-pointers"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "focus",
-        "error",
-        "disabled",
-        "conditional-fields",
-        "empty",
-        "populated"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "df7ef096bb1700faf8f848cfbe9e23374cdbc1878bcc300d053ff985a969d24d",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/lfs.tmpl",
@@ -4766,13 +4855,17 @@
       "callers": [],
       "nativeCalls": [
         "base/paginate",
-        "base/modal_actions_confirm",
-        "repo/settings/layout_footer"
+        "base/modal_actions_confirm"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--page",
+        "soda-p-toolbar",
         "soda-repo-settings-detail",
-        "soda-repo-settings-lfs"
+        "soda-repo-settings-lfs",
+        "soda-settings-inventory-actions",
+        "soda-settings-table-scroll",
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -4787,13 +4880,196 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ffec31c77c3151d5a3192e54000450adbb0ee27ffdf46dfa43f63c76028d46e3",
+      "beforeRoleHash": "d32bb9476504a63cead5627df586f7fd4cfb4c6963e672767454eb897efd53de",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/lfs_file.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "repo/unicode_escape_prompt"
+      ],
+      "roles": [
+        "soda-p-section",
+        "soda-p-toolbar",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-file",
+        "soda-settings-inventory-actions",
+        "soda-toolbar"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "acaefde6fd9eb72c8ba857c653d42263106b8abf676663a293729044e5393c67",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/lfs_file_find.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-empty",
+        "soda-empty--page",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-file-find",
+        "soda-settings-table-scroll"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "d594f81c3167e35a20a95527eb13cbc8d92792831ae4ec0770774d90ea5ba11a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/lfs_locks.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [
+        "base/paginate"
+      ],
+      "roles": [
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-p-form",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-locks",
+        "soda-settings-table-scroll"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "348f7c648582a61fa42522b5a3fae5e41233b72d79d82740af366b75d9605d1e",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/lfs_pointers.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-empty",
+        "soda-empty--page",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-repo-settings-detail",
+        "soda-repo-settings-lfs-pointers",
+        "soda-settings-inventory-heading",
+        "soda-settings-table-scroll"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "bd4ef361e14e62be0fcdc9295cadd17d72c7f7edc575a8a3b5720bd263a548c9",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/navbar.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/layout_head.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-settings-access",
+        "soda-settings-actions",
+        "soda-settings-current",
+        "soda-settings-destinations",
+        "soda-settings-group-label",
+        "soda-settings-menu",
+        "soda-settings-menu-label",
+        "soda-settings-nav",
+        "soda-settings-nav-group",
+        "soda-settings-nav-trigger",
+        "soda-settings-repository"
+      ],
+      "states": [
+        "dark",
+        "desktop-menu",
+        "feature-gates",
+        "keyboard-focus-return",
+        "light",
+        "mobile-all-destinations",
+        "narrow",
+        "no-javascript",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "1b3809b0c2290b703d44ef6c9b7c116ada96f7333ded439580231d1c5430c8da",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/options.tmpl",
@@ -4804,15 +5080,17 @@
         "base/disable_form_autofill",
         "base/disable_form_autofill",
         "base/disable_form_autofill",
-        "repo/settings/layout_footer",
         "repo/settings/push_mirror_sync_modal"
       ],
       "roles": [
-        "soda-p-gap",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-options"
+        "soda-repo-settings-options",
+        "soda-settings-danger",
+        "soda-settings-section",
+        "soda-settings-section-body"
       ],
       "states": [
         "light",
@@ -4828,13 +5106,15 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9a785460bdc89ed49511a0700232801d4fa6263f7792a39c1737c4fa974c6b05",
+      "beforeRoleHash": "98078cb003db17889e1868485b7678697e7165ae23c2a7c040792e6512e4c865",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native repo-name autofocus is intentionally removed on the ordinary settings landing page."
     },
     {
       "template": "repo/settings/protected_branch.tmpl",
@@ -4844,13 +5124,17 @@
       "nativeCalls": [
         "repo/search_name",
         "repo/search_name",
-        "repo/search_name",
-        "repo/settings/layout_footer"
+        "repo/search_name"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-form-section",
+        "soda-p-form",
         "soda-repo-settings-detail",
-        "soda-repo-settings-protected-branch"
+        "soda-repo-settings-protected-branch",
+        "soda-settings-editor",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -4865,25 +5149,25 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ad75022b2ab9dba5e9c13c876a99f1edd6a0b673166096ad98ff2cd96cc306ec",
+      "beforeRoleHash": "fbab630a0062534d78b57b201891119039a4bffa572896ddb404d11ae89fb93a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_create.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-create"
+        "soda-repo-settings-runner-create",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4892,22 +5176,21 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "dcf4b3d535bd703e298ab072c674b18b6a601f19b6da0577d7bb3b3499b223eb",
+      "beforeRoleHash": "59c9fcad792205cbb8e06194c45b0ddc50d057a7d75abf14be16d219e5da1b0a",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_details.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-runner-details"
@@ -4919,25 +5202,25 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bfd0fa4291c9c68aad621225b00fc484f0566526a8a31ea3eda6acdb5803e58e",
+      "beforeRoleHash": "2912358e649398e6341a03343b8f5d6c97e3ed70d0c7f2cb1d1af169542a39f3",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_edit.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-edit"
+        "soda-repo-settings-runner-edit",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4946,25 +5229,25 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0bdd839f3a9db2ce4ee6c9370563f3cb58ee09532224776fb92ed6b398d3a5cc",
+      "beforeRoleHash": "87c0137451a8ad55a3d6aab95231b0e82b3d85d711ee130ac36e733fa7bebc37",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/runner_setup.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-runner-setup"
+        "soda-repo-settings-runner-setup",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -4973,22 +5256,21 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b4eb24a418ab9d58cb1bdcd9bb2a0b655067631fd95079757750c5197516eac1",
+      "beforeRoleHash": "ef4b68eac7e44c3bace0fb18d485ecbb1e08656265ae9186cde6ac9b0e301442",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/secrets.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-secrets"
@@ -5000,13 +5282,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "304182b7b4e50cd34d05f1ec8090afe97ec50a57a28eed91f94bef5c335e7d03",
+      "beforeRoleHash": "2398ddc1e4cc4937854700cd24755c22161da64519d418c9f4e2da028b0b3d75",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/tags.tmpl",
@@ -5014,14 +5297,18 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "repo/search_name",
-        "repo/settings/layout_footer"
+        "repo/search_name"
       ],
       "roles": [
-        "soda-p-heading",
+        "soda-empty",
+        "soda-empty--compact",
+        "soda-notice",
+        "soda-p-form",
         "soda-p-section",
         "soda-repo-settings-detail",
-        "soda-repo-settings-tags"
+        "soda-repo-settings-tags",
+        "soda-settings-editor",
+        "soda-settings-table-scroll"
       ],
       "states": [
         "light",
@@ -5036,26 +5323,22 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "63af84a2bb3f25d7246cdeadb64a90b0de16704618a2f7b5a0b762d753f06df2",
+      "beforeRoleHash": "7f4219186a018db2fb70ed65acad4aa123de5d431b50b2e6982de05af631cfb3",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "presentationDelta": "Native create-page autofocus is intentionally removed; edit-tag autofocus is retained."
     },
     {
       "template": "repo/settings/units.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/units/overview",
-        "repo/settings/units/issues",
-        "repo/settings/units/pulls",
-        "repo/settings/units/wiki",
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
         "soda-repo-settings-units"
@@ -5071,54 +5354,148 @@
         "conditional-fields"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "200027a136a07ffb5d9df48a66fdacd7b5b17a9ee626fa918e6a5b5553598484",
+      "beforeRoleHash": "1fe1795e03360fb67763d72e7bf1e80df6352052a3bb978d2fdfa7e267a66596",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
-      "template": "repo/settings/webhook/base_list.tmpl",
+      "template": "repo/settings/units/issues.tmpl",
       "composition": "settings",
       "owner": "repo",
       "callers": [
-        "user/settings/hooks.tmpl"
+        "repo/settings/units.tmpl"
       ],
-      "nativeCalls": [
-        "repo/settings/webhook/link_menu"
-      ],
+      "nativeCalls": [],
       "roles": [
-        "soda-webhook-list-header",
         "soda-p-heading",
-        "soda-p-compact",
-        "soda-webhook-list",
-        "soda-p-section"
+        "soda-settings-section",
+        "soda-settings-section-body"
       ],
       "states": [
         "light",
         "dark",
         "narrow",
         "long-content",
-        "empty",
-        "populated"
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
       ],
       "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1f73108fac00a74e1ab4b9ad1e02bc8e163d12777cb6342104edf14d4ad98d0e",
-      "upstreamCallers": [
-        "admin/hooks.tmpl",
-        "repo/settings/webhook/list.tmpl"
-      ],
+      "beforeRoleHash": "badd64cf513ebe15365d15e4e935619c69e2978b4cde85810c506b1cbe036323",
+      "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
-      "definedPartials": [
-        "repo/settings/webhook/base_list_body"
-      ]
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/overview.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notice",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "a9b279611ec08b83c5e576c3f9e7ebd162409011290f8a63358f8a22b459f05e",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/pulls.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-notice",
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "1f3bb17a8d4dbaf530cab2e3b918ad49b9abc85dff803f0520874a7d0410e5c0",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/units/wiki.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/units.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-settings-section",
+        "soda-settings-section-body"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "09bc26551ba34f40c93b4325e4908e7c48d16402c8884d9f7bb139e239ff8435",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/settings/webhook/base.tmpl",
@@ -5126,8 +5503,7 @@
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
-        "repo/settings/webhook/list",
-        "repo/settings/layout_footer"
+        "repo/settings/webhook/delete_modal"
       ],
       "roles": [
         "soda-repo-settings-detail",
@@ -5140,13 +5516,60 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8f0439bf40433c0635135129727ee4ecfe246f5e11e7cb080a4487891ddba2a8",
+      "beforeRoleHash": "2241520a9ba9808d16cb0e6d70902a3fd5bff57d5dae1783fcefe2e116bf6cda",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
+    },
+    {
+      "template": "repo/settings/webhook/base_list.tmpl",
+      "composition": "settings",
+      "owner": "repo",
+      "callers": [
+        "repo/settings/webhook/base.tmpl",
+        "user/settings/hooks.tmpl"
+      ],
+      "nativeCalls": [
+        "repo/settings/webhook/link_menu"
+      ],
+      "roles": [
+        "soda-empty",
+        "soda-empty--page",
+        "soda-p-compact",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-settings-inventory-actions",
+        "soda-toolbar",
+        "soda-webhook-list",
+        "soda-webhook-list-header"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "empty",
+        "populated"
+      ],
+      "verification": {
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "8dd6d82320157e86376b8559f94f283a4d06a95d732a45aae2ffa667a6607de2",
+      "upstreamCallers": [
+        "admin/hooks.tmpl",
+        "repo/settings/webhook/list.tmpl"
+      ],
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-structural-overhaul",
+      "definedPartials": [
+        "repo/settings/webhook/base_list_body"
+      ]
     },
     {
       "template": "repo/settings/webhook/history.tmpl",
@@ -5177,7 +5600,7 @@
       ],
       "verification": {
         "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "faa65a38907fcac618176e4143933fd43f92825b4da6ff3127ea7d76d998c2f9",
@@ -5189,12 +5612,11 @@
       "composition": "settings",
       "owner": "repo",
       "callers": [],
-      "nativeCalls": [
-        "repo/settings/layout_footer"
-      ],
+      "nativeCalls": [],
       "roles": [
         "soda-repo-settings-detail",
-        "soda-repo-settings-webhook-new"
+        "soda-repo-settings-webhook-new",
+        "soda-settings-editor"
       ],
       "states": [
         "light",
@@ -5203,13 +5625,14 @@
         "long-content"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
+        "source": "repository-settings native contract snapshot covers 26 templates; navigation source checks cover 256 gate combinations",
+        "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "472631b8414031feeaa39f8f134d55624e69fcb99e69b92508fe8cca222c3ce3",
+      "beforeRoleHash": "c966f0baa7bdf15639e0cd7587bf9afeda34b9065e555311c9251618ba51abaa",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-structural-overhaul"
     },
     {
       "template": "repo/sub_menu.tmpl",
@@ -5607,10 +6030,12 @@
       ],
       "nativeCalls": [],
       "roles": [
-        "soda-shared-runner",
-        "soda-shared-runner-create",
+        "soda-form-section",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-form"
+        "soda-p-section",
+        "soda-shared-runner",
+        "soda-shared-runner-create"
       ],
       "states": [
         "light",
@@ -5627,13 +6052,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4c7bd383d59a39381c1161cbdd88b5f5c8df7907593fcdb2d9770fa4d663662e",
+      "beforeRoleHash": "679ce3877d982f42ccd72fca7bcb5bef346307589bc90ad68792a35252f43cbf",
       "upstreamCallers": [
         "admin/runners/create.tmpl",
         "org/settings/runners_create.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_create_body"
       ]
@@ -5650,9 +6075,11 @@
         "base/paginate"
       ],
       "roles": [
+        "soda-p-heading",
+        "soda-settings-inventory-actions",
         "soda-shared-runner",
         "soda-shared-runner-details",
-        "soda-p-heading"
+        "soda-toolbar"
       ],
       "states": [
         "light",
@@ -5668,13 +6095,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2987f78272d36cbd3366d24ca99271095aef43ac0e26cc0ce1a9b5ece31e6fa7",
+      "beforeRoleHash": "dfb31ee184618697677cbf5650ba110c718bfbbf6a881ec8e6e0137eda6bd80b",
       "upstreamCallers": [
         "admin/runners/details.tmpl",
         "org/settings/runners_details.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_details_body"
       ]
@@ -5689,10 +6116,12 @@
       ],
       "nativeCalls": [],
       "roles": [
-        "soda-shared-runner",
-        "soda-shared-runner-edit",
+        "soda-form-section",
+        "soda-p-form",
         "soda-p-heading",
-        "soda-p-form"
+        "soda-p-section",
+        "soda-shared-runner",
+        "soda-shared-runner-edit"
       ],
       "states": [
         "light",
@@ -5709,13 +6138,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4388a56c8ae0d64fdcb0f5f8ab0478b8232a3e86f2af40db3a96b2df8d0f31d0",
+      "beforeRoleHash": "63a69201916e052a8592cf53ed316e2c52d732877f5ee40b75ea24ce6fa094d6",
       "upstreamCallers": [
         "admin/runners/edit.tmpl",
         "org/settings/runners_edit.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_edit_body"
       ]
@@ -5734,6 +6163,8 @@
         "base/modal_actions_confirm"
       ],
       "roles": [
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-gap",
         "soda-p-heading",
         "soda-shared-runner",
@@ -5757,12 +6188,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a81ef9b4cea2a5c0a4ce032bf7a1f37562483d2b42ce5ca72ab47cc6eb440c43",
+      "beforeRoleHash": "e8fa157aef8a11276e0e4b810bdc51339c777ee30bbe736d55f5754b39786117",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "shared/actions/runner_setup.tmpl",
@@ -5774,9 +6206,10 @@
       ],
       "nativeCalls": [],
       "roles": [
+        "soda-notice",
+        "soda-p-heading",
         "soda-shared-runner",
-        "soda-shared-runner-setup",
-        "soda-p-heading"
+        "soda-shared-runner-setup"
       ],
       "states": [
         "light",
@@ -5789,13 +6222,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "03569d874a091fbee14ee6efb0dea829b2d92f88af54b43ff4ee5a7c6997326c",
+      "beforeRoleHash": "34410eebd11a8d28b42c762c4237300451437a9b1182e84d712a896d940cb843",
       "upstreamCallers": [
         "admin/runners/setup.tmpl",
         "org/settings/runners_setup.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "definedPartials": [
         "shared/actions/runner_setup_body"
       ]
@@ -5830,11 +6263,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4f8bf39599178e8c7bceba1f0940b5fcfdf43768e6a0e05f6861e655e1186944",
+      "beforeRoleHash": "e7bcc5a79353b528c3c7bfe862bfb61e285b47ef09c3b49ce562ed6e375a49a6",
       "upstreamCallers": [
         "org/settings/blocked_users.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "tonal-empty-page-and-section-states"
     },
     {
       "template": "shared/quota_overview.tmpl",
@@ -5884,6 +6318,8 @@
       "roles": [
         "soda-config-heading",
         "soda-config-list",
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-heading"
       ],
       "states": [
@@ -5903,11 +6339,45 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3cc76cfaee46cc811a558e0db168aba07aea04a1eff836bb4e51a0ce5e3ca58f",
+      "beforeRoleHash": "2db72607941fcd0298055584979f97e0dabfa18d4a9b068b9278bfde2faf7a4f",
       "upstreamCallers": [
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-shared-presentation-adapter"
+    },
+    {
+      "template": "shared/user/profile_big_avatar.tmpl",
+      "composition": "overview",
+      "owner": "user",
+      "callers": [
+        "org/projects/list.tmpl",
+        "user/code.tmpl",
+        "user/overview/package_versions.tmpl",
+        "user/overview/packages.tmpl",
+        "user/profile.tmpl"
+      ],
+      "nativeCalls": [
+        "base/alert",
+        "shared/user/actions_menu"
+      ],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "signed-in",
+        "signed-out",
+        "populated-profile",
+        "follow-actions"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "verified read-only public fixture profile capture; populated pronoun state covered by exact-native display delta"
+      },
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained.",
+      "upstreamCallers": [],
+      "beforeRoleHash": "4476d7f4d3f72490f5632c3c8212f461901106d96d40381b2e325ae0ed596759"
     },
     {
       "template": "shared/variables/variable_list.tmpl",
@@ -5923,6 +6393,8 @@
       "roles": [
         "soda-config-heading",
         "soda-config-list",
+        "soda-empty",
+        "soda-empty--compact",
         "soda-p-heading"
       ],
       "states": [
@@ -5942,12 +6414,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f619ed6d73ff4062087e3e74c61e83ad0123593239bc9aab9e13296cbb523542",
+      "beforeRoleHash": "6ddfe974f2a43d71da49bf20477970a61bd2945e53e3136602b915c93f0a943b",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "status/404.tmpl",
@@ -6117,37 +6590,6 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
-      "template": "user/auth/grant_error.tmpl",
-      "composition": "focused-task",
-      "owner": "user",
-      "callers": [],
-      "nativeCalls": [
-        "base/head",
-        "base/footer"
-      ],
-      "roles": [
-        "soda-federated-auth",
-        "soda-federated-auth--error",
-        "soda-p-section",
-        "soda-p-title",
-        "soda-page"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "898efaab9433bb5042c20fa2fb0be34e8b0f439f121484d9c4cdee31e6e50629",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
       "template": "user/auth/grant.tmpl",
       "composition": "focused-task",
       "owner": "user",
@@ -6180,6 +6622,37 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "2a45de15b60ba31da129044c10bf9c6bb2317bea7a0abfee76785fc8fe1dab89",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/grant_error.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/head",
+        "base/footer"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--error",
+        "soda-p-section",
+        "soda-p-title",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "898efaab9433bb5042c20fa2fb0be34e8b0f439f121484d9c4cdee31e6e50629",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6289,45 +6762,6 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
-      "template": "user/auth/signin_openid.tmpl",
-      "composition": "focused-task",
-      "owner": "user",
-      "callers": [],
-      "nativeCalls": [
-        "base/head",
-        "base/alert",
-        "user/auth/webauthn_error",
-        "base/footer"
-      ],
-      "roles": [
-        "soda-federated-auth",
-        "soda-federated-auth--openid-signin",
-        "soda-p-form",
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-page",
-        "soda-theme-toggle"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "focus",
-        "error",
-        "disabled",
-        "conditional-fields"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "a7ae7b69c8cdaeab30e65910da764fcc7282c0ea90847f7203c012621f61338c",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
       "template": "user/auth/signin.tmpl",
       "composition": "focused-task",
       "owner": "user",
@@ -6372,6 +6806,75 @@
         ]
       },
       "beforeRoleHash": "2c16689be8c78eb66c7e88e64878e43fd9233e77691c89ce92bb8a424bd0273a",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signin_openid.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/head",
+        "base/alert",
+        "user/auth/webauthn_error",
+        "base/footer"
+      ],
+      "roles": [
+        "soda-federated-auth",
+        "soda-federated-auth--openid-signin",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-page",
+        "soda-theme-toggle"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "a7ae7b69c8cdaeab30e65910da764fcc7282c0ea90847f7203c012621f61338c",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+    },
+    {
+      "template": "user/auth/signup.tmpl",
+      "composition": "focused-task",
+      "owner": "user",
+      "callers": [],
+      "nativeCalls": [
+        "base/head",
+        "user/auth/signup_inner",
+        "base/footer"
+      ],
+      "roles": [
+        "soda-auth",
+        "soda-native-forms",
+        "soda-page"
+      ],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content"
+      ],
+      "verification": {
+        "source": "passed role-preservation and focused source checks",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "73c2d050b6da1faa551b90324ea1fee1e718ec1d4428fe61f25fe82c025a1eb4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6455,32 +6958,39 @@
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
     {
-      "template": "user/auth/signup.tmpl",
+      "template": "user/auth/twofa.tmpl",
       "composition": "focused-task",
       "owner": "user",
       "callers": [],
       "nativeCalls": [
         "base/head",
-        "user/auth/signup_inner",
+        "base/alert",
         "base/footer"
       ],
       "roles": [
         "soda-auth",
         "soda-native-forms",
+        "soda-p-form",
+        "soda-p-heading",
+        "soda-p-section",
         "soda-page"
       ],
       "states": [
         "light",
         "dark",
         "narrow",
-        "long-content"
+        "long-content",
+        "focus",
+        "error",
+        "disabled",
+        "conditional-fields"
       ],
       "verification": {
         "source": "passed role-preservation and focused source checks",
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "73c2d050b6da1faa551b90324ea1fee1e718ec1d4428fe61f25fe82c025a1eb4",
+      "beforeRoleHash": "0f0c345db8ecb80fa13a6b6ace3eab72287b79aa12b614ac10f2eafdd013be38",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6518,43 +7028,6 @@
         "requiredStates": "not all verified"
       },
       "beforeRoleHash": "0f54356a1388e6cf57b3e9e68384bd8250618bc55028ec159ab20c5edd0126b2",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
-    },
-    {
-      "template": "user/auth/twofa.tmpl",
-      "composition": "focused-task",
-      "owner": "user",
-      "callers": [],
-      "nativeCalls": [
-        "base/head",
-        "base/alert",
-        "base/footer"
-      ],
-      "roles": [
-        "soda-auth",
-        "soda-native-forms",
-        "soda-p-form",
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-page"
-      ],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "focus",
-        "error",
-        "disabled",
-        "conditional-fields"
-      ],
-      "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "0f0c345db8ecb80fa13a6b6ace3eab72287b79aa12b614ac10f2eafdd013be38",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6597,10 +7070,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
         "shared/search/code/search",
-        "shared/search/code/search",
-        "base/footer"
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-code-search",
@@ -6626,9 +7103,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e4255ba5d015eabbebeac710a745c763638b178c7575cef2d82fd902505bcd8b",
+      "beforeRoleHash": "f9555000f6a8d234bd85edf6d7627248aaed64ec9f877ac8cccdbdcdf5cc909f",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/dashboard/dashboard.tmpl",
@@ -6738,12 +7216,12 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
-        "base/head",
         "base/alert",
-        "shared/search/combo",
-        "user/dashboard/navbar",
+        "base/footer",
+        "base/head",
         "base/paginate",
-        "base/footer"
+        "shared/search/combo",
+        "user/dashboard/navbar"
       ],
       "roles": [
         "soda-context-switcher",
@@ -6774,9 +7252,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "53ff1a61932955c4c175b82d11bec25b8a9d478b867487db2045bce1108eb249",
+      "beforeRoleHash": "1609159dca716d5573a71a4a95f3edb31b72567e868a24bf1fb126ebf3842c40",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
     },
     {
       "template": "user/notification/notification_div.tmpl",
@@ -6910,8 +7389,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "package/shared/versionlist",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-package-versions",
@@ -6933,9 +7418,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "85701dab07509e053f67feaf177b91bc56e8bf10be5d40e8b0e3749f60e483e3",
+      "beforeRoleHash": "2fe2d1e95b094383450b8e3e3183d02b529b8105bacbb69ba55ebbf38bfe6ee2",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/overview/packages.tmpl",
@@ -6943,8 +7429,14 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
+        "base/footer",
         "base/head",
-        "base/footer"
+        "custom/soda/page_intro",
+        "custom/soda/profile_block_dialog",
+        "org/header",
+        "package/shared/list",
+        "shared/user/profile_big_avatar",
+        "user/overview/header"
       ],
       "roles": [
         "soda-packages",
@@ -6966,9 +7458,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8adf68cd15e613a6b51cc9be75d3135500613e9e4fa8023c0cd234b3574c262a",
+      "beforeRoleHash": "1fff8f869262d011c86f1a768a5d811ad1e1940b8dbc9214fb9c5b3afb3df2a6",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/profile.tmpl",
@@ -6976,18 +7469,18 @@
       "owner": "user",
       "callers": [],
       "nativeCalls": [
-        "base/head",
         "base/alert",
-        "user/heatmap",
+        "base/footer",
+        "base/head",
+        "base/paginate",
+        "custom/soda/profile_block_dialog",
+        "custom/soda/profile_repositories",
+        "repo/user_cards",
+        "shared/repo_search",
+        "shared/user/profile_big_avatar",
         "user/dashboard/feeds",
-        "shared/repo_search",
-        "explore/repo_list",
-        "base/paginate",
-        "shared/repo_search",
-        "explore/repo_list",
-        "base/paginate",
-        "base/modal_actions_confirm",
-        "base/footer"
+        "user/heatmap",
+        "user/overview/header"
       ],
       "roles": [
         "soda-list",
@@ -7021,9 +7514,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/008.png"
         ]
       },
-      "beforeRoleHash": "c6536c90eb132197aed5362f0d36545ce51399a2c7402b2ec1a88c45a45281b3",
+      "beforeRoleHash": "ce37eec0342612a1b8d5561afb8c576c01cfb15847abd59b2f0391d415b7e8b9",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
       "template": "user/settings/access_token_edit.tmpl",
@@ -7063,10 +7557,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4826761db766a04ed34f296e2399924ae4484be74077eb465a75905c437db8a6",
+      "beforeRoleHash": "1f9c373199723624cfa2fbcdc7499dfa8faa2f67eeff74b4eeba6956ced6ba43",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -7086,7 +7580,6 @@
         "soda-account-details",
         "soda-account-details--account",
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-section",
         "soda-p-form",
@@ -7111,10 +7604,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "24b5f287ad1dea68331db4ecb35ebe1193d755a567e18c1dafc3a2b6912c3cf6",
+      "beforeRoleHash": "6c7ee4ffd89b96f8dd6ac43dd5ac55fda3ea568aa94c2409bf14b6c765f6c4f3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "section-headings-above-content",
       "taskComposition": "explanation and controls"
     },
     {
@@ -7143,8 +7636,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "e472bebd78aa4bde0ba4b6e74adb1dcd6fc6406e99124806e6ee7a678782fff0",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "42996d036ea945a127b79f01715d3dfcb2069a0b8ad1ec92c59af16c9ec1b7d5",
       "taskComposition": "native operations"
     },
     {
@@ -7159,7 +7652,6 @@
         "soda-account-details",
         "soda-account-details--appearance",
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-preference",
         "soda-settings-section-body",
         "soda-p-section",
@@ -7181,11 +7673,130 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a2a35f397c94710a0d6851d7c8f18ad9740798faa1d3d6d35d394b6a742fd0a6",
+      "beforeRoleHash": "4f884955d74eeedbffacc3cd79ae45486afaf29e2c0f73b01d8fcb7634415617",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "section-headings-above-content",
+      "taskComposition": "preference rows"
+    },
+    {
+      "template": "user/settings/applications.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "callers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm",
+        "base/modal_actions_confirm"
+      ],
+      "roles": [
+        "soda-account-details-page",
+        "soda-account-details-page--applications",
+        "soda-account-details",
+        "soda-account-details--applications",
+        "soda-settings-inventory-heading",
+        "soda-p-heading",
+        "soda-p-compact",
+        "soda-p-section"
+      ],
+      "states": [
+        "builtin-app",
+        "dark",
+        "empty",
+        "light",
+        "narrow",
+        "oauth-disabled",
+        "populated",
+        "registration-open",
+        "scope-disclosure",
+        "selection-pagination",
+        "server-error"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "4b524d0089e485273bf2688970026b071ff06b03d0d1e81c31ef207a4bea26ee",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "taskComposition": "credential inventory / focused editor"
+    },
+    {
+      "template": "user/settings/applications_oauth2.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "roles": [
+        "soda-settings-inventory-heading",
+        "soda-p-heading"
+      ],
+      "states": [
+        "builtin-app",
+        "dark",
+        "empty",
+        "light",
+        "narrow",
+        "oauth-disabled",
+        "populated",
+        "registration-open",
+        "scope-disclosure",
+        "selection-pagination",
+        "server-error"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "coverage recorded in personal settings review",
+        "requiredStates": "access-dependent states remain"
+      },
+      "entryPoint": "native handler or partial",
+      "callers": [
+        "user/settings/applications.tmpl"
+      ],
+      "upstreamCallers": [],
+      "nativeCalls": [],
+      "presentationReview": "personal-settings-structural-overhaul",
+      "beforeRoleHash": "e2374b2b418489220164d31b0d5771b120c9675b00c634ef3d1d69f2915a8966",
+      "definedPartials": [
+        "user/settings/applications_oauth2_body"
+      ],
+      "taskComposition": "credential inventory / focused editor"
+    },
+    {
+      "template": "user/settings/applications_oauth2_edit.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-details-page",
+        "soda-account-details-page--oauth2-edit",
+        "soda-settings-editor",
+        "soda-account-details",
+        "soda-account-details--oauth2-edit"
+      ],
+      "states": [
+        "builtin-app",
+        "dark",
+        "empty",
+        "light",
+        "narrow",
+        "oauth-disabled",
+        "populated",
+        "registration-open",
+        "scope-disclosure",
+        "selection-pagination",
+        "server-error"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "b1d4f804ec70ecdfa60f0bb60fb578f93de487e667feaf3ab0dd6eda1c44fb8c",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
-      "taskComposition": "preference rows"
+      "taskComposition": "credential inventory / focused editor"
     },
     {
       "template": "user/settings/applications_oauth2_edit_form.tmpl",
@@ -7232,43 +7843,6 @@
       "taskComposition": "credential inventory / focused editor"
     },
     {
-      "template": "user/settings/applications_oauth2_edit.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "callers": [],
-      "nativeCalls": [],
-      "roles": [
-        "soda-account-details-page",
-        "soda-account-details-page--oauth2-edit",
-        "soda-settings-editor",
-        "soda-account-details",
-        "soda-account-details--oauth2-edit"
-      ],
-      "states": [
-        "builtin-app",
-        "dark",
-        "empty",
-        "light",
-        "narrow",
-        "oauth-disabled",
-        "populated",
-        "registration-open",
-        "scope-disclosure",
-        "selection-pagination",
-        "server-error"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "b1d4f804ec70ecdfa60f0bb60fb578f93de487e667feaf3ab0dd6eda1c44fb8c",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
-      "taskComposition": "credential inventory / focused editor"
-    },
-    {
       "template": "user/settings/applications_oauth2_list.tmpl",
       "composition": "settings",
       "owner": "personal-settings",
@@ -7307,97 +7881,15 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c9911dd789bc737aeeaa0874837fadf51ce9729c76715f975678bae97af787f6",
+      "beforeRoleHash": "57978774ab22720c3dc9269275dbd8ffc0db44aca5993968189d56d3cd96587f",
       "upstreamCallers": [
         "org/settings/applications.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
       "definedPartials": [
         "user/settings/applications_oauth2_list_body"
       ],
-      "taskComposition": "credential inventory / focused editor"
-    },
-    {
-      "template": "user/settings/applications_oauth2.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "roles": [
-        "soda-settings-inventory-heading",
-        "soda-p-heading"
-      ],
-      "states": [
-        "builtin-app",
-        "dark",
-        "empty",
-        "light",
-        "narrow",
-        "oauth-disabled",
-        "populated",
-        "registration-open",
-        "scope-disclosure",
-        "selection-pagination",
-        "server-error"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "coverage recorded in personal settings review",
-        "requiredStates": "access-dependent states remain"
-      },
-      "entryPoint": "native handler or partial",
-      "callers": [
-        "user/settings/applications.tmpl"
-      ],
-      "upstreamCallers": [],
-      "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "e2374b2b418489220164d31b0d5771b120c9675b00c634ef3d1d69f2915a8966",
-      "definedPartials": [
-        "user/settings/applications_oauth2_body"
-      ],
-      "taskComposition": "credential inventory / focused editor"
-    },
-    {
-      "template": "user/settings/applications.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "callers": [],
-      "nativeCalls": [
-        "base/modal_actions_confirm",
-        "base/modal_actions_confirm"
-      ],
-      "roles": [
-        "soda-account-details-page",
-        "soda-account-details-page--applications",
-        "soda-account-details",
-        "soda-account-details--applications",
-        "soda-settings-inventory-heading",
-        "soda-p-heading",
-        "soda-p-compact",
-        "soda-p-section"
-      ],
-      "states": [
-        "builtin-app",
-        "dark",
-        "empty",
-        "light",
-        "narrow",
-        "oauth-disabled",
-        "populated",
-        "registration-open",
-        "scope-disclosure",
-        "selection-pagination",
-        "server-error"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "64db4c1c0b9772b738d98cdfcd3320b5f228cc11eba95e2f78c6a68f141adbb6",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -7463,8 +7955,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "29aebedafe4d3210e38070f9b14137a191071432a822451695a8d2d88b13402f",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "4baeec7c3e1a826d7072cb79574cbc2654998021ae720d06a7bf12dd17b7018d",
       "taskComposition": "inventory"
     },
     {
@@ -7496,8 +7988,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "ded3b2795bb78e22a7e641dd8141c327c24d9df60842cdda3f37f4fd2c588079",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "b8fd7b9be60aaaa230032386f8c0e7e1f571f0572d45cdb8654f9d666435cbba",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -7527,11 +8019,46 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f9b32dee737bb33eb4adda6627b2a5e54bdc545ed3d7841d1531cf149f03f3f4",
+      "beforeRoleHash": "e1c068a394af78c32a1a68b54994af624269b9fb6436f9eeafb96076c1be8af1",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "taskComposition": "inventory / focused editor"
+    },
+    {
+      "template": "user/settings/keys.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-account-details-page",
+        "soda-account-details-page--keys",
+        "soda-account-details",
+        "soda-account-details--keys"
+      ],
+      "states": [
+        "add-panel-open",
+        "dark",
+        "empty",
+        "expired-key",
+        "external-key",
+        "light",
+        "narrow",
+        "populated",
+        "ssh-disabled",
+        "verification-challenge"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "15ca73e32e652169f38c3c2fd51b0877d024cd24b76f642638d32957bff4c26b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
-      "taskComposition": "inventory / focused editor"
+      "taskComposition": "inventory"
     },
     {
       "template": "user/settings/keys_gpg.tmpl",
@@ -7570,8 +8097,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "79817dbd32d062b04552712a30d326c0e07b0cc8636fdcc06b9fadce15ac0b28",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "50be7820b9de680e7ae522fd041181303b78873639a022fb2fcc17201e4ec166",
       "taskComposition": "inventory"
     },
     {
@@ -7611,8 +8138,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "140401919a7616a204a4d003bce09119d53075c1eae478e2bd7bbf38c171acc4",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "3c365be0b88339617ecfdb3285b7e83602e096a168ec02135d5301f76da19917",
       "taskComposition": "inventory"
     },
     {
@@ -7652,43 +8179,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "d083ecb494ad1528ddfb7f640bc26b9e971ef284c1958dfa2e39a289db212c46",
-      "taskComposition": "inventory"
-    },
-    {
-      "template": "user/settings/keys.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "callers": [],
-      "nativeCalls": [],
-      "roles": [
-        "soda-account-details-page",
-        "soda-account-details-page--keys",
-        "soda-account-details",
-        "soda-account-details--keys"
-      ],
-      "states": [
-        "add-panel-open",
-        "dark",
-        "empty",
-        "expired-key",
-        "external-key",
-        "light",
-        "narrow",
-        "populated",
-        "ssh-disabled",
-        "verification-challenge"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "15ca73e32e652169f38c3c2fd51b0877d024cd24b76f642638d32957bff4c26b",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "64d755ae7c202474447bead75c3bbd93a3912021f9da821fc3899377ef984388",
       "taskComposition": "inventory"
     },
     {
@@ -7740,10 +8232,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "00cac88f147afc73f54ce3e7b6c3ad4140215f8d0dec8bc6d5f18fa71e17388c",
+      "beforeRoleHash": "f823bc0305df82c5776ff2553448f4b52b65869d8d80bac676de2a03bc7b1a97",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "taskComposition": "identity/navigation"
     },
     {
@@ -7780,16 +8272,17 @@
         "base/alert"
       ],
       "roles": [
-        "soda-page",
         "soda-native-forms",
-        "soda-settings",
+        "soda-p-title",
+        "soda-page",
         "soda-page-container",
+        "soda-settings",
         "soda-settings-bar",
         "soda-settings-identity",
         "soda-settings-layout",
         "soda-settings-parent",
-        "soda-settings-title",
-        "soda-p-title"
+        "soda-settings-shell",
+        "soda-settings-title"
       ],
       "states": [
         "dark",
@@ -7807,10 +8300,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "26598ec0217f8c014c17c1060fe1f1d5ce2ef8435dde00ae849bbc37e08f8dd2",
+      "beforeRoleHash": "7b38ac2b7f85a34d3da7a0e48f1a97e0562f5077ac154e0525a048c2c15b29d9",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
       "taskComposition": "identity/navigation"
     },
     {
@@ -7888,11 +8381,47 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f3058426517d734db853adb8b3024c3b239c91a348f20f8c20fb93df029de32",
+      "beforeRoleHash": "0e7988d9fc74f2f6b3f62d8c04cd711d52f53575a8adb6e5e449b7561a7a77aa",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
       "taskComposition": "inventory"
+    },
+    {
+      "template": "user/settings/packages.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "callers": [],
+      "nativeCalls": [],
+      "roles": [
+        "soda-p-heading",
+        "soda-p-section",
+        "soda-p-form",
+        "soda-p-control"
+      ],
+      "states": [
+        "conditional-provider",
+        "configured-rule",
+        "dark",
+        "disabled-field",
+        "empty",
+        "feature-disabled",
+        "light",
+        "narrow",
+        "native-preview",
+        "populated",
+        "submission-controls"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "not individually captured",
+        "requiredStates": "not all verified"
+      },
+      "beforeRoleHash": "924186130d73066a5fbc3b6af2efcbd40c1db98bc0b50f1905721ddf4847b2a6",
+      "upstreamCallers": [],
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "taskComposition": "inventory / focused editor"
     },
     {
       "template": "user/settings/packages_cleanup_rules_edit.tmpl",
@@ -7956,42 +8485,6 @@
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
       "beforeRoleHash": "3a6e98501795e51d35efb7923e3c631c2d731ae4cb5af0fd305161db3e36704c",
-      "taskComposition": "inventory / focused editor"
-    },
-    {
-      "template": "user/settings/packages.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "callers": [],
-      "nativeCalls": [],
-      "roles": [
-        "soda-p-heading",
-        "soda-p-section",
-        "soda-p-form",
-        "soda-p-control"
-      ],
-      "states": [
-        "conditional-provider",
-        "configured-rule",
-        "dark",
-        "disabled-field",
-        "empty",
-        "feature-disabled",
-        "light",
-        "narrow",
-        "native-preview",
-        "populated",
-        "submission-controls"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
-      },
-      "beforeRoleHash": "d8ee56720afbd2e141f38aeb6cb914e6d2103f4fd798b5e1e3691c6f831d22d2",
-      "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -8073,8 +8566,8 @@
         "base/paginate",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "646f9ff54640e641480347e622829ada41c98acd78d0a0afb394976740c5a1a2",
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "81d78a525eec666d39ebda78730310c0ca50810d2a2170bc6338fdb7345808b3",
       "taskComposition": "inventory"
     },
     {
@@ -8105,8 +8598,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "fed5a2d2c1a0004c186e3a3405d968381f6ab572a6f25d7e52bf1d905d3a3f02",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "d4e6c60c5ef4796bb6a8c09d0cc96ede8f463e79f4fe29722b5040664bb0af42",
       "taskComposition": "native operations"
     },
     {
@@ -8135,8 +8628,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "55bb6516c1776210d983fae78bf193c23dee0eafbd9e5a1a2cd06aa24fc8414a",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "393cd0db3766003e6d2fa6c5b7a06f61ca5ac22d0aa40161d7aaa783c1530c05",
       "taskComposition": "native operations"
     },
     {
@@ -8167,8 +8660,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "9dda95cde8f46c2746d60d67126f05e46acc5ff9ef79d03e31899fa9d8226224",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "376ee6654f2fd21674d7244124e113f8dc9dab16d52b9b796de3cd6ae7f017de",
       "taskComposition": "native operations"
     },
     {
@@ -8199,8 +8692,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "f7c56431bd957166e17f28a2f96b0a86226decbc1def16510ecce60df343935a",
+      "presentationReview": "repository-settings-shared-presentation-adapter",
+      "beforeRoleHash": "6bee3413e63734891a9774dd4262e250be134f0a65c5d414ac615e611c6292fa",
       "taskComposition": "native operations"
     },
     {
@@ -8209,7 +8702,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-p-compact",
         "soda-settings-section-body"
       ],
@@ -8238,8 +8730,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "46efe8eb464a0b4cd4a58d132e07bc9b2db3fcacb29fd9e6563df17841c5d421",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "fb5854c9d74bae7beb51e778477259874baac0a97b02ee843c4e2a775786bbe5",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8248,7 +8740,6 @@
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-compact",
         "soda-p-form",
@@ -8279,8 +8770,8 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "95e0c5b5e0e3a512509f6cc897dfadbda039951f6c0583d52a698fba875b6c8e",
+      "presentationReview": "section-headings-above-content",
+      "beforeRoleHash": "f0cfec1648a865ec574ef359ed62446c0720078d305542a97af914bdc1c0f747",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8294,8 +8785,7 @@
         "soda-account-details-page--security",
         "soda-account-details",
         "soda-account-details--security",
-        "soda-settings-section",
-        "soda-settings-explained"
+        "soda-settings-section"
       ],
       "states": [
         "credential-inventory",
@@ -8314,10 +8804,50 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "40321809bbc142461b89bef49c5a242f3b35af6ce6ad7abe409ffe8b2d07d06e",
+      "beforeRoleHash": "be23b0e050f762ad75408b317aae802e0dc8ed5d9bddd40da143d090908bb192",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "personal-settings-structural-overhaul",
+      "presentationReview": "section-headings-above-content",
+      "taskComposition": "factor state and actions"
+    },
+    {
+      "template": "user/settings/security/twofa.tmpl",
+      "composition": "settings",
+      "owner": "personal-settings",
+      "roles": [
+        "soda-settings-section",
+        "soda-settings-section-body",
+        "soda-factor-state",
+        "soda-p-control",
+        "soda-p-form"
+      ],
+      "states": [
+        "credential-inventory",
+        "dark",
+        "enrolled",
+        "light",
+        "mandatory-enrollment",
+        "narrow",
+        "providers-absent",
+        "providers-present",
+        "recovery-guidance",
+        "unenrolled"
+      ],
+      "verification": {
+        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
+        "native": "coverage recorded in personal settings review",
+        "requiredStates": "access-dependent states remain"
+      },
+      "entryPoint": "native handler or partial",
+      "callers": [
+        "user/settings/security/security.tmpl"
+      ],
+      "upstreamCallers": [],
+      "nativeCalls": [
+        "base/modal_actions_confirm"
+      ],
+      "presentationReview": "settings-feedback-empty-states-and-actions",
+      "beforeRoleHash": "f3e2701901a1b3a20b6b53e3e95b5e59e49ca11fc7960493363d61ae264ff2fe",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8360,53 +8890,11 @@
       "taskComposition": "factor state and actions"
     },
     {
-      "template": "user/settings/security/twofa.tmpl",
-      "composition": "settings",
-      "owner": "personal-settings",
-      "roles": [
-        "soda-settings-section",
-        "soda-settings-explained",
-        "soda-settings-section-body",
-        "soda-factor-state",
-        "soda-p-control",
-        "soda-p-form"
-      ],
-      "states": [
-        "credential-inventory",
-        "dark",
-        "enrolled",
-        "light",
-        "mandatory-enrollment",
-        "narrow",
-        "providers-absent",
-        "providers-present",
-        "recovery-guidance",
-        "unenrolled"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "coverage recorded in personal settings review",
-        "requiredStates": "access-dependent states remain"
-      },
-      "entryPoint": "native handler or partial",
-      "callers": [
-        "user/settings/security/security.tmpl"
-      ],
-      "upstreamCallers": [],
-      "nativeCalls": [
-        "base/modal_actions_confirm"
-      ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "3095ceab57d395dfaf2009446fd49ecb99654c6a99dc7a7c66e00c8aa05ab8de",
-      "taskComposition": "factor state and actions"
-    },
-    {
       "template": "user/settings/security/webauthn.tmpl",
       "composition": "settings",
       "owner": "personal-settings",
       "roles": [
         "soda-settings-section",
-        "soda-settings-explained",
         "soda-settings-section-body",
         "soda-p-compact",
         "soda-p-form",
@@ -8438,8 +8926,8 @@
         "user/auth/webauthn_error",
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "62598ec064e31cc252d08320ef000e6e5ed915ee32510a4d110434a2b99ec58c",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass",
+      "beforeRoleHash": "898e7e7ad92cf5dd273fe6043ea6bdc700fa7360d8d7826e2a49b322a6884809",
       "taskComposition": "factor state and actions"
     },
     {
@@ -8495,8 +8983,8 @@
         "webhook/new/sourcehut_builds"
       ],
       "roles": [
-        "soda-webhook-heading",
         "soda-p-heading",
+        "soda-webhook-heading",
         "soda-webhook-provider"
       ],
       "states": [
@@ -8510,13 +8998,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0f23c40f1927894aedcfe7fb5fc5316a84a450725fb9c045825eb2fd15bedd56",
+      "beforeRoleHash": "ef7ac3933803c529b37849060a05164244f9d60ee920231a3083c4e110b5c787",
       "upstreamCallers": [
         "admin/hook_new.tmpl",
         "org/settings/hook_new.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "personal-settings-structural-overhaul"
+      "presentationReview": "repository-settings-shared-presentation-adapter"
     },
     {
       "template": "webhook/shared-settings.tmpl",
@@ -8528,7 +9016,8 @@
       ],
       "roles": [
         "soda-p-gap",
-        "soda-webhook-events"
+        "soda-webhook-events",
+        "soda-p-heading"
       ],
       "states": [
         "light",
@@ -8542,7 +9031,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ae8ff65faee65f7c904da0df2e6a0c4e638a786bcf66264c0192f13e22beb56a",
+      "beforeRoleHash": "c7da33a659c28d1e84bc9c2201e91beaa18d35f94c6bf0f58ffd813be10bdb5c",
       "upstreamCallers": [
         "webhook/new/dingtalk.tmpl",
         "webhook/new/discord.tmpl",
@@ -8558,41 +9047,8 @@
         "webhook/new/telegram.tmpl",
         "webhook/new/wechatwork.tmpl"
       ],
-      "entryPoint": "shared partial"
-    },
-    {
-      "template": "shared/user/profile_big_avatar.tmpl",
-      "composition": "overview",
-      "owner": "user",
-      "callers": [
-        "org/projects/list.tmpl",
-        "user/code.tmpl",
-        "user/overview/package_versions.tmpl",
-        "user/overview/packages.tmpl",
-        "user/profile.tmpl"
-      ],
-      "nativeCalls": [
-        "base/alert",
-        "shared/user/actions_menu",
-        "shared/user/actions_menu"
-      ],
-      "roles": [],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "signed-in",
-        "signed-out",
-        "populated-profile",
-        "follow-actions"
-      ],
-      "verification": {
-        "source": "native contract snapshots, capability gates, scoped caller/root-context tests; see handoff for actual runs",
-        "native": "verified read-only public fixture profile capture; populated pronoun state covered by exact-native display delta"
-      },
-      "presentationReview": "remove pronoun display; retain native profile actions",
-      "upstreamCallers": [],
-      "beforeRoleHash": "40376730d1828cf90090bf7a477fbf5368958ccbe05ffc57ccfd6ca0fc264d11"
+      "entryPoint": "shared partial",
+      "presentationReview": "personal-settings-comprehensive-consistency-pass"
     }
   ]
 }

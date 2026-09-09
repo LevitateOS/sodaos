@@ -19,6 +19,7 @@ export interface CockpitHTTP {
   close(reason?: string): void;
 }
 export interface Cockpit {
+  logout(reload: boolean): void;
   jump(path: string): void;
   spawn(command: string[], options: SpawnOptions): CockpitProcess;
   http(

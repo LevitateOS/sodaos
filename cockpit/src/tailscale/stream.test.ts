@@ -1,5 +1,5 @@
 import type { AuthenticationMessage } from "./types";
-import { test } from "vite-plus/test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { authenticationStream } from "./stream";
 
@@ -18,7 +18,7 @@ test("auth response is delivered before the final Running object, across every c
     stream.push('\n{\n "BackendState": "NeedsMachineAuth"\n}\n{ "BackendState": "Running" }\n');
     stream.finish();
     assert.equal(messages.length, 3);
-    assert.equal(messages[2].BackendState, "Running");
+    assert.deepEqual(messages[2], { BackendState: "Running" });
   }
 });
 

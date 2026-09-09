@@ -70,8 +70,8 @@ body:has(.soda-page, .soda-page-marker) #navbar .active.item {
 }
 
 body:has(.soda-page, .soda-page-marker) #navbar-logo {
-  width: 142px;
-  background: url('../source/soda-logo-horizontal.svg') left center / 128px auto no-repeat;
+  width: 166px;
+  background: url('../source/soda-forge-logo-horizontal.svg') left center / 152px auto no-repeat;
   margin-right: 16px;
 }
 
@@ -80,12 +80,12 @@ body:has(.soda-page, .soda-page-marker) #navbar-logo img {
 }
 
 html[data-soda-login-theme="dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="false"]) #navbar-logo, html[data-theme*="-dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"]) #navbar-logo {
-  background-image: url('../source/soda-logo-horizontal-dark.svg');
+  background-image: url('../source/soda-forge-logo-horizontal-dark.svg');
 }
 
 @media (prefers-color-scheme: dark) {
   html[data-theme*="-auto"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"]) #navbar-logo {
-    background-image: url('../source/soda-logo-horizontal-dark.svg');
+    background-image: url('../source/soda-forge-logo-horizontal-dark.svg');
   }
 
 }
@@ -259,7 +259,7 @@ body:has(.soda-login) {
 /* Keep all mobile header actions at 44px without shrinking the canonical logo. */
 @media (max-width: 700px) {
  body:has(.soda-page, .soda-page-marker) #navbar { padding-inline: 16px; }
- body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 128px; margin-right: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 152px; margin-right: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-left { gap: 4px; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right { padding: 0; gap: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }

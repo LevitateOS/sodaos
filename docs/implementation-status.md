@@ -1,5 +1,41 @@
 # Current handoff
 
+## Tmux / Bun-TypeScript merge — local validation, no deployment
+
+Merged `5c845a7` with fetched `origin/main` at `560265b`, preserving the incoming
+presentation, CoreOS strategy, Cockpit and Bun/strict-TypeScript work. Conflict
+resolution ports the resumable drawer, terminal and navigation behavior plus tests
+into the `.ts` owners; no authored JS/MJS/CJS files remain in the tracked tree.
+Browser URLs still serve generated JavaScript and locked upstream xterm assets,
+not TypeScript source. Root Bun workspace/lock, unknown-response narrowing and all
+four strict compiler boundaries remain intact. No unchecked-JS configuration,
+blanket casts or type-check suppressions were introduced.
+
+Local x86_64 checks under `.artifacts/merge-5c845a7-560265b/`:
+
+- Downloaded run-local Bun 1.4.2 and verified its official release SHA256; did not
+  change the global Bun. Preserved the old Cockpit dependency directory, then ran
+  the root frozen install with unchanged manifest/lock and disabled lifecycle scripts.
+- All four strict TypeScript configurations pass. Bun root tests pass 64 frontend
+  and 15 Forgejo tests (two and fifteen opt-in skips); Cockpit passes all 60 tests.
+  Minified Forgejo emission and both Cockpit page builds pass.
+- Offline/read-only-module Go tests across `./...` and host/web race checks pass.
+  Python build fixtures pass 68 tests with one opt-in skip. The first Python run
+  exposed a missing `bunfig.toml` in the metadata fixture; it now copies the actual
+  public input rather than bypassing the collector.
+- Sixteen sandboxed Chromium layout/theme/state cases pass against emitted assets
+  and synthetic API/transport. The initial run hit Bun's five-second default; the
+  opt-in test now declares a bounded 60-second timeout. Original failure/captures
+  remain; final captures are `layout-1788943452775/`. This is not native tmux,
+  Forgejo authentication or installed continuity evidence.
+
+The user requested deployment after merging, then explicitly reaffirmed the TS
+migration. This merge performs no VM contact, installation/service/project/provider
+mutation or push. Full matching-native build/check/export, exact backed-up same-root
+maintenance, rehearsal and native continuity/cleanup proof remain pending. The target
+and interruption scope still need confirmation before retained-root changes. Earlier
+source/native evidence below remains bound to its own bytes and targets.
+
 ## Managed tmux terminal candidate — source checked, not delivered
 
 Implemented the next single-terminal source slice on top of `416180e`:
@@ -58,6 +94,176 @@ Installed isolated `2aa4960`, retained `soda-test`, both isolated mutable roots,
 private inputs and historical evidence remain unchanged. The sections below record
 older slices/evidence, not current implementation claims. See the current
 [terminal contract](terminal-integration.md) and [API](dashboard-api.md).
+
+## Bun/TypeScript conversion — source validated; preview activation pending
+
+All 36 authored JavaScript entrypoints/modules/tests (including the avatar CJS
+helper) are ported to strict TypeScript. Root scripts, browser modules, tests and
+Cockpit pass their separate strict configurations; legacy unchecked JS inclusion
+is removed. Browser response and private journey inputs are narrowed from unknown
+values. Upstream xterm JavaScript remains unchanged under its distribution lock.
+
+Bun 1.4.2 owns builds, tests, command-line scripts and installed-journey tooling.
+Cockpit uses Vite+'s programmatic builder and `bun:test`, with Bun file/glob/hash
+operations and explicit browser minification. Root browser assets are minified by
+Bun into ignored build output and staged through `@build/forgejo-js/`, preserving
+public URLs. Native build/check callers and tool metadata no longer require Node.
+`bunfig.toml` selects Bun for dependency shebangs; dependency lifecycle scripts are
+disabled because the selected packages provide locked platform binaries. Node in
+project toolchains and provider runners retains its separate workload role.
+
+The private Chromium helper uses Bun's Unix WebSocket server, subprocess API and
+file-descriptor reader/writer. Bun.file borrows descriptors, so the helper closes
+its owned descriptors explicitly. Real pipe exchange/shutdown passed locally;
+the direct `ws` dependency was removed. No installed authentication, project
+lifecycle or appliance deployment was performed by this migration.
+
+Actual local evidence under `.artifacts/bun-typescript-port/`:
+
+- All four strict TypeScript checks pass. Default root tests pass 73 tests, with
+  opt-in browser journeys skipped; Cockpit passes 60 tests and both page builds.
+- A fresh frozen dependency install and copied Cockpit build/test pass with a
+  failing Node executable first on PATH and no invocation of it. The first audit
+  identified Parcel watcher's optional Node source-build hook; disabling that hook
+  and using the locked prebuilt package was verified in `no-node-install-3` and
+  `no-node-fresh-cockpit-2` logs. An initial copied fixture omitted branding assets;
+  the corrected copy includes them. No dependency versions were incidentally upgraded.
+- The minified drawer passed all sixteen width/theme/state combinations in a real
+  isolated Chromium fixture. The Bun pipe smoke and six actual HTTP avatar pixel
+  comparisons also passed. Failed pipe experiments and corrected evidence remain.
+- Go checks for `internal/nativebuild`, `internal/web` and `scripts` pass. The seven
+  Sodaspaces Python staging/preflight tests and payload tests pass. The broader
+  Python run passed 52 tests but had seven failures and one error in unchanged
+  Linux terminal tests on macOS (including absent `os.setresgid`), plus one skip.
+  That is not native Linux validation; full native x86_64/aarch64 build/check and
+  installed journeys retain their existing authorization and proof boundaries.
+
+One integration action remains: the existing local `sodaos-local-forgejo` preview
+binds the former JS source directory, so its login script currently returns 404.
+`bun run build:preview` now projects the production branding payload, including
+minified JS, into `.artifacts/forgejo-preview/branding/`. Its bytes and absence of
+TypeScript files were checked. The generated Compose candidate changes only that
+read-only branding mount, retains the existing named data volume/configuration,
+and passes Compose configuration validation. Original/candidate files are retained
+under `.artifacts/bun-typescript-port/preview-compose/`. The running container has
+not been recreated: the prior preview restart authorization was single-use. Activate
+the prepared mount only after explicit approval, then check the real preview's
+scripts and focused browser behavior. This pending step prevents goal completion.
+
+## Root Bun workspace and TypeScript scaffolding
+
+The root `package.json` now owns Bun 1.4.2, shared script/test dependencies and
+one generated `bun.lock`, with Cockpit as its UI workspace. Playwright and the
+native browser helper's direct WebSocket dependency belong to the root. Existing
+require loaders now resolve from that owner. All prior locked package versions
+survive; additions are Bun/JSDOM/WebSocket types and their declaration dependencies.
+Native build/check callers use the root commands; public input collection and the
+bundle allowlist carry the root manifest/lock plus the Cockpit manifest.
+
+[TypeScript development](typescript.md) and AGENTS.md establish migration rules.
+Shared strict settings include checked indexed access and exact optional properties,
+with separate scripts, browser, tests and Cockpit configurations. Cockpit passes
+these settings after bounded missing-value guards, explicit potentially undefined
+props, and stronger fixture assertions. Its stream character access and exit-node
+selection retain their current behavior. Root JS/MJS remains included with
+`checkJs: false`: those files are not yet ported or claimed type checked. New TS
+files inherit strict checks. Forgejo browser transpilation/emission and source
+conversion remain the next migration work; current served JS paths stay intact.
+
+Local macOS arm64 validation used Bun 1.4.2, Node 24.20.0 and TypeScript 7.0.2:
+fresh workspace frozen install, all four compiler projects, 54 frontend checks,
+16 Forgejo checks, 60 Cockpit tests and both Cockpit builds passed. Fifteen opt-in
+browser checks remained skipped. Six Go bundle/input tests passed with Go 1.27.1;
+two metadata fixtures passed with the optional Caddy check skipped. A negative
+compiler probe confirmed strict/indexed/optional checks and rejection of Bun/Node
+globals in the browser configuration. Screenshot help and the native-browser helper
+import passed without launching a browser. Shell syntax and whitespace checks passed.
+
+Validation logs/probes and previous dependency directories are retained under
+`.artifacts/typescript-scaffold/`. Initial compiler failures are preserved there;
+they were resolved without disabling strict options. No native appliance build,
+installed journey, retained project/provider mutation, deployment or push occurred.
+Earlier migration evidence below remains tied to its original package layout.
+
+## Cockpit package management — Bun
+
+The Bun pin was corrected to 1.4.2 after the initial migration. The official
+macOS arm64 binary is retained under `.artifacts/bun-1.4.2/`; its frozen install
+left the lock unchanged, and type checking, all 60 Cockpit tests and both page
+builds passed. Build/check version guards and installation guidance match 1.4.2.
+The globally installed Bun was not changed.
+
+Cockpit now pins Bun 1.4.2, with a generated `cockpit/bun.lock` migrated from
+pnpm and `bun run build`, `bun run typecheck`, and `bun run test` commands.
+All 287 locked package names/versions are preserved. The explicit
+`@parcel/watcher` install-script allowance moves to `trustedDependencies`;
+the pnpm lock/workspace configuration is removed. Native build/check callers,
+input collection, bundle allowlist/tool metadata and installation instructions
+now use Bun. Older retained bundles keep their matching original verifiers.
+
+This is a package-manager migration. Vite+/TypeScript and the pinned Node runtime
+remain; converting authored JS/MJS sources and test runners is separate work.
+A fresh Bun 1.4.0 frozen install, strict TypeScript check, all 60 Cockpit tests and both
+page builds passed locally on macOS arm64. The isolated validation copy/build log
+is retained under `.artifacts/bun-migration/`. Its initial build lacked the sibling
+branding assets; copying those assets fixed resolution. The remaining build warning
+is the intentionally external native `../base1/cockpit.js` script. Metadata fixture
+checks passed (two tests; optional Caddy check skipped), as did shell syntax and
+whitespace checks. Six focused Go bundle/input checks passed with Go 1.27.1
+on macOS; the initial default-cache attempt was sandbox-denied and the broader
+retry was interrupted without a result. No native appliance build, installed
+validation or deployment.
+
+## CoreOS product strategy — documentation only
+
+Recorded the user's custom CoreOS-based distro direction in the
+[OS product strategy](os-product-strategy.md), linked from the architecture, leading
+plan, deferred guide and README. It ranks host health/first-boot guidance, native
+runner/project resource protection, real private connectivity, maintenance windows,
+backup/cold restore and future boot/storage ownership. Each proposal has a bounded
+first slice, user outcome, acceptance conditions and qualified effort estimates.
+
+The fastest recommendation is the existing-console/CLI health report; resource
+enforcement is the strongest near-term host investment. Boot/provisioning/lifecycle
+ownership provides the strongest long-term distro case. A sufficiently privileged
+service could manage these mechanisms, so the strategy makes no artificial claim
+that portability must become impossible. Current delivery still provisions upstream
+CoreOS; a Soda boot artifact, verified boot chain and general recovery are proposals.
+
+Source review distinguished native runner descendants from external engine work,
+and actual project cgroups from the outer Podman launcher unit. Estimates separate
+source candidates from bounded native proof. The strategy leaves immediate tmux/
+workspace work, deferred implementation scope, provider authority and the separately
+reserved Updates work with their existing owners.
+
+Checks: reviewed production source and official upstream documentation; touched-doc
+relative links/anchors and whitespace passed. Evidence is retained under
+`.artifacts/research/os-product-strategy-eb758ff/`. No product code, package/dependency
+changes, builds/product tests, native execution, project/provider/network mutations,
+deployment or push. This records direction and recommendations, not implemented
+features or additional execution authority.
+
+## Merged presentation and Sodaspaces payload
+
+Merged upstream `416180e` with local `8d9b2eb`, preserving both histories and their
+evidence below. The shared header keeps the local presentation revision/asset
+versions plus the incoming drawer, terminal and xterm styles. Its reviewed inventory
+hash now binds the combined bytes; stale home-logo and seven settings-role entries
+were corrected to match the existing local templates. The deployment allowlist adds
+the nine local templates and both Soda Forge wordmarks, and drops deleted `issues.css`.
+All 367 payload entries have their selected source/build ownership; no new product
+feature or installed state change is implied by this merge.
+
+Local checks passed: Go scripts and host packages; focused nativebuild payload,
+allowlist and private-output tests; 62 Node frontend/presentation checks; and nine
+Python payload/synthetic-staging checks. The opt-in Chromium layout test was skipped.
+Prepared the existing frozen Cockpit dependency lock with install scripts disabled;
+no dependency manifest/lock changed. Initial host/nativebuild checks hit macOS
+temporary-path length/symlink constraints; the relevant checks passed with real,
+short `TMPDIR=/private/tmp`. The installed-stage suite could not run without an
+actual `SODA_STAGE`; no native appliance build, installed journey or deployment ran.
+Initial failures and corrected local results remain under
+`.artifacts/merge-8d9b2eb-416180e/`.
 
 ## Project OS baseline consolidated — documentation only
 
@@ -415,6 +621,305 @@ success/old-key refusal remain pending. No dependency install, service reload,
 VM/project/account/key/provider mutation, retained rollout or push occurred. The
 previous terminal-only fixture approval does not cover lifecycle/key mutations;
 obtain exact scope first. Destroy and operator runner relocation remain separate.
+
+## Public contributor profile redesign
+
+Local presentation revision `2026-09-08.32` implements the approved compact
+horizontal identity header and open repository rows. All five public-profile
+callers share the same header, including personal projects, packages and code
+search. Native tab payloads/defaults, activity/email/organization privacy gates,
+follow/unfollow HTMX targets and permission-gated actions remain authoritative.
+The block confirmation is shared outside the morph target on each caller.
+Organization branches retain their previous compositions. No settings, backend,
+account data or appliance changes were made.
+
+Validation: focused `go test ./scripts -run TestForgejo` passed with local toolchain
+and offline module settings. Three settings source-contract tests and the embedded
+native-caller inventory check passed. The new read-only profile browser suite
+passed 13 tests (12 theme/width combinations across seven public destinations,
+320–1440px, plus keyboard opening of the native actions menu). The full inventory
+check still fails on the pre-existing `custom/footer.tmpl` hash mismatch; a separate
+scan confirmed that is the only hash mismatch. It was not silently rebaselined.
+
+Reviewed native captures are under `.artifacts/public-profile-redesign/review-*`:
+desktop light/dark repositories, public activity and empty packages; light mobile
+repositories, empty followers and projects; desktop starred repositories. Captures
+verify URL/status/landmark/revision/server stylesheet bytes/browser errors. The
+first captures under `verified/` and `final-*` are superseded: cached CSS produced
+stale rendering. `profiles.css?v=8` resolves it in the reviewed captures.
+
+Remaining evidence gaps: code search redirects in this fixture and is not accepted
+as a capture; profile README, populated people/organizations/badges/package versions,
+private/admin/self combinations and actual follow/block mutations were not exercised
+natively. Activity privacy has source-rendered permission-matrix coverage. These
+limits are not claims of complete native functional acceptance. Existing local
+preview only, using template reload; no service restart or deployment.
+
+## Shared milestone, issue and pull-request rows
+
+Local revision `2026-09-08.31` gives milestone, issue and PR lists one shared
+appearance in `components-list.css`: 24px row padding, 20px linked titles,
+13px secondary metadata, aligned status icons, uniform backgrounds, matching
+progress tracks and one quiet separator between complete items. Hover/focus
+feedback remains visible. The PR-only `issues.css` adapter and repository list
+corner adapter are removed; milestone CSS retains only its specialized layout
+and Markdown preview. The native shared issue partial is unmodified, so repository,
+dashboard, milestone-content and notification-subscription callers share the
+same presentation without copying permissions, routes or script hooks. Existing
+status/label colors, selection, reviews, assignees and comments remain native.
+Page chrome and other collection families keep their existing presentation.
+
+Actual checks: focused Go Forgejo source checks passed; the milestone item-boundary
+and responsive tests passed; all 16 component-boundary checks passed. The new
+work-item component test passed for issue/PR samples in four caller compositions,
+both themes and 1440/1024/700/601/600/390/320px, including long titles/labels/branches,
+keyboard checkbox selection, matching title hover, and unrelated-list protection.
+Its isolated native-snippet gallery is under
+`.artifacts/work-item-consistency/components/`. Source review confirmed native
+checkbox, pinning, status-popup and PR metadata contracts remain unchanged.
+The 236-entry inventory's native caller check passes; its pre-existing footer
+hash mismatch remains the only hash failure and was not silently accepted.
+
+Read-only native layout checks passed for the rows in 56 route/theme/width
+combinations: open/closed issue and PR lists, open/closed milestones and milestone
+issue contents, at 1440/1024/390/320px. Requested URLs, 200 responses, main landmarks,
+revision and production stylesheet bytes were checked. Rows fit at every width.
+The pre-existing milestone **detail header/filter** still overflows at 390/320px;
+that surrounding layout is outside this list-item pass. All six collection routes
+fit. Global populated lists, native owner bulk actions and mutation journeys were
+not newly exercised; no credentials/resources/preferences were changed for coverage.
+
+Desktop dark and mobile light full-page diagnostic captures of all three lists
+were made through `scripts/screenshot.mjs` and reviewed. They remain separate
+from accepted evidence: `--verify` still rejects the existing
+`/assets/sodaspaces.js` 404. Logs, native layout measurements and diagnostics are
+retained in `.artifacts/work-item-consistency/`. Activation used only the existing
+local preview and native template reload; no restart or appliance deployment.
+
+## Milestone list items
+
+Local revision `2026-09-08.30` applies the approved uniform-canvas row design to
+milestone items only. Global and repository lists share one small row partial:
+compact sans-serif titles, repository identity where applicable, two-line rich
+text previews, aligned native deadlines/progress/counts and quiet separators
+between complete items. Mobile metadata stacks inside its row. Focused embedded
+links expand the preview; full native Markdown remains on the milestone detail.
+Tracked time, updated/closed dates, no-deadline state, completeness and gated
+repository actions remain native. Page headings, search/filter/navigation,
+pagination and empty states are unchanged, protected by before/after boundary
+hashes. Native project lists retain their existing reused milestone-card styles.
+
+Go Forgejo source checks and focused item-boundary/layout checks passed. The
+component check covers light/dark at 1440/1100/1024/900/768/700/390/320px, including
+long descriptions and keyboard reveal. Read-only native layout checks covered
+12 populated repository views (two open lists and one closed list at four widths),
+with no overflow and uniform backgrounds. The global screenshot fixture has no
+milestones, so its populated native view remains unverified. No fixture or
+repository mutation was used to manufacture coverage.
+
+Verified capture attempts were rejected because the existing preview returns
+404 for `/assets/sodaspaces.js`. Diagnostic desktop/mobile captures made through
+`scripts/screenshot.mjs` are under `.artifacts/milestone-rows/`, separately labeled
+and not accepted verified screenshots. The missing asset is outside this
+item-only change. The previously known footer inventory hash mismatch also
+remains; the updated 236-entry inventory preserves that unresolved mismatch.
+Activation used local template reload only; no appliance changes or restart.
+
+## Repository settings consistency overhaul
+
+Local revision `2026-09-08.29` replaces the repository-settings sidebar with
+compact grouped navigation beside one task title, retaining native repository
+identity and unit navigation. Personal and repository settings now explicitly
+share `.soda-settings-shell`; `components-settings.css` owns their navigation,
+1120px usable canvas, 24/16px gutters, 40px body inset, section placement and
+actions. The old competing repository sidebar/grid adapters were removed.
+Principal file inputs share width constraints, fixing the native avatar picker's
+mobile overflow. Ordinary repository containers keep their zero-padding contract.
+
+The pass covers General settings and native Units partials, branch/tag protection,
+collaborators, deploy keys, webhooks and child editors, Actions runners/secrets/
+variables and LFS leaves. Open sections, shared empty states, semantic notices,
+44px tonal controls, parent links and explicit primary-form roles replace the
+older attached task stacks. Native save boundaries, controls, IDs, permission
+and feature gates, destructive dialogs, provider dispatch and technical viewers
+remain intact. LFS totals remain visible; wide tables scroll within their canvas.
+Ordinary landing autofocus was deliberately removed; dedicated tag editing and
+panel/editor focus remain. Shared runner/webhook/secret/variable presentation uses
+an explicit opt-in; organization/administrator default callers retain native
+markup contracts. No locale additions or service restart were required.
+
+Actual checks: Go Forgejo checks passed, including exact native navigation across
+256 gate combinations and shared default-caller regressions. Five personal/repo
+source-contract tests passed; the repository snapshot covers 26 native templates.
+The final component/gallery/ordinary-repository batch passed 42 checks, including
+light/dark, 1440/1000/900/899/768/390/320px, keyboard navigation, no-JavaScript
+fallback, long labels, gutters, upload width and table containment. All 11 native
+personal-settings regression checks passed after the shared-style extraction.
+The inventory covers 235 overrides/helpers and exact local/native callers; its
+embedded-native-caller check passes. The pre-existing unrelated `custom/footer`
+hash mismatch remains the only inventory hash failure and was not silently
+accepted by this pass.
+
+Read-only live UI inspection reused the user's already-open Chrome session on
+`alice/activity-workbench/settings`. All seven permitted landing destinations
+were checked at 1440, 900, 899, 390 and 320px with revision `.29`, the 40px inset
+and no page overflow. Branch-rule creation and the Forgejo webhook editor were
+checked at 1440/390/320px; actual menu navigation, provider selection and custom
+event disclosure worked without a submission. No console errors were observed
+in the captured browser log. The viewport was restored and the tab returned to
+General settings. These are live DOM/UI checks, not verified screenshot captures
+or proof of persisted workflows.
+
+The production-derived gallery and six component captures are under ignored
+`.artifacts/forgejo-presentation/repository-settings-{light,dark}.html` and
+`.artifacts/repo-settings-overhaul/components/`; logs and a review index are in
+`.artifacts/repo-settings-overhaul/`. The existing screenshot fixture has no
+repository-admin access; dedicated owner-profile captures through
+`scripts/screenshot.mjs` remain a verification prerequisite. Actions, LFS and Git
+hooks are not exposed by the inspected repository's native gates. Populated
+credentials/protection rules, mirrors, runner setup, provider delivery history
+and success/error/mutation journeys remain unverified. Source and component
+completion is not full native visual or functional acceptance. No resources,
+credentials, permissions or saved preferences were changed; activation used
+native template reloads only in `sodaos-local-forgejo`. Appliance rollout is separate.
+
+## Personal settings consistency review
+
+Local revision `2026-09-08.26` consolidates native and nested section headings on
+the shared 24px token at every width, retaining the 40px body inset and 44px
+controls. Shared form padding now preserves inline search-icon clearance.
+Disclosure summaries use button typography. Personal webhook event fieldsets are
+open, with the main legend aligned to the section-heading column.
+
+SSH/GPG/principal, WebAuthn, authorized/owned OAuth and token repository-selector
+empty inventories now use shared empty-state presentation. Generic explanatory
+copy is accompanied by an explicit localized empty-result title; empty authorized
+OAuth no longer claims access has been granted. Personal Actions secrets,
+variables and runners select the same treatment through explicit context
+adapters, preserving other shared callers. Runner setup's last-chance credential
+guidance becomes a personal-settings warning. Empty personal cleanup previews
+omit their blank heading and empty table. Native controls, populated branches,
+form handlers, capability gates and submission boundaries remain intact.
+
+Go Forgejo source checks passed. The final component/gallery/repository-container
+run passed 26 checks; the native personal-settings suite passed 11, enumerating
+all 11 permitted destinations at 1440/390/320px and exercising navigation across
+the 900px transition, avatar focus/fallback, key/password editors, empty notices,
+token repository selection and custom webhook events. The three settings source
+contract checks and embedded native caller inventory check pass. All 229 inventory
+entries were inspected for hash mismatches: only the previously recorded merged
+`custom/footer.tmpl` mismatch remains, so the full inventory suite is still not
+green. Changed templates have reviewed hashes and caller mappings.
+
+Verified full-page native screenshots for all 11 landing pages and three child
+editors are in `.artifacts/settings-consistency-pass/release-desktop/` (dark,
+1440×1000) and `release-mobile/` (light, 390×844). Visual review covered the full
+pages, with an independent desktop review. Earlier directories contain interim
+captures. The production-derived gallery was regenerated separately; its registry
+renderer now resolves both native asset URL prefixes. Evidence is local-only.
+
+Actions/Storage, enrolled/mandatory factors, providers, populated credentials,
+existing cleanup-rule previews and mutation/error submission journeys remain
+access- or mutation-dependent native coverage gaps. No resources, credentials or
+preferences were created/changed to manufacture coverage. Activation used native
+template reloads in `sodaos-local-forgejo`; no service restart or appliance rollout.
+
+## Settings feedback, empty inventories and action placement
+
+Revision `2026-09-08.23` presents SSH-disabled guidance as info, recovery/key-loss
+guidance as warnings, and preserves the account-deletion danger message. Static
+notices explicitly remain visible within native forms without exposing inactive
+validation messages. Cargo context and consequences are separate info/warning
+notices before its action in English; other translations retain their complete
+warning text. No locale-cache restart or catalog changes were needed.
+
+Access tokens, personal webhooks, organizations, repositories and cleanup rules
+now use shared empty-state presentation only when the native inventory is empty.
+Webhooks no longer render a blank heading. Section-level actions use heading rows
+that wrap on mobile; page-level actions use a left toolbar; submissions follow
+fields/guidance. This includes Appearance, enrollment and Cargo/Chef. Native
+absolute header-action positioning was removed within personal settings after
+the 320px visual review caught overlap on Cleanup rules.
+
+Go Forgejo checks, 15 component checks and 11 native settings checks passed.
+The native suite checks every permitted destination plus message/empty-state
+visibility and heading-action flow; component tests protect hidden validation.
+All 44 route/width layout audit states passed. Verified screenshots are under
+`.artifacts/settings-feedback/`; final Packages captures use `mobile-release/`
+and `desktop-release/`. Earlier capture folders include intermediate evidence.
+Representative native dark desktop/light mobile views were reviewed. Populated
+credentials, mutation journeys, foreign-language Cargo splitting and gated
+Actions/Storage remain outside native coverage. Existing shared webhook caller
+parity is protected; the unrelated merged-footer inventory hash mismatch remains
+recorded. Local template reload only; no submissions or appliance rollout.
+
+## Shared settings inset across every destination
+
+Revision `2026-09-08.22` replaces the incomplete direct-section-body inset with
+one 40px inset on the shared personal-settings content canvas. Native section
+headings, inventory headings and fieldset legends return to the outer edge.
+This covers Profile, Account, Appearance, Blocked users, Security, Keys,
+Applications, Webhooks, Organizations, Repositories and Packages. Conditional
+Actions/Storage and child editors use the same canvas; their gated states remain
+unverified natively. Shared form legends no longer reset inline margins.
+
+A read-only audit passed all 44 route/width combinations (all 11 visible
+destinations at 1440/900/390/320px), with the 40px inset, heading alignment,
+HTTP/URL checks and no document overflow or page errors. All 14 component checks
+and 11 native settings checks passed; the latter now enumerates every permitted
+menu destination. Go Forgejo checks passed and the production gallery was
+regenerated. Verified representative screenshots are under
+`.artifacts/settings-uniformity/`; final Cargo alignment uses `packages-final/`.
+The existing merged-footer inventory hash mismatch is still separately recorded.
+No data changes, permission changes, service restart or appliance deployment.
+
+## Settings body inset
+
+Local revision `2026-09-08.21` uses the requested 40px inline-start inset to direct settings
+section bodies, leaving titles flush. Nested native body wrappers do not compound
+the padding; the Security password section now explicitly selects the body role.
+Go Forgejo checks and all 14 component checks passed, including the inset and
+overflow checks at five widths. Activated by local template reload only.
+
+## Consistent section heading placement
+
+Revision `2026-09-08.19` removes personal settings explanation/title columns.
+Account, Appearance and all Security subpartials use one column: heading, then
+body, with a 12px gap and shared section spacing. The obsolete explained role
+and responsive exception were removed. Inventory heading actions stack below
+on mobile. Repository/organization/admin section titles already precede their
+content; their navigation and technical data grids remain unchanged. Native
+forms, notices, enrollment state and submission boundaries are preserved.
+
+Go Forgejo checks and 14 focused component checks passed, including heading/body
+placement at 1440/900/899/390/320px. All 11 native settings browser checks passed,
+including native heading placement, navigation and editor behavior. The obsolete
+blocked-users row selector now accepts its dedicated empty state. Verified screenshots of Account, Appearance,
+Security and Keys are under `.artifacts/section-headings/`; representative dark
+desktop and light mobile images were reviewed. Gallery fixtures use the same
+section roles. The known merged-footer inventory hash mismatch remains outside
+this change. Activation used only the existing local preview template reload;
+no account mutations or appliance rollout.
+
+## Empty page and section presentation
+
+Local revision `2026-09-08.18` introduces a centered open empty-page treatment
+for Blocked users and a compact left-aligned treatment for deploy-key sections.
+Shared empty-state icons use a tonal circular accent; inset notification states
+also use the compact composition. Existing native messages, conditions, populated
+rows and permitted actions remain unchanged. The gallery includes both variants.
+
+Go Forgejo checks and 13 focused component checks passed, including both themes
+at 1440/390/320px. Verified native Blocked users screenshots were visually reviewed
+in dark desktop and light mobile under `.artifacts/empty-states/`. Deploy-key and
+organization caller states were source-checked, not captured with an owner session.
+The inventory native-caller check passes, but the full inventory check exposes a
+pre-existing `custom/footer.tmpl` hash mismatch from the merged Sodaspaces work;
+that unrelated baseline was not silently approved. All changed template hashes
+match their reviewed entries. The merged header also referenced an unstaged
+`sodaspaces.css`: its existing source was copied into the ignored local public
+asset directory to resolve the capture 404. No service restart, account/resource
+mutation or appliance rollout occurred.
 
 ## Merge of Forgejo presentation and Sodaspaces work
 
@@ -791,8 +1296,9 @@ reload alone.
 ## Tighter template spacing
 
 Reduced larger margins, padding and layout gaps across 42 Forgejo presentation
-stylesheets. Shared panels use an 18px desktop inset (16px narrow), list rows use
-16px vertical padding, and page intros use a 192px minimum with 224px artwork.
+stylesheets. At that stage, shared panels used an 18px desktop inset (16px narrow),
+list rows used 16px vertical padding, and page intros used a 192px minimum with
+224px artwork. Work-item rows now use the shared contract recorded above.
 Typography, control minimum heights and native workflow markup remain unchanged.
 Changed stylesheet URLs are versioned in the header hook.
 

@@ -179,7 +179,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 | `cockpit-account.py` | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
 | `service-https.py ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
 | `operator.sh` | Selected native Tailnet/runner/version/branding/quiet-hook facts; no enrollment, registration or job. |
-| `operator.mjs ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh` | Actual root login, native PAM/SELinux bridge access, retained pages/read paths and logout. Trust the CA in the isolated browser home first. Tailnet's existing page effect may refresh Forgejo advertisement; that grant is mandatory. No screenshot/trace/provider-body capture. |
+| `operator.ts ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh` | Actual root login, native PAM/SELinux bridge access, retained pages/read paths and logout. Trust the CA in the isolated browser home first. Tailnet's existing page effect may refresh Forgejo advertisement; that grant is mandatory. No screenshot/trace/provider-body capture. |
 | `forgejo-advertisement.sh` | Explicit existing-helper invocation and unchanged core origins; also requires `SODA_ALLOW_FORGEJO_ADVERTISEMENT_REFRESH=1` and an already approved running Tailnet. |
 | `probe-ssh --owner P11 --remote FILE …` | Pinned Git endpoint observed from the actual selected client. Use `User: git`; no identity key is used. Not Git auth/project acceptance. |
 

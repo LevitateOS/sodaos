@@ -48,7 +48,7 @@
 	min-width: 0;
 }
 
-:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
+:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) .ui.top.attached.header {
 	margin-top: 24px;
 	padding: 0 0 16px;
 	border: 0;
@@ -56,7 +56,7 @@
 	border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
 	background: transparent;
 	color: var(--soda-page-text);
-	font: 600 21px/1.35 "Fraunces Variable", Georgia, serif;
+	font: var(--soda-font-heading);
 }
 
 :is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header:first-child {
@@ -96,13 +96,6 @@
 	gap: 12px;
 }
 
-@media (max-width: 540px) {
-	:is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header {
-		font-size: 19px;
-	}
-
-}
-
 /* Native menu separators are redundant beside the selected-item background. */
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu .item::before {
   display: none;
@@ -126,3 +119,92 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Shared personal/repository settings shell, navigation and content contract. */
+.soda-settings-shell > .ui.container.soda-page-container { width: 100% !important; max-width: min(1168px, 100%) !important; margin-top: 0; padding-inline: 24px; margin-inline: auto !important; }
+.soda-settings-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.soda-settings-layout, .soda-settings-shell .flex-container-main, .soda-settings-shell :is(.user-setting-content, .repo-setting-content) { min-width: 0; width: 100%; }
+.soda-settings-shell #soda-settings-title { font-size: 32px; line-height: 1.2; margin: 0 0 24px; }
+.soda-settings-parent { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.soda-settings-nav { position: relative; flex: none; }
+.soda-settings-destinations { display: flex; gap: 8px; }
+.soda-settings-nav-group { position: relative; }
+.soda-settings-nav button { font: var(--soda-font-button); color: var(--soda-page-muted); background: transparent; border: 0; border-radius: var(--soda-button-radius); min-height: 44px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+.soda-settings-nav button:hover, .soda-settings-nav button[aria-expanded=true], .soda-settings-nav .is-current > button { color: var(--soda-page-link); background: var(--soda-page-hover); }
+.soda-settings-nav :is(button, a):focus-visible, .soda-settings-disclosure > summary:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 2px; }
+.soda-settings-menu { display: grid; gap: 4px; padding: 8px; }
+.soda-settings-menu a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: 8px; color: var(--soda-page-text); }
+.soda-settings-menu a:hover, .soda-settings-menu a[aria-current] { background: var(--soda-page-hover); color: var(--soda-page-link); }
+.soda-settings-menu a[aria-current] { font-weight: 600; }
+.soda-settings-menu-label, .soda-settings-group-label { color: var(--soda-page-muted); padding: 8px 12px 0; font-size: 14px; }
+.soda-settings-nav .soda-settings-current, .soda-settings-group-label { display: none; }
+.soda-settings-nav.is-enhanced .soda-settings-menu { position: absolute; top: calc(100% + 4px); right: 0; width: 264px; max-height: 70vh; overflow-y: auto; z-index: 30; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; box-shadow: 0 8px 24px #0002; }
+.soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { display: none; }
+.soda-settings-disclosure { margin-block: 16px; }
+.soda-settings-disclosure > summary { font: var(--soda-font-button); color: var(--soda-page-link); cursor: pointer; min-height: 44px; padding-block: 12px; }
+.soda-settings-disclosure-body { margin-top: 12px; }
+.soda-settings-shell .soda-settings-section { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; margin-block: 32px; min-width: 0; }
+.soda-settings-shell .soda-settings-section:first-child { margin-top: 0; }
+.soda-settings-shell .soda-settings-section > h2 { margin: 0; font: var(--soda-font-heading); }
+.soda-settings-shell .soda-settings-section-body { min-width: 0; }
+.soda-settings-shell .soda-settings-editor { max-width: 720px; }
+.soda-settings-shell .flex-list > .flex-item { background: transparent; border-radius: 0; border: 0; padding-block: 12px; gap: 16px; }
+.soda-settings-shell .flex-item-main { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 899px) {
+
+ .soda-settings-shell > .ui.container.soda-page-container { padding-inline: 16px; }
+ .soda-settings-bar { gap: 12px; margin-bottom: 16px; }
+ .soda-settings-nav { flex: 0 1 auto; min-width: 0; }
+ .soda-settings-nav .soda-settings-current { display: flex; max-width: 180px; text-align: left; }
+ .soda-settings-nav .soda-settings-nav-trigger { display: none; }
+ .soda-settings-group-label { display: block; }
+ .soda-settings-nav.is-enhanced .soda-settings-current[aria-expanded=false] + .soda-settings-destinations { display: none; }
+ .soda-settings-destinations { display: block; }
+ .soda-settings-nav.is-enhanced .soda-settings-destinations { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: min(340px,calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; padding: 8px; }
+ .soda-settings-nav.is-enhanced .soda-settings-menu, .soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { position: static; display: grid; width: auto; border: 0; box-shadow: none; padding: 0; }
+ .soda-settings-shell #soda-settings-title { margin-bottom: 24px; }
+ .soda-settings-bar:has(.soda-settings-nav:not(.is-enhanced)) { display: block; }
+}
+/* Shared-section adapters inside opted-in settings composition. Native
+   attached segments elsewhere keep their existing independent contracts. */
+.soda-settings-section-body > .ui.attached.segment:not(table) { padding: 0; margin: 0 0 16px; width: 100%; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.soda-settings-shell .soda-settings-section-body > .ui.attached.segment:last-child { margin-bottom: 0; }
+.soda-settings-shell .soda-settings-section-body > .ui.form { max-width: 720px; }
+.soda-settings-shell .soda-settings-inventory-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 32px 0 16px; }
+.soda-settings-shell .soda-settings-inventory-heading:first-child { margin-top: 0; }
+.soda-settings-shell .soda-settings-inventory-heading > .ui.right { float: none; margin-left: auto; }
+.soda-settings-shell .ui.list > .item { border: 0; }
+.soda-settings-shell .soda-shared-runner > .ui.attached.segment:not(table) { border: 0; padding: 0; background: transparent; }
+.soda-settings-shell .soda-shared-runner dl > .item { border: 0; }
+.soda-settings-shell .soda-webhook-provider { margin-top: 16px; }
+.soda-settings-inventory-actions { justify-content: flex-start; }
+.soda-settings-inventory-actions:empty { display: none; }
+
+/* Every section heading precedes its body; actions wrap below on mobile. */
+@media (max-width: 899px) {
+ .soda-settings-shell .soda-settings-inventory-heading { flex-direction: column; align-items: flex-start; }
+ .soda-settings-shell .soda-settings-inventory-heading > .ui.right { margin-left: 0; }
+}
+
+/* One inset for every opted-in settings destination, including native partials.
+   Section headings return to the outer edge; nested bodies never compound it. */
+.soda-settings-shell :is(.user-setting-content, .repo-setting-content) {
+ --soda-settings-body-inset: 40px;
+ box-sizing: border-box;
+ padding-inline-start: var(--soda-settings-body-inset);
+}
+.soda-settings-shell :is(.user-setting-content, .repo-setting-content) :is(.soda-settings-section > h2, .soda-settings-inventory-heading, .soda-p-heading, .ui.top.attached.header, .soda-profile-editor legend, .soda-form-section > legend) {
+ margin-inline-start: calc(-1 * var(--soda-settings-body-inset));
+}
+
+/* One action row for native and overridden inventory headings. */
+.soda-settings-shell :is(.user-setting-content, .repo-setting-content) :is(.soda-settings-inventory-heading, .ui.top.attached.header):has(> .ui.right) {
+ display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.soda-settings-shell :is(.user-setting-content, .repo-setting-content) :is(.soda-settings-inventory-heading, .ui.top.attached.header) > .ui.right { float: none; position: static; inset: auto; height: auto; margin: 0; }
+@media (max-width: 899px) {
+ .soda-settings-shell :is(.user-setting-content, .repo-setting-content) :is(.soda-settings-inventory-heading, .ui.top.attached.header):has(> .ui.right) { flex-direction: column; align-items: flex-start; }
+}
+
+/* Keep technical inventories scrollable without moving the page canvas. */
+.soda-settings-table-scroll { max-width: 100%; overflow-x: auto; }

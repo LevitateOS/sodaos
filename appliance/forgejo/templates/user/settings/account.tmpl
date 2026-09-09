@@ -1,7 +1,7 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/account.tmpl (GPL-3.0-or-later); upstream SHA-256 4e418544763f6a3d79fce08aa84ddca216bf390060fcb2d60b54d63a39c392ca. */}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--account account")}}
 	<div class="user-setting-content soda-account-details soda-account-details--account">
-<section class="soda-settings-section soda-settings-explained ">
+<section class="soda-settings-section ">
 		<h2>
 			{{ctx.Locale.Tr "settings.manage_emails"}}
 		</h2><div class="soda-settings-section-body">
@@ -93,7 +93,7 @@
 
 </div></section>
 
-<section class="soda-settings-section soda-settings-explained ">
+<section class="soda-settings-section ">
 		<h2>
 			{{ctx.Locale.Tr "password"}}
 		</h2><div class="soda-settings-section-body">
@@ -132,7 +132,7 @@
 </div></section>
 
 		{{if not ($.UserDisabledFeatures.Contains "deletion")}}
-<section class="soda-settings-section soda-settings-explained soda-settings-danger">
+<section class="soda-settings-section soda-settings-danger">
 		<h2>
 			{{ctx.Locale.Tr "settings.delete_account"}}
 		</h2><div class="soda-settings-section-body">
