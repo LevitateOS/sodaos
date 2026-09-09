@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="/sheets.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title description">
+<title id="title">Spaces drawer design — session switching without blocking the forge</title>
+<desc id="description">Static light-theme design. Native code browsing remains visible on the left. The right drawer temporarily shows its searchable project/session list, while keeping terminal tabs and a back control. Fictional content, not installed evidence.</desc>
+<rect class="paper" width="1440" height="1040"/>
+<text class="label" x="24" y="28">SPACES DRAWER / 02 — FIND ANOTHER SESSION</text>
+<text class="small muted" x="24" y="48">Light theme · the switcher occupies only the right content, never the native page</text>
+<text class="label amber" x="1416" y="32" text-anchor="end">STATIC DESIGN · FICTIONAL DATA</text>
+<g class="light" transform="translate(24 64)">
+  <rect class="canvas" width="1392" height="844"/>
+  <rect class="nav" width="692" height="56"/>
+  <image href="/symbol.svg" x="14" y="14" width="28" height="28"/>
+  <text class="brand" x="51" y="37">soda</text>
+  <text class="muted" x="120" y="34">Issues</text>
+  <text class="muted" x="173" y="34">Pull requests</text>
+  <text class="muted" x="276" y="34">Milestones</text>
+  <text class="muted" x="366" y="34">Explore</text>
+  <text class="muted" x="438" y="34">Spaces</text>
+  <path class="icon" d="M536 32 h16 l-3 -4 v-7 a5 5 0 0 0 -10 0 v7 Z M542 36 h4"/>
+  <text class="heading muted" x="575" y="34">+</text>
+  <text class="strong" x="629" y="34">alex ▾</text>
+  <path class="rule" d="M0 56 H692"/>
+  <text class="heading blue" x="24" y="101">acme / web</text>
+  <text class="small muted" x="144" y="101">Public</text>
+  <text class="small muted" x="385" y="101">Watch ▾</text>
+  <text class="small muted" x="466" y="101">Star</text>
+  <rect class="action" x="530" y="78" width="138" height="36" rx="5"/>
+  <text class="on-action strong" x="546" y="102">›_ Sodaspaces</text>
+  <text class="strong" x="24" y="151">Code</text>
+  <text class="muted" x="84" y="151">Issues</text>
+  <text class="muted" x="157" y="151">Pull requests</text>
+  <text class="muted" x="280" y="151">Actions</text>
+  <text class="muted" x="364" y="151">Projects</text>
+  <text class="muted" x="454" y="151">Releases</text>
+  <text class="muted" x="580" y="151">Settings</text>
+  <path class="rule" d="M0 169 H692"/>
+  <path class="focus" d="M24 169 H60"/>
+  <rect class="panel" x="24" y="190" width="88" height="34" rx="4"/>
+  <text x="39" y="212">main ▾</text>
+  <text class="blue" x="129" y="212">web / src / checkout / form.ts</text>
+  <rect class="surface" x="24" y="244" width="644" height="46" rx="4"/>
+  <text class="strong" x="40" y="272">sam</text>
+  <text class="muted" x="81" y="272">Keep field errors next to inputs</text>
+  <text class="small muted" x="565" y="272">8 minutes ago</text>
+  <rect class="panel" x="24" y="306" width="644" height="42"/>
+  <text class="small muted" x="40" y="332">42 lines · TypeScript</text>
+  <text class="small blue" x="454" y="332">Raw</text>
+  <text class="small blue" x="505" y="332">Permalink</text>
+  <text class="small blue" x="596" y="332">History</text>
+  <rect class="surface" x="24" y="348" width="644" height="426"/>
+  <g class="mono-small">
+    <text class="mono-small muted" x="39" y="379">18</text>
+    <text class="mono-small" x="80" y="379">function showErrors(result: ValidationResult) {</text>
+    <text class="mono-small muted" x="39" y="403">19</text>
+    <text class="mono-small" x="96" y="403">for (const error of result.errors) {</text>
+    <text class="mono-small muted" x="39" y="427">20</text>
+    <text class="mono-small" x="112" y="427">const field = fields.get(error.field);</text>
+    <text class="mono-small muted" x="39" y="451">21</text>
+    <text class="mono-small" x="112" y="451">if (!field) continue;</text>
+    <text class="mono-small muted" x="39" y="475">22</text>
+    <text class="mono-small" x="112" y="475">field.showError(error.message);</text>
+    <text class="mono-small muted" x="39" y="499">23</text>
+    <text class="mono-small" x="96" y="499">}</text>
+    <text class="mono-small muted" x="39" y="523">24</text>
+    <text class="mono-small" x="80" y="523">}</text>
+    <text class="mono-small muted" x="39" y="547">25</text>
+    <text class="mono-small muted" x="39" y="571">26</text>
+    <text class="mono-small" x="80" y="571">async function submit() {</text>
+    <text class="mono-small muted" x="39" y="595">27</text>
+    <text class="mono-small" x="96" y="595">const result = await validate(form.values());</text>
+    <text class="mono-small muted" x="39" y="619">28</text>
+    <text class="mono-small" x="96" y="619">if (!result.ok) {</text>
+    <text class="mono-small muted" x="39" y="643">29</text>
+    <text class="mono-small" x="112" y="643">showErrors(result);</text>
+    <text class="mono-small muted" x="39" y="667">30</text>
+    <text class="mono-small" x="112" y="667">return;</text>
+    <text class="mono-small muted" x="39" y="691">31</text>
+    <text class="mono-small" x="96" y="691">}</text>
+    <text class="mono-small muted" x="39" y="715">32</text>
+    <text class="mono-small" x="96" y="715">await saveOrder(result.value);</text>
+    <text class="mono-small muted" x="39" y="739">33</text>
+    <text class="mono-small" x="80" y="739">}</text>
+  </g>
+  <rect class="rule" x="24" y="306" width="644" height="468"/>
+  <rect class="panel" x="692" width="8" height="844"/>
+  <path class="rule" d="M696 393 V449"/>
+  <g transform="translate(700 0)">
+    <rect class="canvas" width="692" height="844"/>
+    <rect class="surface" width="692" height="48"/>
+    <text class="heading" x="16" y="31">Spaces</text>
+    <rect class="selected" x="98" y="7" width="101" height="34" rx="5"/>
+    <text class="strong blue" x="109" y="30">Sessions ▾</text>
+    <rect class="warning-bg" x="208" y="13" width="39" height="24" rx="8"/>
+    <text class="amber small strong" x="220" y="30">! 1</text>
+    <text class="small blue" x="492" y="30">Open in Spaces ↗</text>
+    <text x="641" y="30">Hide</text>
+    <rect class="panel" y="48" width="692" height="40"/>
+    <rect class="canvas" x="1" y="49" width="200" height="39"/>
+    <text class="strong" x="16" y="73">api / Auth refactor</text>
+    <text class="muted" x="180" y="73">×</text>
+    <text x="216" y="73">api / Review auth</text>
+    <text class="amber" x="355" y="73">!</text>
+    <text class="muted" x="383" y="73">×</text>
+    <text class="muted" x="420" y="73">web / Dev server</text>
+    <text class="muted" x="570" y="73">×</text>
+    <path class="rule" d="M202 48 V88 M405 48 V88 M592 48 V88"/>
+    <text class="small muted" x="603" y="73">2 more ▾</text>
+    <text class="heading muted" x="665" y="74">+</text>
+    <path class="focus" d="M1 88 H201"/>
+    <text class="small muted" x="16" y="110">alex @</text>
+    <text class="small strong" x="60" y="110">acme/api</text>
+    <text class="small blue" x="675" y="110" text-anchor="end">Back to terminal</text>
+    <path class="rule" d="M0 120 H692"/>
+    <text class="heading" x="20" y="158">Your sessions</text>
+    <text class="small muted" x="670" y="157" text-anchor="end">This Soda sign-in</text>
+    <rect class="panel" x="20" y="177" width="652" height="42" rx="5"/>
+    <circle class="icon" cx="37" cy="197" r="5"/>
+    <path class="icon" d="M41 201 l4 4"/>
+    <text class="muted" x="57" y="203">Find a project or session…</text>
+    <rect class="focus" x="20" y="177" width="652" height="42" rx="5"/>
+    <rect class="selected" x="20" y="233" width="53" height="30" rx="5"/>
+    <text class="strong blue" x="37" y="253">All</text>
+    <text class="muted" x="91" y="253">This page: acme/web</text>
+    <text class="muted" x="280" y="253">Attention</text>
+    <text class="amber small strong" x="350" y="253">1</text>
+    <text class="strong" x="20" y="299">⌄ acme/api</text>
+    <text class="small muted" x="116" y="299">alex · environment running</text>
+    <rect class="selected" x="20" y="314" width="652" height="48" rx="5"/>
+    <text class="strong blue" x="42" y="335">Auth refactor</text>
+    <text class="small muted" x="42" y="352">Selected terminal</text>
+    <text class="small blue" x="650" y="343" text-anchor="end">Open tab</text>
+    <text x="42" y="391">Review auth</text>
+    <text class="small amber" x="42" y="409">Waiting for input · agent reported</text>
+    <circle class="ring" cx="643" cy="389" r="7"/>
+    <text class="small amber strong" x="641" y="393">!</text>
+    <text x="42" y="445">Test watcher</text>
+    <text class="small muted" x="42" y="463">New output</text>
+    <circle class="blue" cx="643" cy="442" r="3"/>
+    <path class="rule" d="M20 488 H672"/>
+    <text class="strong" x="20" y="523">⌄ acme/web</text>
+    <text class="small muted" x="117" y="523">alex · environment running</text>
+    <text class="small blue" x="650" y="523" text-anchor="end">On the left</text>
+    <text x="42" y="559">Checkout flow</text>
+    <text class="small muted" x="42" y="577">Working · agent reported</text>
+    <text x="42" y="618">Dev server</text>
+    <text x="42" y="675">Release notes</text>
+    <text class="small muted" x="42" y="693">Kept · 24m remaining</text>
+    <text class="small blue" x="650" y="686" text-anchor="end">Open existing</text>
+    <path class="rule" d="M20 718 H672"/>
+    <text class="small muted" x="20" y="749">Selecting an existing session never launches a replacement.</text>
+    <text class="small muted" x="20" y="773">The terminal stays open while you use this switcher.</text>
+    <path class="rule" d="M0 816 H692"/>
+    <text class="small muted" x="20" y="835">5 open tabs · 1 kept session</text>
+    <text class="small blue" x="670" y="835" text-anchor="end">Back to terminal</text>
+  </g>
+  <rect class="rule" width="1392" height="844"/>
+</g>
+<text class="note-title" x="24" y="946">No extra sidebar inside the half-width drawer.</text>
+<text class="note" x="24" y="970">Sessions temporarily uses the right content. Tabs stay reachable; the forge stays interactive.</text>
+<text class="note-title" x="875" y="946">This-page filtering is explicit.</text>
+<text class="note" x="875" y="970">It filters choices, never retargets an existing shell.</text>
+<text class="note small" x="24" y="1010">Static schematic only. Native file rendering, session switching, authentication, signal reporting and view/process continuity require implementation and validation.</text>
+</svg>

@@ -12,8 +12,10 @@ agents remain inside real terminals. No agent-chat frontend, worktree-per-task p
 new application origin or new preview server.
 
 [Visual design sheets](design/spaces/README.md) show the default desktop, cross-project
-split, mobile terminal/switcher and failure states. They are static drawings with
-fictional content, not another functioning mockup or screenshots of installed Soda.
+split, mobile terminal/switcher and failure states, plus the complementary
+[right-half drawer](spaces-drawer-design.md) with native-forge browsing on the left.
+They are static drawings with fictional content, not another functioning mockup or
+screenshots of installed Soda.
 
 ## 1. Design decisions
 
@@ -261,11 +263,14 @@ bar covers the prompt. Keep at least the identity, return control and input regi
 usable. Validate real device keyboards, orientation and selection; the sheets do not
 prove those behaviors. Browser zoom must not silently become session/font resizing.
 
-The **repository drawer** is this workspace's compact surface, using the same IDs,
-session names, states and action semantics. Keep the native left page usable and the
-existing 35–65% non-modal desktop divider. One terminal/pane is visible in the drawer,
-with session switching and **Open in Spaces**. Preserve the full-page split layout
-without squeezing it into the drawer. Native navigation never retargets shells.
+The **repository drawer** is this workspace's compact surface; its
+[dedicated design](spaces-drawer-design.md) specifies the 50/50 native-forge/terminal
+composition, viable 35–65% resizing, all-open-session tab strip, temporary session
+switcher, management access and compact Forge/Terminal behavior. It derives its flat
+tabs from this window's pane tree, keeping the full-page layout intact; it is not a
+second session inventory. One terminal is visible, with **Open in Spaces** for full
+arrangement. Native browsing never retargets shells; same-document view switches,
+real navigation and explicit Hide have deliberately different lifetime effects.
 
 Use actual tablist/tab/panel semantics, roving keyboard focus and accessible pane
 names. Arrow/Home/End navigate a focused tab strip, not the shell. Separators have

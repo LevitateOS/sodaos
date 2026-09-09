@@ -1,5 +1,44 @@
 # Current handoff
 
+## Right-half Spaces drawer — complementary design, not implementation
+
+The user called the full-page Spaces design good and explicitly requested the
+right-half tabbed terminal design alongside usable native forge browsing. Added
+`docs/spaces-drawer-design.md`: default 50/50, viable 35–65% resize, full-height native
+left/drawer-right composition, compact three-row terminal chrome, and a flat view of
+this window's open tabs derived from the full-page pane tree without destroying it.
+A temporary right-only Sessions view supplies project/search/attention/explicit
+this-page filtering; named Environment/Access views remain reachable. Browsing a
+different repository is intentionally independent of the terminal's original target.
+
+The design distinguishes same-document tab/view changes, native document replacement,
+normal navigation to full Spaces, and explicit Hide/finite retention. Compact
+Forge/Terminal switching preserves the native document and session owners; new native
+navigation shows Forge rather than covering the destination with a restored terminal.
+Native beforeunload/modal/account/notification behavior remains authoritative, with
+actual actor mismatch distinct from an ordinary repository difference. No second
+session owner, framework, backend, native process or orchestration behavior is supplied.
+
+Three new hand-authored SVG sheets show an unsent native comment beside a terminal
+in a different project, native code browsing beside the right-only session switcher,
+and compact surface/continuity behavior. Native pages and terminal content are
+schematic, fictional drawings—not actual Forgejo rendering or runtime evidence.
+The existing offline renderer now emits all six sheets with no listener. Design-tool
+strict TypeScript, font/SVG/whole-sheet text bounds and unexpected-request/page-error
+checks passed, along with Markdown path, SVG XML and Git whitespace checks. The new
+sheets were visually reviewed. Final PNGs/source-hash/revision/dirty/font record:
+`.artifacts/spaces-redesign/1788955718668/`; the first drawer render remains at
+`1788955555323/`. These are drawing checks, not interaction/accessibility/native tests.
+
+Updated the parent Spaces design, leading plan, terminal guide and visual README.
+No application code, credentials, dependency installation, listener/tunnel, existing
+service, VM, project/provider state, deployment or push changed. True multi-session
+ownership and these integrated controls remain unimplemented; native reflow, forms,
+same-shell navigation and mobile keyboard/viewport behavior need real validation.
+Installed `22d8591`, the separate Rocky root decision and native proof gaps are unchanged.
+The work remains based on `f5886aa`; `origin/main` advanced by six commits during this
+turn. No merge/rebase or incorporation of that concurrent upstream work was performed.
+
 ## Spaces redesign — research-backed specification and static sheets
 
 After reviewing online terminal/agent workspace references, the user requested the

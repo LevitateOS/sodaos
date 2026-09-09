@@ -1,19 +1,24 @@
 # Spaces visual design sheets
 
-The current design is [Parallel work, one terminal workspace](../../spaces-design.md).
+The current design is [Parallel work, one terminal workspace](../../spaces-design.md),
+with the complementary [right-half drawer design](../../spaces-drawer-design.md).
 It replaces the earlier grid-first interactive mockup after research into cmux,
 Superset, Agent Deck, Wave, Zellij and Conductor. These are **static annotated drawings**,
 not live UI, another app to connect to, or installed-product screenshots.
 
-## Three sheets
+## Design sheets
 
 | Source | Design case |
 | --- | --- |
 | [`focus.svg`](focus.svg) | Default desktop: project/session navigation, local tabs, one large terminal and direct split controls |
 | [`split.svg`](split.svg) | Wide desktop: two independent projects, resizable sibling panes, input focus versus agent attention |
 | [`mobile-states.svg`](mobile-states.svg) | Two 390×844 mobile frames (terminal and full-height switcher), plus disconnected/uncertain/kept examples |
+| [`drawer-work.svg`](drawer-work.svg) | 50/50 native-forge browsing/comment editing and a tabbed terminal drawer; independent repositories and keyboard focus |
+| [`drawer-sessions.svg`](drawer-sessions.svg) | Native code browsing remains usable while a searchable project/session switcher occupies only the drawer content |
+| [`drawer-compact.svg`](drawer-compact.svg) | Compact Forge/Terminal switching, compared with native navigation, full-page Spaces and explicit Hide |
 
-All session names, output and state are fictional. “Working” / “Waiting” require a
+Native pages are schematic context, not newly authored replacements for Forgejo's
+UI or captures of its actual handlers. All session names, output and state are fictional. “Working” / “Waiting” require a
 real explicit signal integration before the product may show them. The sheets do not
 supply that integration, real xterm rendering, authentication, multiple native sessions,
 mobile keyboard behavior or retention/process proof. Refer to the specification for
@@ -40,7 +45,7 @@ browser profile/credentials and does not contact Forgejo, Soda APIs or a project
 It closes the browser/context on completion or failure. No dependency installation,
 application build, deployment or service change is involved.
 
-Each run writes three PNGs and `render.json` to a fresh
+Each run writes the sheets as PNGs and `render.json` to a fresh
 `.artifacts/spaces-redesign/TIMESTAMP/`. The record contains source hashes, actual
 revision/dirty status, browser version, dimensions and measured mono character width.
 The renderer checks font loading, SVG parsing, whole-sheet text bounds and unexpected

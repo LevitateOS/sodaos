@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="/sheets.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title description">
+<title id="title">Spaces drawer design — forge and terminals together</title>
+<desc id="description">Static 50/50 desktop design. A native-forge pull request in acme/web and an unsent comment occupy the left half. A tabbed Spaces drawer on the right shows the existing acme/api terminal. Fictional schematic content, not installed-product evidence.</desc>
+<rect class="paper" width="1600" height="1120"/>
+<text class="label" x="24" y="28">SPACES DRAWER / 01 — BROWSE AND WORK</text>
+<text class="small muted" x="24" y="48">50/50 desktop · native forge on the left, tabbed terminals on the right</text>
+<text class="label amber" x="1576" y="32" text-anchor="end">STATIC DESIGN · FICTIONAL DATA</text>
+<g transform="translate(24 64)">
+  <!-- Native Forgejo is schematic context, not a proposed replacement frontend. -->
+  <rect class="canvas" width="1552" height="928"/>
+  <rect class="nav" width="772" height="56"/>
+  <image href="/symbol.svg" x="16" y="14" width="28" height="28"/>
+  <text class="brand" x="53" y="37">soda</text>
+  <text class="muted" x="123" y="34">Issues</text>
+  <text class="muted" x="179" y="34">Pull requests</text>
+  <text class="muted" x="284" y="34">Milestones</text>
+  <text class="muted" x="375" y="34">Explore</text>
+  <text class="muted" x="449" y="34">Spaces</text>
+  <path class="icon" d="M615 32 h16 l-3 -4 v-7 a5 5 0 0 0 -10 0 v7 Z M621 36 h4"/>
+  <text class="heading muted" x="655" y="34">+</text>
+  <text class="strong" x="704" y="34">alex ▾</text>
+  <path class="rule" d="M0 56 H772"/>
+  <text class="heading blue" x="24" y="103">acme / web</text>
+  <text class="small muted" x="145" y="102">Public</text>
+  <text class="small muted" x="454" y="102">Watch ▾</text>
+  <text class="small muted" x="534" y="102">Star</text>
+  <rect class="action" x="610" y="78" width="138" height="36" rx="5"/>
+  <text class="on-action strong" x="626" y="102">›_ Sodaspaces</text>
+  <text class="muted" x="24" y="152">Code</text>
+  <text class="muted" x="84" y="152">Issues</text>
+  <text class="strong" x="158" y="152">Pull requests</text>
+  <text class="muted" x="281" y="152">Actions</text>
+  <text class="muted" x="363" y="152">Projects</text>
+  <text class="muted" x="451" y="152">Releases</text>
+  <text class="muted" x="545" y="152">Wiki</text>
+  <text class="muted" x="665" y="152">Settings</text>
+  <path class="rule" d="M0 169 H772"/>
+  <path class="focus" d="M156 169 H252"/>
+  <text class="heading" x="24" y="209">Keep checkout validation inline</text>
+  <text class="heading muted" x="318" y="209">#42</text>
+  <rect class="panel" x="24" y="225" width="63" height="28" rx="14"/>
+  <text class="green strong" x="36" y="244">Open</text>
+  <text class="muted" x="100" y="244">sam wants to merge 2 commits into main</text>
+  <text class="strong" x="24" y="292">Conversation 3</text>
+  <text class="muted" x="172" y="292">Commits 2</text>
+  <text class="muted" x="284" y="292">Files changed 4</text>
+  <path class="rule" d="M24 307 H748"/>
+  <path class="focus" d="M24 307 H143"/>
+  <circle class="panel" cx="29" cy="353" r="16"/>
+  <text class="small" x="25" y="358">S</text>
+  <rect class="surface" x="56" y="337" width="692" height="166" rx="5"/>
+  <rect class="panel" x="56" y="337" width="692" height="38" rx="5"/>
+  <text class="strong" x="72" y="361">sam</text>
+  <text class="small muted" x="110" y="361">commented 12 minutes ago</text>
+  <text class="heading muted" x="716" y="361">⋯</text>
+  <text x="72" y="405">Keep validation errors next to the shipping fields.</text>
+  <text x="72" y="433">Preserve the entered values when the server rejects the request.</text>
+  <text class="small blue" x="72" y="477">src/checkout/form.ts</text>
+  <path class="rule" d="M29 375 V547"/>
+  <circle class="surface" cx="29" cy="537" r="10"/>
+  <text class="small muted" x="56" y="543">alex requested a review</text>
+  <circle class="selected" cx="29" cy="592" r="16"/>
+  <text class="small blue" x="25" y="597">A</text>
+  <rect class="surface" x="56" y="575" width="692" height="304" rx="5"/>
+  <text class="strong" x="73" y="603">Write</text>
+  <text class="muted" x="139" y="603">Preview</text>
+  <path class="rule" d="M72 618 H732"/>
+  <path class="focus" d="M73 618 H113"/>
+  <rect class="canvas" x="72" y="634" width="660" height="165" rx="4"/>
+  <rect class="focus" x="72" y="634" width="660" height="165" rx="4"/>
+  <text x="87" y="662">Please keep the validation response compatible with the API.</text>
+  <text x="87" y="688">I am checking that path in the terminal alongside this review.</text>
+  <path class="focus" d="M441 676 V692"/>
+  <text class="small muted" x="73" y="823">Markdown is supported.</text>
+  <rect class="action" x="629" y="828" width="103" height="34" rx="5"/>
+  <text class="on-action strong" x="648" y="850">Comment</text>
+  <!-- Draggable divider, not a backdrop. -->
+  <rect class="panel" x="772" width="8" height="928"/>
+  <path class="rule" d="M776 430 V486"/>
+  <!-- Same Spaces sessions in a compact, full-height right surface. -->
+  <g transform="translate(780 0)">
+    <rect class="canvas" width="772" height="928"/>
+    <rect class="surface" width="772" height="48"/>
+    <text class="heading" x="16" y="31">Spaces</text>
+    <text x="110" y="30">Sessions ▾</text>
+    <rect class="warning-bg" x="207" y="13" width="39" height="24" rx="8"/>
+    <text class="amber small strong" x="219" y="30">! 1</text>
+    <text class="small blue" x="571" y="30">Open in Spaces ↗</text>
+    <text x="721" y="30">Hide</text>
+    <rect class="surface" y="48" width="772" height="40"/>
+    <rect class="panel" x="1" y="49" width="214" height="39"/>
+    <text class="strong" x="16" y="73">api / Auth refactor</text>
+    <text class="muted" x="193" y="73">×</text>
+    <text x="232" y="73">api / Review auth</text>
+    <text class="amber" x="376" y="73">!</text>
+    <text class="muted" x="407" y="73">×</text>
+    <text class="muted" x="450" y="73">web / Dev server</text>
+    <text class="muted" x="610" y="73">×</text>
+    <path class="rule" d="M216 48 V88 M433 48 V88 M636 48 V88"/>
+    <text class="small muted" x="649" y="73">2 more ▾</text>
+    <text class="heading muted" x="737" y="74">+</text>
+    <path class="focus" d="M1 88 H214"/>
+    <text class="small muted" x="16" y="110">alex @</text>
+    <text class="small strong" x="60" y="110">acme/api ▾</text>
+    <text class="heading muted" x="731" y="112">⋯</text>
+    <path class="rule" d="M0 120 H772"/>
+    <text class="mono green" x="20" y="157">alex ~/projects/api</text>
+    <text class="mono" x="20" y="183">$ claude</text>
+    <text class="mono strong" x="20" y="230">Claude Code</text>
+    <text class="mono muted" x="20" y="254">~/projects/api</text>
+    <text class="mono" x="20" y="302">&gt; Check the validation response used by the web checkout.</text>
+    <text class="mono" x="20" y="326">  Preserve the public API and its authorization checks.</text>
+    <text class="mono muted" x="20" y="374">Read internal/checkout/validation.go</text>
+    <text class="mono muted" x="20" y="398">Read internal/checkout/validation_test.go</text>
+    <text class="mono" x="20" y="450">The response already includes a field name and an error code.</text>
+    <text class="mono" x="20" y="474">The web form can associate each error with its input.</text>
+    <text class="mono muted" x="20" y="524">Inspecting the existing compatibility cases…</text>
+    <path class="rule" d="M20 745 H752"/>
+    <text class="mono muted" x="20" y="776">&gt;</text>
+    <rect class="rule" x="40" y="762" width="8" height="18"/>
+    <path class="rule" d="M0 900 H772"/>
+    <circle class="green" cx="18" cy="915" r="3"/>
+    <text class="small muted" x="29" y="919">Connected</text>
+    <text class="small muted" x="750" y="919" text-anchor="end">Keyboard focus is in Forgejo</text>
+  </g>
+  <rect class="rule" width="1552" height="928"/>
+</g>
+<text class="note-title" x="24" y="1028">The left side stays fully usable.</text>
+<text class="note" x="24" y="1052">Write a native comment, inspect a diff, follow a link.</text>
+<text class="note" x="24" y="1074">No backdrop, focus trap or command interception.</text>
+<text class="note-title" x="554" y="1028">The right side is the terminal workspace.</text>
+<text class="note" x="554" y="1052">Tabs, overflow, new session, trusted project identity.</text>
+<text class="note" x="554" y="1074">No management cards or permanent sidebar above the CLI.</text>
+<text class="note-title" x="1110" y="1028">Different projects are intentional.</text>
+<text class="note" x="1110" y="1052">Browsing acme/web does not retarget acme/api.</text>
+<text class="note" x="1110" y="1074">Resize the divider; retain the same native sessions.</text>
+<text class="note small" x="24" y="1102">Both native-page content and terminal output are schematic. This drawing is not a Forgejo-rendered page, working form, agent status integration or process-continuity test.</text>
+</svg>

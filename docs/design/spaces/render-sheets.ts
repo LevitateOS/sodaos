@@ -16,6 +16,9 @@ const assets: Record<string, {file: string; type: string}> = {
   '/focus.svg': {file: 'docs/design/spaces/focus.svg', type: 'image/svg+xml'},
   '/split.svg': {file: 'docs/design/spaces/split.svg', type: 'image/svg+xml'},
   '/mobile-states.svg': {file: 'docs/design/spaces/mobile-states.svg', type: 'image/svg+xml'},
+  '/drawer-work.svg': {file: 'docs/design/spaces/drawer-work.svg', type: 'image/svg+xml'},
+  '/drawer-sessions.svg': {file: 'docs/design/spaces/drawer-sessions.svg', type: 'image/svg+xml'},
+  '/drawer-compact.svg': {file: 'docs/design/spaces/drawer-compact.svg', type: 'image/svg+xml'},
   '/sheets.css': {file: 'docs/design/spaces/sheets.css', type: 'text/css'},
   '/palette.css': {file: 'assets/branding/theme/palette.css', type: 'text/css'},
   '/symbol.svg': {file: 'assets/branding/source/soda-symbol.svg', type: 'image/svg+xml'},
@@ -49,6 +52,9 @@ try {
     {name: 'focus', width: 1440, height: 1024},
     {name: 'split', width: 1920, height: 1160},
     {name: 'mobile-states', width: 1280, height: 1120},
+    {name: 'drawer-work', width: 1600, height: 1120},
+    {name: 'drawer-sessions', width: 1440, height: 1040},
+    {name: 'drawer-compact', width: 1280, height: 1120},
   ]) {
     await page.setViewportSize({width: sheet.width, height: sheet.height});
     const response = await page.goto(`${origin}/${sheet.name}.svg`);
@@ -92,7 +98,7 @@ try {
     browser: browser.version(), network: 'All page requests fulfilled from a fixed local asset map; no listener',
     hashes, captures,
   }, null, 2) + '\n');
-  console.log(`Rendered three static design sheets: ${out}`);
+  console.log(`Rendered ${captures.length} static design sheets: ${out}`);
 } finally {
   await browser.close(); // Closes the fresh context on success and every failure.
 }

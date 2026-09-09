@@ -112,6 +112,13 @@ real native page reflow, multiple terminal sessions, navigation/network reattach
 and browser-only onboarding/Git remain unimplemented or unverified. Nothing deployed.
 See the [current component contract](terminal-integration.md).
 
+The [detailed drawer design](spaces-drawer-design.md) now complements the full-page
+Spaces design: usable native browsing/comments on the left, all-open-session tabs
+on the right, a temporary right-only session switcher, explicit project identity,
+management views and same-session full-page/compact transitions. Static sheets
+illustrate those contracts; native reflow/interaction and true multi-session ownership
+still need implementation and validation. No new endpoint/preview port is selected.
+
 - **Non-modal desktop split view**, initially approximately half native Soda/Forgejo
   page and half Sodaspaces, with an adjustable divider. No dimmed backdrop, inert
   native page, outside-click dismissal or focus trap. Native forms, scrolling,

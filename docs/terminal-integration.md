@@ -8,7 +8,11 @@ now defines a project/session sidebar, direct cross-project splits with local ta
 focus versus advisory attention, measured compact behavior and the same drawer view.
 Static annotated sheets supersede the old grid-first interactive mockup; no semantic
 agent status is real without an explicitly implemented signal adapter. These designs
-reuse the same managed session mechanism, not separate terminal owners.
+reuse the same managed session mechanism, not separate terminal owners. The
+[drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
+composition, a flat view of this window's open tabs without destroying full-page
+pane layout, and the difference between native navigation, right-side view changes,
+compact Forge/Terminal switching and explicit Hide. Drawings are not runtime proof.
 The current backend still enforces one terminal per Soda context/project; multiple
 frontend tabs alone cannot satisfy this request. Proposed session collection and
 ID-keyed ownership must preserve the original binding, one writer, finite retention,

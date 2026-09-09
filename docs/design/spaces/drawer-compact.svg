@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="/sheets.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1120" viewBox="0 0 1280 1120" role="img" aria-labelledby="title description">
+<title id="title">Spaces drawer design — compact surface switching and continuity</title>
+<desc id="description">Two static 390 by 844 frames show Forge and Terminal as alternate compact views in the same native document. Notes distinguish a view change, native navigation, full Spaces and Hide. Fictional content, not runtime evidence.</desc>
+<rect class="paper" width="1280" height="1120"/>
+<text class="label" x="24" y="28">SPACES DRAWER / 03 — SAME DOCUMENT, SMALLER SCREEN</text>
+<text class="small muted" x="24" y="48">390 × 844 frames · switch surfaces without ending sessions or discarding native form state</text>
+<text class="label amber" x="1256" y="32" text-anchor="end">STATIC DESIGN · FICTIONAL DATA</text>
+<g class="light" transform="translate(24 80)">
+  <rect class="canvas" width="390" height="844"/>
+  <rect class="nav" width="390" height="48"/>
+  <image href="/symbol.svg" x="12" y="11" width="26" height="26"/>
+  <text class="brand" x="47" y="33">soda</text>
+  <text class="muted" x="121" y="29">Explore</text>
+  <text class="muted" x="190" y="29">Spaces</text>
+  <text class="small muted" x="323" y="29">alex ▾</text>
+  <rect class="panel" y="48" width="390" height="48"/>
+  <rect class="selected" x="8" y="54" width="92" height="36" rx="5"/>
+  <text class="blue strong" x="33" y="79">Forge</text>
+  <text x="123" y="79">Terminal</text>
+  <text class="amber small strong" x="192" y="79">! 1</text>
+  <text x="342" y="79">Hide</text>
+  <text class="heading blue" x="16" y="132">acme / web</text>
+  <text class="small muted" x="16" y="156">Pull request #42</text>
+  <text class="muted" x="16" y="192">Code</text>
+  <text class="muted" x="75" y="192">Issues</text>
+  <text class="strong" x="145" y="192">Pull requests</text>
+  <text class="muted" x="308" y="192">More ▾</text>
+  <path class="rule" d="M0 208 H390"/>
+  <path class="focus" d="M144 208 H240"/>
+  <text class="heading" x="16" y="244">Keep checkout validation inline</text>
+  <text class="green strong" x="16" y="274">Open</text>
+  <text class="small muted" x="64" y="274">sam wants to merge 2 commits</text>
+  <text class="strong" x="16" y="315">Conversation</text>
+  <text class="muted" x="136" y="315">Commits</text>
+  <text class="muted" x="228" y="315">Files changed</text>
+  <path class="rule" d="M16 331 H374"/>
+  <rect class="surface" x="16" y="350" width="358" height="133" rx="5"/>
+  <rect class="panel" x="16" y="350" width="358" height="34" rx="5"/>
+  <text class="strong" x="28" y="373">sam</text>
+  <text class="small muted" x="67" y="373">commented 12 minutes ago</text>
+  <text x="28" y="411">Keep errors next to their fields.</text>
+  <text x="28" y="437">Preserve input when validation fails.</text>
+  <text class="small blue" x="28" y="465">src/checkout/form.ts</text>
+  <text class="strong" x="16" y="532">Write</text>
+  <text class="muted" x="83" y="532">Preview</text>
+  <path class="rule" d="M16 547 H374"/>
+  <path class="focus" d="M16 547 H52"/>
+  <rect class="surface" x="16" y="563" width="358" height="172" rx="4"/>
+  <rect class="focus" x="16" y="563" width="358" height="172" rx="4"/>
+  <text x="28" y="590">Please keep the response compatible</text>
+  <text x="28" y="614">with the API. I am checking that path.</text>
+  <text class="small muted" x="16" y="758">Markdown is supported.</text>
+  <rect class="action" x="268" y="778" width="106" height="36" rx="5"/>
+  <text class="on-action strong" x="289" y="802">Comment</text>
+  <rect class="rule" width="390" height="844"/>
+</g>
+<g class="light" transform="translate(438 80)">
+  <rect class="canvas" width="390" height="844"/>
+  <rect class="nav" width="390" height="48"/>
+  <image href="/symbol.svg" x="12" y="11" width="26" height="26"/>
+  <text class="brand" x="47" y="33">soda</text>
+  <text class="muted" x="121" y="29">Explore</text>
+  <text class="muted" x="190" y="29">Spaces</text>
+  <text class="small muted" x="323" y="29">alex ▾</text>
+  <rect class="panel" y="48" width="390" height="48"/>
+  <text x="33" y="79">Forge</text>
+  <rect class="selected" x="110" y="54" width="107" height="36" rx="5"/>
+  <text class="blue strong" x="123" y="79">Terminal</text>
+  <text class="amber small strong" x="192" y="79">! 1</text>
+  <text x="342" y="79">Hide</text>
+  <text class="strong" x="16" y="126">Sessions ▾</text>
+  <text class="small blue" x="221" y="126">Open in Spaces ↗</text>
+  <text class="heading muted" x="356" y="128">+</text>
+  <rect class="panel" y="144" width="390" height="44"/>
+  <rect class="canvas" x="1" y="145" width="202" height="43"/>
+  <text class="strong" x="14" y="172">api / Auth refactor</text>
+  <text class="muted" x="181" y="172">×</text>
+  <text class="muted" x="218" y="172">api / Review</text>
+  <text class="amber strong" x="318" y="172">!</text>
+  <text class="muted" x="359" y="172">▾</text>
+  <path class="focus" d="M1 188 H202"/>
+  <text class="small muted" x="14" y="211">alex @</text>
+  <text class="small strong" x="59" y="211">acme/api ▾</text>
+  <text class="heading muted" x="356" y="213">⋯</text>
+  <path class="rule" d="M0 224 H390"/>
+  <text class="mono green" x="14" y="258">alex ~/projects/api</text>
+  <text class="mono" x="14" y="284">$ claude</text>
+  <text class="mono strong" x="14" y="330">Claude Code</text>
+  <text class="mono" x="14" y="378">&gt; Check the checkout validation API.</text>
+  <text class="mono" x="14" y="402">  Keep its current response format.</text>
+  <text class="mono muted" x="14" y="450">Read validation.go</text>
+  <text class="mono muted" x="14" y="474">Read validation_test.go</text>
+  <text class="mono" x="14" y="522">The response contains a field name</text>
+  <text class="mono" x="14" y="546">and an error code for each problem.</text>
+  <text class="mono" x="14" y="570">The web form can use those directly.</text>
+  <path class="rule" d="M14 684 H376"/>
+  <text class="mono" x="14" y="715">&gt;</text>
+  <rect class="blue" x="32" y="701" width="8" height="18"/>
+  <path class="rule" d="M0 816 H390"/>
+  <circle class="green" cx="17" cy="831" r="3"/>
+  <text class="small muted" x="28" y="835">Connected</text>
+  <text class="small muted" x="375" y="835" text-anchor="end">Auth refactor</text>
+  <rect class="rule" width="390" height="844"/>
+</g>
+<g transform="translate(854 80)">
+  <text class="note-title" y="18">Four actions, four different effects.</text>
+  <rect class="surface" y="46" width="402" height="166" rx="6"/>
+  <text class="heading" x="18" y="79">Switch Forge / Terminal</text>
+  <text x="18" y="110">A view change in the same document.</text>
+  <text class="small muted" x="18" y="139">Keep the native draft, scroll and session owners.</text>
+  <text class="small muted" x="18" y="165">No End, detach or new retention countdown.</text>
+  <text class="small muted" x="18" y="191">Restore your split when the window is wide enough.</text>
+  <rect class="surface" y="230" width="402" height="183" rx="6"/>
+  <text class="heading" x="18" y="265">Browse a native link</text>
+  <text x="18" y="296">The native document may be replaced.</text>
+  <text class="small muted" x="18" y="326">Reattach the same authorized session IDs.</text>
+  <text class="small muted" x="18" y="352">Show the new native page in Forge on small screens.</text>
+  <text class="small muted" x="18" y="386">No new shell, input replay or automatic Return.</text>
+  <rect class="surface" y="431" width="402" height="195" rx="6"/>
+  <text class="heading" x="18" y="466">Open in Spaces</text>
+  <text x="18" y="497">Normal navigation on the same application origin.</text>
+  <text class="small muted" x="18" y="527">Restore the full-page pane layout and selected ID.</text>
+  <text class="small muted" x="18" y="553">Respect native unsaved-form warnings.</text>
+  <text class="small muted" x="18" y="587">Not an in-place maximize or a second writer.</text>
+  <rect class="surface" y="644" width="402" height="200" rx="6"/>
+  <text class="heading" x="18" y="679">Hide workspace</text>
+  <text x="18" y="710">Return to normal native browsing.</text>
+  <text class="small muted" x="18" y="740">Request finite retention for this document's sessions.</text>
+  <text class="small muted" x="18" y="766">Use confirmed deadlines, not a promised grace period.</text>
+  <text class="small muted" x="18" y="804">End terminal and Stop environment stay separate.</text>
+</g>
+<text class="note-title" x="24" y="960">Alternate surfaces, not two tiny columns.</text>
+<text class="note" x="24" y="986">The native URL stays the same when only switching Forge / Terminal.</text>
+<text class="note" x="24" y="1010">The mobile keyboard must leave the prompt and surface controls usable.</text>
+<text class="note-title" x="760" y="960">One working set across both surfaces.</text>
+<text class="note" x="760" y="986">No separate drawer process owner, session inventory or service.</text>
+<text class="note" x="760" y="1010">No extra port or tunnel for the real implementation.</text>
+<text class="note small" x="24" y="1070">Static schematic only. Form preservation, actual native navigation, terminal reattachment, accessibility and device-keyboard behavior are not proven by these drawings.</text>
+</svg>
