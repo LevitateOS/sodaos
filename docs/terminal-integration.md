@@ -3,9 +3,12 @@
 ## Multi-project workspace design — proposed UI, not implemented
 
 The user now explicitly wants multiple concurrent terminals across multiple projects,
-with design before implementation. The [Spaces proposal](spaces-design.md) defines
-the proposed full-page navigator, cross-project tab/pane groups and compact drawer
-view. They reuse the same managed session mechanism, not separate terminal owners.
+with design before implementation. The research-backed [Spaces design](spaces-design.md)
+now defines a project/session sidebar, direct cross-project splits with local tabs,
+focus versus advisory attention, measured compact behavior and the same drawer view.
+Static annotated sheets supersede the old grid-first interactive mockup; no semantic
+agent status is real without an explicitly implemented signal adapter. These designs
+reuse the same managed session mechanism, not separate terminal owners.
 The current backend still enforces one terminal per Soda context/project; multiple
 frontend tabs alone cannot satisfy this request. Proposed session collection and
 ID-keyed ownership must preserve the original binding, one writer, finite retention,

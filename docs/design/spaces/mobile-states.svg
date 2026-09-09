@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="/sheets.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1120" viewBox="0 0 1280 1120" role="img" aria-labelledby="title description">
+<title id="title">Spaces design — mobile and honest failure states</title>
+<desc id="description">Two static 390 by 844 mobile layouts show a terminal and its full-height session switcher. Separate examples show connection loss, cleanup uncertainty and retention. All content is fictional, not installed-product evidence.</desc>
+<rect class="paper" width="1280" height="1120"/>
+<text class="label" x="24" y="28">SPACES / 03 — SMALL SCREEN, SAME SESSIONS</text>
+<text class="small muted" x="24" y="48">390 × 844 app frames · light theme · no tiny terminal grid</text>
+<text class="label amber" x="1256" y="32" text-anchor="end">STATIC DESIGN · FICTIONAL DATA</text>
+<!-- Mobile terminal. -->
+<g class="light" transform="translate(24 80)">
+  <rect class="canvas" width="390" height="844"/>
+  <rect class="nav" width="390" height="48"/>
+  <image href="/symbol.svg" x="12" y="11" width="26" height="26"/>
+  <text class="brand" x="47" y="33">soda</text>
+  <text class="muted" x="121" y="29">Explore</text>
+  <text class="strong" x="190" y="29">Spaces</text>
+  <path class="focus" d="M188 47 H239"/>
+  <text class="small muted" x="323" y="29">alex ▾</text>
+  <path class="rule" d="M0 48 H390"/>
+  <rect class="selected" x="8" y="56" width="116" height="36" rx="5"/>
+  <text class="strong blue" x="22" y="80">☰  Sessions</text>
+  <text class="small muted" x="141" y="80">1 needs attention</text>
+  <text class="heading blue" x="309" y="81">+</text>
+  <text class="heading muted" x="357" y="81">⋯</text>
+  <rect class="panel" y="100" width="390" height="44"/>
+  <text class="muted" x="14" y="127">Auth refactor</text>
+  <text class="muted" x="129" y="127">×</text>
+  <rect class="canvas" x="154" y="100" width="186" height="44"/>
+  <text class="strong" x="168" y="127">Review auth</text>
+  <text class="amber strong" x="272" y="127">!</text>
+  <text class="muted" x="315" y="127">×</text>
+  <text class="muted" x="355" y="127">▾</text>
+  <path class="focus" d="M154 144 H340"/>
+  <text class="small muted" x="14" y="168">alex @</text>
+  <text class="small strong" x="59" y="168">acme/api</text>
+  <text class="small muted" x="375" y="168" text-anchor="end">Review auth</text>
+  <rect class="warning-bg" y="180" width="390" height="40"/>
+  <text class="small amber strong" x="14" y="205">Waiting for input · agent reported</text>
+  <text class="mono green" x="14" y="254">alex ~/projects/api</text>
+  <text class="mono" x="14" y="280">$ claude</text>
+  <text class="mono strong" x="14" y="328">Claude Code</text>
+  <text class="mono" x="14" y="376">&gt; Review the token validation changes.</text>
+  <text class="mono muted" x="14" y="426">Read src/auth/token.go</text>
+  <text class="mono muted" x="14" y="450">Read src/auth/token_test.go</text>
+  <text class="mono" x="14" y="496">One regression case is missing.</text>
+  <text class="mono" x="14" y="520">I would like to run the focused tests:</text>
+  <text class="mono" x="14" y="566">go test ./internal/auth/...</text>
+  <path class="rule" d="M14 594 H376"/>
+  <text class="mono" x="14" y="626">Allow this command?</text>
+  <text class="mono blue" x="14" y="666">&gt; 1. Yes</text>
+  <text class="mono" x="14" y="694">  2. No, give another instruction</text>
+  <text class="mono-small muted" x="14" y="742">Answer directly in the terminal.</text>
+  <path class="rule" d="M0 816 H390"/>
+  <circle class="green" cx="17" cy="831" r="3"/>
+  <text class="small muted" x="28" y="835">Connected</text>
+  <text class="small muted" x="375" y="835" text-anchor="end">Review auth</text>
+  <rect class="rule" width="390" height="844"/>
+</g>
+<!-- Mobile navigation is a replacement view, not a backdrop over the prompt. -->
+<g class="light" transform="translate(438 80)">
+  <rect class="canvas" width="390" height="844"/>
+  <rect class="nav" width="390" height="48"/>
+  <image href="/symbol.svg" x="12" y="11" width="26" height="26"/>
+  <text class="brand" x="47" y="33">soda</text>
+  <text class="muted" x="121" y="29">Explore</text>
+  <text class="strong" x="190" y="29">Spaces</text>
+  <path class="focus" d="M188 47 H239"/>
+  <text class="small muted" x="323" y="29">alex ▾</text>
+  <path class="rule" d="M0 48 H390"/>
+  <text class="blue" x="16" y="80">← Terminal</text>
+  <text class="strong" x="157" y="80">Sessions</text>
+  <text class="heading blue" x="353" y="81">+</text>
+  <rect class="panel" x="16" y="108" width="358" height="44" rx="5"/>
+  <circle class="icon" cx="32" cy="128" r="5"/>
+  <path class="icon" d="M36 132 l4 4"/>
+  <text class="muted" x="52" y="135">Find a project or session…</text>
+  <rect class="selected" x="16" y="164" width="59" height="36" rx="5"/>
+  <text class="strong blue" x="37" y="188">All</text>
+  <text class="muted" x="94" y="188">Attention</text>
+  <rect class="warning-bg" x="164" y="173" width="24" height="23" rx="8"/>
+  <text class="small amber strong" x="173" y="189">1</text>
+  <text class="strong" x="18" y="235">⌄  acme/api</text>
+  <text class="small muted" x="40" y="253">Environment running</text>
+  <text class="heading muted" x="351" y="237">⋯</text>
+  <text x="40" y="285">Auth refactor</text>
+  <rect class="selected" x="16" y="307" width="358" height="60" rx="5"/>
+  <rect class="action" x="16" y="316" width="3" height="42"/>
+  <text class="strong blue" x="40" y="333">Review auth</text>
+  <text class="small amber" x="40" y="353">Waiting for input · reported</text>
+  <circle class="ring" cx="350" cy="331" r="8"/>
+  <text class="amber small strong" x="348" y="335">!</text>
+  <text x="40" y="400">Test watcher</text>
+  <text class="small muted" x="40" y="420">New output</text>
+  <circle class="blue" cx="350" cy="396" r="3"/>
+  <text class="strong" x="18" y="475">⌄  acme/web</text>
+  <text class="small muted" x="40" y="493">Environment running</text>
+  <text class="heading muted" x="351" y="477">⋯</text>
+  <text x="40" y="532">Checkout flow</text>
+  <text class="small muted" x="40" y="552">Working · reported</text>
+  <text x="40" y="597">Dev server</text>
+  <text x="40" y="651">Release notes</text>
+  <text class="small muted" x="40" y="672">Kept · 24m remaining</text>
+  <path class="rule" d="M16 704 H374"/>
+  <text class="strong muted" x="18" y="738">›  acme/docs</text>
+  <text class="small muted" x="40" y="758">Stopped · no sessions</text>
+  <text class="small muted" x="16" y="817">Your sessions · this Soda sign-in</text>
+  <rect class="rule" width="390" height="844"/>
+</g>
+<!-- Independent lifecycle states, not fake actions layered on the mobile example. -->
+<g transform="translate(854 80)">
+  <text class="note-title" y="18">Connection is not agent status.</text>
+  <text class="note small" y="40">Independent moments, shown separately below.</text>
+  <rect class="surface" y="64" width="402" height="242" rx="6"/>
+  <text class="small muted" x="18" y="91">acme/api / Test watcher</text>
+  <text class="heading amber" x="18" y="123">Connection lost</text>
+  <text x="18" y="153">Input paused. No keystrokes queued.</text>
+  <text class="small muted" x="18" y="179">Last confirmed retained until 14:42.</text>
+  <text class="small muted" x="18" y="199">Status checked 30 seconds ago.</text>
+  <rect class="action" x="18" y="218" width="159" height="36" rx="5"/>
+  <text class="on-action strong" x="32" y="242">Reconnect existing</text>
+  <text class="small muted" x="18" y="283">Same ID. No input replay or new-shell fallback.</text>
+  <rect class="surface" y="326" width="402" height="218" rx="6"/>
+  <text class="small muted" x="18" y="354">acme/api / Auth refactor</text>
+  <text class="heading amber" x="18" y="386">Cleanup unconfirmed</text>
+  <text x="18" y="418">This session's capacity slot is still reserved.</text>
+  <text x="18" y="442">No attach, retry or replacement was made.</text>
+  <text class="small muted" x="18" y="480">Ask the operator to inspect the native outcome.</text>
+  <text class="small muted" x="18" y="511">A closed socket is not proof of process cleanup.</text>
+  <rect class="surface" y="564" width="402" height="280" rx="6"/>
+  <text class="small muted" x="18" y="592">acme/web / Release notes</text>
+  <text class="heading" x="18" y="625">Kept · 24m remaining</text>
+  <text x="18" y="658">Open this existing session to continue.</text>
+  <text class="small muted" x="18" y="687">Showing it in this list does not renew its lifetime.</text>
+  <rect class="action" x="18" y="712" width="141" height="36" rx="5"/>
+  <text class="on-action strong" x="32" y="736">Open existing</text>
+  <rect class="panel" x="18" y="758" width="161" height="36" rx="5"/>
+  <text x="32" y="782">Keep for two hours</text>
+  <text class="small muted" x="18" y="824">Original authentication and hard expiry still win.</text>
+</g>
+<text class="note-title" x="24" y="960">One terminal. Full-height switching.</text>
+<text class="note" x="24" y="985">Opening Sessions is a view change—not Hide, detach or End.</text>
+<text class="note" x="24" y="1009">The mobile keyboard must resize the usable terminal viewport.</text>
+<text class="note-title" x="698" y="960">Keep the same session and honest outcomes.</text>
+<text class="note" x="698" y="985">No automatic repair. No “Resume” that silently starts a new shell.</text>
+<text class="note" x="698" y="1009">End and Stop remain separate, explicitly confirmed actions.</text>
+<text class="note small" x="24" y="1060">The CLI transcript is illustrative. Semantic activity requires a real signal adapter; mobile keyboard and actual xterm fit require device testing.</text>
+<text class="note small" x="24" y="1085">No authenticated profile, API, project or live application was used to draw these sheets.</text>
+</svg>

@@ -48,11 +48,15 @@ No project/package/capability changes or execution scope are granted by the base
 ## Spaces page — selected, not implemented
 
 The user explicitly requested **design first for multiple simultaneous terminals
-across multiple projects**. The [Spaces design proposal](spaces-design.md) develops
-the navigator, tab/pane model, drawer relationship, lifecycle language, failure states,
-responsive/accessibility behavior and implementation boundaries. Concurrency and the
-Spaces entry point are selected; proposed layouts, four visible panes and optional
-bulk controls are not yet accepted implementation details. The page must be a usable
+across multiple projects**. After online research, the [revised Spaces design](spaces-design.md)
+now specifies project/session navigation, local tabs, direct splits/resize/maximize,
+attention separate from connection state, compact drawer/mobile behavior and bounded
+implementation. [Static design sheets](design/spaces/README.md) replace the earlier
+interactive mockup as the review material—no new server/port. The grid-preset selector,
+arbitrary four-pane limit and first-slice bulk actions are removed from the proposal.
+Semantic agent statuses require real explicit signals, not inferred output activity.
+Concurrency and the Spaces entry point are selected; this is a design specification,
+not an implemented page or completed UX/native acceptance. The page must be a usable
 multi-project workspace, not only an environment catalog. Current installed single-
 terminal evidence remains bounded by the handoff; this request does not imply a
 Rocky rollout, project recreation or other native execution.

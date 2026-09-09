@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="/sheets.css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1160" viewBox="0 0 1920 1160" role="img" aria-labelledby="title description">
+<title id="title">Spaces design — two projects side by side</title>
+<desc id="description">Static wide desktop design. Review auth in acme/api is waiting for input, while Checkout flow in acme/web is visible in another pane. Tabs, direct split controls and a draggable divider keep the native terminals primary. All content is fictional.</desc>
+<rect class="paper" width="1920" height="1160"/>
+<text class="label" x="24" y="28">SPACES / 02 — COMPARE AND ATTEND</text>
+<text class="small muted" x="24" y="48">Wide desktop · two projects, two readable terminals, six discoverable sessions</text>
+<text class="label amber" x="1896" y="32" text-anchor="end">STATIC DESIGN · FICTIONAL DATA</text>
+<g transform="translate(24 64)">
+  <rect class="canvas" width="1872" height="944"/>
+  <rect class="nav" width="1872" height="56"/>
+  <image href="/symbol.svg" x="16" y="14" width="28" height="28"/>
+  <text class="brand" x="53" y="37">soda</text>
+  <text class="muted" x="128" y="34">Issues</text>
+  <text class="muted" x="188" y="34">Pull requests</text>
+  <text class="muted" x="292" y="34">Milestones</text>
+  <text class="muted" x="384" y="34">Explore</text>
+  <text class="strong" x="460" y="34">Spaces</text>
+  <path class="focus" d="M458 55 H507"/>
+  <text class="small muted" x="1680" y="33">Soda account</text>
+  <text class="strong" x="1770" y="33">alex ▾</text>
+  <path class="rule" d="M0 56 H1872"/>
+  <text class="heading" x="18" y="87">Spaces</text>
+  <path class="icon" d="M213 73 H229 V87 H213 Z M218 73 V87"/>
+  <rect class="surface" x="266" y="64" width="296" height="32" rx="5"/>
+  <circle class="icon" cx="282" cy="79" r="5"/>
+  <path class="icon" d="M286 83 l4 4"/>
+  <text class="muted" x="302" y="85">Find a project or session…</text>
+  <text class="amber" x="1570" y="85">Next attention ↓</text>
+  <rect class="action" x="1716" y="64" width="140" height="32" rx="5"/>
+  <text class="on-action strong" x="1731" y="85">+ New terminal</text>
+  <path class="rule" d="M0 104 H1872"/>
+  <rect class="surface" y="104" width="248" height="840"/>
+  <path class="rule" d="M248 104 V944"/>
+  <rect class="selected" x="12" y="119" width="55" height="28" rx="5"/>
+  <text class="strong blue" x="32" y="138">All</text>
+  <text class="muted" x="82" y="138">Attention</text>
+  <rect class="warning-bg" x="149" y="122" width="22" height="21" rx="8"/>
+  <text class="amber small strong" x="157" y="137">1</text>
+  <text class="strong" x="17" y="184">⌄  acme/api</text>
+  <text class="small muted" x="39" y="203">Environment running</text>
+  <text class="muted heading" x="220" y="185">⋯</text>
+  <text x="36" y="241">Auth refactor</text>
+  <rect class="selected" x="8" y="265" width="232" height="48" rx="5"/>
+  <rect class="action" x="8" y="273" width="3" height="32" rx="1"/>
+  <text class="strong blue" x="36" y="286">Review auth</text>
+  <text class="small amber" x="36" y="304">Waiting for input · reported</text>
+  <circle class="ring" cx="222" cy="283" r="7"/>
+  <text class="amber small strong" x="220" y="287">!</text>
+  <text x="36" y="337">Test watcher</text>
+  <text class="small muted" x="36" y="355">New output</text>
+  <circle class="blue" cx="222" cy="334" r="3"/>
+  <text class="strong" x="17" y="404">⌄  acme/web</text>
+  <text class="small muted" x="39" y="423">Environment running</text>
+  <text class="muted heading" x="220" y="405">⋯</text>
+  <text x="36" y="456">Checkout flow</text>
+  <text class="small muted" x="36" y="474">Working · visible in right pane</text>
+  <text x="36" y="508">Dev server</text>
+  <text x="36" y="558">Release notes</text>
+  <text class="small muted" x="36" y="576">Kept · 24m remaining</text>
+  <path class="rule" d="M16 609 H232"/>
+  <text class="strong muted" x="17" y="641">›  acme/docs</text>
+  <text class="small muted" x="39" y="660">Stopped · no sessions</text>
+  <text class="small muted" x="16" y="903">Your sessions · this sign-in</text>
+  <text class="small muted" x="16" y="923">Hidden tabs remain in this list.</text>
+  <!-- Left pane: selected review session, not an application approval dialog. -->
+  <rect class="surface" x="248" y="104" width="808" height="40"/>
+  <text class="muted" x="266" y="129">api / Auth refactor</text>
+  <text class="muted" x="444" y="129">×</text>
+  <rect class="panel" x="468" y="105" width="216" height="39"/>
+  <text class="strong" x="484" y="129">api / Review auth</text>
+  <text class="amber" x="630" y="129">!</text>
+  <text class="muted" x="661" y="129">×</text>
+  <text class="muted" x="704" y="129">api / Test watcher</text>
+  <circle class="blue" cx="850" cy="124" r="3"/>
+  <text class="muted" x="879" y="129">×</text>
+  <text class="heading muted" x="1020" y="130">+</text>
+  <path class="rule" d="M468 104 V144 M686 104 V144 M905 104 V144"/>
+  <path class="focus" d="M468 144 H684"/>
+  <text class="small muted" x="268" y="168">alex @</text>
+  <text class="small strong" x="313" y="168">acme/api</text>
+  <text class="small muted" x="777" y="168">Split right</text>
+  <text class="small muted" x="860" y="168">Below</text>
+  <path class="icon" d="M957 155 h-5 v5 M966 155 h5 v5 M952 165 v5 h5 M971 165 v5 h-5"/>
+  <text class="heading muted" x="1018" y="170">⋯</text>
+  <rect class="warning-bg" x="249" y="180" width="806" height="36"/>
+  <text class="small amber strong" x="268" y="202">Waiting for input · agent reported</text>
+  <text class="small amber" x="1034" y="202" text-anchor="end">Answer in the terminal</text>
+  <text class="mono green" x="272" y="252">alex ~/projects/api</text>
+  <text class="mono" x="272" y="278">$ claude</text>
+  <text class="mono strong" x="272" y="324">Claude Code</text>
+  <text class="mono" x="272" y="372">&gt; Review the token validation changes.</text>
+  <text class="mono muted" x="272" y="422">Read src/auth/token.go</text>
+  <text class="mono muted" x="272" y="446">Read src/auth/token_test.go</text>
+  <text class="mono" x="272" y="496">The existing permission checks are still in place.</text>
+  <text class="mono" x="272" y="520">I found one missing regression case for an expired token.</text>
+  <text class="mono" x="272" y="568">I would like to run the focused test suite:</text>
+  <text class="mono" x="288" y="606">go test ./internal/auth/...</text>
+  <path class="rule" d="M272 636 H1032"/>
+  <text class="mono" x="272" y="669">Allow this command?</text>
+  <text class="mono blue" x="272" y="708">&gt; 1. Yes</text>
+  <text class="mono" x="272" y="736">  2. No, tell the agent what to do instead</text>
+  <text class="mono-small muted" x="272" y="788">This prompt belongs to the CLI, not Soda.</text>
+  <path class="rule" d="M248 916 H1056"/>
+  <circle class="green" cx="270" cy="931" r="3"/>
+  <text class="small muted" x="280" y="935">Connected</text>
+  <text class="small muted" x="1034" y="935" text-anchor="end">Review auth · focused terminal</text>
+  <rect class="focus" x="249" y="145" width="806" height="798"/>
+  <!-- An eight-pixel divider has a larger pointer hit area in the real design. -->
+  <rect class="panel" x="1056" y="104" width="8" height="840"/>
+  <path class="rule" d="M1060 498 V546"/>
+  <!-- Right pane: independent project binding. -->
+  <rect class="surface" x="1064" y="104" width="808" height="40"/>
+  <rect class="panel" x="1065" y="105" width="238" height="39"/>
+  <text class="strong" x="1082" y="129">web / Checkout flow</text>
+  <text class="muted" x="1279" y="129">×</text>
+  <text class="muted" x="1322" y="129">web / Dev server</text>
+  <text class="muted" x="1499" y="129">×</text>
+  <path class="rule" d="M1305 104 V144 M1526 104 V144"/>
+  <text class="heading muted" x="1836" y="130">+</text>
+  <text class="small muted" x="1084" y="168">alex @</text>
+  <text class="small strong" x="1129" y="168">acme/web</text>
+  <text class="small muted" x="1593" y="168">Split right</text>
+  <text class="small muted" x="1676" y="168">Below</text>
+  <path class="icon" d="M1773 155 h-5 v5 M1782 155 h5 v5 M1768 165 v5 h5 M1787 165 v5 h-5"/>
+  <text class="heading muted" x="1834" y="170">⋯</text>
+  <path class="rule" d="M1064 179 H1872"/>
+  <text class="mono green" x="1088" y="220">alex ~/projects/web</text>
+  <text class="mono" x="1088" y="246">$ codex</text>
+  <text class="mono strong" x="1088" y="292">Codex</text>
+  <text class="mono muted" x="1088" y="316">~/projects/web</text>
+  <text class="mono" x="1088" y="366">&gt; Improve validation in the checkout flow.</text>
+  <text class="mono" x="1088" y="390">  Preserve the current field labels and keyboard behavior.</text>
+  <text class="mono muted" x="1088" y="440">Inspecting src/checkout/form.ts</text>
+  <text class="mono muted" x="1088" y="464">Inspecting tests/checkout.test.ts</text>
+  <text class="mono" x="1088" y="516">I will keep errors next to their fields and preserve input</text>
+  <text class="mono" x="1088" y="540">when validation fails.</text>
+  <text class="mono muted" x="1088" y="590">Updating validation cases…</text>
+  <path class="rule" d="M1088 794 H1848"/>
+  <text class="mono muted" x="1088" y="826">&gt;</text>
+  <text class="mono-small muted" x="1088" y="862">The other terminal keeps running while you answer the review.</text>
+  <path class="rule" d="M1064 916 H1872"/>
+  <circle class="green" cx="1086" cy="931" r="3"/>
+  <text class="small muted" x="1096" y="935">Connected</text>
+  <text class="small muted" x="1850" y="935" text-anchor="end">Working · agent reported</text>
+  <rect class="rule" width="1872" height="944"/>
+</g>
+<text class="note-title" x="24" y="1044">Attention is not focus.</text>
+<text class="note" x="24" y="1068">Amber remains until the agent reports that waiting has ended.</text>
+<text class="note" x="24" y="1090">Reading clears unread, not the pending question. No automatic approval.</text>
+<text class="note-title" x="698" y="1044">Arrange views, never recreate processes.</text>
+<text class="note" x="698" y="1068">Split, move, resize, maximize and restore keep session IDs.</text>
+<text class="note" x="698" y="1090">Different projects can share the canvas; account bindings never move.</text>
+<text class="note-title" x="1360" y="1044">Readable at actual terminal size.</text>
+<text class="note" x="1360" y="1068">Wide panes here leave room for about 90 columns at 14px.</text>
+<text class="note" x="1360" y="1090">Smaller canvases use one pane without losing the saved layout.</text>
+<text class="note small" x="24" y="1134">Design specification only. Agent signals, multiple native sessions and the Spaces page still need implementation and real-browser/native validation.</text>
+</svg>

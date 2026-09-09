@@ -1,0 +1,51 @@
+/* Static design sheets only. Canonical assets are referenced, never regenerated. */
+@import url('/palette.css');
+@font-face { font-family: Barlow; src: url('/barlow.woff2'); font-weight: 400; }
+@font-face { font-family: Barlow; src: url('/barlow-semibold.woff2'); font-weight: 600; }
+@font-face { font-family: Plex; src: url('/mono.woff2'); font-weight: 400; }
+:root {
+  --canvas: var(--soda-dark-canvas); --surface: var(--soda-dark-surface);
+  --panel: var(--soda-dark-panel); --text: var(--soda-dark-text);
+  --muted: var(--soda-dark-muted); --line: var(--soda-dark-border);
+  --selected: var(--soda-dark-selected); --focus: var(--soda-dark-focus);
+  --action: var(--soda-dark-action); --on-action: var(--soda-dark-on-action);
+  --warning: var(--soda-dark-warning-text); --warning-bg: var(--soda-dark-warning-bg);
+  --success: var(--soda-dark-success-text); --nav: var(--soda-dark-nav);
+}
+.light {
+  --canvas: var(--soda-light-canvas); --surface: var(--soda-light-surface);
+  --panel: var(--soda-light-panel); --text: var(--soda-light-text);
+  --muted: var(--soda-light-muted); --line: var(--soda-light-border);
+  --selected: var(--soda-light-selected); --focus: var(--soda-light-focus);
+  --action: var(--soda-light-action); --on-action: var(--soda-light-on-action);
+  --warning: var(--soda-light-warning-text); --warning-bg: var(--soda-light-warning-bg);
+  --success: var(--soda-light-success-text); --nav: var(--soda-light-nav);
+}
+text { font-family: Barlow, sans-serif; font-size: 14px; fill: var(--text); }
+.paper { fill: #080c12; }
+.canvas { fill: var(--canvas); }
+.surface { fill: var(--surface); }
+.panel { fill: var(--panel); }
+.nav { fill: var(--nav); }
+.selected { fill: var(--selected); }
+.action { fill: var(--action); }
+.warning-bg { fill: var(--warning-bg); }
+.on-action { fill: var(--on-action); }
+.muted { fill: var(--muted); }
+.blue { fill: var(--focus); }
+.amber { fill: var(--warning); }
+.green { fill: var(--success); }
+.strong { font-weight: 600; }
+.small { font-size: 12px; }
+.tiny { font-size: 11px; }
+.heading { font-size: 20px; font-weight: 600; }
+.brand { font-size: 24px; font-weight: 600; }
+.label { font-size: 12px; letter-spacing: 1.2px; font-weight: 600; }
+.mono { font-family: Plex, monospace; font-size: 14px; }
+.mono-small { font-family: Plex, monospace; font-size: 13px; }
+.rule { stroke: var(--line); stroke-opacity: .4; stroke-width: 1; fill: none; }
+.focus { stroke: var(--focus); stroke-width: 1.5; fill: none; }
+.icon { stroke: var(--muted); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ring { stroke: var(--warning); stroke-width: 1.5; fill: none; }
+.note { font-size: 14px; fill: var(--soda-dark-muted); }
+.note-title { font-size: 15px; font-weight: 600; fill: var(--soda-dark-text); }

@@ -1,70 +1,61 @@
-# Spaces design preview
+# Spaces visual design sheets
 
-An interactive **design mockup** for [the Spaces proposal](../../spaces-design.md),
-not a second product frontend, live terminal, Forgejo page or deployment fixture.
-It is deliberately outside the native payload/build entrypoints. Every screen is
-labeled; sample output must not be published as installed-product evidence.
+The current design is [Parallel work, one terminal workspace](../../spaces-design.md).
+It replaces the earlier grid-first interactive mockup after research into cmux,
+Superset, Agent Deck, Wave, Zellij and Conductor. These are **static annotated drawings**,
+not live UI, another app to connect to, or installed-product screenshots.
 
-## Run locally
+## Three sheets
 
-From the repository root, with the pinned Bun 1.4.2 and prepared root dependencies:
+| Source | Design case |
+| --- | --- |
+| [`focus.svg`](focus.svg) | Default desktop: project/session navigation, local tabs, one large terminal and direct split controls |
+| [`split.svg`](split.svg) | Wide desktop: two independent projects, resizable sibling panes, input focus versus agent attention |
+| [`mobile-states.svg`](mobile-states.svg) | Two 390×844 mobile frames (terminal and full-height switcher), plus disconnected/uncertain/kept examples |
+
+All session names, output and state are fictional. “Working” / “Waiting” require a
+real explicit signal integration before the product may show them. The sheets do not
+supply that integration, real xterm rendering, authentication, multiple native sessions,
+mobile keyboard behavior or retention/process proof. Refer to the specification for
+behavior, authority and first-slice boundaries, not to placeholder transcript wording.
+
+`sheets.css` references the canonical Soda palette, unmodified symbol and existing
+Barlow/Plex fonts. No upstream product code/artwork, new dependency or branding
+regeneration is included. SVG sources are hand-authored design assets, not generated
+product payloads; rendered PNGs belong in ignored `.artifacts/`.
+
+## Render without a server or tunnel
+
+With the root-pinned Bun and already prepared root dependencies:
 
 ```sh
-bun node_modules/typescript/bin/tsc -p docs/design/spaces/tsconfig.json
 bun node_modules/typescript/bin/tsc -p docs/design/spaces/tsconfig.tools.json
-bun docs/design/spaces/review.ts --serve
+bun docs/design/spaces/render-sheets.ts
 ```
 
-Open `http://127.0.0.1:33450/` on that machine. This listener is loopback-only;
-remote clients need their own deliberate forward. Ctrl-C stops it. The command
-emits browser JavaScript into a fresh ignored `.artifacts/spaces-design/TIMESTAMP/`.
-No dependency installation, service activation or appliance contact is performed.
-It refuses an occupied port rather than adopting another server.
+The renderer opens a fresh sandboxed Chromium context and fulfills every page request
+from a fixed local asset map. The reserved `.invalid` origin is only an interception
+key, never a contacted website. It opens **no HTTP listener or port**, reads no existing
+browser profile/credentials and does not contact Forgejo, Soda APIs or a project.
+It closes the browser/context on completion or failure. No dependency installation,
+application build, deployment or service change is involved.
 
-Use the preview toolbar to choose **Working** or **Away & errors**, and dark/light
-themes. `?scene=away&theme=light` selects the latter scene directly. A new document
-resets to fictional sample state; it does not restore processes or browser storage.
+Each run writes three PNGs and `render.json` to a fresh
+`.artifacts/spaces-redesign/TIMESTAMP/`. The record contains source hashes, actual
+revision/dirty status, browser version, dimensions and measured mono character width.
+The renderer checks font loading, SVG parsing, whole-sheet text bounds and unexpected
+requests/page errors; visually inspect the result for overlap and design quality.
+These are drawing checks, **not UI interaction tests or product acceptance**.
 
-## What to review
+The SVG/CSS asset references are fulfilled by the renderer; opening a naked SVG
+in an arbitrary file viewer need not load those assets. Use its PNG outputs for review.
+No new browsing endpoint is required. Real Spaces belongs at `/-/soda/spaces` on the
+existing application origin (33443 in the isolated deployment), after implementation.
 
-- Six labeled sample sessions in two projects; separate project and session states.
-- Mixed-project tab groups, Single/Side-by-side/Stacked/Four-pane layouts, maximize,
-  moving via the action menu and keyboard tab selection. Layout changes retain sample
-  IDs; they never imply real native process preservation.
-- Explicit project selection for a new **sample** tab, rename, Hide with retained
-  discovery, finite-retention messages, End confirmation/cancel and sibling isolation.
-- Kept, offline, attached-elsewhere, ended and cleanup-unconfirmed sample states.
-  The offline reconnect illustration keeps a finite deadline until deliberate Continue.
-- Project details are a non-modal inspector. Shared-impact Stop is visibly disabled
-  and explicitly not simulated; there is no hidden operational command.
-- Compact screens show one pane and a full-height project/session switcher. Other
-  groups remain selectable; no tiny four-terminal phone grid.
-- Canonical Soda symbol, Barlow/Plex fonts and shared palette are loaded directly from
-  existing assets. No branding regeneration, component library or new dependency.
+## Superseded mockup
 
-The original proposed default remains **single pane**; this review opens two panes
-to demonstrate cross-project use. Sidebar/divider drag resizing, drag-and-drop tabs,
-bulk actions, creation/ending transition timing, native header/authentication, xterm
-input/history/editor behavior and durable navigation/reattachment are **not** supplied
-by this prototype. The production implementation must use actual session ownership
-and renderer lifetimes, not this sample DOM rerendering model.
-
-## Design-only browser review
-
-```sh
-bun docs/design/spaces/review.ts --check
-```
-
-This emits the preview, starts a temporary loopback server, opens a fresh sandboxed
-Chromium context, runs sample interaction/overflow checks and captures seven views:
-desktop dark/light, retained/offline, cleanup uncertainty, mobile terminal, mobile
-switcher and narrow mobile retention. It closes its browser/server afterward.
-Generated PNGs and `review.json` stay in a fresh ignored directory. The record contains
-actual viewport/theme, browser version, source revision/dirty flag and authored-file
-hashes. Review images visually; passing assertions are not product acceptance.
-
-No credentials/profiles from deployed fixtures are read. The server has a fixed
-asset map; all other routes/methods return404. Browser connections outside the preview
-are refused, and the page's CSP disallows fetch/WebSocket connections. No backend
-API, provider login, project mutation, package install or VM action is available.
-Production Forgejo/Soda/Cockpit and the pending Rocky rollout are unchanged.
+`index.html`, `preview.css`, `preview.ts`, `review.ts` and their older compiler/capture
+records belong to the **superseded `8fe3468` mockup**, not this redesign or a product
+implementation candidate. Do not use its grid selector, fake state machine or
+`--serve`/33450 path as the current design/review workflow. Source and historical
+captures are retained so prior observations are not erased or relabelled.

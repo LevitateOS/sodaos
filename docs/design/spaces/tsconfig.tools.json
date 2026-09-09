@@ -1,4 +1,4 @@
 {
   "extends": "../../../tsconfig.json",
-  "include": ["review.ts"]
+  "include": ["review.ts", "render-sheets.ts"]
 }

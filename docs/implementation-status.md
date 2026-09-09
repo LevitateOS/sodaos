@@ -1,6 +1,45 @@
 # Current handoff
 
+## Spaces redesign — research-backed specification and static sheets
+
+After reviewing online terminal/agent workspace references, the user requested the
+actual redesign. `docs/spaces-design.md` now replaces the grid-first proposal with
+project/session navigation, local tabs, direct split/move/resize/maximize, measured
+compact behavior and attention distinct from connection/lifetime. Ordinary new output
+is a quiet unread dot, not an attention alarm; semantic agent states need real explicit
+signals. No agent-chat frontend, mandatory worktrees, native backend replacement,
+arbitrary four-pane limit or first-slice bulk actions are selected by the redesign.
+Original account/context binding, one writer, finite retention and cleanup reservations
+remain intact. The first real multi-session slice and signal adapter are unimplemented.
+
+Three hand-authored SVG sheets in `docs/design/spaces/` show focused desktop,
+wide cross-project terminals, and two 390×844 mobile frames plus lifecycle/error cases.
+They reference canonical assets through `sheets.css`; they are static drawings with
+fictional content, not another interactive app or installed evidence. The old `8fe3468`
+mockup/source/captures are explicitly superseded as design material, not erased.
+The leading plan, terminal guide and design README point to the revised specification.
+
+The design-tool strict TypeScript check passes. Initial checking found an un-narrowed
+HTML canvas element; an explicit `instanceof` check fixed it without a cast/suppression.
+The sandboxed Chromium renderer then produced three sheets with canonical font loads,
+valid SVG, whole-sheet text bounds and no unexpected page requests/errors; all three
+were visually reviewed. Final images and source-hash/revision/dirty/font-metric record:
+`.artifacts/spaces-redesign/1788954085183/`; earlier render remains at `1788953854599/`.
+Markdown path/SVG XML and Git whitespace checks passed. These are drawing checks,
+not responsive interaction, xterm, mobile keyboard or native process validation.
+
+The renderer fulfills a fixed local asset map in a fresh browser, opens no listener,
+and closes that browser/context. No new port/tunnel, existing preview service change,
+credential access, dependency installation, production build/test, VM contact,
+deployment or push occurred. The real Spaces implementation still belongs on the
+existing `/-/soda/spaces` application origin (33443 on the isolated deployment).
+Last installed candidate remains `22d8591`; the separate Rocky 10.2 existing-root
+decision and remaining native terminal proof are unchanged.
+
 ## Spaces visual review — interactive mockup, no product changes
+
+**Historical `8fe3468` mockup, superseded by the redesign above.** Its behavior/checks
+are not current design acceptance or evidence of an implemented Spaces page.
 
 Continued the user-requested design phase with `docs/design/spaces/`: an explicitly
 labeled HTML/CSS/strict-TypeScript mockup using the existing canonical symbol,
@@ -26,8 +65,8 @@ real terminal rendering/resize/retention and native authority remain unverified.
 
 `review.ts --serve` is an opt-in loopback-only design server; `--check` starts and
 closes its own temporary server/browser and writes ignored outputs. These are not
-production build/staging paths or a second product readiness gate. A separate design
-server is running on **127.0.0.1:33450** on this builder; its PID/log are recorded in
+production build/staging paths or a second product readiness gate. At that handoff,
+a separate design server was running on **127.0.0.1:33450** on this builder; its PID/log are recorded in
 `.artifacts/spaces-design/preview-server.{pid,log}`. Verified the preview title and
 404 for the Soda API route. Remote access needs its own explicit client forward;
 this is not the deployed Spaces route. No existing Forgejo preview mount, account,
