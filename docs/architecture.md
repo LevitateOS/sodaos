@@ -98,9 +98,9 @@ A missing JSON endpoint does not imply a missing native workflow.
 **No downstream Forgejo fork, source patch set or custom executable.** If supported
 integration cannot meet a requirement, explain its actual constraint and return
 for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
-iframe or weakened native security. The management drawer now uses [Lit](lit.md)
-within this frontend, loaded on demand; the terminal controls and further workspace
-features remain to be ported/implemented. Local rendering tests are not installed
+iframe or weakened native security. Management and terminal controls now use
+[Lit](lit.md), loaded on demand; xterm/transport remain imperative and the further
+multi-session/page/layout workspace features are unimplemented. Local rendering tests are not installed
 CLI compatibility or full terminal acceptance.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized

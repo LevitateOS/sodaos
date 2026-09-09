@@ -1,5 +1,52 @@
 # Current handoff
 
+## Lit terminal-controls port — local proof, backend/workspace still pending
+
+After the user's confirmation, continued with xterm/tmux while retaining actual CLI
+compatibility as a separate acceptance gate. `sodaspaces-terminal.ts` now owns a
+light-DOM `SodaTerminal` component. Its complete facade and existing single-session
+wire remain; xterm owns one stable screen node and its imperative IO resources.
+Rendering does not create, attach, Return or End. No Go/helper/native change occurred.
+
+The component waits for its own rendered screen before opening xterm and rechecks
+retirement/Hide. Late socket-open after Hide cannot send creation. Ready rendering
+rechecks generation before focus/observer setup; zero-size geometry is not sent.
+Stale renderer input cannot reach a successor attachment. Lifetime commands use a
+synchronous busy guard; dispose/detach abort pending browser requests and release
+resources exactly once, without sending End. A failed initial send retains creation
+uncertainty. These bounded race fixes do not add replay, durable jobs or native
+cleanup receipts. HTTP End still acknowledges **ending**, not confirmed disappearance.
+
+Every previous terminal/resume assertion now runs against emitted Lit modules in
+sandboxed Chromium, without patching Lit/HTMLElement constructors. The 38 terminal cases also
+cover rapid commands, wrong account/401/403, malformed/oversized frames, output/input
+bounds, refused writers, hidden loading, unknown End and stale callbacks. Management
+fixture restore now follows the asynchronous facade. `test:lit` includes both ports.
+
+Actual pinned local results under `.artifacts/lit-terminal-37c3941/`: strict root/
+browser/test/Cockpit typecheck; frontend 95 pass/2 existing opt-in skips; explicit Lit
+browser suite 77 pass/no skips; Forgejo 26 pass/18 optional/export/browser skips;
+Cockpit 60 pass; Go `TestSodaspaces`; seven temporary-filesystem packaging tests; and
+the explicit current 16-case xterm light/dark 1440/900/390/320 layout run passed.
+Browser builds ran through the test commands. The first test-fixture typing failures
+are retained; they were corrected without casts/suppressions. Layout screenshots:
+`.artifacts/merge-5c845a7-560265b/layout-1788966274308/` (historical fixture prefix);
+320-light and 1440-dark samples visually reviewed. Additional checks cover synchronous
+native-focus retirement before observer setup and keyboard exit during pending
+lifetime authorization. These are component/transport-double results, not native
+shell or selected-CLI proof.
+
+**Remaining:** step 3 ID-keyed backend/authorized collection/new wire and correlated
+creation/cleanup outcomes; step 4 fixed OAuth return/migration and real Spaces page/
+shared workspace; step 5 pane/tab/compact behavior; step 6 attention and complete
+acceptance. The existing preview's root-asset projection is still pending. Reviewed
+the current registry/Stop callers for the next slice, but did not change them. No
+native build/export, installed journey, live-preview update, service/project/provider
+mutation, deployment or push command occurred. The user's concurrent CLI-compatibility
+note remains unstaged/preserved; only the separate Lit-status sentence in that guide
+belongs to this commit. Installed `22d8591`, its broader native probe failure, the
+Rocky retained-root decision and separate target/action approval gates are unchanged.
+
 ## Lit implementation started — management drawer port, not end-to-end completion
 
 The user requested the complete six-step implementation. This source slice ports

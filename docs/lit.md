@@ -1,7 +1,8 @@
 # Lit components
 
-The management drawer now uses Lit for Soda-owned interactive UI, loaded only on
-workspace opening/restoration. Terminal controls remain imperative pending step 2.
+The management drawer and terminal controls now use Lit for Soda-owned interactive
+UI, loaded only on workspace opening/restoration. Xterm and its transport remain
+imperative resources of the terminal component.
 Forgejo owns its pages, forms, permissions, authentication and native scripts;
 Cockpit keeps React/PatternFly. See the handoff for actual local checks; no new
 installed browser/CLI compatibility proof follows from the port.

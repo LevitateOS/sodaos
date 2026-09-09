@@ -10,7 +10,8 @@ Static annotated sheets supersede the old grid-first interactive mockup; no sema
 agent status is real without an explicitly implemented signal adapter. These designs
 reuse the same managed session mechanism, not separate terminal owners. The
 [Lit implementation plan](lit-migration-plan.md) now owns the rendering ports and
-subsequent concurrency/page/layout sequence; no production component is ported.
+subsequent concurrency/page/layout sequence. Management and terminal controls now
+use Lit, with local emitted-browser/layout checks; the multi-session UI is pending.
 It preserves current HTTP End and exact restore, not the older socket-close contract. The
 [drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
 composition, a flat view of this window's open tabs without destroying full-page

@@ -5,7 +5,7 @@ export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}
 export interface State {running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
-interface FakeTerminal {ctx: TerminalContext; started: boolean; disposed: boolean; stale: boolean; restored: number; disposedCount: number; dispose(): void; invalidate(): void; restore(): void}
+interface FakeTerminal {ctx: TerminalContext; started: boolean; disposed: boolean; stale: boolean; restored: number; disposedCount: number; dispose(): void; invalidate(): void; restore(): Promise<void>}
 function createFixture(extra: Partial<State> = {}) {
   const root = document.querySelector('main'); if (!root) throw Error('fixture mount missing');
   const calls: Call[] = [], terminals: FakeTerminal[] = [];
@@ -41,7 +41,7 @@ function createFixture(extra: Partial<State> = {}) {
   const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (mount, ctx) => {
     const screen = document.createElement('div'); screen.dataset.fixtureTerminal = 'true'; mount.append(screen);
     const terminal: FakeTerminal = {ctx, started: false, disposed: false, stale: false, restored: 0, disposedCount: 0,
-      dispose() {this.disposed = true; this.disposedCount++; screen.remove();}, invalidate() {this.stale = true;}, restore() {this.restored++;}};
+      dispose() {this.disposed = true; this.disposedCount++; screen.remove();}, invalidate() {this.stale = true;}, async restore() {this.restored++;}};
     terminals.push(terminal); return terminal;
   });
   const button = (text: string) => {

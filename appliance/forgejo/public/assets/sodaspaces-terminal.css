@@ -1,4 +1,5 @@
 /* Full-size terminal view, not a fixed-height console inside a management form. */
+soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal > h3 { margin: 12px; font: var(--soda-font-heading, 600 20px/1.35 Georgia, serif); }
 .soda-terminal > p { margin: 12px; font: var(--soda-font-meta); color: var(--soda-page-muted, var(--color-text-light)); }

@@ -8,9 +8,9 @@ sequence for the Lit workspace**. [Lit guidance](lit.md) owns framework/build ru
 the [terminal contract](terminal-integration.md) owns native lifetime, and the
 [API guide](dashboard-api.md) describes implemented endpoints, not the proposals here.
 
-**Current source: step 1's management drawer is ported, with local emitted-browser
-and layout checks; steps 2–6 remain unimplemented.** The terminal controls/transport
-are still imperative. The public preview projection and full installed acceptance
+**Current source: steps 1–2's management and terminal controls are ported, with local
+emitted-browser and layout checks; steps 3–6 remain unimplemented.** Xterm and the
+managed transport remain imperative resources; no native lifetime redesign occurred. The public preview projection and full installed acceptance
 remain open; see the handoff for exact evidence. This revises
 `8f03910`'s drawer-first migration plan to incorporate the managed-tmux implementation
 and the approved full-page direction/complementary drawer design. Keep the two small
@@ -23,7 +23,7 @@ Deployment, new appliance fixtures and project recreation remain separately scop
 
 | Source fact | Consequence |
 | --- | --- |
-| `c675411` supplies Lit 3.3.3, one root Bun lock and one staged core runtime | Reuse it; no React rewrite, router, UI kit, dependency upgrade or per-component bundle. The management drawer imports Lit; the native adapter loads it on demand. |
+| `c675411` supplies Lit 3.3.3, one root Bun lock and one staged core runtime | Reuse it; no React rewrite, router, UI kit, dependency upgrade or per-component bundle. Management and terminal components import Lit; the native adapter loads them on demand. |
 | `sodaspaces.ts` owns native hooks, aside, divider and document departure | Retain a small native adapter; do not render native Forgejo with Lit. |
 | `sodaspaces-drawer.ts` supplies real management/access actions and a terminal facade | Port these owners, guards and tests rather than replacing them with demo controls. |
 | `sodaspaces-terminal.ts` implements create/exact attach, restore, retain, Return and HTTP End | The old socket `{type:'close'}` End and request-owned lifetime are obsolete. |
@@ -124,7 +124,7 @@ Snapshots are at `.artifacts/research/lit-spaces-619c5d9/`; inspection is not a 
 ### Step 1 — port the current management drawer
 
 **Source port and local component/layout checks completed.** No deployed-runtime
-claim; current terminal presentation is unchanged. Tests run emitted modules in
+claim. Tests run emitted modules in
 Chromium rather than trying to construct Lit elements in Bun/JSDOM's other realm.
 
 Replace manual node/text/hidden/disabled/list reconstruction in
@@ -156,6 +156,11 @@ and one same-target terminal survive ordinary updates/view/Hide. Run the browser
 matrix below, not only a markup snapshot.
 
 ### Step 2 — port the managed terminal controls, not the native transport
+
+**Source port and local emitted-browser/layout checks completed.** Both production
+components now use Lit. The tests preserve every previous terminal/resume assertion
+and add stale-input, late loading, duplicate command and malformed-frame checks.
+CLI compatibility and installed acceptance remain separate, not inferred passes.
 
 Convert presentation in `sodaspaces-terminal.ts` to `<soda-terminal>`. Preserve the
 actual current facade: `started`, `restore`, `retain`, `returnToWork`, `disconnect`,
