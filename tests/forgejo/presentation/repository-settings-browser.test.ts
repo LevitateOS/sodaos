@@ -14,7 +14,7 @@ test('repository settings compositions and navigation share the settings contrac
  try {
   const page=await browser.newPage();const errors: string[]=[];page.on('pageerror',error=>errors.push(error.message));
   await mkdir(evidence,{recursive:true});
-  for(const theme of ['light','dark']) for(const width of [1440,1000,900,899,768,390,320]) {
+  for(const theme of ['light','dark']) for(const width of [1440,1000,960,900,899,800,768,720,390,320]) {
    await t.test(`${theme} at ${width}px`,async()=>{
     await page.setViewportSize({width,height:width<500?844:1000});
     await page.goto(gallery(theme));await page.waitForSelector('.soda-settings-nav.is-enhanced');
@@ -26,10 +26,10 @@ test('repository settings compositions and navigation share the settings contrac
      if(!container || !content || !heading) throw Error('Missing settings layout markup');
      return {overflow:document.documentElement.scrollWidth>innerWidth,padding:getComputedStyle(container).paddingInlineStart,inset:getComputedStyle(content).paddingInlineStart,title:getComputedStyle(heading).fontSize,left:heading.getBoundingClientRect().left};
     });
-    assert.deepEqual(layout,{overflow:false,padding:width<900?'16px':'24px',inset:'40px',title:'32px',left:width>1168?(width-1120)/2:width<900?16:24});
+    assert.deepEqual(layout,{overflow:false,padding:width<900?'16px':'24px',inset:width<=1000?'16px':'40px',title:'32px',left:width>1168?(width-1120)/2:width<900?16:24});
     for(const heading of await page.locator('.soda-settings-section > h2, .soda-form-section > legend').all()) {
      assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px');
-     assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px');
+     assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),width<=1000?'-16px':'-40px');
     }
     for(const button of await page.locator('.repo-setting-content button').all()) {
      if(await button.isVisible()) {const bounds=await button.boundingBox(); assert(bounds); assert(bounds.height>=44,'shared button height');}

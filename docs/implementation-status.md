@@ -1,5 +1,28 @@
 # Current handoff
 
+## Merge of origin/main `8f03910` — resolved, focused source checks only
+
+At the user's request, fetched origin and merged its six commits into local
+`ca1da85` without rebase/history rewriting. Preserved the incoming Lit scaffold and
+migration guide, screenshot correction and responsive native repository/page work,
+alongside managed tmux and the full-page/drawer designs. The three conflicts were
+`custom/footer.tmpl`, its presentation inventory and this handoff. The footer keeps
+the signed non-repository resume hook, the narrow-pane button's accessible name/text
+span, repository-only disclosure script and unchanged notification markup. Reviewed
+and recomputed only that merged structural hash; both branches' evidence remains.
+A focused Go regression also checks the merged script scope and accessible button.
+
+Prepared Bun 1.4.2 and offline/read-only-module Go 1.26.7 checks ran locally:
+`go test -mod=readonly ./scripts -run '^TestSodaspaces' -count=1` passed;
+`bun test tests/forgejo/presentation/inventory.test.ts` passed its production
+inventory/caller check, with the separate unavailable embedded-template export
+check skipped. Logs/exits: `.artifacts/merge-ca1da85-8f03910/`. No Lit dependency is
+installed in this builder's current workspace; no dependency installation, aggregate
+build/typecheck/browser/native suite, preview refresh, service/VM/provider/project
+change, rollout or push occurred. Incoming Lit scaffold evidence remains scoped to
+its originating run, not a merged-candidate test pass. Spaces/Lit implementation
+planning is the next requested work, not application implementation permission.
+
 ## Right-half Spaces drawer — complementary design, not implementation
 
 The user called the full-page Spaces design good and explicitly requested the
@@ -360,7 +383,146 @@ private inputs and historical evidence remain unchanged. The sections below reco
 older slices/evidence, not current implementation claims. See the current
 [terminal contract](terminal-integration.md) and [API](dashboard-api.md).
 
-## Bun/TypeScript conversion — source validated; preview activation pending
+## Lit migration plan — documented, ports not started
+
+The user requested a concrete [porting plan](lit-migration-plan.md). It selects the
+management drawer first, then terminal presentation against its then-current
+transport contract, with light DOM and the existing native mount facades. It
+retains small native/HTMX adapters and Cockpit, and preserves the current explicit
+Refresh disposal limitation until the separately selected continuity work changes
+that behavior. The plan includes asynchronous action guards, form/focus and xterm
+DOM ownership, browser-realm test adaptation, half/full-width validation and preview
+asset projection. It does not implement or deploy a component. Source, upstream
+Lit mechanics and the plan were reviewed; documentation links and whitespace were
+checked. No build, runtime test or service action was run for this documentation-only
+change; the scaffold's earlier execution evidence remains below.
+
+## Lit scaffold — local build, browser and packaging checks passed
+
+The user selected scaffolding before component migration. Lit 3.3.3 is pinned in
+the root Bun workspace and resolved in its existing lockfile. The browser build
+bundles one core runtime at `public/assets/soda/forgejo/lit.js`, with the upstream
+BSD notice beside it. Future modules can import from `lit`; the build maps that
+import relative to each module's production payload destination, including beneath
+`AppSubUrl`. Lit submodule imports are explicitly rejected until their shared
+exports and mapping are added. Existing non-Lit imports retain their public URLs.
+
+No production component imports the runtime yet, and no template loads it eagerly.
+The drawer, terminal and native adapters remain unchanged. Forgejo still owns its
+native workflows, controls and authority; Cockpit retains React/PatternFly.
+[The Lit guide](lit.md) records the strict TypeScript authoring pattern, build
+contract, render-root choices and lifecycle responsibilities for later ports.
+
+Local evidence is retained under `.artifacts/lit-scaffold/`:
+
+- Frozen installation, preview build and all four strict TypeScript checks pass.
+  No existing dependency versions changed.
+- Forgejo tests pass 27 checks with 17 opt-in skips; frontend tests pass 57 with
+  two opt-in skips. `bun run test:lit` passes all five checks, including real Chrome
+  rendering/reactive updates, independent element state, native form preservation
+  and one shared runtime request from both asset roots beneath a URL prefix.
+- Three Python payload/staging checks pass, including the actual staging recipe
+  with synthetic build inputs. Focused Go missing/unreadable payload checks pass
+  for the runtime/license and existing root-level Sodaspaces assets.
+- The local Forgejo preview serves the runtime (29,349 bytes) and license exactly
+  as built/staged. Its existing generated branding mount was refreshed without a
+  container restart. The build guard and browser fixture stay out of production UI.
+
+Initial local checks caught Bun's build-entrypoint resolver kind, TypeScript
+narrowing and the negative test's wrapped build diagnostic; corrected checks pass.
+This is scaffold and local browser/package evidence. Component ports and native
+appliance delivery remain separate work; no native rollout was performed.
+
+## Half-desktop layouts and compact repository header — local preview updated
+
+The repository header now has two rows: a compact repository identity beside the
+actions/Sodaspaces controls, followed by native unit navigation. The redundant
+"Soda repository" eyebrow is removed. Watch, Star, Fork, feed and gated
+transfer/report controls each retain one native owner inside an HTML disclosure.
+The user's correction limits the compact action menu to panes at or below 1000px;
+wider panes expose these controls inline. CSS owns that breakpoint, and the small
+Soda script follows summary visibility on resize, keeps wide actions open and
+limits dismissal/focus handling to compact mode. Native controls are not cloned
+or reparented. Default-open markup preserves wide action access without JS.
+Forgejo's `details.dropdown`
+was rejected because its direct list-item keyboard contract cannot contain these
+native HTMX forms intact. The disclosure keeps null blur/replacement focus and
+does not intercept native modal events. Container sizing also keeps this header
+compact beside Sodaspaces; the workspace icon retains its accessible name when
+its text is hidden. DOM, visual and keyboard control order agree.
+
+The width-specific correction is verified in the local preview, with evidence
+under `.artifacts/repository-header-breakpoint/`: full-width 1440px and compact
+800px native captures, three native browser checks (including both sides of the
+1000px cutoff, immediate resize interaction, unchanged form nodes and wide-page
+access without JS), seven disclosure DOM checks, strict TypeScript, the Forgejo
+suite (23 passed, 16 opt-in skipped) and focused Go template checks. Initial
+resize checks caught browser blur before ResizeObserver and dismissal before its
+callback; focus tracking and interaction-time CSS mode checks resolve both. The
+existing preview assets/templates were refreshed; no native action was submitted.
+
+Repository metadata stacks through 1000 CSS pixels, with a full-width clone row
+and no compounded metadata spacing.
+Dashboard feed/repository columns stack before the feed becomes cramped. Explore
+wraps its complete native search/filter group before the input collapses. The
+shared header follows Forgejo's 767px mobile boundary; narrow settings use smaller
+body insets, and profile, organization and administrator compositions stack their
+columns/actions earlier. Native handlers, permissions, controls and navigation
+remain upstream-owned.
+
+The user explicitly approved updating `sodaos-local-forgejo` at localhost:3300.
+Its generated branding mount is active, with the same named data volume and other
+configuration. Missing static Sodaspaces modules/styles were projected from the
+existing build and hash-checked terminal assets into its existing public mount;
+previous bytes and Compose configuration are retained. This restores preview asset
+loading, not a backend/project/terminal execution proof or appliance delivery.
+Future branding changes require `bun run build:preview`; this does not rebuild the
+separately projected Sodaspaces assets in the local public mount.
+
+The follow-up header redesign is retained under
+`.artifacts/repository-header-redesign/`. The generated branding payload includes
+the new disclosure script; Forgejo's template reload activated the template
+changes locally without recreating the container. Read-only native browser checks
+pass at 1440, 960, 800, 720, 390 and 320 pixels and with 720/480px panes inside a
+1440px browser. They cover one identity/actions row, on-screen disclosure bounds,
+unchanged native guest guards, visible action labels, Enter/Space, Escape/focus,
+outside dismissal, real count-link navigation and no browser exceptions. Five DOM checks also pass, including
+HTMX-like replacement focus and native-modal event isolation; these are simulated
+events, not native form submissions or multi-fork modal runtime proof. Strict
+TypeScript, the Forgejo suite (21 passed, 15 opt-in skipped), the frontend suite
+(57 passed, two opt-in skipped), and Go script tests pass. Initial checks caught
+the unsupported native-dropdown keyboard behavior and a 320px panel alignment
+issue; corrected checks pass. The first Go payload check was denied access to the
+host build cache, separate from test correctness.
+Verified native screenshots cover 800px dark, 720px light and 390px dark; the
+served disclosure script matches the generated production asset byte-for-byte.
+With cache access, the Go suite exposed two macOS temporary-directory symlink
+failures in packaging tests; these are separate from the browser/source checks.
+Both failed packaging tests and the payload readability checks subsequently pass
+with a canonical temporary directory. No appliance delivery or native repository
+action submission was performed.
+
+Evidence is retained under `.artifacts/responsive-half-desktop/`. Chrome measured
+eight real routes at 720, 768, 800, 900, 960, 1440 and 390 pixels: all 56 responses
+were HTTP 200 with no document-width overflow. Visual review covers repository,
+dashboard, Explore, issue/pull lists and personal settings; authenticated admin/org
+pages have source review only because the retained screenshot fixture lacks that
+access. Browser component checks cover light/dark control sizes and clone-row
+placement, and native repository/Explore checks cover spacing, resizing and menu
+stability. Strict TypeScript, Forgejo source tests and Go script tests pass.
+The native personal-settings journey also passes navigation, focus/escape, avatar
+dialog/fallback and all permitted destinations through 320 pixels. Its initial
+320px header overflow was fixed by removing compounded mobile icon margins/gaps.
+
+The screenshot helper also now leaves native styles loaded unless `--local-css`
+is explicitly selected. Its previous always-truthy empty Map removed them from
+ordinary captures. Failed verification exposed the missing preview static files;
+those failures and an initial browser-test timeout at Bun's five-second default
+remain recorded, followed by successful checks with the multi-viewport timeout.
+No fixture accounts/repositories, retained projects, provider configuration or
+appliance deployment changed.
+
+## Bun/TypeScript conversion — source validated; preview subsequently activated
 
 All 36 authored JavaScript entrypoints/modules/tests (including the avatar CJS
 helper) are ported to strict TypeScript. Root scripts, browser modules, tests and
@@ -403,17 +565,17 @@ Actual local evidence under `.artifacts/bun-typescript-port/`:
   That is not native Linux validation; full native x86_64/aarch64 build/check and
   installed journeys retain their existing authorization and proof boundaries.
 
-One integration action remains: the existing local `sodaos-local-forgejo` preview
-binds the former JS source directory, so its login script currently returns 404.
+At the migration handoff, the existing local `sodaos-local-forgejo` preview still
+bound the former JS source directory, so its login script returned 404.
 `bun run build:preview` now projects the production branding payload, including
 minified JS, into `.artifacts/forgejo-preview/branding/`. Its bytes and absence of
 TypeScript files were checked. The generated Compose candidate changes only that
 read-only branding mount, retains the existing named data volume/configuration,
 and passes Compose configuration validation. Original/candidate files are retained
-under `.artifacts/bun-typescript-port/preview-compose/`. The running container has
-not been recreated: the prior preview restart authorization was single-use. Activate
-the prepared mount only after explicit approval, then check the real preview's
-scripts and focused browser behavior. This pending step prevents goal completion.
+under `.artifacts/bun-typescript-port/preview-compose/`. The migration left the
+running container unchanged because its earlier restart authorization was single-use.
+The user subsequently approved activation during the responsive-layout work above;
+that section records the actual preview update.
 
 ## Root Bun workspace and TypeScript scaffolding
 

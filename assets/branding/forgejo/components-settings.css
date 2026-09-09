@@ -193,6 +193,9 @@
  box-sizing: border-box;
  padding-inline-start: var(--soda-settings-body-inset);
 }
+@media (max-width: 1000px) {
+ .soda-settings-shell :is(.user-setting-content, .repo-setting-content) { --soda-settings-body-inset: 16px; }
+}
 .soda-settings-shell :is(.user-setting-content, .repo-setting-content) :is(.soda-settings-section > h2, .soda-settings-inventory-heading, .soda-p-heading, .ui.top.attached.header, .soda-profile-editor legend, .soda-form-section > legend) {
  margin-inline-start: calc(-1 * var(--soda-settings-body-inset));
 }

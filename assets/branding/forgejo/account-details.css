@@ -45,16 +45,23 @@
 .soda-account-details--access-token .access-token-category { display: grid; grid-template-columns: minmax(120px,1fr) minmax(180px,2fr); align-items: center; gap: 16px; padding-block: 8px !important; }
 .soda-account-details--oauth2-edit input[readonly] { font-family: "IBM Plex Mono", monospace; }
 .soda-account-details--twofa-enroll img { max-width: 100%; }
-@media (max-width: 899px) {
+@media (max-width: 960px) {
  .soda-account-details--profile { grid-template-columns: minmax(0,1fr); gap: 24px; }
  .soda-profile-portrait { display: flex; align-items: start; gap: 16px; }
  .soda-profile-portrait > img { width: 64px; height: 64px; }
  .soda-profile-portrait > details { flex: 1; min-width: 0; margin: 0; }
+}
+@media (max-width: 899px) {
  .soda-profile-editor fieldset, .soda-settings-preference [data-settings-checklist] { grid-template-columns: minmax(0,1fr); }
  .soda-account-details--account .ui.list > .item > .right.floated.content { float: none; display: inline-block; margin: 8px 8px 0 0; }
  .soda-account-details--access-token #repo-selector { flex-direction: column; }
  .soda-account-details--access-token .access-token-category { grid-template-columns: minmax(0,1fr); gap: 8px; }
  .soda-settings-preference form > .field { min-width: 0; }
+ .soda-account-details :is(.flex-list > .flex-item, .flex-item-trailing) { flex-wrap: wrap; }
+ .soda-account-details .flex-list > .flex-item > .flex-item-trailing {
+  flex-basis: 100%;
+  justify-content: flex-start;
+ }
 }
 
 /* One native editor is moved into a modal only after progressive enhancement. */
@@ -70,7 +77,7 @@
 .soda-avatar-close { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
 .soda-avatar-close:hover { background: var(--soda-page-canvas); }
 .soda-avatar-close:focus-visible { outline: 2px solid var(--soda-page-link); }
-@media (max-width: 899px) { .soda-avatar-trigger { width: 64px; height: 64px; flex: 0 0 auto; } }
+@media (max-width: 960px) { .soda-avatar-trigger { width: 64px; height: 64px; flex: 0 0 auto; } }
 @media (pointer: coarse) { .soda-avatar-overlay { opacity: 1; } .soda-avatar-close { width: 44px; height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .soda-avatar-overlay { transition: none; } }
 

@@ -76,7 +76,9 @@ remain locked JavaScript assets rather than being rewritten as Soda source.
 `.artifacts/forgejo-js/` by default. Native builds pass their own output directory.
 The payload map identifies those files with `@build/forgejo-js/`; staging copies
 them to the existing public URLs. Modules retain their public import boundaries,
-and upstream xterm assets retain their exact locked bytes and licenses. Generated
+and upstream xterm assets retain their exact locked bytes and licenses. The shared
+[Lit runtime](lit.md) is the explicit bundled exception: component `lit` imports
+resolve to its staged relative URL, and existing imports remain external. Generated
 JavaScript must not be tracked beside TypeScript.
 
 Run `bun run build:forgejo` before serving a local preview, and resolve payload

@@ -54,7 +54,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           const body = bodyElement.getBoundingClientRect();
           return { above: heading.bottom <= body.top, inset: String(Math.round(body.left - heading.left)) + 'px', fits: document.documentElement.scrollWidth <= innerWidth };
         });
-        assert.deepEqual(placement, { above: true, inset: '40px', fits: true });
+        assert.deepEqual(placement, { above: true, inset: width <= 1000 ? '16px' : '40px', fits: true });
       }
       await page.setViewportSize({ width: 1654, height: 1000 });
     });
@@ -105,9 +105,9 @@ test('expanded components preserve native state and layout boundaries', { skip: 
     });
 
     await t.test('repository toolbar aligns native control variants and joins clone edges', async () => {
-      for (const theme of ['light', 'dark']) for (const width of [1440, 390, 320]) {
+      for (const theme of ['light', 'dark']) for (const width of [1440, 960, 800, 720, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 });
-        await render(`<main class="soda-page soda-code"><div class="ui container soda-page-container">
+        await render(`<main class="soda-page soda-code"><div class="ui container soda-page-container"><div class="soda-repo-main">
           <div class="repo-button-row soda-toolbar"><div class="button-sequence">
             <div class="soda-code-ref-selector"><div class="ui dropdown custom"><button id="branch" class="branch-dropdown-button ui basic small compact button">main</button></div></div>
             <a id="new-pull-request" class="ui compact basic button">↗</a>
@@ -118,12 +118,28 @@ test('expanded components preserve native state and layout boundaries', { skip: 
             <input id="url" class="soda-code-clone-url" value="http://localhost:3300/alice/activity-workbench" readonly>
             <button id="copy" class="ui small icon button">⧉</button>
             <button id="more" class="ui small dropdown icon button">…</button><script type="application/json">{}</script>
-          </div></div></div></main>`, theme);
+          </div></div></div></div></main>`, theme);
         const controls = await page.locator('[id]').evaluateAll(els => els.map(el => ({id:el.id,height:el.getBoundingClientRect().height,top:getComputedStyle(el).borderTopRightRadius,left:getComputedStyle(el).borderTopLeftRadius})));
         for (const c of controls) assert.equal(c.height,44,`${theme}/${width}: ${c.id}`);
         for (const id of ['protocol','url','copy']) assert.equal(controls.find(c=>c.id===id)?.top,'0px');
         assert.equal(controls.find(c=>c.id==='more')?.top,'6px');
         assert.equal(controls.find(c=>c.id==='protocol')?.left,'6px');
+        if (width <= 1000) {
+          const rows = await page.evaluate(() => {
+            const toolbar = document.querySelector('.repo-button-row.soda-toolbar');
+            const tools = toolbar?.querySelector('.button-sequence');
+            const clone = toolbar?.querySelector('.clone-panel');
+            if (!toolbar || !tools || !clone) throw Error('Missing repository toolbar groups');
+            return {
+              toolbarWidth: toolbar.getBoundingClientRect().width,
+              cloneWidth: clone.getBoundingClientRect().width,
+              toolsBottom: tools.getBoundingClientRect().bottom,
+              cloneTop: clone.getBoundingClientRect().top,
+            };
+          });
+          assert.equal(rows.cloneWidth, rows.toolbarWidth, `${theme}/${width}: clone row width`);
+          assert(rows.cloneTop >= rows.toolsBottom, `${theme}/${width}: clone row placement`);
+        }
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false, `${theme}/${width}: toolbar overflow`);
       }
       await page.setViewportSize({width:1654,height:1000});

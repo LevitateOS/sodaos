@@ -50,8 +50,11 @@ func TestSodaspacesTemplates(t *testing.T) {
 			if strings.Contains(html, `id="sodaspaces-root"`) != tc.want {
 				t.Fatal("incorrect repository guard")
 			}
+			if strings.Contains(html, `src="/assets/soda/forgejo/repository-actions.js?v=4"`) != (tc.want && tc.repo != nil) {
+				t.Fatal("repository disclosure script escaped its native repository boundary")
+			}
 			if tc.want {
-				for _, value := range []string{`type="button"`, `aria-labelledby="sodaspaces-title"`, `src="/assets/sodaspaces.js"`, `data-sub-url=""`} {
+				for _, value := range []string{`type="button"`, `aria-label="Sodaspaces"`, `<span>Sodaspaces</span>`, `aria-labelledby="sodaspaces-title"`, `src="/assets/sodaspaces.js"`, `data-sub-url=""`} {
 					if !strings.Contains(html, value) {
 						t.Fatalf("missing %s", value)
 					}

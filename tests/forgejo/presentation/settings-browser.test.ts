@@ -9,7 +9,7 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
  const context=await chromium.launchPersistentContext('.local/screenshot-fixture-profile',{channel:'chrome',headless:true});
  try{
   context.setDefaultTimeout(5000); const page=await context.newPage();const errors: string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  for(const width of [1440,1000,900,899,768,390,320]){
+  for(const width of [1440,1000,960,900,899,800,768,720,390,320]){
    await t.test(`navigation and task start at ${width}`,async()=>{
     await page.setViewportSize({width,height:width<500?844:1000});
     const response=await page.goto(origin+'/user/settings');assert(response); assert.equal(response.status(),200);assert.equal(new URL(page.url()).pathname,'/user/settings');
@@ -25,6 +25,12 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
     if(width<900){await trigger.click();assert(await nav.locator('a[href$="/applications"]').isVisible());assert(await nav.locator('a[href$="/repos"]').isVisible());await page.keyboard.press('Escape');}
     const bounds=await page.evaluate(()=>{const heading=document.querySelector('h1'), portrait=document.querySelector('.soda-profile-portrait'); if(!heading || !portrait) throw Error('Missing profile layout markup'); return {w:innerWidth,scroll:document.documentElement.scrollWidth,title:heading.getBoundingClientRect().top,task:portrait.getBoundingClientRect().top,left:heading.getBoundingClientRect().left};});
     assert.equal(bounds.scroll,bounds.w);assert(bounds.title<300);assert(bounds.task<300);if(width<900)assert.equal(bounds.left,16);
+    if (width >= 768) {
+     assert(await page.locator('.soda-account-appearance').evaluate(el => {
+      const actions = document.querySelector('#navbar .navbar-right');
+      return actions && el.getBoundingClientRect().right <= actions.getBoundingClientRect().left;
+     }), `${width}px: appearance and account navigation must not overlap`);
+    }
     const avatar=page.locator('.soda-avatar-trigger');
     await avatar.focus();
     await page.waitForFunction(()=>{const overlay=document.querySelector('.soda-avatar-overlay'); return overlay && getComputedStyle(overlay).opacity==='1';});
@@ -73,10 +79,10 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
    for (const path of destinations) {
     const response=await page.goto(origin+path);
     assert(response); assert.equal(response.status(),200);assert.equal(new URL(page.url()).pathname,path);
-    assert.equal(await page.locator('.user-setting-content').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px',path);
+    assert.equal(await page.locator('.user-setting-content').evaluate(el=>getComputedStyle(el).paddingInlineStart),width<=1000?'16px':'40px',path);
     for (const heading of await page.locator('.user-setting-content :is(.soda-settings-section > h2,.soda-settings-inventory-heading,.soda-p-heading,.ui.top.attached.header,.soda-profile-editor legend,.soda-form-section > legend)').all()) {
      if (await heading.isVisible()) {
-      assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px',path);
+      assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),width<=1000?'-16px':'-40px',path);
       assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px',path+' section heading type');
      }
     }
@@ -113,7 +119,7 @@ test('personal settings navigation and native read-only journeys', {skip:!enable
    assert(response); assert.equal(response.status(),200);
    await page.locator('input[name="events"][value="choose_events"]').check();
    assert.equal(await page.locator('.soda-webhook-events').evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
-   assert.equal(await page.locator('.soda-webhook-events > legend').evaluate(el=>getComputedStyle(el).marginInlineStart),'-40px');
+   assert.equal(await page.locator('.soda-webhook-events > legend').evaluate(el=>getComputedStyle(el).marginInlineStart),width<=1000?'-16px':'-40px');
    for (const group of await page.locator('.soda-webhook-events .simple-grid').all()) {
     if(await group.isVisible()) assert.equal(await group.evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
    }

@@ -436,10 +436,15 @@
 .soda-repo-main .repo-button-row.soda-toolbar { padding: 0; border: 0; background: transparent; }
 .soda-repo-main .clone-panel { min-width: 0; max-width: 100%; }
 .soda-repo-main .clone-panel input { min-width: 0; }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .soda-repo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sidebar" "code"; gap: 16px; }
-  .soda-repo-sidebar { padding: 0 0 16px; border-left: 0; border-bottom: 0; }
-  .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+  .soda-repo-sidebar { padding: 0; border-left: 0; border-bottom: 0; }
+  .soda-repo-sidebar .soda-code-summary.ui.segments { margin: 12px 0 0 !important; }
+  .soda-repo-sidebar .soda-code-summary .repository-menu { display: flex; flex-wrap: wrap; gap: 12px 16px; padding: 0; }
+  .soda-repo-main .repo-button-row.soda-toolbar > div:has(> .clone-panel),
+  .soda-repo-main .repo-button-row.soda-toolbar .clone-panel {
+    width: 100%;
+  }
 }
 
 /* The landing README is content, not another card beneath the file table. */

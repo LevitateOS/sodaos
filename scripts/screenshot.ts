@@ -185,7 +185,7 @@ async function main() {
             document.documentElement.style.colorScheme = theme;
           }, values.theme);
         }
-        if (localStyles) {
+        if (values['local-css']) {
           // Use the candidate registry/order too, including added or removed sheets.
           await page.evaluate(async names => {
             document.querySelectorAll('link[rel="stylesheet"][href*="/assets/soda/forgejo/"]').forEach(link => link.remove());

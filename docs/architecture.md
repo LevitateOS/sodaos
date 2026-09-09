@@ -96,7 +96,8 @@ A missing JSON endpoint does not imply a missing native workflow.
 **No downstream Forgejo fork, source patch set or custom executable.** If supported
 integration cannot meet a requirement, explain its actual constraint and return
 for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
-iframe or weakened native security. No replacement component library is selected.
+iframe or weakened native security. [Lit](lit.md) is scaffolded for Soda-owned
+interactive components within this frontend; no existing components are ported.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized
 refresh, logout-winning persistence, request/response bounds and CSRF/origin checks.

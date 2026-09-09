@@ -13,6 +13,7 @@
     "test": "bun run test:frontend && bun run test:forgejo && bun run --cwd cockpit test",
     "test:frontend": "bun run build:forgejo && bun test tests/frontend/*.test.ts",
     "test:forgejo": "bun run build:forgejo && bun test tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts",
+    "test:lit": "bun run build:forgejo && SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/lit-*.test.ts",
     "screenshot": "bun scripts/screenshot.ts",
     "build:forgejo": "bun scripts/build-forgejo.ts",
     "build:preview": "bun scripts/build-forgejo-preview.ts"
@@ -26,5 +27,8 @@
     "typescript": "7.0.2",
     "@xterm/xterm": "6.0.0",
     "@xterm/addon-fit": "0.11.0"
+  },
+  "dependencies": {
+    "lit": "3.3.3"
   }
 }

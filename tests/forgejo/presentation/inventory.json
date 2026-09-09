@@ -818,8 +818,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "14612902fd280e228c9ae9ef14519285959b8e23c150dcfb745af6324ca3e46d",
-      "presentationReview": "non-modal workspace and signed non-repository resume hook; notification markup unchanged; source checks only for resumable integration, no native acceptance",
+      "beforeRoleHash": "5e8cda4ebe44a4fc3b4efe14d1f417b9429cbb7079089bd0b8cb0bcea2bc38d9",
+      "presentationReview": "Merged signed non-repository resume hook and non-modal aside with the accessible narrow-pane button/text span; repository disclosure script stays repository-only and notification markup is unchanged. Merged source checks are not native acceptance.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -847,7 +847,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "893394990e74d5fbac774430bd6c1b35e414f6f3d1d2c29e2a7f3374b2a26bcc",
+      "beforeRoleHash": "e7eb071f1faee22013c5dfa9a60c68c9d72877043d5176d34552f0f94e5892db",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -3535,8 +3535,10 @@
       "roles": [
         "soda-p-gap",
         "soda-page-marker",
-        "soda-repository-eyebrow",
-        "soda-repository-header"
+        "soda-repository-header",
+        "soda-repository-actions",
+        "soda-repository-action-menu",
+        "soda-repository-feed-label"
       ],
       "states": [
         "light",
@@ -3556,12 +3558,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4980cb6811433066d7b0f7c9a60fdfb89ecd15402be01cd0edffd50810b8ac5d",
+      "beforeRoleHash": "5f3474693e64d2e6bf6fe84e14da40c39843f1804983f03c4709f1c1a577ed0c",
       "upstreamCallers": [
         "repo/flags.tmpl",
         "repo/packages.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "One set of native repository action forms is inline on wide panes and disclosed on compact panes. Default-open markup preserves wide-page access without JavaScript; native guards and partials preserved."
     },
     {
       "template": "repo/home.tmpl",

@@ -65,8 +65,9 @@ The guest preference script loads only on anonymous routes with a guest toggle.
 This extraction is live-mounted only in the existing local 15.0.7 preview.
 Production staging/verifier now has an exact full-presentation inventory; an actual
 new candidate build and delivery remain pending. Shared presentation does
-not add handlers, authentication, permissions, a frontend build or a Lit dependency.
-Use Lit selectively when a new self-contained interaction warrants it; do not
+not add handlers, authentication or permissions. The later user-requested
+[Lit scaffold](lit.md) adds a shared runtime and browser build integration, with
+no component ports or eager loading. Use Lit selectively for Soda-owned interactions; do not
 migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
 
 These are official customization mechanisms, with version-sensitive compatibility:

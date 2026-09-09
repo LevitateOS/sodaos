@@ -256,11 +256,21 @@ body:has(.soda-login) {
   --soda-page-link: var(--soda-guest-link);
 }
 
-/* Keep all mobile header actions at 44px without shrinking the canonical logo. */
-@media (max-width: 700px) {
+/* Keep the desktop navigation's utility actions clear of the final text link
+   just above Forgejo's mobile breakpoint, without reducing the logo artwork. */
+@media (min-width: 768px) and (max-width: 1000px) {
+ body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 152px; margin-right: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar .navbar-right { gap: 4px; }
+}
+
+/* Match Forgejo's mobile navigation breakpoint, including narrow desktop panes.
+   Group the theme and menu actions at the end of the header. */
+@media (max-width: 767px) {
  body:has(.soda-page, .soda-page-marker) #navbar { padding-inline: 16px; }
  body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 152px; margin-right: 0; }
- body:has(.soda-page, .soda-page-marker) #navbar .navbar-left { gap: 4px; }
+ body:has(.soda-page, .soda-page-marker) #navbar .navbar-left { gap: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right { padding: 0; gap: 0; }
+ body:has(.soda-page, .soda-page-marker) :is(#soda-theme-toggle,.soda-account-appearance) { margin-left: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar #mobile-notifications-icon { margin-right: 0 !important; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right > :is(a,button) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; margin: 0; }
 }
