@@ -12,13 +12,14 @@ the [terminal contract](terminal-integration.md) owns native lifetime, and the
 emitted-browser and layout checks. Step 3's ID registry/collection and caller contracts
 are source-implemented with local Go/race/browser coverage. Step 4's authenticated
 page/fixed return and shared multi-session workspace now have local source/browser
-coverage; steps 5–6 remain unimplemented.** Xterm and the
-managed transport remain imperative resources; no native lifetime redesign occurred. The canonical public preview projection is implemented; changing live preview mounts
-and full installed acceptance remain separately scoped; see the handoff for exact evidence. This revises
-`8f03910`'s drawer-first migration plan to incorporate the managed-tmux implementation
-and the approved full-page direction/complementary drawer design. Keep the two small
-rendering ports first; build the real multi-session product on them. Do not port the
-superseded interactive mockup or reintroduce its grid presets/fake state machine.
+coverage at `18aceb2`; steps 5–6 remain unimplemented.** The remaining sequence below
+is reconciled with that source, not another design cycle. Xterm/transport and native
+tmux ownership stay imperative; no Preact, second frontend or backend redesign is
+selected. Canonical branding and complete-public preview projections exist; changing
+live mounts and installed acceptance remain separately scoped. See the handoff for
+actual evidence. Steps 1–4 below retain their completed source-slice contracts;
+their historical singleton/port instructions are not tasks to repeat. Do not port
+the superseded mockup or reintroduce grid presets/fake state machines.
 The user subsequently requested end-to-end implementation and local testing.
 Deployment, new appliance fixtures and project recreation remain separately scoped.
 
@@ -28,14 +29,19 @@ Deployment, new appliance fixtures and project recreation remain separately scop
 | --- | --- |
 | `c675411` supplies Lit 3.3.3, one root Bun lock and one staged core runtime | Reuse it; no React rewrite, router, UI kit, dependency upgrade or per-component bundle. Management and terminal components import Lit; the native adapter loads them on demand. |
 | `sodaspaces.ts` owns native hooks, aside, divider and document departure | Retain a small native adapter; do not render native Forgejo with Lit. |
-| `sodaspaces-drawer.ts` supplies real management/access actions and a terminal facade | Port these owners, guards and tests rather than replacing them with demo controls. |
+| `sodaspaces-drawer.ts` owns shared `Slot` handles, one selected view and project-control instances; `sodaspaces-project.ts` owns management writes/drafts | Replace the one-view projection with pane layout, not the existing action owners. The drawer filename is historical: it also serves the page. |
 | `sodaspaces-terminal.ts` implements create/exact attach, restore, retain, Return and HTTP End | The old socket `{type:'close'}` End and request-owned lifetime are obsolete. |
-| Management Refresh retains a terminal with the same environment/login, but `reset()` still clears management drafts | Preserve current explicit reset boundaries in the rendering-only port; do not claim Refresh already preserves every form value. |
-| `internal/web/{terminal,terminal_sessions,spaces}.go` now implements ID-keyed sessions and a bounded authorized collection | Independent sessions are backend-tested; the shared multi-session UI and native proof remain separate. |
+| Slots have stable local UUID keys and exact/pending locators; `selectSlot()` can invoke `restore()` | Keep owner keys stable through pending-to-ID promotion. Do not use the effectful selection path for pure split/move/resize operations. |
+| `soda-spaces:v1:<actor>` stores up to 64 locator entries and hidden flags, with a 16,384-code-unit read limit, but no pane tree or saved selection | Step 5a migrates this bounded format without dropping unresolved/hidden entries. Browser layout versioning is not a new DB migration. |
+| `soda-workspace:<actor>` separately stores native repository resume hint, open state and width | Keep native surface preferences in the native adapter; do not copy session/layout authority into it or persist a compact Terminal-visible flag. |
+| Project details preserve drafts on switching; their explicit Refresh still calls `reset()` | Preserve those deliberate reset boundaries; workspace layout/search/metadata refresh must not reset project forms. |
+| ID-keyed backend/collection and a three-session/two-project emitted-browser fixture exist | Extend the real source callers/tests. HTTP/socket doubles are not native process or CLI proof. |
 | Native guard/tmux is already per terminal ID | Keep that mechanism; concurrency needs regression/native proof, not another PTY broker. |
 | `22d8591` has isolated same-shell reload and End/cleanup evidence | Preserve it; full native probe, editor/build/history/network/failure acceptance remains incomplete. |
 | Incoming repository actions are inline above 1000px **pane** width, a disclosure at/below it | Preserve real native form nodes and this correction; schematic drawings do not override native header implementation. |
-| `/spaces`, the collection, names and fixed OAuth return do not exist | Implement them explicitly on `/-/soda/`, with the existing application origin (33443 on the isolated deployment). |
+| `spaces_page.go`, the Go template, native link and fixed OAuth return are implemented with schema v6 | Preserve server-derived Soda identity, API guards and original-context sessions; no new route/origin/auth mechanism is needed for layouts. |
+| `build:preview` emits branding and complete public trees from the production payload | Extend that same manifest when adding a module; isolated output is not a live preview refresh. |
+| The current layout test checks a provisional 216px floor; installed journeys retain old selectors | Step 5 replaces that proxy with measured cells/chrome checks and ports the existing journey callers. Neither gap waits for a native rollout to be authored. |
 
 The shell design is now concrete: Soda-owned Go HTML with canonical branding,
 configured-origin native links and an explicitly labelled server-derived Soda
@@ -46,22 +52,26 @@ handlers from a template override.
 
 ## 2. Concrete owners
 
-Paths are repository-relative; step-4 workspace/page paths below remain proposed.
+Paths are repository-relative. Only `sodaspaces-layout.ts` is a new proposed module;
+the step-4 page/workspace/project owners already exist. Keep new layout logic there
+only when it is pure and shared by concrete callers, not to build a generic store.
 
 | Owner | Responsibility |
 | --- | --- |
 | `appliance/forgejo/public/assets/sodaspaces.ts` | Native repository button/resume hook, outer split/compact surface, width, native DOM coexistence and page lifecycle. No session inventory or API mutations of its own. |
-| `…/sodaspaces-drawer.ts`, `<soda-spaces>` | One reusable Lit workspace root, mounted in drawer or page mode. Owns observed session metadata, this document's working set, selection/pane tree and concrete child references. Keep `mountSodaspaces` as the thin native/test facade. |
+| `…/sodaspaces-drawer.ts`, `<soda-spaces>` | Shared workspace, live child handles and original bindings; effects, storage IO and authorized restore. Step 5 adds one pane model with page/drawer projections; step 6 adds bounded observed attention. Keep `mountSodaspaces` and its discriminated bootstrap, not a new page controller. |
 | `…/sodaspaces-terminal.ts`, `<soda-terminal>` | One immutable terminal binding and its xterm/attachment resources, IO guards, status and explicit terminal commands. Keep `mountTerminal` and injection seams during the ports. |
-| `…/sodaspaces-project.ts`, `<soda-project-controls>` (step 4) | Extract the already-ported management/access markup and commands when both surfaces need named-project details. Owns drafts, pending/uncertain writes and original target; no terminal or second workspace. |
-| `…/sodaspaces-layout.ts` (step 5) | Typed pane-tree transformations and bounded locator parsing/serialization, with direct callers/tests. No DOM, network, credentials or generic application store. |
-| `…/sodaspaces-page.ts` (step 4) | Thin entrypoint for the Go page: validate its server-supplied actor context and mount the same workspace in page mode. No client router or second session owner. |
-| `…/sodaspaces-api.ts` | Bounded JSON reader, response validation, concrete API types/errors. Move `readSodaJSON` here from the terminal while updating both callers. |
-| `internal/web/{server,auth,terminal,terminal_sessions,management,spaces}.go` | Page/collection, original-context ID-keyed sessions, fresh authorization, cancellation and existing native helper calls. |
+| `…/sodaspaces-project.ts`, `<soda-project-controls>` | Implemented named-project management/access, drafts and pending/uncertain writes. Layouts reuse these instances; they do not change their targets or duplicate their requests. |
+| `…/sodaspaces-layout.ts` (step 5a) | Pure pane-tree transformations, locator/layout parsing, migration and serialization. Takes explicit measurements for geometry decisions; no DOM, storage IO, network, credentials or native lifetime effects. |
+| `…/sodaspaces-page.ts` | Implemented thin Go-page bootstrap: validate its server-supplied actor and mount the shared workspace. No client router or second session owner. |
+| `…/sodaspaces-api.ts` | Existing bounded JSON reader, response validation and concrete API types/errors. Reuse them; layout state is not server metadata or authorization. |
+| `internal/web/{server,auth,terminal,terminal_sessions,management,spaces,spaces_page}.go` | Page/collection, original-context ID-keyed sessions, fresh authorization, cancellation and existing native helper calls. |
 | `internal/store/{login,migrations}.go` and focused store queries | Fixed OAuth destination and bounded reads of legitimate Soda associations; no durable terminal registry or copied provider roles. |
 | Existing `internal/host/` and `project-os/` | Native account/guard/tmux/lease/cleanup authority, unchanged unless a concrete tested defect requires a scoped correction. |
+| `tests/frontend/{workspace,drawer-layout,drawer-controls,sodaspaces,terminal}.test.ts` and focused layout tests | Local behavior/geometry and source-owner identity checks; pure transforms run in Bun, components in emitted Chromium modules. |
+| `tests/installed/{sodaspaces,sodaspaces-management}.ts`, their inputs/fixtures, and `internal/host/terminal_native_test.go` | Port existing product journeys with the UI; retain exact target/action/private-input gates. Own later native/CLI proof, not a parallel support-tool suite. |
 
-The workspace's map of live child handles is **not** a second backend session model.
+The workspace's live child handles are **not** a second backend session model.
 It knows only what this document attached and rendered. Server metadata remains
 observed authority; the pane tree contains IDs/order/selection, not duplicate
 session objects, credentials or native targets. Drawer tabs are a projection of
@@ -78,8 +88,8 @@ base-component hierarchy, interchangeably pluggable backends or lazy feature fla
 - Use light DOM for these components: `createRenderRoot()` returns `this`. Keep
   scoped Soda/xterm styles and explicit host display/min-size rules. Lit renders
   only Soda mounts, never a native form or HTMX-owned fragment. Namespaced IDs must
-  stay unique once several terminals exist; preserve old selectors only where they
-  still represent a genuinely singular control, such as the active Copy target.
+  stay unique across terminals and retained project controls. Keep repository-qualified
+  Copy targets; preserve selectors only where their original meaning still holds.
 - Follow strict TypeScript/static properties/`declare` plus constructor initialization.
   Bind context/objects as properties with `attribute: false`; internal reactive state
   uses `state: true`. Establish each terminal's binding once; metadata/name updates
@@ -103,8 +113,8 @@ base-component hierarchy, interchangeably pluggable backends or lazy feature fla
 - Keys preserve DOM identity **within a repeat part**, not across different pane
   parents. Do not nest live terminals inside independently keyed pane templates and
   assume moving a tab preserves them. Start with a stable flat terminal layer under
-  one parent, keyed by session ID in stable owner order. Pane chrome/layout changes
-  position and visibility of those existing hosts; they do not reparent/remove them.
+  one parent, keyed by the immutable local owner key in stable owner order. Pane
+  chrome/layout changes position/visibility of those hosts, not their parent/lifetime.
   Measure each pane's screen rectangle and apply bounded layout coordinates. Validate
   labels, tab/tabpanel associations, roving focus, clipping and overlay hit-testing;
   stable DOM alone is not accessibility or xterm focus proof.
@@ -277,7 +287,8 @@ tabs. Do not wait for every drag/layout enhancement to exercise real integration
   requests, retaining a second renderer or introducing a generic services package.
   Pending results/drafts stay bound to the selected management target; switching
   details never retargets an in-flight write or invalidates sibling terminals.
-- Add `internal/web/spaces.go` and one Soda-owned Go template. HTML GET derives the
+- Add `internal/web/spaces_page.go` and one Soda-owned Go template alongside the
+  existing `spaces.go` collection. HTML GET derives the
   Soda actor server-side. Anonymous/expired access offers explicit Connect; grant/
   provider failure is not a fake empty workspace or redirect loop. API calls retain
   expected-user/CSRF/Origin guards. Data is authorized before server rendering or JSON
@@ -326,98 +337,363 @@ text or socket-close ordering. The page and drawer have one implementation of ac
 
 ### Step 5 — full layout and native-left/drawer-right behavior
 
-Implement the approved designs directly, not the superseded grid mockup:
+Implement the approved designs on `18aceb2`'s shared workspace, in the following
+commit-sized slices. Each slice includes its own callers, focused tests and handoff;
+local implementation/testing does not require another design approval. None grants
+native execution or deployment. Do not add a second workspace, framework or API.
 
-- One pane by default; typed split tree with pane IDs, ordered session IDs, selection
-  and ratios. Split right/below creates an empty view, not a shell. Move preserves the
-  session host; empty groups collapse; maximize/restore and consolidate preserve work.
-  Add pointer operations **and** named keyboard/menu equivalents. No arbitrary four-
-  pane limit, font shrinking, cwd copying or command broadcasting.
-- Keep terminal owners in the stable layer described above. Tabs/metadata can reorder
-  without changing those owners. Hide inactive views from input/accessibility while
-  retaining their sockets; fit only visible nonzero geometry, preserving last valid
-  dimensions. Observe canvas/font/visual-viewport changes, not just outer window resize.
-- Measure the design's 56-column/12-row split minimum and ~80-column target. When the
-  tree cannot fit, show the selected pane with **Panes (N)**; keep the saved tree and
-  desired ratios, not a destroyed/reserialized replacement layout.
-- Full page gets project/session sidebar, local pane tabs and search/attention filters.
-  Drawer gets all-open-session tabs flattened from the same tree, a right-content-only
-  Sessions switcher, named Environment/Access views, and Open in Spaces. No permanent
-  drawer sidebar, recursive drawer layout editor or second working-set list. Remove
-  the old `Use repository on the left` replacement control; this-page filtering or
-  explicit named-project details cannot replace the open working set.
-- Retain the 50/50 native split and viable 35–65% divider, respecting native-width
-  and measured terminal minimums. Reuse incoming pane/container adaptations and the
-  1000px repository-action disclosure. Never clone/reparent native forms. Menus,
-  notifications, clipboard and real native modals remain functional above the drawer.
-- Compact Forge/Terminal switches visibility in the same document, preserving DOM,
-  drafts, scroll and attachments. New native navigation shows Forge in compact mode;
-  explicit drawer intent can select Terminal. On widening restore the desired ratio.
-- Native navigation/Open in Spaces is normal same-origin navigation, not in-place
-  SPA routing. Preserve cancelled beforeunload without detaching; completed pagehide
-  detaches without End; next document/BFCache uses fresh authorization and exact IDs.
-  Automatic restore does not Return. Whole-drawer Hide retains only this document's
-  owned sessions; re-opening never Returns them all. Show each actual capped deadline.
+#### 5a — layout model and locator migration
 
-**Exit:** same live DOM/renderer/socket across same-document split/move/maximize/
-consolidate/search/details/compact transitions, correct visual/keyboard order and
-no zero-size resize, input leaks or focus theft. Native document replacement may
-create renderers, **not native shells**. Full acceptance requires the native matrix.
+**Owners:** new pure `sodaspaces-layout.ts`; storage IO/restore and live handles stay
+in `sodaspaces-drawer.ts`. Wire the model into the existing one-pane UI immediately,
+not as dormant scaffolding. `sodaspaces.ts` retains native open/width/resume hints.
+
+- Use a typed binary split tree: stable pane IDs, axis/desired ratio and two children;
+  leaves contain ordered owner keys and a selected key. Keep focused-pane identity
+  and temporary maximize separately from the desired tree. One owner occupies at
+  most one leaf. The locator table holds exact ID **or** correlated pending attempt,
+  scoped to its environment; live bindings/handles remain solely in the workspace.
+- Preserve the existing local owner key while a new attempt acquires its request ID
+  and later its terminal ID. Promotion updates one locator, not the host, tab or
+  native binding. Serialize only known locators, excluding unsent New drafts from
+  saved references without executing them on reload. Confirmed cleanup removes its
+  matching saved locator/reference together; an accepted End alone does not.
+  Pane membership supplies open-tab order/visibility; do not maintain a second flat
+  drawer order or synchronized hidden flag. Locators remain retained even when hidden
+  outside pane membership; unavailable metadata never removes a saved pane placement.
+- Plan a browser-only **v2** record at `soda-spaces:v2:<actor>` containing locator
+  records, pane tree/selection and bounded sidebar preference. Bound encoded input
+  and output to 32 KiB, 64 retained locator records, 64 leaves/127 tree nodes and
+  depth at most 64. The structural ceiling follows the existing working-set capacity;
+  geometry is the ordinary split limit, not an arbitrary four-pane product cap.
+  Empty panes consume only UI structure, never native slots. Validate unique IDs,
+  canonical locators, references, finite ratios strictly between 0 and 1, node shape
+  and selected membership before traversal/publication. Store no names, login or
+  permission snapshots, transcripts, credentials, attachment generations, queued
+  input or DOM coordinates.
+- Prefer a valid v2 record. Only when that key is absent, import valid v1 entries
+  in stored order into one pane; preserve hidden entries and exact correlations.
+  V1 has no saved selection: choose the first nonhidden entry in that stored order,
+  never a newest server session. Validate before writing; leave v1 untouched if the
+  v2 write fails. After successful promotion, v2 alone owns future writes; do not
+  dual-write or import v1 again over a present v2 record. Retained old-format bytes
+  are not a synchronized fallback or permission for old assets to adopt sessions.
+- Malformed, oversized or future-version records are retained unchanged, reported,
+  and never overwritten by an empty/default workspace. Storage failure allows live
+  use with no restoration promise. Missing rows in an incomplete collection and
+  null/expired receipts cannot discard locators or prove cleanup. Preserve pending
+  and hidden records across partial restore and asynchronous metadata publication.
+  Legacy singleton exact-ID import still needs fresh metadata; legacy `pending`
+  remains unconfirmed, not a migration shortcut into creation.
+- Persist deliberate selection/layout changes, not a compact Terminal-visible flag.
+  Reauthorize before attaching any restored ID; hidden/unresolved entries are not
+  implicitly attached by parsing/listing. Duplicated windows may inherit locators;
+  the server's one-writer refusal wins. No browser lock, BroadcastChannel layout
+  synchronization, durable backend registry or new SQLite migration is needed.
+
+**Exit:** round-trip/migration tests cover exact and pending entries, hidden work,
+selection, late promotion, duplicate/cross-project aliases, missing references,
+malformed trees/ratios, limits, future versions and denied storage. Emitted-browser
+reload/partial-read tests preserve exact locators with no create or automatic Return;
+same-document migration/metadata refresh never replaces a live renderer.
+
+#### 5b — pane operations and terminal geometry
+
+**Owners:** pure transforms in the layout module; commands/placement in the shared
+workspace; measured fit/input/control focus in the terminal owner and scoped CSS.
+
+- Split right/below creates an explicit empty leaf. Move/reorder preserves an existing
+  owner; moving the last tab collapses the empty source. Retain one initial empty
+  pane when no tabs remain. Maximize/restore preserves the exact desired tree;
+  consolidate keeps the focused selection first and stable remaining order.
+  Supply labelled keyboard/menu destinations as well as pointer tab/edge dragging
+  and keyboard/pointer separators. Deliberate resizing updates desired ratios within
+  measured child minimums; compact projection never overwrites them. Do not add bulk
+  Hide/End, floating windows or stacked-pane mode.
+- Position existing hosts in the stable flat layer using measured pane screen
+  rectangles. Never put live terminals inside a recursively rendered pane tree or
+  reparent them during a move. Lit keys alone do not prove cross-parent continuity.
+  If keyed chrome needs `repeat`, export/map/test it through the one shared runtime.
+- Separate layout selection from attachment/creation commands: the current
+  `selectSlot()` calls `restore()` and cannot be reused blindly for transforms.
+  Selecting an unattached exact locator may deliberately authorize attach; split,
+  move, resize, maximize, search and projection changes cannot. Pending operations
+  capture their original owner/project and intended pane; moving while pending
+  must not dispatch twice, retarget a result or remount on ID promotion. Replace
+  workspace-wide mutation blocking with bounded action/target guards where needed
+  so another terminal remains usable; do not introduce jobs or a generic store.
+- Give the terminal owner only the small presentation-only facade needed for
+  visibility/fit/control focus. Readiness, fonts and ResizeObserver/visual viewport
+  callbacks recheck generation, connection and visibility. Fit only visible nonzero
+  geometry; hidden siblings retain last valid dimensions and sockets. No observer
+  loop that recreates a renderer, no zero-size resize and no hidden-input route.
+- Use actual xterm/font cell metrics and available screen area **after** tab/context
+  chrome, warnings, padding and scrollbars. A proposed split requires each child to
+  fit **56 columns × 12 rows**; aim for **80 columns** where viable. Reject an
+  unviable split with an explanation. On later shrink, show the selected pane plus
+  **Panes (N)** and retain the desired tree/ratios for widening. Do not certify the
+  minimum from configured `80×24`, the old 650px assertion or the provisional 216px
+  floor. Compact single-terminal views may be narrower than 56 columns; that is not
+  permission to split them or shrink text. Record real mobile/keyboard limitations.
+- Preserve tab/tabpanel associations, visual and keyboard order, clipping and
+  overlay hit testing. Only the deliberately focused visible terminal receives
+  input. Native typing, shell Escape/Ctrl-C/D, browser shortcuts, selection and paste
+  must stay native. Ctrl+Shift+Enter reaches a stable selected-session control even
+  when End moves into a menu; pending/disabled End must not trap keyboard focus.
+
+**Exit:** real-xterm browser tests record host/screen/renderer/socket identities,
+constructor/disposal counts, actual fitted cells and sent resize/input frames across
+all transforms, font/zoom changes and late callbacks. Split/move/maximize/consolidate
+send no create/attach/lifetime actions; no sibling input, focus theft or zero fit.
+Pure tree tests alone and screenshots alone do not satisfy this slice.
+
+#### 5c — full-page and drawer projections
+
+**Owners:** shared workspace/templates/CSS and thin page bootstrap; reuse existing
+project and terminal command owners. No second page session list or API caller.
+
+- Replace step 4's stacked project/session/lifecycle rows with the selected compact
+  chrome. Full Spaces gets its resizable/collapsible project/session sidebar, local
+  pane tabs, search and overflow menus. Drawer gets flat open tabs derived in stable
+  pane/tab order, a right-content-only **Sessions** view and Back to terminal, not
+  a permanent sidebar or recursive layout editor. Selecting a drawer tab updates
+  its existing group selection without moving it; switching surfaces preserves the
+  full-page tree. All and explicit **This page** filter affect navigation only.
+- Search only authorized project/session labels; filtering never hides, closes or
+  retargets open panes. Preserve incomplete/denied/unavailable/no-match distinctions.
+  Hidden sessions appear in the same authorized navigation, not step 4's separate
+  hidden/existing button catalogs. Do not discard opaque unresolved locators merely
+  because their metadata is unavailable. Attention filters/counts are **step 6a**;
+  do not ship fake zero counts or placeholders as though signals already exist.
+- Use the same explicit project/name New chooser in both surfaces, with original
+  account/full project visible before dispatch and optional bounded metadata name.
+  Default from the selected session, not an invisible native-left repository.
+  Keep the chooser's pending target independent of later navigation; no automatic
+  Join/Start, agent launch, worktree creation or command copy/broadcast.
+- Put Rename, Keep, eligible Continue, Hide and **End terminal…** in the selected
+  session controls. End confirmation names session/project/original account, warns
+  of in-process loss, defaults focus to Cancel and observes exact cleanup metadata.
+  Do not preserve the always-visible step-4 End checkbox merely to keep selectors.
+  End acceptance/closed sockets/deadline passage do not prove native cleanup.
+- Named Environment/Access views reuse the existing project-control instances and
+  drafts; they never take their write target from whichever pane is now focused.
+  Preserve explicit Refresh reset behavior and uncertain writes. Stop stays here,
+  with shared-impact confirmation, not next to New or Hide. Keep native Copy on
+  native pages and the page's explicit Clipboard API action/failure handling.
+- The destructive `Use repository on the left` replacement control is already gone.
+  The current `Repository on the left` is only a details entry point; fold it into
+  explicit named details/This page navigation without replacing the working set.
+  Keep original account/full repository visible in trusted chrome, including mixed-
+  project tabs; shell titles and untrusted output never supply that identity.
+- Stage every new module/style through `forgejo-payload.json` and both canonical
+  preview projections. Test the real Go HTML/actor bootstrap and emitted page module
+  together, not only direct `mountSodaspaces({kind:'page'})` in a fixture. Preserve
+  fixed OAuth return/CSP and escaped context; import no native globals or Preact.
+
+**Exit:** both surfaces expose the same sessions/actions with usable keyboard/touch
+controls, stable selection, truthful errors and preserved project drafts/terminal
+owners. Update local fixtures and affected installed-journey selectors in this slice;
+retain their action/authorization assertions rather than bypassing controls via APIs.
+
+#### 5d — compact surfaces, native coexistence and journey ports
+
+**Owners:** native adapter/outer CSS, shared workspace's compact views, and the
+existing browser/installed journeys. This closes the step-4 probe-port debt.
+
+- Keep 50/50 by default and desired 35–65% resizing, clamped to a usable native left
+  region (design target at least 480px) plus measured terminal minimums. If no viable
+  ratio exists, use **Forge / Terminal**, not an unusable split just above 800px.
+  Preserve desired widths/tree/sidebar preferences while temporarily compact.
+- Compact switching changes visibility in the same document, preserving native form
+  nodes, unsent values, scroll and every live terminal owner. Expose only the visible
+  surface to focus/accessibility; no desktop focus trap. Mobile keyboard/visual
+  viewport, orientation, zoom and fonts must leave the prompt and controls usable.
+- New native navigation/Back/BFCache defaults to Forge when compact; explicit drawer
+  intent can reveal Terminal. Restore locators independently of that visibility.
+  Open in Spaces remains ordinary navigation: cancelled beforeunload changes nothing;
+  completed pagehide detaches, not Ends. New documents reauthorize exact surviving
+  IDs and selection, never create replacements or automatically Return them all.
+- Sessions/details/maximize/compact transitions are not Hide. Explicit drawer Hide
+  retains only this document's owned attachments with writer generations; reopening
+  can Return only the deliberately selected eligible session. Show actual capped
+  deadlines and uncertain results. No layout callback renews abandonment.
+- Verify native code/diffs/PR comments/forms, selection/clipboard, notifications,
+  account menus and modals at actual left-pane widths. Retain the repository-action
+  1000px **pane** breakpoint and supported scoped adaptations; no native form
+  cloning/reparenting, iframe, hidden half-page or overlay under the drawer.
+- Finish ports of `tests/installed/sodaspaces.ts`, `sodaspaces-management.ts` and their
+  input/fixture tests. Replace singleton IDs/old view and Open/End assumptions with
+  named-project/session controls and exact IDs. Keep real OAuth, both actors, Copy,
+  management, stale-account and native-form checks. Retain private-file, occupied-run,
+  target/protocol/action gates; six sessions or shared Stop are not covered by an
+  old single-terminal approval. Author/run local driver fixtures now; installed
+  execution waits for section 5's target-specific scope. Add no permanent old/new
+  renderer selector or second installed scenario in outside support tools.
+
+**Step 5 source exit:** 5a–5d are integrated in one shared Lit workspace; the measured
+width/theme/keyboard matrix below and migrated local journey fixtures pass on the
+actual candidate. No unported production/installed caller is silently left for a
+final sweep. Same-document layout preserves live DOM/renderer/socket; document
+replacement preserves exact native IDs, not DOM. Native proof is still separate.
 
 ### Step 6 — truthful attention and finish
 
-Implement observed background-output unread dots and actual lifecycle problems.
-Keep list order stable and count only qualifying authorized sessions. Output alone
-never enters Attention; viewing clears unread, not a waiting state. No focus steal,
-input injection, sound or navbar poller when the workspace has never opened.
+#### 6a — observed unread and lifecycle attention
 
-Semantic Working/Waiting/Finished remains unavailable until a separately selected,
-source-reviewed, explicitly enabled session-bound signal adapter exists. Do not
-infer from silence/prose, install agent wrappers or rewrite project profiles. If
-selected later, bound text/rate/staleness and keep advisory signals separate from
-permission, terminal cleanup and task/test success. No durable notification platform.
+**Owners:** terminal owner emits bounded typed observations; shared workspace owns
+per-owner unread state and stable authorized navigation. Reuse existing metadata
+and error contracts, not DOM/status-text scraping or another transport subscriber.
 
-Remove superseded helpers/locators and update current guides/tests as each caller
-moves. No second new feature plan, dead migration flags or aggregate "PASS" inferred
-from a prior branch. Each step ends in a coherent commit with its actual evidence.
+- Emit an output observation only after a valid frame from the current attachment
+  passes existing bounds. Carry identity/generation, not a transcript/snippet; keep
+  one unread flag per retained owner and coalesce rendering, not one DOM update per
+  output chunk. No new replay buffer, stored unread history or registry of agents.
+- Output while a tab is not the selected visible terminal in a visible document
+  marks unread (including behind Sessions/details or compact Forge). Merely focusing
+  a native comment beside a visible terminal does not change session selection.
+  Deliberate viewing clears unread after the view is available; metadata refresh,
+  automatic restore or output must not clear it or select a pane. A read marker
+  never clears an unresolved lifecycle problem.
+- Attention uses actual blocking connection/lifetime/cleanup observations, including
+  unconfirmed outcomes and imminent expiry derived from the observed effective
+  deadline (five-minute UI warning, not a changed lifetime). Keep connection loss,
+  attached-elsewhere, ending, unconfirmed and acknowledged-ended distinct. Expose
+  bounded typed reasons where the current generic terminal message loses those
+  distinctions; never infer them by parsing displayed prose. Stale/unavailable
+  metadata is not a successful empty list, a live promise or cleanup proof.
+- Add All/Attention and explicit Next attention to the same page/drawer navigation;
+  count distinct currently authorized qualifying sessions, not events/unknown agent
+  totals. Keep stable order, wrap deliberate Next once and explain when none qualify.
+  Ordinary output alone never enters Attention. Clear private observations on lost
+  authority; retaining an opaque uncertain locator is not authority to display it
+  as another context's live session. Missing receipts still cannot release a slot.
+- No focus theft, input injection, sound, desktop permission prompt or poller on an
+  unopened native navbar. Any needed mounted-workspace observation refresh stays
+  bounded/cancellable and uses the existing caller; output/polling never Returns.
+  Semantic Working/Waiting/Finished and terminal notification protocols remain
+  unavailable until a separately selected, source-reviewed, explicitly enabled
+  session-bound adapter exists. No CLI prose heuristics, wrappers or profile changes.
+
+**Exit:** browser tests cover noisy hidden output, multiple visible panes, deliberate
+viewing, metadata staleness, late generations, lost authority, stable filtered order,
+correct counts and navigation without mutation. Ordinary logs never become Attention
+or fabricated agent completion; no test treats a socket close as native cleanup.
+
+#### 6b — close candidate source and installed-journey coverage
+
+Reconcile current API/credential/installation and feature guides with the delivered
+source contracts, including schema v6 and the bounded Go HTML exception. Retain
+historical execution records. Remove genuinely superseded helpers only as their
+callers move; legacy locator preservation/refusal is not dead code to prune blindly.
+
+Extend the **ported product-owned journeys** with the six-session/two-project matrix
+and exact per-ID correlation, writer, retention and cleanup checks. Add the actual
+Codex CLI, Claude Code and Pi browser-versus-SSH scenarios with declared versions,
+inputs and effects. Native execution is 6c, not a side effect of authoring these tests.
+Review input gates so past fixture/probe approvals cannot authorize additional
+sessions, installs, lifecycle/fault injection, provider use or cleanup. Do not drop
+failed native assertions, substitute a shell smoke, or add a parallel acceptance
+framework. Record source checks and remaining native cases separately.
+
+**Exit:** local build/type/browser/Go/race/payload regressions pass; page bootstrap,
+new layouts/attention and installed-driver fixtures all exercise current callers.
+No duplicate action implementation, stale-selector bypass or unexplained skipped
+essential case. Source readiness is not native/CLI acceptance or release approval.
+
+#### 6c — scoped native and selected-CLI proof
+
+Use section 5's build/delivery gates and existing authorized tools, with new exact
+scope where required. Diagnose and fix `TestInstalledTerminalBoundary`'s retained
+raw-output confirmation failure; retain the failed evidence. A previously passing
+same-PID smoke does not replace its missing native safety checks.
+
+On the approved candidate/target, exercise both real surfaces, six sessions across
+two projects and both account boundaries. Verify actual PID/start/memory/editor/build
+continuity through layout, native navigation/reload and bounded connection loss;
+End only the named managed service, independently checking owned cleanup and sibling
+SSH/services/files. Test one-writer refusal, Stop/logout/rotation/expiry and approved
+lease/helper/guard failure/uncertain outcomes. Nothing authorizes unrelated cleanup.
+
+For **each** selected CLI, record actual version, native shell/tmux/terminfo and browser
+context; test Unicode/cursor, alternate-screen redraw, mouse/paste, resize/interrupt,
+scrollback/history/selection, long streaming output and reconnect/retention, with
+ordinary SSH as comparison. Use restricted personal credentials and explicit provider
+scope; no borrowed Soda grant, credentials in output/screenshots, automatic agent
+installation or profile rewrite. Compare ordinary SSH and personal tmux without
+forcing either into managed Soda sessions or claiming equivalent browser behavior.
+Missing tools/credentials/approval mean not run, not passed. A real compatibility blocker returns for a product decision; it does not
+silently select a new renderer/backend or remove the browser terminal.
+
+**Exit:** retain exact candidate/architecture/target results, failures and exclusions.
+Only observed native scopes are accepted; x86_64 does not imply aarch64 or direct
+laptop routing. Retained rollout still requires separate approval. Full product,
+operator/provider, keyless onboarding/Git and Rocky-root decisions keep their scope.
 
 ## 5. Required verification and delivery boundary
 
-**Testing realm:** current Bun/JSDOM tests create separate window constructors while
-importing modules once. LitElement must be evaluated/registered in the browser realm
-where it is instantiated. Move rendering/action/lifecycle assertions to emitted
-modules in the existing sandboxed Playwright fixture; keep pure parsers/layout in
-Bun. Do not monkey-patch global HTMLElement, install a second framework, drop races
-or turn essential cases into skips. Extend `test:lit` to run the converted
-`tests/frontend/` contracts; await real readiness, not arbitrary sleeps.
+**Testing realm:** production Lit tests already run emitted modules in sandboxed
+Chromium; JSDOM remains appropriate for the native adapter with injected content,
+not foreign-realm Lit constructors. Keep pure layout/parser tests in Bun. Extend
+`test:lit` with the new component/geometry/attention contracts; await actual child
+readiness, fonts and layout, not arbitrary sleeps. No patched HTMLElement, second
+framework, removed races or essential cases made optional. Each slice must exercise
+its changed production callers; later native permission is not a reason to leave
+source journey ports or deterministic local failure checks unfinished.
 
 | Layer | Required checks (actual results belong in the handoff, not inferred from this table) |
 | --- | --- |
 | Local source/build | Frozen pinned Bun inputs with dependency lifecycle scripts disabled; `bun run typecheck`, `test:frontend`, `test:forgejo`, `test:lit`, retained Cockpit tests, Go tests/races for changed web/store/host callers. Required browser cases fail when the browser cannot run. |
-| Component/geometry | Extend `tests/frontend/drawer-layout.test.ts` (`SODA_DRAWER_LAYOUT=1`, established long timeout) and add focused Spaces layout/interaction cases using real xterm and synthetic API/IO. Record node/renderer/socket identities as well as screenshots. |
-| Widths/themes | Light/dark; wide 1920 and 1440; 1440 with viable 35/50/65% splits; standalone 960/800/720; mobile 390/320; long labels, errors, font/zoom and visual keyboard viewport. Actual minimums can require compact mode rather than all three ratios. |
+| Storage/layout | V1→v2 migration, pending promotion, hidden/unresolved records, stable selection/order, malformed/bounded/future data and storage failure. Pure transforms send no effects; actual reload/partial metadata tests verify unchanged exact targets and no replay/Return. |
+| Component/geometry | Extend `tests/frontend/drawer-layout.test.ts` (`SODA_DRAWER_LAYOUT=1`) and full-page workspace tests with real xterm/synthetic IO. Observe actual fitted columns/rows and transmitted resize frames after fonts/chrome settle, not a 216px proxy. Record host/screen/renderer/socket identity and disposal counts, focus/input isolation, clipping/overlays and screenshots through all pane/surface operations. |
+| Widths/themes | Light/dark; page 1920/1440/960/800/720/390/320; drawer 1440 with viable 35/50/65% ratios and widths just above/below the measured compact threshold. Long labels, warnings, menus, font load/change, zoom, orientation and visual keyboard viewport. Assert disabled unviable splits and exact desired-layout restoration, not tiny fonts or forced ratios. Simulated viewport checks are not real-device keyboard proof. |
 | Native coexistence | Code/diffs/PR comments, forms/unsent values, native menus/modals/notifications, Copy, cancellation of beforeunload, Back/Forward and signed non-repository resume. Check the 1000px pane breakpoint, not just viewport size. |
 | Payload | `build:forgejo`, production payload/inventory and focused Python/Go staging checks. Exactly one runtime/directive instance from both public asset roots; missing/unreadable runtime and new component assets fail. AppSubUrl-safe **assets** do not enable currently unsupported backend subpath deployment. |
-| Existing preview | `build:preview` currently copies branding destinations only. Wire changed root-level Sodaspaces modules/styles into the existing public mount through the canonical payload owner; never hand-maintain a second list or test stale bytes. Publishing to a live fixture is separate from building. No mockup server/extra tunnel. |
+| Existing preview | `build:preview` already projects canonical branding and the complete public tree, including root modules/styles and locked xterm. Use isolated `--out`/`--public-out` for local checks; compare emitted and served bytes and both runtime import paths. Updating a live mount/service needs its own scope. No copied asset list, stale-byte test, mockup server or extra tunnel. |
+| Installed-driver source | Port `sodaspaces.ts`, `sodaspaces-management.ts`, inputs and local probe fixtures in 5c–5d, then extend native/CLI scenarios in 6b. Preserve opt-in target/action/protocol gates, private inputs, replay refusal and negative assertions. Do not run unported probes or replace UI commands with direct-API shortcuts. |
 | Native page visuals | `scripts/screenshot.ts` and [capture rules](screenshot-capture.md), only with the applicable fixture/profile scope. Incoming localhost:3300 screenshot/scaffold evidence is not integrated backend/project proof; 33443 remains the isolated full application origin. |
 | Installed terminal acceptance | Under exact target/action approval, six sessions/two retained projects: same PID/start/memory/editor/build through navigation/reload/network loss and both surfaces; real history/selection/paste/resize/interrupt; per-ID End preserves siblings/SSH/services; duplicate writer, Stop/logout/rotation/expiry, lease/helper/guard failure and uncertain cleanup. |
 
-Fix the retained `TestInstalledTerminalBoundary` raw-output confirmation failure;
-do not replace its missing two-account/native safety proof with the existing browser
-same-PID smoke or new screenshots. Verify actual owned cgroup/process cleanup and
-unrelated workload preservation. Native x86_64 and aarch64 evidence remain separate.
+#### Evidence and delivery gates
 
-Before delivery use the production exact-revision build/check/export and reviewed
-affected-component procedure, preserving DB/key/OAuth client, both original roots,
-all later writes/private inputs and failed evidence. Backend replacement/shutdown
-cancels managed sessions: coordinate that process-memory loss explicitly; reload
-reattachment is not daemon-upgrade resurrection. No install-on-Open, old-DB rollback,
-first-install-as-updater or fixture cleanup shortcut. The undeployed Rocky
-10.2 candidate/existing-root decision is **separate**, not permission to erase or
-upgrade projects while delivering Lit. `soda-test`, operator/provider work, keyless
-Join and agreed Git credential setup keep their own scope.
+These are exits within the existing sequence, not additional numbered milestones or
+authorization to execute a target. Follow [native validation](native-validation.md),
+[installation](installation.md) and the leading handoff for exact permissions/state.
 
-**Completion:** both real surfaces share ID-bound sessions and actions through one
-Lit implementation, the relevant source/browser/native checks have their own recorded
-results, and remaining native/credential/operator gaps stay explicit. A rendering
-port or static drawing alone is not completion of Spaces or final product acceptance.
+1. **Local source ready:** 5a–5d and 6a–6b have their actual focused and combined
+   results, including migrated installed-driver fixtures and real Go-page/emitted-
+   bootstrap integration. Retain early failures and label synthetic HTTP/socket
+   evidence. No passing count from `18aceb2` or an older branch substitutes for new
+   layout/attention coverage. Missing native approval does not block this local work.
+2. **Candidate prepared and fixture delivery authorized:** use production exact-
+   revision native build/check/export, without a sibling-architecture barrier.
+   Before scoped affected-component delivery, review exported module/template bytes,
+   cache/mixed-client handling and matching backend/schema-v6/config/grant-key/OAuth-
+   client state. Browser v2 layout is separate from SQL v6. Review preserved-state
+   rehearsal and fresh matching backups before mutation; verify served bytes after
+   approved fixture delivery. Build/export success alone permits no install/restart
+   or live preview refresh.
+3. **Native scope accepted:** run 6c only on approved targets/actions and retain
+   independent process/cgroup cleanup, original roots/accounts/keys/later writes,
+   client path and CLI results. Fix the recorded raw-output failure rather than
+   relabel it; one successful shell/SSH path does not validate Codex/Claude/Pi in
+   the browser. Keep failed, unrun and partially reached cases explicit. Native
+   x86_64, aarch64, real mobile keyboards and laptop reachability are distinct facts.
+4. **Retained rollout separately approved:** review the affected-component procedure
+   and its interruption with the operator/project users, deliver exact tested bytes
+   only to the named target, then repeat relevant preservation/access checks. Backend
+   replacement/shutdown cancels its runtime session ownership; navigation continuity
+   is not daemon-upgrade resurrection. Old backups are not lossless rollback of
+   later writes. No first-install-as-updater, install-on-Open, automatic replay or
+   cleanup beyond exact authorized run-owned resources.
+
+The undeployed Rocky 10.2/existing-root decision, `soda-test`, operator/provider and
+console gaps, keyless Join, agreed Git credentials and other appliance work remain
+in the [leading sequence](sodaspaces-plan.md#remaining-work--ordered), not hidden
+prerequisites or additions to pane layout. This revision grants no project/package/
+capability change, new fixture, credential use or lifecycle/fault-injection action.
+
+**Completion:** distinguish source-ready, scoped-native-validated and delivered.
+Both surfaces must share one ID-bound workspace with real layout/attention behavior;
+applicable native/CLI checks must have their own results before claiming acceptance.
+A drawing, rendered UI, source pass or scoped milestone is not final product/release
+acceptance, and unresolved compatibility concerns are not a silent terminal redesign.

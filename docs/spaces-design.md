@@ -1,12 +1,15 @@
 # Spaces design: parallel work, one terminal workspace
 
-**Revised design specification, not implemented product behavior or deployment
+**Revised design specification, not full implementation/acceptance or deployment
 permission.** This replaces the earlier grid-first proposal and interactive mockup.
 The user requested this redesign after researching existing multi-terminal/agent tools.
 The [leading plan](sodaspaces-plan.md) owns scope; the [handoff](implementation-status.md)
 owns execution evidence. The [Lit implementation plan](lit-migration-plan.md) now owns
-the detailed source sequence for this page and its companion drawer. Lit is scaffolded;
-no production component, Spaces page or true multi-session backend is implemented.
+the detailed source sequence for this page and its companion drawer. Steps 1–4 are
+locally implemented at `18aceb2`: Lit controls, ID-keyed sessions/collection, authenticated
+page/fixed return and the shared workspace. Steps 5–6 own remaining pane layouts,
+compact projections, attention and native/selected-CLI acceptance. Static sheets are
+still design references, not evidence that those remaining behaviors work.
 
 **Direction:** a project/session sidebar for finding work, tabs for switching within
 a pane, and direct splits for the few terminals being viewed together. Native CLI

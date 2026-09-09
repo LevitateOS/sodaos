@@ -1,5 +1,28 @@
 # Current handoff
 
+## Steps 5–6 plan reconciliation — documentation only
+
+Revised `docs/lit-migration-plan.md` against the implemented `18aceb2` workspace:
+5a locator/layout migration, 5b pane operations/measured terminal geometry, 5c shared
+page/drawer projections and 5d compact/native coexistence with installed-journey ports.
+Step 6 separates observed attention, candidate/source coverage and scoped native proof
+using actual Codex CLI, Claude Code and Pi. The plan assigns concrete owners and exits;
+it does not add another frontend, backend registry, OS phase or acceptance framework.
+
+The planned browser v2 format preserves exact/pending/hidden locators and is separate
+from implemented SQL v6. Stable local terminal owners survive layout operations;
+measured cell/chrome checks replace the provisional pixel floor. Corrected stale
+owner/preview descriptions and the two design introductions; the leading plan points
+to these slices instead of repeating completed ports. Steps 5–6 remain unimplemented.
+
+**Checked:** source/document review, **111 local Markdown paths/anchors**, whitespace
+and byte-identical preservation of `docs/terminal-integration.md` against `7afde63`.
+Logs: `.artifacts/spaces-plan-7afde63-ZRN2q2/`. No build, typecheck, application test,
+preview publication, native action, deployment or push was performed. Earlier evidence
+and failed native probes remain unchanged; source-ready, native-validated and delivered
+are distinct exits. The user's compatibility note, now committed separately in
+`7afde63`, was not edited. All retained targets/roots/credentials remain untouched.
+
 ## Shared Spaces page and drawer — local step 4, no rollout
 
 Implemented the requested initial shared workspace in source after `d451c67`.

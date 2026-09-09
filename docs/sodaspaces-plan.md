@@ -14,8 +14,9 @@ authorized collection now have local Go/race/browser coverage. The Spaces page,
 fixed OAuth return and shared multi-session UI now have local source/browser coverage.
 Advanced layouts and attention remain unimplemented. The
 [Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
-sequence: preserve the current behavior in two rendering ports, then implement real
-concurrency, the authenticated page/shared drawer, layouts and truthful attention.
+sequence: steps 1–4 are locally implemented at `18aceb2`; next come the layout/storage
+model, pane operations, page/drawer projections and compact native coexistence (5a–5d),
+then observed attention, candidate coverage and scoped native/CLI proof (6a–6c).
 The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
 
 **Execution is revision-specific.** Original access/cutover and later single-terminal
@@ -73,7 +74,7 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
   Forgejo site administrator. Retain Cockpit Runners until its replacement works.
 - **Page ownership:** a Soda-owned, server-rendered Go/template page at
   `/-/soda/spaces`, inside the existing proxy namespace. This deliberately extends
-  today's API-only Go service for Soda data; Forgejo-owned workflows stay native.
+  the Go service with bounded Soda-owned HTML; Forgejo-owned workflows stay native.
   Lit owns only Soda's interactive workspace inside that HTML shell. No Forgejo
   executable changes, iframe, HTML relay or replacement of native workflows.
 - **Listing:** show the environments this actor is authorized to see, with repository,
@@ -118,16 +119,18 @@ non-modal resizable aside, full-height Terminal/Environment/Access views and sam
 component focus/Hide continuity. Managed single-session navigation/Refresh restore
 and finite retention are implemented; `22d8591` has bounded installed browser evidence.
 Incoming native pane/header adaptations also have separately scoped preview evidence.
-Multiple terminals, the designed Lit surfaces, broader native coexistence/continuity
-and browser-only onboarding/Git remain unimplemented or incompletely verified.
+The shared multi-session Lit workspace now has local source/browser coverage; direct
+layouts, broader native coexistence/continuity and browser-only onboarding/Git remain
+unimplemented or incompletely verified.
 See the [current component contract](terminal-integration.md).
 
 The [detailed drawer design](spaces-drawer-design.md) now complements the full-page
 Spaces design: usable native browsing/comments on the left, all-open-session tabs
 on the right, a temporary right-only session switcher, explicit project identity,
 management views and same-session full-page/compact transitions. Static sheets
-illustrate those contracts; native reflow/interaction and true multi-session ownership
-still need implementation and validation. No new endpoint/preview port is selected.
+illustrate those contracts; the advanced projections/native reflow still need
+implementation and multi-session/native coexistence acceptance. No new endpoint or
+preview port is selected.
 
 - **Non-modal desktop split view**, initially approximately half native Soda/Forgejo
   page and half Sodaspaces, with an adjustable divider. No dimmed backdrop, inert
@@ -296,7 +299,7 @@ Retain the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls and ID-keyed backend/name APIs have local coverage, while multi-session UI and full-page/drawer layout remain source work |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs and shared multi-session UI have local coverage; advanced layouts and concurrent native/CLI acceptance remain pending |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -346,11 +349,12 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Implement Spaces and its companion drawer with Lit.** Follow the single
-   [detailed sequence](lit-migration-plan.md): management rendering port, current
-   managed-terminal controls port, real ID-keyed sessions/collection, authenticated
-   page and shared workspace, then direct layouts/compact behavior and truthful
-   attention. Preserve existing native reattachment, management/access/security and
+1. **Finish Spaces and its companion drawer with Lit.** The single
+   [detailed sequence](lit-migration-plan.md) records locally completed steps 1–4.
+   Next implement 5a–5d: safe locator/layout migration, pane operations, both projections
+   and compact/native coexistence, including installed-journey source ports. Then
+   6a–6c add observed attention, candidate coverage and scoped native/selected-CLI proof.
+   Preserve existing native reattachment, management/access/security and
    incoming responsive Forgejo controls. Validate native-left/form coexistence and
    the remaining real session/cleanup matrix before claiming acceptance or delivery.
    Keyless real Join and the agreed Git-credential workflow remain separate follow-up
@@ -399,20 +403,21 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
-- Continue with [Lit step 5](lit-migration-plan.md#step-5--full-layout-and-native-leftdrawer-right-behavior),
-  then attention, after the locally implemented authenticated Spaces HTML/fixed OAuth
-  return and shared multi-session workspace.
-  The management/terminal ports and ID registry/collection contracts are implemented
-  locally; preserve their action/race/authority tests and exact locators.
-- Preserve the implemented stable terminal owner layer and both projections while
-  adding pane movement/layout. Neither render updates nor document replacement creates a shell;
-  disposal detaches, End acknowledgement is not native cleanup, and absent records
-  remain unknown.
-- Follow the later layout/attention slices and their focused exits in that plan. Native safety failures remain real acceptance gaps. Before any delivery,
-  build/check/export exact bytes and run the applicable installed journey with real
-  OAuth/helper/tmux, preserving both users, roots and unrelated workloads.
-- Record actual runs and failures. No alternate preview endpoint, unrequested service
-  refresh, native fixture action or project recreation is implied by this planning.
+- Start [Lit step 5a](lit-migration-plan.md#5a--layout-model-and-locator-migration)
+  against the implemented `Slot`/locator owners. Preserve pending/hidden v1 locators
+  while adding bounded pane layout/selection; no new DB/API or framework is needed.
+- Follow 5b–5d's focused exits: stable-owner pane operations, measured 56-column/12-row
+  split viability, shared page/drawer projections and same-document compact behavior.
+  Port the installed journeys as controls move, not after a candidate rollout.
+  Native form drafts/selection and terminal renderer/socket identity must survive.
+- Keep actual unread/lifecycle attention in step 6, not fake filters during layout.
+  Preserve original bindings, finite lifetime, confirmed HTTP End/cleanup and unknown
+  outcomes. Native safety failures and actual Codex CLI/Claude Code/Pi suitability
+  remain acceptance obligations; ordinary SSH is the comparison, not browser proof.
+- Distinguish local source checks, exact native build/export, approved fixture
+  delivery/proof and separately approved retained rollout. Record failures and scope;
+  no alternate preview endpoint, live service refresh, native fixture/lifecycle action
+  or project recreation is implied by this planning.
 
 This list is planning, not permission to stop retained environments, destroy data,
 change provider/network resources or deploy. Detail only the next item when it is
