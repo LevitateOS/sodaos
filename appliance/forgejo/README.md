@@ -498,11 +498,15 @@ return on those routes.
 
 The repository masthead has two rows: compact identity and Sodaspaces/actions,
 then native unit navigation. Watch, Star, Fork, feed and gated transfer/report
-controls each retain one native owner inside `.soda-repository-actions`. This is
+controls each retain one native owner inside `.soda-repository-actions`. Above
+1000px of available repository pane width, those actions remain visible inline;
+at 1000px and below, they use the compact menu. This is
 a plain HTML disclosure; Forgejo's `details.dropdown` requires direct list-item
 links/buttons and cannot wrap the native HTMX forms intact. The small
-`repository-actions.ts` enhancement only handles Escape, outside click and focus
-leaving the panel. Native submissions, after-settle focus and Fork modals remain
+`repository-actions.ts` enhancement follows CSS summary visibility on resize,
+keeps wide actions open, and handles Escape, outside click and focus leaving only
+in compact mode. Default-open markup keeps wide actions available without JS.
+Native submissions, after-settle focus and Fork modals remain
 upstream-owned. At narrow container widths the workspace button keeps its icon
 and accessible name. DOM order matches visual and keyboard order.
 

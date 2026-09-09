@@ -5,13 +5,28 @@
 The repository header now has two rows: a compact repository identity beside the
 actions/Sodaspaces controls, followed by native unit navigation. The redundant
 "Soda repository" eyebrow is removed. Watch, Star, Fork, feed and gated
-transfer/report controls each retain one native owner inside an HTML disclosure;
-the small Soda script only handles dismissal/focus. Forgejo's `details.dropdown`
+transfer/report controls each retain one native owner inside an HTML disclosure.
+The user's correction limits the compact action menu to panes at or below 1000px;
+wider panes expose these controls inline. CSS owns that breakpoint, and the small
+Soda script follows summary visibility on resize, keeps wide actions open and
+limits dismissal/focus handling to compact mode. Native controls are not cloned
+or reparented. Default-open markup preserves wide action access without JS.
+Forgejo's `details.dropdown`
 was rejected because its direct list-item keyboard contract cannot contain these
 native HTMX forms intact. The disclosure keeps null blur/replacement focus and
 does not intercept native modal events. Container sizing also keeps this header
 compact beside Sodaspaces; the workspace icon retains its accessible name when
 its text is hidden. DOM, visual and keyboard control order agree.
+
+The width-specific correction is verified in the local preview, with evidence
+under `.artifacts/repository-header-breakpoint/`: full-width 1440px and compact
+800px native captures, three native browser checks (including both sides of the
+1000px cutoff, immediate resize interaction, unchanged form nodes and wide-page
+access without JS), seven disclosure DOM checks, strict TypeScript, the Forgejo
+suite (23 passed, 16 opt-in skipped) and focused Go template checks. Initial
+resize checks caught browser blur before ResizeObserver and dismissal before its
+callback; focus tracking and interaction-time CSS mode checks resolve both. The
+existing preview assets/templates were refreshed; no native action was submitted.
 
 Repository metadata stacks through 1000 CSS pixels, with a full-width clone row
 and no compounded metadata spacing.

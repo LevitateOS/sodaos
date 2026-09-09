@@ -818,7 +818,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5b584f9d9dd6e43f82bfcdff5f703ec0aa51a7fc96f9d6a208502b9b9014ab46",
+      "beforeRoleHash": "ce5240051c54fd4a76d51678926efb940b60fd5412f363dbd99428a0192d3bdb",
       "presentationReview": "Workspace button has an accessible name and a text span for narrow containers; repository disclosure script is loaded independently; existing drawer and notification contexts remain unchanged.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -847,7 +847,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e4c20b37db68b882d039b1851d684391e28045dce018077fa556cfdec8cd3cdf",
+      "beforeRoleHash": "e7eb071f1faee22013c5dfa9a60c68c9d72877043d5176d34552f0f94e5892db",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -3537,7 +3537,8 @@
         "soda-page-marker",
         "soda-repository-header",
         "soda-repository-actions",
-        "soda-repository-action-menu"
+        "soda-repository-action-menu",
+        "soda-repository-feed-label"
       ],
       "states": [
         "light",
@@ -3557,13 +3558,13 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f9af0c70ca3a932ecd0ce27b7465e08de52843877cbaa5eb5273d08f3cc8cb0",
+      "beforeRoleHash": "5f3474693e64d2e6bf6fe84e14da40c39843f1804983f03c4709f1c1a577ed0c",
       "upstreamCallers": [
         "repo/flags.tmpl",
         "repo/packages.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Compact identity/workspace row above native tabs; one set of native action forms in a plain HTML disclosure; native guards and partials preserved."
+      "presentationReview": "One set of native repository action forms is inline on wide panes and disclosed on compact panes. Default-open markup preserves wide-page access without JavaScript; native guards and partials preserved."
     },
     {
       "template": "repo/home.tmpl",

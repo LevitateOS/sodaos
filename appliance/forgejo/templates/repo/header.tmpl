@@ -36,7 +36,7 @@
 			</div>
 			{{if not (or .IsBeingCreated .IsBroken)}}
 				<div class="repo-buttons button-row">
-					<details class="soda-repository-actions">
+					<details class="soda-repository-actions" open>
 						<summary aria-label="{{ctx.Locale.Tr "repo.more_operations"}}" data-tooltip-content="{{ctx.Locale.Tr "repo.more_operations"}}">{{svg "octicon-kebab-horizontal" 16}}</summary>
 						<div class="soda-repository-action-menu">
 							{{if $.RepoTransfer}}
@@ -57,8 +57,8 @@
 							{{end}}
 							{{if $.EnableFeed}}
 							{{/* An extra div-element is not necessary here, as this button does not secretly contain two buttons. */}}
-							<a class="ui compact small basic button" href="{{$.RepoLink}}.rss" data-tooltip-content="{{ctx.Locale.Tr "rss_feed"}}">
-								{{svg "octicon-rss" 16}} {{ctx.Locale.Tr "rss_feed"}}
+							<a class="ui compact small basic button" href="{{$.RepoLink}}.rss" aria-label="{{ctx.Locale.Tr "rss_feed"}}" data-tooltip-content="{{ctx.Locale.Tr "rss_feed"}}">
+								{{svg "octicon-rss" 16}} <span class="soda-repository-feed-label">{{ctx.Locale.Tr "rss_feed"}}</span>
 							</a>
 							{{end}}
 							{{template "repo/watch_unwatch" $}}

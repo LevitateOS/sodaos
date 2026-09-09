@@ -153,6 +153,33 @@
 .soda-repository-action-menu > form > .ui.labeled.button > .label,
 .soda-repository-action-menu > .ui.labeled.button > .label { min-width: 44px; }
 
+/* Full-width pages expose the same native controls inline. The disclosure
+   script follows the summary's computed visibility when the pane resizes. */
+@container repository-header (width > 1000px) {
+  .soda-repository-actions > summary { display: none; }
+  .soda-repository-actions > .soda-repository-action-menu {
+    position: static;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    z-index: auto;
+  }
+  .soda-repository-action-menu > * + * { margin-top: 0; }
+  .soda-repository-action-menu > form > .ui.labeled.button,
+  .soda-repository-action-menu > .ui.labeled.button,
+  .soda-repository-action-menu > .ui.button { width: auto; }
+  .soda-repository-action-menu > form > .ui.labeled.button > .button,
+  .soda-repository-action-menu > .ui.labeled.button > .button { flex: initial; }
+  .soda-repository-feed-label { display: none; }
+}
+
 /* Native controls enforce their radius with !important. Fork may place its
    dialog between the action and counter, so target the labeled group itself. */
 .soda-repository-header .repo-buttons .ui.labeled.button > .ui.button {
