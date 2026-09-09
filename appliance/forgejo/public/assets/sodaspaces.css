@@ -8,7 +8,7 @@ body.sodaspaces-open .ui.container { max-width: calc(100% - 32px) !important; }
 #sodaspaces-drawer {
   position: fixed; inset: 0 0 0 auto; z-index: 100;
   width: var(--soda-space-width, 50vw); min-width: 0; box-sizing: border-box;
-  height: 100dvh; padding: 0;
+  top: var(--soda-viewport-top, 0px); height: var(--soda-viewport-height, 100dvh); padding: 0;
   border-left: 1px solid var(--soda-page-edge, var(--color-secondary));
   color: var(--soda-page-text, var(--color-text));
   background: var(--soda-page-canvas, var(--color-body, #fff));
@@ -21,8 +21,11 @@ body.sodaspaces-open .ui.container { max-width: calc(100% - 32px) !important; }
 #sodaspaces-drawer :focus-visible { outline: 2px solid var(--color-primary, #4583db); outline-offset: -2px; }
 #sodaspaces-divider { position: absolute; inset: 0 auto 0 -5px; width: 10px; cursor: col-resize; touch-action: none; z-index: 2; }
 #sodaspaces-divider:hover, #sodaspaces-divider:focus-visible { background: var(--color-primary-alpha-20, #4583db33); }
-@media (max-width: 800px) {
-  body.sodaspaces-open { width: 100%; }
-  #sodaspaces-drawer { width: 100%; }
-  #sodaspaces-divider { display: none; }
-}
+.sodaspaces-measure { position: fixed; visibility: hidden; pointer-events: none; white-space: pre; font: 14px/1.4 'IBM Plex Mono', monospace; }
+#sodaspaces-surfaces { position: fixed; top: var(--soda-viewport-top, 0px); inset-inline: 0; height: 44px; z-index: 101; display: flex; background: var(--color-body, #fff); }
+#sodaspaces-surfaces button { flex: 1; min-height: 44px; margin: 0; }
+#sodaspaces-surfaces [aria-pressed=true] { border-bottom: 3px solid var(--color-primary, #4583db); }
+body.sodaspaces-open.sodaspaces-compact { width: 100%; padding-top: 44px; }
+body.sodaspaces-compact #sodaspaces-drawer { top: calc(var(--soda-viewport-top, 0px) + 44px); width: 100%; height: calc(var(--soda-viewport-height, 100dvh) - 44px); }
+body.sodaspaces-compact #sodaspaces-divider { display: none; }
+#sodaspaces-drawer[data-surface-hidden], [data-soda-native-covered] { visibility: hidden !important; pointer-events: none !important; }

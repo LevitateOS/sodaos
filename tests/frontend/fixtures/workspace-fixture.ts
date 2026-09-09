@@ -50,7 +50,7 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
       if (frame.action !== 'attach' && frame.action !== 'create') return;
       const space = spaces.find(p => String(this.url).includes(p.environment.id)); if (!space) throw Error('Unknown fixture project');
       let terminal = space.terminals.find(t => t.id === frame.id);
-      if (frame.action === 'create') {terminal = metadata(sockets.length.toString(16).padStart(32, '0'), space.environment.id, space.environment.repository_id, ''); terminal.request_id = String(frame.request_id); space.terminals.push(terminal);}
+      if (frame.action === 'create') {terminal = metadata(sockets.length.toString(16).padStart(32, '0'), space.environment.id, space.environment.repository_id, typeof frame.name === 'string' ? frame.name : ''); terminal.request_id = String(frame.request_id); space.terminals.push(terminal);}
       if (!terminal) throw Error('Fixture has no exact terminal');
       terminal.attached = true;
       this.onmessage?.({data: JSON.stringify({type: 'session', id: terminal.id, request_id: terminal.request_id, attachment_id: sockets.length.toString(16).padStart(32, '0')})});
@@ -59,7 +59,7 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
     close() {this.closed++; this.readyState = 3; this.onclose?.();}
   }
   Object.defineProperty(window, 'WebSocket', {configurable: true, value: Socket});
-  const api = mountSodaspaces(root, mode === 'page' ? {kind: 'page', expectedUserId: '1'} : {kind: 'native', expectedUserId: '1', repositoryId: '7'});
+  const api = mountSodaspaces(root, mode === 'page' ? {kind: 'page', expectedUserId: '1'} : {kind: 'native', expectedUserId: '1', repositoryId: '7', pageRepositoryId: '7'});
   return {api, root, spaces, calls, sockets, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};
 }
 declare global {interface Window {createWorkspaceFixture: typeof createWorkspaceFixture; workspaceFixture: ReturnType<typeof createWorkspaceFixture>}}

@@ -19,11 +19,12 @@ before(async () => {
     const target = 'public' + url.pathname.replace(/^\/appliance\/forgejo\/public/, '');
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source?.startsWith('@build/forgejo-js/')) return new Response(Bun.file(path.join(root, '.artifacts/forgejo-js', path.basename(source))), {headers: {'Content-Type': 'text/javascript'}});
+    if (source && !source.startsWith('@build/')) return new Response(Bun.file(path.join(root, source)));
     if (url.pathname === '/native') {
       const signed = url.searchParams.get('anonymous') !== '1';
       const markup = footer.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7')
         .replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, String(signed)).replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, signed ? '1' : '').replace(/{{[\s\S]*?}}/g, '');
-      return new Response('<!doctype html><link rel="icon" href="data:,"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
+      return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
     }
     if (url.pathname !== '/') return new Response(null, {status: 404});
     return new Response('<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/tests/frontend/fixtures/drawer-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
@@ -73,7 +74,7 @@ test('native mount is inert and lazy, unique, and preserves native forms/actions
   assert.equal(await f.page.locator('.repo-buttons #sodaspaces-button').count(), 1);
   await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
   assert.equal(f.calls.length, 2); assert.equal(await f.page.locator('#native-edit').inputValue(), 'dirty');
-  assert.equal(await f.page.locator('#native').count(), 1); assert(await f.page.getByText('Authorized Spaces loaded.', {exact: true}).isVisible());
+  assert.equal(await f.page.locator('#native').count(), 1); assert.equal(await f.page.locator('#sodaspaces-status').innerText(), '');
   assert.equal(await f.page.locator('#sodaspaces-content .soda-page').count(), 0);
   assert.equal(f.modules.filter(module => module.endsWith('/lit.js')).length, 1);
 });
@@ -82,8 +83,8 @@ test('anonymous native page offers contextual OAuth without substituting Soda id
   assert.equal(f.calls.length, 0); assert(await f.page.getByRole('link', {name: 'Connect to Soda'}).isVisible());
   assert.equal(await f.page.getByRole('link', {name: 'Connect to Soda'}).getAttribute('href'), '/-/soda/login?repository_id=7');
   assert(await f.page.getByRole('button', {name: 'New terminal', exact: true}).isDisabled());
-  assert(await f.page.getByRole('button', {name: 'Environment / access', exact: true}).isDisabled());
-  assert(await f.page.getByRole('button', {name: 'Repository on the left', exact: true}).isDisabled());
+  await f.page.getByLabel('Workspace options', {exact: true}).click();
+  assert(await f.page.getByRole('button', {name: 'Repository environment / access', exact: true}).isDisabled());
   assert.equal(f.calls.length, 0);
 });
 test('native late fetch after document departure cannot repaint or dispatch another request', async t => {
@@ -111,7 +112,7 @@ test('interior clicks, initial pageshow and focus preserve the actual Lit drawer
   const f = await nativeFixture(t); await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
   const count = f.calls.length;
   await f.page.evaluate(() => {document.getElementById('sodaspaces-content')?.click(); window.dispatchEvent(new Event('focus')); window.dispatchEvent(new PageTransitionEvent('pageshow'));});
-  assert(await f.page.locator('#sodaspaces-drawer').isVisible()); assert.equal(f.calls.length, count); assert(await f.page.getByText('Authorized Spaces loaded.', {exact: true}).isVisible());
+  assert(await f.page.locator('#sodaspaces-drawer').isVisible()); assert.equal(f.calls.length, count); assert.equal(await f.page.locator('#sodaspaces-status').innerText(), '');
 });
 
 test('project control mount is inert; refresh only reads and never owns a terminal', async t => {

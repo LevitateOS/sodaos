@@ -1,5 +1,26 @@
 # Current handoff
 
+## Step 5 shared chrome and compact adapter — local, journey closure still pending
+
+The shared workspace now supplies the page sidebar, flat native tabs/right-content
+Sessions view, authorized search/This page filtering, explicit project/name New
+chooser and per-terminal menus. End has an original-target loss warning and Cancel
+focus; Hide and named Environment/Access keep their distinct owners. Keyed pane
+chrome adds drag-edge/reorder and named keyboard move destinations. Native compact
+Forge/Terminal is measured against terminal cells plus a 480px native-left target;
+visibility is document-local, uses no form cloning/reparenting, and never calls
+Hide/Return. Normal navigation remains native; BFCache starts compact Forge.
+
+**Local checks:** strict TypeScript at `types-5cd.log`; frontend **163 pass / 2 opt-in
+skips** at `frontend-5cd-second.log` under `.artifacts/spaces-step5-f28f86e/`.
+The selector-port failures, missing native fixture CSS/inert hit-test failure and
+old 1024px fixed-ratio expectations are preserved there, not discarded. Browser
+fixtures use emitted Lit/real xterm and synthetic peers, not native tmux or CLI proof.
+**Still to close step 5:** installed-journey source/input/fixture ports, real Go HTML
+plus emitted page-bootstrap integration, the full measured native/layout/theme/
+keyboard matrix and final review/docs. Attention remains step 6. No native target,
+retained project, deployment, provider resource or push was changed.
+
 ## Step 5 pane/geometry foundation — local source, remaining chrome/compact work
 
 After `9ad7847`, pure split/move/reorder/resize/consolidation and compact projection

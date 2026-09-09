@@ -5,13 +5,14 @@ import type { DrawerContext as WorkspaceContext } from '../../appliance/forgejo/
 type DrawerContext = Extract<WorkspaceContext, {kind: 'native'}>;
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {mountDrawer} from '../../appliance/forgejo/public/assets/sodaspaces.ts';
+import {mountDrawer, workspaceWidths} from '../../appliance/forgejo/public/assets/sodaspaces.ts';
 import {JSDOM} from 'jsdom';
 const footer = readFileSync(new URL('../../appliance/forgejo/templates/custom/footer.tmpl', import.meta.url), 'utf8');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
-async function fixture(t: TestContext, options: {saved?: {repositoryId: string; open: boolean; width?: number}; hash?: string; context?: Record<string,string>; noRow?: boolean; duplicate?: boolean; mount?: Parameters<typeof mountDrawer>[1]} = {}) {
+async function fixture(t: TestContext, options: {width?: number; saved?: {repositoryId: string; open: boolean; width?: number}; hash?: string; context?: Record<string,string>; noRow?: boolean; duplicate?: boolean; mount?: Parameters<typeof mountDrawer>[1]} = {}) {
   const dom = new JSDOM(`<div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>${footer}`, {url: `https://forge.test/alice/repo${options.hash || ''}`, pretendToBeVisual: true});
   const w = dom.window, doc = w.document;
+  Object.defineProperty(w, 'innerWidth', {value: options.width || 1440, writable: true});
   const $ = (n: string) => { const element = doc.getElementById('sodaspaces-' + n); assert(element); return element; };
   Object.assign($('root').dataset, {subUrl: '', signed: 'true', userId: '1', repositoryId: '7', ...options.context});
   const calls: Array<RequestInit & {url: string}> = [];
@@ -81,6 +82,21 @@ test('signed non-repository page resumes only a saved workspace locator', async 
   const f = await fixture(t, {noRow: true, context: {repositoryId: ''}, saved: {repositoryId: '7', open: true}, mount: (_root, context) => {contexts.push(context); return {refresh() {}, dispose() {}};}});
   assert.equal(contexts[0]?.repositoryId, '7'); assert(!f.$('drawer').hidden);
   assert(f.$('button').classList.contains('sodaspaces-global-resume'));
+});
+test('measured native/terminal minimums clamp actual widths without forcing a breakpoint split', () => {
+  assert.equal(workspaceWidths(960, 532, 50).compact, true);
+  const narrow = workspaceWidths(1024, 532, 65); assert.equal(narrow.compact, false); assert.equal(narrow.actual, 53.125);
+  assert(1024 * (1 - narrow.actual / 100) >= 480);
+  assert.equal(workspaceWidths(1600, 532, 50).actual, 50);
+});
+test('compact visibility is document-local and never Hide, Return or dispose', async t => {
+  let hidden = 0, returned = 0, disposed = 0; const visible: boolean[] = [];
+  const f = await fixture(t, {width: 390, saved: {repositoryId: '7', open: true, width: 55}, mount: () => ({refresh() {}, setVisible(value) {visible.push(value);}, retain() {hidden++;}, returnToWork() {returned++;}, dispose() {disposed++;}})});
+  assert.equal(f.$('drawer').getAttribute('aria-hidden'), 'true');
+  const controls = f.$('surfaces').querySelectorAll('button'); controls[1]?.click(); controls[0]?.click();
+  assert.deepEqual([hidden, returned, disposed], [0, 0, 0]); assert(visible.includes(true));
+  const stored = JSON.parse(f.w.sessionStorage.getItem('soda-workspace:1') || '{}'); assert.deepEqual(stored, {repositoryId: '7', open: true, width: 55});
+  f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow', {persisted: true})); assert.equal(f.$('drawer').getAttribute('aria-hidden'), 'true');
 });
 test('another native actor does not restore a previous user workspace', async t => {
   const f = await fixture(t, {context: {userId: '2'}, saved: {repositoryId: '8', open: true}});

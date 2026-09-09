@@ -15,14 +15,17 @@ const renderer = async (): Promise<Renderer> => {
 // One immutable original account and imperative attachment owner. Rendering never
 // creates a shell, opens a socket, Returns, or touches xterm's screen descendants.
 export class SodaTerminal extends LitElement {
-  static properties = {state: {state: true}, sessionID: {state: true}, uncertainCreate: {state: true}, message: {state: true}, screenVisible: {state: true}, actionBusy: {state: true}, endConfirmed: {state: true}};
+  static properties = {state: {state: true}, sessionID: {state: true}, uncertainCreate: {state: true}, message: {state: true}, screenVisible: {state: true}, actionBusy: {state: true}, confirming: {state: true}, sessionName: {state: true}, notice: {state: true}};
   declare private state: 'idle' | 'opening' | 'ready' | 'closed' | 'stale';
   declare private sessionID: string | undefined;
   declare private uncertainCreate: boolean;
   declare private message: string;
   declare private screenVisible: boolean;
   declare private actionBusy: boolean;
-  declare private endConfirmed: boolean;
+  declare private confirming: string | undefined;
+  declare private sessionName: string;
+  declare private notice: boolean;
+  private createName = '';
   private managed = false;
   private managedEnded = false;
   private binding: TerminalContext | undefined;
@@ -46,7 +49,7 @@ export class SodaTerminal extends LitElement {
   private minimumSize: {width: number; height: number} | undefined;
   private geometryFrame: number | undefined;
   constructor() {
-    super(); this.endConfirmed = false; this.state = 'idle'; this.sessionID = undefined; this.uncertainCreate = this.screenVisible = this.actionBusy = false; this.message = 'Not connected.';
+    super(); this.confirming = undefined; this.sessionName = ''; this.notice = true; this.state = 'idle'; this.sessionID = undefined; this.uncertainCreate = this.screenVisible = this.actionBusy = false; this.message = 'Not connected.';
   }
   protected createRenderRoot() {return this;}
   configure(context: TerminalContext, load: () => Promise<Renderer>, locator?: TerminalLocator) {
@@ -70,29 +73,45 @@ export class SodaTerminal extends LitElement {
   disconnectedCallback() {super.disconnectedCallback(); this.dispose();}
   protected render() {
     const disabled = this.disposed || this.state === 'stale';
-    return html`<section class=${'soda-terminal' + (this.state === 'ready' ? ' is-connected' : '')}>
-      <h3>Project terminal as ${this.binding?.login} in ${this.binding?.projectName || this.binding?.environmentId}</h3>
-      ${this.managed ? html`<label><input type="checkbox" .checked=${this.endConfirmed} @change=${(e: Event) => {if (e.target instanceof HTMLInputElement) this.endConfirmed = e.target.checked;}}> Confirm End for ${this.binding?.login} in ${this.binding?.projectName || this.binding?.environmentId} (${this.binding?.environmentId}); files and independent services remain.</label>` : ''}
-      <p>The same tmux session survives navigation and connection loss. Detached or hidden work is retained for 30 minutes, within Soda authentication. Reconnecting alone does not extend retention. Tmux copy-mode holds history; no commands are replayed.</p>
-      <div class="soda-terminal-toolbar">
-        <button type="button" class="ui primary button" ?disabled=${disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy}
-          @click=${() => {this.retries = 0; void this.connect();}}>${this.sessionID ? 'Reconnect terminal' : this.uncertainCreate ? 'Find pending terminal' : 'Open terminal'}</button>
-        <button type="button" class="ui basic button" data-action="end" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.control('end')}>End terminal</button>
-        <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.control('return')}>Continue working</button>
-        <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.control('retain', 7200)}>Keep for two hours</button>
-        <p role="status" tabindex="-1">${this.message}</p>
-      </div>
-      <div class="soda-terminal-screen" ?hidden=${!this.screenVisible} aria-label=${`Terminal for ${this.binding?.login}; Ctrl+Shift+Enter focuses End terminal`}
+    return html`<section class=${'soda-terminal' + (this.state === 'ready' ? ' is-connected' : '') + (this.managed ? ' is-managed' : '')}>
+      ${this.managed ? html`<div class="soda-terminal-context"><span title=${this.binding?.projectName}>${this.binding?.login} @ ${this.binding?.projectName || this.binding?.environmentId}</span>
+        <details class="soda-menu" @keydown=${(e: KeyboardEvent) => {if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); this.closeMenu(); this.querySelector<HTMLElement>('summary')?.focus();}}}><summary aria-label="Terminal actions" data-action="controls">⋯</summary><div>
+          <button type="button" class="ui button" ?disabled=${disabled} @click=${() => this.workspaceCommand('project')}>Environment / access</button>
+          <button type="button" class="ui button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.workspaceCommand('rename')}>Rename terminal</button>
+          <button type="button" class="ui button" ?disabled=${disabled} @click=${() => this.workspaceCommand('hide')}>Hide session</button>
+          ${this.actions(disabled)}
+        </div></details></div>` : html`<h3>Project terminal as ${this.binding?.login} in ${this.binding?.projectName || this.binding?.environmentId}</h3><p>The same tmux session survives navigation and connection loss. Detached or hidden work is retained for 30 minutes, within Soda authentication. Reconnecting alone does not extend retention. Tmux copy-mode holds history; no commands are replayed.</p><div class="soda-terminal-toolbar">${this.actions(disabled)}</div>`}
+      <p class=${'soda-terminal-status' + (this.managed && !this.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">${this.message}</p>
+      ${this.confirming ? html`<div class="soda-terminal-confirm" role="dialog" aria-label="End terminal confirmation" @keydown=${(e: KeyboardEvent) => {if (e.key === 'Escape') {e.preventDefault(); e.stopPropagation(); this.cancelEnd();}}}>
+        <h4>End “${this.sessionName || this.confirming}” in ${this.binding?.projectName || this.binding?.environmentId}?</h4>
+        <p>Original account: ${this.binding?.login}. This ends this terminal and processes in its managed session. Unsaved in-process work will be lost. Files and independently managed services remain.</p>
+        <button type="button" class="ui button" data-action="cancel-end" @click=${() => this.cancelEnd()}>Cancel</button><button type="button" class="ui button" ?disabled=${disabled || this.actionBusy || this.confirming !== this.sessionID} @click=${() => {this.control('end'); this.confirming = undefined;}}>End terminal</button>
+      </div>` : ''}
+      <div class="soda-terminal-screen" ?hidden=${!this.screenVisible} aria-label=${`Terminal for ${this.binding?.login}; Ctrl+Shift+Enter focuses ${this.managed ? 'terminal controls' : 'End terminal'}`}
         @keydown=${(event: KeyboardEvent) => {if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation();}}}></div>
     </section>`;
   }
+  private actions(disabled: boolean) {
+    return html`<button type="button" class="ui primary button" ?disabled=${disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy} @click=${() => {this.closeMenu(); this.retries = 0; void this.connect();}}>${this.sessionID ? 'Reconnect terminal' : this.uncertainCreate ? 'Find pending terminal' : 'Open terminal'}</button>
+      <button type="button" class="ui basic button" data-action="end" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => this.managed ? this.confirmEnd() : this.control('end')}>${this.managed ? 'End terminal…' : 'End terminal'}</button>
+      <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => {this.closeMenu(); this.control('return');}}>Continue working</button>
+      <button type="button" class="ui basic button" ?disabled=${disabled || !this.sessionID || this.actionBusy} @click=${() => {this.closeMenu(); this.control('retain', 7200);}}>Keep for two hours</button>`;
+  }
+  private closeMenu() {const menu = this.querySelector('details'); if (menu) menu.open = false;}
+  private workspaceCommand(command: 'project' | 'rename' | 'hide') {if (this.disposed || this.state === 'stale' || this.closest('[hidden]')) return; this.closeMenu(); this.dispatchEvent(new CustomEvent('soda-terminal-command', {bubbles: true, detail: command}));}
+  private confirmEnd() {
+    if (!this.sessionID || this.disposed || this.state === 'stale' || this.actionBusy || this.closest('[hidden]')) return;
+    this.closeMenu(); this.confirming = this.sessionID; const target = this.confirming, active = document.activeElement;
+    void this.updateComplete.then(() => {if (this.confirming === target && !this.disposed && (document.activeElement === active || document.activeElement === document.body)) this.querySelector<HTMLElement>('[data-action=cancel-end]')?.focus();});
+  }
+  private cancelEnd() {this.confirming = undefined; this.querySelector<HTMLElement>('[data-action=controls]')?.focus();}
   private remember(value: string | null) {
     if (this.managed) {if (value === null) this.managedEnded = true; this.dispatchEvent(new CustomEvent('soda-terminal-locator', {bubbles: true, detail: value})); return;}
     try {if (value) sessionStorage.setItem(this.storageKey, value); else sessionStorage.removeItem(this.storageKey);} catch { /* no credentials or transcript */ }
   }
   private live(generation: number) {return !this.disposed && this.state !== 'stale' && this.generation === generation;}
   private detach(message: string, stale = false) {
-    ++this.generation; this.state = stale ? 'stale' : 'closed';
+    ++this.generation; this.state = stale ? 'stale' : 'closed'; this.notice = true; this.confirming = undefined;
     window.clearTimeout(this.timer); this.request?.abort(); this.request = undefined;
     this.actionRequest?.abort(); this.actionRequest = undefined; this.actionBusy = false;
     this.observer?.disconnect(); this.observer = undefined;
@@ -116,7 +135,7 @@ export class SodaTerminal extends LitElement {
     return {csrf_token: value.csrf_token};
   }
   private control(action: 'end' | 'return' | 'retain', seconds?: 1800 | 7200) {
-    if (action === 'end' && this.managed && !this.endConfirmed) {this.message = 'Confirm the original account/project before End.'; return;}
+    if (action === 'end' && this.managed && this.confirming !== this.sessionID) return;
     if (!this.closest('[hidden]')) void this.retention(action, seconds);
   }
   private async retention(action: 'end' | 'return' | 'retain' | 'hide', seconds?: 1800 | 7200) {
@@ -140,9 +159,9 @@ export class SodaTerminal extends LitElement {
         const retained = terminalResponse(result, this.binding);
         if (!retained || retained.id !== target) throw Error('outcome');
         if (this.managed) this.dispatchEvent(new CustomEvent('soda-terminal-metadata', {bubbles: true, detail: retained}));
-        this.message = retained.retain_until ? `Retained until ${new Date(retained.retain_until * 1000).toLocaleTimeString()}, or authentication expiry.` : `Active as ${this.binding.login}; authentication and native safety leases still apply.`;
+        this.notice = true; this.message = retained.retain_until ? `Retained until ${new Date(retained.retain_until * 1000).toLocaleTimeString()}, or authentication expiry.` : `Active as ${this.binding.login}; authentication and native safety leases still apply.`;
       }
-    } catch {if (this.live(n)) this.message = 'Terminal lifetime action was not confirmed. No retry or replacement was made.';}
+    } catch {if (this.live(n)) {this.notice = true; this.message = 'Terminal lifetime action was not confirmed. No retry or replacement was made.';}}
     finally {window.clearTimeout(timeout); if (this.actionRequest === control) {this.actionRequest = undefined; this.actionBusy = false;}}
   }
   private async inspectOutcome(target: string) {
@@ -194,12 +213,12 @@ export class SodaTerminal extends LitElement {
     if (this.disposed || !this.binding || this.state === 'stale' || this.state === 'opening' || this.state === 'ready' || this.actionBusy) return;
     if (this.managedEnded) {this.message = 'This exact session ended. Use New terminal for a different shell.'; return;}
     if (automatic && !this.sessionID && !this.requestID) return;
-    if (this.closest('[hidden]') || (!automatic && (document.visibilityState === 'hidden' || !document.hasFocus()))) return;
+    if (!this.viewVisible || this.closest('[hidden]') || (!automatic && (document.visibilityState === 'hidden' || !document.hasFocus()))) return;
     const {expectedUserId, repositoryId, environmentId, login} = this.binding;
     window.clearTimeout(this.timer); this.state = 'opening';
     const n = ++this.generation, request = this.request = new AbortController();
     this.timer = window.setTimeout(() => this.detach('Terminal connection timed out. Use the existing locator or find the pending terminal; creation was not retried.'), 45000);
-    this.message = 'Checking your Soda session and original account…';
+    this.notice = true; this.message = 'Checking your Soda session and original account…';
     try {
       const current = await this.session(request.signal); if (!this.live(n)) return;
       const own = await this.json(`/api/environments/${environmentId}`, null, null, request.signal); if (!this.live(n)) return;
@@ -221,16 +240,17 @@ export class SodaTerminal extends LitElement {
       const {Terminal, FitAddon} = await this.loadRenderer(); if (!this.live(n)) return;
       this.screenVisible = true;
       await this.updateComplete; if (!this.live(n)) return;
-      if (!this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
+      if (!this.viewVisible || !this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
       const screen = this.querySelector<HTMLElement>('.soda-terminal-screen'); if (!screen) throw Error('Missing terminal screen');
       await document.fonts.ready; if (!this.live(n)) return;
-      if (!this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
+      if (!this.viewVisible || !this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
       const terminal = this.terminal = new Terminal({allowProposedApi: true, disableStdin: true, scrollback: 1000, windowOptions: {}, convertEol: false, cols: 80, rows: 24, fontFamily: '"IBM Plex Mono", monospace', fontSize: 14, lineHeight: 1.4});
       const fit = this.fit = new FitAddon(); terminal.loadAddon(fit);
       for (const code of [0, 1, 2, 8, 52]) terminal.parser.registerOscHandler(code, () => true);
       terminal.attachCustomKeyEventHandler(event => {
         if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
           event.preventDefault(); event.stopPropagation();
+          if (this.managed) {this.querySelector<HTMLElement>('[data-action=controls]')?.focus(); return false;}
           const end = this.querySelector<HTMLButtonElement>('[data-action=end]');
           (end && !end.disabled ? end : this.querySelector<HTMLElement>('[role=status]'))?.focus();
           return false;
@@ -249,10 +269,10 @@ export class SodaTerminal extends LitElement {
       const peer = this.socket = new WebSocket(url);
       peer.onopen = () => {
         if (!this.live(n)) {peer.close(); return;}
-        if (this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
+        if (!this.viewVisible || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
         if (action === 'create') {this.requestID = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join(''); this.uncertainCreate = true; this.remember(`pending:${this.requestID}`);}
         try {
-          peer.send(JSON.stringify({action, ...(this.sessionID ? {id: this.sessionID} : {request_id: this.requestID}), expected_user_id: expectedUserId, repository_id: repositoryId, csrf_token: current.csrf_token, cols, rows}));
+          peer.send(JSON.stringify({action, ...(this.sessionID ? {id: this.sessionID} : {request_id: this.requestID, ...(this.createName ? {name: this.createName} : {})}), expected_user_id: expectedUserId, repository_id: repositoryId, csrf_token: current.csrf_token, cols, rows}));
           this.message = action === 'create' ? 'Starting the managed terminal…' : 'Attaching the existing terminal…';
         } catch {this.detach('Attachment dispatch was not confirmed. No creation or input was retried.');}
       };
@@ -265,7 +285,7 @@ export class SodaTerminal extends LitElement {
           if (frame.type === 'session' && keys === 'attachment_id,id,request_id,type' && this.state === 'opening' && !located && terminalID(frame.id) && terminalID(frame.request_id) && terminalID(frame.attachment_id) && (!this.sessionID || frame.id === this.sessionID) && (!this.requestID || frame.request_id === this.requestID)) {
             located = true; this.sessionID = frame.id; this.requestID = frame.request_id; this.attachmentID = frame.attachment_id; this.uncertainCreate = false; this.remember(frame.id);
           } else if (frame.type === 'ready' && keys === 'type' && this.state === 'opening' && this.sessionID && located) {
-            window.clearTimeout(this.timer); this.state = 'ready'; this.retries = 0; terminal.options.disableStdin = !this.viewVisible;
+            window.clearTimeout(this.timer); this.state = 'ready'; this.retries = 0; this.notice = false; terminal.options.disableStdin = !this.viewVisible;
             this.message = action === 'create' ? `Connected as ${login}.` : `Reconnected as ${login}. Choose Continue working to renew a detached deadline.`;
             void this.screenReady(n, terminal, screen);
             if (this.managed) {
@@ -303,11 +323,13 @@ export class SodaTerminal extends LitElement {
   }
   setVisible(visible: boolean) {
     this.viewVisible = visible;
+    if (!visible) {this.confirming = undefined; this.closeMenu();}
     if (this.terminal) this.terminal.options.disableStdin = !visible || this.state !== 'ready';
     if (visible) this.resize(); // Presentation only: never connect, focus or Return.
   }
   focus() {if (this.viewVisible && !this.closest('[hidden]') && this.state === 'ready') this.terminal?.focus();}
-  open() {return this.connect();}
+  setName(name: string) {if ([...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name)) this.sessionName = name;}
+  open(name = '') {if ([...name].length > 80 || /[\p{Cc}\p{Cf}]/u.test(name)) return; this.createName = name; return this.connect();}
   get started() {return this.state !== 'idle';}
   restore() {if (this.sessionID || this.requestID) return this.connect(true);}
   retain() {return this.retention('hide');}
@@ -322,6 +344,6 @@ export function mountTerminal(root: HTMLElement, context: TerminalContext, loadR
   if (root.ownerDocument !== document || !identifier(expectedUserId) || !identifier(repositoryId) || !/^p[0-9a-f]{24}$/.test(environmentId) || !/^[a-z][a-z0-9_-]{0,30}$/.test(login) || login === 'root') throw Error('Invalid terminal mounting context');
   if (locator?.kind === 'existing' && !terminalID(locator.id) || locator?.kind === 'pending' && !terminalID(locator.requestId)) throw Error('Invalid terminal locator');
   const terminal = new SodaTerminal(); terminal.configure(context, loadRenderer, locator); root.append(terminal);
-  return {setVisible: (visible: boolean) => terminal.setVisible(visible), focus: () => terminal.focus(), open: () => terminal.open(), get started() {return terminal.started;}, get ready() {return terminal.updateComplete;}, restore: () => terminal.restore(), retain: () => terminal.retain(), returnToWork: () => terminal.returnToWork(),
+  return {setVisible: (visible: boolean) => terminal.setVisible(visible), setName: (name: string) => terminal.setName(name), focus: () => terminal.focus(), open: (name?: string) => terminal.open(name), get started() {return terminal.started;}, get ready() {return terminal.updateComplete;}, restore: () => terminal.restore(), retain: () => terminal.retain(), returnToWork: () => terminal.returnToWork(),
     invalidate: () => terminal.invalidate(), disconnect: () => terminal.disconnect(), dispose: () => terminal.dispose()};
 }

@@ -5,7 +5,13 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal > p { margin: 12px; font: var(--soda-font-meta); color: var(--soda-page-muted, var(--color-text-light)); }
 .soda-terminal-toolbar { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 8px; }
 .soda-terminal-toolbar p { margin: 0; font-size: 12px; }
-.soda-terminal.is-connected > h3, .soda-terminal.is-connected > p, .soda-terminal.is-connected .soda-terminal-toolbar > button:first-child { display: none; }
+.soda-terminal.is-connected:not(.is-managed) > h3, .soda-terminal.is-connected:not(.is-managed) > p:not(.soda-terminal-status), .soda-terminal.is-connected .soda-terminal-toolbar > button:first-child { display: none; }
 .soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: 4px; box-sizing: content-box; background: #000; overflow: hidden; }
 .soda-terminal-screen[hidden] { display: none; }
 .soda-terminal-screen .xterm { height: 100%; }
+/* Managed workspace: one identity line, menu and exceptional status only. */
+.soda-terminal.is-managed { position: relative; padding: 0; border: 0; }
+.soda-terminal-context { display: flex; align-items: center; justify-content: space-between; min-height: 32px; flex-shrink: 0; gap: 6px; padding-left: 8px; }
+.soda-terminal-context > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.soda-terminal.is-managed > .soda-terminal-status { margin: 0; padding: 4px 8px; max-height: 30%; overflow: auto; }
+.soda-terminal-confirm { position: absolute; top: 36px; left: 8px; right: 8px; max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: light-dark(#faf8f5, #202631); color: light-dark(#20252b, #e0e5ed); padding: 12px; border: 1px solid #c77e45; box-shadow: 0 6px 16px #0005; }
