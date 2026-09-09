@@ -1,4 +1,4 @@
-import { object } from "./sodaspaces-api.js";
+import { object, readSodaJSON } from "./sodaspaces-api.js";
 import type { Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
 
@@ -16,25 +16,6 @@ const renderer = async (): Promise<Renderer> => {
   ]);
   return {Terminal, FitAddon};
 };
-
-// Shared by the two Soda API components; never accept HTML or unbounded bodies.
-export async function readSodaJSON(response: Response): Promise<unknown> {
-  if (!/^application\/json(?:;|$)/i.test(response.headers.get('Content-Type') || '') || Number(response.headers.get('Content-Length')) > 65536) {
-    await response.body?.cancel(); throw Error('Invalid Soda response');
-  }
-  if (!response.body) throw Error("Missing Soda response body");
-  const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8', {fatal: true});
-  let size = 0, text = '';
-  try {
-    for (;;) {
-      const {done, value} = await reader.read(); if (done) break;
-      size += value.byteLength; if (size > 65536) throw Error('Oversized Soda response');
-      text += decoder.decode(value, {stream: true});
-    }
-    return JSON.parse(text + decoder.decode());
-  } catch (error) { await reader.cancel(); throw error; }
-  finally { reader.releaseLock(); }
-}
 
 export function mountTerminal(root: HTMLElement, context: TerminalContext, loadRenderer: () => Promise<Renderer> = renderer) {
   const {expectedUserId, repositoryId, environmentId, login} = context;

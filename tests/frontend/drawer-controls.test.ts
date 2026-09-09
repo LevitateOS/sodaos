@@ -1,156 +1,269 @@
-import test, {type TestContext} from 'node:test';
-import type { TerminalContext } from '../../appliance/forgejo/public/assets/sodaspaces-terminal.ts';
+import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
-import {mountSodaspaces} from '../../appliance/forgejo/public/assets/sodaspaces-drawer.ts';
-import {JSDOM} from 'jsdom';
-const env = 'p0123456789abcdef01234567', fp = 'SHA256:' + 'A'.repeat(43);
-const tick = () => new Promise(resolve => setTimeout(resolve, 0));
-interface Call { url: string; method: string; body?: string }
-interface State { running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[] }
-interface FakeTerminal { ctx: TerminalContext; started: boolean; disposed: boolean; stale: boolean; dispose(): void; invalidate(): void }
-function fixture(t: TestContext, extra: Partial<State> & { fetch?: (url: string, init: Omit<Call,'url'>) => Promise<Response | null> } = {}) {
-  const dom = new JSDOM('<button id="native">Native action</button><main></main>', {url: 'https://forge.test/alice/repo', pretendToBeVisual: true});
-  const w = dom.window, root = w.document.querySelector('main'); assert(root);
-  const calls: Call[] = [], terminals: FakeTerminal[] = [];
-  const state = {running: true, member: true, admin: true, absent: false, saved: [fp], installed: [fp], ...extra};
-  Object.defineProperty(w, 'fetch', {value: async (url: string, init: Omit<Call,'url'>) => {
-    calls.push({url, ...init});
-    if (extra.fetch) {const value = await extra.fetch(url, init); if (value) return value;}
-    let body;
-    if (init.method !== 'GET') {
-      const input = JSON.parse(init.body || '{}');
-      if (url.endsWith('/api/session/logout')) return new Response(null, {status: 204});
-      if (url.endsWith('/api/environments')) body = {id: env, repository_id: '7', provisioned: true};
-      else if (url.endsWith('/join')) body = {login: 'alice'};
-      else if (url.endsWith('/lifecycle')) body = {environment: {id: env, running: input.action === 'start'}, boot_enabled: input.action === 'start'};
-      else if (url.endsWith('/access-keys')) body = {applied: true, login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: input.saved_fingerprints};
-      else if (init.method === 'DELETE') body = {removed: true, existing_project_access_changed: false};
-      else body = {items: []};
-    }
-    else if (url.endsWith('/api/session')) body = {user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'};
-    else if (url.endsWith('/api/forgejo/me')) body = {id: '1'};
-    else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: env, repository_id: '7'}]};
-    else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((f, i) => ({id: String(i + 1), fingerprint: f}))};
-    else if (url.endsWith('/lifecycle')) body = {environment: {id: env, running: state.running}, boot_enabled: state.running};
-    else if (url.endsWith('/access-keys')) body = {login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: state.installed, saved_fingerprints: state.saved};
-    else if (url.endsWith('/connection')) body = {login: 'alice', connection: {environment: {id: env, running: true, ip: '10.89.0.2'}, fingerprint: fp}};
-    else body = {environment: {id: env, repository_id: '7', provisioned: true}, observed: {id: env, running: state.running}, login: state.member ? 'alice' : '', environment_administrator: state.admin, native_unavailable: false, authority_unavailable: false};
-    return new Response(JSON.stringify(body), {headers: {'Content-Type': 'application/json'}});
-  }});
+import {chromium, type Browser, type Page} from 'playwright';
+import path from 'node:path';
+import payload from '../../internal/nativebuild/forgejo-payload.json';
+import {buildForgejoModule} from '../../scripts/build-forgejo';
+import type {State} from './fixtures/drawer-fixture';
 
-  const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (_mount, ctx) => {const t = {ctx, started: false, disposed: false, stale: false, dispose() {this.disposed = true;}, invalidate() {this.stale = true;}}; terminals.push(t); return t;});
-  const button = (text: string) => {
-    const b = [...root.querySelectorAll('button')].find(b => b.textContent === text);
-    assert(b);
-    const panel = b.closest('[role=tabpanel]');
-    if (panel) root.querySelector<HTMLElement>('#' + panel.getAttribute('aria-labelledby'))?.click();
-    return b;
-  };
-  t.after(() => {api.dispose(); dom.window.close();});
-  return {w, root, api, calls, state, terminals, button};
+const root = path.resolve(import.meta.dirname, '../..');
+let browser: Browser;
+let server: ReturnType<typeof Bun.serve>;
+before(async () => {
+  const fixture = await buildForgejoModule(path.join(root, 'tests/frontend/fixtures/drawer-fixture.ts'), 'public/assets/drawer-fixture.js');
+  const footer = (await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/footer.tmpl')).text()).split('{{if .IsSigned}}\n<div id="soda-notification-preview"')[0];
+  assert(footer);
+  server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(req) {
+    const url = new URL(req.url);
+    if (url.pathname === '/tests/frontend/fixtures/drawer-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
+    const target = 'public' + url.pathname.replace(/^\/appliance\/forgejo\/public/, '');
+    const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
+    if (source?.startsWith('@build/forgejo-js/')) return new Response(Bun.file(path.join(root, '.artifacts/forgejo-js', path.basename(source))), {headers: {'Content-Type': 'text/javascript'}});
+    if (url.pathname === '/native') {
+      const signed = url.searchParams.get('anonymous') !== '1';
+      const markup = footer.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7')
+        .replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, String(signed)).replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, signed ? '1' : '').replace(/{{[\s\S]*?}}/g, '');
+      return new Response('<!doctype html><link rel="icon" href="data:,"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
+    }
+    if (url.pathname !== '/') return new Response(null, {status: 404});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/tests/frontend/fixtures/drawer-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+  }});
+  browser = await chromium.launch({headless: true, chromiumSandbox: true});
+});
+after(async () => {await browser?.close(); server?.stop(true);});
+async function fixture(t: TestContext, extra: Partial<State> = {}) {
+  const page = await browser.newPage(); const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  t.after(async () => {await page.close(); assert.deepEqual(errors, []);});
+  await page.goto(server.url.href);
+  await page.waitForFunction(() => typeof window.createDrawerFixture === 'function');
+  await page.evaluate(async extra => {window.drawerFixture = window.createDrawerFixture(extra); await window.drawerFixture.api.ready;}, extra);
+  return page;
 }
-test('standalone mount is inert; refresh only reads and preserves native nodes', async t => {
-  const f = fixture(t); assert.equal(f.calls.length, 0); await f.api.refresh();
-  assert(f.calls.every(c => c.method === 'GET')); assert.equal(f.terminals.length, 1); assert(f.terminals[0]); assert.equal(f.terminals[0].ctx.environmentId, env);
-  await f.api.refresh(); assert(!f.terminals[0].disposed); assert.equal(f.terminals.length, 1); assert(f.w.document.getElementById('native'));
+async function refresh(page: Page) {await page.evaluate(() => window.drawerFixture.api.refresh());}
+async function click(page: Page, text: string) {
+  await page.evaluate(async text => {(await window.drawerFixture.showButton(text)).click();}, text);
+  await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+}
+const writes = (page: Page) => page.evaluate(() => window.drawerFixture.calls.filter(call => call.method !== 'GET'));
+
+async function nativeFixture(t: TestContext, options: {anonymous?: boolean; paused?: boolean} = {}) {
+  const page = await browser.newPage(), calls: string[] = [], modules: string[] = [], errors: string[] = [];
+  let release: (() => void) | undefined;
+  const wait = new Promise<void>(resolve => {release = resolve;});
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => {if (request.url().endsWith('.js')) modules.push(new URL(request.url()).pathname);});
+  t.after(async () => {release?.(); await page.close(); assert.deepEqual(errors, []);});
+  await page.route('**/-/soda/api/**', async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    calls.push(pathname); assert.equal(route.request().method(), 'GET');
+    if (options.paused) await wait;
+    const body = pathname.endsWith('/session') ? {user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: server.url.origin}
+      : pathname.endsWith('/forgejo/me') ? {id: '1'} : {items: [], repository: {id: '7', owner: 'alice', name: 'repo'}, can_create: true};
+    await route.fulfill({json: body});
+  });
+  await page.goto(new URL('/native' + (options.anonymous ? '?anonymous=1' : ''), server.url).href);
+  await page.locator('#sodaspaces-root[data-mounted=true]').waitFor({state: 'attached'});
+  return {page, calls, modules, release: () => release?.()};
+}
+
+test('native mount is inert and lazy, unique, and preserves native forms/actions', async t => {
+  const f = await nativeFixture(t); assert.deepEqual(f.calls, []);
+  assert(!f.modules.some(module => module.endsWith('/lit.js') || module.endsWith('/sodaspaces-drawer.js')));
+  assert.equal(await f.page.locator('.repo-buttons #sodaspaces-button').count(), 1);
+  await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  assert.equal(f.calls.length, 3); assert.equal(await f.page.locator('#native-edit').inputValue(), 'dirty');
+  assert.equal(await f.page.locator('#native').count(), 1); assert(await f.page.locator('#sodaspaces-create').isVisible());
+  assert.equal(await f.page.locator('#sodaspaces-content .soda-page').count(), 0);
+  assert.equal(f.modules.filter(module => module.endsWith('/lit.js')).length, 1);
+});
+test('anonymous native page offers contextual OAuth without substituting Soda identity', async t => {
+  const f = await nativeFixture(t, {anonymous: true}); await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  assert.equal(f.calls.length, 1); assert(await f.page.locator('#sodaspaces-sign-in').isVisible());
+  assert.equal(await f.page.locator('#sodaspaces-sign-in').getAttribute('href'), '/-/soda/login?repository_id=7');
+  assert.equal(await f.page.locator('#sodaspaces-create').getAttribute('hidden'), '');
+});
+test('native late fetch after document departure cannot repaint or dispatch another request', async t => {
+  const f = await nativeFixture(t, {paused: true});
+  const pending = f.page.waitForRequest('**/-/soda/api/session'); await f.page.locator('#sodaspaces-button').click(); await pending;
+  await f.page.evaluate(() => window.dispatchEvent(new Event('pagehide'))); f.release();
+  await f.page.locator('#sodaspaces-close').click(); await f.page.locator('#sodaspaces-button').click();
+  assert.equal(f.calls.length, 1); assert.equal(await f.page.locator('#sodaspaces-create').count(), 0);
+});
+test('hiding during lazy module loading cannot mount or dispatch a late refresh', async t => {
+  const f = await nativeFixture(t);
+  let release: (() => void) | undefined;
+  const paused = new Promise<void>(resolve => {release = resolve;});
+  await f.page.route('**/assets/sodaspaces-drawer.js', async route => {await paused; await route.continue();});
+  const requested = f.page.waitForRequest('**/assets/sodaspaces-drawer.js');
+  await f.page.locator('#sodaspaces-button').click(); await requested;
+  await f.page.locator('#sodaspaces-close').click(); release?.();
+  await f.page.waitForFunction(() => !!customElements.get('soda-spaces'));
+  assert.equal(await f.page.locator('soda-spaces').count(), 0); assert.deepEqual(f.calls, []);
+  await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  assert.equal(await f.page.locator('soda-spaces').count(), 1); assert.equal(f.calls.length, 3);
+});
+
+test('interior clicks, initial pageshow and focus preserve the actual Lit drawer', async t => {
+  const f = await nativeFixture(t); await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  const count = f.calls.length;
+  await f.page.evaluate(() => {document.getElementById('sodaspaces-content')?.click(); window.dispatchEvent(new Event('focus')); window.dispatchEvent(new PageTransitionEvent('pageshow'));});
+  assert(await f.page.locator('#sodaspaces-drawer').isVisible()); assert.equal(f.calls.length, count); assert(await f.page.locator('#sodaspaces-create').isVisible());
+});
+
+test('standalone Lit mount is inert; refresh only reads and preserves native nodes and terminal identity', async t => {
+  const page = await fixture(t);
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), 0);
+  await refresh(page); await refresh(page);
+  assert.deepEqual(await writes(page), []);
+  assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length, disposed: window.drawerFixture.terminals[0]?.disposed,
+    environment: window.drawerFixture.terminals[0]?.ctx.environmentId, restored: window.drawerFixture.terminals[0]?.restored,
+    native: document.getElementById('native')?.textContent, input: document.querySelector<HTMLInputElement>('#native-input')?.value})),
+  {count: 1, disposed: false, environment: 'p0123456789abcdef01234567', restored: 1, native: 'Native action', input: 'unsaved'});
 });
 test('view tabs and app switches retain terminal and dispatch no reads or writes', async t => {
-  const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
-  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]')?.textContent, 'Terminal');
-  f.button('Access').click(); assert(!f.root.querySelector<HTMLElement>('#sodaspaces-view-access')?.hidden);
-  f.button('Environment').click(); f.button('Terminal').click();
-  f.w.dispatchEvent(new f.w.Event('blur')); f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));
-  assert.equal(f.calls.length, count); assert.equal(f.terminals.length, 1); assert(!f.terminals[0]?.disposed);
-  f.button('Terminal').dispatchEvent(new f.w.KeyboardEvent('keydown', {key: 'ArrowRight', cancelable: true}));
-  assert.equal(f.root.querySelector('[role=tab][aria-selected=true]')?.textContent, 'Environment');
-  assert.equal(f.w.document.activeElement?.textContent, 'Environment');
+  const page = await fixture(t); await refresh(page);
+  const count = await page.evaluate(() => window.drawerFixture.calls.length);
+  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Terminal');
+  await click(page, 'Access'); assert.equal(await page.locator('#sodaspaces-view-access').getAttribute('hidden'), null);
+  await click(page, 'Environment'); await click(page, 'Terminal');
+  await page.evaluate(() => {window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'));});
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), false);
+  await page.getByRole('tab', {name: 'Terminal', exact: true}).press('ArrowRight');
+  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Environment');
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Environment');
 });
 test('hidden access view cannot remove a key through a synthetic click', async t => {
-  const f = fixture(t); await f.api.refresh();
-  assert(f.root.querySelector<HTMLElement>('#sodaspaces-view-access')?.hidden);
-  f.root.querySelector<HTMLButtonElement>('#sodaspaces-key-list button')?.click(); await tick();
-  assert(f.calls.every(c => c.method === 'GET'));
+  const page = await fixture(t); await refresh(page);
+  await page.evaluate(() => window.drawerFixture.button('Remove saved key').click());
+  assert.deepEqual(await writes(page), []);
 });
-test('create never implicitly joins, saves keys or starts', async t => {
-  const f = fixture(t, {absent: true}); await f.api.refresh(); f.button('Create environment').click(); await tick();
-  const writes = f.calls.filter(c => c.method !== 'GET'); assert.equal(writes.length, 1); assert(writes[0]); assert(writes[0].url.endsWith('/api/environments'));
-  assert.deepEqual(JSON.parse(writes[0].body || '{}'), {repository_id: '7'});
+test('create never implicitly joins, saves keys or starts; rapid clicks dispatch once', async t => {
+  const page = await fixture(t, {absent: true}); await refresh(page);
+  await page.evaluate(async () => {const b = await window.drawerFixture.showButton('Create environment'); b.click(); b.click();});
+  await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  const sent = await writes(page); assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7'});
+  assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1'); assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
 });
 test('Stop requires explicit shared-impact confirmation and Start is separate', async t => {
-  const f = fixture(t); await f.api.refresh(); f.button('Stop').click(); assert(f.calls.every(c => c.method === 'GET'));
-  const checkbox = f.root.querySelector<HTMLInputElement>('input[type=checkbox]'); assert(checkbox); checkbox.checked = true; f.button('Stop').click(); await tick();
-  const write = f.calls.find(c => c.method === 'POST'); assert(write && typeof write.body === 'string'); assert.deepEqual(JSON.parse(write.body), {action: 'stop', confirm_stop: true}); assert(f.terminals[0]?.stale);
+  const page = await fixture(t); await refresh(page); await click(page, 'Stop'); assert.deepEqual(await writes(page), []);
+  await page.locator('input[type=checkbox]').first().check(); await click(page, 'Stop');
+  const sent = await writes(page); assert.equal(sent.length, 1); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'stop', confirm_stop: true});
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.stale), true);
+});
+test('stopped environment has explicit Start only, and no terminal', async t => {
+  const page = await fixture(t, {running: false}); await refresh(page); await click(page, 'Start');
+  assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {action: 'start'});
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
 test('saved-key removal truthfully does not dispatch a native apply', async t => {
-  const f = fixture(t); await f.api.refresh(); f.button('Remove saved key').click(); await tick();
-  const writes = f.calls.filter(c => c.method !== 'GET'); assert.equal(writes.length, 1); assert(writes[0]); assert.equal(writes[0].method, 'DELETE'); assert(!writes[0].url.endsWith('/access-keys'));
-  assert.match(f.root.textContent || '', /Existing project SSH access is unchanged/);
+  const page = await fixture(t); await refresh(page); await click(page, 'Remove saved key');
+  const sent = await writes(page); assert.equal(sent.length, 1); assert.equal(sent[0]?.method, 'DELETE'); assert(!sent[0]?.url.endsWith('/access-keys'));
+  assert.match(await page.locator('#sodaspaces-result').innerText(), /Existing project SSH access is unchanged/);
 });
 test('review then explicit Apply confirms last-key removal', async t => {
-  const f = fixture(t, {saved: []}); await f.api.refresh(); f.button('Review this project’s SSH keys').click(); await tick();
-  f.button('Apply reviewed saved keys to this project').click(); assert(f.calls.every(c => c.method === 'GET'));
-  const checkbox = f.root.querySelectorAll<HTMLInputElement>('input[type=checkbox]')[1]; assert(checkbox); checkbox.checked = true; f.button('Apply reviewed saved keys to this project').click(); await tick();
-  const write = f.calls.find(c => c.method === 'POST'); assert(write && typeof write.body === 'string'); assert.deepEqual(JSON.parse(write.body), {revision: 'a'.repeat(64), saved_fingerprints: [], confirm_empty: true});
+  const page = await fixture(t, {saved: []}); await refresh(page); await click(page, 'Review this project’s SSH keys');
+  await click(page, 'Apply reviewed saved keys to this project'); assert.deepEqual(await writes(page), []);
+  await page.locator('input[type=checkbox]').nth(1).check(); await click(page, 'Apply reviewed saved keys to this project');
+  assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {revision: 'a'.repeat(64), saved_fingerprints: [], confirm_empty: true});
 });
 test('private-key paste is refused before request dispatch', async t => {
-  const f = fixture(t); await f.api.refresh(); const textarea = f.root.querySelector('textarea'); assert(textarea); textarea.value = '-----BEGIN OPENSSH PRIVATE KEY-----'; f.button('Save public key').click();
-  assert(f.calls.every(c => c.method === 'GET')); assert.match(f.root.textContent || '', /Never upload a private key/);
+  const page = await fixture(t); await refresh(page); await click(page, 'Access');
+  await page.locator('textarea').fill('-----BEGIN OPENSSH PRIVATE KEY-----'); await click(page, 'Save public key');
+  assert.deepEqual(await writes(page), []); assert.match(await page.locator('#sodaspaces-result').innerText(), /Never upload a private key/);
 });
 test('nonadministrator has no lifecycle controls; nonmember joins separately', async t => {
-  const f = fixture(t, {admin: false, member: false}); await f.api.refresh(); assert(f.button('Start').closest('fieldset')?.hidden); assert(!f.button('Join environment').hidden);
-  f.button('Join environment').click(); await tick(); assert.equal(f.calls.filter(c => c.method !== 'GET').length, 1); assert(f.calls.find(c => c.method === 'POST')?.url.endsWith('/join'));
+  const page = await fixture(t, {admin: false, member: false}); await refresh(page);
+  assert.equal(await page.evaluate(() => window.drawerFixture.button('Start').closest('fieldset')?.hidden), true);
+  await click(page, 'Join environment'); const sent = await writes(page); assert.equal(sent.length, 1); assert(sent[0]?.url.endsWith('/join'));
 });
 test('unknown mutation outcome blocks replay, not safe refresh or logout', async t => {
-  const f = fixture(t, {absent: true, fetch: async (url, init) => init.method === 'POST' && url.endsWith('/api/environments') ? new Response(null, {status: 502}) : null});
-  await f.api.refresh(); f.button('Create environment').click(); await tick(); await f.api.refresh();
-  assert(f.button('Create environment').disabled); assert.match(f.root.textContent || '', /Outcome unconfirmed/);
-  f.button('Sign out of Soda').click(); await tick(); assert(f.calls.some(c => c.url.endsWith('/api/session/logout')));
+  const page = await fixture(t, {absent: true});
+  await page.evaluate(() => window.drawerFixture.setReply(async call => call.method === 'POST' && call.url.endsWith('/api/environments') ? new Response(null, {status: 502}) : null));
+  await refresh(page); await click(page, 'Create environment'); await refresh(page);
+  assert.equal(await page.locator('#sodaspaces-create').isDisabled(), true); assert.match(await page.locator('#sodaspaces-result').innerText(), /Outcome unconfirmed/);
+  await click(page, 'Sign out of Soda'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
 });
 test('stale page closes terminal and cannot refresh/replay on focus', async t => {
-  const f = fixture(t); await f.api.refresh(); const count = f.calls.length;
-  f.w.dispatchEvent(new f.w.Event('pagehide')); f.w.dispatchEvent(new f.w.Event('focus')); await f.api.refresh();
-  assert.equal(f.calls.length, count); assert(f.terminals[0]?.disposed); assert(f.button('Refresh status').disabled);
-  assert(f.w.document.getElementById('native'));
+  const page = await fixture(t); await refresh(page);
+  const count = await page.evaluate(() => window.drawerFixture.calls.length);
+  await page.evaluate(async () => {window.dispatchEvent(new Event('pagehide')); window.dispatchEvent(new Event('focus')); await window.drawerFixture.api.refresh();});
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), true);
+  assert.equal(await page.locator('#sodaspaces-refresh').isDisabled(), true); assert.equal(await page.locator('#native').count(), 1);
 });
-test('mutation rechecks current session and refuses a switched actor before dispatch', async t => {
-  let switched = false;
-  const f = fixture(t, {absent: true, fetch: async (url) => switched && url.endsWith('/api/session') ? new Response(JSON.stringify({user: {id: '2'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'}), {headers: {'Content-Type': 'application/json'}}) : null});
-  await f.api.refresh(); switched = true; f.button('Create environment').click(); await tick();
-  assert(f.calls.every(c => c.method === 'GET'));
+for (const authority of ['user', 'provider'] as const) test(`${authority} mismatch at action time dispatches no mutation`, async t => {
+  const page = await fixture(t, {absent: true}); await refresh(page);
+  await page.evaluate(authority => {window.drawerFixture.state[authority] = '2';}, authority);
+  await click(page, 'Create environment'); assert.deepEqual(await writes(page), []);
 });
-for (const body of [new Response('<html>login</html>', {headers: {'Content-Type': 'text/html'}}), new Response(JSON.stringify({padding: 'x'.repeat(65537)}), {headers: {'Content-Type': 'application/json'}})]) {
-  test('HTML/oversized streamed response cannot expose actions', async t => {
-    const f = fixture(t, {fetch: async () => body}); await f.api.refresh();
-    assert(f.button('Create environment').hidden); assert.equal(f.terminals.length, 0);
-  });
-}
-test('refresh does not dispose or remount the terminal', async t => {
-  const f = fixture(t); await f.api.refresh(); assert(f.terminals[0]); f.terminals[0].started = true;
-  await f.api.refresh(); assert.equal(f.terminals.length, 1); assert(!f.terminals[0].disposed);
-  assert.doesNotMatch(f.root.textContent, /terminal session ended/);
+for (const kind of ['HTML', 'oversized', '401', '403'] as const) test(`${kind} response cannot expose actions`, async t => {
+  const page = await fixture(t);
+  await page.evaluate(kind => window.drawerFixture.setReply(async () => kind === 'HTML' ? new Response('<html>login</html>', {headers: {'Content-Type': 'text/html'}}) : kind === 'oversized' ? Response.json({padding: 'x'.repeat(65537)}) : new Response(null, {status: Number(kind)})), kind);
+  await refresh(page);
+  assert.equal(await page.locator('#sodaspaces-create').getAttribute('hidden'), ''); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
-test('a provider mismatch at action time dispatches no mutation', async t => {
-  let switched = false;
-  const f = fixture(t, {absent: true, fetch: async url => switched && url.endsWith('/api/forgejo/me') ? new Response('{"id":"2"}', {headers: {'Content-Type': 'application/json'}}) : null});
-  await f.api.refresh(); switched = true; f.button('Create environment').click(); await tick();
-  assert(f.calls.every(c => c.method === 'GET'));
+test('refresh does not dispose or remount the started terminal', async t => {
+  const page = await fixture(t); await refresh(page);
+  await page.evaluate(() => {const terminal = window.drawerFixture.terminals[0]; if (!terminal) throw Error('missing terminal'); terminal.started = true;});
+  await refresh(page);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 1); assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), false);
+  assert.doesNotMatch(await page.locator('main').innerText(), /terminal session ended/);
 });
 test('closing while authorization is pending never dispatches the mutation', async t => {
-  let paused = false; let release: ((response: Response) => void) | undefined;
-  const f = fixture(t, {absent: true, fetch: async url => paused && url.endsWith('/api/session') ? new Promise(resolve => { release = resolve; }) : null});
-  await f.api.refresh(); paused = true; f.button('Create environment').click(); f.api.dispose();
-  assert(release); release(new Response(JSON.stringify({user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: 'https://forge.test'}), {headers: {'Content-Type': 'application/json'}})); await tick();
-  assert(f.calls.every(c => c.method === 'GET'));
+  const page = await fixture(t, {absent: true}); await refresh(page);
+  await page.evaluate(async () => {
+    let release: ((value: Response) => void) | undefined;
+    const f = window.drawerFixture;
+    f.setReply(async call => call.url.endsWith('/api/session') ? new Promise(resolve => {release = resolve;}) : null);
+    (await f.showButton('Create environment')).click(); f.api.dispose();
+    if (!release) throw Error('authorization was not pending');
+    release(Response.json({user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin}));
+  });
+  assert.deepEqual(await writes(page), []);
 });
 test('unknown key-save response cannot claim a confirmed key', async t => {
-  const f = fixture(t, {fetch: async (url, init) => init.method === 'POST' ? new Response('{"items":[]}', {headers: {'Content-Type': 'application/json'}}) : null});
-  await f.api.refresh(); const textarea = f.root.querySelector('textarea'); assert(textarea); textarea.value = 'ssh-ed25519 YWJj'; f.button('Save public key').click(); await tick();
-  assert.match(f.root.textContent || '', /Outcome unconfirmed/);
+  const page = await fixture(t); await refresh(page); await click(page, 'Access');
+  await page.locator('textarea').fill('ssh-ed25519 YWJj'); await click(page, 'Save public key');
+  assert.match(await page.locator('#sodaspaces-result').innerText(), /Outcome unconfirmed/);
 });
 test('hidden create and lifecycle actions cannot dispatch through their handlers', async t => {
-  const f = fixture(t, {admin: false}); await f.api.refresh(); f.button('Create environment').click(); f.button('Start').click(); await tick();
-  assert(f.calls.every(c => c.method === 'GET'));
+  const page = await fixture(t, {admin: false}); await refresh(page);
+  await click(page, 'Create environment'); await click(page, 'Start'); assert.deepEqual(await writes(page), []);
 });
 test('copy uses own displayed login/IP without changing native access', async t => {
-  const f = fixture(t); await f.api.refresh(); f.button('Copy SSH connection').click(); await tick(); assert.equal(f.button('Copy SSH connection').getAttribute('data-clipboard-target'), '#sodaspaces-command'); assert.equal(f.root.querySelector<HTMLInputElement>('#sodaspaces-command')?.value, 'ssh alice@10.89.0.2'); assert(f.calls.every(c => c.method === 'GET'));
+  const page = await fixture(t); await refresh(page); await click(page, 'Copy SSH connection');
+  assert.equal(await page.locator('#sodaspaces-copy').getAttribute('data-clipboard-target'), '#sodaspaces-command');
+  assert.equal(await page.locator('#sodaspaces-command').inputValue(), 'ssh alice@10.89.0.2'); assert.deepEqual(await writes(page), []);
+});
+test('reactive view/Hide updates preserve draft input identity, selection and terminal host', async t => {
+  const page = await fixture(t); await refresh(page); await click(page, 'Access');
+  await page.locator('textarea').fill('unsent public key');
+  assert.deepEqual(await page.evaluate(async () => {
+    const f = window.drawerFixture, input = f.root.querySelector('textarea'), screen = f.root.querySelector('[data-fixture-terminal]');
+    if (!input || !screen) throw Error('missing fixture nodes'); input.setSelectionRange(2, 5);
+    f.button('Environment').click(); await f.api.ready; f.root.hidden = true; f.root.hidden = false;
+    f.button('Access').click(); await f.api.ready;
+    return {input: input === f.root.querySelector('textarea'), value: input.value, start: input.selectionStart, end: input.selectionEnd,
+      screen: screen === f.root.querySelector('[data-fixture-terminal]'), disposed: f.terminals[0]?.disposed};
+  }), {input: true, value: 'unsent public key', start: 2, end: 5, screen: true, disposed: false});
+});
+test('hidden completed reads do not mount or attach until deliberate Return', async t => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {const f = window.drawerFixture; f.root.hidden = true; await f.api.refresh();});
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
+  await page.evaluate(async () => {const f = window.drawerFixture; f.root.hidden = false; await f.api.returnToWork();});
+  assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length, restored: window.drawerFixture.terminals[0]?.restored})), {count: 1, restored: 1});
+  assert.deepEqual(await writes(page), []);
+});
+
+test('render readiness after disposal cannot call terminal factory; reconnect remains retired', async t => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {const f = window.drawerFixture; const pending = f.api.refresh(); const element = f.root.firstElementChild; f.api.dispose(); if (element) f.root.append(element); await pending; await f.api.ready;});
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0); assert.deepEqual(await writes(page), []);
+});
+for (const state of [{provisioned: false}, {unavailable: true}, {user: '2'}]) test(`unavailable/incomplete/mismatched state refuses terminal: ${JSON.stringify(state)}`, async t => {
+  const page = await fixture(t, state); await refresh(page); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0); assert.deepEqual(await writes(page), []);
 });

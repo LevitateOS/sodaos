@@ -1,8 +1,10 @@
 # Lit components
 
-Lit is scaffolded for Soda-owned interactive UI in the native Forgejo frontend.
-No existing component has been ported. Forgejo continues to own its pages, forms,
-permissions, authentication and native scripts; Cockpit keeps React/PatternFly.
+The management drawer now uses Lit for Soda-owned interactive UI, loaded only on
+workspace opening/restoration. Terminal controls remain imperative pending step 2.
+Forgejo owns its pages, forms, permissions, authentication and native scripts;
+Cockpit keeps React/PatternFly. See the handoff for actual local checks; no new
+installed browser/CLI compatibility proof follows from the port.
 
 The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first
 ports, then the real multi-session backend, shared page/drawer workspace, layouts
@@ -21,7 +23,7 @@ bun run build:forgejo
 bun run build:preview
 bun run typecheck
 bun run test:forgejo
-bun run test:lit # includes the loopback Chrome smoke test
+bun run test:lit # emitted runtime and drawer contracts in sandboxed Chromium
 ```
 
 `assets/branding/forgejo/lit.ts` exports the upstream core API. The build bundles
@@ -72,7 +74,8 @@ customElements.define('soda-example', SodaExample);
 
 New production modules still require explicit entries in
 `internal/nativebuild/forgejo-payload.json`. Register real components only from
-their page's existing supported hook/entrypoint. The smoke component is test-only.
+their page's existing supported hook/entrypoint. The native adapter dynamically
+imports the drawer on demand and checks departure/Hide before mounting it. The smoke component is test-only.
 
 Choose the rendering boundary per component. Lit defaults to shadow DOM, where
 global Soda/Forgejo/xterm styles and document selectors do not reach. Rendering

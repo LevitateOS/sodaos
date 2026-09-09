@@ -1,5 +1,57 @@
 # Current handoff
 
+## Lit implementation started — management drawer port, not end-to-end completion
+
+The user requested the complete six-step implementation. This source slice ports
+`SodaSpaces` management rendering to light-DOM Lit, preserving real API actions,
+context/CSRF/provider checks, synchronous busy guards, uncertain outcomes, explicit
+Stop/last-key confirmations and the original terminal facade. The bounded JSON
+reader now belongs to `sodaspaces-api.ts`; terminal presentation/transport is otherwise
+unchanged. There is no second renderer or migration flag.
+
+The native adapter dynamically imports the component/runtime only on opening or
+saved restoration. Late loading/readiness checks departure, generation and Hide;
+it cannot repaint a retired document or steal focus from an edited native control.
+Same-target Refresh/view/Hide preserves the terminal host. Ordinary reactive updates
+preserve key drafts/selection; explicit Refresh still resets management drafts.
+Completed hidden reads defer terminal mounting until deliberate Return. Incomplete
+provisioning now refuses the terminal factory even if a contradictory running
+observation is supplied. Disposal detaches browser resources, never sends native End.
+
+Converted every existing management assertion and the four native-shell/real-content
+cases to emitted modules in their actual Chromium realm. Pure native-adapter tests
+still use injected content; terminal transport tests retain their existing doubles
+until step 2. Added rapid-click, draft/node identity, hidden-loading/Return, retirement,
+401/403 and incomplete/unavailable checks. `test:lit` includes these real-browser
+contracts; missing browser support fails rather than skips them. The runtime smoke
+uses pinned Playwright Chromium rather than requiring an unrelated global Chrome.
+
+Actual local checks with pinned Bun, frozen lock installation and lifecycle scripts
+**disabled**: strict root/browser/test/Cockpit typecheck; frontend 74 pass/2 existing
+opt-in skips; Forgejo 26 pass/18 optional/export/browser skips; explicit Lit browser
+suite 39 pass/no skips; Cockpit 60 pass; Go `TestSodaspaces` and seven temporary-
+filesystem packaging tests passed. `build:forgejo` ran through those commands.
+The explicit current 16-case light/dark 1440/900/390/320 layout run passed with real
+xterm and synthetic IO/API, not native processes. Visually reviewed 320-light and
+1440-dark samples. Its final screenshots are under
+`.artifacts/merge-5c845a7-560265b/layout-1788961798864/` (the fixture's historical output
+prefix); logs/exits and prior failures are under `.artifacts/lit-implementation-c754a07/`.
+
+Earlier failures are retained: browser-fixture typing, incomplete-provisioning mount,
+JSDOM importing the newly ported component, a malformed AssetUrlPrefix in the layout
+fixture, and waiting for an intentionally empty native root to become visible. These
+were corrected, not bypassed. No installed journey, live preview refresh, native build/
+export, service/project/provider/credential mutation, rollout or push command occurred.
+
+**Still pending:** terminal presentation port; ID-keyed sessions/collection and new
+wire; fixed OAuth return/migration; real Go Spaces page and shared workspace; full
+pane/tab/compact design and attention; root-asset preview projection; wider/new-feature
+and installed acceptance. No Spaces page or concurrent backend is implemented by this
+commit. The concurrent user edit in `docs/terminal-integration.md` raising actual
+Codex/Claude Code/Pi compatibility is preserved outside this slice's commit. It is
+not answered by these component/renderer tests. Installed `22d8591`, its failed broader
+native probe, the Rocky retained-root decision and separate deployment gates remain.
+
 ## Spaces page/drawer with Lit — merged-source implementation plan
 
 The user requested pulling/resolving origin/main, learning the incoming Lit direction,

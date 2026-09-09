@@ -1,4 +1,5 @@
 /* Open content sections reuse the native site's typography and tonal buttons. */
+soda-spaces { display: block; height: 100%; min-height: 0; min-width: 0; }
 .soda-spaces-controls { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
 .soda-spaces-tabs { display: flex; flex-shrink: 0; gap: 4px; overflow-x: auto; width: calc(100% - 80px); box-sizing: border-box; padding: 4px 8px; border-bottom: 1px solid var(--soda-page-edge, var(--color-secondary)); }
 .soda-spaces-tabs button { flex-shrink: 0; }

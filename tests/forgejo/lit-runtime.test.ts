@@ -34,7 +34,7 @@ test('Lit production runtime is staged as a self-contained browser module', asyn
   assert.doesNotMatch(fixtures.branding + fixtures.publicRoot, /from["']lit["']/);
 });
 
-test('Lit production runtime upgrades and updates independent elements in Chrome', {
+test('Lit production runtime upgrades and updates independent elements in Chromium', {
   skip: process.env.SODA_LIT_BROWSER !== '1',
 }, async t => {
   const fixtures = await buildFixtureModules();
@@ -73,7 +73,7 @@ test('Lit production runtime upgrades and updates independent elements in Chrome
   });
   t.after(() => server.stop(true));
 
-  const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
+  const browser = await chromium.launch({headless: true, chromiumSandbox: true});
   t.after(() => browser.close());
   const page = await browser.newPage();
   const browserErrors: string[] = [];

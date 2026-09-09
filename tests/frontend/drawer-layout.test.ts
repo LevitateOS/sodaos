@@ -53,7 +53,7 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       }
       const footerPart = (await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/footer.tmpl')).text()).split('{{if .IsSigned}}\n<div id="soda-notification-preview"')[0];
       assert(footerPart);
-      const footer = footerPart.replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7').replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, '1').replace(/{{[\s\S]*?}}/g, '');
+      const footer = footerPart.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7').replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, '1').replace(/{{[\s\S]*?}}/g, '');
       return new Response(`<!doctype html><title>Soda drawer component fixture — not native proof</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><body><main class="soda-page" data-signed="true"><div class="repo-header"><div class="repo-buttons"><button id="native">Native fixture action</button></div></div><input id="native-edit" value="unsaved fixture"></main>${footer}`, {headers: {'Content-Type': 'text/html'}});
     } catch {return new Response(null, {status: 500});}
   }});

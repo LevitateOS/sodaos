@@ -1,4 +1,23 @@
 // Soda response contracts used by its two browser components. No copied Forgejo authority.
+
+// Never accept HTML, invalid UTF-8 or an unbounded body as Soda JSON.
+export async function readSodaJSON(response: Response): Promise<unknown> {
+  if (!/^application\/json(?:;|$)/i.test(response.headers.get('Content-Type') || '') || Number(response.headers.get('Content-Length')) > 65536) {
+    await response.body?.cancel(); throw Error('Invalid Soda response');
+  }
+  if (!response.body) throw Error('Missing Soda response body');
+  const reader = response.body.getReader(), decoder = new TextDecoder('utf-8', {fatal: true});
+  let size = 0, text = '';
+  try {
+    for (;;) {
+      const {done, value} = await reader.read(); if (done) break;
+      size += value.byteLength; if (size > 65536) throw Error('Oversized Soda response');
+      text += decoder.decode(value, {stream: true});
+    }
+    return JSON.parse(text + decoder.decode());
+  } catch (error) {await reader.cancel(); throw error;}
+  finally {reader.releaseLock();}
+}
 export function object(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid Soda object');
   return value as Record<string, unknown>; // The object shape is checked; properties remain unknown.

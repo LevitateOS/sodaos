@@ -2,11 +2,10 @@
 // retained; every document obtains fresh Soda authorization before attachment.
 import type { DrawerContext } from './sodaspaces-drawer.js';
 import {object} from './sodaspaces-api.js';
-import {mountSodaspaces} from './sodaspaces-drawer.js';
 const identifier = (v: unknown): v is string => typeof v === 'string' && /^[1-9][0-9]{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n;
 
-export interface DrawerContent { refresh(): void | Promise<void>; dispose(): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined }
-export function mountDrawer(doc: Document, mountContent: (root: HTMLElement, context: DrawerContext) => DrawerContent = mountSodaspaces) {
+export interface DrawerContent { readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined }
+export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: DrawerContext) => DrawerContent) {
   const roots = doc.querySelectorAll<HTMLElement>('#sodaspaces-root'), rows = doc.querySelectorAll('.repo-header .repo-buttons');
   if (roots.length !== 1 || rows.length > 1) return;
   const root = roots[0], win = doc.defaultView;
@@ -36,20 +35,45 @@ export function mountDrawer(doc: Document, mountContent: (root: HTMLElement, con
   let controller: DrawerContent | undefined, departed = false, width = saved?.width !== undefined ? Math.max(35, Math.min(65, saved.width)) : 50;
   const persist = () => { if (storageKey) try { win.sessionStorage.setItem(storageKey, JSON.stringify({repositoryId, open: !drawer.hidden, width})); } catch { /* no credential storage */ } };
   const size = () => { doc.body.style.setProperty('--soda-space-width', width + 'vw'); divider.setAttribute('aria-valuenow', String(width)); };
+  let generation = 0;
+  let loading: Promise<void> | undefined;
   const mount = () => {
-    if (!controller) { controller = mountContent(content, {expectedUserId: signed === 'true' ? userId : undefined, repositoryId}); void controller.refresh(); }
+    if (controller) return;
+    if (mountContent) {controller = mountContent(content, {expectedUserId: signed === 'true' ? userId : undefined, repositoryId}); void controller.refresh(); return;}
+    if (loading) return loading;
+    const epoch = generation;
+    loading = import('./sodaspaces-drawer.js').then(module => {
+      if (departed || generation !== epoch || drawer.hidden) return;
+      controller = module.mountSodaspaces(content, {expectedUserId: signed === 'true' ? userId : undefined, repositoryId});
+      void controller.refresh();
+    }).catch(() => {
+      if (!departed && generation === epoch && !drawer.hidden) content.textContent = 'Workspace could not load. Reload the page; no action was sent.';
+    }).finally(() => {if (generation === epoch) loading = undefined;});
+    return loading;
   };
   const show = (deliberate = false) => {
     if (departed) return;
     drawer.hidden = false; doc.body.classList.add('sodaspaces-open'); size(); button.setAttribute('aria-expanded', 'true');
-    mount(); persist();
-    if (deliberate) { void controller?.returnToWork?.(); (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus(); }
+    const mounted = mount(); persist();
+    if (deliberate) {
+      const epoch = generation;
+      const focus = () => {
+        if (departed || generation !== epoch || drawer.hidden) return;
+        if (doc.activeElement !== button && doc.activeElement !== close && doc.activeElement !== doc.body && !content.contains(doc.activeElement)) return;
+        void controller?.returnToWork?.();
+        (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus();
+      };
+      if (mounted || controller?.ready) void Promise.resolve(mounted).then(() => controller?.ready).then(focus).catch(() => {
+        if (!departed && generation === epoch && !drawer.hidden) {release(); content.textContent = 'Workspace could not render. Reload the page; no action was replayed.';}
+      });
+      else focus();
+    }
   };
   const hide = () => {
     void controller?.retain?.(); drawer.hidden = true; doc.body.classList.remove('sodaspaces-open');
     button.setAttribute('aria-expanded', 'false'); persist(); button.focus();
   };
-  const release = () => { controller?.dispose(); controller = undefined; content.replaceChildren(); };
+  const release = () => { ++generation; loading = undefined; controller?.dispose(); controller = undefined; content.replaceChildren(); };
   button.addEventListener('click', () => { if (drawer.hidden) show(true); }, options);
   close.addEventListener('click', hide, options);
   // Repository navigation alone must not retarget a shell. Switching workspaces

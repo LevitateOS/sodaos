@@ -7,8 +7,9 @@ and Soda-owned Go/template workspace page. No new Forgejo repository tab; tabs
 shared **Lit** component implementation, not separate frontends.
 
 **Current source:** native Forgejo hooks, real management/access integration and
-managed-tmux reattachment exist; Lit is scaffolded but no production component is
-ported. The Spaces page, ID-keyed multiple sessions, session names/collection and
+managed-tmux reattachment exist; the management drawer is ported to Lit with local
+emitted-browser/layout coverage. Terminal controls remain imperative. The Spaces
+page, ID-keyed multiple sessions, session names/collection and
 new layout/attention controls remain unimplemented. The
 [Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
 sequence: preserve the current behavior in two rendering ports, then implement real
@@ -416,16 +417,15 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   native helper, with the selected but unimplemented Soda-owned Spaces Go/template
   page. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
-  native-page/workspace split view, scoped native styling and vanilla TypeScript
-  using the JSON API. The first aside/view-tab source slice is implemented and locally
+  native-page/workspace split view, scoped native styling, a Lit management component
+  and small TypeScript adapters using the JSON API. The first aside/view-tab source slice is implemented and locally
   tested; genuine native route reflow and complete session continuity are pending.
   Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
   through a drawer-local root; `.soda-page` activates a full-page shell and must not
   wrap the drawer.
-  [Lit](lit.md) is now scaffolded for Soda-owned interactive components through
-  the existing Bun build. The drawer and other existing modules remain vanilla
-  TypeScript; no component migration is part of the scaffold. Keep native
-  forms/lists/scripts and Cockpit's separate stack.
+  [Lit](lit.md) now renders the management drawer through the existing Bun build,
+  loaded on demand. Terminal controls remain imperative pending the second port.
+  Keep native forms/lists/scripts and Cockpit's separate stack.
   The [Lit implementation plan](lit-migration-plan.md) covers the two rendering ports
   and the real Spaces/shared-drawer feature, keeping native lifetime and delivery
   authority separate. It is the detailed sequence, not another parallel roadmap.

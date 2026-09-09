@@ -8,18 +8,22 @@ sequence for the Lit workspace**. [Lit guidance](lit.md) owns framework/build ru
 the [terminal contract](terminal-integration.md) owns native lifetime, and the
 [API guide](dashboard-api.md) describes implemented endpoints, not the proposals here.
 
-**Status after merge `619c5d9`: planning, no production Lit ports.** This revises
+**Current source: step 1's management drawer is ported, with local emitted-browser
+and layout checks; steps 2–6 remain unimplemented.** The terminal controls/transport
+are still imperative. The public preview projection and full installed acceptance
+remain open; see the handoff for exact evidence. This revises
 `8f03910`'s drawer-first migration plan to incorporate the managed-tmux implementation
 and the approved full-page direction/complementary drawer design. Keep the two small
 rendering ports first; build the real multi-session product on them. Do not port the
 superseded interactive mockup or reintroduce its grid presets/fake state machine.
-This request authorizes planning, not deployment, new fixtures or project recreation.
+The user subsequently requested end-to-end implementation and local testing.
+Deployment, new appliance fixtures and project recreation remain separately scoped.
 
 ## 1. Starting point and decisions
 
 | Source fact | Consequence |
 | --- | --- |
-| `c675411` supplies Lit 3.3.3, one root Bun lock and one staged core runtime | Reuse it; no React rewrite, router, UI kit, dependency upgrade or per-component bundle. No production component imports Lit yet. |
+| `c675411` supplies Lit 3.3.3, one root Bun lock and one staged core runtime | Reuse it; no React rewrite, router, UI kit, dependency upgrade or per-component bundle. The management drawer imports Lit; the native adapter loads it on demand. |
 | `sodaspaces.ts` owns native hooks, aside, divider and document departure | Retain a small native adapter; do not render native Forgejo with Lit. |
 | `sodaspaces-drawer.ts` supplies real management/access actions and a terminal facade | Port these owners, guards and tests rather than replacing them with demo controls. |
 | `sodaspaces-terminal.ts` implements create/exact attach, restore, retain, Return and HTTP End | The old socket `{type:'close'}` End and request-owned lifetime are obsolete. |
@@ -118,6 +122,10 @@ Snapshots are at `.artifacts/research/lit-spaces-619c5d9/`; inspection is not a 
 ## 4. Ordered implementation slices
 
 ### Step 1 — port the current management drawer
+
+**Source port and local component/layout checks completed.** No deployed-runtime
+claim; current terminal presentation is unchanged. Tests run emitted modules in
+Chromium rather than trying to construct Lit elements in Bun/JSDOM's other realm.
 
 Replace manual node/text/hidden/disabled/list reconstruction in
 `sodaspaces-drawer.ts` with `<soda-spaces>` templates and typed state. Retain the
@@ -362,7 +370,7 @@ Bun. Do not monkey-patch global HTMLElement, install a second framework, drop ra
 or turn essential cases into skips. Extend `test:lit` to run the converted
 `tests/frontend/` contracts; await real readiness, not arbitrary sleeps.
 
-| Layer | Required checks (future execution, not passes from this plan) |
+| Layer | Required checks (actual results belong in the handoff, not inferred from this table) |
 | --- | --- |
 | Local source/build | Frozen pinned Bun inputs with dependency lifecycle scripts disabled; `bun run typecheck`, `test:frontend`, `test:forgejo`, `test:lit`, retained Cockpit tests, Go tests/races for changed web/store/host callers. Required browser cases fail when the browser cannot run. |
 | Component/geometry | Extend `tests/frontend/drawer-layout.test.ts` (`SODA_DRAWER_LAYOUT=1`, established long timeout) and add focused Spaces layout/interaction cases using real xterm and synthetic API/IO. Record node/renderer/socket identities as well as screenshots. |
