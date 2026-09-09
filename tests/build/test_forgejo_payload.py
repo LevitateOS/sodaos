@@ -38,6 +38,21 @@ class ForgejoPayload(unittest.TestCase):
         self.assertEqual(files['public/assets/soda/forgejo/lit.LICENSE'], 'appliance/licenses/lit-LICENSE')
         self.assertIn('options/locale/locale_en-US.ini', files)
 
+    def test_spaces_page_assets_use_the_canonical_public_payload(self):
+        files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
+        page = (ROOT / 'internal/web/templates/spaces.html').read_text()
+        references = re.findall(r'(?:href|src|srcset)="(/assets/[^" ]+)"', page)
+        self.assertGreaterEqual(len(references), 10)
+        for reference in references:
+            self.assertIn('public' + reference, files, reference)
+        self.assertIn('public/assets/sodaspaces-page.js', files)
+        self.assertIn('public/assets/sodaspaces-project.js', files)
+        self.assertIn('public/assets/sodaspaces-drawer.js', files)
+        self.assertNotIn('window.config', page)
+        self.assertNotIn('webcomponents-loader', page)
+        self.assertNotIn('htmx', page)
+        self.assertNotIn('type="application/json"', page)
+
     def test_locale_fetch_is_locked_and_preserves_native_catalog(self):
         native = b'[common]\nname = Native\n[settings]\ntitle = Settings\n'
         with tempfile.TemporaryDirectory() as directory:

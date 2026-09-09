@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spaces · SodaOS</title>
+<link rel="icon" href="/assets/soda/forgejo/favicon.png">
+<link rel="stylesheet" href="/assets/soda/fonts/fonts.css"><link rel="stylesheet" href="/assets/soda/theme/palette.css">
+<link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css">
+<link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css">
+<link rel="stylesheet" href="/assets/sodaspaces-page.css">
+</head><body class="soda-spaces-page"><header><a href="{{.Origin}}/" aria-label="SodaOS home"><picture><source media="(prefers-color-scheme: dark)" srcset="/assets/soda/source/soda-logo-horizontal-dark.svg"><img src="/assets/soda/source/soda-logo-horizontal.svg" alt="SodaOS"></picture></a>
+<nav aria-label="Native Forgejo"><a href="{{.Origin}}/explore/repos">Explore</a><a href="{{.Origin}}/issues">Issues</a><a href="{{.Origin}}/pulls">Pull requests</a><a href="{{.Origin}}/milestones">Milestones</a></nav>
+{{if .Actor}}<span>Soda account: {{.Login}} (ID {{.Actor}})</span>{{end}}</header>
+<main class="soda-page"><h1>Spaces</h1><p id="spaces-page-status" role="status">{{.Message}}</p>
+{{if .Authorized}}<div id="spaces-page" data-soda-actor="{{.Actor}}"></div><script type="module" src="/assets/sodaspaces-page.js"></script>
+{{else}}<a class="ui primary button" href="/-/soda/login?destination=spaces{{if .Actor}}&amp;expected_user_id={{.Actor}}{{end}}">Connect to Soda</a>{{end}}
+<noscript>Spaces requires JavaScript for its workspace. Native Forgejo links remain ordinary navigation.</noscript></main></body></html>

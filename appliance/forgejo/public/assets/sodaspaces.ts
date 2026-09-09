@@ -5,7 +5,7 @@ import {object} from './sodaspaces-api.js';
 const identifier = (v: unknown): v is string => typeof v === 'string' && /^[1-9][0-9]{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n;
 
 export interface DrawerContent { readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined }
-export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: DrawerContext) => DrawerContent) {
+export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: Extract<DrawerContext, {kind: 'native'}>) => DrawerContent) {
   const roots = doc.querySelectorAll<HTMLElement>('#sodaspaces-root'), rows = doc.querySelectorAll('.repo-header .repo-buttons');
   if (roots.length !== 1 || rows.length > 1) return;
   const root = roots[0], win = doc.defaultView;
@@ -24,7 +24,8 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
   if (rows.length === 0 && !saved) return;
   const selectedRepository = saved?.repositoryId || nativeRepository;
   if (!identifier(selectedRepository)) return;
-  let repositoryId: string = selectedRepository;
+  const repositoryId: string = selectedRepository;
+  const context: DrawerContext = {kind: 'native', expectedUserId: signed === 'true' ? userId : undefined, repositoryId: identifier(nativeRepository) ? nativeRepository : repositoryId};
   const button = root.querySelector<HTMLElement>('#sodaspaces-button'), drawer = root.querySelector<HTMLElement>('#sodaspaces-drawer');
   const close = root.querySelector<HTMLElement>('#sodaspaces-close'), content = root.querySelector<HTMLElement>('#sodaspaces-content'), divider = root.querySelector<HTMLElement>('#sodaspaces-divider');
   if (!button || !drawer || !close || !content || !divider) return;
@@ -39,12 +40,12 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
   let loading: Promise<void> | undefined;
   const mount = () => {
     if (controller) return;
-    if (mountContent) {controller = mountContent(content, {expectedUserId: signed === 'true' ? userId : undefined, repositoryId}); void controller.refresh(); return;}
+    if (mountContent) {controller = mountContent(content, context); void controller.refresh(); return;}
     if (loading) return loading;
     const epoch = generation;
     loading = import('./sodaspaces-drawer.js').then(module => {
       if (departed || generation !== epoch || drawer.hidden) return;
-      controller = module.mountSodaspaces(content, {expectedUserId: signed === 'true' ? userId : undefined, repositoryId});
+      controller = module.mountSodaspaces(content, context);
       void controller.refresh();
     }).catch(() => {
       if (!departed && generation === epoch && !drawer.hidden) content.textContent = 'Workspace could not load. Reload the page; no action was sent.';
@@ -76,15 +77,6 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
   const release = () => { ++generation; loading = undefined; controller?.dispose(); controller = undefined; content.replaceChildren(); };
   button.addEventListener('click', () => { if (drawer.hidden) show(true); }, options);
   close.addEventListener('click', hide, options);
-  // Repository navigation alone must not retarget a shell. Switching workspaces
-  // is explicit, detaches the old view and never creates/joins/starts a project.
-  if (identifier(nativeRepository) && repositoryId !== nativeRepository) {
-    const select = doc.createElement('button'); select.type = 'button'; select.className = 'ui basic button'; select.textContent = 'Use repository on the left';
-    rows[0]?.append(select);
-    select.addEventListener('click', () => {
-      void controller?.retain?.(); release(); repositoryId = nativeRepository; select.remove(); show(true);
-    }, options);
-  }
   divider.addEventListener('pointerdown', e => { if (e.button !== 0) return; divider.setPointerCapture(e.pointerId); e.preventDefault(); }, options);
   divider.addEventListener('pointermove', e => {
     if (!divider.hasPointerCapture(e.pointerId)) return;

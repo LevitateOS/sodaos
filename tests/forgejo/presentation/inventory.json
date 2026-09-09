@@ -783,7 +783,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "24b791a3ffe6556a600a79ced30f3d3eb59f300fa0c7e1e551f454cdcfa7c99f",
+      "beforeRoleHash": "859790d187d703809d4cb59b7544a514e1c07f50ebae8587fd52eb6fd18f8a0d",
+      "presentationReview": "Add the fixed same-origin Spaces link through the selected native extra_links hook; retain appearance and upstream navbar visibility ownership. Native capture pending.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -847,12 +848,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e7eb071f1faee22013c5dfa9a60c68c9d72877043d5176d34552f0f94e5892db",
+      "beforeRoleHash": "d0ed5eaa72b1a0da9bdbccb7335a4a462215398bd47f2766bc0a93f912c6b099",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal styles; native privacy and handler contracts retained; combined native proof pending."
+      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal/shared-workspace styles; native privacy and handler contracts retained; combined native proof pending."
     },
     {
       "template": "custom/soda/empty_content.tmpl",

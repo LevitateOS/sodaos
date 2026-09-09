@@ -1,0 +1,24 @@
+/* Soda-owned page and shared workspace, not a fabricated native navbar. */
+.soda-spaces-page { margin: 0; color-scheme: light dark; font: 16px/1.5 Barlow, sans-serif; background: light-dark(#faf8f5, #10141b); color: light-dark(#20252b, #e0e5ed); }
+.soda-spaces-page > header { display: flex; align-items: center; flex-wrap: wrap; gap: 24px; padding: 12px 24px; border-bottom: 1px solid #8892a444; }
+.soda-spaces-page header img { width: 120px; height: 36px; }
+.soda-spaces-page nav { display: flex; flex-wrap: wrap; gap: 20px; }
+.soda-spaces-page > main { height: calc(100dvh - 90px); display: flex; flex-direction: column; padding: 12px; box-sizing: border-box; }
+.soda-spaces-page h1 { margin: 0 0 8px; font: var(--soda-font-title, 600 28px/1.3 Georgia, serif); }
+#spaces-page { flex: 1; min-height: 0; }
+.soda-workspace { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; }
+.soda-workspace-toolbar,.soda-workspace-projects,.soda-workspace-actions,.soda-workspace-tabs,.soda-workspace-label,.soda-workspace-existing { display: flex; gap: 6px; align-items: center; overflow-x: auto; flex-shrink: 0; padding: 4px 8px; }
+.soda-workspace-toolbar { padding-right: 80px; }
+.soda-workspace-tabs [aria-selected=true] { border-bottom: 3px solid #4583db; }
+.soda-workspace p { margin: 4px 8px; }
+.soda-workspace-owners { position: relative; flex: 1; min-height: 0; }
+.soda-workspace-terminal { position: absolute; inset: 0; min-height: 0; display: flex; flex-direction: column; }
+.soda-workspace-management { flex: 1; min-height: 0; overflow: auto; }
+.soda-workspace-management:not([hidden]) ~ .soda-workspace-existing { display: none; }
+.soda-workspace-management > div, soda-project-controls { display: block; height: 100%; min-height: 0; }
+.soda-workspace [hidden] { display: none !important; }
+.soda-workspace button, .soda-workspace a { flex-shrink: 0; }
+.soda-spaces-page .ui.button, .soda-workspace .ui.button { min-height: 44px; padding: 8px 12px; }
+.soda-workspace-label { flex-wrap: wrap; font-size: 12px; }
+.soda-workspace-label input { max-width: 160px; }
+@media (max-width: 600px) { .soda-spaces-page header { padding: 8px; gap: 8px; } .soda-spaces-page header span { font-size: 12px; } }

@@ -11,7 +11,8 @@ managed-tmux reattachment exist; management and terminal controls are ported to 
 with local emitted-browser/layout coverage. Xterm and transport stay imperative.
 The ID-keyed backend, exact correlation/cleanup outcomes, name metadata and bounded
 authorized collection now have local Go/race/browser coverage. The Spaces page,
-shared multi-session UI and new layout/attention controls remain unimplemented. The
+fixed OAuth return and shared multi-session UI now have local source/browser coverage.
+Advanced layouts and attention remain unimplemented. The
 [Lit workspace implementation plan](lit-migration-plan.md) is the single detailed
 sequence: preserve the current behavior in two rendering ports, then implement real
 concurrency, the authenticated page/shared drawer, layouts and truthful attention.
@@ -45,7 +46,9 @@ native cgroup/continuity proof belong to the terminal feature before existing-ta
 delivery. No separate OS-planning phase is a prerequisite for that source work.
 No project/package/capability changes or execution scope are granted by the baseline.
 
-## Spaces page — selected, not implemented
+<a id="spaces-page--selected-not-implemented"></a>
+
+## Spaces page — implementation and remaining work
 
 The user explicitly requested **design first for multiple simultaneous terminals
 across multiple projects**. After online research, the [revised Spaces design](spaces-design.md)
@@ -55,8 +58,8 @@ implementation. [Static design sheets](design/spaces/README.md) replace the earl
 interactive mockup as the review material—no new server/port. The grid-preset selector,
 arbitrary four-pane limit and first-slice bulk actions are removed from the proposal.
 Semantic agent statuses require real explicit signals, not inferred output activity.
-Concurrency and the Spaces entry point are selected; this is a design specification,
-not an implemented page or completed UX/native acceptance. The page must be a usable
+Concurrency and the Spaces entry point now have an initial local implementation;
+the broader design specification is not completed UX/native acceptance. The page must be a usable
 multi-project workspace, not only an environment catalog. Current installed single-
 terminal evidence remains bounded by the handoff; this request does not imply a
 Rocky rollout, project recreation or other native execution.
@@ -96,8 +99,9 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
   context, copy upstream authentication, relay HTML or borrow cookies. The Lit plan
   includes page-only CSP, styling/clipboard, fixed OAuth return and staging checks.
 
-The authorized collection is source-implemented and locally tested; the navbar/page,
-shared multi-session UI and fixed OAuth return are unimplemented.
+The authorized collection, navbar/page, fixed OAuth return and initial shared
+multi-session UI are source-implemented and locally tested. Pane layouts, attention
+and concurrent native acceptance remain pending.
 The [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) now specifies
 concrete owners and exits for these features. Validate authentication/expiry/logout,
 denied/unavailable listings, per-ID actions and same-session drawer use across both
@@ -395,12 +399,13 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ### Immediate next step — workspace correction, then scoped delivery
 
-- Continue with [Lit step 4](lit-migration-plan.md#step-4--one-real-lit-workspace-in-both-entry-points):
-  authenticated Spaces HTML/fixed OAuth return and the shared multi-session workspace.
+- Continue with [Lit step 5](lit-migration-plan.md#step-5--full-layout-and-native-leftdrawer-right-behavior),
+  then attention, after the locally implemented authenticated Spaces HTML/fixed OAuth
+  return and shared multi-session workspace.
   The management/terminal ports and ID registry/collection contracts are implemented
   locally; preserve their action/race/authority tests and exact locators.
-- Build the stable terminal owner layer and both projections before adding pane
-  movement/layout. Neither render updates nor document replacement creates a shell;
+- Preserve the implemented stable terminal owner layer and both projections while
+  adding pane movement/layout. Neither render updates nor document replacement creates a shell;
   disposal detaches, End acknowledgement is not native cleanup, and absent records
   remain unknown.
 - Follow the later layout/attention slices and their focused exits in that plan. Native safety failures remain real acceptance gaps. Before any delivery,
@@ -416,7 +421,7 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
 ## Selected approach
 
 - **Backend:** existing Go API, SQLite, encrypted Forgejo OAuth grants and restricted
-  native helper, with the selected but unimplemented Soda-owned Spaces Go/template
+  native helper, with the locally implemented Soda-owned Spaces Go/template
   page. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
   native-page/workspace split view, scoped native styling, a Lit management component

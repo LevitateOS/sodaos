@@ -229,6 +229,7 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 // authority. IDs may be absent (zero), including on migrated pending logins.
 // They refer to native Forgejo records, not necessarily existing Soda rows.
 type OAuthLogin struct {
+	SpacesReturn   bool
 	Verifier       string
 	RepositoryID   int64
 	ExpectedUserID int64

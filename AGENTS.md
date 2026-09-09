@@ -101,10 +101,10 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
   button/right-drawer addition, not a new repository tab. Drawer view/session tabs
   are selected. A global Spaces link and bounded Soda-owned Go/template listing page
-  are also selected but unimplemented; the shell uses Soda-owned Go HTML, canonical
+  now have a local source implementation; the shell uses Soda-owned Go HTML, canonical
   assets, fixed native links and a labelled Soda account, not fabricated native
   authentication/notification context. [Lit](docs/lit.md) now owns management and
-  terminal-control rendering; the multi-session/page/layout workspace is still pending; the [implementation sequence](docs/lit-migration-plan.md)
+  terminal-control rendering and the shared multi-session page/drawer; advanced layouts and attention remain pending; the [implementation sequence](docs/lit-migration-plan.md)
   owns their ports and real concurrency/layout work. No Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
@@ -117,8 +117,8 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   safety/UX acceptance. Lit ports must preserve `restore`, finite retain/Return and
   HTTP End; document disposal detaches, not End. The ID-keyed backend, exact
   correlation/cleanup receipts and bounded authorized collection now have local
-  Go/race/browser coverage; the multi-session UI and concurrent native proof remain
-  pending. Do not revive the singleton metadata endpoint or select a newest session.
+  Go/race/browser coverage; the multi-session UI also has local browser coverage,
+  while concurrent native proof remains pending. Do not revive the singleton metadata endpoint or select a newest session.
   Do not force ordinary SSH/tmux into Soda, auto-create on reconnect or call local
   rendering checks native process proof. Follow the current plan and terminal guide.
   The read-only hook/drawer/context caller passed
@@ -261,7 +261,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Current root and successful OAuth return to configured native Forgejo; no standalone Soda UI, SPA bundle or embedded HTML is currently served. The selected Spaces Go/template page is a bounded future exception for Soda-owned data, not a replacement Forgejo frontend. Its fixed OAuth return and selected Soda-owned shell remain unimplemented; follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls are ported to Lit with local browser/layout checks; xterm/transport remain imperative and the multi-session/page/layout workspace is pending. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Advanced layouts/attention and concurrent native/CLI acceptance remain pending; no rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

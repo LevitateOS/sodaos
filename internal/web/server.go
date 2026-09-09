@@ -40,6 +40,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
+	s.mux.HandleFunc("GET /spaces", s.spacesPage)
 	s.authRoutes()
 	s.apiRoutes()
 	return s

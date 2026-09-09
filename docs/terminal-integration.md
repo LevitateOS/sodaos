@@ -1,6 +1,6 @@
 # Drawer terminal integration contract
 
-## Multi-project workspace design — proposed UI, not implemented
+## Multi-project workspace design and implementation
 
 The user now explicitly wants multiple concurrent terminals across multiple projects,
 with design before implementation. The research-backed [Spaces design](spaces-design.md)
@@ -11,22 +11,23 @@ agent status is real without an explicitly implemented signal adapter. These des
 reuse the same managed session mechanism, not separate terminal owners. The
 [Lit implementation plan](lit-migration-plan.md) now owns the rendering ports and
 subsequent concurrency/page/layout sequence. Management and terminal controls now
-use Lit, with local emitted-browser/layout checks; the multi-session UI is pending.
+use Lit; the shared multi-session page/drawer now has local emitted-browser checks.
+Full pane layouts, compact behavior and attention remain pending.
 It preserves current HTTP End and exact restore, not the older socket-close contract. The
 [drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
 composition, a flat view of this window's open tabs without destroying full-page
 pane layout, and the difference between native navigation, right-side view changes,
 compact Forge/Terminal switching and explicit Hide. Drawings are not runtime proof.
-The current backend still enforces one terminal per Soda context/project; multiple
-frontend tabs alone cannot satisfy this request. Proposed session collection and
-ID-keyed ownership must preserve the original binding, one writer, finite retention,
-capacity reservations, Stop and logout/rotation boundaries below.
+The backend now uses ID-keyed ownership and a bounded authorized collection, and the
+shared workspace owns multiple exact-ID children. Original bindings, one writer,
+finite retention, capacity reservations, Stop and logout/rotation remain mandatory;
+local rendering is not native concurrency or CLI compatibility proof.
 
 The [handoff](implementation-status.md) records actual `22d8591` isolated browser
 same-shell reload/End evidence and remaining native probe gaps. Older source-slice
 status language below is not an assertion that nothing has since been deployed.
 
-## Current single-session layout and continuity
+## Current workspace layout and continuity
 
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`
 shell mounting `mountSodaspaces` once on explicit opening. The shell now uses a
@@ -37,16 +38,20 @@ forms, notifications or beforeunload. Below 800px the workspace fills the viewpo
 Hide returns to the native page. Real native route/pane-width compatibility still
 needs validation; the synthetic layout fixture is not that proof.
 
-The content has Terminal, Environment and Access view tabs with roving keyboard
-focus. Management and SSH forms are no longer above the terminal. The terminal
-fills its available panel; its renderer observes resize and tab/hide restoration.
-The current drawer still presents **one terminal**, not session tabs or an implemented
-`+`. The backend now supports independent IDs; the multi-session workspace UI remains
-step 4 work, not something implied by the backend tests.
+The page and drawer now share one Lit workspace with session tabs and independent
+Environment/Access controls bound to each named project. Explicit New creates a
+correlated session; selecting an existing session attaches only that ID. Flat terminal
+hosts remain in one owner layer when tabs/details change. Rename, Hide, Continue/Keep
+and confirmed End retain the original account/project. The versioned working set
+stores bounded actor-scoped locators, never credentials, names, transcripts or input.
+Unknown outcomes survive reload; legacy pending is never guessed. Initial one-pane
+multi-session UI has local emitted-browser coverage, not concurrent native proof.
 
 **Focus/visibility changes and Hide/reopen retain the same component and socket.**
-Focus/view changes do not fetch, provision, restart or replay anything. Hide requests
-finite retention; a deliberate reopen requests return. Pending operations
+Focus and switching already attached views do not fetch, provision, restart or
+replay anything. Selecting an unattached exact ID reauthorizes attachment only.
+Hide requests finite retention for this document's owned attachments; deliberate
+reopen Returns only the selected session, not the entire working set. Pending operations
 remain guarded in that same component; hiding is not cancellation. End terminal is
 a separate action. No outside click dismisses the pane and no focus trap blocks the
 native page. Escape inside xterm remains shell input; Ctrl+Shift+Enter focuses End

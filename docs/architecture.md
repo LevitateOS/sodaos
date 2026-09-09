@@ -22,10 +22,10 @@ See the [handoff](implementation-status.md) for source versus installed evidence
 
 The user also selected a global **Spaces** link and authenticated Soda-owned
 Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sessions.
-This is a planned, bounded extension of the API-only backend, not restoration of
-Forgejo workflow adapters or either removed frontend. The HTML listing, OAuth return and
-page shell are not implemented; the bounded `/api/spaces` collection and ID-keyed
-terminal contracts now have local source/test coverage, not native proof; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
+This is a bounded extension of the API backend, not restoration of Forgejo workflow
+adapters or either removed frontend. The HTML shell, fixed OAuth return, shared
+multi-session workspace, bounded `/api/spaces` collection and ID-keyed contracts
+now have local source/test coverage, not concurrent native proof; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
 owns this scope. The [Lit implementation sequence](lit-migration-plan.md) now covers
 both surfaces, starting with ports that preserve current managed-session behavior.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
@@ -100,8 +100,9 @@ A missing JSON endpoint does not imply a missing native workflow.
 integration cannot meet a requirement, explain its actual constraint and return
 for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
 iframe or weakened native security. Management and terminal controls now use
-[Lit](lit.md), loaded on demand; xterm/transport remain imperative and the further
-multi-session UI/page/layout workspace features are unimplemented. Local rendering tests are not installed
+[Lit](lit.md), loaded on demand; the page and drawer share a multi-session workspace
+with flat terminal owners. Xterm/transport remain imperative; advanced layouts and
+attention remain unimplemented. Local rendering tests are not installed
 CLI compatibility or full terminal acceptance.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized
@@ -113,14 +114,14 @@ Soda's expected-user header guards page/session consistency, not native browser
 session authenticity. Native-page wiring passed the isolated local browser journey; native
 WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
 
-The planned Spaces HTML handler uses Soda's own session/acting grant to authorize
-its listing and actions server-side. Its fixed OAuth return must be transaction-bound;
-the current callback does not yet support that destination. The selected shell uses
+The Spaces HTML handler uses Soda's own session/acting grant to authorize its shell;
+listing and actions remain protected APIs. Its fixed OAuth return is transaction-bound
+through an append-only schema-v6 flag. The selected shell uses
 canonical Soda assets, configured-origin native links and an explicitly labelled
 Soda account—not a fabricated Forgejo navbar/account/notification context. Loading
 assets cannot supply native CSRF or authentication, and template overrides cannot
 install Go handlers upstream. Lit renders only the Soda workspace. Page-only CSP,
-styles/clipboard, fixed return and real integration still need implementation/tests;
+styles/clipboard and fixed return have local checks; installed integration remains pending;
 no copied native authentication logic, HTML relay or borrowed cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
 remain intact. A future global Runners link/page must enforce the configured Soda
 operator boundary server-side; Forgejo site administration is not a substitute.

@@ -37,6 +37,7 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       if (url.pathname.startsWith('/-/soda/api/')) {
         let body;
         if (url.pathname.endsWith('/session')) body = {user: {id: '1', login: 'component-fixture'}, csrf_token: 'synthetic-csrf', forgejo_url: url.origin};
+        else if (url.pathname.endsWith('/spaces')) body = {complete: true, items: [{environment: {id: env, repository_id: '7', owner_id: '1', name: 'Shared work', repository: 'fixture/shared-work', provisioned: true}, login: 'fixture', environment_administrator: true, native_unavailable: false, authority_unavailable: false, observed: {id: env, running}, terminals: []}]};
         else if (url.pathname.includes('/terminal-sessions/')) body = {terminal: null};
         else if (url.pathname.endsWith('/forgejo/me')) body = {id: '1'};
         else if (url.search) body = {repository: {id: '7', owner: 'fixture', name: 'shared-work'}, can_create: false, items: [{id: env, repository_id: '7'}]};
@@ -55,7 +56,7 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       const footerPart = (await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/footer.tmpl')).text()).split('{{if .IsSigned}}\n<div id="soda-notification-preview"')[0];
       assert(footerPart);
       const footer = footerPart.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7').replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, '1').replace(/{{[\s\S]*?}}/g, '');
-      return new Response(`<!doctype html><title>Soda drawer component fixture — not native proof</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><body><main class="soda-page" data-signed="true"><div class="repo-header"><div class="repo-buttons"><button id="native">Native fixture action</button></div></div><input id="native-edit" value="unsaved fixture"></main>${footer}`, {headers: {'Content-Type': 'text/html'}});
+      return new Response(`<!doctype html><title>Soda drawer component fixture — not native proof</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><body><main class="soda-page" data-signed="true"><div class="repo-header"><div class="repo-buttons"><button id="native">Native fixture action</button></div></div><input id="native-edit" value="unsaved fixture"></main>${footer}`, {headers: {'Content-Type': 'text/html'}});
     } catch {return new Response(null, {status: 500});}
   }});
   const origin = server.url.origin;
@@ -81,16 +82,16 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
     await page.goto(origin); await page.evaluate(theme => document.documentElement.style.colorScheme = theme, theme);
     await page.locator('#sodaspaces-button').click();
     await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-    assert.match(await page.locator('#sodaspaces-status').innerText(), state ? /running/ : /stopped/);
+    assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).isDisabled(), !state);
     const metrics = await page.locator('#sodaspaces-drawer').evaluate(dialog => ({width: dialog.getBoundingClientRect().width, overflow: dialog.scrollWidth > dialog.clientWidth, heights: [...dialog.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => b.getBoundingClientRect().height)}));
     assert.equal(metrics.width, width > 800 ? width / 2 : width); assert(!metrics.overflow); assert(metrics.heights.every(h => h === 44), JSON.stringify(metrics));
     const tabbar = await page.getByRole('tablist').boundingBox(), hide = await page.locator('#sodaspaces-close').boundingBox();
     assert(tabbar && hide);
-    assert(tabbar.x + tabbar.width <= hide.x, 'view tabs must not overlap Hide, including at 320px');
+    assert(tabbar.y >= hide.y + hide.height || tabbar.x + tabbar.width <= hide.x, 'view tabs must not overlap Hide, including at 320px');
     assert.equal(await page.locator('#native-edit').inputValue(), 'unsaved fixture');
     assert.equal(await page.locator('#sodaspaces-drawer .soda-page').count(), 0);
     if (state) {
-      await page.getByRole('button', {name: 'Open terminal', exact: true}).click();
+      await page.getByRole('button', {name: 'New terminal', exact: true}).click();
       await page.getByText('Connected as fixture.', {exact: true}).waitFor();
       assert.equal(await page.locator('.xterm').count(), 1);
       assert.equal(await page.locator('.xterm-helper-textarea').evaluate(el => getComputedStyle(el).padding), '0px');
@@ -99,7 +100,9 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
       assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'End terminal');
       const canvas = await page.locator('.soda-terminal-screen').boundingBox();
       assert(canvas);
-      assert(canvas.height > 650, JSON.stringify(canvas));
+      // Multiple-session/project controls now occupy explicit rows. Keep the
+      // selected terminal viable (12 rows), rather than the singleton's 650px assertion.
+      assert(canvas.height >= 216, JSON.stringify(canvas));
       if (width > 800) {
         await page.locator('#native-edit').fill('editing native page while developing');
         await page.locator('#native').click();
@@ -108,9 +111,11 @@ test('integrated drawer source: desktop/mobile themes and native-page coexistenc
         assert.equal(await page.locator('#sodaspaces-divider').getAttribute('aria-valuenow'), '55');
         await page.keyboard.press('ArrowRight');
       }
+      await page.getByRole('button', {name: 'Environment / access', exact: true}).click();
+      await page.locator('[data-project-controls][aria-busy=false]').waitFor();
       await page.getByRole('tab', {name: 'Access', exact: true}).click();
-      await page.locator('#sodaspaces-command').waitFor();
-      await page.getByRole('tab', {name: 'Terminal', exact: true}).click();
+      await page.locator('[data-control=command]').waitFor();
+      await page.getByRole('button', {name: 'Terminals', exact: true}).click();
       assert.equal(await page.evaluate(() => window.fixtureSocketCount), 1);
       assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
     }

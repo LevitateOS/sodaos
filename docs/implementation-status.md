@@ -1,5 +1,59 @@
 # Current handoff
 
+## Shared Spaces page and drawer — local step 4, no rollout
+
+Implemented the requested initial shared workspace in source after `d451c67`.
+`GET /-/soda/spaces` is Soda-owned escaped Go HTML, authorized with the Soda session
+and acting grant, not fabricated native Forgejo context. Anonymous/expired access
+has explicit Connect; grant/provider failure is unavailable, not an empty workspace.
+Only this page permits local modules/xterm styles through its CSP. JSON actor,
+CSRF/origin, framing, private caching and credential boundaries remain intact.
+
+Fixed `destination=spaces` uses an append-only schema-v6 OAuth flag, with no mixed
+repository intent or caller URL. Populated synthetic v5 preservation, wrong-key
+rejection before migration and logout-winning finalization tests pass. Existing
+repository/home returns remain. No OAuth client, grant key or retained database was
+changed. Matching backend/assets/schema require separately approved delivery.
+
+The global native Spaces link, thin page bootstrap and drawer use the same Lit
+workspace. Flat terminal owners retain exact hosts across session tabs and project
+details. Management/access moved into `sodaspaces-project.ts`, preserving original-
+target drafts, authorization, uncertain writes and key/lifecycle checks. Explicit
+New, exact attach, Rename, session/drawer Hide, selected Continue/Keep and confirmed
+End share the terminal component. Metadata observes actual deadlines without renewal.
+Versioned actor-scoped storage holds bounded locators, not names, transcripts or
+credentials. Unknown cleanup is not replaced; legacy pending is never guessed.
+Confirmed-ended owners cannot create replacements through their old controls.
+Definite actor change detaches siblings and disables the stale workspace.
+
+Canonical staging includes page/project assets. Preview generation projects the
+production manifest into both the retained branding layout and a complete public
+tree, including locked xterm. Validation used isolated output under
+`.artifacts/spaces-step4-d451c67/`; no live preview mount, service, appliance, provider
+resource or project was changed.
+
+**Executed locally:** pinned strict TypeScript; all Go packages; web/store/host race
+suites; frontend **126 pass / 2 existing opt-in skips**; explicit Lit **93 pass**;
+Forgejo **26 pass / 18 optional skips**; Cockpit **60 pass**; seven temporary-filesystem
+packaging tests; canonical payload tests; emitted real-xterm **16-case** drawer
+layout matrix; isolated preview generation. Ten new workspace browser cases cover
+three sessions across two projects in both bootstrap modes, correlated creation,
+End uncertainty, actor invalidation, Hide/Show, target-bound Rename, project drafts,
+legacy locators and late authorization. HTTP/socket peers are synthetic, not native
+tmux/CLI proof. Existing management tests were ported to their extracted owner.
+
+**Evidence:** `.artifacts/spaces-step4-d451c67/`, including early fixture/type and
+inventory failures and successful reruns. Initial 320-light and 1440-dark layout
+images were reviewed. Multi-session controls occupy explicit rows: the layout test
+uses a 12-row-sized screen floor instead of the singleton's 650px floor. This is
+not final UX acceptance. Steps **5–6** (layouts/compact behavior and attention),
+installed-journey selector ports and native concurrency/CLI acceptance remain pending.
+Existing installed probes describe the earlier delivered UI; do not run them
+unchanged as proof of this candidate. Historical failed native terminal probes
+remain failures. No native build/export, deployment or push occurred. The user's
+separate 18-line terminal compatibility note is preserved unstaged.
+
+
 ## ID-keyed terminals and bounded Spaces API — local step 3, no rollout
 
 Implemented Lit-plan step 3 in source after the user's request to continue.

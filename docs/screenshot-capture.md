@@ -92,7 +92,14 @@ or cross-workspace dependency lookup is needed.
 
 Run `bun run build:preview` after browser TypeScript or branding changes. It emits
 minified scripts and projects the production branding payload into
-`.artifacts/forgejo-preview/branding/`. The local Compose mount for
+`.artifacts/forgejo-preview/branding/` and the complete canonical public tree at
+`.artifacts/forgejo-preview/public/` (including root Sodaspaces modules/CSS and locked
+xterm assets). `--out DIR/branding` places the complete tree beside it by default;
+`--public-out` selects it explicitly. Use an isolated output for validation rather
+than refreshing a live mount without scope. Serving the complete tree still needs a
+separately authorized preview mount/configuration change; it is not another app or
+listener, and a stock preview alone does not supply the Go API/OAuth backend.
+The local Compose mount for
 `/data/gitea/public/assets/soda/forgejo` must use that directory instead of the
 TypeScript source directory. Other source, font and theme mounts remain as configured.
 Changing the mount needs a separately authorized recreation of the existing preview

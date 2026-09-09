@@ -1,14 +1,12 @@
 // Browser-realm fixture only. Production modules are emitted separately, never bundled into this double.
-import {mountSodaspaces} from '../../../appliance/forgejo/public/assets/sodaspaces-drawer.js';
-import type {TerminalContext} from '../../../appliance/forgejo/public/assets/sodaspaces-terminal.js';
+import {mountProjectControls} from '../../../appliance/forgejo/public/assets/sodaspaces-project.js';
 export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}
 export interface State {running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
-interface FakeTerminal {ctx: TerminalContext; started: boolean; disposed: boolean; stale: boolean; restored: number; disposedCount: number; dispose(): void; invalidate(): void; restore(): Promise<void>}
 function createFixture(extra: Partial<State> = {}) {
   const root = document.querySelector('main'); if (!root) throw Error('fixture mount missing');
-  const calls: Call[] = [], terminals: FakeTerminal[] = [];
+  const calls: Call[] = [];
   const state: State = {running: true, member: true, admin: true, absent: false, saved: [fixtureFingerprint], installed: [fixtureFingerprint], user: '1', provider: '1', provisioned: true, unavailable: false, ...extra};
   let reply: ((call: Call) => Promise<Response | null>) | undefined;
   const fetchFixture = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -38,22 +36,17 @@ function createFixture(extra: Partial<State> = {}) {
     return Response.json(body);
   };
   Object.defineProperty(window, 'fetch', {value: fetchFixture, configurable: true});
-  const api = mountSodaspaces(root, {expectedUserId: '1', repositoryId: '7'}, (mount, ctx) => {
-    const screen = document.createElement('div'); screen.dataset.fixtureTerminal = 'true'; mount.append(screen);
-    const terminal: FakeTerminal = {ctx, started: false, disposed: false, stale: false, restored: 0, disposedCount: 0,
-      dispose() {this.disposed = true; this.disposedCount++; screen.remove();}, invalidate() {this.stale = true;}, async restore() {this.restored++;}};
-    terminals.push(terminal); return terminal;
-  });
+  const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7'});
   const button = (text: string) => {
     const b = [...root.querySelectorAll('button')].find(b => b.textContent?.trim() === text);
     if (!b) throw Error('Missing button: ' + text); return b;
   };
   const showButton = async (text: string) => {
     const b = button(text), panel = b.closest('[role=tabpanel]');
-    if (panel) root.querySelector<HTMLElement>('#' + panel.getAttribute('aria-labelledby'))?.click();
+    if (panel) root.querySelector<HTMLElement>('[aria-controls="' + panel.id + '"]')?.click();
     await api.ready; return b;
   };
-  return {api, state, calls, terminals, root, button, showButton, setReply(value: typeof reply) {reply = value;}};
+  return {api, state, calls, get terminals() {return root.querySelectorAll('soda-terminal');}, root, button, showButton, setReply(value: typeof reply) {reply = value;}};
 }
 declare global {interface Window {createDrawerFixture: typeof createFixture; drawerFixture: ReturnType<typeof createFixture>}}
 window.createDrawerFixture = createFixture;

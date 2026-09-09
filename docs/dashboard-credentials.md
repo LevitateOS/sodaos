@@ -136,6 +136,18 @@ foreign keys and migrated contexts checked. The rehearsal did not mutate live re
 login. Normal subsequent expiry/login/logout changed session/grant rows; original
 profiles, keys, projects and memberships remained unchanged.
 
+## Schema v6 Spaces return
+
+The append-only migration adds `oauth.spaces_return`, default false, constrained
+against simultaneous repository intent. Only `destination=spaces` selects it;
+callback maps it to configured-origin `/-/soda/spaces`, never a caller URL. Existing
+pending v5 transactions keep their original intent and cancellation binding.
+Populated synthetic v5 migration tests preserve sessions, memberships, keys, projects,
+and exact encrypted grant/key-check bytes; wrong keys fail before migration. Logout
+still wins finalization. No OAuth client edit or new secret/consent is required.
+Pre-v6 binaries reject schema v6. Matching backend/assets and backed-up state require
+separately authorized delivery; these local tests are not a retained-state rollout.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth

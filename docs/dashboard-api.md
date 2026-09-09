@@ -13,31 +13,41 @@ The split-view drawer uses
 with separate creation, exact attach, detach and HTTP End. Isolated `22d8591` has
 bounded same-shell reload/cleanup evidence, not the full native safety/UX matrix.
 Browser-only joining, optional Forgejo-key selection and Git credentials remain
-unimplemented. The [Lit plan](lit-migration-plan.md) proposes new concurrency/page
-contracts; they are **not** implemented by merging the scaffold or writing the plan.
+unimplemented. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
+and test coverage; concurrent native/CLI acceptance and delivery remain separate.
 
-## Planned Spaces page — not an implemented endpoint
+## Spaces page and fixed OAuth return
 
 `/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
 Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
-defines the authorized workspace and selected Soda-owned shell (canonical assets,
-fixed native links and labelled Soda identity, not fabricated native context). No
-page handler, collection contract or Spaces OAuth return has been implemented. The current required
-`repository_id` collection API below remains unchanged; do not remove its guard to
-resurrect the old unrestricted catalog.
+defines the workspace and Soda-owned shell (canonical assets, fixed native links
+and labelled Soda identity, not fabricated native context). `GET /spaces` now serves
+that escaped HTML shell with a server-authorized actor. Anonymous/expired sessions
+receive explicit Connect; unavailable grant/provider authority produces 503, not a
+complete empty workspace. Queries are refused. Existing repository-scoped collection
+guards remain unchanged.
 
-HTML navigation must resolve the actor from the protected Soda session and acting
-grant server-side; it cannot send the JSON API's custom actor header. That is not
-permission to weaken existing API checks. OAuth needs a fixed, transaction-bound
-Spaces destination, never an arbitrary `return_to`. Authorize rows/counts/metadata
-before rendering, retain truthful unavailable states and recheck every action's
-permissions. Do not borrow native cookies/CSRF or assume CSS imports Forgejo's
-session/template context. The page opens the same authorized drawer/sessions, not a
-new terminal implementation. The [Lit sequence](lit-migration-plan.md) now has
-source implementations of `GET /api/spaces`, exact-ID metadata/actions and create
-correlation below. The HTML page, shared multi-session UI and fixed
-`destination=spaces` OAuth intent remain unimplemented. These backend contracts have
-local handler/browser-double evidence, not installed or CLI acceptance.
+HTML derives the actor from the protected Soda session and acting grant; JSON still
+requires its expected-user header, and mutations still require CSRF/origin checks.
+Only this HTML route allows local modules and xterm's inline styles through its CSP;
+API/avatar restrictions, framing denial, private no-store and no-referrer remain.
+No project data, credentials or executable inline bootstrap are embedded.
+
+`GET /login?destination=spaces` accepts exactly one fixed destination and no
+`repository_id`. An append-only schema-v6 boolean binds that intent to the existing
+OAuth transaction. Callback returns only to configured-origin `/-/soda/spaces`;
+omission retains repository/home behavior. Unknown, empty, duplicate and mixed
+intents fail. No caller URL, historical `return_path`, additional consent or OAuth
+client change is used. See [credential preservation](dashboard-credentials.md#schema-v6-spaces-return).
+
+The page and drawer mount the same Lit workspace and flat terminal-owner layer:
+explicit create/exact attach, Rename, Hide, Continue/Keep and confirmed End.
+Versioned, actor-scoped session storage holds at most 64 locators, no names,
+transcripts or credentials. Legacy exact IDs require fresh metadata; legacy pending
+is never guessed. Unknown cleanup preserves the locator; only acknowledged cleanup
+can retire it. Storage failure permits live use without guaranteed restoration.
+These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
+concurrent native tmux or selected-CLI acceptance.
 
 ## Browser namespace
 
@@ -192,7 +202,8 @@ sessions; expired owners remain subject to their normal cleanup.
 
 See the [component contract](terminal-integration.md) and handoff for installed
 `22d8591` versus this local source evidence. Actual concurrent native/CLI proof,
-Spaces HTML/OAuth and the shared multi-session UI remain separate work.
+Spaces HTML/OAuth and the shared multi-session UI now consume this contract in
+source; full layouts, attention and native acceptance remain separate work.
 
 ## Explicit lifecycle and own SSH key updates — source, not installed proof
 

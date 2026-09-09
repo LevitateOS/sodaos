@@ -1,7 +1,8 @@
 // Native adapter with injected content only. Actual Lit/API integration is in
 // drawer-controls.test.ts, evaluated in its emitted modules' browser realm.
 import test, {type TestContext} from 'node:test';
-import type { DrawerContext } from '../../appliance/forgejo/public/assets/sodaspaces-drawer.ts';
+import type { DrawerContext as WorkspaceContext } from '../../appliance/forgejo/public/assets/sodaspaces-drawer.ts';
+type DrawerContext = Extract<WorkspaceContext, {kind: 'native'}>;
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {mountDrawer} from '../../appliance/forgejo/public/assets/sodaspaces.ts';
@@ -67,13 +68,13 @@ test('workspace separator supports keyboard resizing without native navigation',
   assert.equal(f.$('divider').getAttribute('aria-valuenow'), '55');
   assert.equal(f.doc.body.style.getPropertyValue('--soda-space-width'), '55vw');
 });
-test('navigation restores selected repository instead of retargeting to the left page', async t => {
+test('native repository context cannot replace the shared working set', async t => {
   const contexts: DrawerContext[] = []; let disposed = 0;
   const f = await fixture(t, {context: {repositoryId: '8'}, saved: {repositoryId: '7', open: true, width: 55}, mount: (_root, context) => {contexts.push(context); return {refresh() {}, dispose() {disposed++;}};}});
-  assert(!f.$('drawer').hidden); assert.equal(contexts[0]?.repositoryId, '7');
+  assert(!f.$('drawer').hidden); assert.equal(contexts[0]?.repositoryId, '8');
   assert.equal(f.doc.body.style.getPropertyValue('--soda-space-width'), '55vw');
-  const select = [...f.doc.querySelectorAll('button')].find(b => b.textContent === 'Use repository on the left');
-  assert(select); select.click(); assert.equal(disposed, 1); assert.equal(contexts[1]?.repositoryId, '8');
+  assert(![...f.doc.querySelectorAll('button')].some(b => b.textContent === 'Use repository on the left'));
+  assert.equal(disposed, 0); assert.equal(contexts.length, 1);
 });
 test('signed non-repository page resumes only a saved workspace locator', async t => {
   const contexts: DrawerContext[] = [];

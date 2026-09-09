@@ -10,10 +10,11 @@ the [terminal contract](terminal-integration.md) owns native lifetime, and the
 
 **Current source: steps 1–2's management and terminal controls are ported, with local
 emitted-browser and layout checks. Step 3's ID registry/collection and caller contracts
-are source-implemented with local Go/race/browser coverage; steps 4–6 remain
-unimplemented.** Xterm and the
-managed transport remain imperative resources; no native lifetime redesign occurred. The public preview projection and full installed acceptance
-remain open; see the handoff for exact evidence. This revises
+are source-implemented with local Go/race/browser coverage. Step 4's authenticated
+page/fixed return and shared multi-session workspace now have local source/browser
+coverage; steps 5–6 remain unimplemented.** Xterm and the
+managed transport remain imperative resources; no native lifetime redesign occurred. The canonical public preview projection is implemented; changing live preview mounts
+and full installed acceptance remain separately scoped; see the handoff for exact evidence. This revises
 `8f03910`'s drawer-first migration plan to incorporate the managed-tmux implementation
 and the approved full-page direction/complementary drawer design. Keep the two small
 rendering ports first; build the real multi-session product on them. Do not port the
@@ -261,6 +262,10 @@ lost results; actual-deadline caps; per-ID End/cleanup uncertainty; capacity res
 and confirmed release. Native guard remains per-ID and must pass the later real journey.
 
 ### Step 4 — one real Lit workspace in both entry points
+
+**Source implemented locally; no rollout.** See the leading handoff for exact checks
+and synthetic-peer versus native evidence. The following remains the behavior and
+acceptance contract, not a claim that installed concurrency/CLI acceptance passed.
 
 Deliver the first usable vertical slice, initially one visible pane with multiple
 tabs. Do not wait for every drag/layout enhancement to exercise real integration.

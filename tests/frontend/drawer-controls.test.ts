@@ -43,7 +43,7 @@ async function fixture(t: TestContext, extra: Partial<State> = {}) {
 async function refresh(page: Page) {await page.evaluate(() => window.drawerFixture.api.refresh());}
 async function click(page: Page, text: string) {
   await page.evaluate(async text => {(await window.drawerFixture.showButton(text)).click();}, text);
-  await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  await page.locator('[data-project-controls][aria-busy=false]').waitFor();
 }
 const writes = (page: Page) => page.evaluate(() => window.drawerFixture.calls.filter(call => call.method !== 'GET'));
 
@@ -59,7 +59,7 @@ async function nativeFixture(t: TestContext, options: {anonymous?: boolean; paus
     calls.push(pathname); assert.equal(route.request().method(), 'GET');
     if (options.paused) await wait;
     const body = pathname.endsWith('/session') ? {user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: server.url.origin}
-      : pathname.endsWith('/forgejo/me') ? {id: '1'} : {items: [], repository: {id: '7', owner: 'alice', name: 'repo'}, can_create: true};
+      : pathname.endsWith('/spaces') ? {items: [], complete: true} : pathname.endsWith('/forgejo/me') ? {id: '1'} : {items: [], repository: {id: '7', owner: 'alice', name: 'repo'}, can_create: true};
     await route.fulfill({json: body});
   });
   await page.goto(new URL('/native' + (options.anonymous ? '?anonymous=1' : ''), server.url).href);
@@ -72,16 +72,19 @@ test('native mount is inert and lazy, unique, and preserves native forms/actions
   assert(!f.modules.some(module => module.endsWith('/lit.js') || module.endsWith('/sodaspaces-drawer.js')));
   assert.equal(await f.page.locator('.repo-buttons #sodaspaces-button').count(), 1);
   await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-  assert.equal(f.calls.length, 3); assert.equal(await f.page.locator('#native-edit').inputValue(), 'dirty');
-  assert.equal(await f.page.locator('#native').count(), 1); assert(await f.page.locator('#sodaspaces-create').isVisible());
+  assert.equal(f.calls.length, 2); assert.equal(await f.page.locator('#native-edit').inputValue(), 'dirty');
+  assert.equal(await f.page.locator('#native').count(), 1); assert(await f.page.getByText('Authorized Spaces loaded.', {exact: true}).isVisible());
   assert.equal(await f.page.locator('#sodaspaces-content .soda-page').count(), 0);
   assert.equal(f.modules.filter(module => module.endsWith('/lit.js')).length, 1);
 });
 test('anonymous native page offers contextual OAuth without substituting Soda identity', async t => {
   const f = await nativeFixture(t, {anonymous: true}); await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-  assert.equal(f.calls.length, 1); assert(await f.page.locator('#sodaspaces-sign-in').isVisible());
-  assert.equal(await f.page.locator('#sodaspaces-sign-in').getAttribute('href'), '/-/soda/login?repository_id=7');
-  assert.equal(await f.page.locator('#sodaspaces-create').getAttribute('hidden'), '');
+  assert.equal(f.calls.length, 0); assert(await f.page.getByRole('link', {name: 'Connect to Soda'}).isVisible());
+  assert.equal(await f.page.getByRole('link', {name: 'Connect to Soda'}).getAttribute('href'), '/-/soda/login?repository_id=7');
+  assert(await f.page.getByRole('button', {name: 'New terminal', exact: true}).isDisabled());
+  assert(await f.page.getByRole('button', {name: 'Environment / access', exact: true}).isDisabled());
+  assert(await f.page.getByRole('button', {name: 'Repository on the left', exact: true}).isDisabled());
+  assert.equal(f.calls.length, 0);
 });
 test('native late fetch after document departure cannot repaint or dispatch another request', async t => {
   const f = await nativeFixture(t, {paused: true});
@@ -101,38 +104,37 @@ test('hiding during lazy module loading cannot mount or dispatch a late refresh'
   await f.page.waitForFunction(() => !!customElements.get('soda-spaces'));
   assert.equal(await f.page.locator('soda-spaces').count(), 0); assert.deepEqual(f.calls, []);
   await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-  assert.equal(await f.page.locator('soda-spaces').count(), 1); assert.equal(f.calls.length, 3);
+  assert.equal(await f.page.locator('soda-spaces').count(), 1); assert.equal(f.calls.length, 2);
 });
 
 test('interior clicks, initial pageshow and focus preserve the actual Lit drawer', async t => {
   const f = await nativeFixture(t); await f.page.locator('#sodaspaces-button').click(); await f.page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
   const count = f.calls.length;
   await f.page.evaluate(() => {document.getElementById('sodaspaces-content')?.click(); window.dispatchEvent(new Event('focus')); window.dispatchEvent(new PageTransitionEvent('pageshow'));});
-  assert(await f.page.locator('#sodaspaces-drawer').isVisible()); assert.equal(f.calls.length, count); assert(await f.page.locator('#sodaspaces-create').isVisible());
+  assert(await f.page.locator('#sodaspaces-drawer').isVisible()); assert.equal(f.calls.length, count); assert(await f.page.getByText('Authorized Spaces loaded.', {exact: true}).isVisible());
 });
 
-test('standalone Lit mount is inert; refresh only reads and preserves native nodes and terminal identity', async t => {
+test('project control mount is inert; refresh only reads and never owns a terminal', async t => {
   const page = await fixture(t);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), 0);
   await refresh(page); await refresh(page);
   assert.deepEqual(await writes(page), []);
-  assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length, disposed: window.drawerFixture.terminals[0]?.disposed,
-    environment: window.drawerFixture.terminals[0]?.ctx.environmentId, restored: window.drawerFixture.terminals[0]?.restored,
+  assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length,
     native: document.getElementById('native')?.textContent, input: document.querySelector<HTMLInputElement>('#native-input')?.value})),
-  {count: 1, disposed: false, environment: 'p0123456789abcdef01234567', restored: 1, native: 'Native action', input: 'unsaved'});
+  {count: 0, native: 'Native action', input: 'unsaved'});
 });
-test('view tabs and app switches retain terminal and dispatch no reads or writes', async t => {
+test('project view tabs and app switches dispatch no reads or writes', async t => {
   const page = await fixture(t); await refresh(page);
   const count = await page.evaluate(() => window.drawerFixture.calls.length);
-  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Terminal');
-  await click(page, 'Access'); assert.equal(await page.locator('#sodaspaces-view-access').getAttribute('hidden'), null);
-  await click(page, 'Environment'); await click(page, 'Terminal');
+  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Environment');
+  await click(page, 'Access'); assert.equal(await page.getByRole('tabpanel', {name: 'Access'}).getAttribute('hidden'), null);
+  await click(page, 'Environment');
   await page.evaluate(() => {window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'));});
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
-  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), false);
-  await page.getByRole('tab', {name: 'Terminal', exact: true}).press('ArrowRight');
-  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Environment');
-  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Environment');
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
+  await page.getByRole('tab', {name: 'Environment', exact: true}).press('ArrowRight');
+  assert.equal(await page.locator('[role=tab][aria-selected=true]').innerText(), 'Access');
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), 'Access');
 });
 test('hidden access view cannot remove a key through a synthetic click', async t => {
   const page = await fixture(t); await refresh(page);
@@ -142,7 +144,7 @@ test('hidden access view cannot remove a key through a synthetic click', async t
 test('create never implicitly joins, saves keys or starts; rapid clicks dispatch once', async t => {
   const page = await fixture(t, {absent: true}); await refresh(page);
   await page.evaluate(async () => {const b = await window.drawerFixture.showButton('Create environment'); b.click(); b.click();});
-  await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+  await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   const sent = await writes(page); assert.equal(sent.length, 1);
   assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7'});
   assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1'); assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
@@ -151,7 +153,7 @@ test('Stop requires explicit shared-impact confirmation and Start is separate', 
   const page = await fixture(t); await refresh(page); await click(page, 'Stop'); assert.deepEqual(await writes(page), []);
   await page.locator('input[type=checkbox]').first().check(); await click(page, 'Stop');
   const sent = await writes(page); assert.equal(sent.length, 1); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'stop', confirm_stop: true});
-  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.stale), true);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
 test('stopped environment has explicit Start only, and no terminal', async t => {
   const page = await fixture(t, {running: false}); await refresh(page); await click(page, 'Start');
@@ -161,7 +163,7 @@ test('stopped environment has explicit Start only, and no terminal', async t => 
 test('saved-key removal truthfully does not dispatch a native apply', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Remove saved key');
   const sent = await writes(page); assert.equal(sent.length, 1); assert.equal(sent[0]?.method, 'DELETE'); assert(!sent[0]?.url.endsWith('/access-keys'));
-  assert.match(await page.locator('#sodaspaces-result').innerText(), /Existing project SSH access is unchanged/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /Existing project SSH access is unchanged/);
 });
 test('review then explicit Apply confirms last-key removal', async t => {
   const page = await fixture(t, {saved: []}); await refresh(page); await click(page, 'Review this project’s SSH keys');
@@ -172,7 +174,7 @@ test('review then explicit Apply confirms last-key removal', async t => {
 test('private-key paste is refused before request dispatch', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Access');
   await page.locator('textarea').fill('-----BEGIN OPENSSH PRIVATE KEY-----'); await click(page, 'Save public key');
-  assert.deepEqual(await writes(page), []); assert.match(await page.locator('#sodaspaces-result').innerText(), /Never upload a private key/);
+  assert.deepEqual(await writes(page), []); assert.match(await page.locator('[data-control=result]').innerText(), /Never upload a private key/);
 });
 test('nonadministrator has no lifecycle controls; nonmember joins separately', async t => {
   const page = await fixture(t, {admin: false, member: false}); await refresh(page);
@@ -183,16 +185,16 @@ test('unknown mutation outcome blocks replay, not safe refresh or logout', async
   const page = await fixture(t, {absent: true});
   await page.evaluate(() => window.drawerFixture.setReply(async call => call.method === 'POST' && call.url.endsWith('/api/environments') ? new Response(null, {status: 502}) : null));
   await refresh(page); await click(page, 'Create environment'); await refresh(page);
-  assert.equal(await page.locator('#sodaspaces-create').isDisabled(), true); assert.match(await page.locator('#sodaspaces-result').innerText(), /Outcome unconfirmed/);
+  assert.equal(await page.locator('[data-control=create]').isDisabled(), true); assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
   await click(page, 'Sign out of Soda'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
 });
-test('stale page closes terminal and cannot refresh/replay on focus', async t => {
+test('stale project controls cannot refresh/replay on focus', async t => {
   const page = await fixture(t); await refresh(page);
   const count = await page.evaluate(() => window.drawerFixture.calls.length);
   await page.evaluate(async () => {window.dispatchEvent(new Event('pagehide')); window.dispatchEvent(new Event('focus')); await window.drawerFixture.api.refresh();});
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), count);
-  assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), true);
-  assert.equal(await page.locator('#sodaspaces-refresh').isDisabled(), true); assert.equal(await page.locator('#native').count(), 1);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
+  assert.equal(await page.locator('[data-control=refresh]').isDisabled(), true); assert.equal(await page.locator('#native').count(), 1);
 });
 for (const authority of ['user', 'provider'] as const) test(`${authority} mismatch at action time dispatches no mutation`, async t => {
   const page = await fixture(t, {absent: true}); await refresh(page);
@@ -203,13 +205,11 @@ for (const kind of ['HTML', 'oversized', '401', '403'] as const) test(`${kind} r
   const page = await fixture(t);
   await page.evaluate(kind => window.drawerFixture.setReply(async () => kind === 'HTML' ? new Response('<html>login</html>', {headers: {'Content-Type': 'text/html'}}) : kind === 'oversized' ? Response.json({padding: 'x'.repeat(65537)}) : new Response(null, {status: Number(kind)})), kind);
   await refresh(page);
-  assert.equal(await page.locator('#sodaspaces-create').getAttribute('hidden'), ''); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
+  assert.equal(await page.locator('[data-control=create]').getAttribute('hidden'), ''); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
-test('refresh does not dispose or remount the started terminal', async t => {
-  const page = await fixture(t); await refresh(page);
-  await page.evaluate(() => {const terminal = window.drawerFixture.terminals[0]; if (!terminal) throw Error('missing terminal'); terminal.started = true;});
-  await refresh(page);
-  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 1); assert.equal(await page.evaluate(() => window.drawerFixture.terminals[0]?.disposed), false);
+test('repeated project refresh never acquires terminal ownership', async t => {
+  const page = await fixture(t); await refresh(page); await refresh(page);
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   assert.doesNotMatch(await page.locator('main').innerText(), /terminal session ended/);
 });
 test('closing while authorization is pending never dispatches the mutation', async t => {
@@ -227,7 +227,7 @@ test('closing while authorization is pending never dispatches the mutation', asy
 test('unknown key-save response cannot claim a confirmed key', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Access');
   await page.locator('textarea').fill('ssh-ed25519 YWJj'); await click(page, 'Save public key');
-  assert.match(await page.locator('#sodaspaces-result').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
 });
 test('hidden create and lifecycle actions cannot dispatch through their handlers', async t => {
   const page = await fixture(t, {admin: false}); await refresh(page);
@@ -235,27 +235,27 @@ test('hidden create and lifecycle actions cannot dispatch through their handlers
 });
 test('copy uses own displayed login/IP without changing native access', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Copy SSH connection');
-  assert.equal(await page.locator('#sodaspaces-copy').getAttribute('data-clipboard-target'), '#sodaspaces-command');
-  assert.equal(await page.locator('#sodaspaces-command').inputValue(), 'ssh alice@10.89.0.2'); assert.deepEqual(await writes(page), []);
+  assert.equal(await page.locator('[data-control=copy]').getAttribute('data-clipboard-target'), '#soda-command-7');
+  assert.equal(await page.locator('[data-control=command]').inputValue(), 'ssh alice@10.89.0.2'); assert.deepEqual(await writes(page), []);
 });
-test('reactive view/Hide updates preserve draft input identity, selection and terminal host', async t => {
+test('reactive project view/Hide updates preserve draft identity and selection', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Access');
   await page.locator('textarea').fill('unsent public key');
   assert.deepEqual(await page.evaluate(async () => {
-    const f = window.drawerFixture, input = f.root.querySelector('textarea'), screen = f.root.querySelector('[data-fixture-terminal]');
-    if (!input || !screen) throw Error('missing fixture nodes'); input.setSelectionRange(2, 5);
+    const f = window.drawerFixture, input = f.root.querySelector('textarea'), controls = f.root.firstElementChild;
+    if (!input || !controls) throw Error('missing fixture nodes'); input.setSelectionRange(2, 5);
     f.button('Environment').click(); await f.api.ready; f.root.hidden = true; f.root.hidden = false;
     f.button('Access').click(); await f.api.ready;
     return {input: input === f.root.querySelector('textarea'), value: input.value, start: input.selectionStart, end: input.selectionEnd,
-      screen: screen === f.root.querySelector('[data-fixture-terminal]'), disposed: f.terminals[0]?.disposed};
-  }), {input: true, value: 'unsent public key', start: 2, end: 5, screen: true, disposed: false});
+      controls: controls === f.root.firstElementChild, terminals: f.terminals.length};
+  }), {input: true, value: 'unsent public key', start: 2, end: 5, controls: true, terminals: 0});
 });
-test('hidden completed reads do not mount or attach until deliberate Return', async t => {
+test('hidden completed project reads never attach a terminal on showing details', async t => {
   const page = await fixture(t);
   await page.evaluate(async () => {const f = window.drawerFixture; f.root.hidden = true; await f.api.refresh();});
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
-  await page.evaluate(async () => {const f = window.drawerFixture; f.root.hidden = false; await f.api.returnToWork();});
-  assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length, restored: window.drawerFixture.terminals[0]?.restored})), {count: 1, restored: 1});
+  await page.evaluate(async () => {const f = window.drawerFixture; f.root.hidden = false; await f.api.ready;});
+  assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   assert.deepEqual(await writes(page), []);
 });
 
