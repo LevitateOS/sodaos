@@ -1,5 +1,29 @@
 # Current handoff
 
+## Isolated deployment and native sysfs admission correction
+
+The user explicitly declined backups and renewed the deployment request.
+`3c2a7d4` affected components were deployed to `soda-native-spaces-658f2af`:
+helper/backend, generated Forgejo customization, proxy configuration and new-project
+image default. Both original project CIDs remain running without project restarts.
+Each received native-signature-verified `tmux-3.2a-5.el9.x86_64` after RPM transaction
+tests, the exact managed program and updated project-init/runtime parent. No package
+upgrades, root replacement, capability changes or backups; original account/key
+hashes remained unchanged. Soda SQLite integrity and customization byte checks
+passed. Services are active. `soda-test` was not contacted.
+
+The first actual managed terminal probe failed at creation. Native observation
+identified read-only sysfs `/sys` and `/sys/fs` owned by unmapped host root (65534),
+while delegated cgroup directories are correctly project-root owned. The guard
+incorrectly applied mutable-directory ownership rules to those kernel ancestors;
+cleanup inspection hit the same refusal. Failed run/runtime records are retained,
+not adopted or retried. Source now opens no-follow descriptors, checks actual
+kernel filesystem types with native `stat` and read-only sysfs flags, retaining
+root ownership/non-writability checks for delegated cgroups and all mutable files.
+No ownership/capability workaround was applied. Focused Python boundary tests pass;
+rebuilt deployment and native continuity proof for this correction follow separately.
+Evidence and exact one-target maintenance recipes: `.artifacts/deploy-3c2a7d4/`.
+
 ## Merged deployment preparation — native build/check/export, not installed
 
 Candidate `3c2a7d45f8212c83504f30040f1796d5c855470a` now has a clean

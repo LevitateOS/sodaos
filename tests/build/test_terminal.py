@@ -173,6 +173,7 @@ class ManagedTerminalBoundary(unittest.TestCase):
     def test_cgroup_population_not_unit_status_proves_cleanup(self):
         group = self.root/terminal.cgroup_directory(self.identifier).lstrip('/')
         group.mkdir(parents=True)
+        self.mock_kernel_filesystems()
         (group/'cgroup.events').write_text('populated 1\nfrozen 0\n')
         self.assertFalse(terminal.cgroup_empty(self.identifier))
         with patch.object(terminal, 'service_state', return_value='inactive'):
@@ -183,6 +184,37 @@ class ManagedTerminalBoundary(unittest.TestCase):
         self.assertTrue(terminal.cgroup_empty(self.identifier))
         group.parent.rmdir()
         with self.assertRaises(FileNotFoundError): terminal.cgroup_empty(self.identifier)
+
+    def mock_kernel_filesystems(self):
+        def stat_command(args, **kwargs):
+            fd = kwargs['pass_fds'][0]
+            self.assertEqual(args, ['/usr/bin/stat', '-f', '-c', '%T', '/proc/self/fd/' + str(fd)])
+            path = Path(os.readlink('/proc/self/fd/' + str(fd)))
+            return types.SimpleNamespace(stdout=b'sysfs\n' if path.name in ('sys', 'fs') else b'cgroup2fs\n')
+        commands = patch.object(terminal.subprocess, 'run', side_effect=stat_command)
+        readonly = patch.object(terminal.os, 'fstatvfs', return_value=types.SimpleNamespace(f_flag=os.ST_RDONLY))
+        commands.start(); readonly.start()
+        self.addCleanup(commands.stop); self.addCleanup(readonly.stop)
+
+    def test_kernel_ancestry_accepts_unmapped_sysfs_but_not_mutable_or_wrong_filesystems(self):
+        group = self.root/'sys/fs/cgroup/system.slice'; group.mkdir(parents=True)
+        self.mock_kernel_filesystems()
+        inspected = terminal.os.fstat
+        def mapped_owner(fd):
+            fields = list(inspected(fd))
+            if Path(os.readlink('/proc/self/fd/' + str(fd))).name in ('sys', 'fs'):
+                fields[4] = 65534
+            return os.stat_result(fields)
+        with patch.object(terminal.os, 'fstat', side_effect=mapped_owner):
+            os.close(terminal.cgroup_parent())
+            with patch.object(terminal.os, 'fstatvfs', return_value=types.SimpleNamespace(f_flag=0)):
+                with self.assertRaises(ValueError): terminal.cgroup_parent()
+            with patch.object(terminal.subprocess, 'run', return_value=types.SimpleNamespace(stdout=b'ext2/ext3\n')):
+                with self.assertRaises(ValueError): terminal.cgroup_parent()
+        group.chmod(0o777)
+        with self.assertRaises(ValueError): terminal.cgroup_parent()
+        group.chmod(0o755); group.rmdir(); group.symlink_to(self.directory)
+        with self.assertRaises(OSError): terminal.cgroup_parent()
 
     def test_occupied_creation_and_missing_program_never_start_service(self):
         with patch.object(terminal.subprocess, 'run') as run:

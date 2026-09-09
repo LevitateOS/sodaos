@@ -397,8 +397,34 @@ def cgroup_directory(identifier):
     return '/sys/fs/cgroup/system.slice/soda-terminal-' + identifier + '.service'
 
 
+def cgroup_parent():
+    # /sys is host-owned read-only sysfs: host root is deliberately unmapped in
+    # the project user namespace. Do not chown it or relax mutable-path checks.
+    # Admit its kernel filesystem through held no-follow descriptors instead;
+    # the delegated cgroup hierarchy must still be owned by project root.
+    fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for part in ('sys', 'fs', 'cgroup', 'system.slice'):
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = child
+            info = os.fstat(fd)
+            result = subprocess.run(['/usr/bin/stat', '-f', '-c', '%T', '/proc/self/fd/' + str(fd)],
+                                    pass_fds=(fd,), check=True, timeout=2,
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if part in ('sys', 'fs'):
+                if result.stdout != b'sysfs\n' or not os.fstatvfs(fd).f_flag & os.ST_RDONLY:
+                    raise ValueError('expected read-only kernel sysfs')
+            elif result.stdout != b'cgroup2fs\n' or info.st_uid != 0 or info.st_mode & 0o022:
+                raise ValueError('unsafe delegated cgroup directory')
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def cgroup_empty(identifier):
-    parent = root_directory('/sys/fs/cgroup/system.slice')
+    parent = cgroup_parent()
     try:
         try:
             directory = os.open('soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
@@ -419,7 +445,15 @@ def cgroup_empty(identifier):
 
 def guard(identifier):
     path = terminal_path(identifier)
-    group = root_directory(cgroup_directory(identifier))
+    parent = cgroup_parent()
+    try:
+        group = os.open('soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+    finally:
+        os.close(parent)
+    info = os.fstat(group)
+    if info.st_uid != 0 or info.st_mode & 0o022:
+        os.close(group)
+        raise ValueError('unsafe terminal cgroup')
     try:
         fd = os.open('cgroup.procs', os.O_RDONLY | os.O_NOFOLLOW, dir_fd=group)
         try:
