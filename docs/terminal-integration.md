@@ -1,5 +1,20 @@
 # Drawer terminal integration contract
 
+## Multi-project workspace design — proposed UI, not implemented
+
+The user now explicitly wants multiple concurrent terminals across multiple projects,
+with design before implementation. The [Spaces proposal](spaces-design.md) defines
+the proposed full-page navigator, cross-project tab/pane groups and compact drawer
+view. They reuse the same managed session mechanism, not separate terminal owners.
+The current backend still enforces one terminal per Soda context/project; multiple
+frontend tabs alone cannot satisfy this request. Proposed session collection and
+ID-keyed ownership must preserve the original binding, one writer, finite retention,
+capacity reservations, Stop and logout/rotation boundaries below.
+
+The [handoff](implementation-status.md) records actual `22d8591` isolated browser
+same-shell reload/End evidence and remaining native probe gaps. Older source-slice
+status language below is not an assertion that nothing has since been deployed.
+
 ## Workspace layout slice — source, not deployed
 
 The native `custom/header` and `custom/footer` hooks load one `sodaspaces.js`

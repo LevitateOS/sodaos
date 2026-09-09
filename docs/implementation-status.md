@@ -1,5 +1,29 @@
 # Current handoff
 
+## Spaces multi-project UI/UX — design proposal only
+
+The user requested design first for the Spaces top-bar destination and multiple
+concurrent terminals across multiple projects. `docs/spaces-design.md` now records
+a proposed project/session navigator, cross-project tab/pane workspace, compact
+drawer relationship, explicit Hide/End/Stop semantics, lifetime/uncertainty states,
+responsive/keyboard behavior and bounded implementation/acceptance sequence.
+The concurrency goal is selected; pane limits/layout details and optional bulk
+controls remain recommendations for review, not implemented features.
+
+Source inspection confirmed the selected Forgejo 15.0.7 navbar's official
+`custom/extra_links` hook is immediately after Explore; the current override can
+carry the link without a backend fork. The Go page's authenticated shell/fixed
+OAuth return and authorized collection still need implementation review. Current
+`terminalKey{context, project}` remains a single-session constraint requiring a
+real backend change, not just extra tabs. Preserve original-context/account and
+one-writer/native safety boundaries; no all-user terminal discovery or cross-login
+adoption is selected.
+
+Only design documentation and cross-references changed. No build/test, application
+implementation, VM contact, rollout, project recreation or push occurred for this
+request. Rocky 10.2 remains built/checked but undeployed pending the separate
+existing-project decision below.
+
 ## Rocky 10.2 baseline — built and checked, not deployed
 
 The user requested upgrading the Rocky baseline to 10.2. Candidate
