@@ -74,7 +74,17 @@
   line-height: 1.6;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
+  .soda-org-home > .ui.container > .ui.stackable.grid {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+
+  .soda-org-home .soda-org-home-main,
+  .soda-org-home .soda-org-home-sidebar {
+    width: 100% !important;
+  }
+
   .soda-org-home .soda-org-home-sidebar > .center.aligned > .button {
     flex: 1 1 180px;
   }

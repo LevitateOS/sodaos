@@ -130,6 +130,22 @@
 }
 
 @media (max-width: 900px) {
+	.soda-org-header {
+		align-items: flex-start;
+		min-height: 0;
+		padding: 0;
+	}
+
+	.soda-org-header .org-header {
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.soda-org-header .button-sequence {
+		margin-left: 0 !important;
+		white-space: normal !important;
+	}
+
 	.soda-org-settings-layout > .flex-container-nav {
 		position: static;
 		flex-basis: 100%;
@@ -148,25 +164,10 @@
 		width: calc(100% - 32px) !important;
 	}
 
-	.soda-org-header {
-		align-items: flex-start;
-		min-height: 0;
-		padding: 0;
-	}
-
 	.soda-org-header > .org-avatar {
 		width: 64px;
 		height: 64px;
 		border-radius: 18px 18px 18px 6px;
 	}
 
-	.soda-org-header .org-header {
-		flex-direction: column;
-		gap: 12px;
-	}
-
-	.soda-org-header .button-sequence {
-		margin-left: 0 !important;
-		white-space: normal !important;
-	}
 }

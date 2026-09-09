@@ -8,7 +8,7 @@ test('ordinary repository pages share container insets and navigation gap', {ski
   const browser = await chromium.launch({channel:'chrome',headless:true});
   try {
     const page = await browser.newPage();
-    for (const width of [1440,390]) {
+    for (const width of [1440,960,800,720,390]) {
       await page.setViewportSize({width,height:1000});
       let reference;
       for (const suffix of ['', '/projects', '/issues', '/releases']) {

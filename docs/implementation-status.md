@@ -1,6 +1,46 @@
 # Current handoff
 
-## Bun/TypeScript conversion — source validated; preview activation pending
+## Half-desktop layouts — local preview updated
+
+Repository pages now stack their identity/actions and metadata through 1000 CSS
+pixels, keep a full-width clone row, and remove compounded metadata spacing.
+Dashboard feed/repository columns stack before the feed becomes cramped. Explore
+wraps its complete native search/filter group before the input collapses. The
+shared header follows Forgejo's 767px mobile boundary; narrow settings use smaller
+body insets, and profile, organization and administrator compositions stack their
+columns/actions earlier. Native handlers, permissions, controls and navigation
+remain upstream-owned; this changes presentation only.
+
+The user explicitly approved updating `sodaos-local-forgejo` at localhost:3300.
+Its generated branding mount is active, with the same named data volume and other
+configuration. Missing static Sodaspaces modules/styles were projected from the
+existing build and hash-checked terminal assets into its existing public mount;
+previous bytes and Compose configuration are retained. This restores preview asset
+loading, not a backend/project/terminal execution proof or appliance delivery.
+Future branding changes require `bun run build:preview`; this does not rebuild the
+separately projected Sodaspaces assets in the local public mount.
+
+Evidence is retained under `.artifacts/responsive-half-desktop/`. Chrome measured
+eight real routes at 720, 768, 800, 900, 960, 1440 and 390 pixels: all 56 responses
+were HTTP 200 with no document-width overflow. Visual review covers repository,
+dashboard, Explore, issue/pull lists and personal settings; authenticated admin/org
+pages have source review only because the retained screenshot fixture lacks that
+access. Browser component checks cover light/dark control sizes and clone-row
+placement, and native repository/Explore checks cover spacing, resizing and menu
+stability. Strict TypeScript, Forgejo source tests and Go script tests pass.
+The native personal-settings journey also passes navigation, focus/escape, avatar
+dialog/fallback and all permitted destinations through 320 pixels. Its initial
+320px header overflow was fixed by removing compounded mobile icon margins/gaps.
+
+The screenshot helper also now leaves native styles loaded unless `--local-css`
+is explicitly selected. Its previous always-truthy empty Map removed them from
+ordinary captures. Failed verification exposed the missing preview static files;
+those failures and an initial browser-test timeout at Bun's five-second default
+remain recorded, followed by successful checks with the multi-viewport timeout.
+No fixture accounts/repositories, retained projects, provider configuration or
+appliance deployment changed.
+
+## Bun/TypeScript conversion — source validated; preview subsequently activated
 
 All 36 authored JavaScript entrypoints/modules/tests (including the avatar CJS
 helper) are ported to strict TypeScript. Root scripts, browser modules, tests and
@@ -43,17 +83,17 @@ Actual local evidence under `.artifacts/bun-typescript-port/`:
   That is not native Linux validation; full native x86_64/aarch64 build/check and
   installed journeys retain their existing authorization and proof boundaries.
 
-One integration action remains: the existing local `sodaos-local-forgejo` preview
-binds the former JS source directory, so its login script currently returns 404.
+At the migration handoff, the existing local `sodaos-local-forgejo` preview still
+bound the former JS source directory, so its login script returned 404.
 `bun run build:preview` now projects the production branding payload, including
 minified JS, into `.artifacts/forgejo-preview/branding/`. Its bytes and absence of
 TypeScript files were checked. The generated Compose candidate changes only that
 read-only branding mount, retains the existing named data volume/configuration,
 and passes Compose configuration validation. Original/candidate files are retained
-under `.artifacts/bun-typescript-port/preview-compose/`. The running container has
-not been recreated: the prior preview restart authorization was single-use. Activate
-the prepared mount only after explicit approval, then check the real preview's
-scripts and focused browser behavior. This pending step prevents goal completion.
+under `.artifacts/bun-typescript-port/preview-compose/`. The migration left the
+running container unchanged because its earlier restart authorization was single-use.
+The user subsequently approved activation during the responsive-layout work above;
+that section records the actual preview update.
 
 ## Root Bun workspace and TypeScript scaffolding
 

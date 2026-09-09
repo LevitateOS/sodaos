@@ -148,16 +148,10 @@
   display: none;
 }
 
-@media (max-width: 700px) {
-  :where(.page-content:has(> .soda-repository-header)) > .ui.container:not(.fluid),
-  .soda-repository-header > .ui.container {
-    width: calc(100% - 32px) !important;
-  }
-
-  .soda-repository-header {
-    padding-top: 16px;
-  }
-
+/* Forgejo reveals the action labels above its narrow navigation breakpoint.
+   Give that complete row its own line before it can squeeze or wrap away from
+   the repository identity in half-width desktop windows. */
+@media (max-width: 1000px) {
   .soda-repository-header .repo-header {
     align-items: flex-start;
     flex-direction: column;
@@ -169,6 +163,17 @@
     margin-left: 0;
     flex-wrap: wrap;
     overflow: visible;
+  }
+}
+
+@media (max-width: 700px) {
+  :where(.page-content:has(> .soda-repository-header)) > .ui.container:not(.fluid),
+  .soda-repository-header > .ui.container {
+    width: calc(100% - 32px) !important;
+  }
+
+  .soda-repository-header {
+    padding-top: 16px;
   }
 
   .soda-repository-header > overflow-menu .item {

@@ -174,11 +174,7 @@
 	background: var(--soda-page-surface);
 }
 
-@media (max-width: 700px) {
-	:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
-		padding: 16px 16px;
-	}
-
+@media (max-width: 900px) {
 	.soda-admin-details--config .admin-dl-horizontal {
 		grid-template-columns: minmax(0, 1fr);
 		gap: 4px;
@@ -201,5 +197,11 @@
 		flex-basis: 100%;
 		min-width: 0;
 		width: 100%;
+	}
+}
+
+@media (max-width: 700px) {
+	:is(.soda-admin-details--auth-new, .soda-admin-details--auth-edit, .soda-admin-details--user-new, .soda-admin-details--user-edit) > .ui.attached.segment {
+		padding: 16px 16px;
 	}
 }

@@ -23,10 +23,18 @@
 .soda-dashboard-discover h2 { font-size: 23px; }
 .soda-dashboard-discover p { color: var(--soda-page-muted); font-size: 15px; line-height: 1.6; margin: 8px 0 16px; }
 .soda-dashboard-discover a { display: inline-flex; align-items: center; gap: 12px; font-weight: 600; }
-@media (max-width: 900px) { .soda-dashboard-grid { grid-template-columns: minmax(0, 1fr) 310px; gap: 16px; } }
+/* A split desktop window cannot fit a readable feed beside the repository
+   rail. Stack at the point where the feed would fall below 500px. */
+@media (max-width: 1000px) {
+  .soda-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .soda-dashboard-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+  .soda-dashboard-art { display: none; }
+  .soda-dashboard-discover { margin-top: 0; }
+}
 @media (max-width: 700px) {
   .soda-dashboard-art { height: 230px; }
   .soda-dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .soda-dashboard-sidebar { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Omit the native heatmap separator within the dashboard feed. */

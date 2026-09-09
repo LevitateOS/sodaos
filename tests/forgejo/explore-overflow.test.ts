@@ -33,6 +33,10 @@ test('native Explore overflow settles and remains usable after resizing', { skip
         });
         assert.equal(state.mutations, 0, `${route} ${width}px: tabs must stop being reparented`);
         assert.equal(state.overflow, false, `${route} ${width}px: page overflow`);
+        if (route === 'repos' && width >= 700) {
+          const searchWidth = await page.locator('#repo-search-form input[type="search"]').evaluate(el => el.getBoundingClientRect().width);
+          assert(searchWidth >= 180, `${width}px: search input must remain usable beside native filters`);
+        }
         if (width >= 700) {
           assert.deepEqual(state.visible, ['Repositories', 'Users', 'Organizations']);
         } else {

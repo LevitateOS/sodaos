@@ -33,6 +33,10 @@
   border: 0;
 }
 
+/* The native search form sits inside this menu. Wrap that whole group before
+   the input is squeezed between the fixed tabs and Filter/Sort controls. */
+.soda-toolbar > .filter.menu:has(#repo-search-form) { flex-basis: 400px; }
+
 .soda-toolbar #repo-search-form {
   flex: 1;
   margin: 0;
