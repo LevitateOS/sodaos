@@ -34,6 +34,8 @@ class ForgejoPayload(unittest.TestCase):
         for font in ('barlow', 'fraunces', 'ibm-plex-mono'):
             self.assertIn(f'public/assets/soda/fonts/{font}/LICENSE', files)
         self.assertIn('public/assets/soda/forgejo/forgejo-LICENSE', files)
+        self.assertEqual(files['public/assets/soda/forgejo/lit.js'], '@build/forgejo-js/lit.js')
+        self.assertEqual(files['public/assets/soda/forgejo/lit.LICENSE'], 'appliance/licenses/lit-LICENSE')
         self.assertIn('options/locale/locale_en-US.ini', files)
 
     def test_locale_fetch_is_locked_and_preserves_native_catalog(self):

@@ -407,16 +407,16 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   native helper, with the selected but unimplemented Soda-owned Spaces Go/template
   page. Keep `soda-dashboard` and all persistent project/service identities.
 - **Frontend:** stock Forgejo and its supported custom-template hooks, a non-modal
-  native-page/workspace split view, scoped native styling and vanilla JavaScript
+  native-page/workspace split view, scoped native styling and vanilla TypeScript
   using the JSON API. The first aside/view-tab source slice is implemented and locally
   tested; genuine native route reflow and complete session continuity are pending.
   Reuse appropriate [presentation parts](../appliance/forgejo/README.md#presentation-component-contract)
   through a drawer-local root; `.soda-page` activates a full-page shell and must not
   wrap the drawer.
-  Lit is an option for a new self-contained interactive feature, including the
-  drawer, when that feature justifies it. No Lit dependency or frontend build is
-  added by the presentation extraction; vanilla JavaScript remains the current
-  drawer candidate. Keep native forms/lists/scripts and Cockpit's separate stack.
+  [Lit](lit.md) is now scaffolded for Soda-owned interactive components through
+  the existing Bun build. The drawer and other existing modules remain vanilla
+  TypeScript; no component migration is part of the scaffold. Keep native
+  forms/lists/scripts and Cockpit's separate stack.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   The isolated browser journey now exercises this routing; appliance cutover is separate.

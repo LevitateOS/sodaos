@@ -80,6 +80,15 @@ and retained failures. Earlier source-preparation evidence is historical only.
 The [handoff](implementation-status.md) records exactly what ran. No notices have
 been newly packaged or installed by moving these notes.
 
+## Lit runtime
+
+The Lit scaffold stages the exact BSD-3-Clause text from its resolved npm package
+as `public/assets/soda/forgejo/lit.LICENSE`, retained in
+[`appliance/licenses/lit-LICENSE`](../appliance/licenses/lit-LICENSE). The bundled
+core (`lit`, `lit-element`, `lit-html`, `@lit/reactive-element`) shares that license
+text and copyright; dependency identities remain in the root Bun lockfile. This
+adds the browser runtime's notice, not a wider distribution-clearance claim.
+
 ## Terminal transport dependency
 
 The native terminal source adds `github.com/coder/websocket`, pinned with real module

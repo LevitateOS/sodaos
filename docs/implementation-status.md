@@ -1,5 +1,41 @@
 # Current handoff
 
+## Lit scaffold — local build, browser and packaging checks passed
+
+The user selected scaffolding before component migration. Lit 3.3.3 is pinned in
+the root Bun workspace and resolved in its existing lockfile. The browser build
+bundles one core runtime at `public/assets/soda/forgejo/lit.js`, with the upstream
+BSD notice beside it. Future modules can import from `lit`; the build maps that
+import relative to each module's production payload destination, including beneath
+`AppSubUrl`. Lit submodule imports are explicitly rejected until their shared
+exports and mapping are added. Existing non-Lit imports retain their public URLs.
+
+No production component imports the runtime yet, and no template loads it eagerly.
+The drawer, terminal and native adapters remain unchanged. Forgejo still owns its
+native workflows, controls and authority; Cockpit retains React/PatternFly.
+[The Lit guide](lit.md) records the strict TypeScript authoring pattern, build
+contract, render-root choices and lifecycle responsibilities for later ports.
+
+Local evidence is retained under `.artifacts/lit-scaffold/`:
+
+- Frozen installation, preview build and all four strict TypeScript checks pass.
+  No existing dependency versions changed.
+- Forgejo tests pass 27 checks with 17 opt-in skips; frontend tests pass 57 with
+  two opt-in skips. `bun run test:lit` passes all five checks, including real Chrome
+  rendering/reactive updates, independent element state, native form preservation
+  and one shared runtime request from both asset roots beneath a URL prefix.
+- Three Python payload/staging checks pass, including the actual staging recipe
+  with synthetic build inputs. Focused Go missing/unreadable payload checks pass
+  for the runtime/license and existing root-level Sodaspaces assets.
+- The local Forgejo preview serves the runtime (29,349 bytes) and license exactly
+  as built/staged. Its existing generated branding mount was refreshed without a
+  container restart. The build guard and browser fixture stay out of production UI.
+
+Initial local checks caught Bun's build-entrypoint resolver kind, TypeScript
+narrowing and the negative test's wrapped build diagnostic; corrected checks pass.
+This is scaffold and local browser/package evidence. Component ports and native
+appliance delivery remain separate work; no native rollout was performed.
+
 ## Half-desktop layouts and compact repository header — local preview updated
 
 The repository header now has two rows: a compact repository identity beside the
