@@ -1,5 +1,38 @@
 # Current handoff
 
+## Merged deployment preparation — native build/check/export, not installed
+
+Candidate `3c2a7d45f8212c83504f30040f1796d5c855470a` now has a clean
+matching-native x86_64 build, full production source/staging check and verified
+export under `.artifacts/deploy-3c2a7d4/`. Go 1.26.7 and run-local Bun 1.4.2 were
+used; the complete TypeScript migration remains intact. The first build stopped
+at an upstream Tea archive HTTP 502. Its worktree/logs remain. A fresh second
+worktree used the cached source archive after matching the unchanged Tea lock
+SHA256; no historical binaries or stage were substituted.
+
+`build-native.sh x86_64`, `check-native.sh x86_64` and `soda-artifacts bundle`
+completed successfully for that exact candidate. Checks include Go packages,
+all strict TypeScript boundaries, Bun frontend/Forgejo/Cockpit tests, 68 Python
+build fixtures (one opt-in skip), and all 11 actual-stage packaging tests.
+The expected negative locale fixture diagnostic remains in the log. Exported
+`build-info.json` SHA256 is
+`d7e0481a7e5c6f007efa8a20e76cab7208551ccfde45996e51102a71ac0711a0`.
+This closes the missing build/stage/export evidence, not installed acceptance.
+
+Pinned-SSH read-only inspection reached `soda-native-spaces-658f2af`: its four
+application/helper services and both original exact-CID projects are running;
+original Alice/Bob identities/groups remain. Both project roots lack tmux and
+have the expected systemd `system.slice`/sshd cgroup paths. Path observations do
+not prove managed terminal supervision. The Rocky tmux RPM was downloaded and
+its dependencies, file list and `/etc/shells` scriptlet effects inspected locally;
+its signature is not established by the builder's NOKEY result. No project
+package/program was installed, backup/quiescence/rehearsal performed, service
+restarted, native terminal probe executed, or deployment/push performed.
+`soda-test` was not contacted. Confirm the selected target, bounded service/project
+interruption and copied-root rehearsal before retained-root maintenance; preserve
+both lasting roots and all later writes. Exact maintenance and native process
+continuity/cleanup proof remain outstanding.
+
 ## Tmux / Bun-TypeScript merge — local validation, no deployment
 
 Merged `5c845a7` with fetched `origin/main` at `560265b`, preserving the incoming
