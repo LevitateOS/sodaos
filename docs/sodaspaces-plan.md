@@ -15,11 +15,19 @@ fixed OAuth return and shared multi-session UI now have local source/browser cov
 Bounded v2 layout, stable measured panes, shared navigation/actions and compact
 native coexistence now have local source/browser coverage, alongside current journey
 source ports and actual Go HTML→emitted-page integration. The
-[Lit workspace implementation plan](lit-migration-plan.md) remains the single detailed
+[Lit workspace implementation plan](lit-migration-plan.md) remains the single feature
 sequence: steps 1–5 are locally implemented; observed attention, candidate closure and
 scoped native/CLI proof (6a–6c) remain. No installed journey or CLI acceptance is
 inferred from the synthetic layout/socket fixtures.
 The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
+
+The [frontend improvement guide](frontend-improvement-plan.md) now consolidates the
+post-step-5 architecture research and cleanup requirements. Retain Go/Forgejo + Lit;
+canonical token migration is mandatory, alongside enforced template diagnostics,
+typed view composition and coherent source/build ownership. Apply this bounded
+cleanup before further UI expansion, preserving completed steps and any current
+step-6 work. The Lit plan remains the feature sequence; the guide contains cleanup
+detail, not a second product roadmap or new native permission.
 
 **Execution is revision-specific.** Original access/cutover and later single-terminal
 results are bounded x86_64 evidence, not full UX/product acceptance. Isolated
@@ -102,9 +110,9 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
   context, copy upstream authentication, relay HTML or borrow cookies. The Lit plan
   includes page-only CSP, styling/clipboard, fixed OAuth return and staging checks.
 
-The authorized collection, navbar/page, fixed OAuth return and initial shared
-multi-session UI are source-implemented and locally tested. Pane layouts, attention
-and concurrent native acceptance remain pending.
+The authorized collection, navbar/page, fixed OAuth return and shared multi-session
+UI are source-implemented and locally tested, including step-5 measured panes and
+compact projections. Observed attention and concurrent native acceptance remain pending.
 The [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) now specifies
 concrete owners and exits for these features. Validate authentication/expiry/logout,
 denied/unavailable listings, per-ID actions and same-session drawer use across both
@@ -121,8 +129,8 @@ non-modal resizable aside, full-height Terminal/Environment/Access views and sam
 component focus/Hide continuity. Managed single-session navigation/Refresh restore
 and finite retention are implemented; `22d8591` has bounded installed browser evidence.
 Incoming native pane/header adaptations also have separately scoped preview evidence.
-The shared multi-session Lit workspace now has local source/browser coverage; direct
-layouts, broader native coexistence/continuity and browser-only onboarding/Git remain
+The shared multi-session Lit workspace and direct layouts now have local source/browser
+coverage. Broader native coexistence/continuity and browser-only onboarding/Git remain
 unimplemented or incompletely verified.
 See the [current component contract](terminal-integration.md).
 
@@ -290,7 +298,7 @@ completion of the new drawer; the historical delivery slices below are not a com
 current control checklist. Show only actions relevant to the observed state and actor,
 not every button at once. The established native hooks now mount the complete
 component through one non-modal aside shell; the previous duplicate API caller is
-removed. The layout is a first source slice, not complete native session continuity.
+removed. The layout has step-5 local coverage, not complete native session continuity.
 Retain the legitimate existing operation owners.
 
 | Control | Required behavior | Current implementation gap |
@@ -301,7 +309,7 @@ Retain the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs and shared multi-session UI have local coverage; advanced layouts and concurrent native/CLI acceptance remain pending |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs, shared multi-session UI and measured layouts have local coverage; attention and concurrent native/CLI acceptance remain pending |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -354,8 +362,10 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 1. **Finish Spaces and its companion drawer with Lit.** The single
    [detailed sequence](lit-migration-plan.md) records locally completed steps 1–5,
    including bounded layout migration, measured panes, both projections,
-   compact/native coexistence and installed-journey source ports. Next, 6a–6c add
-   observed attention, candidate closure and scoped native/selected-CLI proof.
+   compact/native coexistence and installed-journey source ports. Apply the
+   [frontend cleanup](frontend-improvement-plan.md#8-implementation-order-and-exits)
+   to those owners before further UI expansion; 6a–6c still own observed attention,
+   candidate closure and scoped native/selected-CLI proof.
    Preserve existing native reattachment, management/access/security and
    incoming responsive Forgejo controls. Validate native-left/form coexistence and
    the remaining real session/cleanup matrix before claiming acceptance or delivery.
@@ -403,9 +413,13 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
    not lossless rollback. A terminal milestone may ship before later management work;
    every delivered milestone still needs its relevant checks, not just a final sweep.
 
-### Immediate next step — observed attention, then scoped candidate proof
+### Immediate next step — frontend cleanup, attention and scoped candidate proof
 
-- Implement [Lit step 6a](lit-migration-plan.md#6a--observed-unread-and-lifecycle-attention) over the existing
+- Follow the [post-step-5 cleanup](lit-migration-plan.md#cleanup-after-step-5): mandatory
+  shared tokens, enforced analyzer and one typed management view before broader
+  extraction. Preserve any attention work already underway; no new renderer or
+  native mechanism is selected. Include the cleanup exits in step 6b.
+- Continue [Lit step 6a](lit-migration-plan.md#6a--observed-unread-and-lifecycle-attention) over the existing
   stable owners and original bindings. Keep unread observation bounded and current;
   do not infer semantic agent states or renew lifetime on focus/output.
 - Preserve step 5's v2 migration, measured 56-column/12-row split viability, shared

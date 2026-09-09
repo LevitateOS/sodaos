@@ -3,8 +3,9 @@
 Implement the selected [Spaces page](spaces-design.md) and
 [right-half drawer](spaces-drawer-design.md) with the shared Lit scaffold, not two
 frontends or another preview application. The [leading plan](sodaspaces-plan.md)
-owns product scope/order; this document is its **single detailed implementation
-sequence for the Lit workspace**. [Lit guidance](lit.md) owns framework/build rules,
+owns product scope/order; this document is its **single feature implementation
+sequence for the Lit workspace**. The [frontend improvement guide](frontend-improvement-plan.md)
+owns the researched cleanup detail within that sequence. [Lit guidance](lit.md) owns framework/build rules,
 the [terminal contract](terminal-integration.md) owns native lifetime, and the
 [API guide](dashboard-api.md) describes implemented endpoints, not the proposals here.
 
@@ -25,6 +26,23 @@ their historical singleton/port instructions are not tasks to repeat. Do not por
 the superseded mockup or reintroduce grid presets/fake state machines.
 The user subsequently requested end-to-end implementation and local testing.
 Deployment, new appliance fixtures and project recreation remain separately scoped.
+
+## Cleanup after step 5
+
+The architecture research was checked against `8e812dc`
+(`feat(spaces): close local layout integration and journey ports`). Preserve its
+completed layout, shared controls, current journey ports and Go-page integration.
+The [consolidated guide](frontend-improvement-plan.md) recommends retaining Lit and
+defines the next cleanup before further UI expansion: consolidate canonical tokens
+across both surfaces, integrate the demonstrated separate analyzer, extract typed
+project views, then improve remaining presentation and source organization.
+
+This is not a replay of steps 1–5 or a new renderer/backend migration. If step 6a
+has already advanced, preserve those changes and apply the same requirements to its
+current owners; do not reset work to the reviewed commit. Step 6b's candidate closure
+must include token adoption, enforced template diagnostics and the preserved behavior
+checks. The analyzer's isolated success is not a completed root-workspace gate, and
+known callable-event typing gaps remain explicit. Native/CLI acceptance is still 6c.
 
 ## 1. Starting point and decisions
 
@@ -354,8 +372,8 @@ for their bounded single-terminal path. They were ported and locally exercised,
 keyboard behavior, real concurrent processes and selected CLIs remain step-6 proof.
 The requirements below describe the implemented slice, not instructions to repeat it.
 
-Implement the approved designs on `18aceb2`'s shared workspace, in the following
-commit-sized slices. Each slice includes its own callers, focused tests and handoff;
+The following commit-sized slices record the implementation from `18aceb2`'s shared
+workspace. Each slice includes its own callers, focused tests and handoff;
 local implementation/testing does not require another design approval. None grants
 native execution or deployment. Do not add a second workspace, framework or API.
 
@@ -557,6 +575,11 @@ replacement preserves exact native IDs, not DOM. Native proof is still separate.
 
 #### 6a — observed unread and lifecycle attention
 
+Apply the [post-step-5 cleanup](#cleanup-after-step-5) to the shared presentation
+before expanding it, preserving any already implemented attention work. New attention
+views use the same canonical tokens and checked typed composition; they do not
+introduce another local palette, giant template or action/state owner.
+
 **Owners:** terminal owner emits bounded typed observations; shared workspace owns
 per-owner unread state and stable authorized navigation. Reuse existing metadata
 and error contracts, not DOM/status-text scraping or another transport subscriber.
@@ -602,6 +625,13 @@ Reconcile current API/credential/installation and feature guides with the delive
 source contracts, including schema v6 and the bounded Go HTML exception. Retain
 historical execution records. Remove genuinely superseded helpers only as their
 callers move; legacy locator preservation/refusal is not dead code to prune blindly.
+
+Close the [frontend improvement requirements](frontend-improvement-plan.md#9-validation-and-completion)
+on the actual candidate: canonical tokens consumed on both surfaces, source checks
+against new raw visual definitions, a required analyzer with verified compiler
+resolution and negative fixtures, and readable typed presentation with preserved
+owners. Keep the known analyzer event-parameter gap documented and behavior-tested.
+Source moves must include compiler/build/payload/import and caller changes together.
 
 Extend the **ported product-owned journeys** with the six-session/two-project matrix
 and exact per-ID correlation, writer, retention and cleanup checks. Add the actual
@@ -660,6 +690,8 @@ source journey ports or deterministic local failure checks unfinished.
 | Layer | Required checks (actual results belong in the handoff, not inferred from this table) |
 | --- | --- |
 | Local source/build | Frozen pinned Bun inputs with dependency lifecycle scripts disabled; `bun run typecheck`, `test:frontend`, `test:forgejo`, `test:lit`, retained Cockpit tests, Go tests/races for changed web/store/host callers. Required browser cases fail when the browser cannot run. |
+| Template diagnostics | Required analyzer alongside the product compiler, under the root single lock; actual-source inventory, positive fixtures and individual negative binding/markup cases. Unknown-event checks explicitly enabled; required warnings/errors fail. Separate analysis compiler and callable-event limitations documented. |
+| Design tokens | Canonical visual roles consumed in page and drawer, including fallbacks/inline presentation. Source checks detect new raw values; computed appearance, density, light/dark, focus and measured geometry are verified. Token availability must not activate full-page native-shell styles in the drawer. |
 | Storage/layout | V1→v2 migration, pending promotion, hidden/unresolved records, stable selection/order, malformed/bounded/future data and storage failure. Pure transforms send no effects; actual reload/partial metadata tests verify unchanged exact targets and no replay/Return. |
 | Component/geometry | Run `bun run test:layout` (`tests/frontend/drawer-layout.test.ts`, `SODA_DRAWER_LAYOUT=1`) and full-page workspace tests with real xterm/synthetic IO. Observe actual fitted columns/rows and transmitted resize frames after fonts/chrome settle, not a 216px proxy. Record host/screen/renderer/socket identity and disposal counts, focus/input isolation, clipping/overlays and screenshots through all pane/surface operations. |
 | Widths/themes | Light/dark; page 1920/1440/960/800/720/390/320; drawer 1440 with viable 35/50/65% ratios and widths just above/below the measured compact threshold. Long labels, warnings, menus, font load/change, zoom, orientation and visual keyboard viewport. Assert disabled unviable splits and exact desired-layout restoration, not tiny fonts or forced ratios. Simulated viewport checks are not real-device keyboard proof. |

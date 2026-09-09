@@ -1,5 +1,43 @@
 # Current handoff
 
+## Frontend architecture review and implementation guide — documentation only
+
+The user requested a consolidated agent handoff and reconciliation of the existing
+implementation/design docs. [Frontend improvement](frontend-improvement-plan.md)
+records the researched recommendation: retain Go/Forgejo + Lit, make canonical
+design-token adoption mandatory across page/drawer, add enforced template diagnostics,
+extract readable typed views and clarify source/build ownership. The Lit plan remains
+the feature sequence, with cleanup after locally completed step 5 and its exits in
+step 6b. Existing/current step-6 work must be preserved rather than reset.
+
+Compared the Lit plan and related docs against `8e812dc`
+(`feat(spaces): close local layout integration and journey ports`). Its step-5 closure
+remains intact. Corrected stale singleton and single-terminal descriptions in the
+design documents; step 6 attention/candidate/native/CLI work remains outstanding.
+Lit/TypeScript authoring and both designs now carry the same token/checking contract.
+
+Research evidence is consolidated in the guide; optional raw reports/fixtures remain
+under `.artifacts/frontend-architecture-review-20260910/`. Isolated analyzer 2.0.3 with
+TypeScript 5.9.3 analyzed the three actual Lit modules and reported seven review items;
+the positive fixture passed and the final negative fixture produced ten diagnostics
+with unknown-event checking enabled. Product TS7 browser checking passed during
+research. Root single-lock analyzer integration is **not implemented**, callable-event
+parameter checks remain incomplete, and no renderer migration was tested end to end.
+The independent reviewers disagreed; the guide records the rationale for retaining Lit.
+
+This documentation change includes no application, manifest/lock, generated payload,
+service, retained fixture/project, native execution or deployment changes. Earlier
+step-5 results below are historical evidence, not new runs for this guide.
+
+**Documentation verification:** compared the latest commit and relevant source/plan
+contracts, checked whitespace and all **196 local links/anchors** across the nine
+changed/new documents, and confirmed no tracked changes outside `docs/`. Results:
+`.artifacts/frontend-architecture-review-20260910/documentation-check.json`.
+No build, typecheck, application/native test or preview generation was run for this
+documentation edit. The terminal contract and its open compatibility question were
+not edited. The user subsequently requested committing this documentation; no push
+is included.
+
 ## Step 5 source closure — local checks passed; no installed or CLI acceptance
 
 Step 5a–5d is now locally source-complete, following `9ad7847`, `54686d0` and

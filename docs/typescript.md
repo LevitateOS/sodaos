@@ -40,6 +40,16 @@ All configurations extend `tsconfig.base.json`: strict checking, checked indexed
 access, exact optional properties, consistent filename casing and no emitted output.
 `skipLibCheck` skips third-party declaration checking, not our source.
 
+Lit tagged templates require additional binding analysis: ordinary strict TypeScript
+does not infer an HTML property's or event's type from its position in a string.
+The [frontend improvement guide](frontend-improvement-plan.md#required-analyzer-integration)
+specifies a required analyzer alongside the existing compiler checks, with its own
+compatible development-only compiler resolved through the single root lock. Research
+demonstrated this path in isolation; production integration remains to be implemented.
+An editor plugin alone is not a command-line gate, and the product compiler must not
+be downgraded to satisfy the analyzer. Typed view-helper APIs remain ordinary checked
+TypeScript and complement, rather than replace, internal template analysis.
+
 | Configuration | Owner and runtime |
 | --- | --- |
 | `tsconfig.json` | Root scripts; Bun, with DOM types for Playwright page callbacks |

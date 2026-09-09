@@ -11,6 +11,11 @@ local fixture coverage, not installed execution. Step 6 still specifies observed
 attention, candidate closure and native/selected-CLI acceptance. Shared session/action/attention semantics remain in the
 parent design and [terminal contract](terminal-integration.md).
 
+The [frontend improvement guide](frontend-improvement-plan.md) defines the detailed
+post-step-5 cleanup while preserving those completed owners. Both page and drawer
+must use the same canonical visual tokens and checked, composable Lit presentation.
+The guide's source/checker work does not establish installed native or CLI acceptance.
+
 The [visual sheets](design/spaces/README.md) show native-forge browsing alongside
 terminal work, the drawer's session switcher, and compact Forge/Terminal switching.
 Their native page and terminal content are fictional schematic drawings; they do not
@@ -65,6 +70,14 @@ ratio so a temporary small viewport does not overwrite their normal desktop pref
 Fit the real terminal using measured font metrics; never send zero-sized PTY resizes.
 Do not reduce the font automatically. On a typical 1440px display, half-width leaves
 room for roughly 80 columns; wider displays provide more.
+
+Express reusable colors, typography, gaps, radii and chrome dimensions through the
+canonical token roles and deliberate shared density variants. Approximate dimensions
+here describe intended geometry, not permission to hardcode another palette/control
+system. Token declarations must be usable in the drawer without activating full-page
+body/navbar/footer styles or changing the signed native theme. Verify native controls,
+focus and terminal fit whenever font, padding or chrome dimensions change; see the
+[mandatory token contract](frontend-improvement-plan.md#5-mandatory-token-consolidation).
 
 Native media queries may use viewport width even when Soda narrows the body. The
 implementation must review the actual selected Forgejo pages and use supported,
@@ -259,11 +272,19 @@ Divider resize, overflow, creation, project details and Hide are keyboard-reacha
 
 ## 9. What implementation must prove
 
-The existing native hook already supplies a fixed non-modal aside, a 35–65% separator
-and native body reflow CSS. Its component still has one terminal and management view
-tabs. Multiple session tabs/collection/ownership, this chrome and compact projection
-are real work, not a template label change. Preserve stock Forgejo; no fork, scraping,
-borrowed cookies, replacement native navigation or host/network changes.
+The existing native hook supplies the non-modal aside, bounded separator and native
+body reflow. The shared workspace now implements multiple session owners, tab chrome,
+management views and compact projection with local step-5 coverage. Preserve that
+implementation while improving tokens, template checks and component structure;
+installed coexistence/continuity and selected-CLI proof still belong to step 6.
+Preserve stock Forgejo; no fork, scraping, borrowed cookies, replacement native
+navigation or host/network changes.
+
+Source acceptance also requires the [frontend cleanup exits](frontend-improvement-plan.md#9-validation-and-completion):
+the real drawer consumes canonical tokens in both themes and width modes, required
+template diagnostics fail the standard check, and presentation changes preserve
+drafts, original-target commands and host/renderer/socket identity. A static sheet,
+literal scan or one screenshot is not sufficient evidence.
 
 Validate with real native pages and the same managed-terminal boundary:
 

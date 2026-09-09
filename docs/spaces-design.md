@@ -13,6 +13,12 @@ have local fixture coverage. Step 6 still owns observed attention, candidate clo
 and native/selected-CLI acceptance. Static sheets remain design references, not
 runtime evidence.
 
+The [frontend improvement guide](frontend-improvement-plan.md) now owns the detailed
+post-step-5 token, template-checking and composition cleanup. It retains this shared
+Lit workspace and its existing interaction/resource contracts. The dimensions below
+remain design intent; implementation must express reusable visual values through
+canonical tokens and deliberate density variants, not a separate Spaces palette.
+
 **Direction:** a project/session sidebar for finding work, tabs for switching within
 a pane, and direct splits for the few terminals being viewed together. Native CLI
 agents remain inside real terminals. No agent-chat frontend, worktree-per-task policy,
@@ -88,6 +94,14 @@ Use canonical Soda assets and existing light/dark palette, Barlow interface text
 and Plex Mono terminal text. Reuse the shared Lit runtime; no additional UI kit,
 decoration-heavy cards,
 hero section, environment statistics or always-open management inspector.
+
+Token adoption is a hard requirement across the full page and drawer. Reuse canonical
+color, type, spacing and control roles; add a missing semantic role once at its shared
+owner. Keep terminal-specific colors/font metrics intentional. Source guards and
+both-surface theme/focus/geometry checks must demonstrate actual use. Refer to the
+[token contract](frontend-improvement-plan.md#5-mandatory-token-consolidation) when the
+approximate dimensions below differ from existing form-control tokens; do not blindly
+inflate workspace chrome or shrink terminal text to reconcile them.
 
 - Native-like navigation: about 56px; compact workspace bar: 44px.
 - Sidebar: initially 248–256px; pointer/keyboard resize from 220–360px and collapse.
@@ -302,13 +316,13 @@ Soda/system appearance inputs honestly; do not silently promise synchronization 
 another Forgejo sign-in's preferences. This is a bounded page, not a second frontend
 framework or copied Forgejo password/permission authority.
 
-Add transaction-bound **fixed Spaces OAuth return**; preserve actor/CSRF/Origin,
+Preserve the implemented transaction-bound **fixed Spaces OAuth return**, actor/CSRF/Origin,
 PKCE, encrypted grants, context rotation/logout and fresh repository authorization.
 A native-only sign-out is not atomic Soda/SSH logout; styling never proves identity.
 
-Current `internal/web/terminal.go` keys one terminal by `{context, project}`. Real
-concurrency requires a bounded ID-keyed registry with immutable original binding,
-not extra tabs over that singleton. Preserve the current 64 global slots including
+The backend now implements a bounded ID-keyed registry with immutable original
+bindings; the historical `{context, project}` singleton is superseded. Preserve
+that actual concurrency owner and the current 64 global slots including
 uncertain sessions, one private native guard/tmux server per ID, Stop's project gate
 and context-wide cancellation. No native multiplexer/backend replacement is selected.
 
@@ -325,10 +339,13 @@ cannot recreate terminal renderers, replace IDs or become a keep-alive mechanism
 
 ## 9. Implementation and review acceptance
 
-Follow the single [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices):
-two behavior-preserving rendering ports, then real ID-bound concurrency/collection,
-authenticated page/shared drawer, direct layouts and actual attention. The native
-helper/tmux owner is preserved, not replaced by the frontend migration.
+Follow the single [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices).
+The rendering ports, ID-bound concurrency/collection, authenticated page/shared
+drawer and direct layouts are locally implemented through step 5. Apply the
+[frontend cleanup](frontend-improvement-plan.md#8-implementation-order-and-exits)
+without repeating them; step 6 retains actual attention and candidate/native closure.
+The native helper/tmux owner is preserved. Required template checks, typed composition
+and canonical token adoption are part of source acceptance, not optional polish.
 
 Review must show both surfaces working against real authorized sessions, with the
 original identity, measured readable panes, stable renderer/attachment lifetime and

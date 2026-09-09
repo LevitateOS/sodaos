@@ -9,9 +9,17 @@ installed browser/CLI compatibility proof follows from the port.
 
 The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first
 ports, ID-keyed backend and shared page/drawer workspace (now locally implemented),
-followed by layouts and attention. It incorporates the existing managed-tmux contract; it does not
+including locally completed step-5 layouts and remaining step-6 attention/acceptance.
+It incorporates the existing managed-tmux contract; it does not
 restart the older request-owned terminal migration. Retained native adapters and
 required validation remain explicit.
+
+The [frontend improvement guide](frontend-improvement-plan.md) consolidates the
+researched cleanup after locally completed step 5: mandatory canonical tokens,
+enforced template diagnostics, typed view composition and clearer source ownership.
+It preserves this renderer and the existing action/terminal owners. The analyzer
+worked in isolated research; its integration into the required checks is still
+implementation work, not a passing production gate.
 
 ## Runtime and builds
 
@@ -47,6 +55,24 @@ for stable pane/tab chrome. Other subpath imports fail until exports and build
 mapping are added together. Each addition must keep one runtime.
 
 ## Authoring
+
+Strict TypeScript checks expressions and typed helper calls inside/around `html`
+templates, but does not check their native/custom property, boolean or event binding
+positions. A language-service plugin listed in `tsconfig` does not run under `tsc`.
+Follow the [checker contract](frontend-improvement-plan.md#required-analyzer-integration):
+retain the product compiler and integrate the demonstrated compatible analyzer through
+a separate development-only compiler dependency under the root workspace/single lock.
+Explicitly enable unknown-event diagnostics and make required rules fail the check.
+Callable-event parameter compatibility remains a known analyzer gap. Do not describe
+the proposed gate as installed, fully TSX-equivalent or native behavior proof.
+
+Use readable multiline templates and typed functions for stateless sections and
+wrappers. A wrapper may accept a `TemplateResult` body and specific typed callbacks;
+its call site receives normal TypeScript checking while its internal bindings need
+the analyzer. Extract coherent Environment/Access/status views before broader chrome.
+Keep drafts, synchronous action guards, requests and resource lifetimes in their
+existing concrete owners. Add a reactive element only for independent state/lifetime,
+not simply to shorten a render method.
 
 Use `.ts` and the existing strict browser configuration. Static reactive-property
 declarations avoid changing the repository's decorator configuration. Declare
@@ -101,6 +127,20 @@ relevant child, recheck retirement and use ResizeObserver for terminal geometry.
 The loopback browser smoke test compiles a test-only component through the real
 build and loads the emitted runtime over HTTP. Native browser/access journeys
 remain separate from this scaffold proof.
+
+## Shared styling
+
+Canonical token adoption is mandatory across both Spaces surfaces. Follow the
+[token scope](frontend-improvement-plan.md#5-mandatory-token-consolidation): reuse
+the existing palette, semantic colors, typography, spacing and control roles; define
+only necessary shared density/terminal roles. Separate token availability from the
+full-page body/navbar/footer selectors. A drawer must not acquire a full-page marker
+just to inherit variables. Preserve the native selected theme and native form layout.
+
+Check source for repeated raw visual values, including fallbacks and inline styling,
+and verify resolved appearance in both themes and compact/wide states. Computed styles
+cannot prove that source used tokens. Keep measured terminal/pane geometry distinct
+from visual styling, and carry layout/focus tests when font or chrome dimensions change.
 
 Upstream references: [Lit overview](https://lit.dev/docs/),
 [reactive properties](https://lit.dev/docs/components/properties/),
