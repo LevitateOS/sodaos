@@ -1,18 +1,32 @@
 # Current handoff
 
-## Requested Rocky 10.2 baseline upgrade — build pending
+## Rocky 10.2 baseline — built and checked, not deployed
 
-The user requested upgrading the Rocky baseline to 10.2. Both project and Go
-backend Containerfiles now select the official 10.2 image; no unrelated tool or
-host OS baseline changed. Registry metadata advertises amd64 and arm64 variants.
+The user requested upgrading the Rocky baseline to 10.2. Candidate
+`c0b4b917fa786a55f65ba75b93e0b69306263cd8` selects the official 10.2 image in both
+project and Go backend Containerfiles. No unrelated CLI/dependency pins or host
+OS baseline changed. Registry metadata advertises amd64 and arm64 variants.
 A native x86_64 builder inspection confirmed `/etc/os-release` 10.2 and availability
-of the existing systemd/Python/tmux/Podman/fuse-overlayfs/slirp4netns requirements.
-The inspection container and logs remain under `.artifacts/rocky-10.2/`; no retained
-project or VM was changed. Full production build/check and native compatibility
-remain to follow. Changing the default image cannot upgrade either existing
-writable root. Recreating those roots or attempting a major-version in-place
-transaction needs a separate exact decision; the earlier backup waiver is not
-silently treated as permission to erase projects. `soda-test` stays excluded.
+of the existing systemd/Python/tmux/Podman/fuse-overlayfs/slirp4netns requirements;
+no package-list workaround was necessary.
+
+From a fresh clean exact-revision worktree, production `build-native.sh x86_64`,
+`check-native.sh x86_64` and `soda-artifacts bundle` all completed successfully using
+Go 1.26.7/Bun 1.4.2. Full Go/strict TypeScript/Bun checks, 69 Python build fixtures
+(one opt-in skip) and all 11 actual-stage packaging tests passed. Build metadata
+records the resolved 10.2 base and real EL10 package inventory. Exported
+`build-info.json` SHA256:
+`adf0bb57352260ba9c283e4a933d8b1dc805863da7b47ddf17a09cbc95ffe10c`.
+These are image/source/staging results, not project-systemd/tmux/workload installed
+proof on 10.2 or native aarch64 evidence.
+
+Artifacts, inspection container name and logs remain under `.artifacts/rocky-10.2/`.
+No VM was contacted or changed for this upgrade; the isolated application remains
+on the previous `22d8591` deployment described below. Changing a default image
+cannot upgrade either existing writable root. There is no implemented same-root
+EL9→EL10 migration. Recreating the two test project containers needs explicit
+confirmation; the earlier backup waiver is not silently treated as permission to
+erase projects. Preserve Forgejo accounts/repositories and exclude `soda-test`.
 
 ## Available for testing — isolated deployment `22d8591`
 
