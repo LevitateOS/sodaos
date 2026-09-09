@@ -4,6 +4,9 @@ Lit is scaffolded for Soda-owned interactive UI in the native Forgejo frontend.
 No existing component has been ported. Forgejo continues to own its pages, forms,
 permissions, authentication and native scripts; Cockpit keeps React/PatternFly.
 
+The [migration plan](lit-migration-plan.md) defines the drawer-first port sequence,
+the terminal rendering boundary, retained native adapters and required validation.
+
 ## Runtime and builds
 
 The root `package.json` declares Lit; the single `bun.lock` records its resolved

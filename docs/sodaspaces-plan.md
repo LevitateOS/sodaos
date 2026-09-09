@@ -417,6 +417,9 @@ ready to implement; no duplicate milestone register or generalized lifecycle sys
   the existing Bun build. The drawer and other existing modules remain vanilla
   TypeScript; no component migration is part of the scaffold. Keep native
   forms/lists/scripts and Cockpit's separate stack.
+  The [Lit migration plan](lit-migration-plan.md) covers the subsequent drawer and
+  terminal presentation ports; terminal continuity and native delivery retain
+  their separate product contracts below.
 - **Routing candidate:** existing Caddy, with only `/-/soda/` sent to the Go backend
   on Forgejo's existing HTTPS origin. All other native routes stay with Forgejo.
   The isolated browser journey now exercises this routing; appliance cutover is separate.

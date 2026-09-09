@@ -1,5 +1,19 @@
 # Current handoff
 
+## Lit migration plan — documented, ports not started
+
+The user requested a concrete [porting plan](lit-migration-plan.md). It selects the
+management drawer first, then terminal presentation against its then-current
+transport contract, with light DOM and the existing native mount facades. It
+retains small native/HTMX adapters and Cockpit, and preserves the current explicit
+Refresh disposal limitation until the separately selected continuity work changes
+that behavior. The plan includes asynchronous action guards, form/focus and xterm
+DOM ownership, browser-realm test adaptation, half/full-width validation and preview
+asset projection. It does not implement or deploy a component. Source, upstream
+Lit mechanics and the plan were reviewed; documentation links and whitespace were
+checked. No build, runtime test or service action was run for this documentation-only
+change; the scaffold's earlier execution evidence remains below.
+
 ## Lit scaffold — local build, browser and packaging checks passed
 
 The user selected scaffolding before component migration. Lit 3.3.3 is pinned in
