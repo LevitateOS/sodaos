@@ -46,7 +46,7 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
       }
       const footerPart = (await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/footer.tmpl')).text()).split('{{if .IsSigned}}\n<div id="soda-notification-preview"')[0]; assert(footerPart);
       const footer = footerPart.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7').replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, '1').replace(/{{[\s\S]*?}}/g, '');
-      return new Response(`<!doctype html><title>Drawer component fixture — not native proof</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/fonts/fonts.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><body><main class="soda-page" data-signed="true"><div class="repo-header"><div class="repo-buttons"><button id="native">Native fixture action</button></div></div><form><input id="native-edit" value="unsaved fixture"></form></main>${footer}`, {headers: {'Content-Type': 'text/html'}});
+      return new Response(`<!doctype html><title>Drawer component fixture — not native proof</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/fonts/fonts.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><body><main data-signed="true"><div class="repo-header"><div class="repo-buttons"><button id="native">Native fixture action</button></div></div><form><input id="native-edit" value="unsaved fixture"></form></main>${footer}`, {headers: {'Content-Type': 'text/html'}});
     } catch {return new Response(null, {status: 500});}
   }});
   t.after(() => server.stop(true));
@@ -96,6 +96,18 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
     await page.goto(server.url.href); await page.evaluate(theme => document.documentElement.style.colorScheme = theme, theme);
     await page.locator('#sodaspaces-button').click(); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     const drawer = page.locator('#sodaspaces-drawer');
+    const presentation = await drawer.evaluate(node => {
+      const style = getComputedStyle(node), probe = document.createElement('span');
+      probe.style.color = 'var(--soda-page-canvas)'; node.append(probe);
+      const canvas = getComputedStyle(probe).color; probe.remove();
+      return {background: style.backgroundColor, canvas, scheme: style.colorScheme, font: style.fontFamily,
+        nativeBackground: getComputedStyle(document.body).backgroundColor,
+        nativeFont: getComputedStyle(document.querySelector('main')!).fontFamily};
+    });
+    assert.equal(presentation.background, presentation.canvas);
+    assert.equal(presentation.scheme, theme); assert.match(presentation.font, /Barlow/);
+    assert.equal(presentation.nativeBackground, 'rgba(0, 0, 0, 0)', 'island tokens must not activate full-page styling');
+    assert.doesNotMatch(presentation.nativeFont, /Barlow/);
     const metrics = await drawer.evaluate(node => ({width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, overflow: node.scrollWidth > node.clientWidth, compact: document.body.classList.contains('sodaspaces-compact')}));
     assert(!metrics.overflow); assert.equal(metrics.compact, width <= 900);
     if (metrics.compact) assert(Math.abs(metrics.width - width) <= 1); else assert(metrics.left >= 480);

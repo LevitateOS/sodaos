@@ -1,18 +1,18 @@
-/* Full-size terminal view, not a fixed-height console inside a management form. */
+/* Full-size terminal view. Xterm descendants retain their own layout/ANSI rules. */
 soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-.soda-terminal > h3 { margin: 12px; font: var(--soda-font-heading, 600 20px/1.35 Georgia, serif); }
-.soda-terminal > p { margin: 12px; font: var(--soda-font-meta); color: var(--soda-page-muted, var(--color-text-light)); }
-.soda-terminal-toolbar { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; align-items: center; padding: 4px 8px; }
-.soda-terminal-toolbar p { margin: 0; font-size: 12px; }
+.soda-terminal > h3 { margin: var(--soda-space-3); font: var(--soda-font-heading); }
+.soda-terminal > p { margin: var(--soda-space-3); font: var(--soda-font-meta); color: var(--soda-page-muted); }
+.soda-terminal-toolbar { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: var(--soda-space-2); align-items: center; padding: var(--soda-space-1) var(--soda-space-2); }
+.soda-terminal-toolbar p { margin: 0; font: var(--soda-font-caption); }
 .soda-terminal.is-connected:not(.is-managed) > h3, .soda-terminal.is-connected:not(.is-managed) > p:not(.soda-terminal-status), .soda-terminal.is-connected .soda-terminal-toolbar > button:first-child { display: none; }
-.soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: 4px; box-sizing: content-box; background: #000; overflow: hidden; }
+.soda-terminal-screen { flex: 1; min-width: 0; min-height: 0; padding: var(--soda-space-1); box-sizing: content-box; background: var(--soda-terminal-screen); overflow: hidden; }
 .soda-terminal-screen[hidden] { display: none; }
 .soda-terminal-screen .xterm { height: 100%; }
 /* Managed workspace: one identity line, menu and exceptional status only. */
 .soda-terminal.is-managed { position: relative; padding: 0; border: 0; }
-.soda-terminal-context { display: flex; align-items: center; justify-content: space-between; min-height: 32px; flex-shrink: 0; gap: 6px; padding-left: 8px; }
+.soda-terminal-context { display: flex; align-items: center; justify-content: space-between; min-height: var(--soda-workspace-control); flex-shrink: 0; gap: var(--soda-space-2); padding-left: var(--soda-space-2); }
 .soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px)); }
 .soda-terminal-context > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.soda-terminal.is-managed > .soda-terminal-status { margin: 0; padding: 4px 8px; max-height: 30%; overflow: auto; }
-.soda-terminal-confirm { position: absolute; top: 36px; left: 8px; right: 8px; max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: light-dark(#faf8f5, #202631); color: light-dark(#20252b, #e0e5ed); padding: 12px; border: 1px solid #c77e45; box-shadow: 0 6px 16px #0005; }
+.soda-terminal.is-managed > .soda-terminal-status { margin: 0; padding: var(--soda-space-1) var(--soda-space-2); max-height: 30%; overflow: auto; }
+.soda-terminal-confirm { position: absolute; top: 36px; left: var(--soda-space-2); right: var(--soda-space-2); max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: var(--soda-page-warning-bg); color: var(--soda-page-warning); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); box-shadow: var(--soda-elevation-dialog); }

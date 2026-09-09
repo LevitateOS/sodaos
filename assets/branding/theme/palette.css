@@ -68,6 +68,7 @@
   --soda-light-warning-bg: #fff0df;
   --soda-light-warning-border: #a54808;
   --soda-light-warning-text: #923e07;
+  --soda-light-danger: #b42318;
 
   /* Dark: semantic roles followed by the additional native-control ramps. */
   --soda-dark-canvas: #0c1017;
@@ -85,6 +86,7 @@
   --soda-dark-action-hover: #1d4ed8;
   --soda-dark-action-pressed: #1e40af;
   --soda-dark-link: #60a5fa;
+  --soda-dark-button-primary-text: #85b6ff;
   --soda-dark-link-hover: #93c5fd;
   --soda-dark-link-pressed: #93c5fd;
   --soda-dark-on-link: #0c1017;
@@ -132,5 +134,6 @@
   --soda-dark-warning-bg: #451a03;
   --soda-dark-warning-border: #f59e0b;
   --soda-dark-warning-text: #fbbf24;
+  --soda-dark-danger: #ff958a;
 
 }

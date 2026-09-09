@@ -1,6 +1,6 @@
 /* Non-modal native-page/workspace split. The native document remains interactive. */
 #sodaspaces-root [hidden] { display: none !important; }
-#sodaspaces-button.sodaspaces-global-resume { position: fixed; bottom: 12px; right: 12px; z-index: 90; }
+#sodaspaces-button.sodaspaces-global-resume { position: fixed; bottom: var(--soda-space-3); right: var(--soda-space-3); z-index: 90; }
 body.sodaspaces-open #sodaspaces-button.sodaspaces-global-resume { display: none; }
 body.sodaspaces-open { width: calc(100% - var(--soda-space-width, 50vw)); min-width: 0; }
 body.sodaspaces-open #navbar { flex-wrap: wrap; }
@@ -9,23 +9,23 @@ body.sodaspaces-open .ui.container { max-width: calc(100% - 32px) !important; }
   position: fixed; inset: 0 0 0 auto; z-index: 100;
   width: var(--soda-space-width, 50vw); min-width: 0; box-sizing: border-box;
   top: var(--soda-viewport-top, 0px); height: var(--soda-viewport-height, 100dvh); padding: 0;
-  border-left: 1px solid var(--soda-page-edge, var(--color-secondary));
-  color: var(--soda-page-text, var(--color-text));
-  background: var(--soda-page-canvas, var(--color-body, #fff));
-  font: var(--soda-font-body, 400 16px/1.5 Barlow, Arial, sans-serif);
+  border-left: 1px solid var(--soda-page-edge);
+  color: var(--soda-page-text);
+  background: var(--soda-page-canvas);
+  font: var(--soda-font-body);
 }
 #sodaspaces-drawer .sodaspaces-panel { height: 100%; min-width: 0; display: flex; flex-direction: column; }
-#sodaspaces-drawer .sodaspaces-heading { position: absolute; right: 8px; top: 4px; z-index: 1; }
+#sodaspaces-drawer .sodaspaces-heading { position: absolute; right: var(--soda-space-2); top: var(--soda-space-1); z-index: 1; }
 #sodaspaces-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #sodaspaces-drawer .sodaspaces-content { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
-#sodaspaces-drawer :focus-visible { outline: 2px solid var(--color-primary, #4583db); outline-offset: -2px; }
+#sodaspaces-drawer :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: -2px; }
 #sodaspaces-divider { position: absolute; inset: 0 auto 0 -5px; width: 10px; cursor: col-resize; touch-action: none; z-index: 2; }
-#sodaspaces-divider:hover, #sodaspaces-divider:focus-visible { background: var(--color-primary-alpha-20, #4583db33); }
-.sodaspaces-measure { position: fixed; visibility: hidden; pointer-events: none; white-space: pre; font: 14px/1.4 'IBM Plex Mono', monospace; }
-#sodaspaces-surfaces { position: fixed; top: var(--soda-viewport-top, 0px); inset-inline: 0; height: 44px; z-index: 101; display: flex; background: var(--color-body, #fff); }
-#sodaspaces-surfaces button { flex: 1; min-height: 44px; margin: 0; }
-#sodaspaces-surfaces [aria-pressed=true] { border-bottom: 3px solid var(--color-primary, #4583db); }
-body.sodaspaces-open.sodaspaces-compact { width: 100%; padding-top: 44px; }
-body.sodaspaces-compact #sodaspaces-drawer { top: calc(var(--soda-viewport-top, 0px) + 44px); width: 100%; height: calc(var(--soda-viewport-height, 100dvh) - 44px); }
+#sodaspaces-divider:hover, #sodaspaces-divider:focus-visible { background: var(--soda-page-selected); }
+.sodaspaces-measure { position: fixed; visibility: hidden; pointer-events: none; white-space: pre; font: var(--soda-font-mono); }
+#sodaspaces-surfaces { position: fixed; top: var(--soda-viewport-top, 0px); inset-inline: 0; height: var(--soda-control-height); z-index: 101; display: flex; background: var(--soda-page-canvas); }
+#sodaspaces-surfaces button { flex: 1; min-height: var(--soda-control-height); margin: 0; }
+#sodaspaces-surfaces [aria-pressed=true] { border-bottom: 3px solid var(--soda-page-link); }
+body.sodaspaces-open.sodaspaces-compact { width: 100%; padding-top: var(--soda-control-height); }
+body.sodaspaces-compact #sodaspaces-drawer { top: calc(var(--soda-viewport-top, 0px) + var(--soda-control-height)); width: 100%; height: calc(var(--soda-viewport-height, 100dvh) - var(--soda-control-height)); }
 body.sodaspaces-compact #sodaspaces-divider { display: none; }
 #sodaspaces-drawer[data-surface-hidden], [data-soda-native-covered] { visibility: hidden !important; pointer-events: none !important; }

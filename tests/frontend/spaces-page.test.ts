@@ -31,6 +31,15 @@ test('authorized Go HTML/CSP boots one emitted Spaces page with its original act
     assert.equal(await page.locator('#spaces-page').getAttribute('data-soda-actor'), '1'); assert.equal(await page.locator('soda-spaces').count(), 1);
     assert.equal(await page.locator('soda-terminal').count(), 0);
     assert.equal(await page.getByRole('navigation', {name: 'Native Forgejo', exact: true}).getByRole('link', {name: 'Issues', exact: true}).getAttribute('href'), origin + '/issues');
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({colorScheme});
+      const colors = await page.locator('body').evaluate(node => {
+        const probe = document.createElement('span'); probe.style.color = 'var(--soda-page-canvas)'; node.append(probe);
+        const expected = getComputedStyle(probe).color; probe.remove();
+        return {actual: getComputedStyle(node).backgroundColor, expected, font: getComputedStyle(node).fontFamily};
+      });
+      assert.equal(colors.actual, colors.expected); assert.match(colors.font, /Barlow/);
+    }
     assert.deepEqual(calls, ['/-/soda/api/session', '/-/soda/api/spaces']);
     assert.deepEqual(errors, []); assert.deepEqual(missing, []);
   } finally {await browser.close();}

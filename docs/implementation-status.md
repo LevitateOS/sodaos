@@ -1,5 +1,30 @@
 # Current handoff
 
+## Frontend improvement — canonical styling slice
+
+The shared page/drawer/project/terminal CSS now consumes canonical semantic roles
+from `components.css` without requiring a full-page marker in the native drawer.
+Token availability no longer opts a native body/navbar into full-page effects.
+Workspace density is explicit (32px controls, 36px tabs, compact 44px); terminal
+font/screen/text options and both geometry probes use the same canonical values.
+Warnings remain distinct from selection. Native full-page primary color is preserved.
+
+Local checks: strict product TypeScript; frontend **168 pass /3 gated skips**;
+20-case emitted adapter/Lit/xterm layout matrix; actual Go HTML/CSP page test;
+Forgejo **28 pass /18 optional skips**; then workspace **31 pass**, including eight
+new page/native × light/dark × wide/compact computed-token/focus/warning cases.
+The raw-color/typography/radius guard covers all eleven authored workspace CSS/TS
+modules and tests deliberate bad samples. These are synthetic/local browser checks,
+not stock Forgejo, native process or CLI proof. Evidence and initial failures remain
+under `.artifacts/frontend-improvement-f45b74c/`. Missing canonical fixture CSS,
+menu content-box overflow, and test assumptions about native projection/keyboard
+focus were corrected; no behavior assertions were removed.
+
+The broader improvement plan is **not complete**: analyzer integration, typed-view
+extraction, source clarity and steps 6a/6b remain. No deployment, retained state,
+provider/credential action or native/CLI acceptance was performed. Existing failed
+native framing evidence and the open terminal-compatibility question are unchanged.
+
 ## Frontend architecture review and implementation guide — documentation only
 
 The user requested a consolidated agent handoff and reconciliation of the existing

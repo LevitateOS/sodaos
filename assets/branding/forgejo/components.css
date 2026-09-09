@@ -1,8 +1,8 @@
 @import "../fonts/fonts.css";
 @import "../theme/palette.css";
-/* Page shell and semantic tokens. Opt in only on full Soda page overrides.
-   The root or a native full-page header marker changes navigation/footer; neither is a widget wrapper. */
-body:has(.soda-page, .soda-page-marker, .soda-login) {
+/* Values are available to islands without opting native body/navbar/footer into
+   full-page styling. Native adapters still own color-scheme selection. */
+:root {
   --soda-page-canvas: light-dark(var(--soda-light-canvas), var(--soda-dark-canvas));
   --soda-page-surface: light-dark(var(--soda-light-surface), var(--soda-dark-surface));
   --soda-page-text: light-dark(var(--soda-light-text), var(--soda-dark-text));
@@ -20,11 +20,11 @@ body:has(.soda-page, .soda-page-marker, .soda-login) {
   --soda-control-height: 44px;
   --soda-control-radius: 8px;
   --soda-button-radius: 6px;
-  --soda-button-primary-text: light-dark(var(--soda-light-link), #85b6ff);
+  --soda-button-primary-text: light-dark(var(--soda-light-link), var(--soda-dark-button-primary-text));
   --soda-button-primary-bg: var(--soda-page-selected);
   --soda-button-primary-border: color-mix(in srgb, var(--soda-button-primary-text) 45%, transparent);
   --soda-button-primary-hover: color-mix(in srgb, var(--soda-button-primary-bg), var(--soda-button-primary-text) 15%);
-  --soda-button-danger: light-dark(#b42318, #ff958a);
+  --soda-button-danger: light-dark(var(--soda-light-danger), var(--soda-dark-danger));
   --soda-font-button: 600 14px/20px Barlow, Arial, sans-serif;
   --soda-space-1: 4px;
   --soda-space-2: 8px;
@@ -40,6 +40,31 @@ body:has(.soda-page, .soda-page-marker, .soda-login) {
   --soda-font-body: 400 16px/1.5 Barlow, Arial, sans-serif;
   --soda-font-label: 600 15px/1.5 Barlow, Arial, sans-serif;
   --soda-font-meta: 400 14px/1.5 Barlow, Arial, sans-serif;
+  --soda-page-focus: light-dark(var(--soda-light-focus), var(--soda-dark-focus));
+  --soda-page-warning: light-dark(var(--soda-light-warning-text), var(--soda-dark-warning-text));
+  --soda-page-warning-bg: light-dark(var(--soda-light-warning-bg), var(--soda-dark-warning-bg));
+  --soda-page-warning-edge: light-dark(var(--soda-light-warning-border), var(--soda-dark-warning-border));
+  --soda-space-half: 2px;
+  --soda-font-workspace: 400 14px/1.4 Barlow, Arial, sans-serif;
+  --soda-font-caption: 400 12px/1.4 Barlow, Arial, sans-serif;
+  /* Dense desktop chrome; compact projection uses the ordinary 44px control. */
+  --soda-workspace-control: 32px;
+  --soda-workspace-tab: 36px;
+  --soda-workspace-radius: 3px;
+  --soda-elevation-menu: 0 4px 16px #0004;
+  --soda-elevation-dialog: 0 8px 24px #0005;
+  --soda-font-mono-family: 'IBM Plex Mono', monospace;
+  --soda-font-mono-size: 14px;
+  --soda-font-mono-line: 1.4;
+  --soda-font-mono: var(--soda-font-mono-size)/var(--soda-font-mono-line) var(--soda-font-mono-family);
+  /* Terminal contrast stays independent of light/dark page selection. ANSI
+     colors remain xterm's native palette; Soda owns screen/text/cursor only. */
+  --soda-terminal-screen: #000000;
+  --soda-terminal-text: #ffffff;
+}
+
+/* Full-page effects are deliberately not enabled by a workspace island. */
+body:has(.soda-page, .soda-page-marker, .soda-login) {
   font-family: Barlow, Arial, sans-serif;
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);

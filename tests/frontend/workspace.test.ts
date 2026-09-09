@@ -19,7 +19,7 @@ before(async () => {
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : 'application/octet-stream'}});}
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
@@ -51,6 +51,32 @@ async function paneAction(page: Page, name: string) {
   await page.getByLabel('Pane actions', {exact: true}).click();
   await page.getByRole('button', {name, exact: true}).click();
 }
+for (const mode of ['native', 'page'] as const) for (const theme of ['light', 'dark'] as const) for (const width of [1440, 390]) test(`${mode}/${theme}/${width}: resolved tokens, focus, menu and warning preserve native draft and terminal`, async t => {
+  const page = await fixture(t, mode);
+  await page.setViewportSize({width, height: 900});
+  await page.evaluate(theme => {document.documentElement.style.colorScheme = theme;}, theme);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
+  const screen = await page.locator('.xterm').elementHandle();
+  await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).focus();
+  await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+  const selected = await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).evaluate(node => {
+    const style = getComputedStyle(node), probe = document.createElement('span');
+    node.append(probe); probe.style.color = 'var(--soda-page-focus)'; const focus = getComputedStyle(probe).color;
+    probe.style.color = 'var(--soda-button-primary-bg)'; const background = getComputedStyle(probe).color; probe.remove();
+    return {background: style.backgroundColor, expected: background, focus: style.outlineColor, expectedFocus: focus, height: node.getBoundingClientRect().height};
+  });
+  assert.equal(selected.background, selected.expected); assert.equal(selected.focus, selected.expectedFocus);
+  assert.equal(selected.height, mode === 'native' || width === 390 ? 44 : 36);
+  await action(page, 'End terminal…');
+  const warning = await page.getByRole('dialog', {name: 'End terminal confirmation'}).evaluate(node => {
+    const style = getComputedStyle(node), probe = document.createElement('span'); probe.style.color = 'var(--soda-page-warning-bg)'; node.append(probe);
+    const expected = getComputedStyle(probe).color; probe.remove(); return {actual: style.backgroundColor, expected};
+  });
+  assert.equal(warning.actual, warning.expected); await page.keyboard.press('Escape');
+  assert(await screen?.evaluate(node => node.isConnected));
+  assert.equal(await page.locator('#native-draft').inputValue(), 'unsaved');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+});
 for (const mode of ['native', 'page'] as const) test(`${mode}: three exact sessions across two projects retain real xterm owners`, async t => {
   const page = await fixture(t, mode);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 0);

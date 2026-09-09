@@ -1,68 +1,105 @@
-/* Soda-owned shell/workspace. Native Forgejo DOM and xterm descendants keep their owners. */
-.soda-spaces-page { margin: 0; color-scheme: light dark; font: 14px/1.4 Barlow, sans-serif; background: light-dark(#faf8f5, #10141b); color: light-dark(#20252b, #e0e5ed); }
-.soda-spaces-page > header { display: flex; align-items: center; flex-wrap: wrap; gap: 24px; padding: 10px 20px; border-bottom: 1px solid #8892a444; }
+/* Shared workspace presentation; page-only shell rules are explicitly scoped.
+   Pane coordinates, measured cells, clipping and hit regions are geometry. */
+.soda-spaces-page {
+  margin: 0;
+  color-scheme: light dark;
+  font: var(--soda-font-workspace);
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+}
+.soda-spaces-page > header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--soda-space-6);
+  padding: var(--soda-space-2) var(--soda-space-4);
+  border-bottom: 1px solid var(--soda-page-edge);
+}
 .soda-spaces-page header img { width: 120px; height: 36px; }
-.soda-spaces-page nav { display: flex; flex-wrap: wrap; gap: 16px; }
+.soda-spaces-page nav { display: flex; flex-wrap: wrap; gap: var(--soda-space-4); }
+.soda-spaces-page a { color: var(--soda-page-link); }
 .soda-spaces-page > main { height: calc(100dvh - 58px); display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
 .soda-spaces-page h1, .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
 #spaces-page-status:empty { display: none; }
 #spaces-page { flex: 1; min-height: 0; }
-.soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: 14px/1.4 Barlow, sans-serif; color: var(--color-text, light-dark(#20252b, #e0e5ed)); }
+.soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }
-.soda-workspace p { margin: 4px 8px; overflow-wrap: anywhere; }
+.soda-workspace p { margin: var(--soda-space-1) var(--soda-space-2); overflow-wrap: anywhere; }
 .soda-workspace button, .soda-workspace a { flex-shrink: 0; }
-.soda-workspace .ui.button { min-height: 32px; padding: 4px 8px; margin: 0; border-radius: 3px; font: inherit; }
-.soda-workspace-toolbar { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 2px 8px; flex-shrink: 0; box-sizing: border-box; border-bottom: 1px solid #8892a444; }
+/* Explicit density beats native/full-page enforced button sizing, never xterm. */
+.soda-workspace .ui.button {
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: var(--soda-workspace-control) !important;
+  padding: var(--soda-space-1) var(--soda-space-2) !important;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--soda-workspace-radius);
+  font: var(--soda-font-button) !important;
+  background: transparent;
+  color: var(--soda-page-text);
+}
+.soda-workspace .ui.button:is(:hover, :focus-visible) { background: var(--soda-page-hover); }
+.soda-workspace .ui.button:is(.primary, [aria-selected=true]) { background: var(--soda-button-primary-bg); color: var(--soda-button-primary-text); border-color: var(--soda-button-primary-border); }
+.soda-workspace .ui.button:disabled { opacity: .5; cursor: default; }
+.soda-workspace .ui.button.danger { color: var(--soda-button-danger); }
+.soda-workspace-toolbar { display: flex; align-items: center; gap: var(--soda-space-2); min-height: var(--soda-control-height); padding: var(--soda-space-half) var(--soda-space-2); flex-shrink: 0; box-sizing: border-box; border-bottom: 1px solid var(--soda-page-edge); }
+/* Reserve the native adapter's independent Hide control. */
 #sodaspaces-drawer .soda-workspace-toolbar { padding-right: 80px; }
-.soda-workspace-toolbar > a { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; }
+.soda-workspace-toolbar > a { display: inline-flex; align-items: center; justify-content: center; min-width: var(--soda-workspace-control); min-height: var(--soda-workspace-control); }
 .soda-drawer-projection-tabs { position: relative; flex-shrink: 0; min-width: 0; z-index: 4; }
 .soda-workspace-body { display: grid; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-.soda-workspace-navigation { display: block; min-width: 0; min-height: 0; overflow: auto; padding: 10px; background: var(--color-box-body, light-dark(#f4f3f0, #181e27)); }
-.soda-workspace-navigation > label { display: block; margin-bottom: 8px; }
-.soda-workspace-navigation input[type=search] { display: block; width: 100%; min-height: 32px; box-sizing: border-box; font: inherit; }
+.soda-workspace-navigation { display: block; min-width: 0; min-height: 0; overflow: auto; padding: var(--soda-space-2); background: var(--soda-page-surface); }
+.soda-workspace-navigation > label { display: block; margin-bottom: var(--soda-space-2); }
+.soda-workspace-navigation input[type=search] { display: block; width: 100%; min-height: var(--soda-workspace-control); box-sizing: border-box; font: inherit; }
 .soda-workspace-navigation input[type=checkbox] { width: auto; }
-.soda-project-group { margin-block: 8px; border-bottom: 1px solid #8892a444; padding-bottom: 8px; overflow-wrap: anywhere; }
-.soda-project-group summary { cursor: pointer; padding: 6px 0; font-weight: 600; }
-.soda-project-group small { display: block; font-weight: 400; font-size: 12px; }
-.soda-session-list { display: flex; flex-direction: column; gap: 2px; }
+.soda-workspace :is(input, select, textarea) { color: var(--soda-page-text); background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: var(--soda-control-radius); }
+.soda-project-group { margin-block: var(--soda-space-2); border-bottom: 1px solid var(--soda-page-edge); padding-bottom: var(--soda-space-2); overflow-wrap: anywhere; }
+.soda-project-group summary { cursor: pointer; padding: var(--soda-space-2) 0; font: var(--soda-font-label); }
+.soda-project-group small { display: block; font: var(--soda-font-caption); }
+.soda-session-list { display: flex; flex-direction: column; gap: var(--soda-space-half); }
 .soda-session-list .ui.button { text-align: left; white-space: normal; width: 100%; overflow-wrap: anywhere; }
-.soda-project-details { margin-top: 6px !important; white-space: normal; text-align: left; width: 100%; }
-.soda-sidebar-divider { background: #8892a444; cursor: col-resize; touch-action: none; }
+.soda-project-details { margin-top: var(--soda-space-2) !important; white-space: normal; text-align: left; width: 100%; }
+.soda-sidebar-divider { background: var(--soda-page-edge); cursor: col-resize; touch-action: none; }
 .soda-workspace-work { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
 .soda-workspace-body.is-navigating .soda-workspace-work { display: none; }
-.soda-workspace-viewbar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 0; }
+.soda-workspace-viewbar { display: flex; justify-content: flex-end; align-items: center; gap: var(--soda-space-2); min-height: 0; }
 .soda-workspace-viewbar:empty { display: none; }
 .soda-workspace-canvas { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .soda-workspace-canvas .soda-workspace-owners, .soda-workspace-chrome { position: absolute; inset: 0; pointer-events: none; }
 .soda-workspace-terminal { position: absolute; display: flex; flex-direction: column; min-width: 0; min-height: 0; pointer-events: auto; overflow: hidden; }
 .soda-workspace-chrome { z-index: 3; }
-.soda-pane-chrome { position: absolute; display: flex; min-width: 0; background: light-dark(#efefec, #202631); pointer-events: auto; }
-.soda-workspace-tabs { display: flex; align-items: stretch; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
-.soda-workspace-tabs .ui.button { min-height: 36px; height: 36px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.soda-workspace-tabs [aria-selected=true] { border-bottom: 3px solid #4583db; }
-.soda-empty-pane { position: absolute; box-sizing: border-box; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 8px; background: light-dark(#faf8f5, #10141b); }
+.soda-pane-chrome { position: absolute; display: flex; min-width: 0; background: var(--soda-page-hover); pointer-events: auto; }
+.soda-workspace-tabs { display: flex; align-items: stretch; gap: var(--soda-space-half); flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.soda-workspace-tabs .ui.button { min-height: var(--soda-workspace-tab) !important; height: var(--soda-workspace-tab) !important; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soda-workspace-tabs [aria-selected=true] { border-bottom: 3px solid var(--soda-page-link); }
+.soda-empty-pane { position: absolute; box-sizing: border-box; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: var(--soda-space-2); background: var(--soda-page-canvas); }
 .soda-empty-pane p { flex-basis: 100%; text-align: center; }
-.soda-pane-divider { position: absolute; pointer-events: auto; touch-action: none; background: #8892a444; }
+.soda-pane-divider { position: absolute; pointer-events: auto; touch-action: none; background: var(--soda-page-edge); }
 .soda-pane-divider[aria-orientation=vertical] { cursor: col-resize; }
 .soda-pane-divider[aria-orientation=horizontal] { cursor: row-resize; }
-.soda-workspace :focus-visible { outline: 2px solid #4583db; outline-offset: -2px; }
-.soda-cell-measure { position: absolute; visibility: hidden; white-space: pre; font: 14px/1.4 'IBM Plex Mono', monospace; }
-.soda-drop-edge { position: absolute; background: #4583db99; color: #fff; z-index: 4; }
+.soda-workspace :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: -2px; }
+.soda-cell-measure { position: absolute; visibility: hidden; white-space: pre; font: var(--soda-font-mono); }
+.soda-drop-edge { position: absolute; background: var(--soda-page-action); color: var(--soda-page-on-action); z-index: 4; }
 .soda-drop-edge.right { width: 32px; top: 0; }
 .soda-drop-edge.below { height: 32px; left: 0; }
-.soda-menu { position: relative; flex-shrink: 0; font-size: 14px; }
-.soda-menu > summary { cursor: pointer; list-style: none; min-height: 32px; min-width: 32px; padding: 4px 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.soda-menu { position: relative; flex-shrink: 0; font: var(--soda-font-workspace); }
+.soda-menu > summary { cursor: pointer; list-style: none; min-height: var(--soda-workspace-control); min-width: var(--soda-workspace-control); padding: var(--soda-space-1) var(--soda-space-2); box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
 .soda-menu > summary::-webkit-details-marker { display: none; }
 .soda-menu[open] { z-index: 20; }
-.soda-menu > div { position: absolute; top: 100%; right: 0; min-width: 200px; max-width: min(360px, 90vw); max-height: 60dvh; overflow: auto; padding: 6px; border: 1px solid #8892a4; box-shadow: 0 4px 16px #0004; background: light-dark(#faf8f5, #202631); color: light-dark(#20252b, #e0e5ed); }
+.soda-menu > div { box-sizing: border-box; position: absolute; top: 100%; right: 0; min-width: 200px; max-width: min(360px, 90vw); max-height: 60dvh; overflow: auto; padding: var(--soda-space-2); border: 1px solid var(--soda-page-edge); box-shadow: var(--soda-elevation-menu); background: var(--soda-page-surface); color: var(--soda-page-text); }
 .soda-menu > div > .ui.button { display: block; width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.soda-menu input { width: 100%; box-sizing: border-box; min-height: 32px; }
+.soda-menu input { width: 100%; box-sizing: border-box; min-height: var(--soda-workspace-control); }
 .soda-workspace-toolbar .soda-menu > div { left: 0; right: auto; }
-.soda-workspace-dialog { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box; z-index: 30; padding: 16px; border: 1px solid #8892a4; background: light-dark(#faf8f5, #202631); color: light-dark(#20252b, #e0e5ed); box-shadow: 0 8px 24px #0005; }
-.soda-workspace-dialog label { display: block; margin-bottom: 8px; }
-.soda-workspace-dialog input, .soda-workspace-dialog select { width: 100%; box-sizing: border-box; min-height: 36px; font: inherit; }
+.soda-workspace-dialog { position: absolute; top: 54px; left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 24px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box; z-index: 30; padding: var(--soda-panel-inset); border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); color: var(--soda-page-text); box-shadow: var(--soda-elevation-dialog); }
+.soda-workspace-dialog label { display: block; margin-bottom: var(--soda-space-2); }
+.soda-workspace-dialog input, .soda-workspace-dialog select { width: 100%; box-sizing: border-box; min-height: var(--soda-workspace-tab); font: inherit; }
 .soda-workspace-management { flex: 1; min-height: 0; overflow: auto; }
 .soda-workspace-management > div, soda-project-controls { display: block; height: 100%; min-height: 0; }
-.soda-workspace.is-compact .ui.button, .soda-workspace.is-compact summary, .soda-workspace.is-compact .soda-workspace-toolbar > a { min-height: 44px; }
-.soda-workspace.is-compact .soda-workspace-tabs .ui.button { height: 44px; }
-@media (max-width: 600px) { .soda-spaces-page > header { padding: 6px 8px; gap: 8px; } .soda-spaces-page header span { font-size: 12px; } .soda-spaces-page > main { height: calc(100dvh - 110px); } }
+.soda-workspace.is-compact .ui.button, .soda-workspace.is-compact summary, .soda-workspace.is-compact .soda-workspace-toolbar > a { min-height: var(--soda-control-height) !important; }
+.soda-workspace.is-compact .soda-workspace-tabs .ui.button { height: var(--soda-control-height) !important; }
+@media (max-width: 600px) {
+  .soda-spaces-page > header { padding: var(--soda-space-2); gap: var(--soda-space-2); }
+  .soda-spaces-page header span { font: var(--soda-font-caption); }
+  .soda-spaces-page > main { height: calc(100dvh - 110px); }
+}

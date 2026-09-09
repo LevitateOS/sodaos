@@ -24,7 +24,7 @@ before(async () => {
       const signed = url.searchParams.get('anonymous') !== '1';
       const markup = footer.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, '7')
         .replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, String(signed)).replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, signed ? '1' : '').replace(/{{[\s\S]*?}}/g, '');
-      return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
+      return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><div class="repo-header"><div class="repo-buttons"><button id="native">Native</button></div></div><form><input id="native-edit" value="dirty"></form>' + markup, {headers: {'Content-Type': 'text/html'}});
     }
     if (url.pathname !== '/') return new Response(null, {status: 404});
     return new Response('<!doctype html><link rel="icon" href="data:,"><button id="native">Native action</button><input id="native-input" value="unsaved"><main></main><script type="module" src="/tests/frontend/fixtures/drawer-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});

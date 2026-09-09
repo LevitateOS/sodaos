@@ -251,7 +251,13 @@ export class SodaTerminal extends LitElement {
       const screen = this.querySelector<HTMLElement>('.soda-terminal-screen'); if (!screen) throw Error('Missing terminal screen');
       await document.fonts.ready; if (!this.live(n)) return;
       if (!this.viewVisible || !this.isConnected || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
-      const terminal = this.terminal = new Terminal({allowProposedApi: true, disableStdin: true, scrollback: 1000, windowOptions: {}, convertEol: false, cols: 80, rows: 24, fontFamily: '"IBM Plex Mono", monospace', fontSize: 14, lineHeight: 1.4});
+      const styles = getComputedStyle(this);
+      const token = (name: string) => {const value = styles.getPropertyValue(name).trim(); if (!value) throw Error(`Missing terminal token ${name}`); return value;};
+      const fontSize = Number.parseFloat(token('--soda-font-mono-size')), lineHeight = Number(token('--soda-font-mono-line'));
+      if (!Number.isFinite(fontSize) || fontSize <= 0 || !Number.isFinite(lineHeight) || lineHeight < 1) throw Error('Invalid terminal typography');
+      const terminal = this.terminal = new Terminal({allowProposedApi: true, disableStdin: true, scrollback: 1000, windowOptions: {}, convertEol: false, cols: 80, rows: 24,
+        fontFamily: token('--soda-font-mono-family'), fontSize, lineHeight,
+        theme: {background: token('--soda-terminal-screen'), foreground: token('--soda-terminal-text'), cursor: token('--soda-terminal-text')}});
       const fit = this.fit = new FitAddon(); terminal.loadAddon(fit);
       for (const code of [0, 1, 2, 8, 52]) terminal.parser.registerOscHandler(code, () => true);
       terminal.attachCustomKeyEventHandler(event => {
