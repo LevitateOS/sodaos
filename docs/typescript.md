@@ -11,16 +11,28 @@ bun install --frozen-lockfile
 bun run typecheck
 bun run test
 bun run build
+bun run build:preview # local Forgejo branding mount
 bun run screenshot --help
 ```
 
-`build` builds the two Cockpit pages. It does not install an appliance or build a
-standalone dashboard. `test` runs the existing Node frontend/Forgejo tests and
-Cockpit's Vite+ tests. Browser/installed checks keep their explicit opt-in flags
-and target/action permissions; installing dependencies does not run those journeys.
-Node remains pinned for these existing tools. New TypeScript utilities run with
-Bun; conversion of existing script/test entrypoints includes their runtime checks.
-Do not substitute bare `bun test` for the selected test runners during migration.
+`build` compiles and minifies the Forgejo browser assets and the two Cockpit
+pages. It does not install an appliance or build a standalone dashboard. `test`
+runs the root frontend/Forgejo tests under Bun and Cockpit's `bun:test` suite.
+Cockpit builds through Vite+'s programmatic API under Bun; it retains React and
+PatternFly. Browser/installed checks keep their explicit opt-in flags and
+target/action permissions; installing dependencies does not run those journeys.
+
+Soda's frontend/build/test tooling requires Bun, without a separate Node runtime.
+`bunfig.toml` also selects Bun for dependency executables with Node shebangs.
+Dependency lifecycle scripts are not enabled: the selected platforms use locked
+prebuilt packages. Parcel watcher's optional Node/node-gyp source-build hook is
+not needed for those packages.
+Project toolchains and provider runners may still own Node for user workloads.
+Prefer Bun file, process, hashing and server APIs in authored tooling. Keep
+`node:` imports where they provide a concrete contract: path manipulation,
+assertions, exclusive/private filesystem checks, raw HTTP request paths, terminal
+input and explicit closure of borrowed Chromium file descriptors. Those supported APIs execute in
+Bun and remain strictly typed; they do not introduce a Node process requirement.
 
 ## Compiler boundaries
 
@@ -30,16 +42,15 @@ access, exact optional properties, consistent filename casing and no emitted out
 
 | Configuration | Owner and runtime |
 | --- | --- |
-| `tsconfig.json` | Root scripts; Bun/Node, with DOM types for Playwright page callbacks |
-| `tsconfig.tests.json` | Root tests; Bun/Node plus browser/JSDOM fixtures |
+| `tsconfig.json` | Root scripts; Bun, with DOM types for Playwright page callbacks |
+| `tsconfig.tests.json` | Root tests; Bun plus browser/JSDOM fixtures |
 | `tsconfig.browser.json` | Forgejo branding and Sodaspaces browser scripts; DOM types, no automatic Bun/Node globals |
 | `cockpit/tsconfig.json` | Existing Cockpit TS/TSX, test and Vite+ build code |
 
-The three root configurations temporarily include legacy JS/MJS with `allowJs`
-and `checkJs: false`. This makes the existing files visible to projects/editors
-without claiming they have been ported or type checked. New `.ts` files are checked
-strictly. Remove legacy inclusion when each area is fully converted; do not disable
-checking for converted code. Cockpit is already TypeScript and has no such allowance.
+All authored scripts, browser modules and tests are TypeScript. No compiler
+configuration admits unchecked JavaScript with `allowJs`/`checkJs`. Browser code
+uses DOM APIs; Bun runs only its build tooling. Upstream terminal distributions
+remain locked JavaScript assets rather than being rewritten as Soda source.
 
 ## Porting source
 
@@ -61,12 +72,18 @@ checking for converted code. Cockpit is already TypeScript and has no such allow
   Optional means absent; include `undefined` explicitly only when the actual contract
   allows it. Do not fill unknown values with invented defaults to silence errors.
 
-The browser-source port must add a build step that emits JavaScript into ignored
-`.artifacts/`, update the production payload map, staging and local preview callers,
-and verify the emitted assets. That step is not implemented by this scaffolding:
-current Forgejo JavaScript is still served from its existing source paths. Preserve
-public URLs/module boundaries and upstream xterm assets. Do not track generated
-JavaScript beside TypeScript or rewrite third-party JavaScript as our source.
+`scripts/build-forgejo.ts` uses Bun to emit minified JavaScript into ignored
+`.artifacts/forgejo-js/` by default. Native builds pass their own output directory.
+The payload map identifies those files with `@build/forgejo-js/`; staging copies
+them to the existing public URLs. Modules retain their public import boundaries,
+and upstream xterm assets retain their exact locked bytes and licenses. Generated
+JavaScript must not be tracked beside TypeScript.
+
+Run `bun run build:forgejo` before serving a local preview, and resolve payload
+entries beginning `@build/forgejo-js/` from that output directory. Never serve a
+renamed `.ts` file directly to a browser. `bun run build:preview` projects the same payload into the local preview branding
+mount; see [screenshot capture](screenshot-capture.md). The isolated drawer layout fixture uses
+the same emitted assets and checks their integration with the locked renderer.
 
 A completed conversion passes `bun run typecheck` and the relevant behavior tests,
 including authorization/failure paths. Browser ports also need emitted-asset checks;

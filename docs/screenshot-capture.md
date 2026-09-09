@@ -12,7 +12,7 @@ fixture account. Its authenticated Chrome profile is already saved in ignored
 `.local/screenshot-fixture-profile/`. Reuse it directly from the repository root:
 
 ```sh
-node scripts/screenshot.mjs --profile .local/screenshot-fixture-profile \
+bun scripts/screenshot.ts --profile .local/screenshot-fixture-profile \
   http://localhost:3300/ \
   http://localhost:3300/user/settings
 ```
@@ -27,7 +27,7 @@ development instance and may not exist in another checkout or on another machine
 
 ### Setup and manual login
 
-Use the pinned Node.js, installed Google Chrome and the root Playwright dependency.
+Use the pinned Bun, installed Google Chrome and the root Playwright dependency.
 Run `bun install --frozen-lockfile` from the repository root to prepare the workspace.
 The helper uses a persistent browser context so mobile captures use the requested
 CSS viewport rather than cropping a desktop window. See [tooling](typescript.md).
@@ -35,7 +35,7 @@ CSS viewport rather than cropping a desktop window. See [tooling](typescript.md)
 Log in once in its dedicated browser window, then press Enter in the terminal:
 
 ```sh
-node scripts/screenshot.mjs --login http://localhost:3300/user/login
+bun scripts/screenshot.ts --login http://localhost:3300/user/login
 ```
 
 Choose “Remember me” if offered. The script keeps that browser profile in ignored
@@ -46,11 +46,11 @@ If the session expires, run `--login` again.
 Capture one or more URLs using that session:
 
 ```sh
-node scripts/screenshot.mjs \
+bun scripts/screenshot.ts \
   http://localhost:3300/ \
   http://localhost:3300/user/settings
 
-node scripts/screenshot.mjs --width 390 --height 844 \
+bun scripts/screenshot.ts --width 390 --height 844 \
   http://localhost:3300/explore/repos
 ```
 
@@ -76,7 +76,7 @@ order, including added or removed files. It accepts only `http://localhost:3300`
 capture URLs and cannot be combined with `--login`:
 
 ```sh
-node scripts/screenshot.mjs --local-css \
+bun scripts/screenshot.ts --local-css \
   --profile /absolute/path/to/existing/.local/screenshot-fixture-profile \
   --width 390 --height 844 http://localhost:3300/user/settings
 ```
@@ -84,8 +84,21 @@ node scripts/screenshot.mjs --local-css \
 This changes only the capture browser's CSS. Native server HTML, scripts, account
 preferences and the live checkout remain unchanged. Label these as candidate CSS
 captures; they do not prove that edited templates rendered on the server. If the
-profile or existing Playwright dependency lives in another checkout, use its
-absolute `--profile` path and `NODE_PATH` as needed. No profile copy is necessary.
+profile lives in another checkout, use its absolute `--profile` path. Install the
+root workspace dependencies in the checkout running the script; no profile copy
+or cross-workspace dependency lookup is needed.
+
+### Generated scripts in the local preview
+
+Run `bun run build:preview` after browser TypeScript or branding changes. It emits
+minified scripts and projects the production branding payload into
+`.artifacts/forgejo-preview/branding/`. The local Compose mount for
+`/data/gitea/public/assets/soda/forgejo` must use that directory instead of the
+TypeScript source directory. Other source, font and theme mounts remain as configured.
+Changing the mount needs a separately authorized recreation of the existing preview
+container while preserving its data volume. Subsequent asset rebuilds use the same
+mount and do not require a container restart. This is local preview wiring, not an
+appliance deployment or permission to change retained projects.
 
 ## Conditions
 
@@ -137,7 +150,7 @@ errors before saving a PNG. `--landmark CSS` tightens the expected page landmark
 and document theme; it does not submit or persist an account preference.
 
 ```sh
-node scripts/screenshot.mjs --verify --landmark .soda-repo-issue-editor \
+bun scripts/screenshot.ts --verify --landmark .soda-repo-issue-editor \
   --profile .local/screenshot-fixture-profile --theme dark --scroll-top \
   http://localhost:3300/vince/activity-playground/issues/new
 ```

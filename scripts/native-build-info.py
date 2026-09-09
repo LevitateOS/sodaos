@@ -31,6 +31,7 @@ def collect(root, arch, revision):
         ('package.json', 'package.json'),
         ('cockpit/package.json', 'cockpit-package.json'),
         ('bun.lock', 'bun.lock'),
+        ('bunfig.toml', 'bunfig.toml'),
     ):
         shutil.copyfile(root / source, inputs / name)
     shutil.copyfile(root / 'scripts/install-native.sh', stage / 'install-native.sh')
@@ -43,7 +44,7 @@ def collect(root, arch, revision):
     shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')
     shutil.copyfile(root / 'appliance/licenses/avatar-dependencies.txt', notices / 'avatar-dependencies.txt')
     tools = {name: output(command) for name, command in {
-        'go': ['go', 'version'], 'node': ['node', '--version'],
+        'go': ['go', 'version'],
         'bun': ['bun', '--version'], 'podman': ['podman', '--version'],
         'python': ['python3', '--version'], 'kernel': ['uname', '-r'],
     }.items()}

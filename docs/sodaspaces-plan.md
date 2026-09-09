@@ -755,10 +755,10 @@ retained-appliance delivery remain unproven by that run.
 #### Tests, native proof and completion
 
 - Retain `scripts/sodaspaces_templates_test.go` for the two Soda templates and
-  `tests/frontend/sodaspaces.test.mjs` for the actual script's DOM/fetch behavior.
+  `tests/frontend/sodaspaces.test.ts` for the actual script's DOM/fetch behavior.
   Use Node's test runner and the pinned root workspace `jsdom` dependency. The
   root manifest owns tooling, not a frontend application; see [TypeScript development](typescript.md).
-  `scripts/check-native.sh` calls root checks including `tests/frontend/*.test.mjs`;
+  `scripts/check-native.sh` calls root checks including `tests/frontend/*.test.ts`;
   preserve that wiring and the standalone source-check command. The aggregate requires
   a clean revision and actual stage. Fixture context/dialog doubles are not upstream
   rendering, CSS, focus or native browser evidence.
@@ -768,7 +768,7 @@ retained-appliance delivery remain unproven by that run.
   environments; close/reopen/late reads; stale/BFCache reload gating; exact fragment;
   and no environment/key writes. Packaging fixtures exercise missing required files,
   extra templates, modes and pre-write conflict refusal, not just recipe strings.
-- Retain opt-in `tests/installed/sodaspaces.mjs` using existing pinned Playwright.
+- Retain opt-in `tests/installed/sodaspaces.ts` using existing pinned Playwright.
   Within the applicable fixture/target scope, exercise actual stock Forgejo → Caddy → Go
   OAuth → safe repository return → drawer, anonymous and two-account transitions,
   native-only and Soda-only account changes, logout, BFCache/focus, keyboard/backdrop/
@@ -778,7 +778,7 @@ retained-appliance delivery remain unproven by that run.
   encoding checks and only focused native route smoke checks. Do not seed an
   authenticated session or call intercepted responses native proof.
 - Carry forward the real-browser corrections, not the failed probe assumptions:
-  use `tests/installed/native-browser.mjs` with sandbox and fixture-only trusted TLS,
+  use `tests/installed/native-browser.ts` with sandbox and fixture-only trusted TLS,
   without Playwright's forced focus/visibility or synthetic BFCache events. Wait for
   dialog/ARIA readiness and asynchronous focus return; browser chrome/body may own
   focus while Soda must clear. Use history commit waits for real BFCache restoration.

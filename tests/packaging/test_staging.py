@@ -101,7 +101,7 @@ class NativeStage(unittest.TestCase):
         custom = self.root / 'var/lib/soda/forgejo/gitea'
         source = Path(__file__).resolve().parents[2] / 'appliance/forgejo'
         for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-                     'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js'):
+                     'public/assets/sodaspaces.css'):
             target = custom / name
             self.assertFalse(target.is_symlink())
             self.assertEqual(target.read_bytes(), (source / name).read_bytes())
@@ -117,7 +117,9 @@ class NativeStage(unittest.TestCase):
             self.assertTrue(target.is_file(), name)
             self.assertFalse(target.is_symlink(), name)
             self.assertEqual(target.stat().st_mode & 0o777, 0o644)
-            if not origin.startswith('@build/'):
+            if origin.startswith('@build/forgejo-js/'):
+                self.assertEqual(target.read_bytes(), (self.root.parent / origin.removeprefix('@build/')).read_bytes(), name)
+            elif not origin.startswith('@build/'):
                 self.assertEqual(target.read_bytes(), (root / origin).read_bytes(), name)
         self.assertEqual({p.relative_to(custom).as_posix() for p in (custom / 'templates').rglob('*.tmpl')},
                          {name for name in payload if name.startswith('templates/')})

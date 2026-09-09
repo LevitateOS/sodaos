@@ -14,7 +14,7 @@ Reference: `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. The pred
 | Predecessor source | SodaOS destination/adaptation |
 | --- | --- |
 | `AGENTS.md` | Tailored engineering guidance; actual SodaOS scope, commands, source-only hold and evidence distinctions |
-| `scripts/check-forgejo-branding.mjs` | Same native component/control/color checks, with explicit target/native execution and fresh-evidence guards |
+| `scripts/check-forgejo-branding.ts` | Same native component/control/color checks, with explicit target/native execution and fresh-evidence guards |
 | `scripts/render-forgejo-branding.sh`, `tools/png-equal/`, focused tests | Forgejo raster consistency/regeneration source; real renderer test opt-in, canonical artwork unchanged |
 | `packaging/rpm/forgejo/sources/app.ini.tmpl` | Selected app metadata, stock/accessibility themes and cache policy in `appliance/config/forgejo.env`; no copied host paths, PAM identity or secrets |
 | Native console welcome and profile hook | `appliance/bin/soda-console-welcome`, interactive-only host hook, actual configured HTTPS origins and loopback Cockpit guidance |

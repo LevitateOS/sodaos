@@ -10,7 +10,7 @@ import (
 )
 
 // Structural presentation is reviewed in the test-only inventory; the pinned
-// controls, gates and script hooks are checked by repository-settings-source.test.mjs.
+// controls, gates and script hooks are checked by repository-settings-source.test.ts.
 func TestForgejoRepositorySettingsLeavesUseSharedShell(t *testing.T) {
 	for _, name := range []string{"actions", "branches", "collaboration", "deploy_keys", "githooks", "githook_edit", "lfs", "lfs_file", "lfs_file_find", "lfs_locks", "lfs_pointers", "options", "protected_branch", "runner_create", "runner_details", "runner_edit", "runner_setup", "secrets", "tags", "units", "webhook/base", "webhook/new"} {
 		path := "repo/settings/" + name + ".tmpl"

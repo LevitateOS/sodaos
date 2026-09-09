@@ -18,7 +18,7 @@ This needs an explicitly approved **disposable matching-native Linux Forgejo dep
 4. From the authorized matching-native Linux browser environment, invoke:
 
 ```sh
-SODA_NATIVE_VALIDATE=DISPOSABLE_TARGET node scripts/check-forgejo-branding.mjs \
+SODA_NATIVE_VALIDATE=DISPOSABLE_TARGET bun scripts/check-forgejo-branding.ts \
   https://FORGEJO_ORIGIN/assets/soda-theme-preview.html \
   .artifacts/branding/FRESH_REVIEW_DIRECTORY
 ```

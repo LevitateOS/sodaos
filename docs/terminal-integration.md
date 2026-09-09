@@ -243,7 +243,7 @@ and preservation of notification markup. No new dependency or native target acti
 
 Local DOM tests cover view/focus/hide preservation, keyboard controls, no replay,
 action-time denial and old genuine-page-departure retirement. The opt-in
-`tests/frontend/drawer-layout.test.mjs` passed 16 desktop/mobile/theme/state cases
+`tests/frontend/drawer-layout.test.ts` passed 16 desktop/mobile/theme/state cases
 with sandboxed Chromium, real locked xterm and **synthetic APIs/socket/native form**.
 It tests half-width geometry, native-form interaction, keyboard resizing, full-height
 canvas, tab changes and same-socket Hide/reopen. It is not real Forgejo navigation,

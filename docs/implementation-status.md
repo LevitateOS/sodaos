@@ -1,20 +1,59 @@
 # Current handoff
 
-## Bun-native migration in progress — Cockpit
+## Bun/TypeScript conversion — source validated; preview activation pending
 
-Cockpit now builds through Vite's programmatic API under Bun and runs its 60
-tests with `bun:test`. Async polling tests use pinned Sinon fake timers with an
-explicit browser-timer set; DOM tests preload JSDOM browser events/FormData before
-React. Native Bun test mocks replace Vite+ test imports. Strict Cockpit type checks,
-all 60 tests and both builds passed with Bun 1.4.2 on macOS arm64. Initial timer/DOM
-compatibility failures and corrected logs are retained in `.artifacts/bun-typescript-port/`.
-Cockpit asset collection now uses Bun file reads, globbing and SHA-256 hashing;
-license metadata is checked before use. Both page builds explicitly minify output.
-The revised build, strict check and 60 tests passed locally; logs use the
-`cockpit-native-io-` prefix in the same retained directory.
-Root JS/MJS conversion, root runtime commands, browser emission/staging and final
-Node-free validation remain active work; this is not completion of the goal or native
-appliance proof. No installed journey or deployment ran.
+All 36 authored JavaScript entrypoints/modules/tests (including the avatar CJS
+helper) are ported to strict TypeScript. Root scripts, browser modules, tests and
+Cockpit pass their separate strict configurations; legacy unchecked JS inclusion
+is removed. Browser response and private journey inputs are narrowed from unknown
+values. Upstream xterm JavaScript remains unchanged under its distribution lock.
+
+Bun 1.4.2 owns builds, tests, command-line scripts and installed-journey tooling.
+Cockpit uses Vite+'s programmatic builder and `bun:test`, with Bun file/glob/hash
+operations and explicit browser minification. Root browser assets are minified by
+Bun into ignored build output and staged through `@build/forgejo-js/`, preserving
+public URLs. Native build/check callers and tool metadata no longer require Node.
+`bunfig.toml` selects Bun for dependency shebangs; dependency lifecycle scripts are
+disabled because the selected packages provide locked platform binaries. Node in
+project toolchains and provider runners retains its separate workload role.
+
+The private Chromium helper uses Bun's Unix WebSocket server, subprocess API and
+file-descriptor reader/writer. Bun.file borrows descriptors, so the helper closes
+its owned descriptors explicitly. Real pipe exchange/shutdown passed locally;
+the direct `ws` dependency was removed. No installed authentication, project
+lifecycle or appliance deployment was performed by this migration.
+
+Actual local evidence under `.artifacts/bun-typescript-port/`:
+
+- All four strict TypeScript checks pass. Default root tests pass 73 tests, with
+  opt-in browser journeys skipped; Cockpit passes 60 tests and both page builds.
+- A fresh frozen dependency install and copied Cockpit build/test pass with a
+  failing Node executable first on PATH and no invocation of it. The first audit
+  identified Parcel watcher's optional Node source-build hook; disabling that hook
+  and using the locked prebuilt package was verified in `no-node-install-3` and
+  `no-node-fresh-cockpit-2` logs. An initial copied fixture omitted branding assets;
+  the corrected copy includes them. No dependency versions were incidentally upgraded.
+- The minified drawer passed all sixteen width/theme/state combinations in a real
+  isolated Chromium fixture. The Bun pipe smoke and six actual HTTP avatar pixel
+  comparisons also passed. Failed pipe experiments and corrected evidence remain.
+- Go checks for `internal/nativebuild`, `internal/web` and `scripts` pass. The seven
+  Sodaspaces Python staging/preflight tests and payload tests pass. The broader
+  Python run passed 52 tests but had seven failures and one error in unchanged
+  Linux terminal tests on macOS (including absent `os.setresgid`), plus one skip.
+  That is not native Linux validation; full native x86_64/aarch64 build/check and
+  installed journeys retain their existing authorization and proof boundaries.
+
+One integration action remains: the existing local `sodaos-local-forgejo` preview
+binds the former JS source directory, so its login script currently returns 404.
+`bun run build:preview` now projects the production branding payload, including
+minified JS, into `.artifacts/forgejo-preview/branding/`. Its bytes and absence of
+TypeScript files were checked. The generated Compose candidate changes only that
+read-only branding mount, retains the existing named data volume/configuration,
+and passes Compose configuration validation. Original/candidate files are retained
+under `.artifacts/bun-typescript-port/preview-compose/`. The running container has
+not been recreated: the prior preview restart authorization was single-use. Activate
+the prepared mount only after explicit approval, then check the real preview's
+scripts and focused browser behavior. This pending step prevents goal completion.
 
 ## Root Bun workspace and TypeScript scaffolding
 

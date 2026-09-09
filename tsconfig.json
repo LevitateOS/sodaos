@@ -9,13 +9,10 @@
     "types": [
       "bun",
       "node"
-    ],
-    "allowJs": true,
-    "checkJs": false
+    ]
   },
   "include": [
-    "scripts/**/*.ts",
-    "scripts/**/*.mjs"
+    "scripts/**/*.ts"
   ],
   "exclude": [
     "node_modules",

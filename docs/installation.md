@@ -12,7 +12,7 @@ installer ISO or preinstalled QCOW2, or replay first-install as a service upgrad
 
 ## 1. Prepare the native builder
 
-Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Node 24.20.0, Bun 1.4.2, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence. The root `package.json` pins Bun; run `bun install --frozen-lockfile` at the repository root. See [TypeScript development](typescript.md) for local commands and compiler boundaries.
+Use x86_64 first when access exists; repeat independently on aarch64 later. Install Go 1.26.7, Bun 1.4.2, Python >=3.12, GNU make and native Podman through the builder's normal mechanisms. Do not cross-compile/emulate and report native evidence. The root `package.json` pins Bun; run `bun install --frozen-lockfile` at the repository root. See [TypeScript development](typescript.md) for local commands and compiler boundaries.
 
 Soda is a Go API/OAuth command with no embedded or external standalone UI. Both original Go/HTMX and React frontends are removed from source; the read-only Sodaspaces hook/drawer passed its isolated local browser journey, not an appliance install. The standalone React directory, lock, build and external asset payload are removed; Cockpit retains its frontend/build inside the root Bun workspace and shared lock. New bundles reject retired SPA payloads. Old installed bundles/evidence retain their original verifier and source revision. Dependency/build/deployment actions still require their applicable scope.
 

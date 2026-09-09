@@ -15,7 +15,7 @@ For deployment changes, also read `docs/installation.md` and `docs/native-valida
 
 ## Current execution boundary
 
-For local Forgejo page screenshots, use `scripts/screenshot.mjs` and read
+For local Forgejo page screenshots, use `scripts/screenshot.ts` and read
 [docs/screenshot-capture.md](docs/screenshot-capture.md) for usage and login
 instructions. The development instance at `http://localhost:3300`
 (`sodaos-local-forgejo`) has the authorized `soda-screenshot` fixture account and
@@ -270,7 +270,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 - Follow [TypeScript development](docs/typescript.md). New authored JS-family code
   is `.ts`/`.tsx`; keep browser, tooling/test and Cockpit compiler boundaries clear.
 - Pass `bun run typecheck` with strict checking, checked indexed access and exact
-  optional properties. Legacy JS/MJS inclusion is temporary, not typed-source proof.
+  optional properties. Do not reintroduce unchecked JavaScript compiler inputs.
 - Keep types with their owner, use `import type`, and validate untrusted data from
   `unknown`. No blanket `any`, disabled checks or unchecked casts to evade errors.
 - Port callers/tests with each source group. Generate browser JS into ignored build

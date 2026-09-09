@@ -37,7 +37,7 @@ func TestForgejoAccountDetailOverridesRetainUpstreamAttribution(t *testing.T) {
 				t.Fatalf("%s lost exact Forgejo version, license, or pristine-source attribution", fixture.path)
 			}
 			// Structural presentation deltas are checked against native control and
-			// capability snapshots in settings-source.test.mjs, rather than markup parity.
+			// capability snapshots in settings-source.test.ts, rather than markup parity.
 
 		})
 	}

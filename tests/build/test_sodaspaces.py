@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 FILES = ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
          'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
          'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',
-         'public/assets/sodaspaces-drawer.js', 'public/assets/sodaspaces-drawer.css')
+         'public/assets/sodaspaces-drawer.js', 'public/assets/sodaspaces-drawer.css',
+         'public/assets/sodaspaces-api.js')
 VENDOR_FILES = tuple('public/assets/soda-terminal/' + f['file'] for item in json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text()) for f in item['files'])
 PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
@@ -42,7 +43,7 @@ class SodaspacesPackaging(unittest.TestCase):
             source.write_text('invalid JSON SYNTHETIC_AUTH_SECRET_MARKER')
             source.chmod(0o600)
             for permission in ([], ['--allow-auth-transitions'], ['--allow-auth-transitions', '--allow-environment-access']):
-                result = subprocess.run(['node', str(ROOT / 'tests/installed/sodaspaces.mjs'),
+                result = subprocess.run(['bun', str(ROOT / 'tests/installed/sodaspaces.ts'),
                                          str(source), str(root / 'not-created'), *permission],
                                         capture_output=True, text=True, timeout=15)
                 self.assertEqual(result.returncode, 1)
@@ -89,9 +90,9 @@ class SodaspacesPackaging(unittest.TestCase):
             git = bin_dir / 'git'
             git.write_text('#!/bin/sh\ncase "$1" in rev-parse) echo ' + '1' * 40 + ';; status) :;; *) exit 1;; esac\n')
             git.chmod(0o755)
-            guard = root / 'no-network.cjs'
-            guard.write_text("require('node:https').request = () => { require('node:fs').writeFileSync(" + json.dumps(str(root / 'unexpected-network')) + ", 'refused'); throw Error('test transport refused'); };\n")
-            result = subprocess.run(['node', '--require', str(guard), str(ROOT / 'tests/installed/sodaspaces.mjs'),
+            guard = root / 'no-network.ts'
+            guard.write_text("import https from 'node:https'; import {writeFileSync} from 'node:fs'; https.request = () => { writeFileSync(" + json.dumps(str(root / 'unexpected-network')) + ", 'refused'); throw Error('test transport refused'); };\n")
+            result = subprocess.run(['bun', '--preload', str(guard), str(ROOT / 'tests/installed/sodaspaces.ts'),
                                      str(request), str(root), '--allow-auth-transitions'],
                                     env={**os.environ, 'PATH': str(bin_dir) + os.pathsep + os.environ['PATH'],
                                          'SODA_NATIVE_VALIDATE': 'fixture'},
@@ -122,6 +123,10 @@ class SodaspacesPackaging(unittest.TestCase):
             (build / 'github-actions-runner').mkdir()
             (build / 'forgejo-locales').mkdir()
             (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
+            (build / 'forgejo-js').mkdir()
+            for origin in json.loads((checkout / 'internal/nativebuild/forgejo-payload.json').read_text()).values():
+                if origin.startswith('@build/forgejo-js/'):
+                    (build / origin.removeprefix('@build/')).write_text('// synthetic compiled browser fixture\n')
             # Synthetic bytes and lock only inside this temporary checkout.
             (build / 'terminal-assets').mkdir()
             lock_path = checkout / 'appliance/terminal-assets.lock.json'
@@ -145,7 +150,8 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name
-                self.assertEqual(p.read_bytes(), (checkout / 'appliance/forgejo' / name).read_bytes())
+                original = build / 'forgejo-js' / Path(name).name if name.endswith('.js') else checkout / 'appliance/forgejo' / name
+                self.assertEqual(p.read_bytes(), original.read_bytes())
                 self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
                 for parent in p.parents:
                     if parent == stage:
@@ -169,7 +175,7 @@ class SodaspacesPackaging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             for name in ('appliance', 'project-os', 'cockpit', 'docs', 'scripts',
-                         'go.mod', 'go.sum', 'LICENSE', 'NOTICE'):
+                         'go.mod', 'go.sum', 'package.json', 'bun.lock', 'bunfig.toml', 'LICENSE', 'NOTICE'):
                 (root / name).symlink_to(ROOT / name)
             stage = root / '.artifacts/native/x86_64'
             stage.mkdir(parents=True)

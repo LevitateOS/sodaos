@@ -15,7 +15,7 @@ export GOFLAGS=-mod=readonly
 cd "$(dirname "$0")/.."
 [[ -f go.sum ]] || { echo 'First resolve dependencies with go mod tidy on the native builder; inspect and commit the resulting go.mod/go.sum before building.' >&2; exit 1; }
 [[ $(go env GOVERSION) == go1.26.7 ]] || { echo 'Go 1.26.7 required' >&2; exit 1; }
-[[ $(node --version) == v24.20.0 && $(bun --version) == 1.4.2 ]] || { echo 'Use the pinned Cockpit Node/Bun baseline' >&2; exit 1; }
+[[ $(bun --version) == 1.4.2 ]] || { echo 'Use the pinned Bun baseline' >&2; exit 1; }
 revision=$(git rev-parse HEAD)
 [[ -z $(git status --porcelain --untracked-files=normal) ]] || { echo 'Build requires a clean exact-revision checkout' >&2; exit 1; }
 command -v flock >/dev/null
@@ -53,7 +53,8 @@ done
 go mod verify
 # Soda is a Go API/OAuth service; Cockpit keeps its separate frontend build.
 bun install --frozen-lockfile
-bun run build
+bun scripts/build-forgejo.ts --out "$out/forgejo-js"
+bun run --cwd cockpit build
 python3 scripts/build-project-tools.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac
 # Resolve the unchanged core-owned base and service references for this platform.

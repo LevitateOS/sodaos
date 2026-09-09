@@ -9,12 +9,12 @@
     "types": [
       "bun",
       "node"
-    ],
-    "allowJs": true,
-    "checkJs": false
+    ]
   },
   "include": [
     "tests/**/*.ts",
-    "tests/**/*.mjs"
+    "appliance/forgejo/public/assets/terminal-vendor.d.ts",
+    "assets/branding/forgejo/forgejo-events.d.ts",
+    "internal/web/testdata/**/*.ts"
   ]
 }

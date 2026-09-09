@@ -179,8 +179,8 @@ Use a separate `data-soda-login-theme` attribute: Forgejo's `data-theme`, theme 
 and authenticated account setting remain authoritative for native pages. The
 button never submits an account preference or changes authentication cookies.
 Its accessible label describes the next action; a focus ring appears for keyboard
-use although the resting button has no border. Tests: `node --test
-tests/forgejo/login-theme.test.mjs` from the repository root.
+use although the resting button has no border. Tests: `bun run build:forgejo && bun test
+tests/forgejo/login-theme.test.ts` from the repository root.
 
 ## Public homepage
 
@@ -481,7 +481,7 @@ the actual stylesheet registry and minimal native markup fixtures into ignored
 SODA_FORGEJO_GALLERY=1 GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
   go test -mod=readonly ./scripts -run TestForgejoPresentationGallery -count=1
 SODA_FORGEJO_LAYOUT_ORIGIN=http://localhost:3300 \
-  node --test tests/forgejo/presentation/*.test.mjs
+  bun run test:forgejo
 ```
 
 Gallery evidence remains separate from native route evidence and does not prove
@@ -492,7 +492,7 @@ Ordinary repository body containers have zero padding. `repository.css` owns
 that rule, and the repository header supplies the gap below navigation. Family
 styles must not add another top inset to the same container. Fluid or explicitly
 padded native canvases retain their separate gutter contract. The native
-`repository-container.test.mjs` regression compares Code, Projects, Issues and
+`repository-container.test.ts` regression compares Code, Projects, Issues and
 Releases at desktop/mobile widths so family-specific padding cannot silently
 return on those routes.
 
@@ -687,7 +687,7 @@ production overrides/helpers and both local and native callers.
 
 The separate `repository-settings-{light,dark}.html` gallery uses the production
 registry, native SVG assets and the runner editor with minimal native form/inventory
-fixtures. `repository-settings-browser.test.mjs` checks seven widths including
+fixtures. `repository-settings-browser.test.ts` checks seven widths including
 900/899px, no-JavaScript fallback, focus, long labels, gutters, file input and
 table containment. Gallery output and component captures are ignored artifacts,
 not native repository screenshots. Native owner-only, provider, credential,
@@ -713,7 +713,7 @@ contract through native `#issue-list`. Status colors, label colors, selection
 checkboxes, commit-status popups, assignees, comments, review state and native
 links remain intact. Ordinary collections keep their existing 16px rows/18px
 titles. The PR-only spacing adapter and repository list corner adapter are removed.
-`work-item-lists.test.mjs` exercises isolated native markup samples with the actual
+`work-item-lists.test.ts` exercises isolated native markup samples with the actual
 registry, long labels/branches, keyboard selection and unrelated-list protection.
 Its component gallery under `.artifacts/work-item-consistency/components/` is
 separate from real-route captures and their verification status.
