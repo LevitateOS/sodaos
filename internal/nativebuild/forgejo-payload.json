@@ -125,6 +125,7 @@
   "public/assets/soda/source/soda-symbol-white.svg": "assets/branding/source/soda-symbol-white.svg",
   "public/assets/soda/source/soda-symbol.svg": "assets/branding/source/soda-symbol.svg",
   "public/assets/soda/theme/palette.css": "assets/branding/theme/palette.css",
+  "public/assets/sodaspaces-layout.js": "@build/forgejo-js/sodaspaces-layout.js",
   "public/assets/sodaspaces-page.js": "@build/forgejo-js/sodaspaces-page.js",
   "public/assets/sodaspaces-page.css": "appliance/forgejo/public/assets/sodaspaces-page.css",
   "public/assets/sodaspaces-project.js": "@build/forgejo-js/sodaspaces-project.js",

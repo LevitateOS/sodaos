@@ -1,5 +1,26 @@
 # Current handoff
 
+## Step 5a — bounded layout storage and exact restoration, local source
+
+Started step 5 from `f28f86e`. `sodaspaces-layout.ts` now owns the pure typed pane/
+locator representation and closed-shape, byte/node/depth-bounded v2 parser, v1
+migration and serialization. The shared workspace uses it for one-pane selection,
+Hide and locator promotion; stable local keys survive request-to-ID promotion.
+Hidden saved work no longer briefly mounts/attaches during restore. Partial reads,
+unknown outcomes and failed storage preserve locators; malformed/present-v2 records
+cannot fall back to v1 or be overwritten. Acknowledged cleanup removes only its
+matching saved reference; live drafts never become replayable reload commands.
+The production manifest includes the new module. No DB/API/native change occurred.
+
+**Local checks:** strict TypeScript; frontend **157 pass / 2 existing opt-in skips**;
+explicit Lit **99 pass**; Forgejo **26 pass / 18 optional skips**. New pure parser/
+identity tests and emitted-browser migration/reload/storage-failure cases exercise
+the real workspace and xterm with synthetic peers. Evidence and earlier type/old-
+storage-selector failures: `.artifacts/spaces-step5-f28f86e/` (`*-5a*` logs).
+This is not native tmux/CLI proof. Steps 5b–5d (pane operations/geometry, final chrome,
+compact behavior and installed-journey ports) are next, not complete. No deployment,
+fixture mutation, project lifecycle, dependency upgrade or push was performed.
+
 ## Steps 5–6 plan reconciliation — documentation only
 
 Revised `docs/lit-migration-plan.md` against the implemented `18aceb2` workspace:
