@@ -25,7 +25,11 @@ Published URLs intentionally stay compatible: the workspace owner is still serve
 as `sodaspaces-drawer.js`, workspace CSS as `sodaspaces-page.css`, project CSS as
 `sodaspaces-drawer.css`. These are URLs, not duplicate source owners. The sole Lit
 runtime remains in canonical branding; unsupported directives/tool imports fail.
-Generated JavaScript stays under ignored `.artifacts/forgejo-js/`.
+Generated JavaScript stays under ignored `.artifacts/forgejo-js/`. Root
+`build:forgejo` first prepares the locked renderer/CSS/licenses under
+`.artifacts/browser-terminal/vendor/`; all browser checks call that build and must
+work without a previous development checkout's cache. Native staging and isolated
+preview still prepare their own destinations using the same locked fetcher.
 
 Rendering never creates a terminal, Returns, changes retention, provisions access
 or owns native forms. A control's callback still rechecks the concrete owner's

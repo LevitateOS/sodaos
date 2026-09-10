@@ -1,5 +1,33 @@
 # Current handoff
 
+## Step 6c requested — native preparation and fresh-check correction
+
+The user requested completing the remainder, including deployment. Native x86_64
+build/check/export preparation is now executing; the retained deployment target
+(`soda-native-spaces-658f2af`, `soda-test`, or validation-first both) was requested
+before any service/project mutation. No previous backup waiver or root replacement
+permission was inferred.
+
+Candidate `bb8b689` **built successfully**, but its fresh-worktree production check
+failed: browser fixtures expected `.artifacts/browser-terminal/vendor/` left over
+from development, while the native stage correctly had its own renderer assets.
+The failed 153-pass/35-fail/3-skip run remains under
+`.artifacts/step6c-bb8b689-b9rf3H/`. Root `build:forgejo` now prepares that local browser
+asset destination through the existing locked fetcher before JS emission; all
+browser gates inherit preparation. Native stage/preview retain their own destinations.
+No old stage or manual vendor copy substitutes for a new candidate check. The
+three focused fetch/build-contract tests and root browser build passed locally;
+full fresh native build/check/export is the next gate for this correction.
+
+Pinned-SSH **read-only** inspection of the previously used isolated validation VM
+confirmed four active services, both exact original CIDs, Rocky 9.6/tmux 3.2a,
+original Alice/Bob UID/GID/home values and sshd PIDs 40/72. No managed units were
+listed. Known system/personal CLI paths and standard auth-file presence checks found
+none of Codex/Claude Code/Pi; no credential content or shell profile was read.
+No native terminal/provider journey, target deployment, lifecycle, root replacement,
+package installation, credentials transfer or `soda-test` contact occurred. CLI
+availability beyond those checked locations is not established.
+
 ## Frontend improvement local closure — candidate `ea2eaf0`
 
 **The requested local implementation is complete:** canonical tokens and mandatory

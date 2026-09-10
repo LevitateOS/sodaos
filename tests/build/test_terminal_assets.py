@@ -39,6 +39,14 @@ class TerminalAssets(unittest.TestCase):
                     fetch(root / 'out')
             self.assertEqual((root / 'out/xterm.mjs').read_bytes(), b'changed')
 
+    def test_browser_build_prepares_locked_renderer_before_emitted_modules(self):
+        scripts = json.loads((ROOT / 'package.json').read_text())['scripts']
+        prepare, emit = scripts['build:forgejo'].split(' && ', 1)
+        self.assertEqual(prepare, 'python3 scripts/fetch-terminal.py --out .artifacts/browser-terminal/vendor')
+        self.assertEqual(emit, 'bun scripts/build-forgejo.ts')
+        for gate in ('test:frontend', 'test:layout', 'test:spaces-page', 'test:forgejo', 'test:lit'):
+            self.assertTrue(scripts[gate].startswith('bun run build:forgejo && '), gate)
+
     def test_shipping_lock_has_only_exact_local_renderer_files(self):
         lock = json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text())
         self.assertEqual([(i['package'], i['version']) for i in lock], [('@xterm/xterm', '6.0.0'), ('@xterm/addon-fit', '0.11.0')])
