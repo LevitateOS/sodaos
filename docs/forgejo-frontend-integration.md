@@ -24,6 +24,20 @@ customization ownership and no-fork boundaries remain selected.
 
 ## Verified source surface
 
+The selected [Soda settings pages](sodaspaces-plan.md#settings-pages-and-os-selection)
+extend repository settings navigation with Sodaspaces and AI automation, and add a
+global operator-only Sodarunners destination. The current local
+[`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
+already preserves native Actions runners/secrets/variables links. Add Soda links
+through the versioned customization mechanism without replacing those workflows.
+Render new protected Soda pages through the existing Soda namespace/Go/Lit boundary;
+a template link does not supply a Forgejo handler, authentication or authorization.
+Before implementation, inspect the exact upstream context/gates and verify native
+menu rendering and scoped OAuth return paths. No new settings adapter or handler
+has been implemented by this plan. Public v15 customization documentation was
+reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
+note claims local override inspection rather than fresh upstream source verification.
+
 The inspected **15.0.7** source establishes:
 
 - `modules/templates/base.go::AssetFS` layers `<CustomPath>/templates/` ahead of

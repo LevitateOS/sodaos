@@ -110,8 +110,10 @@ The user selected Linux for desktops and these creation choices on 2026-09-10:
 | Fedora KDE | Fedora Linux | Terminal and KDE Plasma desktop | Selected; recommended first desktop implementation |
 | Fedora GNOME | Fedora Linux | Terminal and GNOME desktop | Deferred |
 
-The creation UI can express this as **Distribution: Rocky / Fedora** and
-**Interface: Headless / KDE**. GNOME stays out of executable choices until its
+The creation UI uses one **Project OS** dropdown with the four selected combinations,
+as specified in [repository settings](sodaspaces-plan.md#settings-pages-and-os-selection).
+Distribution/interface remain profile properties rather than independently saved
+UI settings. GNOME stays out of executable choices until its
 implementation is selected and ready. Existing environments show their original
 profile; this is not a live distro/desktop switcher. Resolve a bounded profile ID
 server-side to installed, architecture-compatible artifacts. Do not accept arbitrary

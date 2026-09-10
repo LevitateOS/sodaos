@@ -107,6 +107,14 @@ scope; Stop is sufficient to retain an installed service safely in this first ve
 
 ## 2. Issue resolver and 3. PR review/fix
 
+Configuration lives in **Repository settings → AI automation**, alongside the
+separate **Sodaspaces** settings page; the
+[settings contract](sodaspaces-plan.md#settings-pages-and-os-selection) owns placement,
+OS selection, server-side authority and native workflow-backed saving. **Sodarunners**
+is global/operator-only. Preserve native repository Actions runners/secrets/variables.
+Project OS selection is independent of the isolated job's eligible execution image;
+changing AI settings never retargets a personal terminal or project root.
+
 Use one repository AI configuration experience with independent controls for the
 two event types. Proposed fields:
 

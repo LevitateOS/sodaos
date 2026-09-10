@@ -1,5 +1,23 @@
 # Current handoff
 
+## OS dropdown and settings placement
+
+Selected one Project OS dropdown, Repository settings → Sodaspaces and AI automation,
+and Global SodaOS settings → Sodarunners. The
+[leading contract](sodaspaces-plan.md#settings-pages-and-os-selection) now specifies
+page contents, creation-only OS selection, existing-profile display, operation-specific
+authorization and native workflow/secret authority. The drawer reuses the same
+selector/Create path. Native repository Actions runners remain upstream-owned;
+global host capacity remains Soda-operator-only, with Cockpit preserved until replacement.
+
+Reviewed current repository settings overrides, runner guide and operator configuration.
+The local menu already retains Actions runners/secrets/variables. Public v15
+customization documentation was checked; exact-tag remote navbar retrieval failed
+and is not counted as upstream source verification. Updated Project OS, AI, runner
+and Forgejo integration guides. This is a settings design, not implemented dropdowns,
+handlers, configuration saves or runner provisioning. Only documentation/link/
+whitespace checks ran; no product build/test, provider mutation or deployment ran.
+
 ## Batteries-included Project OS requirement
 
 The user requires every Project OS to include the complete non-preference foundation.

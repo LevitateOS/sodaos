@@ -1,5 +1,30 @@
 # Local CI runners
 
+## Selected settings destination
+
+Move Soda's local capacity/service controls to **Global SodaOS settings →
+Sodarunners**, not repository settings. The
+[settings plan](sodaspaces-plan.md#settings-pages-and-os-selection) owns integration.
+The configured Soda operator is a separate authority from a Forgejo site/repository
+administrator; enforce it server-side for listing, status and all mutations.
+Expose only the existing supported controls and actually installed execution
+capabilities, including the current host-only limitation. OCI AI execution remains
+separate source/native work, not an option enabled by a settings label.
+
+Keep native repository **Actions → Runners**, secrets and variables for provider-owned
+scope and workflows. Repository AI configuration can refer to supported runner labels
+and show useful availability/errors; it does not register host accounts, allocate
+arbitrary host capacity or replace Forgejo scheduling/registration authority.
+
+Reuse the existing runner coordinator/helper/provider clients, secret-input handling,
+service lifecycle and focused tests. Preserve the Cockpit Runners page until the new
+operator surface reaches real effects and its removal is coordinated. Tailnet stays
+in Cockpit. A page relocation does not change one-slot capacity, runner privileges,
+deletion semantics or authorize provider mutations. The port record below describes
+existing mechanisms; the global settings replacement is not implemented yet.
+
+## Existing port and operation
+
 The predecessor's page, protocol, coordinator/helper/launch, native provider clients, lifecycle and focused tests are ported. Adaptations:
 
 - Only the native root/operator may administer runners. The old regular-UID administrator check was incompatible with this appliance and has been replaced together with its tests.

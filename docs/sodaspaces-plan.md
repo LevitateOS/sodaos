@@ -384,6 +384,80 @@ policy remain product choices; only Rocky headless is currently implemented. Thi
 extends requested scope without changing existing project roots, provider authority
 or deployment permission.
 
+### Settings pages and OS selection
+
+The user selected an OS dropdown and dedicated repository settings pages. Use the
+following placement in the unified interface:
+
+| Location | Contents and authority |
+| --- | --- |
+| Repository settings → Sodaspaces | Project OS selection before Create; existing project/profile/status, access summary and links to the real Spaces/drawer controls. Preserve current operation-specific project authority. |
+| Repository settings → AI automation | Issue resolver and PR review/fix configuration, commands/prompts, eligible execution profile, setup/tests, event policy, secrets references, timeout and fix-round bound. Native repository/workflow/secret permissions govern writes. |
+| Global SodaOS settings → Sodarunners | Operator-only local runner registration/service controls, installed capacity, labels and execution support. Repository owners do not administer host runners. |
+| Existing repository settings → Actions | Keep Forgejo's native runner visibility/registration scope, secrets and variables pages. These do not become local host-capacity controls. |
+
+**Sodaspaces page:** use a single labelled **Project OS** dropdown containing the
+available shipped profiles: Rocky headless, Rocky KDE, Fedora Server/headless and
+Fedora KDE. Both GNOME variants remain deferred. This is the user-facing selector
+for the canonical profile ID, replacing the earlier two-control UI suggestion.
+Show a short explanation of headless versus KDE and the batteries-included
+foundation. Do not expose internal engine flags or suggest choosing a profile
+changes Forgejo's host OS.
+
+Before the first environment exists, choose the profile and explicitly **Create
+environment**. Reuse this selector and the same Create operation in the drawer;
+do not maintain competing repository defaults or a second provisioning path.
+Selection alone neither downloads nor starts anything. Resolve availability,
+architecture and authorization server-side before reservation. The current source
+only supports Rocky headless; future choices must not appear usable until their
+complete native artifacts/integration are available.
+
+For an existing environment, show its recorded creation profile and current observed
+state. OS selection is read-only, with a clear explanation that changing distribution
+or interface is not implemented for an existing persistent root. Do not infer the
+current profile from the appliance's newest image default, overwrite legacy roots,
+offer a destructive recreate shortcut or imply that Save converts the OS. Legacy
+profile display must use trusted existing metadata and report unknowns honestly.
+Reuse authorized Start/Stop/access actions and Open in Spaces/drawer; their existing
+permissions, state and error handling remain with their current owners. A new settings
+page does not broaden Create beyond the currently supported human repository owner.
+
+**AI automation page:** separate Issue resolution and PR review/fixes within one
+page, plus shared execution settings. Preserve the configured resolver conversation
+through issue → PR → review → same resolver fixes → review, with the finite round
+budget. A repository can enable either event independently. Distinguish selecting
+the project OS from selecting an eligible isolated AI job image; never run the job
+inside a person's live project just because it has the same profile name. Agent
+dependencies follow the batteries-included integration contract. Show actual runner
+availability and link to native Actions results and authorized live Spaces views.
+
+Prepare configuration changes as reviewable native workflow changes, preserving
+concurrent/manual edits and branch protection. Native Actions files/secrets remain
+authoritative; there is no second effective AI policy in Soda's database. Distinguish
+a proposed workflow change from the effective native configuration after its required
+commit/merge, and show off/pending/effective state truthfully. Do not add a second
+activation switch that disagrees with the workflow. No activation occurs by opening a page. Secret fields
+refer to native secret names/settings, never reveal saved values. The detailed
+[AI plan](services-and-ai-plan.md) owns triggers, publication and loop semantics.
+
+**Routing and integration:** extend the existing native repository settings menu
+through official template customization, preserving all native entries and gates.
+New Soda-owned pages live under the existing `/-/soda/` namespace with Go-rendered
+HTML and shared Lit controls, using Soda's actual OAuth/session/CSRF protections.
+Resolve repository identity from a stable ID and fresh native authority. Exact routes
+and OAuth return targets need bounded source contracts/tests; do not invent new
+Forgejo handlers or pass arbitrary redirect URLs. Keep native navigation and honest
+Soda actor context without copying a Forgejo authenticated page shell. Settings are
+not a new top-level repository tab or an always-open drawer configuration panel.
+
+The Soda operator entry must be available to the configured operator even when that
+person is not a Forgejo site administrator; native site-admin status alone cannot
+grant it. Server-side checks apply to every read and mutation, including deep links.
+Keep Cockpit Runners and all its backing logic/tests until the replacement works.
+These pages/selectors are selected source work, not implemented settings or runtime
+evidence. Test unauthorized/stale actors, unavailable profiles, legacy project display,
+failed provisioning, unsaved forms, concurrent workflow edits and native menu coexistence.
+
 ### Extension order and dependency boundaries
 
 This is the integration order for the newly selected features; the detailed Lit
