@@ -147,6 +147,11 @@ without promising an unmeasured speedup or treating prior counts as new results.
 
 ### B. Complete schema-v8 validation — independent small fix
 
+**Implemented with local source checks.** The
+[handoff](implementation-status.md#refactoring-step-b--schema-v8-completeness)
+records the reproduced failures, independent historical fixtures and passing checks.
+No migration history was rewritten and no retained database was accessed.
+
 **Owners:** [migrations](../internal/store/migrations.go),
 [migration tests](../internal/store/migrations_test.go),
 [profile migration tests](../internal/store/project_profile_test.go).

@@ -85,10 +85,10 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	for _, query := range []string{
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
-		`SELECT id,name,repository_id,owner_id,repository,ip,ready FROM projects LIMIT 0`,
+		`SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0`,
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT token,user_id,csrf,expires,context_id FROM sessions LIMIT 0`,
-		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return FROM oauth LIMIT 0`,
+		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return FROM oauth LIMIT 0`,
 		`SELECT id,pending,expires FROM login_contexts LIMIT 0`,
 		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
 		`SELECT session_token,ciphertext FROM session_grants LIMIT 0`,
@@ -100,6 +100,15 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if err = rows.Close(); err != nil {
 			return err
 		}
+	}
+	// Immutability is a required Soda schema contract, not just an application
+	// convention. Require the named trigger on projects; do not repair or parse SQL.
+	var hasImmutableProfile int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='immutable_creation_profile' AND tbl_name='projects'`).Scan(&hasImmutableProfile); err != nil {
+		return err
+	}
+	if hasImmutableProfile != 1 {
+		return errors.New("database schema is incomplete")
 	}
 	return tx.Commit()
 }

@@ -1,5 +1,35 @@
 # Current handoff
 
+## Refactoring step B — schema-v8 completeness
+
+Startup now requires `projects.creation_profile`, `oauth.repository_settings_return`
+and the named `immutable_creation_profile` trigger on `projects`, in addition to
+its existing schema checks. Missing columns or a missing/wrong-table/wrong-type
+trigger object fail closed before the migration transaction commits. This is a
+bounded required-schema check, not SQL-body parsing, a repair engine or a new
+migration. All eight append-only migration entries remain unchanged.
+
+The populated v7 migration test now uses independently preserved `testdata/v7.sql`
+(from `6e3b6e0`), rather than constructing its historical database from the live
+migration slice. New independently assembled v8 fixtures cover both missing columns,
+a missing trigger, a same-name trigger on another table, a same-name index and a
+valid-current control. Repeated opens verify unchanged schema/version and retained
+user/project/membership/OAuth records; the valid control enforces immutability.
+Existing fresh/populated upgrades, legacy unknown profiles, rollback/unknown-schema,
+foreign-key and OAuth single-use/logout coverage remain intact. Existing SQLite
+integrity/foreign-key validation callers were not changed.
+
+Local evidence is retained in `.artifacts/refactor-stepB-N02vJt/`: all five malformed
+cases first failed because the unfixed startup accepted them (`red.log`). After the
+fix, uncached `go test -mod=readonly -count=1 ./internal/store` passed in 11.11 seconds,
+and `bun run check:source` passed in 145.38 seconds: Go/module checks, complete
+TypeScript/Lit checks, 302 browser/Cockpit passes with 24 separately gated skips,
+and 115 Python tests with one optional Caddy integration skip. The environment still
+uses Go 1.27.0 and pinned Bun 1.4.2, not the native gate's pinned Go 1.26.7. This is
+local source evidence only; no retained database/project access, native-stage check,
+deployment, provider mutation or dependency-baseline change occurred. Later
+refactoring slices and all unfinished product features remain in scope.
+
 ## Refactoring step 1 — local source-check wiring
 
 Extended `scripts/test-spaces-page.ts` to produce fresh Spaces, runner-settings and

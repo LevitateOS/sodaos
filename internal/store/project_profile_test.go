@@ -2,10 +2,12 @@ package store
 
 import (
 	"database/sql"
-	"github.com/levitateos/sodaos/internal/projectos"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/projectos"
 )
 
 func TestV7MigrationKeepsLegacyUnknownAndImmutableCreation(t *testing.T) {
@@ -14,12 +16,14 @@ func TestV7MigrationKeepsLegacyUnknownAndImmutableCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, m := range migrations[:7] {
-		if _, err = db.Exec(m); err != nil {
-			t.Fatal(err)
-		}
+	schema, err := os.ReadFile("testdata/v7.sql")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err = db.Exec(`INSERT INTO schema_version VALUES(7); INSERT INTO users VALUES(1,'alice','Original'); INSERT INTO projects VALUES('legacy','Old',7,1,'alice/Old','10.0.0.2',1); INSERT INTO memberships VALUES('legacy',1,'original-login'); INSERT INTO oauth(state,verifier,expires,settings_return) VALUES('pending','v',9999999999,'runners')`); err != nil {
+	if _, err = db.Exec(string(schema)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO users VALUES(1,'alice','Original'); INSERT INTO projects VALUES('legacy','Old',7,1,'alice/Old','10.0.0.2',1); INSERT INTO memberships VALUES('legacy',1,'original-login'); INSERT INTO oauth(state,verifier,expires,settings_return) VALUES('pending','v',9999999999,'runners')`); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
