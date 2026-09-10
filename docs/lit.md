@@ -9,7 +9,8 @@ installed browser/CLI compatibility proof follows from the port.
 
 The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first
 ports, ID-keyed backend and shared page/drawer workspace (now locally implemented),
-including locally completed step-5 layouts and remaining step-6 attention/acceptance.
+including locally completed step-5 layouts and step-6a/6b attention/candidate source
+coverage. Scoped native/selected-CLI acceptance remains step 6c.
 It incorporates the existing managed-tmux contract; it does not
 restart the older request-owned terminal migration. Retained native adapters and
 required validation remain explicit.

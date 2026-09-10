@@ -15,8 +15,10 @@ are source-implemented with local Go/race/browser coverage. Step 4's authenticat
 page/fixed return and shared multi-session workspace now have local source/browser
 coverage at `18aceb2`. Step 5a–5d now has local source/browser/geometry coverage:
 bounded v2 layout, stable measured panes, shared chrome, compact native coexistence,
-current journey source ports and actual Go HTML→emitted-page integration. Step 6
-attention and candidate/native/CLI closure remain outstanding.** The sequence below
+current journey source ports and actual Go HTML→emitted-page integration. Canonical
+tokens, required template analysis, typed stateless views and source/build ownership
+are implemented. Steps 6a/6b now have local observed-attention and candidate/driver
+coverage; scoped native/CLI proof (6c) remains outstanding.** The sequence below
 is reconciled with that source, not another design cycle. Xterm/transport and native
 tmux ownership stay imperative; no Preact, second frontend or backend redesign is
 selected. Canonical branding and complete-public preview projections exist; changing
@@ -41,8 +43,8 @@ This is not a replay of steps 1–5 or a new renderer/backend migration. If step
 has already advanced, preserve those changes and apply the same requirements to its
 current owners; do not reset work to the reviewed commit. Step 6b's candidate closure
 must include token adoption, enforced template diagnostics and the preserved behavior
-checks. The analyzer's isolated success is not a completed root-workspace gate, and
-known callable-event typing gaps remain explicit. Native/CLI acceptance is still 6c.
+checks. The earlier isolated analyzer experiment is now a required root-workspace gate;
+known callable-event parameter-typing gaps remain explicit. Native/CLI acceptance is still 6c.
 
 ## 1. Starting point and decisions
 
@@ -82,8 +84,8 @@ only when it is pure and shared by concrete callers, not to build a generic stor
 
 | Owner | Responsibility |
 | --- | --- |
-| `appliance/forgejo/public/assets/sodaspaces.ts` | Native repository button/resume hook, outer split/compact surface, width, native DOM coexistence and page lifecycle. No session inventory or API mutations of its own. |
-| `…/sodaspaces-drawer.ts`, `<soda-spaces>` | Shared workspace, live child handles and original bindings; effects, storage IO and authorized restore. Step 5 adds one pane model with page/drawer projections; step 6 adds bounded observed attention. Keep `mountSodaspaces` and its discriminated bootstrap, not a new page controller. |
+| `frontend/spaces/sodaspaces.ts` | Native repository button/resume hook, outer split/compact surface, width, native DOM coexistence and page lifecycle. No session inventory or API mutations of its own. |
+| `…/sodaspaces-workspace.ts`, `<soda-spaces>` | Shared workspace, live child handles and original bindings; effects, storage IO and authorized restore. Step 5 adds one pane model with page/drawer projections; step 6 adds bounded observed attention. Keep `mountSodaspaces` and its discriminated bootstrap, not a new page controller. |
 | `…/sodaspaces-terminal.ts`, `<soda-terminal>` | One immutable terminal binding and its xterm/attachment resources, IO guards, status and explicit terminal commands. Keep `mountTerminal` and injection seams during the ports. |
 | `…/sodaspaces-project.ts`, `<soda-project-controls>` | Implemented named-project management/access, drafts and pending/uncertain writes. Layouts reuse these instances; they do not change their targets or duplicate their requests. |
 | `…/sodaspaces-layout.ts` (step 5a) | Pure pane-tree transformations, locator/layout parsing, migration and serialization. Takes explicit measurements for geometry decisions; no DOM, storage IO, network, credentials or native lifetime effects. |
@@ -575,6 +577,13 @@ replacement preserves exact native IDs, not DOM. Native proof is still separate.
 
 #### 6a — observed unread and lifecycle attention
 
+**Implemented locally after `f3f348b`:** typed current-generation observations,
+one unread flag per owner, observational lifecycle/deadline reasons, All/Attention
+and deliberate Next. The mounted workspace owns a cancellable 30-second UI clock
+and at-most-once-per-minute existing GET refresh while visible. No unopened-navbar
+poller, output-driven request or lifetime renewal was added. See the leading handoff
+for actual checks; native/CLI proof remains 6c.
+
 Apply the [post-step-5 cleanup](#cleanup-after-step-5) to the shared presentation
 before expanding it, preserving any already implemented attention work. New attention
 views use the same canonical tokens and checked typed composition; they do not
@@ -620,6 +629,15 @@ correct counts and navigation without mutation. Ordinary logs never become Atten
 or fabricated agent completion; no test treats a socket close as native cleanup.
 
 #### 6b — close candidate source and installed-journey coverage
+
+**Locally implemented and checked:** the existing guarded journey now selects a
+separate six-session/two-project matrix only with its additional exact private scope.
+Both actor journeys run against emitted components and synthetic peers in local
+fixtures. Native SSH/process observations and selected CLI/browser-versus-SSH
+scenarios are authored, not executed; see the [input/effect contract](native-validation.md#integrated-six-session-workspace-matrix-authored-not-installed-proof)
+and leading handoff. Combined local checks include tokens/checker/views/source
+mapping, attention, driver fixtures, Go/race and canonical staging/preview bytes.
+Historical failed native assertions and 6c's visual/native requirements remain.
 
 Reconcile current API/credential/installation and feature guides with the delivered
 source contracts, including schema v6 and the bounded Go HTML exception. Retain

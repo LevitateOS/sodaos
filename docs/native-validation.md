@@ -236,6 +236,76 @@ returned shell PID/start facts require independent host-side cleanup observation
 No environment creation, Join, lifecycle or key action is permitted by this mode.
 The current UI port is authored and locally fixture-tested, not installed proof.
 
+## Integrated six-session workspace matrix (authored, not installed proof)
+
+`--allow-workspace-matrix /private/matrix.json` is a **separate** opt-in on
+`tests/installed/sodaspaces.ts`. It cannot combine with access/management mode or
+inherit the old single-terminal approval. The original restricted base input,
+`terminal_actions: ["create", "end"]`, clean exact revision, target environment
+variable, CA/browser trust and real OAuth/BFCache prerequisites still apply.
+No installs, Join, Stop/Start, key changes, credential seeding, fault injection or
+unrelated cleanup are admitted. Every lifetime POST is consumed once against the
+original actor/path/body; UI helpers do not authorize or call mutation APIs.
+
+The extra restricted JSON's closed shape is owned by
+[`sodaspaces-matrix-input.ts`](../tests/installed/sodaspaces-matrix-input.ts):
+
+- `target`, `revision` equal the base input; `actors` equal its two IDs in order;
+  `sessions_per_actor: 6`; `actions: ["create", "attach", "hide", "return", "end"]`.
+  This means **twelve** new managed sessions total, six concurrently per actor,
+  followed by explicitly named End. Failed runs preserve outstanding exact IDs;
+  no catch/finally block ends remote sessions or repairs native state.
+- `projects`: exactly two distinct `{environment, repository_id, repository_path,
+  ssh}` records. The first repository equals the base repository. `ssh` contains
+  the two existing project-account aliases in actor order, each named
+  `soda-matrix-…`; all four aliases must differ. `ssh_config` is an absolute
+  restricted regular file with independently pinned project identities and
+  client-local personal keys. No key enters browser input. No routing claim is
+  inferred from this configuration.
+- `cli: []`, `cli_effects: []`, `provider_use: "none"` omits all CLI execution and
+  explicitly records **not run**. To select it, provide exactly one case for each
+  of `codex`, `claude`, `pi`: `{tool, version, prompt_file, ready_text, expected_text,
+  minimum_output_bytes}`. Versions are exact observed `--version` strings;
+  prompts are restricted files up to 4096 bytes containing **non-secret fixture
+  tasks**, not credentials or requests for tool/workspace mutation. `ready_text`
+  is the version-specific observed input-ready indicator (1–80 characters), never
+  a login, directory-trust or tool-permission prompt. Both transports must observe
+  it before submitting a task; no sleep, automatic confirmation or authentication
+  substitutes for readiness. The expected output (1–80 characters) must not occur
+  in the prompt; declared streaming volume is 4096–65536 bytes. All tools and
+  personal credentials must already be configured under the approved accounts;
+  absence/failure is not a pass and never triggers installation or authentication.
+- Selecting CLIs additionally requires
+  `provider_use: "browser-and-ssh-for-declared-clis"` and exact `cli_effects`:
+  `["personal-cli-state", "provider-calls", "browser-and-ssh-pty",
+  "interactive-input", "interrupt-and-disconnect"]`. This permits twelve prompt
+  submissions (three tools × two actors × browser/SSH), ordinary CLI-owned state
+  writes, input, interrupt and closure of the exact run-owned client SSH processes.
+  It does not authorize arbitrary commands, project cleanup or provider resources.
+
+The shared scenario drives real New/name, All/Sessions, panes, compact projection,
+Hide/Return and named End controls. It verifies exact create correlation and later
+attachment IDs, refuses an already observed writer in a second guarded page,
+preserves six DOM/xterm owners through layout and checks original PID/start/memory
+through reload. Independent **ordinary project SSH** checks require the same account,
+exact shell, owned tmux socket, transient unit, cgroup and record. End success requires
+all owned resources absent/inactive and siblings still live; missing permissions or
+unknown observations fail rather than being treated as absence. HTTP End may be
+accepted or transport-unconfirmed: neither is the independent cleanup result.
+
+CLI scenarios record versions, browser/tmux/TERM/terminfo, bounded Unicode/ANSI
+indications, declared streaming volume, explicit paste/mouse/resize/selection/
+interrupt interactions, exact reload without input replay and ordinary SSH PTY
+comparison. No transcript, prompt, auth frame or private diagnostic is retained.
+Programmatic paste and wire indications are **not visual/physical-keyboard proof**;
+results explicitly require review of redraw, mouse/paste semantics, history/selection,
+resize/interrupt, streaming and SSH comparison. No CLI acceptance boolean is fabricated.
+Long-lived CLI child cleanup and retained application state still require scoped
+native review. Local driver fixtures use emitted components, fixture-only loopback
+TLS/browser trust and synthetic peers/native observations: not Forgejo, SSH or tmux
+acceptance. The existing native boundary probe below remains required, including its
+retained framing failure.
+
 ## Integrated existing-project management mode
 
 `--allow-existing-management /private/management.json` additionally runs the

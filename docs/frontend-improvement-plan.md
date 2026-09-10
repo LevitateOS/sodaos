@@ -20,15 +20,20 @@ the same contracts to the current owners rather than restoring this checkout.
 
 ## Implementation progress after the reviewed baseline
 
-The first implementation slices now expose/consume canonical workspace tokens,
-add computed page/drawer checks and a scoped visual-literal guard, and integrate
-required actual-source Lit analysis plus independent fixtures. The first typed
-extraction is the project lifecycle section; its state and command admission remain
-in the project owner. See the [current handoff](implementation-status.md) for exact
-checks and remaining work, and [checker resolution](../tools/lit-check/README.md)
-for the analysis-only build adapter needed by the locked upstream packages.
-The remaining presentation/source-clarity slices and steps 6a/6b are not complete.
-Dated research observations below remain historical, not current gate status.
+The local implementation now covers canonical workspace tokens and computed
+page/drawer presentation checks; required actual-source analysis and independent
+negative fixtures; typed stateless environment/project/terminal/workspace views;
+and [one authored Spaces source directory](../frontend/spaces/README.md), with
+compiler/build/import/payload and production/journey callers ported together.
+Owners still retain drafts, admission, original targets and live resources.
+Observed unread/lifecycle attention (6a) and candidate/installed-driver source
+coverage (6b) are locally complete. Required candidate checks include the new
+six-session/two-project driver fixtures; native/selected-CLI acceptance is **6c,
+not run on this candidate**, not an implementation blocker or inferred success.
+See the [current handoff](implementation-status.md) for exact checks, failed
+iterations and remaining proof, and [checker resolution](../tools/lit-check/README.md)
+for the analysis-only compiler boundary and known event-parameter gap. Dated research
+observations below remain historical, not current gate status.
 
 ## 1. Reading order and document ownership
 
@@ -108,13 +113,13 @@ Paths below describe the reviewed source, not an instruction to keep every filen
 | Source | Actual responsibility | Cleanup implication |
 | --- | --- | --- |
 | [Spaces Go handler](../internal/web/spaces_page.go) and [template](../internal/web/templates/spaces.html) | Authorize and render the document shell, canonical assets, fixed navigation and labelled Soda account; mount the client workspace | Keep meaningful server authority. The 14-line template is not evidence of a broken architecture |
-| [Page bootstrap](../appliance/forgejo/public/assets/sodaspaces-page.ts) | Validate the server actor, mount and refresh the shared workspace | Keep thin; no second page controller or copied session state |
-| [Shared workspace](../appliance/forgejo/public/assets/sodaspaces-drawer.ts) | Both page and drawer; child handles, original bindings, locators, commands, layout projection, focus and storage effects | Historical drawer-only name obscures shared ownership; preserve one concrete owner |
-| [Project controls](../appliance/forgejo/public/assets/sodaspaces-project.ts) | Environment/access views, key drafts, reads, explicit mutations and pending/uncertain state | First presentation extraction target; keep guards and drafts together |
-| [Terminal](../appliance/forgejo/public/assets/sodaspaces-terminal.ts) | Controls plus imperative xterm/transport, attach/restore, input bounds, retention and disposal | Extract presentation without moving resource authority |
-| [Layout](../appliance/forgejo/public/assets/sodaspaces-layout.ts) | Pure bounded parsing, migration, serialization and pane transformations | Keep ordinary TypeScript with explicit inputs; no DOM/network/storage effects |
-| [API contracts](../appliance/forgejo/public/assets/sodaspaces-api.ts) | Bounded JSON reads and runtime validation from `unknown` | Reuse; renderer types cannot replace runtime validation |
-| [Native adapter](../appliance/forgejo/public/assets/sodaspaces.ts) | Supported Forgejo hook, non-modal aside, native coexistence, width and document departure | Keep native navigation/forms and lazy loading intact |
+| [Page bootstrap](../frontend/spaces/sodaspaces-page.ts) | Validate the server actor, mount and refresh the shared workspace | Keep thin; no second page controller or copied session state |
+| [Shared workspace](../frontend/spaces/sodaspaces-workspace.ts) | Both page and drawer; child handles, original bindings, locators, commands, layout projection, focus and storage effects | Historical drawer-only name obscures shared ownership; preserve one concrete owner |
+| [Project controls](../frontend/spaces/sodaspaces-project.ts) | Environment/access views, key drafts, reads, explicit mutations and pending/uncertain state | First presentation extraction target; keep guards and drafts together |
+| [Terminal](../frontend/spaces/sodaspaces-terminal.ts) | Controls plus imperative xterm/transport, attach/restore, input bounds, retention and disposal | Extract presentation without moving resource authority |
+| [Layout](../frontend/spaces/sodaspaces-layout.ts) | Pure bounded parsing, migration, serialization and pane transformations | Keep ordinary TypeScript with explicit inputs; no DOM/network/storage effects |
+| [API contracts](../frontend/spaces/sodaspaces-api.ts) | Bounded JSON reads and runtime validation from `unknown` | Reuse; renderer types cannot replace runtime validation |
+| [Native adapter](../frontend/spaces/sodaspaces.ts) | Supported Forgejo hook, non-modal aside, native coexistence, width and document departure | Keep native navigation/forms and lazy loading intact |
 
 The three main Lit modules are approximately 468, 282 and 361 lines in the reviewed
 checkout. Compressed single-line templates make those counts a poor estimate of

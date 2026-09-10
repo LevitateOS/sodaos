@@ -1,7 +1,7 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, migrateLayout, splitPane, moveTab, resizeSplit, consolidate, projectLayout, panes} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
-import type {WorkspaceLayout, LayoutEntry} from '../../appliance/forgejo/public/assets/sodaspaces-layout';
+import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, migrateLayout, splitPane, moveTab, resizeSplit, consolidate, projectLayout, panes} from '../../frontend/spaces/sodaspaces-layout';
+import type {WorkspaceLayout, LayoutEntry} from '../../frontend/spaces/sodaspaces-layout';
 const key = (n: number) => n.toString(16).padStart(8, '0') + '-0000-0000-0000-000000000000';
 const env = 'p' + '1'.repeat(24), terminal = 'a'.repeat(32), request = 'b'.repeat(32);
 const entry: LayoutEntry = {key: key(2), environmentId: env, locator: {kind: 'pending', requestId: request}};

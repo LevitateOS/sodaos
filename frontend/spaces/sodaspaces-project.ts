@@ -1,6 +1,8 @@
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
-import {LitElement, html, nothing} from 'lit';
+import {LitElement, html} from 'lit';
+import {renderEnvironment} from './sodaspaces-environment-view.js';
+import {renderConnection, renderKeys, renderProjectStatus} from './sodaspaces-project-view.js';
 import type {TemplateResult} from 'lit';
 import {object, check, id, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import type {Session, Environment, Detail, KeyPreview, SavedKey} from './sodaspaces-api.js';
@@ -109,59 +111,39 @@ export class SodaProjectControls extends LitElement {
   protected render() {
     const intent = new URLSearchParams({repository_id: this.binding?.repositoryId || ''});
     if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
-    const preview = this.keyPreview;
     return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls" aria-busy=${this.busy && !this.stale ? 'true' : 'false'}>
       <div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">${views.map(view => html`
         <button type="button" class="ui basic button" data-view=${view} role="tab" aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
           aria-selected=${this.selected === view ? 'true' : 'false'} tabindex=${this.selected === view ? 0 : -1}
           @click=${() => this.select(view)} @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}>${view[0]?.toUpperCase()}${view.slice(1)}</button>`)}</div>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-environment'} class="soda-spaces-view" role="tabpanel" aria-label="Environment" ?hidden=${this.selected !== 'environment'}>
-        <p>Shared resources, explicit actions. Hiding does not undo work already sent.</p>
-        <a data-control="sign-in" class="ui primary button" href=${'/-/soda/login?' + intent} ?hidden=${!this.connectVisible || this.stale}
-          aria-disabled=${this.busy || this.stale ? 'true' : 'false'} @click=${(e: Event) => {if (this.busy || this.stale || this.disposed) e.preventDefault();}}>Connect to Soda</a>
-        <div class="soda-spaces-actions">
-          <button data-control="refresh" type="button" class="ui basic button" ?disabled=${this.busy || this.stale} @click=${(e: Event) => this.command(e, () => this.refresh(), true)}>Refresh status</button>
-          <button data-control="reload" type="button" class="ui basic button" ?hidden=${!this.stale} @click=${(e: Event) => {if (!this.disposed && e.currentTarget instanceof HTMLElement && !e.currentTarget.closest('[hidden]')) window.location.reload();}}>Reload repository page</button>
-          <button data-control="sign-out" type="button" class="ui basic button" ?hidden=${!this.session} ?disabled=${this.busy || this.stale || !this.session}
-            @click=${(e: Event) => this.command(e, () => this.mutate('/api/session/logout', {}, 'Signed out of Soda.'), true)}>Sign out of Soda</button>
-          <button data-control="create" type="button" class="ui primary button" ?hidden=${!this.canCreate} ?disabled=${this.blocked}
-            @click=${(e: Event) => this.command(e, () => this.mutate('/api/environments', {repository_id: this.binding?.repositoryId}, 'Environment created. Save a public key and explicitly Join; creation does not join you.'))}>Create environment</button>
-          <button data-control="join" type="button" class="ui primary button" ?hidden=${!this.detail?.environment.provisioned || !!this.detail.login || !this.running || !this.saved?.length} ?disabled=${this.blocked}
-            @click=${(e: Event) => this.command(e, () => {if (this.environment) return this.mutate('/api/environments/' + this.environment.id + '/join', {}, 'Native join confirmed. Later saved-key changes require a separate explicit Apply.');})}>Join environment</button>
-        </div>
-        ${renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed,
+        ${renderEnvironment({connectURL: '/-/soda/login?' + intent, connectVisible: this.connectVisible,
+          busy: this.busy, stale: this.stale, signedIn: !!this.session, blocked: this.blocked, canCreate: this.canCreate,
+          canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && !!this.saved?.length}, {
+          connect: event => {if (this.busy || this.stale || this.disposed) event.preventDefault();},
+          refresh: event => this.command(event, () => this.refresh(), true),
+          reload: event => {if (!this.disposed && event.currentTarget instanceof HTMLElement && !event.currentTarget.closest('[hidden], [inert]')) window.location.reload();},
+          logout: event => this.command(event, () => this.mutate('/api/session/logout', {}, 'Signed out of Soda.'), true),
+          create: event => this.command(event, () => this.mutate('/api/environments', {repository_id: this.binding?.repositoryId}, 'Environment created. Save a public key and explicitly Join; creation does not join you.')),
+          join: event => this.command(event, () => {if (this.environment) return this.mutate('/api/environments/' + this.environment.id + '/join', {}, 'Native join confirmed. Later saved-key changes require a separate explicit Apply.');}),
+        }, renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed,
           event => this.command(event, () => this.changeLifecycle(false)),
           event => this.command(event, () => this.changeLifecycle(true)),
-          checked => {this.stopConfirmed = checked;})}
+          checked => {this.stopConfirmed = checked;}))}
       </section>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-access'} class="soda-spaces-view" role="tabpanel" aria-label="Access" ?hidden=${this.selected !== 'access'}>
-        <fieldset data-control="connection" ?hidden=${!this.connection}><legend>SSH / editor connection</legend>
-          <input id=${'soda-command-' + this.binding?.repositoryId} data-control="command" readonly aria-label="SSH command" .value=${this.connection?.command || ''}>
-          <p data-control="fingerprint">${this.connection ? 'Ed25519 host-key fingerprint: ' + this.connection.fingerprint : ''}</p>
-          <button data-control="copy" type="button" class="ui basic button" ?disabled=${this.blocked} data-tooltip-appendto="parent" data-clipboard-target=${this.connection && !this.binding?.page ? '#soda-command-' + this.binding?.repositoryId : nothing} @click=${() => this.copyConnection()}>Copy SSH connection</button>
-          <p>Use ordinary SSH or your editor’s Remote SSH with this account/IP. An observed IP is not proof of laptop routing.</p>
-        </fieldset>
-        <fieldset data-control="keys" ?hidden=${!this.saved}><legend>My development SSH keys (not Forgejo Git keys)</legend>
-          <ul data-control="key-list">${this.saved?.map(key => html`<li>${key.fingerprint} <button type="button" class="ui basic button" ?disabled=${this.blocked}
-            @click=${(e: Event) => this.command(e, () => this.mutate('/api/me/development-keys/' + key.id, {}, 'Saved key removed. Existing project SSH access is unchanged until explicitly applied.', 'DELETE'))}>Remove saved key</button></li>`)}
-            ${this.saved && !this.detail?.login ? html`<li>${this.saved.length ? 'Start must be requested from the project administrator when stopped; then explicitly Join.' : 'Save your public key, then explicitly Join when the environment is running.'}</li>` : ''}</ul>
-          <label>Public SSH key <textarea data-control="public-key" rows="3" maxlength="16384" spellcheck="false" autocomplete="off" .value=${this.draft} @input=${(e: Event) => {if (e.target instanceof HTMLTextAreaElement) this.draft = e.target.value;}}></textarea></label>
-          <button data-control="save-key" type="button" class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.saveKey())}>Save public key</button>
-          <p>Removing a saved key changes future joins only. Use Review → Apply below for this project. Verify a replacement over SSH before revoking the old key.</p>
-          <button type="button" class="ui basic button" ?hidden=${!this.detail?.login || !this.running} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.reviewKeys())}>Review this project’s SSH keys</button>
-          <div>${preview ? html`<p>The dedicated Soda-managed key file for this account will match the saved set. Review every removal; other accounts/files/projects and authenticated SSH sessions are unchanged.</p>
-            <p>Add: ${preview.saved_fingerprints.filter(k => !preview.installed_fingerprints.includes(k)).join(', ') || 'none'}</p>
-            <p>Remove: ${preview.installed_fingerprints.filter(k => !preview.saved_fingerprints.includes(k)).join(', ') || 'none'}</p>` : ''}</div>
-          <label ?hidden=${!preview || preview.saved_fingerprints.length !== 0}><input type="checkbox" .checked=${this.emptyConfirmed} @change=${(e: Event) => {if (e.target instanceof HTMLInputElement) this.emptyConfirmed = e.target.checked;}}> Remove all managed keys from this account: new SSH logins using them will be denied.</label>
-          <button type="button" class="ui primary button" ?hidden=${!preview} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.applyKeys())}>Apply reviewed saved keys to this project</button>
-        </fieldset>
+        ${renderConnection(this.connection, this.binding?.repositoryId || '', !!this.binding?.page, this.blocked, () => {void this.copyConnection();})}
+        ${renderKeys({saved: this.saved, preview: this.keyPreview, joined: !!this.detail?.login, running: this.running,
+          blocked: this.blocked, draft: this.draft, emptyConfirmed: this.emptyConfirmed}, {
+          remove: (event, key) => this.command(event, () => this.mutate('/api/me/development-keys/' + key.id, {}, 'Saved key removed. Existing project SSH access is unchanged until explicitly applied.', 'DELETE')),
+          draft: value => {this.draft = value;}, save: event => this.command(event, () => this.saveKey()),
+          review: event => this.command(event, () => this.reviewKeys()), confirmEmpty: checked => {this.emptyConfirmed = checked;},
+          apply: event => this.command(event, () => this.applyKeys()),
+        })}
       </section>
-      <div class="soda-spaces-summary">
-        <p data-control="repository" class="soda-spaces-context">${this.repository}</p>
-        <p data-control="actor">${this.session ? `Soda account: ${this.session.user.login} (ID ${this.session.user.id})` : ''}</p>
-        <p data-control="login" class="soda-spaces-context">${this.connection ? 'Project account: ' + this.detail?.login : ''}</p>
-        <p data-control="status" role="status">${this.status}</p><p data-control="result" role="status">${this.outcome}</p>
-      </div>
+      ${renderProjectStatus(this.repository,
+        this.session ? `Soda account: ${this.session.user.login} (ID ${this.session.user.id})` : '',
+        this.connection ? 'Project account: ' + this.detail?.login : '', this.status, this.outcome)}
     </section>`;
   }
   private async copyConnection() {

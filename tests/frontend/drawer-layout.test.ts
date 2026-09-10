@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import payload from '../../internal/nativebuild/forgejo-payload.json';
 import terminalLock from '../../appliance/terminal-assets.lock.json';
-import type {TerminalMetadata} from '../../appliance/forgejo/public/assets/sodaspaces-api';
+import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-api';
 import {newManagedTerminal, projectView, terminalMenu} from '../installed/sodaspaces-controls';
 import path from 'node:path';
 declare global {interface Window {fixtureSocketCount: number; fixtureClosedCount: number; fixtureFrames: Record<string, unknown>[]; fixtureActions: string[]; fixtureMetadata?: TerminalMetadata; fixtureDirty: boolean}}

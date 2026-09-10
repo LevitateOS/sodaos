@@ -7,8 +7,9 @@ terminal implementation or UI stack. The [Lit implementation plan](lit-migration
 owns the shared sequence for both surfaces. Steps 1–5 are locally implemented,
 including Lit controls, the shared multi-session workspace, bounded v2 layout,
 measured panes and compact Forge/Terminal projection. Current journey ports have
-local fixture coverage, not installed execution. Step 6 still specifies observed
-attention, candidate closure and native/selected-CLI acceptance. Shared session/action/attention semantics remain in the
+local fixture coverage, not installed execution. Steps 6a/6b add locally checked
+observed attention and candidate/extended-driver source coverage; 6c retains scoped
+native/selected-CLI acceptance. Shared session/action/attention semantics remain in the
 parent design and [terminal contract](terminal-integration.md).
 
 The [frontend improvement guide](frontend-improvement-plan.md) defines the detailed

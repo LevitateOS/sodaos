@@ -1,5 +1,5 @@
 // Browser-realm fixture only. Production modules are emitted separately, never bundled into this double.
-import {mountProjectControls} from '../../../appliance/forgejo/public/assets/sodaspaces-project.js';
+import {mountProjectControls} from '../../../frontend/spaces/sodaspaces-project.js';
 export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}

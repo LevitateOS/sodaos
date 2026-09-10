@@ -13,7 +13,7 @@ The predecessor checkout remains unchanged. No new license is assigned to inheri
 Tea's upstream MIT license is delivered beside this notice and inside the project image. The GitHub runner payload retains its upstream license files. Other packages and container layers retain their upstream notices/licenses; the input record identifies resolved bytes. Canonical Soda branding is reused, not redrawn or relicensed. See the source repository's `docs/branding.md`, `docs/predecessor-reuse.md`, `docs/project-clis.md` and dependency locks.
 
 The four files under `appliance/forgejo/templates/custom/` and
-`appliance/forgejo/public/assets/sodaspaces.*` are original SodaOS hook/asset code,
+`frontend/spaces/sodaspaces.*` are original SodaOS hook/asset code,
 not copied upstream templates or a patched executable. Their Apache-2.0 source
 markers accompany `soda-LICENSE` and `soda-NOTICE` in the bundle notices directory.
 This does not relicense stock Forgejo or inherited branding, or close the remaining

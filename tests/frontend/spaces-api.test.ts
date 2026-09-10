@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spacesResponse, terminalResponse} from '../../appliance/forgejo/public/assets/sodaspaces-api';
+import {spacesResponse, terminalResponse} from '../../frontend/spaces/sodaspaces-api';
 const binding = {expectedUserId: '1', repositoryId: '7', environmentId: 'p0123456789abcdef01234567', login: 'original-alice'};
 const terminal = {id: 'a'.repeat(32), request_id: 'b'.repeat(32), environment_id: binding.environmentId, repository_id: '7', user_id: '1', login: binding.login,
   name: '編集', created_at: 100, hard_until: 43300, retain_until: 1900, effective_until: 1900, ready: true, attached: true, state: 'ready'};

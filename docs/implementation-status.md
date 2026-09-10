@@ -1,5 +1,439 @@
 # Current handoff
 
+## Native two-actor matrix passed; retained delivery in preparation
+
+Probe `1891849` against installed **b8af68c/schema v6** passed the real matrix in
+`.artifacts/s6c-browser-ZF5skr/`: **six concurrent sessions per actor across both
+original projects (twelve total)**, exact correlation, original-account shell/PID/
+start/marker facts, existing-writer refusal, stable same-document hosts/renderers,
+full-page split/move/compact/consolidate, Hide/Return and exact same-shell reload.
+All twelve explicit Ends had independent ordinary project SSH confirmation of
+shell, unit, cgroup and owned-record/socket cleanup, plus live-sibling checks.
+The read-only prerequisite again passed including BFCache. **No CLI/provider case
+ran**; the evidence explicitly says not-run. This is bounded x86_64 native matrix
+proof, not CLI/physical-keyboard/aarch64/final-product acceptance.
+
+Two prior matrix attempts remain failures, including their native retained IDs and
+later writes: `uchl8L` entered layout from the drawer; `21XE12` reached full-page
+layout but then timed out. After closing its contender, Chromium selected the
+read-only journey's other tab, not the matrix page. The driver now explicitly
+foregrounds its actual page; local fixtures include an extra tab with focus
+emulation disabled. Native `ZF5skr` passes that correction. No production focus
+or pane guard was weakened. Local driver fixtures and required types passed.
+
+`soda-test` is still the original running four roots, not yet rolled out. Fresh
+read-only review records all **seven actual `u08-*` memberships**, original
+UID/GID/homes/sshd PIDs and differing creation capabilities. Earlier generic
+preflight's `operator` entry was the distro system account, **not** membership
+inventory; the new review corrects that limitation without touching accounts.
+All three differing project-init hashes match exact Git versions (`e988da5`,
+`0d4c4eb`, `935dbdf`). Maintenance must add only the terminal directory line and
+program/tmux, preserving each root's other init behavior/capabilities. No running
+user workloads were observed (only original system services plus the read-only
+probe); that observation is not authority to stop projects or discard state.
+
+The b8af68c bundle was transferred/verified to
+`/var/tmp/soda-step6c-retained-b8af68c/x86_64` on `soda-test`. First transfer failed
+before extraction because its new parent directory did not exist; retained failure
+and successful separate attempt are `retained-transfer*` under
+`.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`. No installation follows merely from
+transfer. Fresh paired application/project backups, rehearsal, delivery and retained
+checks are next; no inherited backup waiver, root/OS replacement or capability retrofit.
+
+## Native browser passed; first matrix attempt retained
+
+The corrected viewport probe then reached Soda logout and exposed another stale
+probe expectation: the production API returns **204**, not 200. The driver now
+requires/records that exact no-content status; positive/negative focused coverage
+and required types passed. Probe source `802bbde` subsequently passed the complete
+native read-only journey against the delivered **b8af68c** product: both fixture
+actors/OAuth, stale contexts and denials, scoped logout, native unsaved-form/focus/
+compact behavior, cancelled beforeunload, **real BFCache restoration**, and the
+actual authenticated Go Spaces page/native links. Profile/evidence:
+`.artifacts/s6c-browser-EQRBx0/`. Only probe code changed after b8af68c; matching served
+asset hashes and separate backend/helper delivery binding remain explicit.
+
+Matrix attempt `.artifacts/s6c-browser-uchl8L/` passed its read-only prerequisite and
+created **six Alice sessions across both original projects**, with real shell facts
+and independent original-key project SSH observations. It then timed out before
+layout/lifetime/End completion; no Bob matrix or cleanup pass is claimed. Failure
+closes local browser attachments, not HTTP End; preserve the recorded IDs, shell
+facts and native retention, do not automatically clean up or select replacements.
+
+Source review found the installed caller enters from the repository drawer, but
+the shared matrix tried full-pane splits without navigating out of the intentionally
+compact drawer projection. The shared scenario now explicitly enters/authenticates
+the full-page Spaces workspace first, records bounded internal progress stages,
+and its two local emitted fixtures start outside that workspace to catch the same
+caller mismatch. Focused driver fixtures and required types passed; another native
+matrix is still required. This is a probe correction, not enabling splits in the
+drawer, relaxing native assertions or changing production UI. Four project SSH
+aliases use existing fixture keys and independently verified **original** public host
+keys through management forwarding; no laptop/direct-route claim or network change.
+
+## Isolated readiness correction delivered; full native terminal boundary passed
+
+Candidate `b8af68c1a6977e2a8a29e31e4f072ee979ef5cf9` passed fresh native x86_64
+build/check/export under `.artifacts/step6c-ready-5qAW9C/` (full Python discovery now
+75 tests including the three readiness regressions; source/stage check exited 0).
+Its verified bundle was transferred to the already approved isolated VM. A **new**
+paired live-v6/config/helper/guard backup and networkless v6 copied-state rehearsal
+preceded matching dashboard/helper delivery and atomic replacement of only each
+original project's admitted Soda-owned `project-terminal` file. Both Rocky 9 roots,
+CIDs, post-boot sshd PIDs, accounts and other project files were retained. The helper's
+future-create image now matches the built Rocky 10.2 candidate; no project was created
+or root migrated. Backup: `/var/lib/soda-step6c-ready-b8af68c/backup` on that guest.
+
+The exact candidate's product-owned **`TestInstalledTerminalBoundary` passed** in
+`native-e` (65.70s): both original accounts, profile/UID/GID/groups/home/TTY, resize,
+interrupt, sudo boundaries, same PID/start/memory reattachment, End/missing-target
+refusal, and independent login/job/launcher disappearance after owner EOF, real
+60-second silent lease and test-owned helper SIGKILL. This resolves the reproduced
+premature-ready/input-loss failure for this scope; no assertion was removed, sleep
+added or probe output condition relaxed. Failed native-b/c/d and diagnostic diffs
+remain. Read-only observation after those failed runs found no managed units.
+This is not the browser matrix, real selected CLI, guard-kill/Stop/logout/rotation,
+physical-keyboard, unrelated-workload or aarch64 acceptance.
+
+The actual native read-only browser journey reached real Alice OAuth/connection and
+native-focus checks, then failed its 360px layout assertion. A diagnostic-only probe
+commit `d9562a4` recorded the concrete mismatch: requested outer width 360, native
+scrollbar leaves visual viewport **345**, and the drawer is correctly x=0/y=44,
+width=345/height=856 with Terminal selected. The probe incorrectly required its right
+edge at 360. The source guard now uses the real visual viewport (as the adapter does),
+retains public geometry measurements and still rejects overflow/misalignment; a
+focused positive/negative source-guard test and required typecheck passed. No browser
+flags, scrollbar hiding, UI CSS or viewport emulation were altered. New installed
+browser/matrix proof is still required. Failed browser profiles are retained at
+`.artifacts/s6c-browser-FeQRSU/` and `.artifacts/s6c-browser-fegw9x/`.
+
+Current delivery scope: isolated **b8af68c**, schema v6; `soda-test` only started/read,
+not updated. Both-target deployment remains approved, validation first. Preserve the
+new post-OAuth v6 backup and all later writes; the earlier v5 backup is no longer a
+lossless rollback. No CLI/provider credentials were installed/copied or used.
+
+## Both guests started; isolated `5a21ad6` delivered; native input-loss correction
+
+The user approved starting **both existing VMs**. Their preserved disks were started
+with the original QEMU/KVM CPU/RAM/network parameters, new private console/PID records,
+and no provisioning replay/new disks. Both pinned SSH identities matched; all six
+original project CIDs are running. Evidence and exact recipes are retained under
+`.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`, including `start-hBP8UW/`.
+
+On `soda-native-spaces-658f2af`, custom-file admission matched prior `22d8591` bytes
+(no unknown occupants). A new paired application backup, then networkless/helperless
+copied-state rehearsal passed: missing/wrong key refusal, populated v5→v6 preservation,
+prior-image v6 refusal and a healthy paired prior-v5 copy. Actual `5a21ad6` dashboard
+image/binary and admitted custom files were then delivered, restarting only Forgejo
+and Soda. Live schema v6 integrity/FKs, **every original table column/ciphertext before
+browser login**, all custom bytes/modes, image/running binary and original project CIDs/
+post-boot sshd PIDs matched. Config/credentials, proxy, native helper and project roots
+remained unchanged. This is affected delivery, not native acceptance or full-bundle
+installation. The original application backup is at
+`/var/lib/soda-step6c-5a21ad6-lEB0Ji/backup` on that guest; no automatic rollback.
+
+The current native boundary probe reproduced the historical failure. Redacted
+in-memory diagnostics showed exactly one facts marker **before the first terminal
+escape**, no numeric UID output and no Python error. Flattening line breaks did not
+recover a record. Exact upstream tmux 3.2a `tty.c::tty_start_tty` establishes the cause:
+raw-mode setup calls `tcflush(TCIOFLUSH)` **before** emitting its initial screen.
+Soda announced ready at exec success and wrote immediate input before that flush;
+the command was echoed and discarded, not merely wrapped. No transcripts were saved.
+
+The source correction gates attachment ready/input on the first native output,
+retains that first screen, keeps early input in the existing bounded queue and bounds
+startup at five seconds without renewing deadlines. No sleeps, input replay, new
+backend or personal tmux adoption. Three local regression cases cover a controlled
+flush gate/first input, lease expiry while unready and bounded startup; the first
+case fails the old source deterministically. Local Python terminal and Go host tests
+passed. Corrected helper/program bytes still require a matching native build and
+paired, backed-up same-root delivery before rerunning the installed proof. The
+historical native failure is diagnosed, **not yet passed**. The native Go diagnostic
+changes were retained as artifact diffs and removed from production test source.
+
+`soda-test` has only been started/read: its four roots lack tmux/project-terminal;
+its current source-owned custom files match the prior bundle and would require 376
+new admitted paths. It remains at its prior application, pending the validation gate
+and reviewed same-root tmux/program/runtime-directory additions, never replacement
+roots or a blanket package upgrade. No provider/agent setup or credential borrowing.
+
+Failed preparation iterations are also retained: preflight initially used the service
+name `forgejo` instead of the actual `soda-forgejo` container; initial transfer lacked
+its required private parent; native-input preparation initially used incorrect IDs
+and refused before creating shells. Corrected input uses the recorded fixture Alice
+1/Bob 2 identities and independently verified project account markers/groups. Native
+runs `native-b` through `native-d` failed the first facts assertion and did not reach
+later interrupt/reattach/failure cases. No failed probe is an installed pass.
+
+## Both deployment targets selected — currently offline
+
+The user answered **“Both”** to validation VM / `soda-test` / validation-first both.
+Affected-component delivery of the prepared `5a21ad6` candidate is therefore selected
+for `soda-native-spaces-658f2af` first, then `soda-test` after validation. This does
+not include agent installation/provider credentials, project-root replacement or
+an old backup waiver.
+
+New pinned-SSH read-only preflight reached **neither guest**: loopback ports 22230
+and 22220 both returned connection refused. Local observation showed builder uptime
+about 24 minutes, no QEMU process and no listeners at those ports or 33443/24444.
+Both retained disk files are present; presence is not an integrity/boot check.
+No guest script ran, no backup/rehearsal/delivery or installed test occurred, and
+no state was erased or restored. Starting the existing VMs (including their
+boot-enabled services/projects) was requested explicitly before proceeding; it
+has **not** been performed. Do not create replacement fixtures or regenerate disks.
+
+Attempt/evidence: `.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`. Both SSH exits were 255;
+the subsequent local JSON summary failed because those preflight outputs were empty.
+Those failures are retained, not replaced with availability or admission claims.
+The earlier read-only inventory is historical and must be observed afresh after
+an approved existing-VM start. Deployment target selection is no longer pending;
+VM start and fresh admission/backup/rehearsal precede execution.
+
+## Step 6c native candidate prepared — `5a21ad6`, not deployed
+
+After the user requested the remainder **including deployment**, native x86_64
+build/check/export preparation completed for
+`5a21ad65033da858caea89de790b1caf553b6cea`. The exact deployment target was asked
+before mutation: isolated `soda-native-spaces-658f2af`, retained `soda-test`, or both
+validation-first. The later “cont” continued preparation but did not select between
+those targets. No deployment, package/project maintenance or installed journey has
+been performed in this continuation. Do not reinterpret an old backup waiver or
+EL9→EL10 root replacement as part of the generic deployment request.
+
+From the new clean worktree under `.artifacts/step6c-5a21ad6-KgP8Eh/`:
+
+- Production `build-native.sh x86_64`, `check-native.sh x86_64`, bundle export and
+  independent exported-bundle verification all exited **0**. Go 1.26.7/Bun 1.4.2,
+  existing locks and verified cached Tea **source**, not historical binaries/stages.
+- Full Go, TS7/analyzer/fixtures (19 sources), frontend **188 /3 gated skips**,
+  actual Go HTML/CSP page **1**, 20 layout cases, Forgejo source **30 /18 optional
+  skips**, Cockpit **60**, all Python build tests **72 /1 opt-in skip**, and all
+  **11 actual-stage packaging tests** passed. The intentional negative locale
+  diagnostic is not a build failure. The skipped installed/stock-browser checks
+  are not acceptance results.
+- Separately, explicit `test:lit` **127** and uncached race web/store/host passed in
+  that same fresh checkout. Its source remained clean. Renderer preparation now
+  works without the development checkout's old vendor cache.
+- Exported `build-info.json` SHA256:
+  `90146bbd23c2e4fed57cffc3e9652fe602597afc6d1e661c1d0506b64d5ed5c3`.
+  Exported `SHA256SUMS` SHA256:
+  `1626199bb757fa8ed070fe6a3b635494e06161a19e2dbc2341d56e8116540ab1`.
+  Establish the selected bundle's identity over a trusted channel before running
+  anything on a target; neither digest is a publication/signature or rollout.
+
+The three preceding build/check attempts and failed logs are retained under
+`.artifacts/step6c-bb8b689-b9rf3H/`, `.artifacts/step6c-6922377-Iuywij/` and
+`.artifacts/step6c-02df448-ugsQT1/`. Corrections below address missing fresh browser
+assets, a metadata-fixture input and local PTY synchronization/inherited signals;
+**they do not fix or pass the historical native tmux framing failure**.
+
+Only pinned-SSH read-only preflight contacted the isolated validation VM: its exact
+original CIDs/accounts/sshd PIDs remain, on Rocky 9.6 with tmux 3.2a; four services
+are active and no managed units were listed. Standard checked CLI binary/auth paths
+contained no Codex/Claude Code/Pi setup; no credential contents were read/copied.
+The native terminal program/project-init are source-identical to `22d8591`, so the
+new image's Rocky 10.2 default is not a reason to replace retained roots. Actual
+installed files still require fresh admission checks before delivery. `soda-test`
+was not contacted. No provider use, account/key/root/network change or push occurred.
+
+Next: select target(s), declare the affected-component interruption and current
+backup/rehearsal, then deliver and run the scoped native matrix/framing/cleanup
+checks. Selected CLI proof additionally needs approved tool setup and restricted
+personal credential inputs; do not infer or borrow them. Native CLI/physical-keyboard,
+state-preserving installed proof and aarch64 remain unverified.
+
+## Step 6c requested — native preparation and fresh-check correction
+
+The `02df448` build and frontend checks also succeeded, but its detached full check
+still hit the local PTY test. A controlled comparison reproduced the difference:
+foreground coordinator passed, inherited ignored SIGINT/SIGQUIT failed with lease
+expiry. The Bash-for-tmux **fixture** now restores default interrupt dispositions
+before exec; production `project_terminal.py` is unchanged. Forty local runs under
+an intentionally ignored-signal coordinator and full Python discovery (**72 tests,
+one opt-in skip**) passed. Both the earlier VINTR/input sequencing correction and
+this distinct inherited-signal correction are retained; no native tmux result is
+claimed. Evidence: `.artifacts/step6c-02df448-ugsQT1/`.
+
+A second fresh candidate, `6922377`, built successfully and passed Go, required
+TypeScript/analyzer and combined browser/Cockpit checks. Full Python discovery then
+exposed an unported avatar-metadata fixture (missing the required analyzer manifest)
+and the previously intermittent local PTY interrupt test. The fixture now supplies
+and verifies that actual manifest. The PTY test observes a foreground-child marker,
+sends VINTR alone, waits for its controlled Bash prompt, then sends the assertion;
+combining VINTR and the next command allowed the terminal driver to flush queued
+input. No runtime safety check or native assertion was removed. Full Python discovery
+now passes **71 tests /1 opt-in skip**, and the corrected PTY case passed **20** fresh
+local iterations. This is not the separate native tmux framing proof. Both failed
+native-check logs remain; another exact clean build/check/export follows.
+
+The user requested completing the remainder, including deployment. Native x86_64
+build/check/export preparation is now executing; the retained deployment target
+(`soda-native-spaces-658f2af`, `soda-test`, or validation-first both) was requested
+before any service/project mutation. No previous backup waiver or root replacement
+permission was inferred.
+
+Candidate `bb8b689` **built successfully**, but its fresh-worktree production check
+failed: browser fixtures expected `.artifacts/browser-terminal/vendor/` left over
+from development, while the native stage correctly had its own renderer assets.
+The failed 153-pass/35-fail/3-skip run remains under
+`.artifacts/step6c-bb8b689-b9rf3H/`. Root `build:forgejo` now prepares that local browser
+asset destination through the existing locked fetcher before JS emission; all
+browser gates inherit preparation. Native stage/preview retain their own destinations.
+No old stage or manual vendor copy substitutes for a new candidate check. The
+three focused fetch/build-contract tests and root browser build passed locally;
+full fresh native build/check/export is the next gate for this correction.
+
+Pinned-SSH **read-only** inspection of the previously used isolated validation VM
+confirmed four active services, both exact original CIDs, Rocky 9.6/tmux 3.2a,
+original Alice/Bob UID/GID/home values and sshd PIDs 40/72. No managed units were
+listed. Known system/personal CLI paths and standard auth-file presence checks found
+none of Codex/Claude Code/Pi; no credential content or shell profile was read.
+No native terminal/provider journey, target deployment, lifecycle, root replacement,
+package installation, credentials transfer or `soda-test` contact occurred. CLI
+availability beyond those checked locations is not established.
+
+## Frontend improvement local closure — candidate `ea2eaf0`
+
+**The requested local implementation is complete:** canonical tokens and mandatory
+analysis from `cdfb6e8`/`04a8e37`/`512afb0` are preserved; `75556fa` extracts stateless
+typed views, `f3f348b` establishes shared authored `frontend/spaces/` ownership,
+`1c5452e` implements observed attention, `0a480f2` extends the existing guarded
+journey source, and `fbc7ec9`/`ea2eaf0` close review findings. Steps **6a/6b are locally
+source-ready**, not native acceptance. Public asset URLs, action/state/resource
+owners, schema-v6 backend boundary, native Forgejo workflows and Cockpit remain.
+The compiler/build/import/payload, preview, staging and journey callers moved
+with source. No second frontend, state store, authentication authority or runtime
+analyzer was introduced. Callable-event parameter checking remains an upstream
+analyzer limitation, complemented rather than concealed by typed callbacks/tests.
+
+Final combined local checks on that product source (only guidance changed afterward):
+
+| Check | Actual result |
+| --- | --- |
+| `bun run typecheck` | Product TS7 root/browser/tests/Cockpit and tool types; required analyzer over **19** authored browser sources; positive and ten independent negative rules plus discovery refusal fixtures |
+| `bun run test` | Frontend **188 pass /3 gated skips**; actual Go HTML/CSP → emitted browser **1**; **20** geometry/theme/state cases; Forgejo source **30 pass /18 optional skips**; Cockpit **60** |
+| Explicit `test:lit` | **127 pass**, including attention, both six-session actor driver fixtures and native-observer contract/compile fixtures |
+| Explicit private-browser-pipe test | **7 pass**, including real local Bun/CDP transport to a `data:` page; no native target |
+| Go | Uncached `go test -mod=readonly ./...`; race web/store/host passed on the combined implementation (no Go changes in subsequent UI/driver review) |
+| Packaging and preview | **7** temporary-filesystem staging/preflight and **3** canonical payload tests; isolated preview matches **141** canonical public files byte-for-byte |
+| Review | 1440/dark and 320/light emitted layout images reviewed; whitespace and local Markdown paths/anchors checked; user terminal compatibility question and its entire guide unchanged |
+
+The frontend's ordinary gated layout, Go-page and private-pipe cases were each run
+through their explicit local gates; the gated Lit runtime ran in `test:lit`. The
+remaining optional Forgejo browser cases require their configured stock instance/
+profile and were **not run**, not passed or replaced by synthetic native forms.
+All new layout/attention/driver essential local cases ran. No stock Forgejo/native
+acceptance follows from the local page, protocol peer or read-only Python compilation.
+
+Evidence, failed iterations, exact commands and isolated preview remain under
+`.artifacts/frontend-continuation-512afb0/`; final layout matrix is
+`.artifacts/spaces-step5-f28f86e/layout-1789001981095/`, real Go-page fixture is
+`.artifacts/spaces-page-h6PM8J/`. Earlier passing counts below are revision-specific.
+
+**Held/not run (6c):** exact native build/export/delivery of this candidate, installed
+matrix/SSH/process proof, real selected CLI/provider/visual/physical-keyboard proof,
+Stop/logout/rotation/expiry or fault injection, aarch64 and retained rollout. The
+historical `TestInstalledTerminalBoundary` raw-output/framing failure still stands;
+isolated `22d8591` PID/cleanup evidence and undeployed Rocky candidate are not upgraded
+by these local checks. `soda-test`, retained projects/accounts/keys, all later writes,
+credentials and evidence were untouched. No push, deployment or appliance cleanup.
+
+## Candidate review correction — observed other writers
+
+Review after `0a480f2` found that a collection's already-attached terminal only
+entered Attention after a failed attachment attempt. It now counts the authorized
+observed writer immediately (not this window's ready/opening attachment), and a
+fresh `attached: false` observation clears that specific stale reason without
+attaching or renewing anything. Added pure/browser regressions. Required types/
+analyzer/fixtures and frontend **188 /3 gated skips** passed; this is local evidence.
+
+## Continued frontend implementation — installed-driver source (6b)
+
+The existing guarded `tests/installed/sodaspaces.ts` now has a separately scoped
+`--allow-workspace-matrix` mode, not a parallel acceptance runner. Its closed extra
+input binds six simultaneous sessions per actor across two exact existing projects;
+old single-terminal/access/management inputs cannot select it. UI commands retain
+single-use actor/path/body admission. Wire observation binds create requests and
+later attachments to exact IDs, and source scenarios cover another-writer refusal,
+layout/compact resource identity, Hide/Return, reload, original shell memory and
+named End with independent PID/start/unit/cgroup/socket/record checks plus siblings.
+
+Codex CLI, Claude Code and Pi browser/ordinary-SSH scenarios require exact declared
+versions, version-specific input-ready indicators, restricted non-secret fixture
+prompts and explicit provider/personal-state scope. Review replaced startup sleeps
+with fail-closed readiness observations before input; missing readiness never
+confirms a login, trust or tool-permission prompt. They record bounded wire/streaming observations and actual context; visual,
+physical-keyboard and CLI behavior review remains required, never an inferred PASS.
+See [the complete input/effect contract](native-validation.md#integrated-six-session-workspace-matrix-authored-not-installed-proof).
+No source work authorizes executing this mode or changes existing target approvals.
+
+Actual checks before this slice: required types/analyzer/fixtures and **5** focused
+driver tests, including both real emitted six-socket actor journeys against synthetic
+TLS/API peers, input refusals, CLI protocol observation, and compiled-but-not-executed
+native observation Python. Synthetic SSH/process facts are explicitly doubles, not
+native evidence. Failed iterations retained under
+`.artifacts/frontend-continuation-512afb0/`: an incomplete fixture environment response,
+HTTP versus required WSS, a hidden menu selector, and a reload issued before Return
+completed. The final driver also preserves transport-unconfirmed End when native
+closure/disposal races its HTTP response; only independent inspection establishes
+cleanup. Combined candidate checks and documentation reconciliation follow below.
+
+## Continued frontend implementation — observed attention (6a)
+
+The terminal owner emits bounded typed output/state observations only from validated
+current-generation frames. The workspace keeps one coalesced unread flag per owner;
+metadata refresh, automatic restore and output do not clear it. Deliberate selection,
+Back, visible-document return and explicit compact Terminal intent mark available
+views read without changing lifetime. Multiple visible panes do not become unread
+merely because a native input has focus. Private observations clear on authority loss.
+
+All/Attention and Next attention use distinct authorized IDs in stable collection
+order. Reasons distinguish connection loss, observed other writer, pending End,
+unconfirmed outcome, confirmed cleanup and stale/unavailable metadata. Five-minute
+warnings use observed deadlines; passage never claims cleanup. No semantic agent
+states, transcript snippets, input injection, sounds or new registry. A mounted-only
+30-second clock and visible at-most-minute GET refresh are cancelled on retirement.
+
+Actual local checks: required typecheck/analyzer/fixtures; frontend **182 /3 gated
+skips**, explicit Lit/browser **119**, 20-case layout matrix. Tests cover noisy hidden
+output, visible panes/native focus, explicit reads versus refresh, authorized counts/
+Next, lost authority, late frames, writer refusal and unknown cleanup. Fixed fixture
+metadata that incorrectly labelled unattached sessions as attached, and a test that
+assumed the wrong selected tab after a move; retained failed logs. Evidence remains
+under `.artifacts/frontend-continuation-512afb0/`. Candidate/driver 6b continues next;
+no installed or CLI acceptance is implied.
+
+## Continued frontend implementation — coherent source ownership
+
+Authored Spaces modules/styles now live in `frontend/spaces/`; the shared owner
+is `sodaspaces-workspace.ts` with `WorkspaceContext`, not a drawer-only controller.
+Public URLs remain unchanged through explicit build mapping and the canonical
+payload. Compiler/analyzer discovery, fixture/installed-driver imports, CSS payload
+origins, temporary/installed staging callers and source links moved together.
+Emitted fixtures now serve from their declared public locations rather than source
+URL rewrites. No compatibility copy, second runtime or live mount was added.
+
+Checks: typecheck/analyzer/fixtures, frontend **176 /3 gated skips**, Forgejo
+**30 /18 optional skips**, actual Go HTML/CSP browser **1**, temporary packaging
+**7**, whitespace. A new build test covers moved workspace imports from both
+public asset roots. See `frontend/spaces/README.md` and the continuation evidence.
+Attention and candidate/driver coverage continue next; no native execution occurred.
+
+## Continued frontend implementation — typed presentation checkpoint
+
+Preserved `cdfb6e8`, `04a8e37` and `512afb0`. Stateless typed views now render
+Environment actions/lifecycle, Access connection/keys/review/status, terminal actions
+and End confirmation, navigation rows, session tabs and workspace chooser/rename
+chrome. Concrete project/workspace/terminal owners still admit commands, hold drafts,
+resolve original targets and own all requests/resources. Views receive render-time
+readonly values and typed callbacks, never a second mutable store. The stable xterm
+screen and flat terminal-host parent remain unconditional.
+
+Focused local checks: required typecheck/analyzer/fixtures and explicit Lit suite
+**114 pass**, with the earlier frontend pass also retained. Evidence:
+`.artifacts/frontend-continuation-512afb0/`. Source organization, attention and
+candidate/driver coverage are continuing; this checkpoint is not native acceptance.
+
 ## Form templates — shared implementation of the existing mockups
 
 Implemented the approved repository concept and all 40 additional mockup families

@@ -25,7 +25,7 @@ test('workspace raw-visual guard rejects literals including fallbacks and inline
   assert.deepEqual(visualFaults('font: var(--soda-font-meta); width: 480px; padding: 0; border-radius: var(--soda-control-radius);'), []);
 });
 test('every authored workspace CSS/TS module consumes canonical visual roles', async () => {
-  const root = resolve(import.meta.dir, '../../..'), directory = resolve(root, 'appliance/forgejo/public/assets');
+  const root = resolve(import.meta.dir, '../../..'), directory = resolve(root, 'frontend/spaces');
   const files = [...new Bun.Glob('sodaspaces*.{css,ts}').scanSync(directory)];
   assert(files.length >= 11, 'empty or moved source inventory must be updated');
   for (const file of files) assert.deepEqual(visualFaults(await readFile(resolve(directory, file), 'utf8')), [], file);

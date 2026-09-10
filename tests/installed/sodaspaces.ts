@@ -3,7 +3,11 @@ import {chromium, type Page, type Dialog, type WebSocket} from 'playwright';
 import {journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
 import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
-import {terminalID} from '../../appliance/forgejo/public/assets/sodaspaces-api.ts';
+import {matrixInput} from './sodaspaces-matrix-input.ts';
+import {exerciseWorkspaceMatrix} from './sodaspaces-workspace-journey.ts';
+import {observeMatrixShell, inspectMatrixProcess} from './sodaspaces-matrix-native.ts';
+import {exerciseSelectedCLIs} from './sodaspaces-cli.ts';
+import {terminalID} from '../../frontend/spaces/sodaspaces-api.ts';
 import forgejoPayload from '../../internal/nativebuild/forgejo-payload.json';
 import type {launchNativeBrowser} from './native-browser.ts';
 // SPDX-License-Identifier: Apache-2.0
@@ -32,6 +36,7 @@ let failure = false;
 let accessMode = false;
 let terminalMode = false;
 let managementMode = false;
+let matrixMode = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
@@ -49,15 +54,24 @@ try {
   const [inputFile, home, permission, ...extra] = Bun.argv.slice(2);
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
     (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0] ?? '')) ||
-    (extra.length === 2 && extra[0] === '--allow-existing-management')));
+    (extra.length === 2 && ['--allow-existing-management', '--allow-workspace-matrix'].includes(extra[0] || ''))));
   managementMode = extra[0] === '--allow-existing-management';
+  matrixMode = extra[0] === '--allow-workspace-matrix';
   accessMode = extra[0] === '--allow-environment-access';
-  terminalMode = extra[0] === '--allow-existing-terminal' || managementMode;
+  terminalMode = extra[0] === '--allow-existing-terminal' || managementMode || matrixMode;
   const privateRepository = extra[0] === '--private-repository';
   assert(inputFile && home);
   const input = journeyInput(JSON.parse(await privateFile(inputFile, 16384)), accessMode, terminalMode);
   assert(!managementMode || extra[1]);
   const managementRequest = managementMode && extra[1] ? managementInput(JSON.parse(await privateFile(extra[1], 16384))) : null;
+  const matrixRequest = matrixMode && extra[1] ? matrixInput(JSON.parse(await privateFile(extra[1], 16384)), input) : null;
+  if (matrixRequest) {
+    await privateFile(matrixRequest.ssh_config, 16384);
+    for (const scenario of matrixRequest.cli) {
+      const prompt = (await privateFile(scenario.prompt_file, 4096)).trim();
+      assert(prompt && !/[\x00-\x08\x0b-\x1f\x7f]/.test(prompt) && !prompt.includes(scenario.expected_text));
+    }
+  }
   const origin = new URL(input.origin);
   assert(origin.protocol === 'https:' && origin.pathname === '/' && !origin.username && !origin.password && !origin.search && !origin.hash);
   assert(process.env.SODA_NATIVE_VALIDATE === input.target);
@@ -187,7 +201,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
+  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant', '/-/soda/api/session/logout',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
@@ -356,7 +370,14 @@ try {
     await page.emulateMedia({colorScheme});
     await open();
     const box = await drawer.boundingBox();
-    assert(box && box.x >= -1 && box.width <= width + 1 && Math.abs(box.x + box.width - width) < 2);
+    const viewport = await page.evaluate(() => ({width: window.visualViewport?.width || window.innerWidth, height: window.visualViewport?.height || window.innerHeight,
+      top: window.visualViewport?.offsetTop || 0, control_height: getComputedStyle(document.body).getPropertyValue('--soda-control-height')}));
+    result.native_layout = {width, colorScheme, box, viewport,
+      terminal_pressed: await page.getByRole('button', {name: 'Terminal', exact: true, includeHidden: true}).getAttribute('aria-pressed')};
+    // The stock browser reserves native scrollbar space; Playwright's requested
+    // width is not necessarily the actual visual viewport used by the adapter.
+    assert(viewport.width > 0 && viewport.width <= width);
+    assert(box && box.x >= -1 && box.width <= viewport.width + 1 && Math.abs(box.x + box.width - viewport.width) < 2);
     if (width === 360) {assert(box.height >= 854); assert.equal(await page.getByRole('button', {name: 'Terminal', exact: true}).getAttribute('aria-pressed'), 'true');}
     else {assert(box.height >= 898 && box.x >= 480);}
     backgrounds.push(await drawer.evaluate(node => getComputedStyle(node).backgroundColor));
@@ -396,7 +417,9 @@ try {
   await open(other);
   await projectView(other, input.repository_id);
   const loggedOut = other.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/session/logout' && r.request().method() === 'POST');
-  await control('sign-out', other).click(); assert.equal((await loggedOut).status(), 200);
+  await control('sign-out', other).click();
+  const logoutStatus = (await loggedOut).status(); result.soda_logout_status = logoutStatus;
+  assert.equal(logoutStatus, 204);
   await page.bringToFront();
   await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).click();
   await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor({state: 'visible'});
@@ -592,7 +615,33 @@ try {
     await oauth(index);
     await settled();
   }
-  if (terminalMode) {
+  if (matrixMode) {
+    assert(matrixRequest && result.bfcache_restored, 'Matrix requires explicit input and the read-only journey first');
+    const matrix: unknown[] = []; result.workspace_matrix = matrix;
+    for (let index = 0; index < input.users.length; index++) {
+      await authenticateExisting(index); stage = `workspace matrix actor ${index}`;
+      const user = input.users[index]; assert(user);
+      await page.goto(origin.origin + '/-/soda/spaces'); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+      const outcome: import('./sodaspaces-workspace-journey').MatrixEvidence = {sessions: []}; matrix.push(outcome);
+      const observer = observeMatrixShell(page);
+      const active = () => {assert(!interrupted && !refusedRequest);};
+      try {
+        await exerciseWorkspaceMatrix(page, matrixRequest, index, (session, action) => {
+          active(); assert(!accessWrite && session.actor === user.id && terminalID(session.id));
+          assert(matrixRequest.actions.includes(action) && matrixRequest.projects.some(project => project.environment === session.environment));
+          assert(outcome.sessions.some(owned => owned.id === session.id && owned.environment === session.environment));
+          accessWrite = {actor: user.id, path: `/-/soda/api/environments/${session.environment}/terminal-sessions/${session.id}`,
+            body: JSON.stringify({action, ...(action === 'end' ? {} : {attachment_id: session.attachment})})};
+        }, {
+          shell: async (_page, session, initialize) => {active(); return observer.shell(session, initialize);},
+          inspect: async (project, actor, session, facts, ended) => {active(); await inspectMatrixProcess(matrixRequest, project, actor, session, facts, ended);},
+          cli: (_page, sessions) => exerciseSelectedCLIs(page, matrixRequest, index, sessions, observer, active),
+        }, outcome, guardedPage);
+        assert.equal(accessWrite, null);
+      } finally {observer.dispose();}
+    }
+  }
+  if (terminalMode && !matrixMode) {
     assert(result.bfcache_restored, 'Existing-account effects require the read-only journey first');
     const terminals: Array<ShellFacts & {actor: string; socket_closed: boolean; refresh_did_not_reconnect: boolean}> = [];
     result.terminals = terminals;
@@ -711,7 +760,7 @@ try {
   const outcome = failure ? 'failed' : evidence?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
   if (run) {
     try {
-      await writeFile(path.join(run, 'result.json'), JSON.stringify({...evidence, outcome, stage, environment_mutations: managementMode ? 'explicit existing-project lifecycle and temporary own-key rotation only; single-use actor/path/body/method-bound' : accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
+      await writeFile(path.join(run, 'result.json'), JSON.stringify({...evidence, outcome, stage, environment_mutations: matrixMode ? 'explicit six-session/two-project per-actor matrix only; exact single-use lifetime actions; CLI observations require separately declared provider scope, not acceptance' : managementMode ? 'explicit existing-project lifecycle and temporary own-key rotation only; single-use actor/path/body/method-bound' : accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
     } catch { failure = true; }
   }
   console.log(failure ? `Sodaspaces journey failed at ${stage}; private profile/evidence retained if created.` : `Sodaspaces journey: ${outcome}; not whole-product or backend-artifact acceptance.`);

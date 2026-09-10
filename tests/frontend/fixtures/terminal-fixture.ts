@@ -1,7 +1,7 @@
-import {mountTerminal} from '../../../appliance/forgejo/public/assets/sodaspaces-terminal.js';
+import {mountTerminal} from '../../../frontend/spaces/sodaspaces-terminal.js';
 import type {ITerminalOptions, ITerminalInitOnlyOptions} from '@xterm/xterm';
 export const environmentID = 'p0123456789abcdef01234567';
-interface Existing {id: string; login: string; repository_id: string; request_id?: string; state?: string; retain_until?: number}
+interface Existing {id: string; login: string; repository_id: string; request_id?: string; state?: string; retain_until?: number; attached?: boolean}
 export interface TerminalFixtureOptions {existing?: Existing; saved?: string; slow?: boolean; user?: string; login?: string; responseStatus?: number}
 interface Call {url: string; method: string; body?: string; credentials?: RequestCredentials; redirect?: RequestRedirect; headers: Record<string, string>}
 function createFixture(options: TerminalFixtureOptions = {}) {
@@ -10,7 +10,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
   let existing: Existing | null = options.existing || null, before = 0, fitCalls = 0, observed = 0, disconnected = 0;
   const created = Math.floor(Date.now()/1000), hard = created + 43200;
   const metadata = () => existing ? {...existing, request_id: existing.request_id || 'b'.repeat(32), environment_id: environmentID, user_id: '1', name: '', created_at: created, hard_until: hard,
-    retain_until: existing.retain_until || 0, effective_until: existing.retain_until || hard, ready: !existing.state || existing.state === 'ready', attached: !existing.state || existing.state === 'ready', state: existing.state || 'ready'} : null;
+    retain_until: existing.retain_until || 0, effective_until: existing.retain_until || hard, ready: !existing.state || existing.state === 'ready', attached: (!existing.state || existing.state === 'ready') && (existing.attached === true || sockets.some(socket => socket.readyState === 1)), state: existing.state || 'ready'} : null;
   // Observe actual browser geometry while recording external-resource ownership.
   const NativeObserver = ResizeObserver;
   class ObservedResize extends NativeObserver {

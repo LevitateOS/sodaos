@@ -27,8 +27,8 @@ adapters or either removed frontend. The HTML shell, fixed OAuth return, shared
 multi-session workspace, bounded `/api/spaces` collection and ID-keyed contracts
 now have local source/test coverage, not concurrent native proof; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
 owns this scope. The [Lit implementation sequence](lit-migration-plan.md) now covers
-both surfaces; steps 1–5, including layouts and current journey source ports, have
-local coverage. The [frontend improvement guide](frontend-improvement-plan.md)
+both surfaces; steps 1–5 and 6a/6b, including layouts, observed attention and extended
+journey source ports, have local coverage. The [frontend improvement guide](frontend-improvement-plan.md)
 preserves that baseline while defining mandatory token consolidation, template
 checking and typed composition before further UI expansion.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
@@ -105,8 +105,8 @@ for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
 iframe or weakened native security. Management and terminal controls now use
 [Lit](lit.md), loaded on demand; the page and drawer share a multi-session workspace
 with flat terminal owners. Xterm/transport remain imperative; measured layouts and
-compact projections have local coverage, while observed attention and broader
-native/CLI acceptance remain outstanding. Local rendering tests are not installed
+compact projections and observed attention have local coverage, while broader
+native/CLI acceptance remains outstanding. Local rendering tests are not installed
 CLI compatibility or full terminal acceptance.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized

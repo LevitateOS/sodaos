@@ -1,11 +1,11 @@
 // Native adapter with injected content only. Actual Lit/API integration is in
 // drawer-controls.test.ts, evaluated in its emitted modules' browser realm.
 import test, {type TestContext} from 'node:test';
-import type { DrawerContext as WorkspaceContext } from '../../appliance/forgejo/public/assets/sodaspaces-drawer.ts';
+import type { WorkspaceContext } from '../../frontend/spaces/sodaspaces-workspace.ts';
 type DrawerContext = Extract<WorkspaceContext, {kind: 'native'}>;
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {mountDrawer, workspaceWidths} from '../../appliance/forgejo/public/assets/sodaspaces.ts';
+import {mountDrawer, workspaceWidths} from '../../frontend/spaces/sodaspaces.ts';
 import {JSDOM} from 'jsdom';
 const footer = readFileSync(new URL('../../appliance/forgejo/templates/custom/footer.tmpl', import.meta.url), 'utf8');
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));

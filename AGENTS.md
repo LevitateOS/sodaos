@@ -71,6 +71,22 @@ client used management forwarding, not laptop routing. See the leading handoff
 for exact tested bytes, failed probes and the public-mode packaging correction.
 This does not authorize further targets, deletion or a `soda-test` rollout.
 
+The user subsequently requested the remainder of Lit step 6, including deployment.
+Fresh native x86_64 build/check/export passed for `5a21ad6`; artifacts and three
+failed preceding attempts are retained under `.artifacts/step6c-*/`. Read-only
+preflight contacted only the existing isolated validation VM. The user then selected
+both targets, validation first, and approved starting the offline existing VMs.
+Both are now running their original disks/projects. Fresh backup/copied-state rehearsal
+and affected `5a21ad6`/schema-v6 delivery passed on the isolated validation VM, not
+whole-product acceptance. The reproduced tmux startup flush/input-loss correction
+then passed fresh `b8af68c` build/check/export and backed-up paired helper/program
+same-root delivery there; the full native terminal boundary probe passed. Browser
+matrix/CLI acceptance remains pending; native browser preflight exposed a probe-only
+scrollbar/visual-viewport assertion being corrected. `soda-test` remains on its prior
+application pending validation and reviewed same-root required additions.
+No replacement fixture, old backup waiver/root replacement or borrowed CLI credentials
+are implied. See the leading handoff for actual results and scope.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
@@ -106,8 +122,8 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   authentication/notification context. [Lit](docs/lit.md) now owns management and
   terminal-control rendering and the shared multi-session page/drawer. Bounded v2
   layout, measured stable panes, shared chrome/compact projections and current journey
-  source ports have local coverage; observed attention and native/CLI acceptance remain
-  pending. The [implementation sequence](docs/lit-migration-plan.md) owns that work. No Bootstrap UI is selected.
+  source ports, observed attention and extended six-session driver fixtures have local
+  coverage; scoped native/CLI acceptance remains pending. The [implementation sequence](docs/lit-migration-plan.md) owns that work. No Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
@@ -263,7 +279,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports have local coverage; observed attention and concurrent native/CLI acceptance remain pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports, observed attention and extended driver fixtures have local coverage; concurrent native/CLI acceptance remains pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

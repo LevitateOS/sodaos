@@ -258,22 +258,47 @@ class LocalTerminalProcess(unittest.TestCase):
             for f in (p.stdin, p.stdout, p.stderr):
                 if f: f.close()
 
-    def start(self, lease=3, failed=False):
-        harness = '''import importlib.util,os,sys,types
+    def start(self, lease=3, failed=False, ignored_signals=False, raw_start=False):
+        # Deterministically model tmux's flush-before-first-screen transition.
+        raw_client = '''import os,tty,time
+from pathlib import Path
+Path('raw-waiting').touch()
+while not Path('raw-release').exists(): time.sleep(.01)
+tty.setraw(0)
+os.write(1,b'CLIENT_READY')
+while True:
+ data=os.read(0,4096)
+ if not data: break
+ os.write(1,b'__RAW__'+data)
+''' if raw_start else ''
+        harness = '''import importlib.util,os,signal,sys,types
 from pathlib import Path
 s=importlib.util.spec_from_file_location('terminal',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 m.LEASE_SECONDS=float(sys.argv[3])
+if sys.argv[5]=='ignored':
+ signal.signal(signal.SIGINT,signal.SIG_IGN)
+ signal.signal(signal.SIGQUIT,signal.SIG_IGN)
 def shell(account,path):
+ # This fixture substitutes Bash for tmux. Do not inherit a detached build
+ # coordinator's ignored interrupts into Bash's future foreground children.
+ signal.signal(signal.SIGINT,signal.SIG_DFL)
+ signal.signal(signal.SIGQUIT,signal.SIG_DFL)
  Path(account.pw_dir,'pid').write_text(str(os.getpid()))
  if sys.argv[4]=='fail':raise ValueError('SYNTHETIC_PRIVATE_ERROR')
  os.chdir(account.pw_dir)
+ if sys.argv[6]:os.execve(sys.executable,[sys.executable,'-I','-c',sys.argv[6]],{'HOME':account.pw_dir,'PATH':'/usr/bin:/bin'})
  os.execve('/bin/bash',['bash','--noprofile','--norc','-i'],{'HOME':account.pw_dir,'PATH':'/usr/bin:/bin','TERM':'xterm-256color','PS1':'TEST> '})
 m.launch_attach=shell
 sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synthetic-socket'))
 '''
-        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok', 'ignored' if ignored_signals else 'normal', raw_client], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.processes.append(p)
-        if not failed:
+        if raw_start:
+            until = time.monotonic()+2
+            while not (self.root/'raw-waiting').exists():
+                self.assertLess(time.monotonic(), until, 'raw client did not reach gate')
+                time.sleep(.01)
+        elif not failed:
             self.assertEqual(self.receive(p), {'type': 'ready'})
         return p
 
@@ -305,9 +330,9 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
             if expected in text:return text
         self.fail('expected output absent')
 
-    def closed(self, p, reason):
+    def closed(self, p, reason, timeout=5):
         while True:
-            v = self.receive(p)
+            v = self.receive(p, timeout)
             if v['type'] == 'closed':
                 self.assertEqual(v['reason'], reason);break
         p.wait(timeout=5)
@@ -315,16 +340,51 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
         pid = int((self.root/'pid').read_text())
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
 
+    def test_ready_waits_for_raw_client_and_preserves_first_input_and_screen(self):
+        p = self.start(raw_start=True)
+        # Even pre-ready protocol input stays bounded and unwritten until the
+        # native client's flush has finished. No replay or readiness from echo.
+        self.input(p, b'first\n')
+        self.assertFalse(select.select([p.stdout], [], [], .1)[0], 'ready/output before raw-client gate')
+        (self.root/'raw-release').touch()
+        self.assertEqual(self.receive(p), {'type': 'ready'})
+        first = self.receive(p)
+        self.assertEqual(first['type'], 'output')
+        self.assertEqual(base64.b64decode(first['data']), b'CLIENT_READY')
+        self.output_until(p, b'__RAW__first')
+        p.stdin.close()
+        self.closed(p, 'disconnected')
+
+    def test_unready_client_still_obeys_lease(self):
+        p = self.start(raw_start=True, lease=.4)
+        self.closed(p, 'expired')
+
+    def test_unready_client_has_bounded_startup(self):
+        p = self.start(raw_start=True, lease=8)
+        self.closed(p, 'launch_failed', timeout=7)
+
     def test_real_pty_resize_interrupt_and_eof(self):
-        p = self.start()
+        self.exercise_pty_resize_interrupt_and_eof(False)
+
+    def test_real_pty_with_ignored_coordinator_interrupts(self):
+        self.exercise_pty_resize_interrupt_and_eof(True)
+
+    def exercise_pty_resize_interrupt_and_eof(self, ignored_signals):
+        p = self.start(ignored_signals=ignored_signals)
         self.input(p, b'printf "__TTY__%s\\n" "$(tty)"\n')
         self.output_until(p, b'__TTY__/dev/pts/')
         self.send(p, {'type': 'resize', 'cols': 103, 'rows': 37})
         self.input(p, b'printf "__SIZE__%s\\n" "$(stty size)"\n')
         self.output_until(p, b'__SIZE__37 103')
-        self.input(p, b'sleep 30\n')
-        time.sleep(0.1)
-        self.input(p, b'\x03printf "__ALIVE__%s\\n" "ok"\n')
+        # Observe the foreground child, not a guessed scheduling delay. Its
+        # marker is constructed so the echoed command cannot satisfy the wait.
+        self.input(p, b'''python3 -u -c 'import time; print("__JOB__"+"ready"); time.sleep(30)'\n''')
+        self.output_until(p, b'__JOB__ready')
+        # VINTR may flush queued input. Send the next command only after Bash
+        # has regained the foreground and displayed its fixture-owned prompt.
+        self.input(p, b'\x03')
+        self.output_until(p, b'TEST> ')
+        self.input(p, b'printf "__ALIVE__%s\\n" "ok"\n')
         self.output_until(p, b'__ALIVE__ok')
         p.stdin.close()
         self.closed(p, 'disconnected')

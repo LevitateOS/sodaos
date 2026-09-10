@@ -112,6 +112,7 @@ class SodaspacesPackaging(unittest.TestCase):
             for asset in (checkout / 'assets').rglob('*'):
                 asset.chmod(0o700 if asset.is_dir() else 0o600)
             shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
+            shutil.copytree(ROOT / 'frontend', checkout / 'frontend')
             (checkout / 'internal/nativebuild').mkdir(parents=True)
             shutil.copyfile(ROOT / 'internal/nativebuild/forgejo-payload.json', checkout / 'internal/nativebuild/forgejo-payload.json')
             for name in ('LICENSE', 'NOTICE'):
@@ -150,7 +151,8 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name
-                original = build / 'forgejo-js' / Path(name).name if name.endswith('.js') else checkout / 'appliance/forgejo' / name
+                origin = json.loads((checkout / 'internal/nativebuild/forgejo-payload.json').read_text())[name]
+                original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
                 self.assertEqual(p.read_bytes(), original.read_bytes())
                 self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
                 for parent in p.parents:

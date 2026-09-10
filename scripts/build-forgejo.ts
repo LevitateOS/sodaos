@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { basename, posix, resolve } from 'node:path';
+import { basename, dirname, posix, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import payload from '../internal/nativebuild/forgejo-payload.json';
 
@@ -10,6 +10,8 @@ const destinations = new Map(modules.map(([target, source]) => [basename(source)
 assert.equal(destinations.size, modules.length, 'Each browser module must have exactly one public destination');
 const litSource = resolve(root, 'assets/branding/forgejo/lit.ts');
 const litDestination = destinations.get('lit.js');
+// Authored shared owner name, retained public URL. Not a second runtime entry.
+const outputName = (source: string) => basename(source).replace(/\.ts$/, '.js').replace('sodaspaces-workspace.js', 'sodaspaces-drawer.js');
 
 // Also used by the browser smoke fixture: imports must work from either public
 // asset directory, including when Forgejo has an AppSubUrl prefix.
@@ -36,7 +38,18 @@ export async function buildForgejoModule(source: string, destination: string) {
           if (/^(?:lit\/|lit-element(?:\/|$)|lit-html(?:\/|$)|@lit(?:-labs)?\/)/.test(args.path)) {
             throw Error(`Unsupported Lit submodule ${args.path}: add an explicit shared-runtime export before using it`);
           }
-          // Preserve all existing relative native/xterm/Sodaspaces boundaries.
+          // Source imports resolve to their public payload destination, including
+          // fixture entrypoints and the shared workspace's historical drawer URL.
+          if (args.path.startsWith('.')) {
+            const resolved = resolve(dirname(args.importer), args.path);
+            if (dirname(resolved) === resolve(root, 'frontend/spaces')) {
+              const target = destinations.get(outputName(resolved));
+              assert(target, `Unstaged workspace import: ${args.path}`);
+              const relative = posix.relative(posix.dirname(destination), target);
+              return {path: relative.startsWith('.') ? relative : './' + relative, external: true};
+            }
+          }
+          // Locked xterm and native branding boundaries remain public-relative.
           return {path: args.path, external: true};
         });
       },
@@ -50,10 +63,10 @@ export async function buildForgejoModule(source: string, destination: string) {
 
 export async function buildForgejoAssets(out: string) {
   const sources = new Map<string, string>();
-  for (const directory of ['assets/branding/forgejo', 'appliance/forgejo/public/assets']) {
+  for (const directory of ['assets/branding/forgejo', 'frontend/spaces']) {
     for (const file of new Bun.Glob('*.ts').scanSync(resolve(root, directory))) {
       if (file.endsWith('.d.ts')) continue;
-      const output = file.replace(/\.ts$/, '.js');
+      const output = outputName(file);
       assert(!sources.has(output), `Duplicate browser module: ${output}`);
       sources.set(output, resolve(root, directory, file));
     }

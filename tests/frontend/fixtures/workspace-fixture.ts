@@ -1,7 +1,7 @@
 // Real emitted workspace, project controls and xterm; synthetic HTTP/socket peer.
-import {mountSodaspaces} from '../../../appliance/forgejo/public/assets/sodaspaces-drawer.js';
-import {object} from '../../../appliance/forgejo/public/assets/sodaspaces-api.js';
-import type {Space, TerminalMetadata} from '../../../appliance/forgejo/public/assets/sodaspaces-api.js';
+import {mountSodaspaces} from '../../../frontend/spaces/sodaspaces-workspace.js';
+import {object} from '../../../frontend/spaces/sodaspaces-api.js';
+import type {Space, TerminalMetadata} from '../../../frontend/spaces/sodaspaces-api.js';
 export const projectA = 'p' + '1'.repeat(24), projectB = 'p' + '2'.repeat(24);
 function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
   const root = document.querySelector<HTMLElement>('main'); if (!root) throw Error('Missing workspace mount');

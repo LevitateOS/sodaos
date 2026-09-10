@@ -99,19 +99,18 @@ class NativeStage(unittest.TestCase):
 
     def test_sodaspaces_payload(self):
         custom = self.root / 'var/lib/soda/forgejo/gitea'
-        source = Path(__file__).resolve().parents[2] / 'appliance/forgejo'
+        root = Path(__file__).resolve().parents[2]
+        payload = json.loads((root / 'internal/nativebuild/forgejo-payload.json').read_text())
         for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
                      'public/assets/sodaspaces.css'):
             target = custom / name
             self.assertFalse(target.is_symlink())
-            self.assertEqual(target.read_bytes(), (source / name).read_bytes())
+            self.assertEqual(target.read_bytes(), (root / payload[name]).read_bytes())
             self.assertEqual(target.stat().st_mode & 0o777, 0o644)
             for parent in target.parents:
                 if parent == self.root:
                     break
                 self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
-        root = Path(__file__).resolve().parents[2]
-        payload = json.loads((root / 'internal/nativebuild/forgejo-payload.json').read_text())
         for name, origin in payload.items():
             target = custom / name
             self.assertTrue(target.is_file(), name)

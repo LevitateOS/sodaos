@@ -82,7 +82,7 @@ class AvatarPackaging(unittest.TestCase):
             # Actual public inputs; only the build observations below are synthetic.
             for source in ('go.mod', 'go.sum', 'project-os/locks/tea-source.toml',
                            'appliance/locks/github-runner-source.toml', 'appliance/locks/coreos-qemu.json',
-                           'package.json', 'cockpit/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
+                           'package.json', 'cockpit/package.json', 'tools/lit-check/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
                            'docs/native-support-notices.md', 'project-os/licenses/tea-LICENSE',
                            'appliance/licenses/avatar-dependencies.txt', 'LICENSE', 'NOTICE'):
                 destination = root / source
@@ -102,6 +102,8 @@ class AvatarPackaging(unittest.TestCase):
                 module.collect(root, 'x86_64', 'a' * 40)
             self.assertEqual((stage / 'notices/avatar-dependencies.txt').read_bytes(),
                              (ROOT / 'appliance/licenses/avatar-dependencies.txt').read_bytes())
+            self.assertEqual((stage / 'inputs/lit-check-package.json').read_bytes(),
+                             (ROOT / 'tools/lit-check/package.json').read_bytes())
             self.assertFalse((ROOT / 'cmd/soda-avatars').exists())
             self.assertNotIn('soda-avatars', (ROOT / 'scripts/build-native.sh').read_text())
 
