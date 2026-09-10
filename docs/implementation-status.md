@@ -1,5 +1,29 @@
 # Current handoff
 
+## Both deployment targets selected — currently offline
+
+The user answered **“Both”** to validation VM / `soda-test` / validation-first both.
+Affected-component delivery of the prepared `5a21ad6` candidate is therefore selected
+for `soda-native-spaces-658f2af` first, then `soda-test` after validation. This does
+not include agent installation/provider credentials, project-root replacement or
+an old backup waiver.
+
+New pinned-SSH read-only preflight reached **neither guest**: loopback ports 22230
+and 22220 both returned connection refused. Local observation showed builder uptime
+about 24 minutes, no QEMU process and no listeners at those ports or 33443/24444.
+Both retained disk files are present; presence is not an integrity/boot check.
+No guest script ran, no backup/rehearsal/delivery or installed test occurred, and
+no state was erased or restored. Starting the existing VMs (including their
+boot-enabled services/projects) was requested explicitly before proceeding; it
+has **not** been performed. Do not create replacement fixtures or regenerate disks.
+
+Attempt/evidence: `.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`. Both SSH exits were 255;
+the subsequent local JSON summary failed because those preflight outputs were empty.
+Those failures are retained, not replaced with availability or admission claims.
+The earlier read-only inventory is historical and must be observed afresh after
+an approved existing-VM start. Deployment target selection is no longer pending;
+VM start and fresh admission/backup/rehearsal precede execution.
+
 ## Step 6c native candidate prepared — `5a21ad6`, not deployed
 
 After the user requested the remainder **including deployment**, native x86_64
