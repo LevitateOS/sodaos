@@ -1,5 +1,10 @@
 # Sodaspaces implementation plan
 
+The [combined native-pages/Runners completion plan](native-pages-runners-plan.md)
+is now the active sequence for their remaining integration, validation, delivery
+and Cockpit runner retirement. This document continues to own the wider product
+scope; unrelated Project OS/services/CLI work is not absorbed into that sequence.
+
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**, plus a global **Spaces** navigation link
 and a full workspace page. The new [native page integration plan](forgejo-soda-pages-plan.md)

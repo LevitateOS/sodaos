@@ -1,5 +1,25 @@
 # Current handoff
 
+## One active combined completion plan
+
+At the user's request, added `docs/native-pages-runners-plan.md` as the single
+execution sequence for the remaining native Soda-pages and Runners completion
+work. The former plans retain their detailed contracts and historical receipts;
+their remaining execution sequences/editor reservations no longer compete with
+this plan. The runner native guide points to the combined sequence as well.
+
+The sequence closes local page/browser acceptance and installed scenario/input
+preparation, produces/checks one native candidate, executes explicitly approved
+isolated native/provider proof, rehearses/delivers the retained-target delta,
+retires only Cockpit's runner presentation after parity, then closes the bounded
+documentation/evidence record. It recognizes the pulled template fix and existing
+driver wiring rather than listing them as missing work. Source, build, installed,
+provider, per-architecture delivery and retirement evidence remain distinct.
+No new feature scope, native/provider grant or blanket product acceptance follows.
+Documentation-only change; no builds/tests, target actions or provider operations
+were run. Local link/anchor and diff whitespace checks are recorded for this update.
+
+
 ## Single-agent continuation after pulling `d866c12`
 
 The user selected one agent to take over the remaining Runners and Soda-pages

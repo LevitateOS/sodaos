@@ -1,5 +1,10 @@
 # Local CI runners
 
+**Active combined execution plan:** [Native pages and Runners](native-pages-runners-plan.md).
+It supersedes the remaining seven-step execution sequence and historical editor
+reservations below. This guide retains runner product/security/operation contracts
+and historical evidence, not a second parallel completion checklist.
+
 **Current source:** local CI runners support only Forgejo. The user selected
 removal of GitHub runner registration, execution and packaging. Unsupported saved
 descriptors are rejected without changing their accounts, files or credentials;

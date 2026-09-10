@@ -1,7 +1,9 @@
 # Runner native validation preparation
 
-This guide implements the runner-owned preparation in
-[runner step 4](runners-port.md#4-prepare-product-owned-native-journeys-and-a-paired-candidate).
+This guide supplies the runner inputs/tools for steps 2–4 of the active
+[combined completion plan](native-pages-runners-plan.md). The earlier
+[runner step 4](runners-port.md#4-prepare-product-owned-native-journeys-and-a-paired-candidate)
+remains a historical source/preparation record, not a separate execution sequence.
 It is not execution permission, an appliance updater or a second source/native gate.
 The [lane handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)
 continues to own the shared browser driver, authentication and shell/schema delivery.

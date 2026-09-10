@@ -5,7 +5,8 @@
 Read these before substantial changes:
 
 - `docs/architecture.md` — product and authority boundaries
-- `docs/sodaspaces-plan.md` — short current implementation sequence and ownership
+- `docs/sodaspaces-plan.md` — current product scope and ownership
+- `docs/native-pages-runners-plan.md` — single active completion sequence for native pages, runner parity, coordinated delivery and Cockpit runner retirement; older feature plans retain contracts/history
 - `docs/project-os.md` — project userspace baseline, native ownership, persistence and bounded same-root maintenance
 - `docs/native-support.md` — authored support-tool contracts, private inputs, phase effects and retention; not execution permission or native proof
 - `docs/deferred.md` — deliberately deferred and excluded work

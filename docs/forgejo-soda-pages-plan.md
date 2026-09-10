@@ -1,5 +1,10 @@
 # Integrate Soda pages into native Forgejo
 
+**Active combined execution plan:** [Native pages and Runners](native-pages-runners-plan.md).
+It supersedes this document's remaining execution sequence and historical lane
+reservations. Keep this guide for the detailed page/authentication/security contracts
+and original step evidence; do not run a second parallel completion checklist.
+
 **Status, 10 September 2026: steps 1–4 are implemented with local stock-Forgejo
 browser proof. Steps 5–6 remain.** The original plan used source baseline `f3efebc`;
 step 1 follows planning commit `a995f9e`. The three native hosts now mount the existing management components.
