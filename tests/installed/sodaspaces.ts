@@ -619,7 +619,7 @@ try {
     assert(matrixRequest && result.bfcache_restored, 'Matrix requires explicit input and the read-only journey first');
     const matrix: unknown[] = []; result.workspace_matrix = matrix;
     for (let index = 0; index < input.users.length; index++) {
-      stage = `workspace matrix actor ${index}`; await authenticateExisting(index);
+      await authenticateExisting(index); stage = `workspace matrix actor ${index}`;
       const user = input.users[index]; assert(user);
       await page.goto(origin.origin + '/-/soda/spaces'); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
       const outcome: import('./sodaspaces-workspace-journey').MatrixEvidence = {sessions: []}; matrix.push(outcome);

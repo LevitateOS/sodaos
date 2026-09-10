@@ -102,7 +102,9 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
   page.setDefaultTimeout(7000); page.on('pageerror', error => errors.push(error.message));
   const evidence: MatrixEvidence = {sessions: []};
   try {
-    await page.goto(new URL('/-/soda/spaces', server.url).href); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    // Like the installed caller, begin outside the full-page workspace. The
+    // scenario must navigate before attempting splits, not use drawer projection.
+    await page.goto(new URL('/', server.url).href);
     await exerciseWorkspaceMatrix(page, request, actorIndex, (session, action) => {assert.equal(allowed, ''); allowed = `/-/soda/api/environments/${session.environment}/terminal-sessions/${session.id}:` + JSON.stringify({action, ...(action === 'end' ? {} : {attachment_id: session.attachment})});}, {
       async shell(_page, session) {return {pid: parseInt(session.id, 16), start: '100', login, marker: session.name, tty: true, term: 'screen-256color'};},
       async inspect(project, observedActor, _session, facts, ended) {assert.equal(observedActor, actorIndex); const terminal = spaces.find(space => space.environment.id === project.environment)?.terminals.find(terminal => parseInt(terminal.id, 16) === facts.pid); assert(terminal); assert.equal(terminal.state === 'ended', ended);},

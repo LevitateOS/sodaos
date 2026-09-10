@@ -1,5 +1,36 @@
 # Current handoff
 
+## Native browser passed; first matrix attempt retained
+
+The corrected viewport probe then reached Soda logout and exposed another stale
+probe expectation: the production API returns **204**, not 200. The driver now
+requires/records that exact no-content status; positive/negative focused coverage
+and required types passed. Probe source `802bbde` subsequently passed the complete
+native read-only journey against the delivered **b8af68c** product: both fixture
+actors/OAuth, stale contexts and denials, scoped logout, native unsaved-form/focus/
+compact behavior, cancelled beforeunload, **real BFCache restoration**, and the
+actual authenticated Go Spaces page/native links. Profile/evidence:
+`.artifacts/s6c-browser-EQRBx0/`. Only probe code changed after b8af68c; matching served
+asset hashes and separate backend/helper delivery binding remain explicit.
+
+Matrix attempt `.artifacts/s6c-browser-uchl8L/` passed its read-only prerequisite and
+created **six Alice sessions across both original projects**, with real shell facts
+and independent original-key project SSH observations. It then timed out before
+layout/lifetime/End completion; no Bob matrix or cleanup pass is claimed. Failure
+closes local browser attachments, not HTTP End; preserve the recorded IDs, shell
+facts and native retention, do not automatically clean up or select replacements.
+
+Source review found the installed caller enters from the repository drawer, but
+the shared matrix tried full-pane splits without navigating out of the intentionally
+compact drawer projection. The shared scenario now explicitly enters/authenticates
+the full-page Spaces workspace first, records bounded internal progress stages,
+and its two local emitted fixtures start outside that workspace to catch the same
+caller mismatch. Focused driver fixtures and required types passed; another native
+matrix is still required. This is a probe correction, not enabling splits in the
+drawer, relaxing native assertions or changing production UI. Four project SSH
+aliases use existing fixture keys and independently verified **original** public host
+keys through management forwarding; no laptop/direct-route claim or network change.
+
 ## Isolated readiness correction delivered; full native terminal boundary passed
 
 Candidate `b8af68c1a6977e2a8a29e31e4f072ee979ef5cf9` passed fresh native x86_64
