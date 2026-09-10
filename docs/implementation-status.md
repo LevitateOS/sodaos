@@ -1,5 +1,15 @@
 # Current handoff
 
+## Merge of origin/main at 63a8456
+
+Merged the incoming CoreOS installer work with the local six-feature plans and
+Spaces → drawer navigation. The only textual conflict was the independently prepended
+handoff history; both sets of entries and their evidence/limitations are preserved
+below. Installer source merged unchanged from the incoming branch. Its host-media
+work does not implement the selected Project OS desktop profiles or expand native
+execution permission. This merge performed documentation/conflict checks only;
+no product build/test, media generation, VM action or deployment ran.
+
 ## Six-feature plan audit — commands, ownership and native prerequisites
 
 Reviewed the runner migration, marketplace, issue/PR automation, OS profiles, desktop
@@ -208,6 +218,260 @@ is a design record, **not implemented features or passing runtime evidence**.
 Only local source/document reads and public upstream research ran; one exact-tag
 source fetch timed out and is not counted as complete source verification.
 No tests/builds, private credential use, provider mutation or native delivery ran.
+
+## Installer boot debugging — second observed contract correction
+
+Clean `ab911cc` rebuilt successfully and passed image readback. Its native diskless
+boot passed live Ignition and started `soda-installer-console.service`, then the Go
+console correctly failed closed with `media release/architecture mismatch`. Selected
+CoreOS's actual `/etc/os-release` reports `VERSION_ID=44` and
+`IMAGE_VERSION='44.20260817.3.2'`; the guard had compared the full release to the Fedora
+major field. Source now checks the exact `IMAGE_VERSION`, without falling back to
+major-only matching or removing architecture/revision validation. Regression cases
+cover absent/wrong release, wrong architecture, invalid revision and empty identity.
+
+Evidence is retained under `.artifacts/installer-vm-FbqpKn/`, including the second
+boot screenshots, read-only block inventory and `serial-identity.log` from inspecting
+the unchanged upstream OS in an original-media emergency boot. Go 1.26.7 full tests,
+installer/nativebuild race tests and all 14 focused Python tests passed after the
+correction. Each boot used only the read-only ISO, no network or destination disk;
+only this new run-owned VM was stopped/restarted. Successful revised UI boot remains
+to be demonstrated; no disk installation or retained-target action occurred.
+
+## Installer boot debugging — reproduced live Ignition failure
+
+The user reported `ignition-files.service` failure and requested repeated installer
+testing. Their original libvirt domain was observed in the failed live boot, then
+was deleted by the user during diagnosis; no further action targeted that domain.
+A separate named **diskless, networkless** x86_64 KVM test (`soda-installer-boot-test`)
+was started under `.artifacts/installer-vm-FbqpKn/`. QMP inventory confirms only a
+read-only installer CD-ROM and an empty CD-ROM device, with no destination disk.
+No retained Soda VM, project root or provider was touched.
+
+Original `392dd10` reproduced the failure. Emergency-console journal inspection
+identified the exact cause: `/sysroot/etc/motd` already exists and `overwrite` is
+false. Screenshots and the serial capture retain the native error. Source now sets
+`overwrite: true` only for the authored live `/etc/motd`; every other file retains
+its default protection. All 14 focused Python tests passed, including an assertion
+that this is the sole overwrite-enabled live file. Revised-media build/boot proof
+follows separately; this diagnosis is not successful boot or disk-install proof.
+
+## Authorized local artifact cleanup
+
+The user requested pruning `.artifacts`. Removed only obsolete dependency caches:
+`retired-dashboard-88fc21f/node_modules`,
+`merge-5c845a7-560265b/cockpit-node-modules-before-install`, and the root/Cockpit/
+Lit-check `node_modules` under `frontend-improvement-install-7QST82`. Their available
+installation/lock metadata was retained; source, built outputs and validation logs
+were not removed. Current workspace dependencies and registered worktrees were
+not touched.
+
+To reclaim substantially more without deleting retained evidence, used the existing
+XFS copy-on-write `FIDEDUPERANGE` operation on **564 identical public build-file
+pairs** within an explicit build-output allowlist. A fresh synthetic-file probe
+verified both deduplication and independent subsequent writes before the real pass.
+Each destination/source hash and destination inode, mode, owner, size and modification
+time were checked after sharing. This is not hard-link replacement or shared mutable
+file contents. Two protected upstream ISO files were skipped on permission errors;
+no permission changes were made to force them. No VM disk/raw image, fixture state,
+credential, backup, browser profile or project root was selected.
+
+Observed filesystem free space increased by **13,394,112,512 bytes (12.47 GiB)**
+during the pass. Ordinary `du` still reports roughly 97 GiB because it counts shared
+extents for each file; that is not unique physical allocation. Exact allowlists,
+retained dependency metadata, per-pair hashes/skips and before/after free-space
+measurements are in `.artifacts/prune-20260910-oMJPSQ/`. No VM/service lifecycle,
+provider action or appliance deployment accompanied cleanup.
+
+The earlier user-requested installer copy remains at
+`/home/libvirt/images/soda-installer-392dd10.iso`, mode 0644 with restored
+`virt_image_t` labeling. Its SHA-256 was rechecked after cleanup and still matches
+`46b2b4a4aa172f57bab646e7ad212c82e040649085c74d9d30310e546e1ec9a3`.
+Both final ISO locations, failed attempts and installer evidence were preserved.
+
+## Built x86_64 installer ISO — console on media, not booted
+
+Clean candidate **`392dd10881dcfa516619820f1efcc7ef597beb07`** completed real native
+media generation and readback. Deliverable: `.artifacts/coreos-installer-392dd10/soda.iso`
+(**1,079,246,848 bytes**, SHA-256
+`46b2b4a4aa172f57bab646e7ad212c82e040649085c74d9d30310e546e1ec9a3`).
+The console, LICENSE and NOTICE are on the ISO; no hosted executable or payload URL
+is required. This is **installer media, not a fully populated/offline Soda appliance**:
+the matching sealed Soda application bundle remains a separate post-boot input.
+
+Actual build/inspection evidence:
+
+- Go 1.26.7 module verification and fresh static x86_64 console/artifact-verifier
+  builds passed. The console's ELF identity and embedded Go/VCS build information
+  were inspected without executing it. Strict Butane 2.27.0 conversion, native
+  unpatched CoreOS Installer 0.26.0 customization and live Ignition readback passed.
+- The locked upstream Fedora CoreOS 44.20260817.3.2 ISO's SHA-256 and Fedora 44
+  signature verified. The final image preserved 14 ordinary upstream file hashes
+  (including EFI image, kernel, initramfs and rootfs), the BIOS executable outside
+  its validated relocation fields, BIOS/UEFI boot references, volume identity and
+  native live kernel arguments. The on-media console hash matches the built binary.
+  These are file/layout observations, **not firmware boot or live-process proof**.
+- `PrivateMedia=false`: no supplied network keyfile, operator credentials or fixed
+  destination disk. `SHA256SUMS` independently rechecked all six sealed outputs.
+  `media-build.json`, `iso-inspection.json`, the upstream receipt and remaster log
+  are retained with the image. Tool identities/wrappers and public signing inputs,
+  build/checksum logs and console build-info evidence remain under
+  `.artifacts/iso-build-inputs-yO2uuO/`. Butane's cached digest was also resolved
+  against the official registry with an empty authentication file. Wrappers run
+  network-disabled, unprivileged rootless tool containers; only the exact media
+  attempt is bound for CoreOS file operations. No global SELinux/trust policy changed.
+
+Source checks remain as recorded below: 14 focused Python checks passed after the
+serializer fix, Go tests passed with existing package results cached, and the full
+build-suite's unrelated Forgejo template inventory failure remains outstanding.
+There was no appliance-bundle build or waiver of that blocker in this ISO work.
+The failed `4e7a68b` attempt and earlier prototypes are retained, not overwritten.
+
+**Not run/accepted:** boot/tty1 and real SELinux launch, static networking, disk
+installation, first boot/activation, bundle continuation, complete operator setup,
+serial/graphical delivery or native aarch64. No new VM, retained target mutation,
+provider action, deployment or publication occurred. Fresh-target/disk authorization
+is still required before any installation journey; preserve all existing state.
+
+## Installer media generation — first real-tool attempt retained
+
+Exact clean source `4e7a68b` built its native console/verifier, fetched and verified
+CoreOS, remastered the full ISO and completed stock live customization under
+`.artifacts/coreos-installer-4e7a68b/`. The build then **failed closed at Ignition
+readback**, so this attempt is not sealed/deliverable. OS-file preservation and
+native kernel-argument equality were separately confirmed; no boot occurred.
+
+Observed cause: Installer 0.26.0 serializes the child configuration through its
+locked `ignition-config` 0.6.1 crate, adding explicit nulls for absent file `overwrite`
+and unit `contents`/`enabled`/`mask` fields. The inspector had required omitted keys.
+Inspected the exact crate against Installer's Cargo.lock checksum; the corrected
+reader allows only this precise nullable-field expansion, never arbitrary nulls or
+non-null extra effects. Real retained readback now verifies, and **14 focused Python
+tests passed** including rejection regressions (`python-serde-correction.log` under
+`.artifacts/iso-on-media-source-3z90PW/`). A new clean-revision build is still needed;
+no old attempt was overwritten or hand-sealed.
+
+## On-media installer correction — source and prerequisite inspection
+
+The user rejected the mandatory hosted executable. The 256 KiB Ignition embed
+limit was incorrectly treated as the ISO's payload limit; that design is removed.
+`scripts/build-installer.py` now adds the console/LICENSE/NOTICE under `/soda/`
+with xorriso boot-equipment replay, then uses unpatched CoreOS Installer 0.26.0 for
+small live Ignition. `appliance/installer/load-console.sh` copies from the selected
+CoreOS `/run/media/iso` mount, verifies SHA-256, publishes without overwriting an
+existing path, restores SELinux labels and only then makes the console executable.
+Failed copies remain non-executable. No hosting URL or executable download is needed;
+Soda RPM dependencies and the separately supplied sealed bundle remain unchanged.
+
+The builder checks upstream file hashes, EFI/BIOS references, volume identity,
+relocated BIOS boot-info/PVD fields, native kernel arguments and Ignition readback.
+It preserves ISO level-1 primary names needed by stock metadata lookups. Obsolete
+absolute-offset `/coreos/miniso.dat` is removed: full ISO is selected, not minimal
+ISO/PXE export or eject-before-start/fromram. No OS filesystem/initramfs rebuild,
+upstream executable patch or unattended disk action is introduced.
+
+Actual local evidence:
+
+- `.artifacts/iso-on-media-source-3z90PW/`: **13 focused Python tests passed**,
+  including real shell copy/hash/exec on substituted fixture paths, failed hash/
+  relabel/no-overwrite cases, synthetic nonbootable ISO remaster/tamper checks and
+  BIOS relocation/primary-name regressions. Root/mount/SELinux commands are doubles,
+  not native live-OS proof. Go 1.26.7 `go test ./...` passed with existing Go results
+  cached. Full Python build suite: **88 tests, one failure, one skip**; the same
+  unrelated 15 missing Forgejo template inventory entries remain unfixed, not waived.
+- `.artifacts/iso-build-inputs-yO2uuO/`: downloaded and verified the locked x86_64
+  upstream ISO against Fedora's public keyring and Fedora 44 fingerprint
+  `36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6`, checked against the independent
+  official security-page fingerprint. Public trust inputs stay in that directory;
+  no system trust import occurred. Official native CoreOS Installer 0.26.0 and the
+  already cached Butane v2.27.0 were exercised through exact-image rootless tool
+  wrappers; xorriso is 1.5.6. These are build tools, not booted installer fixtures.
+- Retained prototype remaster exposed two real tooling contracts: xorriso's mirrored
+  PVD can be at LBA 48 with a 32-block volume-size adjustment; default xorriso primary
+  `KARGS.JSON` is wrong for Installer's `KARGS.JSO` lookup. The first prototype's
+  native kargs read failed. After explicit ISO level 1, `prototype-level1.iso`
+  preserved 14 ordinary upstream file hashes and the normalized BIOS executable,
+  and native kargs readback succeeded. These prototypes have no final live launcher
+  customization and are **not delivery images**. An earlier keep-id tool-wrapper
+  probe timed out; the final rootless wrapper uses the ordinary caller mapping.
+
+Final exact-revision customized media generation follows separately. Boot/tty1,
+real SELinux launch, static networking, disk writes, first boot/activation and full
+Soda continuation/operator setup remain unrun. No VM lifecycle, retained project/
+appliance mutation, disk installation, global policy/trust change, deployment or
+publication occurred. Preserve all earlier roots, credentials, fixtures and evidence.
+
+## CoreOS installer source candidate and local checks (initial packaging)
+
+Implemented the user-requested [CoreOS installer plan](coreos-installer-plan.md);
+[usage and limitations](coreos-installer.md) distinguish source from media/native
+proof. `appliance/installer` and `internal/installer` supply a tty1 Go console with
+native NetworkManager editing, explicit disk/erase confirmation, kernel identity/use
+rechecks, private operator provisioning and explicit installed-host continuation.
+The media-only command stays outside runtime `cmd/` staging so the bundle cannot
+overwrite its running bootstrap. The existing public bootstrap, extension service,
+first-install verifier/script and native Forgejo/OAuth/TLS setup remain owners.
+
+`scripts/build-installer.py` authors the matching-native build/customization path;
+`fetch-coreos-iso` shares existing signature verification and uses actual selected
+release metadata for both architectures. The 0.26.0 upstream customization source
+wraps live fragments in gzip data-URL merges; the readback check follows that exact
+contract. The upstream 256 KiB embed area cannot carry the Go executable, so live
+Ignition fetches the generated revision/architecture payload via operator-selected
+HTTPS with a pinned SHA-256. No hosting/publication service was added or used.
+Optional private NetworkManager input makes the ISO per-machine/private; general
+media has no credentials or fixed erase target. No Anaconda/bootc source, SELinux
+weakening, unattended disk action or recovery daemon is introduced.
+
+Actual local evidence under `.artifacts/coreos-installer-source-k7pJ3k/`:
+
+- Repository-pinned **Go 1.26.7** `go test ./...` passed, including the new media
+  command/package and existing application tests. Focused `-race` installer/native
+  artifact tests passed. A native x86_64 **static console executable** built with
+  `CGO_ENABLED=0`, `-trimpath`, `-buildvcs=true`, `-ldflags='-s -w'`; this is a local
+  dirty-source check binary, not a sealed ISO or full native appliance build.
+- Ten Python installer/provisioning/media-caller tests and eight existing native
+  support/provisioning tests passed. Terminal tests use local synthetic PTYs and
+  synthetic passwords only; media tests use command doubles, not CoreOS disk writes.
+- Full Python build suite: **85 tests, one failure, one skip**. The unrelated
+  pre-existing Forgejo payload-closure check finds 15 tracked template overrides
+  absent from `internal/nativebuild/forgejo-payload.json`; those files/inventory were
+  not changed here. The printed native-locale mismatch is an expected rejection
+  test, not an additional suite failure. Full appliance packaging remains blocked
+  by that recorded inventory failure, not waived.
+- Two earlier full-Go attempts used the system `go` wrapper (Go 1.27.0), which forces
+  a long temporary path and caused existing host terminal Unix-socket bind failures.
+  Merely setting `TMPDIR=/tmp` did not override that wrapper. The passing checks used
+  the already cached 1.26.7 executable directly, its existing module/build caches,
+  and `GOTMPDIR=/tmp TMPDIR=/tmp`. No system toolchain/configuration was changed.
+- Upstream release/commit metadata and inspected source are retained under
+  `.artifacts/coreos-installer-research/`; the ISO/signatures themselves were not
+  downloaded. Formatting and `git diff --check` passed. No TypeScript was changed.
+
+Actual ISO generation/signature fetch/customization with real tools, hosted payload
+retrieval, tty1 boot, static networking, disk installation, first boot/activation
+reboot, complete bundle continuation/operator setup and independent native aarch64
+proof remain **unrun**. Native media tools/trusted signing inputs and an explicit
+fresh target/disk grant are still needed for those phases. No VM lifecycle, retained
+appliance/project mutation, real credential generation, hosting, publication, disk
+write, service change or deployment occurred. Serial-only/graphical delivery and
+form retry UX are not implemented; invalid/cancelled input exits without automatic
+native retries. Retain all earlier fixtures, roots and evidence.
+
+## CoreOS installer planning
+
+The user dropped Anaconda and requested a quick implementation plan. Added
+[CoreOS installer implementation plan](coreos-installer-plan.md): stock upstream
+installer plus a proposed bounded console interface, explicit disk confirmation,
+private operator inputs, separate live/destination Ignition and installed-host
+continuation through existing extension/bundle/setup contracts. ISO implementation
+is pending; QCOW2/release machinery is not selected. Legacy source/assets and all
+retained targets are unchanged.
+
+Evidence: read-only local source inspection and upstream Fedora/CoreOS Installer
+web documentation research; documentation diff checks only. No code implementation,
+builds, tests, credential generation, installation or native validation. This plan
+does not authorize disk writes, fixture lifecycle actions or deployment.
 
 ## Merge of origin/main at 711606f
 

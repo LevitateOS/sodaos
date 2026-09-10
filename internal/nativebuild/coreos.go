@@ -84,22 +84,8 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	if err = download(ctx, img.SignatureURL, sig, 1<<20); err != nil {
 		return result, err
 	}
-	home := filepath.Join(out, "gnupg")
-	if err = os.Mkdir(home, 0700); err != nil {
+	if err = verifyCoreOSSignature(ctx, archive, sig, keyring, signer, out); err != nil {
 		return result, err
-	}
-	verifyCtx, verifyCancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer verifyCancel()
-	cmd := exec.CommandContext(verifyCtx, "gpgv", "--homedir", home, "--keyring", keyring, "--status-fd=1", sig, archive)
-	var status bytes.Buffer
-	cmd.Stdout = &limitWriter{w: &status, remaining: 1 << 20}
-	cmd.WaitDelay = 2 * time.Second
-	err = cmd.Run()
-	if err != nil {
-		return result, errors.New("CoreOS signature verification failed")
-	}
-	if !validSignature(status.Bytes(), signer) {
-		return result, errors.New("signature does not match selected signer")
 	}
 	dest := filepath.Join(out, "coreos.qcow2")
 	f, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -109,7 +95,7 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	hash := sha256.New()
 	decompressCtx, decompressCancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer decompressCancel()
-	cmd = exec.CommandContext(decompressCtx, "xz", "--decompress", "--stdout", "--", archive)
+	cmd := exec.CommandContext(decompressCtx, "xz", "--decompress", "--stdout", "--", archive)
 	cmd.Stdout = &limitWriter{w: io.MultiWriter(f, hash), remaining: 64 << 30}
 	cmd.WaitDelay = 2 * time.Second
 	err = errors.Join(cmd.Run(), f.Close())
@@ -130,6 +116,26 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	err = WriteNew(filepath.Join(out, "verified-base.json"), append(data, '\n'), 0600)
 	return result, err
 }
+func verifyCoreOSSignature(ctx context.Context, image, sig, keyring, signer, out string) error {
+	home := filepath.Join(out, "gnupg")
+	if err := os.Mkdir(home, 0700); err != nil {
+		return err
+	}
+	phase, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(phase, "gpgv", "--homedir", home, "--keyring", keyring, "--status-fd=1", sig, image)
+	var status bytes.Buffer
+	cmd.Stdout = &limitWriter{w: &status, remaining: 1 << 20}
+	cmd.WaitDelay = 2 * time.Second
+	if err := cmd.Run(); err != nil {
+		return errors.New("CoreOS signature verification failed")
+	}
+	if !validSignature(status.Bytes(), signer) {
+		return errors.New("signature does not match selected signer")
+	}
+	return nil
+}
+
 func validSignature(status []byte, signer string) bool {
 	valid := false
 	for _, line := range strings.Split(string(status), "\n") {

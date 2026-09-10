@@ -21,12 +21,26 @@ def regular(path, private=False):
     return p.read_text()
 
 
-def render(operator_key, password_hash, out, hostname=None, host_key=None, bootstrap='extensions'):
+def public_config():
+    """One public bootstrap for private provisioning and installer-media conversion."""
+    return json.loads((Path(__file__).resolve().parents[1] / 'appliance/provisioning/base.json').read_text())
+
+
+def appliance_hostname(value):
+    return (0 < len(value) <= 253 and all(re.fullmatch(
+        r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label)
+        for label in value.split('.')))
+
+
+def render(operator_key, password_hash, out, hostname=None, host_key=None, bootstrap='extensions', product_hostname=None):
     key = regular(operator_key).strip()
     password = regular(password_hash, private=True).strip()
     if not key.startswith(('ssh-', 'ecdsa-', 'sk-')) or '\n' in key or not password.startswith('$') or '\n' in password:
         raise ValueError('provide a public SSH key and crypt(3) hash, not plaintext')
-    x = json.loads((Path(__file__).resolve().parents[1] / 'appliance/provisioning/base.json').read_text())
+    x = public_config()
+    if product_hostname is not None:
+        if hostname is not None or not appliance_hostname(product_hostname):
+            raise ValueError('valid appliance hostname or fixture hostname required, not both')
     if bootstrap == 'minimal':
         x.pop('systemd')
         x['storage']['files'] = []
@@ -37,6 +51,8 @@ def render(operator_key, password_hash, out, hostname=None, host_key=None, boots
         if not re.fullmatch(r'soda-native-[a-z0-9](?:[a-z0-9-]{0,40}[a-z0-9])?', hostname):
             raise ValueError('fresh soda-native-* fixture hostname required')
         x['storage']['files'].append({'path': '/etc/hostname', 'mode': 0o644, 'contents': {'inline': hostname + '\n'}})
+    if product_hostname is not None:
+        x['storage']['files'].append({'path': '/etc/hostname', 'mode': 0o644, 'contents': {'inline': product_hostname + '\n'}})
     if host_key is not None:
         private_key = regular(host_key, private=True)
         # Derive the public half without putting private contents in argv/logs.
@@ -61,13 +77,15 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--operator-key-file', required=True)
     p.add_argument('--root-password-hash-file', required=True)
-    p.add_argument('--hostname')
+    names = p.add_mutually_exclusive_group()
+    names.add_argument('--hostname', help='fixture-only soda-native-* name')
+    names.add_argument('--appliance-hostname', help='product hostname, default is unchanged CoreOS behavior')
     p.add_argument('--bootstrap', choices=('minimal', 'extensions'), default='extensions')
     p.add_argument('--ssh-host-key-file')
     p.add_argument('--out', required=True)
     a = p.parse_args()
     try:
-        render(a.operator_key_file, a.root_password_hash_file, a.out, a.hostname, a.ssh_host_key_file, a.bootstrap)
+        render(a.operator_key_file, a.root_password_hash_file, a.out, a.hostname, a.ssh_host_key_file, a.bootstrap, a.appliance_hostname)
     except (ValueError, OSError, subprocess.SubprocessError) as err:
         # No input values or subprocess diagnostics: either can contain secrets.
         p.exit(1, 'Private provisioning failed (' + type(err).__name__ + '); check paths/modes/key format.\n')

@@ -27,7 +27,7 @@ func main() {
 }
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: soda-artifacts inspect-oci|seal|verify|verify-installed|bundle|fetch-coreos|convert-butane [flags]")
+		return errors.New("usage: soda-artifacts inspect-oci|seal|verify|verify-installed|bundle|fetch-coreos|fetch-coreos-iso|convert-butane [flags]")
 	}
 	action := args[0]
 	f := flag.NewFlagSet(action, flag.ContinueOnError)
@@ -63,6 +63,9 @@ func run(ctx context.Context, args []string) error {
 		return nativebuild.Bundle(*source, *out, *arch, *revision)
 	case "fetch-coreos":
 		_, err := nativebuild.FetchCoreOS(ctx, *lock, *arch, *keyring, *signer, *out)
+		return err
+	case "fetch-coreos-iso":
+		_, err := nativebuild.FetchCoreOSISO(ctx, *lock, *arch, *keyring, *signer, *out)
 		return err
 	case "convert-butane":
 		if err := nativebuild.RequireNative(*arch); err != nil {
@@ -102,6 +105,6 @@ func run(ctx context.Context, args []string) error {
 		}
 		return nil
 	default:
-		return errors.New("unknown artifact action; ISO/QCOW2 media delivery is not selected")
+		return errors.New("unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected")
 	}
 }
