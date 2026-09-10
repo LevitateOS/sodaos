@@ -1,5 +1,22 @@
 # Current handoff
 
+## Requested services marketplace and repository AI automation
+
+Added the [feature proposal](services-and-ai-plan.md) for Adminer/Vaultwarden/
+Homepage installation and issue resolution/PR review with bounded fix rounds.
+It distinguishes persistent services, retained development projects and fresh AI
+job checkouts. Appliance-wide operator installation and automatic trusted-user
+runs are proposed defaults, pending the user's placement/trigger answers.
+
+Source inspection found that current Forgejo runner validation permits only
+`name:host` labels and does not provision a Podman job engine. Upstream v15 Actions
+documentation covers the requested events and OCI runner labels, but exact
+runner/token confinement and native behavior still require investigation. This
+is a design record, **not implemented features or passing runtime evidence**.
+Only local source/document reads and public upstream research ran; one exact-tag
+source fetch timed out and is not counted as complete source verification.
+No tests/builds, private credential use, provider mutation or native delivery ran.
+
 ## Merge of origin/main at 711606f
 
 Merged the incoming illustration/form redesign and consistency commits with the

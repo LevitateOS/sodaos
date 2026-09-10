@@ -361,6 +361,13 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
+The user also requested a services marketplace and repository AI issue/PR
+automation. The [feature proposal](services-and-ai-plan.md) records the proposed
+app lifetime, Forgejo Actions ownership, current host-only runner gap and bounded
+review/fix behavior. Marketplace placement and trigger policy remain pending
+product choices; implementation is not yet present. This extends requested scope
+without changing existing project roots, provider authority or deployment permission.
+
 1. **Complete scoped native/CLI proof of Spaces and its companion drawer.** The
    single [detailed sequence](lit-migration-plan.md) records locally completed steps
    1–5 and 6a/6b, including layout/projections, observed attention and extended driver
