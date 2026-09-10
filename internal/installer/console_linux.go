@@ -177,7 +177,11 @@ func (c console) network(ctx context.Context) error {
 	case "edit":
 		cmd := exec.CommandContext(ctx, "nmtui")
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = c.tty, c.tty, c.tty
-		if err := cmd.Run(); err != nil {
+		err := cmd.Run()
+		// NEWT leaves its background/cursor position behind when it exits.
+		// Restore our page on both success and failure, before any next prompt.
+		c.print("\x1b[0m\x1b[2J\x1b[HSodaOS installation — Network settings")
+		if err != nil {
 			return errors.New("NetworkManager editor failed; no disk installation started")
 		}
 	case "keep":

@@ -1,5 +1,24 @@
 # Current handoff
 
+## Branded BIOS/UEFI live boots passed; network-editor return corrected
+
+Clean **`0c1496c`** built and passed signed-input, content-preservation and native
+Ignition/kargs readback. Real diskless boots passed in both BIOS and OVMF UEFI modes:
+both boot menus show **SodaOS Installer**, and both reach the clean canonical-artwork
+SodaOS console through its native enforcing-SELinux guard. The `/etc/os-release`
+display override did not break immutable-base version validation. UEFI used a fresh
+run-owned OVMF variable file, not a destination disk; Secure Boot enrollment/testing
+is not claimed. Screenshots and QMP block inventories remain under
+`.artifacts/installer-vm-FbqpKn/`.
+
+Native `nmtui` opened and exited. Its NEWT terminal background/cursor state remained
+on return, so source now resets/clears the terminal and prints the SodaOS network
+review heading after editor exit, including failures. Focused Go PTY tests use fake
+editor/IP commands and cover both successful and failed exits; installer/nativebuild
+race tests passed. A fresh final build and native return check follow separately.
+No network settings, installation disk, retained VM or project state were changed.
+Installed-disk GRUB branding and installed-system acceptance remain separate gaps.
+
 ## Diskless installer boots; SodaOS branding source added
 
 Clean **`63a8456`** built and booted successfully through the enforcing-SELinux
