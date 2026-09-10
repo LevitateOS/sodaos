@@ -16,10 +16,11 @@ const scope = () => ({target: base.target, revision: base.revision, actors: ['1'
 test('matrix approval cannot inherit a single-terminal, foreign actor/project or provider scope', () => {
   assert.deepEqual(matrixInput(scope(), base), scope()); assert.throws(() => matrixInput(base, base));
   for (const change of [{target: 'another'}, {revision: '2'.repeat(40)}, {actors: ['2', '1']}, {sessions_per_actor: 7}, {actions: ['create', 'end']}, {actions: [...scope().actions, 'stop']}, {provider_use: 'browser-and-ssh-for-declared-clis'}, {unknown: true}, {projects: [scope().projects[0], scope().projects[0]]}]) assert.throws(() => matrixInput({...scope(), ...change}, base));
-  const cli = ['codex', 'claude', 'pi'].map(tool => ({tool, version: 'declared-version', prompt_file: '/synthetic/prompt', expected_text: '非echo', minimum_output_bytes: 4096}));
+  const cli = ['codex', 'claude', 'pi'].map(tool => ({tool, version: 'declared-version', prompt_file: '/synthetic/prompt', expected_text: '非echo', ready_text: 'Fixture CLI ready', minimum_output_bytes: 4096}));
   const cli_effects = ['personal-cli-state', 'provider-calls', 'browser-and-ssh-pty', 'interactive-input', 'interrupt-and-disconnect'];
   assert.equal(matrixInput({...scope(), cli, cli_effects, provider_use: 'browser-and-ssh-for-declared-clis'}, base).cli.length, 3);
   assert.throws(() => matrixInput({...scope(), cli}, base));
+  for (const change of [{ready_text: ''}, {version: ''}, {minimum_output_bytes: 1}]) assert.throws(() => matrixInput({...scope(), cli: cli.map(item => ({...item, ...change})), cli_effects, provider_use: 'browser-and-ssh-for-declared-clis'}, base));
   assert.throws(() => matrixInput({...scope(), cli: [cli[0], cli[0], cli[0]], cli_effects, provider_use: 'browser-and-ssh-for-declared-clis'}, base));
   assert.throws(() => matrixInput({...scope(), cli: cli.map(item => ({...item, api_key: 'forbidden'})), cli_effects, provider_use: 'browser-and-ssh-for-declared-clis'}, base));
 });

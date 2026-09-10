@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {object, validID} from './sodaspaces-input';
 import type {JourneyInput} from './sodaspaces-input';
 export interface MatrixProject {environment: string; repository_id: string; repository_path: string; ssh: [string, string]}
-export interface CLIScenario {tool: 'codex' | 'claude' | 'pi'; version: string; prompt_file: string; expected_text: string; minimum_output_bytes: number}
+export interface CLIScenario {tool: 'codex' | 'claude' | 'pi'; version: string; prompt_file: string; expected_text: string; ready_text: string; minimum_output_bytes: number}
 export interface MatrixInput {
   target: string; revision: string; actors: [string, string]; sessions_per_actor: 6;
   actions: ['create', 'attach', 'hide', 'return', 'end']; ssh_config: string;
@@ -39,14 +39,15 @@ export function matrixInput(value: unknown, base: JourneyInput): MatrixInput {
   const cli_effects = input.cli.length ? ['personal-cli-state', 'provider-calls', 'browser-and-ssh-pty', 'interactive-input', 'interrupt-and-disconnect'] : [];
   assert.deepEqual(input.cli_effects, cli_effects);
   const cli = input.cli.map((value): CLIScenario => {
-    const item = object(value); assert.deepEqual(Object.keys(item).sort(), ['expected_text', 'minimum_output_bytes', 'prompt_file', 'tool', 'version']);
-    const {tool, version, prompt_file, expected_text, minimum_output_bytes} = item;
+    const item = object(value); assert.deepEqual(Object.keys(item).sort(), ['expected_text', 'minimum_output_bytes', 'prompt_file', 'ready_text', 'tool', 'version']);
+    const {tool, version, prompt_file, expected_text, ready_text, minimum_output_bytes} = item;
+    assert(typeof ready_text === 'string' && ready_text.trim().length > 0 && ready_text.length <= 80 && !/[\r\n\0]/.test(ready_text) && ready_text !== expected_text);
     assert(typeof minimum_output_bytes === 'number' && Number.isInteger(minimum_output_bytes) && minimum_output_bytes >= 4096 && minimum_output_bytes <= 65536);
     assert(tool === 'codex' || tool === 'claude' || tool === 'pi');
     assert(typeof version === 'string' && version.length > 0 && version.length <= 160 && !/[\r\n\0]/.test(version));
     assert(typeof prompt_file === 'string' && prompt_file.startsWith('/'));
     assert(typeof expected_text === 'string' && expected_text.length > 0 && expected_text.length <= 80 && !/[\r\n\0]/.test(expected_text));
-    return {tool, version, prompt_file, expected_text, minimum_output_bytes};
+    return {tool, version, prompt_file, expected_text, ready_text, minimum_output_bytes};
   });
   assert.equal(new Set(cli.map(item => item.tool)).size, cli.length);
   return {target: base.target, revision: base.revision, actors: [base.users[0].id, base.users[1].id], sessions_per_actor: 6,

@@ -264,10 +264,14 @@ The extra restricted JSON's closed shape is owned by
   inferred from this configuration.
 - `cli: []`, `cli_effects: []`, `provider_use: "none"` omits all CLI execution and
   explicitly records **not run**. To select it, provide exactly one case for each
-  of `codex`, `claude`, `pi`: `{tool, version, prompt_file, expected_text,
+  of `codex`, `claude`, `pi`: `{tool, version, prompt_file, ready_text, expected_text,
   minimum_output_bytes}`. Versions are exact observed `--version` strings;
   prompts are restricted files up to 4096 bytes containing **non-secret fixture
-  tasks**, not credentials. The expected output (1–80 characters) must not occur
+  tasks**, not credentials or requests for tool/workspace mutation. `ready_text`
+  is the version-specific observed input-ready indicator (1–80 characters), never
+  a login, directory-trust or tool-permission prompt. Both transports must observe
+  it before submitting a task; no sleep, automatic confirmation or authentication
+  substitutes for readiness. The expected output (1–80 characters) must not occur
   in the prompt; declared streaming volume is 4096–65536 bytes. All tools and
   personal credentials must already be configured under the approved accounts;
   absence/failure is not a pass and never triggers installation or authentication.

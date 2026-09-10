@@ -37,7 +37,9 @@ export async function exerciseSelectedCLIs(page: Page, request: MatrixInput, act
     while (!stream.text(session.id).includes(scenario.version) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
     assert(stream.text(session.id).includes(scenario.version), 'Browser CLI version not confirmed');
     stream.clear(session.id); await page.keyboard.insertText(scenario.tool); await page.keyboard.press('Enter');
-    await page.waitForTimeout(1000); checkActive();
+    deadline = Date.now() + 15000;
+    while (!stream.text(session.id).includes(scenario.ready_text) && Date.now() < deadline) {checkActive(); await new Promise(resolve => setTimeout(resolve, 100));}
+    assert(stream.text(session.id).includes(scenario.ready_text), 'Declared CLI readiness not observed; no prompt submitted'); checkActive();
     await screen.evaluate((element, text) => {
       const data = new DataTransfer(); data.setData('text/plain', text);
       element.dispatchEvent(new ClipboardEvent('paste', {clipboardData: data, bubbles: true, cancelable: true}));
@@ -66,7 +68,10 @@ export async function exerciseSelectedCLIs(page: Page, request: MatrixInput, act
     const output = (async () => {for await (const bytes of ssh.stdout) {wire = (wire + decoder.decode(bytes, {stream: true})).slice(-65536); chunks++; outputBytes += bytes.length;}})();
     const errors = (async () => {for await (const _ of ssh.stderr) { /* Never retain private diagnostics. */ }})();
     try {
-      await page.waitForTimeout(1000); checkActive(); ssh.stdin.write(prompt + '\n'); ssh.stdin.flush();
+      deadline = Date.now() + 15000;
+      while (!wire.includes(scenario.ready_text) && Date.now() < deadline) {checkActive(); await new Promise(resolve => setTimeout(resolve, 100));}
+      assert(wire.includes(scenario.ready_text), 'Declared SSH CLI readiness not observed; no prompt submitted');
+      checkActive(); ssh.stdin.write(prompt + '\n'); ssh.stdin.flush();
       deadline = Date.now() + 90000;
       while (!wire.includes(scenario.expected_text) && Date.now() < deadline) {checkActive(); await new Promise(resolve => setTimeout(resolve, 250));}
       const comparison = cliProtocolObservation(wire, scenario.expected_text); assert(comparison.expected_output, 'SSH CLI fixture output not confirmed');

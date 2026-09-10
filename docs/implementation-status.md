@@ -21,8 +21,10 @@ layout/compact resource identity, Hide/Return, reload, original shell memory and
 named End with independent PID/start/unit/cgroup/socket/record checks plus siblings.
 
 Codex CLI, Claude Code and Pi browser/ordinary-SSH scenarios require exact declared
-versions, restricted non-secret fixture prompts and explicit provider/personal-state
-scope. They record bounded wire/streaming observations and actual context; visual,
+versions, version-specific input-ready indicators, restricted non-secret fixture
+prompts and explicit provider/personal-state scope. Review replaced startup sleeps
+with fail-closed readiness observations before input; missing readiness never
+confirms a login, trust or tool-permission prompt. They record bounded wire/streaming observations and actual context; visual,
 physical-keyboard and CLI behavior review remains required, never an inferred PASS.
 See [the complete input/effect contract](native-validation.md#integrated-six-session-workspace-matrix-authored-not-installed-proof).
 No source work authorizes executing this mode or changes existing target approvals.
