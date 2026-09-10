@@ -1,5 +1,45 @@
 # Current handoff
 
+## Native two-actor matrix passed; retained delivery in preparation
+
+Probe `1891849` against installed **b8af68c/schema v6** passed the real matrix in
+`.artifacts/s6c-browser-ZF5skr/`: **six concurrent sessions per actor across both
+original projects (twelve total)**, exact correlation, original-account shell/PID/
+start/marker facts, existing-writer refusal, stable same-document hosts/renderers,
+full-page split/move/compact/consolidate, Hide/Return and exact same-shell reload.
+All twelve explicit Ends had independent ordinary project SSH confirmation of
+shell, unit, cgroup and owned-record/socket cleanup, plus live-sibling checks.
+The read-only prerequisite again passed including BFCache. **No CLI/provider case
+ran**; the evidence explicitly says not-run. This is bounded x86_64 native matrix
+proof, not CLI/physical-keyboard/aarch64/final-product acceptance.
+
+Two prior matrix attempts remain failures, including their native retained IDs and
+later writes: `uchl8L` entered layout from the drawer; `21XE12` reached full-page
+layout but then timed out. After closing its contender, Chromium selected the
+read-only journey's other tab, not the matrix page. The driver now explicitly
+foregrounds its actual page; local fixtures include an extra tab with focus
+emulation disabled. Native `ZF5skr` passes that correction. No production focus
+or pane guard was weakened. Local driver fixtures and required types passed.
+
+`soda-test` is still the original running four roots, not yet rolled out. Fresh
+read-only review records all **seven actual `u08-*` memberships**, original
+UID/GID/homes/sshd PIDs and differing creation capabilities. Earlier generic
+preflight's `operator` entry was the distro system account, **not** membership
+inventory; the new review corrects that limitation without touching accounts.
+All three differing project-init hashes match exact Git versions (`e988da5`,
+`0d4c4eb`, `935dbdf`). Maintenance must add only the terminal directory line and
+program/tmux, preserving each root's other init behavior/capabilities. No running
+user workloads were observed (only original system services plus the read-only
+probe); that observation is not authority to stop projects or discard state.
+
+The b8af68c bundle was transferred/verified to
+`/var/tmp/soda-step6c-retained-b8af68c/x86_64` on `soda-test`. First transfer failed
+before extraction because its new parent directory did not exist; retained failure
+and successful separate attempt are `retained-transfer*` under
+`.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`. No installation follows merely from
+transfer. Fresh paired application/project backups, rehearsal, delivery and retained
+checks are next; no inherited backup waiver, root/OS replacement or capability retrofit.
+
 ## Native browser passed; first matrix attempt retained
 
 The corrected viewport probe then reached Soda logout and exposed another stale
