@@ -1,5 +1,171 @@
 # Current handoff
 
+## Bounded runner installed-driver handoff after `9629c8e`
+
+Inspected clean HEAD `9629c8e`; native UI/cache/history source is `d838262` on top
+of step-4 navigation `99c2c31` and the subsequent runner-owned commits. No additional
+production/browser changes are pending. The preceding partial-step-5 receipt remains
+accurate, except its blanket editor reservation is now narrowed explicitly:
+
+**Handed to the runner agent:** `tests/installed/sodaspaces.ts` and
+`tests/frontend/sodaspaces-probe.test.ts`. The CDP request guard is embedded in the
+first file; its source-backed guard regressions are in the second. Soda-pages will
+not edit either concurrently. Runners owns implementing and checking the caller
+changes below with its existing `tests/installed/runners.ts` exports. All other
+shared UI/auth/payload files remain reserved; request a specific additional handoff
+if needed. This is an editor/integration handoff, not step-5 acceptance or permission
+to execute installed/provider phases.
+
+Required integration, not an already-wired caller:
+
+- Parse explicit runner phase/private-input arguments and call `loadRunnerInput`
+  before browser/native effects, preserving exact clean revision/target checks.
+  Add a runner branch rather than running unrelated environment/terminal journeys.
+- Use the existing native login, consent and browser machinery to establish the
+  required original actors at `/?soda-view=runners`; pass those pages, input,
+  permission, one-shot permit callback and evidence to `exerciseRunners`.
+  Its current `oauth()` helper is drawer-specific, not a Runners automatic-entry
+  helper. Reuse the driver rather than adding another login harness.
+- The current guard's auth-write set lacks `/-/soda/api/login/cancel`, now used by
+  coordinated native logout. Add bounded cancellation admission/assertions and
+  update logout observations; do not broadly permit Soda API mutations.
+- Adapt the existing `accessWrite` actor/exact-path/serialized-body permit without
+  reserializing runner secrets or adding runner endpoints to the broad write set.
+  Consume before transmission; clear pending permits on failure/abort and never
+  log their bodies. Test duplicate, mismatched and late dispatch refusal.
+- Both current driver pages share one browser context/cookie jar. Ensure the two
+  runner actors are genuinely authenticated as required by the module; a stale
+  native marker plus another actor's cookie must not count as nonoperator proof.
+  Reuse existing browser/authentication ownership for any necessary sequencing or
+  isolated-context support, requesting a helper-file handoff if required.
+- Expand the driver's asset observation inventory to the native entry, connection,
+  settings-link and runner graph, including the epoch-versioned URLs. The existing
+  installed proxy `max-age=0, must-revalidate` assertions are a distinct contract
+  from the stock-preview six-hour cache; do not replace them based on local fixture
+  behavior. Observe the actual packaged candidate.
+
+There is no planned new navigation destination, schema migration or replacement
+session contract blocking this integration: schema v9, fixed native views, expected
+actor guards, explicit retry, shared retirement and non-atomic coordinated logout
+remain selected. Outstanding step-5 visual/combined-history/Linux checks still
+block full acceptance, not this two-file editor handoff. No builds/tests/provider
+or deployment operations were run for this inspection/documentation handoff.
+
+
+## Native Soda pages step 5 — cache/history candidate; acceptance still open
+
+Source candidate **`d838262`**, based on clean `99ddecf` (including navigation
+commit `99c2c31` and subsequent runner-owned work). No unrelated working changes
+were present. This is a partial step-5 implementation, **not its completed exit**.
+No appliance delivery, native project/terminal operation, runner registration,
+provider job or Cockpit removal occurred.
+
+The presentation epoch `2026-09-10.native-pages-5` now versions the three Soda
+entry modules, workspace/settings CSS and every emitted relative external module
+import, including dynamic imports and the shared Lit runtime. Paths/inventory and
+locked vendor bytes remain unchanged. Template/import closure tests enforce the
+common epoch. The native entry rejects duplicate evaluations on the same mount
+and checks that its mount remains connected after lazy imports. Current guides
+now describe the native hosts/schema-v9 connection and cache ownership rather than
+calling the removed Go shells the pending implementation.
+
+The existing `TestNativeConnectionFixture` remains the only native connection/page
+harness. Its candidate file server models stock Forgejo's six-hour private cache;
+a browser-scoped pin for the fixture certificate allows real cache hits without
+host trust changes. The test warms predecessor **URL identities** with candidate
+bytes, observes repeat transfer sizes of zero, and requires the current entry,
+connection, API, runner and Lit module URLs in the actual native document to carry
+the new epoch. This proves URL/cache separation and emitted graph closure, not a
+live old-binary/new-binary appliance upgrade or replacement of already loaded code.
+Open documents continue running their loaded code until navigation/reload.
+
+Real Back/BFCache now runs without Playwright request interception: a second real
+native tab keeps Forgejo's existing notification SharedWorker active. Both the
+original DOM marker and `pageshow.persisted=true` are required after Back. The
+runner token is cleared and only one runner owner remains; a deliberately repeated
+entry evaluation preserves the owner and unsent draft before departure. No native
+worker was replaced. Synthetic consumers separately retain late replies ignoring
+abort, uncertain outcomes, exact target confirmation and no mutation replay.
+The lazy-import test additionally removes the mount before releasing its response.
+
+Authority evidence reuses the existing Go/race suites: `TestRunnerOperatorGatesBeforeNativeAndDecode`
+uses non-admin operator Alice and admin/non-operator Bob; repository access,
+Spaces, actor-context and cancellation tests retain owner/member, private/missing,
+provider failure and actor-change boundaries. The real fixture now refuses an
+admin screenshot actor, explicitly establishing operator-without-admin admission.
+The migrated repository browser case additionally checks member/no-create, 403,
+404, 503 and changed-actor observations clear controls/metadata without replaying
+its sole synthetic Create. These are not separate real native-admin/member logins
+or provider permission-change evidence.
+
+### Executed checks and retained evidence
+
+Logs: `.artifacts/pages-step5/`. Final real connection/page fixture:
+`.artifacts/pages-l4rNrW/native/` (private OAuth/DB/browser state retained).
+
+- `bun run build:forgejo`, `bun run typecheck`: passed, including strict compiler,
+  Lit source analysis and positive/ten-negative analyzer fixtures.
+- Frontend: **216 passed, 15 separately gated skips** (`frontend-last.log`).
+- Forgejo/Lit: **37 passed, 21 gated skips** (`forgejo-candidate.log`).
+- Native page group: **15 consumer cases plus the real OAuth/logout parent passed**
+  (`pages-candidate.log` and fixture `browser.log`). Consent/decline, repeat grant,
+  bookmarks/session reuse and both partial logout outcomes were reused, not rebuilt.
+- Separately enabled actual stock-Forgejo host/CSP/profile/notification/login tests:
+  **2 passed**, including six view/width subcases (`native-host-final.log`).
+- Measured drawer/workspace layout: **1 passed**; Cockpit: **60 passed**.
+- `go test -race ./internal/web ./internal/store`: passed (`race-candidate.log`).
+- Canonical payload: **4 passed**; page orchestrator: **3 passed**. Staging:
+  **7 passed** with an absolute non-symlink `TMPDIR` under the evidence directory.
+  These use existing staging fixtures, not a sealed native image/export.
+- `bun run check:source`: **failed on macOS** before its frontend phase, including
+  Linux-only installer `commandRunner`, native runner exec assumptions and support
+  tests rejecting macOS temporary-path symlinks. No gates or pins were weakened.
+  The initial staging failure passed with a real-path temporary directory; that
+  does not fix or establish the aggregate's Linux-only portions.
+
+Failed attempts remain: old in-memory native template entry URL; query-unaware
+fixture request matching and retired `data-destination` assertion; intercepted
+BFCache disabled by the browser delegate; last-client SharedWorker eviction;
+waiting for a nonexistent BFCache `load` event; and TLS-error bypass preventing
+HTTP caching. Corrected assertions use actual native behavior, not dispatched
+history events or cache-disabled success. The old preview branding/public trees
+were backed up in the evidence directory before refreshing canonical assets and
+reloading only the authorized local `sodaos-local-forgejo` template host. Its data,
+credentials and all earlier fixtures remain.
+
+### Visual review and remaining exits / runner-agent handoff
+
+Used `scripts/screenshot.ts` and the documented fixture profile. Inspected all
+three connection-failure hosts at 1440px/light and 390px/dark in
+`.artifacts/screenshots/capture-9OVllV/002–004.png` and
+`capture-Ibt1yn/002–004.png`: headings, Retry/Back, native header/mobile chrome and
+footer fit without visible clipping. These are intentionally failure-state
+captures, not populated control acceptance. Verified capture refused the standalone
+preview's missing Soda API (404); earlier raw-root captures also reproduced the
+remember-me query-loss constraint. Rejected/blank attempts remain retained and are
+not passes. The real TLS fixture supplies body/auth behavior, but the requested
+complete populated visual review via the screenshot tool is **still open**.
+
+**Step 5 remains open:** complete populated native theme/mobile/scroll/focus visual
+review; the combined real-history matrix for exact terminal identities, native
+unsaved forms, actor changes and late responses (current pieces have separate
+native/synthetic evidence); and `check:source` on a supported prepared Linux
+checkout. No complete two-version cached upgrade or sealed native candidate was
+produced. Architecture/API/credential/design/runner/validation consistency review
+must be finished alongside those exits; only the affected integration/Lit/tooling
+guides were corrected here.
+
+**Source handoff is withheld, not silently granted.** Runner work may continue in
+its already-owned backend/native/provider files. Shared page/auth/browser/payload
+files remain reserved to Soda-pages until the above exit and an explicit handoff.
+The reviewable candidate is `d838262`; fixed entries remain `/?soda-view=spaces`,
+`/?soda-view=runners`, and `/?soda-view=repository-spaces&repository_id=ID`, with
+legacy no-store native-login bookmark bridges. Schema v9, expected-actor guards,
+shared retirement/logout and migrated browser callers remain unchanged. Runner
+native/provider parity and separately authorized appliance delivery are independent
+of these local source/browser results.
+
+
 ## Runner step 4 continuation — pinned builder and native postconditions
 
 Continued runner-owned preparation from `23bef53`; shared Soda-pages driver/UI/

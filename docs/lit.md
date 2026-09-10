@@ -51,6 +51,10 @@ build uses each module's payload destination to emit a relative runtime URL:
 | `public/assets/soda/forgejo/example.js` | `./lit.js` |
 | `public/assets/example.js` | `./soda/forgejo/lit.js` |
 
+The compiler appends the shared presentation `?v=` epoch to these URLs and all
+other relative external Soda imports. See [cache ownership](typescript.md); the
+runtime remains one module identity per document, including lazy imports.
+
 This works beneath Forgejo's `AppSubUrl` too, without a CDN, import map or a second
 TypeScript resolver. Existing native and terminal imports keep their public URLs.
 Core Lit and `lit/directives/repeat.js` imports share this runtime; repeat is used

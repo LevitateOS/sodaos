@@ -2,9 +2,10 @@ import {html, render} from 'lit';
 import {connectPage} from '../../../frontend/spaces/soda-connection.js';
 
 const mount = document.getElementById('soda-native-content');
-if (mount) {
+if (mount && mount.dataset.sodaEntryMounted !== 'true') {
   const {documentTitle, actor, view, repositoryId} = mount.dataset;
   if (documentTitle && actor && view) {
+    mount.dataset.sodaEntryMounted = 'true';
     document.title = documentTitle;
     let busy = false, mounted = false, generation = 0;
     window.addEventListener('pagehide', () => {generation++;});
@@ -25,18 +26,18 @@ if (mount) {
         if (!await connectPage(actor, view, repositoryId || '', retry) || generation !== current || !mount.isConnected) return;
         if (view === 'spaces') {
           const {mountSpacesPage} = await import('../../../frontend/spaces/sodaspaces-page.js');
-          if (generation !== current) return;
+          if (generation !== current || !mount.isConnected) return;
           render(html``, mount);
           mountSpacesPage(mount, actor);
         } else if (view === 'runners') {
           const {mountRunnersPage} = await import('../../../frontend/runners/soda-runners-page.js');
-          if (generation !== current) return;
+          if (generation !== current || !mount.isConnected) return;
           mount.classList.add('soda-settings', 'soda-runner-settings');
           render(html``, mount);
           mountRunnersPage(mount, actor);
         } else if (view === 'repository-spaces') {
           const {mountRepositorySpaces} = await import('../../../frontend/spaces/soda-repository-spaces.js');
-          if (generation !== current) return;
+          if (generation !== current || !mount.isConnected) return;
           mount.classList.add('soda-settings');
           render(html``, mount);
           mountRepositorySpaces(mount, actor, repositoryId || '');

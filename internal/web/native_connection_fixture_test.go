@@ -3,6 +3,8 @@ package web
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log"
@@ -71,6 +73,9 @@ func TestNativeConnectionFixture(t *testing.T) {
 		}
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			if _, err := os.Stat(filepath.Join(public, filepath.FromSlash(r.URL.Path))); err == nil {
+				// Match stock Forgejo's six-hour private asset cache for cached-client
+				// tests. Bytes still come from this candidate's canonical payload.
+				w.Header().Set("Cache-Control", "private, max-age=21600")
 				http.FileServer(http.Dir(public)).ServeHTTP(w, r)
 				return
 			}
@@ -121,10 +126,14 @@ func TestNativeConnectionFixture(t *testing.T) {
 	}
 	defer userResponse.Body.Close()
 	var actor struct {
-		ID int64 `json:"id"`
+		ID      int64 `json:"id"`
+		IsAdmin bool  `json:"is_admin"`
 	}
 	if userResponse.StatusCode != 200 || json.NewDecoder(userResponse.Body).Decode(&actor) != nil || actor.ID <= 0 {
 		t.Fatal("fixture identity unavailable")
+	}
+	if actor.IsAdmin {
+		t.Fatal("native operator-without-Forgejo-admin fixture must remain non-admin")
 	}
 	soda = New(config.Config{OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile}, db)
 	soda.Host = &host.Client{HTTP: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
@@ -144,7 +153,8 @@ func TestNativeConnectionFixture(t *testing.T) {
 	}
 	cmd := exec.Command("bun", "test", "--timeout", "120000", "tests/forgejo/native-connection.test.ts")
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "SODA_CONNECTION_ORIGIN="+server.URL, "SODA_PAGE_STATE="+filepath.Join(dir, "browser-state.json"))
+	spki := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
+	cmd.Env = append(os.Environ(), "SODA_CONNECTION_ORIGIN="+server.URL, "SODA_PAGE_STATE="+filepath.Join(dir, "browser-state.json"), "SODA_CONNECTION_SPKI="+base64.StdEncoding.EncodeToString(spki[:]))
 	logFile, err := os.OpenFile(filepath.Join(dir, "browser.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal(err)

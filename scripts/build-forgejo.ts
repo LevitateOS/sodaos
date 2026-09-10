@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
 import { basename, dirname, posix, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import payload from '../internal/nativebuild/forgejo-payload.json';
 
 const root = resolve(import.meta.dir, '..');
+// One reviewed presentation epoch covers the whole module graph, not just the
+// HTML entry. Relative imports otherwise keep their old six-hour cache identity.
+export const presentationVersion = readFileSync(resolve(root, 'appliance/forgejo/templates/custom/header.tmpl'), 'utf8')
+  .match(/name="soda-presentation-revision" content="([a-zA-Z0-9.-]+)"/)?.[1];
+assert(presentationVersion, 'Missing presentation cache epoch');
+const versioned = (url: string) => `${url}?v=${presentationVersion}`;
 const modules = Object.entries(payload).filter(([, source]) => source.startsWith('@build/forgejo-js/'));
 const destinations = new Map(modules.map(([target, source]) => [basename(source), target]));
 assert.equal(destinations.size, modules.length, 'Each browser module must have exactly one public destination');
@@ -34,7 +41,7 @@ export async function buildForgejoModule(source: string, destination: string) {
             throw Error(`Development-only analysis tool cannot enter browser payload: ${args.path}`);
           }
           if (runtime) return;
-          if (args.path === 'lit' || args.path === 'lit/directives/repeat.js') return {path: runtimeURL, external: true};
+          if (args.path === 'lit' || args.path === 'lit/directives/repeat.js') return {path: versioned(runtimeURL), external: true};
           if (/^(?:lit\/|lit-element(?:\/|$)|lit-html(?:\/|$)|@lit(?:-labs)?\/)/.test(args.path)) {
             throw Error(`Unsupported Lit submodule ${args.path}: add an explicit shared-runtime export before using it`);
           }
@@ -46,11 +53,11 @@ export async function buildForgejoModule(source: string, destination: string) {
               const target = destinations.get(outputName(resolved));
               assert(target, `Unstaged workspace import: ${args.path}`);
               const relative = posix.relative(posix.dirname(destination), target);
-              return {path: relative.startsWith('.') ? relative : './' + relative, external: true};
+              return {path: versioned(relative.startsWith('.') ? relative : './' + relative), external: true};
             }
           }
           // Locked xterm and native branding boundaries remain public-relative.
-          return {path: args.path, external: true};
+          return {path: args.path.startsWith('.') ? versioned(args.path) : args.path, external: true};
         });
       },
     }],

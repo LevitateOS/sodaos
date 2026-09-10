@@ -53,7 +53,7 @@ async function nativeFixture(t: TestContext, options: {anonymous?: boolean; paus
   let release: (() => void) | undefined;
   const wait = new Promise<void>(resolve => {release = resolve;});
   page.on('pageerror', error => errors.push(error.message));
-  page.on('request', request => {if (request.url().endsWith('.js')) modules.push(new URL(request.url()).pathname);});
+  page.on('request', request => {if (new URL(request.url()).pathname.endsWith('.js')) modules.push(new URL(request.url()).pathname);});
   t.after(async () => {release?.(); await page.close(); assert.deepEqual(errors, []);});
   await page.route('**/-/soda/api/**', async route => {
     const pathname = new URL(route.request().url()).pathname;
@@ -98,8 +98,8 @@ test('hiding during lazy module loading cannot mount or dispatch a late refresh'
   const f = await nativeFixture(t);
   let release: (() => void) | undefined;
   const paused = new Promise<void>(resolve => {release = resolve;});
-  await f.page.route('**/assets/sodaspaces-drawer.js', async route => {await paused; await route.continue();});
-  const requested = f.page.waitForRequest('**/assets/sodaspaces-drawer.js');
+  await f.page.route('**/assets/sodaspaces-drawer.js?*', async route => {await paused; await route.continue();});
+  const requested = f.page.waitForRequest('**/assets/sodaspaces-drawer.js?*');
   await f.page.locator('#sodaspaces-button').click(); await requested;
   await f.page.locator('#sodaspaces-close').click(); release?.();
   await f.page.waitForFunction(() => !!customElements.get('soda-spaces'));

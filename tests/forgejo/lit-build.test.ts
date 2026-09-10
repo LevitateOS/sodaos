@@ -3,7 +3,8 @@ import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import test from 'node:test';
-import {buildForgejoModule} from '../../scripts/build-forgejo.ts';
+import {buildForgejoModule, presentationVersion} from '../../scripts/build-forgejo.ts';
+import payload from '../../internal/nativebuild/forgejo-payload.json';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -43,6 +44,26 @@ test('moved workspace source imports retain canonical public URLs from either as
     const built = await buildForgejoModule(join(root, 'frontend/spaces/sodaspaces-page.ts'), destination);
     assert((await built.text()).includes(expected));
     assert(!(await built.text()).includes('frontend/spaces'));
+  }
+});
+
+test('entry templates and every emitted relative import share the presentation cache epoch', async () => {
+  const templates = await Promise.all(['custom/header', 'custom/footer', 'user/dashboard/dashboard'].map(name =>
+    readFile(join(root, `appliance/forgejo/templates/${name}.tmpl`), 'utf8')));
+  for (const name of ['sodaspaces.js', 'soda-native-page.js', 'soda-settings-link.js', 'soda-settings.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css', 'sodaspaces.css']) {
+    assert(templates.join('\n').includes(`${name}?v=${presentationVersion}`), name);
+  }
+  for (const [destination, source] of Object.entries(payload)) {
+    if (!source.startsWith('@build/forgejo-js/')) continue;
+    const filename = source.split('/').at(-1); assert(filename);
+    const emitted = await readFile(join(root, '.artifacts/forgejo-js', filename), 'utf8');
+    // Includes static exports/imports and dynamic imports in the minified graph.
+    for (const match of emitted.matchAll(/["'](\.{1,2}\/[^"']+\.js(?:\?[^"']*)?)["']/g)) {
+      const specifier = match[1]; assert(specifier);
+      const url = new URL(specifier, 'https://fixture.invalid/' + destination);
+      assert.equal(url.search, `?v=${presentationVersion}`, `${destination}: ${url.pathname}`);
+      assert(Object.hasOwn(payload, url.pathname.slice(1)), `Unstaged import ${url.pathname}`);
+    }
   }
 });
 

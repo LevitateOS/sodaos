@@ -19,14 +19,14 @@ acceptance are in the [handoff](implementation-status.md). Open in drawer has lo
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
 extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)
-now proposes rendering the three existing Soda page bodies within Forgejo's own
-dashboard template and real native shell. This replaces the separate Go HTML
-placement below; it does not borrow cookies or transfer native authentication to
-Soda. The plan includes automatic entry connection, coordinated menu logout and
-explicit browser/upgrade limitations. Step 1 now implements minimal signed
-dashboard page hosts with real local Forgejo browser proof. Full management-page
-migration and connection/logout integration remain unimplemented. The plan records
-the native login-entry constraint found during that proof.
+now renders the three existing Soda page bodies within Forgejo's own dashboard
+and real native shell. Steps 1–4 include connection/logout, normal navigation and
+old-URL bookmark bridges; their Go shells are removed. Historical Go HTML placement
+below is not the current source contract. The protected APIs retain authority;
+no cookies or native authentication are borrowed. Step 5 adds whole-module-graph
+cache versioning, duplicate-entry retirement checks and real BFCache/cache evidence.
+Its remaining acceptance limits are in the leading handoff; no delivery follows.
+The fixed native login-entry constraint and non-atomic logout limit still apply.
 
 ## Verified source surface
 
@@ -36,15 +36,12 @@ global operator-only Sodarunners destination. The current local
 [`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
 already preserves native Actions runners/secrets/variables links. Add Soda links
 through the versioned customization mechanism without replacing those workflows.
-The current protected Soda pages use the Soda namespace/Go/Lit boundary. Their
-planned native host uses an existing Forgejo dashboard handler; adding a template
-link alone would supply neither a new handler nor Soda authorization.
-Before implementation, inspect the exact upstream context/gates and verify native
-menu rendering and scoped OAuth return paths. The operator Sodarunners page/API/root bridge now has local source/browser coverage;
-repository Sodaspaces settings now also has a Go HTML/shared Lit handler, with
-one stable-ID link added to the existing native settings override and all native
-destinations/gates preserved. Repository AI settings remains unimplemented. See the leading handoff for
-scope, schema-v7 return and pending native/provider proof. Public v15 customization documentation was
+The three current views use Forgejo's existing dashboard handler and the same
+protected Soda namespace/API/Lit boundary. A template link grants no authority.
+Repository settings keeps its stable-ID native link and native gates; repository
+AI settings remains unimplemented. The shared connection/logout contract uses
+schema v9. See the leading handoff for the source candidate, explicit shared-file
+handoff status and pending native/provider proof. Public v15 customization documentation was
 reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
 note claims local override inspection rather than fresh upstream source verification.
 

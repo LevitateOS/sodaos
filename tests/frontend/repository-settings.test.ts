@@ -12,7 +12,8 @@ test('native repository settings mounts shared creation/access controls and pres
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
   const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || ''}), errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const origin = process.env.SODA_PAGE_ORIGIN || '', actor = process.env.SODA_PAGE_ACTOR || '', id = 'p0123456789abcdef01234567';
-  let exists = false, legacy = false, available = true, unsafeName = false;
+  let exists = false, legacy = false, available = true, unsafeName = false, canCreate = true;
+  let repositoryStatus = 200, currentActor = actor;
   const writes: unknown[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), pathname = new URL(request.url()).pathname;
@@ -26,11 +27,14 @@ test('native repository settings mounts shared creation/access controls and pres
         assert.deepEqual(body, {repository_id: '7', profile_id: 'rocky-headless'}); exists = true;
         await route.fulfill({status: 201, json: env}); return;
       }
+      if (pathname.endsWith('/environments') && repositoryStatus !== 200) {
+        await route.fulfill({status: repositoryStatus, json: {error: {code: repositoryStatus === 503 ? 'provider_unavailable' : 'repository_not_found', message: 'Repository unavailable'}}}); return;
+      }
       if (pathname.endsWith('/profiles') && !available) {await route.fulfill({status: 503, json: {error: {code: 'profile_unavailable'}}}); return;}
-      const body = pathname.endsWith('/session') ? {user: {id: actor, login: 'alice'}, csrf_token: 'csrf-alice', forgejo_url: origin}
+      const body = pathname.endsWith('/session') ? {user: {id: currentActor, login: 'alice'}, csrf_token: 'csrf-alice', forgejo_url: origin}
         : pathname.endsWith('/forgejo/me') ? {id: actor}
           : pathname.endsWith('/profiles') ? {items: [profile]}
-            : pathname.endsWith('/environments') ? {repository: {id: '7', owner: 'current', name: unsafeName ? '../foreign' : 'renamed'}, can_create: !exists, items: exists ? [env] : []}
+            : pathname.endsWith('/environments') ? {repository: {id: '7', owner: 'current', name: unsafeName ? '../foreign' : 'renamed'}, can_create: canCreate && !exists, items: exists ? [env] : []}
               : pathname.endsWith('/development-keys') ? {items: []}
                 : {environment: env, observed: {id, running: true}, login: '', environment_administrator: false, native_unavailable: false, authority_unavailable: false};
       await route.fulfill({json: body}); return;
@@ -55,5 +59,22 @@ test('native repository settings mounts shared creation/access controls and pres
   unsafeName = true; await page.getByRole('button', {name: 'Refresh status'}).click();
   await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
   assert.equal(await page.locator('soda-project-controls').getByRole('link', {name: 'Native repository settings', exact: true}).count(), 0);
+  // A visible member repository is not owner/create authority. Each denied
+  // observation must clear the previous repository metadata, not keep stale links.
+  unsafeName = false; available = true; canCreate = false;
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
+  assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
+  for (const status of [403, 404, 503]) {
+    repositoryStatus = status;
+    await page.getByRole('button', {name: 'Refresh status'}).click();
+    await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
+    assert.equal(await page.locator('soda-project-controls').getByRole('link', {name: 'Native repository settings', exact: true}).count(), 0);
+    assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
+  }
+  repositoryStatus = 200; currentActor = actor === '999' ? '998' : '999';
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
+  assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
   assert.equal(writes.length, 1); assert.deepEqual(errors, []);
 });

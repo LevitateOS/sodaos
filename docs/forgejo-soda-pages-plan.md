@@ -56,6 +56,17 @@ change and serialize that edit after an explicit commit handoff. Common document
 and payload files likewise have one editor per change; neither agent overwrites
 uncommitted work from the other lane.
 
+**Bounded installed-driver editor handoff (after `9629c8e`):** Runners now owns
+`tests/installed/sodaspaces.ts` and `tests/frontend/sodaspaces-probe.test.ts` for
+integrating `loadRunnerInput`/`exerciseRunners` through the existing driver and its
+embedded one-shot guard. Soda-pages will not edit these files concurrently. This
+supersedes the blanket reservation only for those two files, not the outstanding
+step-5 acceptance exit or the remaining UI/auth/payload files. The driver requires
+runner argument/phase wiring, native-view entry and coordinated-cancellation guard
+updates; it is an integration baseline, not installed-ready proof. See the leading
+handoff for the exact dependencies. Any shared-file expansion needs another explicit
+handoff; no separate authentication harness or execution grant follows.
+
 **Source handoff:** Soda-pages identifies a committed revision, fixed entry URLs,
 actor/session and retirement behavior, migrated browser callers, emitted payload
 and actual checks/limits. Runners then extends the handed-off controls only for
@@ -495,6 +506,13 @@ affected packaging checks pass, including the complete page/drawer handoff.
 No runner/provider/root state changes occur as a consequence of opening or redirecting a page.
 
 ### Step 5 — validate the complete source and packaged candidate
+
+**In progress:** whole-graph cache versioning, real cached URL hits, native BFCache
+runner secret clearing, duplicate-entry protection and additional repository denial/
+actor cases now have local evidence. The leading handoff records the passing focused
+checks and remaining supported-Linux aggregate, complete visual and combined-history
+acceptance gaps. This is not a completed step-5 exit or delivery/source-ownership
+handoff.
 
 **Delivery cache check:** the local stock asset response currently uses a six-hour
 private cache. Version changed entry modules and their transitive Soda imports as
