@@ -24,10 +24,11 @@ export function attentionReason(metadata: TerminalMetadata | undefined, observed
   if (connection === 'unconfirmed' || metadata?.state === 'unconfirmed') return 'Outcome unconfirmed; exact slot retained';
   if (connection === 'ending' || metadata?.state === 'ending') return 'End pending; cleanup not confirmed';
   if (connection === 'ended' || metadata?.state === 'ended') return 'Native cleanup confirmed';
-  if (connection === 'attached-elsewhere') return 'Attached elsewhere (observed writer)';
+  if (connection === 'attached-elsewhere' && metadata?.attached !== false) return 'Attached elsewhere (observed writer)';
   if (connection === 'connection-lost') return 'Connection lost; cleanup not confirmed';
   if (connection === 'unavailable') return 'Connection unavailable; refresh exact status';
   if (!metadata || !observedAt || now - observedAt > 90000) return 'Status unavailable or stale; refresh';
+  if (metadata.attached && connection !== 'ready' && connection !== 'opening') return 'Attached elsewhere (observed writer)';
   if (metadata.effective_until * 1000 <= now) return 'Observed deadline passed; cleanup not confirmed';
   if (metadata.effective_until * 1000 - now <= 300000) return 'Observed deadline within five minutes';
   return '';

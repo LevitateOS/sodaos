@@ -1,5 +1,14 @@
 # Current handoff
 
+## Candidate review correction — observed other writers
+
+Review after `0a480f2` found that a collection's already-attached terminal only
+entered Attention after a failed attachment attempt. It now counts the authorized
+observed writer immediately (not this window's ready/opening attachment), and a
+fresh `attached: false` observation clears that specific stale reason without
+attaching or renewing anything. Added pure/browser regressions. Required types/
+analyzer/fixtures and frontend **188 /3 gated skips** passed; this is local evidence.
+
 ## Continued frontend implementation — installed-driver source (6b)
 
 The existing guarded `tests/installed/sodaspaces.ts` now has a separately scoped

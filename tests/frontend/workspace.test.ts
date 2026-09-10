@@ -357,6 +357,18 @@ test('installed control paths use the actual emitted project, chooser and origin
   await page.waitForFunction(() => !document.querySelector('soda-terminal'));
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'end').length), 1);
 });
+test('authorized collection reports an observed other writer without needing a failed attachment', async t => {
+  const page = await fixture(t);
+  await page.evaluate(async () => {const f = window.workspaceFixture, terminal = f.spaces[0]?.terminals[0]; if (!terminal) throw Error('fixture'); terminal.attached = true; await f.api.refresh();});
+  await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Next attention', exact: true}).click();
+  await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  await page.evaluate(async () => {const f = window.workspaceFixture, terminal = f.spaces[0]?.terminals[0]; if (!terminal) throw Error('fixture'); terminal.attached = false; await f.api.refresh();});
+  await page.getByRole('button', {name: 'Attention (0)', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.body).length), 0);
+});
 test('departure during authorization cannot dispatch a late collection read', async t => {
   const page = await fixture(t); await page.evaluate(async () => {const f = window.workspaceFixture; let release: (() => void) | undefined; f.pause(new Promise<void>(resolve => {release = resolve;})); const pending = f.api.refresh(); f.api.dispose(); release?.(); await pending;});
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 1);
