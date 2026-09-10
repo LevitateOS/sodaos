@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Bounded account setup. Empty keys create browser-only, password-locked accounts."""
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,12 @@ def create_file(path, contents, mode):
         stream.write(contents)
         stream.flush()
         os.fchmod(stream.fileno(), mode)
+        os.fsync(stream.fileno())
+    parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(parent)
+    finally:
+        os.close(parent)
 
 
 def provision(data):
@@ -47,41 +54,55 @@ def provision(data):
     keys = data['keys']
     if not isinstance(keys, list) or len(keys) > 32 or any(not isinstance(k, str) or len(k) > 16384 or '\n' in k.strip() or not re.fullmatch(r'(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+) [A-Za-z0-9+/=]+\s*', k) for k in keys):
         raise ValueError('invalid canonical public keys')
-    for directory in (ACCOUNTS, KEYS):
-        info = directory.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
-            raise ValueError('unsafe managed account directory')
-    marker = ACCOUNTS / login
-    expected_identity = str(identity).encode()
+    fd = os.open(KEYS, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        account = pwd.getpwnam(login)
-    except KeyError:
-        # Refuse occupied inputs before useradd; a dangling link is occupied too.
-        if os.path.lexists(marker) or os.path.lexists(KEYS / login):
-            raise ValueError('unassociated account files already exist')
-        subprocess.run(['useradd', '--create-home', '--shell', '/bin/bash', '--password', '!', '--groups', 'soda-project', login], check=True)
-        account = pwd.getpwnam(login)
-        create_file(marker, expected_identity, 0o600)
-    else:
-        if owned_contents(marker, 64) != expected_identity:
-            raise ValueError('existing native account is not associated with this identity')
-    keyfile = KEYS / login
-    desired = ''.join(k.strip() + '\n' for k in keys).encode()
-    try:
-        existing = owned_contents(keyfile, 65536)
-    except FileNotFoundError:
-        create_file(keyfile, desired, 0o644)
-    else:
-        # Join is not a key update/revocation operation. Preserve a partial or
-        # previously associated account when saved keys or native state changed.
-        if existing != desired:
-            raise ValueError('existing key file differs; explicit key maintenance required')
-    shared = Path(account.pw_dir) / 'shared'
-    if not shared.exists() and not shared.is_symlink():
-        shared.symlink_to('/srv/project/shared', target_is_directory=True)
-    if data['admin']:
-        subprocess.run(['usermod', '--append', '--groups', 'wheel', login], check=True)
-    return {'login': login, 'identity': identity}
+        locked = os.fstat(fd)
+        if locked.st_uid != 0 or locked.st_gid != 0 or locked.st_mode & 0o2022:
+            raise ValueError('unsafe managed key directory')
+        # Same stable directory lock as project_keys.py and native editors. Hold
+        # it before account observations/useradd, not just before writing keys.
+        # This is cooperative exclusion, not protection against arbitrary root.
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        for directory in (ACCOUNTS, KEYS):
+            info = directory.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+                raise ValueError('unsafe managed account directory')
+        current = KEYS.lstat()
+        if (locked.st_dev, locked.st_ino) != (current.st_dev, current.st_ino):
+            raise ValueError('managed key directory changed')
+        marker = ACCOUNTS / login
+        expected_identity = str(identity).encode()
+        try:
+            account = pwd.getpwnam(login)
+        except KeyError:
+            # Refuse occupied inputs before useradd; a dangling link is occupied too.
+            if os.path.lexists(marker) or os.path.lexists(KEYS / login):
+                raise ValueError('unassociated account files already exist')
+            subprocess.run(['useradd', '--create-home', '--shell', '/bin/bash', '--password', '!', '--groups', 'soda-project', login], check=True)
+            account = pwd.getpwnam(login)
+            create_file(marker, expected_identity, 0o600)
+        else:
+            if owned_contents(marker, 64) != expected_identity:
+                raise ValueError('existing native account is not associated with this identity')
+        keyfile = KEYS / login
+        desired = ''.join(k.strip() + '\n' for k in keys).encode()
+        try:
+            existing = owned_contents(keyfile, 65536)
+        except FileNotFoundError:
+            create_file(keyfile, desired, 0o644)
+        else:
+            # Join is not a key update/revocation operation. Preserve a partial or
+            # previously associated account when saved keys or native state changed.
+            if existing != desired:
+                raise ValueError('existing key file differs; explicit key maintenance required')
+        shared = Path(account.pw_dir) / 'shared'
+        if not shared.exists() and not shared.is_symlink():
+            shared.symlink_to('/srv/project/shared', target_is_directory=True)
+        if data['admin']:
+            subprocess.run(['usermod', '--append', '--groups', 'wheel', login], check=True)
+        return {'login': login, 'identity': identity}
+    finally:
+        os.close(fd)
 
 
 if __name__ == '__main__':

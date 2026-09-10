@@ -325,19 +325,39 @@ query parameters and never accept caller-selected Linux identities, targets or f
   array (including empty `[]`) and `confirm_empty:true` only when removing the last
   managed keys. A changed saved set returns 409 before helper execution. The server
   supplies actual current own saved public keys, never caller key material or login.
-  The helper checks the managed file revision before atomic replacement and verifies
-  the result. A changed native revision, failed write or uncertain response is not a
+  The helper checks the managed file's content revision under the cooperative
+  directory lock, flushes/syncs its temporary file before atomic replacement, syncs
+  the directory and verifies the result. A changed native revision, failed write or uncertain response is not a
   success/retry grant; refresh and inspect. Return `applied:true` only on confirmed
   file update. This is not proof of new-key possession/client SSH reachability.
 
 The dedicated root-owned `/etc/ssh/authorized_keys/<login>` file is the existing
 Soda-managed key set. Preview exposes its complete canonical fingerprint set, including
 canonical root edits present before preview; explicit Apply confirms exactly which
-entries are removed. Changes after preview refuse by revision. Noncanonical/operator
-annotations or unsafe metadata refuse rather than being merged. Other accounts,
+entries are removed. Different current bytes after preview refuse by revision.
+The revision is a SHA256 content hash, not a history counter: replacing a file with
+identical bytes (or changing and restoring its contents before admission) does not
+invalidate that revision. Noncanonical/operator annotations or unsafe metadata refuse
+rather than being merged. Other accounts,
 home files, projects, privileges and authenticated SSH sessions are untouched. Saved
 key deletion affects future joins only; explicitly apply to each chosen existing
 project. Neither operation revokes Forgejo Git keys, OAuth or browser terminal access.
+
+All Soda key/account writers and native administrators editing these managed files
+must hold the same exclusive `flock` on the **stable directory inode** at
+`/etc/ssh/authorized_keys`, before account/key observations through the complete
+update. Provisioning refuses lock contention before account commands; normal SSH
+reads do not participate. This is cooperative exclusion, not filesystem compare-and-swap
+against arbitrary root editors. A noncooperating writer can race even the last
+check/rename and have its revocation overwritten. See the
+[native editing contract](project-os.md#managed-key-writer-contract).
+
+The key program distinguishes busy/stale-preview refusal with fixed, key-free
+native diagnostics. The host/web adapter still conservatively reports native
+unconfirmed errors rather than adding new public error/status fields. Failure after
+publication remains uncertain; never restore an earlier snapshot, remove a published
+file or automatically replay Apply. Unpublished-temp cleanup is limited to a name
+this operation actually created exclusively; a collision is not an owned file.
 
 ## Retained operations
 
@@ -354,7 +374,7 @@ does not change the authentication rules of the JSON operations below.
 | `GET/POST /api/me/development-keys` | Own development-access public keys; POST `{public_key}`; not native Git key management |
 | `DELETE /api/me/development-keys/{key}` | `{}`; own saved key only; `existing_project_access_changed:false`. No native key removal or session termination |
 | `GET/POST /api/environments/{id}/lifecycle` | Source implemented: observed running/boot-enabled state; explicit authorized Start/Stop of existing unit/container, never recreate |
-| `GET/POST /api/environments/{id}/access-keys` | Source implemented: own managed-file preview and explicit compare-and-swap of saved keys into that existing account |
+| `GET/POST /api/environments/{id}/access-keys` | Source implemented: own managed-file preview and revision-checked replacement under the cooperative writer lock |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
 | `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
 | `POST /api/environments` | `{"repository_id":"ID","profile_id":"rocky-headless"}` (profile omission remains supported); canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |

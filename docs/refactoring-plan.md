@@ -418,6 +418,8 @@ starting another; a focused independent review may run alongside it.
 | 2 | Reject stale-session project mutations | Source complete with local handler/race/source checks; native delivery remains separate. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
 | 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
+| 3 | Make the managed-key writer contract safe and explicit | Cooperative-writer rule accepted; source complete with local checks. Paired native delivery/SSH proof remain unrun. |
+| 4 | Use GitHub's native service entrypoint | Open; inspect the exact selected package and generated layout first. |
 | 5 | Cancellable host admission and bounded capture | Admission completed locally in `22f5c20` (same work as E); capture and Tailnet stream bounds remain open. |
 | 6 | Combined regression checks and scoped native delivery | After the relevant fixes; native target/effect authorization remains separate. |
 | 7 | Optional upstream reuse/dead-path cleanup | Later; only candidates with demonstrated benefit and equivalent behavior. |
@@ -516,6 +518,11 @@ alone is not completion of this phase.
 
 ### Phase 3 — managed-key concurrency contract
 
+**Approved and source-complete, locally checked.** The user accepted the cooperative
+writer rule and requested the bounded fix, not a new subsystem. See the
+[handoff](implementation-status.md#phase-3--cooperative-managed-key-writers)
+for actual checks and the explicit advisory-lock/native-delivery limits.
+
 **Finding:** [key concurrency and durability](upstream-ownership-audit.md#correct-project-key-concurrency-before-claiming-compare-and-swap).
 
 **Owners:** [key program](../internal/host/project_keys.py),
@@ -524,21 +531,20 @@ alone is not completion of this phase.
 [account provisioning](../project-os/rootfs/usr/libexec/soda/project-account) and
 [Project OS access guidance](project-os.md#access-credentials-and-connectivity).
 
-**Decision before implementation:** adopt one cooperative writer contract for Soda's
+**Accepted decision:** use one cooperative writer contract for Soda's
 root-owned managed key directory. All Soda writers and native administrators editing
 these managed files must hold the same directory `flock`, acquired before opening
 the file and held through the complete update. The directory itself remains stable.
 This uses the existing native lock and OpenSSH file format; it introduces no key
 database, SSH broker or `AuthorizedKeysCommand` service.
 
-This is the recommended bounded design, but accepting that native-writer requirement
-is a product decision. Standard check-then-rename does not provide expected-inode or
-content compare-and-swap against arbitrary root editors. A post-write reread or an
+The native-writer requirement is now accepted. Standard check-then-rename does not
+provide expected-inode or content compare-and-swap against arbitrary root editors. A post-write reread or an
 extra hash cannot close that gap. If unrestricted simultaneous edits remain required,
 stop this approach and revisit ownership with the user; do not mark the finding fixed
 by merely changing the wording or preserving a backup after an overwritten revocation.
 
-After the contract is accepted, retain whole-set replacement and empty-set revocation:
+Retain whole-set replacement and empty-set revocation:
 under the shared lock, validate the original account/directory/file, compare the
 preview revision, write, explicitly flush and then sync the exclusive temporary
 file, atomically publish,
@@ -547,13 +553,12 @@ same contract. Keep content, inode/path safety and no automatic replay/restorati
 checks; distinguish stale preview, busy writer and uncertain completion without
 exposing keys in diagnostics. Normal SSH reads do not need to participate in the lock.
 
-The current buffered stream calls `fsync` before an explicit flush; correct that
-durability ordering before publication. Account provisioning currently lacks the
-directory lock: acquire it before account/key observations and effects so contention
-cannot leave a newly provisioned account. Preserve exclusive missing-file creation
-and repeat-Join refusal on drift. Update the [API contract](dashboard-api.md) as well
-as code comments: the revision is a content hash, not a history/generation counter
-that detects every same-bytes replacement.
+The reviewed sync-before-flush and unlocked account-provisioning defects are now
+corrected. Both writers hold the directory lock before account/key observations and
+effects, retaining exclusive missing-file creation and repeat-Join refusal on drift.
+The [API contract](dashboard-api.md) and code now specify content hashes rather than
+history/generation counters. Existing conservative public failure responses are
+unchanged; the native key program has fixed busy/stale/uncertain diagnostics.
 
 **Check/exit:** deterministic separate-process fixtures cover competing Soda/native
 cooperating writers, stale preview, lock contention, append/edit/replacement before

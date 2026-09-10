@@ -1,4 +1,4 @@
-"""Explicit compare-and-swap of one existing Soda-managed account's SSH key file.
+"""Revision-checked replacement of one existing Soda-managed account's SSH key file.
 
 The host preloads the fixed project_terminal module in memory; no user command,
 account creation, privilege/group change, home write or process termination here.
@@ -12,6 +12,14 @@ import stat
 import sys
 import uuid
 from project_terminal import account_for
+
+
+class KeyWriterBusy(Exception):
+    pass
+
+
+class KeyRevisionChanged(ValueError):
+    pass
 
 
 def directory(parts):
@@ -55,10 +63,11 @@ def read_keys(fd, login):
 
 
 def update(data):
+    if os.geteuid() != 0:
+        raise ValueError('project-local root required')
     if set(data) != {'login', 'identity', 'apply', 'revision', 'keys'} or type(data['apply']) is not bool or type(data['identity']) is not int:
         raise ValueError('invalid key operation')
     login = data['login']
-    account_for(login, data['identity'])
     keys = data['keys']
     if not isinstance(keys, list) or any(not isinstance(k, str) for k in keys):
         raise ValueError('invalid keys')
@@ -68,8 +77,14 @@ def update(data):
     fd = directory(('etc', 'ssh', 'authorized_keys'))
     pending = None
     try:
-        # Serializes this fixed operation; root-owned directory is never rewritten.
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # All Soda writers and native administrators use this same stable
+        # directory lock before account/key observations, through publication.
+        # Advisory locking cannot protect against root writers ignoring it.
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise KeyWriterBusy from None
+        account_for(login, data['identity'])
         raw, installed, old = read_keys(fd, login)
         revision = hashlib.sha256(raw).hexdigest()
         if not data['apply']:
@@ -77,14 +92,16 @@ def update(data):
                 raise ValueError('invalid preview')
             return {'revision': revision, 'keys': installed}
         if data['revision'] != revision:
-            raise ValueError('key file changed since preview')
-        # Preview explicitly confirms the exact managed file/set, including any
-        # canonical root edits already present. Noncanonical content is refused,
-        # never merged/adopted. Edits after preview must fail compare-and-swap.
-        pending = '.soda-keys-' + uuid.uuid4().hex
-        out = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+            raise KeyRevisionChanged('key file changed since preview')
+        # Revision is a content hash, not an inode/history generation. Canonical
+        # edits present at preview are reviewed; different later bytes refuse.
+        # Under the cooperative lock no other writer can race the replacement.
+        candidate = '.soda-keys-' + uuid.uuid4().hex
+        out = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+        pending = candidate  # Own the name only after exclusive creation succeeds.
         with os.fdopen(out, 'wb') as stream:
             stream.write(desired)
+            stream.flush()
             os.fchmod(stream.fileno(), 0o644)
             os.fsync(stream.fileno())
         current, _, info = read_keys(fd, login)
@@ -98,9 +115,11 @@ def update(data):
             raise ValueError('key result unconfirmed')
         return {'revision': hashlib.sha256(actual).hexdigest(), 'keys': installed}
     finally:
-        if pending is not None:
-            os.unlink(pending, dir_fd=fd)  # Only this operation's exclusive temp file.
-        os.close(fd)
+        try:
+            if pending is not None:
+                os.unlink(pending, dir_fd=fd)  # Only this operation's unpublished file.
+        finally:
+            os.close(fd)
 
 
 def key_main():
@@ -116,6 +135,12 @@ def key_main():
         result = update(data)
         print(json.dumps(result, separators=(',', ':')))
         return 0
+    except KeyWriterBusy:
+        sys.stderr.write('native key writer busy; no update performed\n')
+        return 1
+    except KeyRevisionChanged:
+        sys.stderr.write('native key preview stale; no update performed\n')
+        return 1
     except (OSError, ValueError, KeyError, TypeError, RecursionError):
         # No request bytes, key contents, paths or exception body in diagnostics.
         sys.stderr.write('native key operation not confirmed\n')

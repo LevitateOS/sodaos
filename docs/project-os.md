@@ -495,6 +495,51 @@ database or SSH ports. Private client routes/authorized native forwarding remain
 [deployment responsibilities](installation.md#4-establish-real-project-reachability);
 no automatic port proxy or public ingress follows from this baseline.
 
+## Managed-key writer contract
+
+**Selected with user approval during refactoring Phase 3.** All Soda writers and
+native administrators editing the root-owned `/etc/ssh/authorized_keys/<login>`
+files must acquire the same exclusive `flock` on `/etc/ssh/authorized_keys` **before
+opening account/key state**, and retain it through the complete edit. Keep the
+directory itself stable: never rename, replace or unlink it as a lock/reset shortcut.
+Per-file locks would not coordinate writers across atomic file replacement. Stock
+OpenSSH reads normally without acquiring this lock; no SSH server/authentication
+change, key database or new command broker is involved.
+
+For an explicitly authorized manual edit **inside the intended project as root**,
+first verify the existing root-owned, non-symlink directory and canonical key file.
+Do not run this if either is missing, or create them as a repair. Use the native
+utility to hold the directory lock across the foreground editor, substituting the
+verified existing login:
+
+```sh
+flock --exclusive --nonblock /etc/ssh/authorized_keys vi /etc/ssh/authorized_keys/LOGIN
+```
+
+This is not a host command or permission to edit a retained project's keys. Do not
+launch a detached editor that outlives the lock. Preserve root:root 0644, a single
+regular file and canonical public-key lines without comments/options. Observe/review
+any effects on the complete managed set; normal explicit Soda Apply is preferable.
+Content revisions detect different current bytes, not every historical/same-bytes
+replacement. No advisory lock can protect against root editors that ignore it.
+
+Source now pairs the embedded key updater with `project-account` on that directory
+lock, acquired before account lookup/provisioning. Updates flush then sync before
+atomic publication; account creation keeps exclusive missing-file creation and syncs
+new marker/key files and their parent directories. Refusal/uncertainty never means
+recreate an account, restore keys from a snapshot or retry automatically. Preserve
+partial files and later writes for inspection. Source/script tests are not native
+filesystem, SSH-revocation or existing-root delivery proof.
+
+A later separately authorized delivery must pair the host helper's embedded program
+with the exact project-account program in each affected retained root, using the
+[existing same-root maintenance contract](#deliver-required-additions-without-replacing-roots).
+Verify original script bytes/ancestors and coordinate affected writer activity during
+that maintenance; an older unlocked account writer does not satisfy this contract.
+Keep directory inodes, accounts, key bytes, homes and authenticated SSH sessions intact.
+Only new images affect future projects automatically; no install on Open, project
+Stop/recreation or fleet patching follows from the source change.
+
 ## Runtime and supervision boundaries
 
 Keep the single [nested Podman profile](project-services.md): the outer project has

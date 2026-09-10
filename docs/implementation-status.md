@@ -1,5 +1,55 @@
 # Current handoff
 
+## Phase 3 — cooperative managed-key writers
+
+The user accepted the shared native-writer lock rule and requested the bounded fix.
+`project_keys.py` and `project-account` now acquire the same nonblocking exclusive
+`flock` on the stable root-owned key directory before account/key observations and
+hold it through the complete update/provisioning operation. Contention cannot create
+an account or issue account commands. The embedded program still uses the original
+`account_for` validator; an initial root check prevents unprivileged execution from
+opening the key directory before that validator runs. No shared Python module,
+lock manager, per-project scheduler, key database or SSH mechanism was introduced.
+
+Key updates flush the buffered file before mode/sync/publication, retain directory
+sync and final verification, and never restore a snapshot after uncertainty. Pending
+names become owned only after exclusive creation succeeds; a collision cannot delete
+another file. A cleanup failure still closes the directory descriptor/releases its
+lock and leaves the unpublished file for inspection. Account creation retains exclusive
+missing-file creation and drift refusal, adding file/parent sync while holding the
+lock; partial accounts/files remain after failure, not silently removed or repaired.
+The native key program has fixed busy/stale-preview/uncertain diagnostics without
+exception/key content. The conservative host/web failure protocol is unchanged.
+
+The API and Project OS guides now state that revisions hash current content, not
+history/inode generations, and document the cooperative manual-edit rule. Same-bytes
+replacement before admission remains acceptable. Noncooperating root editors are
+explicitly outside that guarantee; a deterministic separate-process test demonstrates
+a revocation being overwritten when the writer deliberately ignores the lock after
+the last check. That is an observed advisory-lock limitation, not universal-safety proof.
+
+Before-fix regressions reproduced sync before buffered bytes reached the file, deletion
+of an unowned colliding temp name, and account observation before lock admission.
+Expanded filesystem tests cover competing Soda/native writers, account refusal while
+the actual key program holds the lock, append/edit/replacement before admission,
+stale previews, empty-set revocation, mode/link/content refusals, partial write/flush,
+rename/sync/verification/cleanup failures and preservation of later cooperating writes.
+IPC barriers replace timing sleeps; metadata doubles now retain native nanosecond
+fields. All work uses fresh test-owned directories and mocked root/account commands,
+not real host/project accounts or native SSH/process proof. All 16 key and 12 account
+tests passed in three repetitions, and the uncached host Go race suite passed.
+
+`bun run check:source` passed in 101.29 seconds with local Go 1.27.0/Bun 1.4.2:
+module/Go checks, TypeScript/Lit, 305 browser/Cockpit passes with 24 independently
+gated skips, and 135 Python tests with two optional Caddy skips. Logs/failures are
+retained under `.artifacts/refactor-phase3-JNsPz0/`; Go HTML fixtures are
+`.artifacts/pages-20Q9gX/`. No dependencies, native build/stage/installed checks,
+retained VM/root/key access, provider mutation or deployment occurred. Paired helper
+and project-account delivery must use separately authorized same-root maintenance,
+coordinating existing writers while preserving directory inodes/accounts/key bytes/
+homes and SSH sessions. Native filesystem/revocation proof remains unrun. Phase 4's
+exact GitHub runner service-entrypoint inspection is next; the audit remains unchanged.
+
 ## Phase 2 — fresh-session mutation admission
 
 `apiJoinEnvironment`, POST `apiLifecycle` and POST `apiAccessKeys` now use the

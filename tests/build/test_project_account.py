@@ -2,8 +2,10 @@
 
 Only fresh test-owned directories are used; never creates Linux host accounts.
 """
+import fcntl
 import importlib.machinery
 import importlib.util
+import multiprocessing
 import os
 from pathlib import Path
 import tempfile
@@ -35,9 +37,9 @@ class ProjectAccount(unittest.TestCase):
         patch.object(account.subprocess, 'run', side_effect=self.run_command).start()
         native_fstat, native_lstat = os.fstat, Path.lstat
         def root_owner(info):
-            values = list(info)
-            values[4] = values[5] = 0
-            return os.stat_result(values)
+            fields = {name: getattr(info, name) for name in dir(info) if name.startswith('st_')}
+            fields.update(st_uid=0, st_gid=0)
+            return types.SimpleNamespace(**fields)
         patch.object(account.os, 'fstat', side_effect=lambda fd: root_owner(native_fstat(fd))).start()
         patch.object(Path, 'lstat', lambda path: root_owner(native_lstat(path))).start()
 
@@ -132,6 +134,110 @@ class ProjectAccount(unittest.TestCase):
         with self.assertRaises(ValueError):
             account.provision(request)
         self.assertEqual(self.commands, [])
+
+    def test_lock_contention_refuses_before_account_observation_or_commands(self):
+        fd = os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with patch.object(account.pwd, 'getpwnam', side_effect=AssertionError('account observed before admission')):
+                with self.assertRaises(BlockingIOError):
+                    account.provision(self.request())
+            self.assertEqual(self.commands, [])
+            self.assertEqual(list(self.keys.iterdir()), [])
+            self.assertEqual(list(self.markers.iterdir()), [])
+        finally:
+            os.close(fd)
+        account.provision(self.request())  # Failed admission did not strand a lock.
+
+    def test_real_key_writer_lock_blocks_new_account_before_effects(self):
+        # Reuse the loaded production program, not another simulated key writer.
+        from test_project_keys import keys as key_program
+        account.provision(self.request(['ssh-ed25519 YWJj']))
+        before_commands = list(self.commands)
+        patch.object(key_program, 'directory', side_effect=lambda _: os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)).start()
+        patch.object(key_program, 'account_for', return_value=object()).start()
+        request = {'login': 'alice', 'identity': 1, 'apply': False, 'revision': '', 'keys': []}
+        revision = key_program.update(request)['revision']
+        request.update(apply=True, revision=revision)
+        parent, child = multiprocessing.get_context('fork').Pipe()
+        def writer():
+            parent.close()
+            def validate(*_):
+                child.send('key writer admitted')
+                child.recv()
+                return object()
+            with patch.object(key_program, 'account_for', side_effect=validate):
+                key_program.update(request)
+            child.send('finished')
+            child.close()
+        process = multiprocessing.get_context('fork').Process(target=writer)
+        process.start()
+        child.close()
+        try:
+            self.assertTrue(parent.poll(5))
+            self.assertEqual(parent.recv(), 'key writer admitted')
+            incoming = dict(self.request(), login='bob', identity=2)
+            with patch.object(account.pwd, 'getpwnam', side_effect=AssertionError('lookup before lock')):
+                with self.assertRaises(BlockingIOError):
+                    account.provision(incoming)
+            self.assertEqual(self.commands, before_commands)
+            self.assertFalse((self.markers / 'bob').exists())
+            self.assertFalse((self.keys / 'bob').exists())
+            self.assertFalse((self.root / 'bob').exists())
+            parent.send('complete key update')
+            self.assertTrue(parent.poll(5))
+            self.assertEqual(parent.recv(), 'finished')
+        finally:
+            parent.close()
+            process.join(5)
+            if process.is_alive():
+                process.terminate()
+                process.join(5)
+                self.fail('test-owned key writer did not finish')
+        self.assertEqual(process.exitcode, 0)
+        self.assertEqual((self.keys / 'alice').read_bytes(), b'')
+        account.provision(incoming)  # No lock/reservation remained from refusal.
+
+    def test_lock_covers_file_durability_and_account_commands(self):
+        native_sync = os.fsync
+        events = []
+        def assert_locked():
+            fd = os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                os.close(fd)
+        def run(args, **options):
+            assert_locked()
+            return self.run_command(args, **options)
+        def sync(fd):
+            assert_locked()
+            info = os.fstat(fd)
+            if account.stat.S_ISREG(info.st_mode):
+                expected = ((self.markers / 'alice', b'1'), (self.keys / 'alice', b'ssh-ed25519 YWJj\n'))
+                path, content = next((p, value) for p, value in expected if p.exists() and p.stat().st_ino == info.st_ino)
+                self.assertEqual(path.read_bytes(), content)
+                events.append(path)
+            else:
+                events.append(self.markers if info.st_ino == self.markers.stat().st_ino else self.keys)
+            native_sync(fd)
+        with patch.object(account.os, 'fsync', side_effect=sync), patch.object(account.subprocess, 'run', side_effect=run):
+            account.provision(self.request(['ssh-ed25519 YWJj'], True))
+        self.assertEqual(events, [self.markers / 'alice', self.markers, self.keys / 'alice', self.keys])
+        self.assertEqual(self.commands[-1][0], 'usermod')
+
+    def test_failed_provisioning_releases_lock_without_removing_partial_files(self):
+        with patch.object(account.os, 'fsync', side_effect=OSError('synthetic sync failure')):
+            with self.assertRaises(OSError):
+                account.provision(self.request())
+        self.assertEqual((self.markers / 'alice').read_bytes(), b'1')
+        self.assertTrue((self.root / 'alice').is_dir())
+        fd = os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(fd)
 
     def test_native_password_ssh_policy_is_not_relaxed(self):
         rootfs = SOURCE.parents[3]
