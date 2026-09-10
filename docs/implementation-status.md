@@ -1,5 +1,30 @@
 # Current handoff
 
+## Continued frontend implementation — observed attention (6a)
+
+The terminal owner emits bounded typed output/state observations only from validated
+current-generation frames. The workspace keeps one coalesced unread flag per owner;
+metadata refresh, automatic restore and output do not clear it. Deliberate selection,
+Back, visible-document return and explicit compact Terminal intent mark available
+views read without changing lifetime. Multiple visible panes do not become unread
+merely because a native input has focus. Private observations clear on authority loss.
+
+All/Attention and Next attention use distinct authorized IDs in stable collection
+order. Reasons distinguish connection loss, observed other writer, pending End,
+unconfirmed outcome, confirmed cleanup and stale/unavailable metadata. Five-minute
+warnings use observed deadlines; passage never claims cleanup. No semantic agent
+states, transcript snippets, input injection, sounds or new registry. A mounted-only
+30-second clock and visible at-most-minute GET refresh are cancelled on retirement.
+
+Actual local checks: required typecheck/analyzer/fixtures; frontend **182 /3 gated
+skips**, explicit Lit/browser **119**, 20-case layout matrix. Tests cover noisy hidden
+output, visible panes/native focus, explicit reads versus refresh, authorized counts/
+Next, lost authority, late frames, writer refusal and unknown cleanup. Fixed fixture
+metadata that incorrectly labelled unattached sessions as attached, and a test that
+assumed the wrong selected tab after a move; retained failed logs. Evidence remains
+under `.artifacts/frontend-continuation-512afb0/`. Candidate/driver 6b continues next;
+no installed or CLI acceptance is implied.
+
 ## Continued frontend implementation — coherent source ownership
 
 Authored Spaces modules/styles now live in `frontend/spaces/`; the shared owner

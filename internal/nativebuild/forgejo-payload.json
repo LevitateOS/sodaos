@@ -133,6 +133,7 @@
   "public/assets/sodaspaces-terminal-view.js": "@build/forgejo-js/sodaspaces-terminal-view.js",
   "public/assets/sodaspaces-workspace-view.js": "@build/forgejo-js/sodaspaces-workspace-view.js",
   "public/assets/sodaspaces-project.js": "@build/forgejo-js/sodaspaces-project.js",
+  "public/assets/sodaspaces-attention.js": "@build/forgejo-js/sodaspaces-attention.js",
   "public/assets/sodaspaces-api.js": "@build/forgejo-js/sodaspaces-api.js",
   "public/assets/sodaspaces-drawer.css": "frontend/spaces/sodaspaces-project.css",
   "public/assets/sodaspaces-drawer.js": "@build/forgejo-js/sodaspaces-drawer.js",

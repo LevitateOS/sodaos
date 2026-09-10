@@ -7,7 +7,7 @@ export function workspaceWidths(viewport: number, terminalMinimum: number, desir
   const minimum = Math.max(35, terminalMinimum / Math.max(1, viewport) * 100), maximum = Math.min(65, (viewport - 480) / Math.max(1, viewport) * 100);
   return {compact: minimum > maximum, minimum, maximum, actual: Math.max(minimum, Math.min(maximum, desired))};
 }
-export interface DrawerContent {readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; setVisible?(visible: boolean): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined}
+export interface DrawerContent {readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; markViewed?(): void; setVisible?(visible: boolean): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined}
 export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: Extract<WorkspaceContext, {kind: 'native'}>) => DrawerContent) {
   const roots = doc.querySelectorAll<HTMLElement>('#sodaspaces-root'), rows = doc.querySelectorAll('.repo-header .repo-buttons');
   if (roots.length !== 1 || rows.length > 1) return;
@@ -91,16 +91,16 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
       const focus = () => {
         if (departed || generation !== epoch || drawer.hidden || compact && surface !== 'terminal') return;
         if (doc.activeElement !== button && doc.activeElement !== close && doc.activeElement !== doc.body && !content.contains(doc.activeElement)) return;
-        void controller?.returnToWork?.(); (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus();
+        void controller?.returnToWork?.(); controller?.markViewed?.(); (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus();
       };
       if (mounted || controller?.ready) void Promise.resolve(mounted).then(() => controller?.ready).then(focus).catch(() => {if (!departed && generation === epoch && !drawer.hidden) {release(); content.textContent = 'Workspace could not render. Reload; no action was replayed.';}}); else focus();
     }
   };
   const hide = () => {void controller?.retain?.(); drawer.hidden = true; doc.body.classList.remove('sodaspaces-open'); size(); button.setAttribute('aria-expanded', 'false'); persist(); button.focus();};
   const release = () => {++generation; loading = undefined; controller?.dispose(); controller = undefined; content.replaceChildren();};
-  button.addEventListener('click', () => {if (drawer.hidden) show(true); else if (!departed) {surface = 'terminal'; size();}}, options); close.addEventListener('click', hide, options);
+  button.addEventListener('click', () => {if (drawer.hidden) show(true); else if (!departed) {surface = 'terminal'; size(); controller?.markViewed?.();}}, options); close.addEventListener('click', hide, options);
   forge.addEventListener('click', () => {surface = 'forge'; size(); if (nativeFocus?.isConnected && !nativeFocus.inert) nativeFocus.focus({preventScroll: true});}, options);
-  terminal.addEventListener('click', () => {surface = 'terminal'; size();}, options);
+  terminal.addEventListener('click', () => {surface = 'terminal'; size(); controller?.markViewed?.();}, options);
   doc.addEventListener('focusin', event => {if (event.target instanceof browser.HTMLElement && !root.contains(event.target)) nativeFocus = event.target;}, options);
   root.addEventListener('soda-workspace-minimum', event => {if (event instanceof browser.CustomEvent && typeof event.detail === 'number' && Number.isFinite(event.detail) && event.detail > 0 && event.detail < 10000) {terminalMinimum = event.detail; size();}}, options);
   const resize = (desired: number) => {const geometry = workspaceWidths(win.visualViewport?.width || win.innerWidth, Math.max(terminalMinimum, (measure.getBoundingClientRect().width / 16 || 9) * 56 + 28), width); if (!geometry.compact) {width = Math.max(geometry.minimum, Math.min(geometry.maximum, desired)); size(); persist();}};

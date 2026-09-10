@@ -40,7 +40,7 @@
   color: var(--soda-page-text);
 }
 .soda-workspace .ui.button:is(:hover, :focus-visible) { background: var(--soda-page-hover); }
-.soda-workspace .ui.button:is(.primary, [aria-selected=true]) { background: var(--soda-button-primary-bg); color: var(--soda-button-primary-text); border-color: var(--soda-button-primary-border); }
+.soda-workspace .ui.button:is(.primary, [aria-selected=true], [aria-pressed=true]) { background: var(--soda-button-primary-bg); color: var(--soda-button-primary-text); border-color: var(--soda-button-primary-border); }
 .soda-workspace .ui.button:disabled { opacity: .5; cursor: default; }
 .soda-workspace .ui.button.danger { color: var(--soda-button-danger); }
 .soda-workspace-toolbar { display: flex; align-items: center; gap: var(--soda-space-2); min-height: var(--soda-control-height); padding: var(--soda-space-half) var(--soda-space-2); flex-shrink: 0; box-sizing: border-box; border-bottom: 1px solid var(--soda-page-edge); }
@@ -57,6 +57,9 @@
 .soda-project-group { margin-block: var(--soda-space-2); border-bottom: 1px solid var(--soda-page-edge); padding-bottom: var(--soda-space-2); overflow-wrap: anywhere; }
 .soda-project-group summary { cursor: pointer; padding: var(--soda-space-2) 0; font: var(--soda-font-label); }
 .soda-project-group small { display: block; font: var(--soda-font-caption); }
+.soda-unread { color: var(--soda-page-link); }
+.soda-attention { color: var(--soda-page-warning); }
+.soda-attention-filters { display: flex; flex-wrap: wrap; gap: var(--soda-space-1); margin-block: var(--soda-space-2); }
 .soda-session-list { display: flex; flex-direction: column; gap: var(--soda-space-half); }
 .soda-session-list .ui.button { text-align: left; white-space: normal; width: 100%; overflow-wrap: anywhere; }
 .soda-project-details { margin-top: var(--soda-space-2) !important; white-space: normal; text-align: left; width: 100%; }

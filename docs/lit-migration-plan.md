@@ -575,6 +575,13 @@ replacement preserves exact native IDs, not DOM. Native proof is still separate.
 
 #### 6a — observed unread and lifecycle attention
 
+**Implemented locally after `f3f348b`:** typed current-generation observations,
+one unread flag per owner, observational lifecycle/deadline reasons, All/Attention
+and deliberate Next. The mounted workspace owns a cancellable 30-second UI clock
+and at-most-once-per-minute existing GET refresh while visible. No unopened-navbar
+poller, output-driven request or lifetime renewal was added. See the leading handoff
+for actual checks; native/CLI proof remains 6c.
+
 Apply the [post-step-5 cleanup](#cleanup-after-step-5) to the shared presentation
 before expanding it, preserving any already implemented attention work. New attention
 views use the same canonical tokens and checked typed composition; they do not

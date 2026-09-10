@@ -1,5 +1,6 @@
 import {LitElement} from 'lit';
 import {renderTerminal} from './sodaspaces-terminal-view.js';
+import type {ConnectionState, TerminalObservation} from './sodaspaces-attention.js';
 import {object, readSodaJSON, terminalID, terminalResponse, id as identifier} from './sodaspaces-api.js';
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
@@ -108,7 +109,12 @@ export class SodaTerminal extends LitElement {
     try {if (value) sessionStorage.setItem(this.storageKey, value); else sessionStorage.removeItem(this.storageKey);} catch { /* no credentials or transcript */ }
   }
   private live(generation: number) {return !this.disposed && this.state !== 'stale' && this.generation === generation;}
-  private detach(message: string, stale = false) {
+  private publish(kind: TerminalObservation['kind'], state: ConnectionState) {
+    if (!this.managed || this.disposed) return;
+    const detail: TerminalObservation = {kind, state, generation: this.generation, id: this.sessionID || null, requestId: this.requestID || null};
+    this.dispatchEvent(new CustomEvent<TerminalObservation>('soda-terminal-observation', {bubbles: true, detail}));
+  }
+  private detach(message: string, stale = false, reason: ConnectionState = this.uncertainCreate ? 'unconfirmed' : 'connection-lost') {
     ++this.generation; this.state = stale ? 'stale' : 'closed'; this.notice = true; this.confirming = undefined;
     window.clearTimeout(this.timer); this.request?.abort(); this.request = undefined;
     this.actionRequest?.abort(); this.actionRequest = undefined; this.actionBusy = false;
@@ -117,6 +123,7 @@ export class SodaTerminal extends LitElement {
     const old = this.socket; this.socket = undefined; if (old && old.readyState < 2) old.close();
     this.terminal?.dispose(); this.terminal = undefined; this.fit = undefined; this.lastSize = '';
     this.querySelector('.soda-terminal-screen')?.replaceChildren(); this.screenVisible = false; this.message = message;
+    this.publish('state', reason);
   }
   invalidate() {this.detach('Page context changed. No action was replayed; reconnect through a fresh authorized page.', true);}
   private async json(path: string, session: {csrf_token: string} | null, body: Record<string, unknown> | null, signal: AbortSignal) {
@@ -157,14 +164,14 @@ export class SodaTerminal extends LitElement {
       if (!this.live(n)) return;
       if (action === 'end') {
         if (result.ending !== true) throw Error('outcome');
-        this.detach('End requested. Native cleanup continues; files and independent services are not undone.');
+        this.detach('End requested. Native cleanup continues; files and independent services are not undone.', false, 'ending');
         await this.inspectOutcome(target);
       } else {
         const retained = terminalResponse(result, this.binding);
         if (!retained || retained.id !== target) throw Error('outcome');
         this.observe(retained); this.notice = retained.retain_until > 0; this.message = retained.retain_until ? `Retained until ${new Date(retained.effective_until * 1000).toLocaleTimeString()}, or authentication expiry.` : `Active as ${this.binding.login}; authentication and native safety leases still apply.`;
       }
-    } catch {if (this.live(n)) {this.notice = true; this.message = 'Terminal lifetime action was not confirmed. No retry or replacement was made.';}}
+    } catch {if (this.live(n)) {this.notice = true; this.message = 'Terminal lifetime action was not confirmed. No retry or replacement was made.'; this.publish('state', 'unconfirmed');}}
     finally {window.clearTimeout(timeout); if (this.actionRequest === control) {this.actionRequest = undefined; this.actionBusy = false;}}
   }
   private async inspectOutcome(target: string) {
@@ -179,8 +186,8 @@ export class SodaTerminal extends LitElement {
       if (observed?.state === 'ended') {
         this.sessionID = undefined; this.requestID = undefined; this.uncertainCreate = false; this.remember(null);
         this.message = 'Native cleanup confirmed for that terminal. Files and independent services are not undone.';
-      } else this.message = 'End is pending or unconfirmed. Reconnect checks that exact ID; an absent receipt is not cleanup proof.';
-    } catch {if (this.live(n)) this.message = 'End outcome was not confirmed. The exact locator was retained; no replacement was created.';}
+      } else {this.message = 'End is pending or unconfirmed. Reconnect checks that exact ID; an absent receipt is not cleanup proof.'; this.publish('state', observed?.state === 'ending' ? 'ending' : 'unconfirmed');}
+    } catch {if (this.live(n)) {this.message = 'End outcome was not confirmed. The exact locator was retained; no replacement was created.'; this.publish('state', 'unconfirmed');}}
     finally {window.clearTimeout(timeout); if (this.request === request) this.request = undefined;}
   }
   private send(frame: {type: 'resize'; cols: number; rows: number} | {type: 'input'; data: string}) {
@@ -232,12 +239,13 @@ export class SodaTerminal extends LitElement {
         const metadata = await this.json(`/api/environments/${environmentId}/${path}`, null, null, request.signal); if (!this.live(n)) return;
         const existing = terminalResponse(metadata, this.binding);
         if (existing && ((this.sessionID && existing.id !== this.sessionID) || (!this.sessionID && existing.request_id !== this.requestID))) throw Error('terminal metadata');
-        if (!existing) {this.detach('Terminal outcome remains unknown; no creation was retried. An absent record is not cleanup proof.'); return;}
+        if (!existing) {this.detach('Terminal outcome remains unknown; no creation was retried. An absent record is not cleanup proof.', false, 'unconfirmed'); return;}
         this.sessionID = existing.id; this.requestID = existing.request_id; this.uncertainCreate = false; this.remember(existing.id); this.observe(existing);
         if (existing.state === 'ended') {this.sessionID = undefined; this.requestID = undefined; this.remember(null); this.detach('Native cleanup confirmed. Nothing was created; Open terminal explicitly for a new shell.'); return;}
-        if (existing.state === 'ending' || existing.state === 'unconfirmed') {this.detach('Native cleanup is pending or unconfirmed. This slot is reserved; no attachment or replacement was made. Ask the operator to inspect an unconfirmed outcome.'); return;}
+        if (existing.state === 'ending' || existing.state === 'unconfirmed') {this.detach('Native cleanup is pending or unconfirmed. This slot is reserved; no attachment or replacement was made. Ask the operator to inspect an unconfirmed outcome.', false, existing.state); return;}
+        if (existing.attached) {this.detach('An existing writer is attached. No takeover or replacement was requested.', false, 'attached-elsewhere'); return;}
       }
-      if (!this.sessionID && this.uncertainCreate) {this.detach('Legacy creation outcome remains unconfirmed. Reload cannot select another terminal; ask the operator to inspect. No creation was retried.'); return;}
+      if (!this.sessionID && this.uncertainCreate) {this.detach('Legacy creation outcome remains unconfirmed. Reload cannot select another terminal; ask the operator to inspect. No creation was retried.', false, 'unconfirmed'); return;}
       if (automatic && !this.sessionID) {this.detach('Terminal absent. Nothing was created.'); return;}
       const action = this.sessionID ? 'attach' : 'create';
       const {Terminal, FitAddon} = await this.loadRenderer(); if (!this.live(n)) return;
@@ -280,6 +288,7 @@ export class SodaTerminal extends LitElement {
         if (!this.live(n)) {peer.close(); return;}
         if (!this.viewVisible || this.closest('[hidden]')) {this.detach('Attachment cancelled while hidden. No creation was sent.'); return;}
         if (action === 'create') {this.requestID = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join(''); this.uncertainCreate = true; this.remember(`pending:${this.requestID}`);}
+        this.publish('state', 'opening');
         try {
           peer.send(JSON.stringify({action, ...(this.sessionID ? {id: this.sessionID} : {request_id: this.requestID, ...(this.createName ? {name: this.createName} : {})}), expected_user_id: expectedUserId, repository_id: repositoryId, csrf_token: current.csrf_token, cols, rows}));
           this.message = action === 'create' ? 'Starting the managed terminal…' : 'Attaching the existing terminal…';
@@ -296,6 +305,7 @@ export class SodaTerminal extends LitElement {
           } else if (frame.type === 'ready' && keys === 'type' && this.state === 'opening' && this.sessionID && located) {
             window.clearTimeout(this.timer); this.state = 'ready'; this.retries = 0; this.notice = false; terminal.options.disableStdin = !this.viewVisible;
             this.message = action === 'create' ? `Connected as ${login}.` : `Reconnected as ${login}. Choose Continue working to renew a detached deadline.`;
+            this.publish('state', 'ready');
             void this.screenReady(n, terminal, screen);
             if (this.managed) {
               const target = this.sessionID;
@@ -309,7 +319,8 @@ export class SodaTerminal extends LitElement {
             const decoded = atob(frame.data);
             if (!decoded.length || decoded.length > 4096 || queuedOutput + decoded.length > 262144) throw Error('output');
             queuedOutput += decoded.length; terminal.write(Uint8Array.from(decoded, c => c.charCodeAt(0)), () => {queuedOutput -= decoded.length;});
-          } else if (frame.type === 'closed' && keys === 'reason,type') this.detach('Attachment ended or unavailable. Reconnect only the existing terminal; no replacement was launched.');
+            this.publish('output', 'ready');
+          } else if (frame.type === 'closed' && keys === 'reason,type') this.detach('Attachment ended or unavailable. Reconnect only the existing terminal; no replacement was launched.', false, 'unavailable');
           else throw Error('frame');
         } catch {this.detach('Invalid or overloaded stream. No input or creation was replayed.');}
       };

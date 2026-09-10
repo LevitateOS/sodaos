@@ -230,6 +230,14 @@ test('End acknowledgment/disposal/socket callbacks clean up exactly once', async
   assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1); assert.equal(await page.evaluate(() => window.terminalFixture.socket().closed), 1);
   assert.equal((await inputFrames(page)).length, 1);
 });
+test('observed existing writer refuses takeover before loading a second transport', async t => {
+  const page = await fixture(t, {existing: {...existing, attached: true}, saved: id});
+  await page.evaluate(() => window.terminalFixture.api.restore());
+  await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
+  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.deepEqual(await writes(page), []);
+});
 test('an attachment refused by another writer never creates a replacement', async t => {
   const page = await fixture(t, {saved: id, existing}); await page.evaluate(() => window.terminalFixture.api.restore());
   await page.evaluate(() => {const f = window.terminalFixture; f.socket().open(); f.socket().message({type: 'closed', reason: 'unavailable'});});
