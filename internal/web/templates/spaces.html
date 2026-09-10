@@ -10,5 +10,5 @@
 {{if .Actor}}<span>Soda account: {{.Login}} (ID {{.Actor}})</span>{{end}}</header>
 <main class="soda-page"><h1>Spaces</h1><p id="spaces-page-status" role="status">{{.Message}}</p>
 {{if .Authorized}}<div id="spaces-page" data-soda-actor="{{.Actor}}"></div><script type="module" src="/assets/sodaspaces-page.js"></script>
-{{else}}<a class="ui primary button" href="/-/soda/login?destination=spaces{{if .Actor}}&amp;expected_user_id={{.Actor}}{{end}}">Connect to Soda</a>{{end}}
+{{else}}<a class="ui primary button" href="/-/soda/login?destination=spaces{{if .Actor}}&amp;expected_user_id={{.Actor}}{{end}}">Connect to Soda</a><p>For local runner settings, connect as the configured Soda operator. Then choose SodaOS settings in the navigation.</p>{{end}}
 <noscript>Spaces requires JavaScript for its workspace. Native Forgejo links remain ordinary navigation.</noscript></main></body></html>

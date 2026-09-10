@@ -1,9 +1,69 @@
 # Current handoff
 
+## Runner step 1 — existing page presentation and browser lifetime
+
+Implemented the original step-1 scope on source base `754e411`: the existing
+separately rendered Go/Lit runner page at `/-/soda/settings/runners`. This does
+not embed it in Forgejo's native dashboard shell or redesign Spaces. Spaces only
+gains first-use text directing the configured operator to the existing settings
+connection route. Later scope discussion must not be represented as this step's
+original assignment. GitHub service compatibility was an assistant-added audit
+recommendation in the earlier migration plan, not a user-selected implementation.
+
+The page now has canonical branding/tokens, responsive forms and capacity facts,
+field guidance, validated provider links, native Actions administration guidance,
+keyboard confirmation/focus return and bounded HTML authorization denials. HTML
+and JSON callers share the existing fresh operator/session check but retain their
+own response formats. The API omits unsafe legacy GitHub links while preserving
+local observations and descriptors. The shared existing GitHub URL rule also now
+rejects empty query/fragment delimiters and ambiguous authorities; registration,
+launcher, client packaging and native service behavior otherwise remain unchanged.
+
+The Lit owner retires each request generation on departure/disconnection, clears
+tokens synchronously and revalidates the original actor before restored controls
+are enabled. Old session/list/mutation continuations cannot dispatch or overwrite
+a reconnected page, even when a synthetic transport ignores abort. Provider changes,
+logout and authorization loss clear credentials. Unsent operations are reported as
+not sent; dispatched operations with lost acknowledgement retain an unconfirmed
+notice across refresh and are never replayed. A regression reproduced and corrected
+the final stale "Checking authorization" notice after retirement before dispatch.
+
+Local checks passed on macOS arm64 with Go 1.27.1/Bun 1.4.2: complete strict
+TypeScript/Lit checks, the aggregate Bun frontend/page/layout/Forgejo/Cockpit suite,
+and `internal/web`, `internal/runners`, `internal/host` tests plus their race suites.
+After the final lifetime correction, all compiler boundaries passed, the test
+compiler was rechecked, emitted assets were rebuilt and all 11 focused runner cases
+passed against fresh actual Go HTML/CSP. The affected Go packages were also rerun.
+Browser fixtures use synthetic peers and tokens. Restoration events are explicitly
+driven alongside real Back navigation; they do not establish every browser's native
+BFCache policy. Final desktop light/mobile dark screenshots were visually inspected;
+both themes at 1280/390 widths have browser layout/focus coverage.
+
+The full `bun run check:source` attempt did **not** pass: the macOS Go phase hit the
+unchanged Linux-only installer `commandRunner` definition and physical temporary-path
+assumptions. A separate Python attempt ran 120 tests with 11 failures, three errors
+and three skips, including Linux `/proc`/`setresgid` assumptions and terminal startup
+failures on macOS. The attempted existing Linux checker verified modules but received
+permission errors executing test binaries from its temporary mount. These attempts
+remain failures; no full Linux/native source gate or installed acceptance is claimed.
+GNU `cp` and physical `TMPDIR=/private/tmp` were used for the successful affected Go
+fixtures. No unrelated platform source was changed to make those broad checks pass.
+
+Logs, failed regressions, source snapshots, HTML fixtures and screenshots are retained
+under `.artifacts/runners-presentation-rtR1si/`; `browser-commit.log`, `go-commit.log`,
+`go-race.log`, `typecheck-commit.log` and `frontend-full.log` record the passing checks.
+No deployment, provider registration/job, retained-state action or Cockpit removal
+occurred. The two Cockpit pages, native runner owner and existing provider choices
+remain. Step 1's local source work is complete; native delivery/proof remains outside
+this execution scope.
+
 ## Runner dashboard migration — source audit and completion plan
 
+Historical planning pass at `754e411`; the selected step-1 implementation and scope
+correction are recorded above. Later proposals here are not user approval.
+
 Reviewed `174edd9` for the user-requested focus on moving runners out of Cockpit.
-The migration is already implemented locally: `f60df0a` added the protected Go/Lit
+The initial runner port has local source: `f60df0a` added the protected Go/Lit
 Sodarunners page, fixed OAuth return, operator-only APIs, root socket adapter and
 shared native serialization. Packaging and subsequent source-gate work are also
 present. The [runner source inventory and plan](runners-port.md#current-source-and-observed-evidence)

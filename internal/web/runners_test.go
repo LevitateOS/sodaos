@@ -41,6 +41,7 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `[]`) })
+	var deniedHTML string
 	for _, path := range []string{"/settings/runners", "/api/settings/runners", "/api/settings/runners/one/remove"} {
 		method := "GET"
 		if strings.HasSuffix(path, "remove") {
@@ -48,8 +49,16 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 		}
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, apiTestRequest(method, path, `{"bad":`, "bob"))
-		if w.Code != 403 || calls != 0 || !strings.Contains(w.Body.String(), "operator_required") {
+		if w.Code != 403 || calls != 0 {
 			t.Fatal(path, w.Code, w.Body.String(), calls)
+		}
+		if path == "/settings/runners" {
+			deniedHTML = w.Body.String()
+			if !strings.Contains(deniedHTML, "<!doctype html>") || !strings.Contains(deniedHTML, "configured Soda operator") || strings.Contains(deniedHTML, "soda-runners-page.js") || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
+				t.Fatal("page denial must be bounded HTML without controls", deniedHTML)
+			}
+		} else if !strings.Contains(w.Body.String(), "operator_required") {
+			t.Fatal("API denial must retain its JSON contract", w.Body.String())
 		}
 	}
 	w := httptest.NewRecorder()
@@ -62,16 +71,7 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 			t.Fatal("secret in HTML")
 		}
 	}
-	if output := os.Getenv("SODA_RUNNERS_PAGE_HTML"); output != "" {
-		f, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if err = json.NewEncoder(f).Encode(map[string]string{"html": w.Body.String(), "csp": w.Header().Get("Content-Security-Policy")}); err != nil {
-			t.Fatal(err)
-		}
-	}
+	html, csp := w.Body.String(), w.Header().Get("Content-Security-Policy")
 	// Native-only/admin users do not become operators. Anonymous page contains no inventory.
 	r := apiTestRequest("GET", "/settings/runners", "", "alice")
 	r.Header.Del("Cookie")
@@ -79,6 +79,46 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	s.ServeHTTP(w, r)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "destination=runners") || strings.Contains(w.Body.String(), "soda-runners-page.js") {
 		t.Fatal(w.Code, w.Body.String())
+	}
+	if output := os.Getenv("SODA_RUNNERS_PAGE_HTML"); output != "" {
+		f, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if err = json.NewEncoder(f).Encode(map[string]string{"html": html, "csp": csp, "anonymous": w.Body.String(), "denied": deniedHTML}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestRunnerListOmitsUnsafeStoredProviderLinks(t *testing.T) {
+	for _, address := range []string{
+		"javascript:alert(1)", "https://user:password@github.com/team/repo",
+		"https://github.com.attacker.test/team/repo", "http://github.com/team/repo",
+		"https://github.com:443/team/repo", "https://github.com/team/repo?token=secret",
+		"https://github.com/team/repo#secret", "https://github.com/team/repo?", "https://github.com/team/repo#",
+		"https://github.com/", "https://github.com\\@attacker.test/repo", "not a URL",
+		"https://github.com/team/repo", "https://github.com/enterprises/company",
+	} {
+		t.Run(address, func(t *testing.T) {
+			s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode([]runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: runners.ProviderGitHub, RegistrationURL: address, Account: "soda-runner-legacy"}, Capacity: 1}})
+			})
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+			var result runners.ListResponse
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || len(result.Runners) != 1 {
+				t.Fatal("unavailable link must not hide local service observations", w.Code, w.Body.String())
+			}
+			want := ""
+			if address == "https://github.com/team/repo" || address == "https://github.com/enterprises/company" {
+				want = address
+			}
+			if result.Runners[0].RegistrationURL != want {
+				t.Fatal("unsafe stored URL exposed", result.Runners[0].RegistrationURL)
+			}
+		})
 	}
 }
 func TestRunnerRegistrationFixedOriginAndSanitizedFailure(t *testing.T) {

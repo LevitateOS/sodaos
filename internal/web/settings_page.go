@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 //go:embed templates/runners.html
@@ -31,9 +33,10 @@ func (s *Server) runnersPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := struct {
-		Origin, Actor, Login string
-		Authorized           bool
-	}{Origin: s.Config.ForgejoURL}
+		Origin, Actor, Login, Message string
+		Authorized                    bool
+	}{Origin: s.Config.ForgejoURL, Message: "Connect through Forgejo as the configured Soda operator to manage local runners."}
+	status := http.StatusOK
 	cookie, err := requestCookie(r, sessionCookie)
 	if err != nil && !errors.Is(err, http.ErrNoCookie) {
 		http.Error(w, "Ambiguous Soda cookies.", 400)
@@ -53,15 +56,28 @@ func (s *Server) runnersPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err == nil {
-			if !s.authorizeOperator(w, r, v) {
-				return
+			if err := s.operatorAuthorization(r, v); err != nil {
+				var providerFailure *forgejo.HTTPError
+				status = http.StatusServiceUnavailable
+				data.Message = "Soda authorization is unavailable. Reconnect explicitly or try again later."
+				if errors.Is(err, errOperatorRequired) {
+					status = http.StatusForbidden
+					data.Message = "This Soda session is not the configured Soda operator. Forgejo site administration alone does not grant appliance access."
+				} else if errors.Is(err, store.ErrGrantUnavailable) || errors.Is(err, store.ErrGrantKey) || errors.Is(err, errProviderIdentity) {
+					status = http.StatusUnauthorized
+				} else if errors.Is(err, errRepositoryConsent) {
+					status = http.StatusForbidden
+				} else if errors.As(err, &providerFailure) && (providerFailure.Status == http.StatusUnauthorized || providerFailure.Status == http.StatusForbidden) {
+					status = providerFailure.Status
+				}
+			} else {
+				data.Actor = strconv.FormatInt(v.User.ID, 10)
+				data.Login = v.User.Login
+				data.Authorized = true
 			}
-			data.Actor = strconv.FormatInt(v.User.ID, 10)
-			data.Login = v.User.Login
-			data.Authorized = true
 		}
 	}
-	if writePageTemplate(w, runnersTemplate, data, http.StatusOK) != nil {
+	if writePageTemplate(w, runnersTemplate, data, status) != nil {
 		http.Error(w, "Cannot render settings.", 500)
 		return
 	}

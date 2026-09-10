@@ -47,6 +47,12 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			if mode == "anonymous" && calls != 0 {
 				t.Fatal("anonymous page contacted provider")
 			}
+			if mode == "anonymous" && (!strings.Contains(body, "For local runner settings, connect as the configured Soda operator.") || !strings.Contains(body, "destination=spaces")) {
+				t.Fatal("missing explicit first-use route to operator settings")
+			}
+			if mode == "authorized" && !strings.Contains(body, s.Config.ForgejoURL+"/-/soda/settings/runners") {
+				t.Fatal("configured operator has no settings destination")
+			}
 			for _, forbidden := range []string{"csrf-alice", "session-alice", "callback-access", "window.config", "/app/", "<iframe"} {
 				if strings.Contains(body, forbidden) {
 					t.Fatal("copied authority or credentials", forbidden)

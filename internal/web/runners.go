@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -12,36 +13,43 @@ import (
 
 // An operator is a configured stable ID, never a Forgejo site-admin flag. Recheck
 // provider identity and the original Soda context after external authorization IO.
-func (s *Server) authorizeOperator(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+var errOperatorRequired = errors.New("configured Soda operator required")
+
+func (s *Server) operatorAuthorization(r *http.Request, v store.Session) error {
 	if s.Config.OperatorID <= 0 || v.User.ID != s.Config.OperatorID {
-		jsonError(w, 403, "operator_required", "Only the configured Soda operator can manage this appliance.")
-		return false
+		return errOperatorRequired
 	}
 	grant, err := s.userGrant(r, v)
 	if err != nil {
-		providerError(w, err)
-		return false
+		return err
 	}
 	if !forgejo.HasScope(grant.Scopes, "read:user") {
-		providerError(w, errRepositoryConsent)
-		return false
+		return errRepositoryConsent
 	}
 	actor, err := s.Forgejo.Current(r.Context(), grant.Access)
 	if err != nil {
-		providerError(w, err)
-		return false
+		return err
 	}
 	if actor.ID != v.User.ID {
-		providerError(w, errProviderIdentity)
-		return false
+		return errProviderIdentity
 	}
 	cookie, err := requestCookie(r, sessionCookie)
 	if err != nil {
-		providerError(w, store.ErrGrantUnavailable)
-		return false
+		return store.ErrGrantUnavailable
 	}
 	if err := s.requireCurrentSession(r.Context(), cookie.Value, v); err != nil {
-		providerError(w, store.ErrGrantUnavailable)
+		return store.ErrGrantUnavailable
+	}
+	return nil
+}
+
+func (s *Server) authorizeOperator(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	if err := s.operatorAuthorization(r, v); err != nil {
+		if errors.Is(err, errOperatorRequired) {
+			jsonError(w, 403, "operator_required", "Only the configured Soda operator can manage this appliance.")
+		} else {
+			providerError(w, err)
+		}
 		return false
 	}
 	return true
@@ -95,8 +103,16 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 			jsonError(w, 503, "runners_unavailable", "Invalid local runner observation.")
 			return
 		}
-		if row.Provider == runners.ProviderForgejo {
+		switch row.Provider {
+		case runners.ProviderForgejo:
 			row.RegistrationURL = s.Config.ForgejoURL
+		case runners.ProviderGitHub:
+			if runners.ValidateGitHubURL(row.RegistrationURL) != nil {
+				row.RegistrationURL = "" // Unavailable link; preserve local observations and native state.
+			}
+		default:
+			jsonError(w, 503, "runners_unavailable", "Invalid local runner provider.")
+			return
 		}
 		if row.Service.Active == "active" && row.Service.Sub == "running" {
 			result.ActiveListeners++

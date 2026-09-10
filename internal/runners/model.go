@@ -120,7 +120,7 @@ func (request CreateRequest) validateGitHub() error {
 	if request.RegistrationID != "" {
 		return errors.New("GitHub registration does not accept a Forgejo runner ID")
 	}
-	if err := validateGitHubURL(request.RegistrationURL); err != nil {
+	if err := ValidateGitHubURL(request.RegistrationURL); err != nil {
 		return fmt.Errorf("GitHub URL: %w", err)
 	}
 	return requireLabels(request.Labels, githubLabelPattern, "GitHub labels must contain only letters, digits, dot, underscore, and hyphen")
@@ -181,12 +181,14 @@ func validateForgejoURL(raw string) error {
 	return nil
 }
 
-func validateGitHubURL(raw string) error {
+// ValidateGitHubURL also guards provider links projected from legacy descriptors.
+// Do not normalize or rewrite the retained descriptor to make a link usable.
+func ValidateGitHubURL(raw string) error {
 	parsed, err := validateProviderURL(raw)
 	if err != nil {
 		return err
 	}
-	if parsed.Scheme != "https" || !strings.EqualFold(parsed.Hostname(), "github.com") || parsed.Port() != "" {
+	if parsed.Scheme != "https" || !strings.EqualFold(parsed.Host, "github.com") || strings.ContainsAny(raw, "?#\\") {
 		return errors.New("must be an HTTPS github.com repository, organization, or enterprise URL")
 	}
 	if parsed.Path == "" || parsed.Path == "/" {

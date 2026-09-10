@@ -116,15 +116,15 @@ Forgejo behavior.
 
 | Area | Existing implementation | Remaining obligation |
 | --- | --- | --- |
-| Operator page | [`settings_page.go`](../internal/web/settings_page.go), [`runners.html`](../internal/web/templates/runners.html), [`soda-runners-page.ts`](../frontend/runners/soda-runners-page.ts): Go shell and Lit inventory, registration, Start/Stop/Restart/Remove, exact-ID confirmation, Refresh and Soda logout. | Close presentation and browser-lifetime parity gaps; inspect the delivered page. |
+| Operator page | [`settings_page.go`](../internal/web/settings_page.go), [`runners.html`](../internal/web/templates/runners.html), [`soda-runners-page.ts`](../frontend/runners/soda-runners-page.ts): separate Go shell and Lit inventory, registration, lifecycle, provider links, HTML denial, keyboard/responsive presentation and guarded browser restoration, with local coverage. | Inspect the delivered page; this source does not embed the page in Forgejo's native shell. |
 | Navigation | [`extra_links.tmpl`](../appliance/forgejo/templates/custom/extra_links.tmpl), [`footer.tmpl`](../appliance/forgejo/templates/custom/footer.tmpl), [`soda-settings-link.ts`](../assets/branding/forgejo/soda-settings-link.ts), and the Spaces page. | Prove discoverability with native Forgejo sessions, including a configured operator without site-admin rights. |
 | Web authority and API | [`internal/web/runners.go`](../internal/web/runners.go): fresh provider subject, configured `operator_id`, original Soda session, guarded list/create/lifecycle routes; existing API middleware supplies actor/origin/CSRF checks. | Preserve denial-before-decode/native-read behavior and exercise the actual proxy/OAuth/helper chain. |
 | OAuth and persistence | Fixed `destination=runners` return was added in schema v7; current source is schema v8 and preserves that return. | Rehearse the actual target schema to the chosen candidate schema; no new runner inventory database or migration is required merely to finish the UI. |
 | Root bridge | [`internal/host/runners.go`](../internal/host/runners.go), wired by [`cmd/soda-host`](../cmd/soda-host/main.go), dispatches six fixed operations to the existing runner implementation. | Deliver compatible binaries together and prove socket/group/service confinement natively. |
-| Native runner owner | [`internal/runners/`](../internal/runners/): provider configuration, dedicated accounts/state, one-slot listeners, lifecycle and cross-process file locking for reads and all mutations. | Correct GitHub service entrypoint compatibility; prove real provider lifecycle/jobs and retained-state preservation. |
+| Native runner owner | [`internal/runners/`](../internal/runners/): provider configuration, dedicated accounts/state, one-slot listeners, lifecycle and cross-process file locking for reads and all mutations. | Real provider lifecycle/jobs and retained-state preservation remain unproved. GitHub service compatibility is a separate, unselected maintenance recommendation. |
 | Shared frontend protocol | [`soda-runner-types.d.ts`](../frontend/runners/soda-runner-types.d.ts) and [`soda-runner-response.ts`](../frontend/runners/soda-runner-response.ts) serve Lit and Cockpit. | Keep one response contract while both surfaces coexist; preserve backend/CLI tests after Cockpit removal. |
 | Packaging | [`forgejo-payload.json`](../internal/nativebuild/forgejo-payload.json), [`build-forgejo.ts`](../scripts/build-forgejo.ts), [`stage.py`](../scripts/stage.py) include settings assets, native hooks and both Cockpit pages. | Produce and inspect a fresh matching-native export; local emitted assets are not installed proof. |
-| Local checks | [`runners_test.go`](../internal/web/runners_test.go), [host bridge tests](../internal/host/runners_test.go), native runner tests, [actual Go HTML/Lit browser tests](../tests/frontend/runners.test.ts), [navigation tests](../tests/forgejo/settings-link.test.ts), and retained Cockpit tests. [`test-spaces-page.ts`](../scripts/test-spaces-page.ts) now supplies runner HTML fixtures in the ordinary source gate. | Extend missing journeys, especially GitHub registration, restored pages and native/provider effects; do not count synthetic peers as provider proof. |
+| Local checks | [`runners_test.go`](../internal/web/runners_test.go), [host bridge tests](../internal/host/runners_test.go), native runner tests, [actual Go HTML/Lit browser tests](../tests/frontend/runners.test.ts), [navigation tests](../tests/forgejo/settings-link.test.ts), and retained Cockpit tests. The ordinary page gate covers both existing provider forms and restored/retired pages using real Go HTML and synthetic peers. | Native/provider effects remain unproved. See the handoff for passing affected checks and broader platform/test-environment failures. |
 
 ### Evidence limits
 
@@ -268,9 +268,12 @@ inventory, runner adoption, or generalized recovery subsystem is introduced.
 This is the detailed plan for **finishing the Cockpit-to-dashboard move**, based on
 the source inventory above. The [settings contract](sodaspaces-plan.md#settings-pages-and-os-selection)
 owns placement; this guide owns runner parity and cutover; the
-[handoff](implementation-status.md) owns executed evidence. The existing
+[handoff](implementation-status.md) owns executed evidence. Only step 1 was selected
+for this implementation turn. The existing
 [GitHub service compatibility task](refactoring-plan.md#phase-4--github-runner-service-compatibility)
-is one shared fix, not a second implementation to run independently.
+was folded into this migration plan by the assistant; that inclusion was not user
+approval. It remains an unselected maintenance recommendation. Later implementation,
+validation and delivery proposals below are not execution authorization.
 
 The end state is a discoverable, configured-operator-only page that controls real
 local Forgejo and GitHub capacity, with working native provider links and preserved
@@ -285,8 +288,11 @@ permission inventory, runner database, public root listener or Forgejo fork is n
 
 ### 1. Finish dashboard presentation and browser lifetime
 
-**Status: remaining source work.** Owners are the existing Lit page, settings CSS,
-Go template and native navigation hook; extend them directly.
+**Status: implemented with local checks.** Owners remain the existing Lit page,
+settings CSS, Go template and native navigation hook. This step retains the separate
+Soda-rendered page and its fixed native links; it does not integrate its HTML shell
+into Forgejo's dashboard or redesign Spaces. The [handoff](implementation-status.md)
+records passing affected checks and the unsuccessful broader source-gate attempts.
 
 The selected stock Forgejo 15.0.7 calls `custom/extra_links` from its navbar.
 Its [official v15 customization contract](https://forgejo.org/docs/v15.0/contributor/customization/)
@@ -297,19 +303,19 @@ no new Forgejo handler or whole-navbar override is required.
   Forgejo **Actions administration** link with its separate permission explanation,
   and each runner's validated provider destination. The provider may deny a
   nonadmin Soda operator; the convenience link grants no additional authority.
-  The current Lit rows receive
-  `registration_url` but render no provider links. A local ID is not a provider
+  Lit rows now render validated provider links from
+  `registration_url`. A local ID is not a provider
   runner ID; do not invent a deep link from it. Never expose the internal Forgejo
-  origin, use a guessed port or attach credentials to a link. Current descriptor
-  reads and the shared decoder do not validate persisted URLs. Reuse the native
+  origin, use a guessed port or attach credentials to a link. Raw descriptor
+  reads remain unchanged; the API projection and rendering now reuse the native
   provider URL rules at the read/render boundary: Forgejo uses only the configured
   public origin; GitHub requires credential-free HTTPS `github.com`, no port/query/
   fragment and a non-root provider path. An invalid legacy value yields unavailable
   status or no link, never a clickable fallback or an automatic descriptor rewrite.
 - Complete first-use navigation. The native settings link currently requires an
   already connected, matching Soda operator session. Check the journey for an
-  operator signed into Forgejo but not Soda: make the existing Spaces → explicit
-  Soda connection → settings route discoverable, and retain the direct protected
+  operator signed into Forgejo but not Soda: source guidance now exposes the existing
+  Spaces → explicit Soda connection → settings route and retains the direct protected
   settings login. Native signed-in markup cannot establish Soda operator authority.
   Do not call native site-admin markup an operator check or connect OAuth silently.
 - Complete form feedback and keyboard/responsive behavior using existing tokens
@@ -317,12 +323,12 @@ no new Forgejo handler or whole-navbar override is required.
   destructive effects, local-state uncertainty and the distinction between listeners
   and available job slots. Use field guidance for invalid URL/UUID/labels without
   echoing provider diagnostics or a token. Keep Refresh and provider inspection
-  usable when they are the safe next action. Render a bounded HTML denial for a
-  nonoperator opening the page, instead of the current API-shaped 403, while
+  usable when they are the safe next action. The page now renders a bounded HTML denial
+  for a nonoperator opening the page, replacing the API-shaped 403 while
   preserving the status code, fresh authority checks and zero native reads.
-- Add browser-lifetime coverage before relying on the current departure handling.
-  The page has disconnect cleanup and `beforeunload`, but no explicit
-  `pagehide`/`pageshow` restoration handling. On page departure, successful logout,
+- Preserve the browser-lifetime coverage and guarded request generation.
+  The page now handles disconnect cleanup, `beforeunload` and explicit
+  `pagehide`/`pageshow` restoration. On page departure, successful logout,
   authorization loss or provider switch, clear unsent credential inputs; switching
   provider also clears provider-specific registration drafts. On BFCache
   return, discard pending confirmation, revalidate the original actor/session and
@@ -331,8 +337,8 @@ no new Forgejo handler or whole-navbar override is required.
   request generation on departure/disconnect so reconnecting the same element
   cannot revive earlier continuations. Cancelling a fetch
   after dispatch does not prove a native operation stopped; retain uncertainty and
-  never replay it. These are source gaps to exercise, not a claim of a reproduced
-  browser credential leak.
+  never replay it. Tests deliberately release old responses after reconnection,
+  including responses that ignore abort. No real credential leak was observed.
 
 **Exit:** the actual Go HTML with emitted Lit assets covers both provider forms,
 validated links, disconnected/denied/expired states, confirmation, empty/populated/
@@ -344,7 +350,9 @@ never replayed and remain unconfirmed until their outcome is established.
 
 ### 2. Correct GitHub's native service contract
 
-**Status: confirmed source mismatch; implementation and native proof remain.**
+**Status: unselected maintenance recommendation; no implementation or native proof.**
+This was not part of the user's step-1 request. The following is retained proposal
+context, not an approved prerequisite for the presentation/lifetime work.
 Complete the existing [refactoring task](refactoring-plan.md#phase-4--github-runner-service-compatibility)
 in `internal/runners/launch.go`, the registration/copy producer, launcher tests and
 only the necessary unit/packaging inputs. Keep Forgejo's daemon path unchanged.
@@ -375,8 +383,8 @@ target's cutover for a concrete compatibility decision.
 
 **Exit:** fixtures validate both provider launch commands, executable layout,
 missing-file refusal and signal forwarding. Later native checks must prove a real
-GitHub job, cancellation/stop/restart and unchanged registration. The launcher fix
-can proceed in parallel with step 1.
+GitHub job, cancellation/stop/restart and unchanged registration. This needs its own
+selected scope before implementation.
 
 ### 3. Complete local parity and regression coverage
 
@@ -389,7 +397,7 @@ new behavior.
 | --- | --- |
 | Page/API authority | Configured operator without site-admin rights succeeds; unrelated site/org/repository admins and ordinary users cannot read metadata or mutate. Exercise page/deep links and every API, missing/ambiguous cookies, wrong actor, missing scope, changed provider subject, expired grant/session and logout while authorization is pending. Denial precedes body decoding/native dispatch. |
 | Request and secret boundary | CSRF/origin/method/query/strict-body failures; fixed Forgejo internal destination and validated GitHub URL; no browser-selected unit/account/path/command. Link tests reject malformed legacy values, `javascript:`, credentials, lookalike hosts, ports, queries and fragments. Token cleared on serialization, provider switch, departure/logout and authorization loss, absent from reactive state/storage/HTML/errors; synthetic secret probes never use real credentials. |
-| Provider and UI parity | Add GitHub registration to the existing Go-HTML/Lit journey, which currently drives Forgejo registration. Check provider switching, server refusals, exact target confirmation, duplicate-submit suppression, both logout outcomes and no automatic retry after an unconfirmed operation. |
+| Provider and UI parity | The Go-HTML/Lit journey now exercises both existing provider forms, provider switching, field/actor refusals, exact target confirmation, both logout outcomes and no automatic retry after an unconfirmed operation. These use synthetic peers, not real provider registration. |
 | Native/overlap semantics | Keep reads/create/start/stop/restart/remove under the same cross-process lock. Extend separate-process `internal/runners.Native` fixtures with a shared temporary lock path and command doubles; Restart must hold admission across enable/restart. Test CLI and socket adapters through their existing seams; actual CLI → helper and web → soda-host overlap belongs to step 5, not production test flags or another helper. A cancelled waiter must not dispatch. Invalid/unreadable descriptors and unavailable unit/version observations must not become an empty list. |
 | Partial outcomes and preservation | Cover provider registration followed by descriptor/start failure, account-delete failure before local state removal, and state-removal failure after account deletion. Use owned temporary data and native-command doubles. Preserve legacy descriptors without adding label metadata or rewriting credentials. |
 | Payload and coexistence | Settings modules/styles/runtime, hooks and legal notices appear in the canonical stage. Preserve native Actions settings and all Cockpit/Tailnet entrypoints. Add GitHub service companion-file checks to the existing producer/verifier tests. |
