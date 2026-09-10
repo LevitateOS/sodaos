@@ -26,8 +26,9 @@ type Config struct {
 	OAuthClientID      string `json:"oauth_client_id"`
 	OAuthSecretFile    string `json:"oauth_secret_file"`
 	GrantKeyFile       string `json:"grant_key_file"`
-	AdminTokenFile     string `json:"admin_token_file"`
-	OperatorID         int64  `json:"operator_id"`
+	// Deprecated: accepted only for legacy JSON compatibility. Never read or use this path.
+	AdminTokenFile string `json:"admin_token_file,omitempty"`
+	OperatorID     int64  `json:"operator_id"`
 }
 
 func Load(path string) (Config, error) {
@@ -62,7 +63,7 @@ func Load(path string) (Config, error) {
 	}
 	c.ForgejoURL = strings.TrimRight(c.ForgejoURL, "/")
 	c.ForgejoInternalURL = strings.TrimRight(c.ForgejoInternalURL, "/")
-	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "admin_token_file": c.AdminTokenFile, "grant_key_file": c.GrantKeyFile} {
+	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "grant_key_file": c.GrantKeyFile} {
 		if !filepath.IsAbs(value) {
 			return c, fmt.Errorf("%s must be an absolute path", name)
 		}

@@ -414,7 +414,7 @@ starting another; a focused independent review may run alongside it.
 | Phase | Work | Current state / dependency |
 | --- | --- | --- |
 | 0 | Correct stale audit status and macOS test fixture | Source fixed; normal/symlink-path Linux checks passed. Native macOS rerun remains pending. |
-| 1 | Remove unused bootstrap-token retention/access | Open; can proceed independently. |
+| 1 | Remove unused bootstrap-token retention/access | Source complete with local checks; retained credential maintenance and native/provider proof remain unrun. |
 | 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
 | 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
@@ -446,6 +446,12 @@ reproduced one macOS failure because `/var/...` resolves to `/private/var/...`;
 this is a test portability defect, not a failed database or installer operation.
 
 ### Phase 1 — retire the unused bootstrap token
+
+**Source complete, locally checked.** See the
+[handoff](implementation-status.md#phase-1--retire-bootstrap-token-retention)
+for regressions, scope research and executed checks. The separate
+[existing-install maintenance recipe](dashboard-credentials.md#retired-bootstrap-token--existing-install-maintenance)
+is authored, not executed; no installed credential has been remediated by this work.
 
 **Finding:** [unused credential retention](upstream-ownership-audit.md#remove-unused-bootstrap-credential-retention).
 

@@ -33,7 +33,8 @@ Forgejo's own persistent data and follow its
 ## Configure Soda's identity integration
 
 Using Forgejo's native settings, create the operator token required for setup:
-`read:user`, `write:user`, `write:admin` and `read:repository`. Store it through a
+`write:user` (includes `read:user`), belonging to the Forgejo administrator.
+Setup does not need admin or repository token scopes. Store it through a
 private input channel in a mode-0600 file on the appliance, not argv or a shared
 terminal transcript. Do not lend this server credential to developers.
 
@@ -46,6 +47,10 @@ On the host, replace the example Forgejo origin and token-file path:
 ```
 
 Setup creates the actual OAuth application and records the operator identity.
+New source retains the OAuth secret and grant-encryption key, not a bootstrap-token
+copy/reference, and leaves the supplied token file unchanged. Existing copies need
+[separately authorized maintenance](../../dashboard-credentials.md#retired-bootstrap-token--existing-install-maintenance);
+setup does not delete or revoke them.
 Current source shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`;
 the drawer is not implemented yet. That origin must resolve to the approved
 endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After

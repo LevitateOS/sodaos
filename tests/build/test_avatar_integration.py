@@ -27,11 +27,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class AvatarActivation(unittest.TestCase):
     def test_first_activation_derives_provider_from_forgejo_origin(self):
-        for origin, local_tls in (('https://forge.example.test:8443', False),
-                                  ('https://[fd00::5]:8443/', False),
-                                  ('https://192.168.2.100', True),
-                                  ('https://[fd00::5]', True)):
-            with self.subTest(origin=origin), tempfile.TemporaryDirectory() as directory:
+        for origin, local_tls, legacy in (('https://forge.example.test:8443', False, None),
+                                          ('https://[fd00::5]:8443/', False, None),
+                                          ('https://192.168.2.100', True, None),
+                                          ('https://[fd00::5]', True, None),
+                                          ('https://192.168.2.100', True, 'token'),
+                                          ('https://192.168.2.100', True, 'missing'),
+                                          ('https://192.168.2.100', True, '../outside'),
+                                          ('https://192.168.2.100', True, 'link')):
+            with self.subTest(origin=origin, legacy=legacy), tempfile.TemporaryDirectory() as directory:
                 temp = Path(directory)
                 config_root = temp / 'etc/soda'
                 config_root.mkdir(parents=True)
@@ -40,12 +44,16 @@ class AvatarActivation(unittest.TestCase):
                     'forgejo_internal_url': 'http://127.0.0.1:3000',
                     'listen': '127.0.0.1:8080',
                     'oauth_secret_file': str(config_root / 'oauth'),
-                    'admin_token_file': str(config_root / 'token'),
                     'grant_key_file': str(config_root / 'grant'),
                 }
+                if legacy is not None:
+                    config['admin_token_file'] = str(config_root / legacy)
                 (config_root / 'dashboard.json').write_text(json.dumps(config))
                 for name in ('oauth', 'token', 'grant'):
                     (config_root / name).write_text('synthetic, not a credential')
+                    (config_root / name).chmod(0o600)
+                (config_root / 'link').symlink_to(config_root / 'token')
+                token_before = (config_root / 'token').stat()
                 (config_root / 'forgejo.env').write_text(
                     'FORGEJO__ui__DEFAULT_THEME=soda-auto\n'
                     'FORGEJO__server__SSH_DOMAIN=retained.example.test\n')
@@ -68,7 +76,7 @@ class AvatarActivation(unittest.TestCase):
                     args += ['--certificate', str(temp / 'certificate'),
                              '--private-key', str(temp / 'private-key')]
                 with patch('sys.argv', args), patch('pathlib.Path', side_effect=mapped_path), \
-                        patch('os.geteuid', return_value=0), patch('os.chown'), \
+                        patch('os.geteuid', return_value=0), patch('os.chown') as chown, \
                         patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)), \
                         patch('subprocess.run') as run, patch('builtins.print'):
                     runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
@@ -78,6 +86,16 @@ class AvatarActivation(unittest.TestCase):
                 self.assertEqual(values['FORGEJO__ui__DEFAULT_THEME'], 'soda-auto')
                 self.assertFalse(any('DISABLE_GRAVATAR' in k or 'FEDERATED' in k or 'OFFLINE_MODE' in k for k in values))
                 self.assertEqual(run.call_count, 3)  # existing activation phases only
+                self.assertEqual([call.args for call in chown.call_args_list], [
+                    (config_root, 0, 2000), (config_root / 'dashboard.json', 0, 2000),
+                    (config_root / 'oauth', 0, 2000), (config_root / 'grant', 0, 2000)])
+                for name in ('dashboard.json', 'oauth', 'grant'):
+                    self.assertEqual((config_root / name).stat().st_mode & 0o777, 0o640)
+                token_after = (config_root / 'token').stat()
+                self.assertEqual((token_after.st_ino, token_after.st_mode, token_after.st_mtime_ns),
+                                 (token_before.st_ino, token_before.st_mode, token_before.st_mtime_ns))
+                self.assertEqual((config_root / 'token').read_text(), 'synthetic, not a credential')
+                self.assertTrue((config_root / 'link').is_symlink())
                 proxy = (config_root / 'proxy.env').read_text()
                 self.assertIn('SODA_TLS=internal\n' if local_tls else
                               'SODA_TLS=/etc/soda/tls/cert.pem /etc/soda/tls/key.pem\n', proxy)

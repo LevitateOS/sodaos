@@ -131,7 +131,7 @@ func configurePrivateInstall(ctx context.Context, c console, run commandRunner, 
 	c.print("Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.")
 	c.print("Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.")
 	c.print("In Forgejo Settings > Applications, create the operator token described in the operator setup guide.")
-	c.print("Required scopes: read:user, write:user, write:admin, read:repository. Paste it here through the SSH terminal; input is hidden.")
+	c.print("Required scope: write:user (includes read:user). No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.")
 	c.print("Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.")
 	answer, err := c.ask("When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels")
 	if err != nil {

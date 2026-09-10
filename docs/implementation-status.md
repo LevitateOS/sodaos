@@ -1,5 +1,48 @@
 # Current handoff
 
+## Phase 1 — retire bootstrap-token retention
+
+New `soda-setup` reads the operator's private input only for the existing user/OAuth
+API calls, without copying `admin-token` or emitting `admin_token_file`. OAuth secret,
+32-byte grant key, stable operator ID, root CLI gate, administrator eligibility,
+exclusive writes and partial-outcome refusal are preserved. A private same-command
+`setup` function separates flag/root admission from the unchanged operation for
+non-root local tests; no bypass flag, provider abstraction or new setup engine exists.
+The config field is deprecated/optional for legacy parsing only, without a required
+or inspected path. Unknown-field and remaining configuration checks stay strict.
+Activation grants service access only to dashboard configuration and required
+OAuth/grant files. The installed host check no longer requires a bootstrap file;
+neither uses the legacy path as file-access authority.
+
+Inspected retained Forgejo 15.0.7 `routers/api/v1/api.go`, `user/app.go` and
+`models/auth/access_token_scope.go`: both calls belong to the user scope category,
+OAuth creation is acting-user-owned, and write:user includes read:user. Updated
+both setup guides and the real installer prompt accordingly, keeping Soda's existing
+administrator eligibility separate. Synthetic request fixtures verify only GET user
+and POST own OAuth application, exact callback/confidential-client payload, credential
+header confinement and sanitized denial/malformed-response errors. This is not a real
+scoped-token Forgejo/provider setup result.
+
+Before the fix, new tests reproduced retained token bytes, rejection when the old
+canonical file already existed, missing/relative legacy-path config refusal and
+activation's missing-field/path/access effects. Afterwards, focused tests and the
+setup/config/Forgejo/installer race suites passed. They cover existing-file/input
+preservation, no replay/publication on denied or uncertain setup, restricted output
+modes, grant/OAuth retention, missing/unusable legacy paths and exact activation chown
+calls with real fixture chmod effects. Installer PTY tests preserve hidden input and
+no token bytes in argv/transcripts, and assert the narrowed scope guidance.
+
+`bun run check:source` passed in 140.65 seconds on local Go 1.27.0/Bun 1.4.2:
+module/Go checks, TypeScript/Lit, 305 browser/Cockpit passes with 24 independently
+gated skips, and 120 Python fixture tests with two optional Caddy skips. Shell syntax
+and whitespace checks passed. Logs are `.artifacts/refactor-phase1-JgFncw/`; fresh
+Go HTML fixtures are `.artifacts/pages-4fbZ7t/`. The credential guide now has an
+exact-file, preservation-first permission-maintenance recipe, not an executed tool.
+No native build/stage/installed checks, real setup/activation, service restart,
+retained credential/VM/project access, provider mutation or dependency change occurred.
+Existing deployed token copies/access and native scoped-token proof remain outstanding;
+Phase 2 mutation-session admission is next. The revision-bound audit is unchanged.
+
 ## Phase 0 — physical temporary fixture path
 
 `tests/build/test_source_checks.py` now resolves the temporary root before constructing

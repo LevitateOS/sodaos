@@ -41,7 +41,8 @@ if account.pw_uid != 2000 or account.pw_gid != 2000:
     parser.error('unexpected native soda service identity')
 root.chmod(0o750)
 os.chown(root, 0, account.pw_gid)
-for p in [root / 'dashboard.json', Path(cfg['oauth_secret_file']), Path(cfg['admin_token_file']), Path(cfg['grant_key_file'])]:
+# Legacy admin_token_file is parse-only, never authority to touch an operator file.
+for p in [root / 'dashboard.json', Path(cfg['oauth_secret_file']), Path(cfg['grant_key_file'])]:
     if p.parent != root or p.is_symlink():
         parser.error('credentials must be regular operator-created files under /etc/soda')
     os.chown(p, 0, account.pw_gid)

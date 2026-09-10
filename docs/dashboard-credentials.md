@@ -18,8 +18,48 @@ Require explicit target/deployment permission before executing any step.
 `soda-setup` now creates an exclusive `grant-key` file alongside OAuth credentials,
 containing 32 random bytes encoded as standard base64. It writes
 `grant_key_file` in the new config. `soda-activate` sets root:soda 0640 ownership
-alongside existing credentials. No key is bundled into images or generated on
-application startup. Setup/activation retain first-install refusal.
+alongside the OAuth secret and dashboard configuration. New setup does not copy
+the operator's bootstrap token or emit `admin_token_file`. The strict config loader
+accepts that legacy field for parsing only, without requiring, opening or validating
+its unused path; activation never uses it to change a file. Unknown fields still
+fail closed. No key is bundled into images or generated on application startup.
+Setup/activation retain first-install refusal and leave operator input files intact.
+
+## Retired bootstrap token — existing-install maintenance
+
+**Authored recipe, not executed or authorized by this document.** New source stops
+future retention/access grants; it does not remediate already installed copies.
+Revocation and deletion remain separate explicit operator/provider actions.
+
+1. Obtain exact-target, affected-artifact and credential-permission maintenance
+   authorization. Verify the actual installed dashboard and native config consumers
+   no longer require or read the bootstrap token. Preserve the current configuration,
+   OAuth client, grant key, database, roots and later writes. Do not rerun setup,
+   first-install or activation, regenerate credentials, or infer delivery from source tests.
+2. Identify the old setup-owned canonical `/etc/soda/admin-token` through deployment
+   records, **not** a path taken from `admin_token_file`. Inspect only metadata and
+   trusted ancestors; never print credential contents. If absent, record absence and
+   do not create it. Refuse symlinks, non-regular or multiply linked files, unexpected
+   ownership/ACLs or an inode shared with a still-required credential; review deviations
+   with the operator rather than adopting another file.
+3. Preserve the original bytes and metadata in the target's explicitly approved private
+   backup channel, with a fresh restricted destination. Keep all originals and prior
+   backups; this is not an instruction to erase a retained credential or its evidence.
+4. During the authorized bounded maintenance, open only that verified file without
+   following symlinks, recheck its device/inode/type/root ownership against the approved
+   observation and use descriptor-bound `fchmod` to restrict it to 0600. Do not recursively
+   chmod/chown `/etc/soda`, follow the legacy config path, or change OAuth/grant/TLS files.
+   Refuse identity drift rather than retrying against a replacement pathname.
+5. Independently verify the same inode/bytes, root ownership, 0600 mode and lack of
+   Soda service access, while required credentials and service identity are unchanged.
+   This permission restriction alone needs no provider mutation or service restart;
+   any paired artifact delivery/interruption requires its own declared scope.
+   Keep the legacy config field if present—no rewrite is necessary for compatibility.
+
+A preserved token can still be valid at Forgejo. Removing file access is not token
+revocation, proof that earlier readers forgot it, or cleanup of the operator's original
+input file. Any later provider revocation must use Forgejo's native controls and an
+explicitly selected token; do not include it in an automatic migration or rollback.
 
 ## Controlled existing-state rehearsal, before live deployment
 

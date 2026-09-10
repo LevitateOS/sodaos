@@ -25,6 +25,37 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 	if err != nil || loaded.ForgejoURL != "https://forgejo.test" || loaded.OAuthCallbackURL() != "https://forgejo.test/-/soda/oauth/callback" {
 		t.Fatal(loaded, err)
 	}
+	// Retired bootstrap references are parse-only, even when unusable. Loading
+	// must not open the path or alter an existing operator file.
+	retired := filepath.Join(t.TempDir(), "retired-token")
+	if err := os.WriteFile(retired, []byte("synthetic-retained-input"), 0000); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Lstat(retired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, legacy := range []string{"", "relative-unused-path", retired, retired + "-missing"} {
+		t.Run("legacy="+legacy, func(t *testing.T) {
+			candidate := c
+			candidate.AdminTokenFile = legacy
+			save(candidate)
+			loaded, err := Load(path)
+			if err != nil || loaded.OperatorID != c.OperatorID || loaded.GrantKeyFile != c.GrantKeyFile || loaded.OAuthSecretFile != c.OAuthSecretFile {
+				t.Fatal("retired credential reference affected configuration loading", err)
+			}
+			if legacy == "" {
+				data, err := os.ReadFile(path)
+				if err != nil || strings.Contains(string(data), "admin_token_file") {
+					t.Fatal("new configuration includes retired field")
+				}
+			}
+		})
+	}
+	after, err := os.Lstat(retired)
+	if err != nil || !os.SameFile(before, after) || after.Mode().Perm() != 0000 || !after.ModTime().Equal(before.ModTime()) {
+		t.Fatal("retired credential changed")
+	}
 	insecure := c
 	insecure.ForgejoURL = "http://forgejo.test"
 	save(insecure)

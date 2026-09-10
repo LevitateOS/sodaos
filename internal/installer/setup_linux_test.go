@@ -144,6 +144,9 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 			readUntil("Address number, or cancel")
 			unix.Write(master, []byte("1\n"))
 			readUntil("When Forgejo setup is complete")
+			if !strings.Contains(transcript.String(), "Required scope: write:user (includes read:user)") || strings.Contains(transcript.String(), "write:admin") || strings.Contains(transcript.String(), "read:repository") {
+				t.Fatal("bootstrap guidance requests unrelated token authority")
+			}
 			if cancelSetup {
 				unix.Write(master, []byte("cancel\n"))
 			} else {
