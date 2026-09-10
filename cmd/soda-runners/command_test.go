@@ -83,6 +83,33 @@ func TestExecutePassesCancellation(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
+func TestMainRejectsNonOperatorBeforeConfigurationOrInput(t *testing.T) {
+	if os.Getenv("SODA_TEST_MAIN_DENIED") == "1" {
+		os.Args = []string{"soda-runners", "list"}
+		main()
+		return
+	}
+	t.Setenv("PKEXEC_UID", "1000")
+	t.Setenv("SODA_TEST_MAIN_DENIED", "1")
+	binary, err := os.Executable()
+	require.NoError(t, err)
+	child := exec.CommandContext(t.Context(), binary, "-test.run=^TestMainRejectsNonOperatorBeforeConfigurationOrInput$")
+	child.Stdin = strings.NewReader("not-json")
+	var output, diagnostic bytes.Buffer
+	child.Stdout, child.Stderr = &output, &diagnostic
+	var exit *exec.ExitError
+	require.ErrorAs(t, child.Run(), &exit)
+	require.Equal(t, 1, exit.ExitCode())
+	require.Empty(t, output.String())
+	if os.Getuid() == 0 && os.Geteuid() == 0 {
+		require.Contains(t, diagnostic.String(), "non-operator pkexec caller rejected")
+	} else {
+		require.Contains(t, diagnostic.String(), "host root operator required")
+	}
+	require.NotContains(t, diagnostic.String(), "configuration")
+	require.NotContains(t, diagnostic.String(), "not-json")
+}
+
 func TestMainUsageExit(t *testing.T) {
 	if os.Getenv("SODA_TEST_MAIN_USAGE") == "1" {
 		os.Args = []string{"command"}

@@ -139,11 +139,11 @@ Cockpit -> soda-runners -> Coordinator
 
 [Cockpit's caller](../cockpit/src/runners/native.ts) depends on the public
 `soda-runners` protocol, not on the internal subprocess hop. The hop supports the
-[invoker](../internal/runners/invoker.go), parallel `PrivilegedRunners` interface,
-[helper executable](../cmd/soda-runner-helper/main.go), helper wrapper and
-[invoker-specific tests](../internal/runners/invoker_test.go). The two
+invoker (`internal/runners/invoker.go` at the reviewed revision), parallel
+`PrivilegedRunners` interface, helper executable (`cmd/soda-runner-helper/main.go`),
+helper wrapper and invoker-specific tests (`internal/runners/invoker_test.go`). The two
 [CLI](../cmd/soda-runners/command_test.go) and
-[helper](../cmd/soda-runner-helper/command_test.go) command-test files are byte-identical,
+helper (`cmd/soda-runner-helper/command_test.go`) command-test files are byte-identical,
 103 lines each; their command wrappers differ only in executable name. Packaging
 and installed presence checks name the helper too, but are not independent users
 of its behavior.

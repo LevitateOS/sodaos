@@ -26,6 +26,20 @@ Focused Tailnet and both command suites passed (`tailnet.log` in the same direct
 No actual Tailscale command, enrollment or advertisement change ran. Native capture
 bounds remain separate open work; this deletion does not claim to implement them.
 
+The runner CLI now calls `Native` directly through the existing lifecycle interface.
+It retains real/effective root and original `PKEXEC_UID` admission before config/input,
+then the native account-identity check, configured endpoint substitution, strict JSON
+and public list/OK responses. Removed the invoker, parallel interface, helper wrapper/
+executable and duplicate command/protocol fixtures. Socket `Operations` and the shared
+native cross-process lock remain; Cockpit and its public CLI protocol are unchanged.
+Ported useful list/admission tests and expanded exact action, root identity/drift,
+endpoint and failure assertions. Runner, Linux identity, CLI and host race suites
+passed (`runners-race.log`); installed shell syntax passed. Build/staging already
+enumerate `cmd/`, so removed source is no longer built/staged. Packaging checks now
+require its absence in fresh stages; those native-stage checks were not run. The
+runner guide identifies paired CLI/daemon delivery and explicit retirement of an
+old installed helper during separately authorized maintenance, not automatic cleanup.
+
 ## Three-pass overengineering review — documentation only
 
 At the user's request, [the review record](overengineering-review.md) preserves the

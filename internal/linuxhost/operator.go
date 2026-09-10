@@ -30,10 +30,14 @@ func (*Native) LookupAccount(_ context.Context, name string) (Account, error) {
 	return Account{Username: u.Username, UID: uid}, err
 }
 func PKExecCaller() (PKExecIdentity, error) {
-	if os.Geteuid() != 0 || os.Getuid() != 0 {
+	return pkexecCaller(os.Getuid(), os.Geteuid(), os.Getenv("PKEXEC_UID"))
+}
+
+func pkexecCaller(uid, euid int, originalUID string) (PKExecIdentity, error) {
+	if euid != 0 || uid != 0 {
 		return PKExecIdentity{}, errors.New("host root operator required")
 	}
-	if v := os.Getenv("PKEXEC_UID"); v != "" && v != "0" {
+	if originalUID != "" && originalUID != "0" {
 		return PKExecIdentity{}, errors.New("non-operator pkexec caller rejected")
 	}
 	return PKExecIdentity{Username: "root", UID: 0}, nil

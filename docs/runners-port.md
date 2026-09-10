@@ -133,11 +133,12 @@ The local source now includes the protected Go/Lit page and fixed root:soda runn
 adapter introduced by `f60df0a`. Its local Go/emitted-browser proof is recorded in the
 [handoff](implementation-status.md); native/provider parity remains pending and
 Cockpit is not removed. The retained native implementation is the Cockpit page plus
-`soda-runners` → `soda-runner-helper` → `internal/runners.Native` and the
-`soda-runner@.service` launcher. Cockpit runs the coordinator in its authenticated
-root session. Both coordinator and helper independently require the native caller
-to be root; the helper receives requests over stdin and invokes only the fixed
-runner operations. This path does not authorize a Forgejo web user.
+`soda-runners` → `internal/runners.Native` and the `soda-runner@.service` launcher.
+Cockpit runs the coordinator in its authenticated root session. The CLI receives
+strict requests over stdin, requires real/effective root, rejects non-root original
+`PKEXEC_UID` and verifies the native root account before any runner operation.
+The redundant helper executable/subprocess is retired in source; installed old
+files have not been removed. This path does not authorize a Forgejo web user.
 
 Each runner has a stable, validated local ID, a dedicated noninteractive
 `soda-runner-<id>` account, a private persistent state directory under
@@ -361,7 +362,7 @@ new behavior.
 | Page/API authority | Configured operator without site-admin rights succeeds; unrelated site/org/repository admins and ordinary users cannot read metadata or mutate. Exercise page/deep links and every API, missing/ambiguous cookies, wrong actor, missing scope, changed provider subject, expired grant/session and logout while authorization is pending. Denial precedes body decoding/native dispatch. |
 | Request and secret boundary | CSRF/origin/method/query/strict-body failures; fixed Forgejo internal destination and refusal of all other providers; no browser-selected unit/account/path/command. Link tests prove that saved URLs never override the configured Forgejo public origin. Token cleared on serialization, departure/logout and authorization loss, absent from reactive state/storage/HTML/errors; synthetic secret probes never use real credentials. |
 | Provider and UI parity | The Go-HTML/Lit journey now exercises the Forgejo form, field/actor refusals, exact target confirmation, both logout outcomes and no automatic retry after an unconfirmed operation. These use synthetic peers, not real provider registration. |
-| Native/overlap semantics | Keep reads/create/start/stop/restart/remove under the same cross-process lock. Extend separate-process `internal/runners.Native` fixtures with a shared temporary lock path and command doubles; Restart must hold admission across enable/restart. Test CLI and socket adapters through their existing seams; actual CLI → helper and web → soda-host overlap belongs to step 5, not production test flags or another helper. A cancelled waiter must not dispatch. Invalid/unreadable descriptors and unavailable unit/version observations must not become an empty list. |
+| Native/overlap semantics | Keep reads/create/start/stop/restart/remove under the same cross-process lock. Extend separate-process `internal/runners.Native` fixtures with a shared temporary lock path and command doubles; Restart must hold admission across enable/restart. Test CLI and socket adapters through their existing seams; actual CLI → Native and web → soda-host overlap belongs to step 5, not production test flags or another helper. A cancelled waiter must not dispatch. Invalid/unreadable descriptors and unavailable unit/version observations must not become an empty list. |
 | Partial outcomes and preservation | Cover provider registration followed by descriptor/start failure, account-delete failure before local state removal, and state-removal failure after account deletion. Use owned temporary data and native-command doubles. Preserve legacy descriptors without adding label metadata or rewriting credentials. |
 | Payload and coexistence | Settings modules/styles/runtime, hooks and legal notices appear in the canonical stage. Preserve native Actions settings and all Cockpit/Tailnet entrypoints. Verify staging and build inputs no longer fetch or contain a GitHub runner client. |
 
@@ -401,11 +402,12 @@ the development machine is not proof of the retained target's version.
 
 Prepare one matching affected-artifact set. The running backend is the dashboard
 image containing `soda-dashboard`; its separately staged host binary is not that
-service. Pair **`soda-host` and `soda-runner-helper`**, since both embed the native
-state lock, and include the reviewed compatible `soda-runners` coordinator for
-current config/protocol behavior. Include the Forgejo-only `soda-runner-launch`, settings assets/hooks and only
-necessary service changes. The coordinator and launcher are not the lock owners. Leaving the old
-Cockpit helper behind can defeat the overlap-lock contract. Preserve the old Cockpit
+service. Pair **`soda-host` and `soda-runners`**, since both now embed the native
+state lock. Include the Forgejo-only `soda-runner-launch`, settings assets/hooks and
+only necessary service changes; the launcher is not a management-lock owner.
+An approved delivery must also identify and retire the obsolete installed
+`soda-runner-helper` executable after all earlier management processes finish;
+source/package removal alone does not disable that independently callable old writer. Preserve the old Cockpit
 payload during this phase. No whole-appliance installation recipe is an updater.
 
 **Exit:** reproducible product-owned test inputs, a verified candidate manifest,
@@ -509,7 +511,7 @@ new owner. Adjust `cockpit/vite.config.ts`, package inventory, staging and paylo
 tests so new bundles stop shipping that page. Audit real imports before removing
 dependencies: Tailnet still needs the Cockpit/React/PatternFly toolchain.
 
-Keep `internal/runners`, the root CLI/helper boundary, runner launch/service/client
+Keep `internal/runners`, the root CLI boundary, runner launch/service/client
 inputs, sysusers/tmpfiles, shared protocol and focused native/CLI tests. Native
 Forgejo Actions runner templates/styles are provider UI and must remain. Preserve
 the existing Tailnet page, its backing logic/tests, root login and ordinary Cockpit

@@ -13,10 +13,11 @@ class NativeStage(unittest.TestCase):
         cls.root = Path(os.environ['SODA_STAGE'])
 
     def test_commands_and_extensions(self):
-        for name in ['soda-dashboard', 'soda-host', 'soda-setup', 'soda-tailnet', 'soda-forgejo-tailnet', 'soda-runners', 'soda-runner-helper', 'soda-runner-launch']:
+        for name in ['soda-dashboard', 'soda-host', 'soda-setup', 'soda-tailnet', 'soda-forgejo-tailnet', 'soda-runners', 'soda-runner-launch']:
             p = self.root / 'usr/local/libexec/soda' / name
             self.assertTrue(p.is_file(), str(p))
             self.assertTrue(p.stat().st_mode & 0o111, str(p))
+        self.assertFalse((self.root / 'usr/local/libexec/soda/soda-runner-helper').exists())
         for name in ['soda-runners', 'soda-tailscale']:
             folder = self.root / 'usr/local/share/cockpit' / name
             self.assertTrue((folder / 'index.html').is_file())

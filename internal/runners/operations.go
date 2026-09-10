@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/levitateos/sodaos/internal/linuxhost"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -17,42 +16,29 @@ type Lifecycle interface {
 	Remove(context.Context, string) error
 }
 
-type Helper struct {
-	Authorizer Authorizer
-	Local      LocalReader
-	Lifecycle  Lifecycle
-}
-
-func (helper Helper) Execute(ctx context.Context, actor linuxhost.PKExecIdentity, action string, input io.Reader) (any, error) {
-	if err := helper.Authorizer.RequireAdministrator(ctx, actor); err != nil {
-		return MutationResponse{}, err
-	}
-	return (Operations{Local: helper.Local, Lifecycle: helper.Lifecycle}).Execute(ctx, action, input)
-}
-
-// Operations is the fixed native protocol shared by the root CLI helper and the
-// root:soda socket service. Callers enforce their own transport/caller authority;
+// Operations is the fixed native protocol for the root:soda socket service.
+// The caller enforces transport authority; the web adapter authorizes the operator;
 // this layer never accepts arbitrary commands, accounts, paths or unit names.
 type Operations struct {
 	Local     LocalReader
 	Lifecycle Lifecycle
 }
 
-func (helper Operations) Execute(ctx context.Context, action string, input io.Reader) (any, error) {
+func (operations Operations) Execute(ctx context.Context, action string, input io.Reader) (any, error) {
 	if action == "list" {
 		var request EmptyRequest
 		if err := strictjson.Decode(input, &request); err != nil {
 			return nil, err
 		}
-		return helper.Local.List(ctx)
+		return operations.Local.List(ctx)
 	}
 	if action == "create" {
-		return helper.create(ctx, input)
+		return operations.create(ctx, input)
 	}
-	return helper.mutate(ctx, action, input)
+	return operations.mutate(ctx, action, input)
 }
 
-func (helper Operations) create(ctx context.Context, input io.Reader) (MutationResponse, error) {
+func (operations Operations) create(ctx context.Context, input io.Reader) (MutationResponse, error) {
 	var request CreateRequest
 	if err := strictjson.Decode(input, &request); err != nil {
 		return MutationResponse{}, err
@@ -60,13 +46,13 @@ func (helper Operations) create(ctx context.Context, input io.Reader) (MutationR
 	if err := request.Validate(); err != nil {
 		return MutationResponse{}, err
 	}
-	if err := helper.Lifecycle.Create(ctx, request); err != nil {
+	if err := operations.Lifecycle.Create(ctx, request); err != nil {
 		return MutationResponse{}, err
 	}
 	return MutationResponse{OK: true}, nil
 }
 
-func (helper Operations) mutate(ctx context.Context, action string, input io.Reader) (MutationResponse, error) {
+func (operations Operations) mutate(ctx context.Context, action string, input io.Reader) (MutationResponse, error) {
 	var request RunnerRequest
 	if err := strictjson.Decode(input, &request); err != nil {
 		return MutationResponse{}, err
@@ -77,13 +63,13 @@ func (helper Operations) mutate(ctx context.Context, action string, input io.Rea
 	var err error
 	switch action {
 	case "start":
-		err = helper.Lifecycle.Start(ctx, request.ID)
+		err = operations.Lifecycle.Start(ctx, request.ID)
 	case "stop":
-		err = helper.Lifecycle.Stop(ctx, request.ID)
+		err = operations.Lifecycle.Stop(ctx, request.ID)
 	case "restart":
-		err = helper.Lifecycle.Restart(ctx, request.ID)
+		err = operations.Lifecycle.Restart(ctx, request.ID)
 	case "remove":
-		err = helper.Lifecycle.Remove(ctx, request.ID)
+		err = operations.Lifecycle.Remove(ctx, request.ID)
 	default:
 		return MutationResponse{}, fmt.Errorf("unsupported runner helper action %q", action)
 	}

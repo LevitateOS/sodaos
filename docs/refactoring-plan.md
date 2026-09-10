@@ -640,7 +640,8 @@ checks followed by the aggregate source check; no deployment or retained-state w
   complete with focused local checks; no replacement process abstraction.
 - Runners: connect the public CLI directly to native operations, preserving the
   combined root/`PKEXEC_UID`/native identity admission and cross-process lock. Retire
-  the helper source and packaging together, not installed files.
+  the helper source and packaging together, not installed files. Source complete;
+  focused runner/CLI/identity/host race checks passed. Native-stage proof is unrun.
 - Templates: read authored source in behavior tests; make historical normalization
   explicit in parity checks. Preserve meaningful hashes, permissions and fixtures.
 - Terminal: explicitly retire no-locator mounting and port useful tests to managed

@@ -13,20 +13,12 @@ type LocalReader interface {
 	List(context.Context) ([]RunnerView, error)
 }
 
-type PrivilegedRunners interface {
-	Create(context.Context, CreateRequest) error
-	Start(context.Context, RunnerRequest) error
-	Stop(context.Context, RunnerRequest) error
-	Restart(context.Context, RunnerRequest) error
-	Remove(context.Context, RunnerRequest) error
-}
-
 type Coordinator struct {
 	ForgejoURL       string
 	ForgejoPublicURL string
 	Authorizer       Authorizer
 	Local            LocalReader
-	Privileged       PrivilegedRunners
+	Lifecycle        Lifecycle
 }
 
 func (coordinator Coordinator) Execute(ctx context.Context, actor linuxhost.PKExecIdentity, action string, input io.Reader) (any, error) {
@@ -77,7 +69,7 @@ func (coordinator Coordinator) create(ctx context.Context, input io.Reader) (Mut
 	if err := request.Validate(); err != nil {
 		return MutationResponse{}, err
 	}
-	if err := coordinator.Privileged.Create(ctx, request); err != nil {
+	if err := coordinator.Lifecycle.Create(ctx, request); err != nil {
 		return MutationResponse{}, err
 	}
 	return MutationResponse{OK: true}, nil
@@ -94,13 +86,13 @@ func (coordinator Coordinator) mutate(ctx context.Context, action string, input 
 	var err error
 	switch action {
 	case "start":
-		err = coordinator.Privileged.Start(ctx, request)
+		err = coordinator.Lifecycle.Start(ctx, request.ID)
 	case "stop":
-		err = coordinator.Privileged.Stop(ctx, request)
+		err = coordinator.Lifecycle.Stop(ctx, request.ID)
 	case "restart":
-		err = coordinator.Privileged.Restart(ctx, request)
+		err = coordinator.Lifecycle.Restart(ctx, request.ID)
 	case "remove":
-		err = coordinator.Privileged.Remove(ctx, request)
+		err = coordinator.Lifecycle.Remove(ctx, request.ID)
 	}
 	if err != nil {
 		return MutationResponse{}, err
