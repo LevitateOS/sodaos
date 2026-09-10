@@ -24,6 +24,15 @@ parity and coordinated Cockpit retirement remain governed by this runner plan.
 
 ## Implementation lane boundary
 
+**Current editor ownership:** after pulling `d866c12`, the user selected a single
+agent for the remaining Runners and Soda-pages work. Earlier cross-agent file
+reservations, including the two-file-only driver handoff, are superseded. Preserve
+the responsibility boundaries below without requiring further editor handoffs.
+The pulled canonical-epoch template fixes pass the focused Go regressions; the
+previous stale-assertion source blocker is resolved. Fresh combined native
+build/check/export evidence and the remaining scenario/acceptance work are still
+required. No additional target/provider/deployment permission follows.
+
 The [Soda-pages ownership table and handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)
 is authoritative for dividing these two implementation lanes. **This lane owns
 runner operation correctness, native/provider parity, paired management delivery

@@ -1,5 +1,21 @@
 # Current handoff
 
+## Single-agent continuation after pulling `d866c12`
+
+The user selected one agent to take over the remaining Runners and Soda-pages
+implementation. Prior cross-agent file reservations are superseded; product/test
+ownership boundaries and execution approvals remain unchanged. No additional
+file-by-file editor handoff is needed. Avoid concurrent edits by the former agent.
+The newly pulled fixes include canonical-epoch Go template assertions, so the
+previous native-check failure is no longer an outstanding source correction.
+Validate the combined candidate rather than transferring earlier revision receipts.
+The retained `9956e63`/`0d0071d` attempts and all other evidence remain untouched.
+Focused `TestNativeSodaPageHost` / `TestSodaspacesTemplate*` Go regressions passed
+with isolated Go 1.26.7 (`.artifacts/single-agent-continuation/template-tests.log`);
+diff whitespace checks passed. No new native build/export or installed/provider
+phase ran in this ownership update.
+
+
 ## Native-pages review findings fixed — `18c6b07`
 
 All four findings in the [whole-plan review](forgejo-soda-pages-review.md) now have

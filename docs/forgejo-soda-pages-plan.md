@@ -31,6 +31,16 @@ new environment profiles and additional runner functionality are not added here.
 
 ## Implementation lanes and handoff
 
+**Current coordination: single-agent ownership.** After pulling `d866c12`, the
+user selected one agent to take over the remaining Soda-pages and Runners work.
+The prior cross-agent file reservations and two-file-only handoff below are
+superseded for this implementation. Keep the responsibility boundaries and reuse
+existing callers/tests, but do not require further editor handoffs between these
+lanes. The other agent must not edit concurrently. This ownership change grants no
+new deployment, provider, lifecycle, cleanup or target execution scope. Historical
+lane/handoff records below explain earlier decisions and evidence, not a current
+editing hold.
+
 **This is the single ownership boundary for this plan and
 [runners-port](runners-port.md#implementation-lane-boundary).** They are separate
 implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented steps 2–4 with local authentication/page-body
