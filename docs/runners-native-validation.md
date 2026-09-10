@@ -8,7 +8,8 @@ continues to own the shared browser driver, authentication and shell/schema deli
 
 **Current status:** runner inputs, callable scenarios, fixed read-only native
 observations and provider dispatch/exact-run observations have source implementations.
-The shared driver has not yet called them: its native page-body/authentication
+Candidate `9476858` passed the ordinary aggregate source gate and focused local
+input/transport-double/filesystem checks. The shared driver has not yet called them: its native page-body/authentication
 handoff is pending. No target/provider inputs have been selected, and no matching
 native candidate build/check/export has run for this work. Do not call step 4's
 verified-candidate exit complete or these scenarios provider-validated.

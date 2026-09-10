@@ -447,8 +447,9 @@ from these local checks.
 
 ### 4. Prepare product-owned native journeys and a paired candidate
 
-**Status: runner-owned test/input preparation implemented; shared driver wiring
-and the verified native candidate exit remain open.** The
+**Status: runner-owned test/input preparation implemented; `9476858` passed local
+focused and aggregate source checks. Shared driver wiring and the verified native
+candidate exit remain open.** The
 [native runner preparation guide](runners-native-validation.md) owns exact source
 entrypoints, private input/effect gates, candidate artifact checklist and blockers.
 `tests/installed/runners.ts` supplies callable list/denial, registration and exact

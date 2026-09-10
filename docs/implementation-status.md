@@ -40,7 +40,19 @@ The six Bun input/transport/preservation/workflow cases passed after correcting
 an overescaped newline in the syntax-only workflow test; its failed attempt is
 retained. These checks used owned temporary data and synthetic transport outputs;
 workflow Python/Bash was syntax checked, not executed as a job. Evidence is under
-`.artifacts/runners-step4-fun2xj/`; aggregate source checks are next, not yet claimed.
+`.artifacts/runners-step4-fun2xj/`.
+
+After committing `9476858`, `bun run check:source` passed on that clean revision
+in 105.52 seconds (`check-source.log`): module verification/all Go suites, strict
+TypeScript/Lit, 214 frontend passes/14 initial gated skips, 14 required Go-HTML page
+passes, one measured layout pass, 33 Forgejo passes/21 gated skips, all 60 Cockpit
+tests, and 141 Python tests with two optional skips. Required page consumers ran
+separately within the aggregate after their initial gates; fixtures are retained
+at `.artifacts/pages-vnniwL/`. These remain the current source/browser fixtures,
+not the pending native Soda-pages driver integration. The six new Bun cases use
+synthetic transport and syntax checks; the six Python cases use owned local files
+and read-only process metadata. No installed runner phase ran. All 56 local links/
+anchors in the affected runner/native validation guides and diff whitespace checked.
 
 **Step 4 is not fully closed:** Soda-pages must hand off the migrated pages/driver
 and wire these callable cases into its existing authentication/one-shot request
