@@ -1,5 +1,38 @@
 # Current handoff
 
+## Whole native-pages plan review — changes required at `97a2d5e`
+
+Completed a source/evidence review of steps 1–5 and the step-6 delivery boundary.
+[Full findings and step matrix](forgejo-soda-pages-review.md) name the owners,
+source lines, reproductions and follow-up order. No production fix is included.
+The remaining implementation is **not just test wiring or Linux validation**:
+
+- A delayed session 401 can navigate a retired entry to OAuth because connection
+  navigation occurs before the caller's generation check. Reproduced with the
+  existing synthetic connection fixture.
+- Real BFCache restores Spaces and repository settings permanently stale; the
+  native entry does not remount already-mounted, invalidated controls. Both actual
+  native documents reported `pageshow.persisted=true`. No terminal was opened.
+- The module-version bump missed three Go template tests. They fail on this Mac
+  and would fail on Linux too. The previous aggregate-failure explanation omitted
+  these source regressions; they are present in its retained original log.
+- The operator navigation still says “SodaOS settings,” not the selected “Runners.”
+
+Evidence is retained at `.artifacts/native-pages-review-97a2d5e/` and the real
+fixture at `.artifacts/pages-se6siP/native/`. Temporary reproduction patches are
+retained in the evidence directory; the tracked test files were restored after
+running them. The fixture's 15 existing consumers passed before the added real
+history assertion failed. Original Forgejo tests then passed (37/21 gated skips),
+strict TypeScript/Lit passed, web/store race checks reused passing cached results,
+and payload/staging fixtures passed (4/7). Focused Go template checks failed as
+above. No provider/installed phase, retained-project change, appliance delivery or
+host trust change occurred.
+
+Repair these lifecycle/caller defects locally, then finish populated visual,
+true cached-upgrade, combined history/authority/draft coverage and the final Linux
+aggregate. **The two-file runner installed-driver handoff below remains valid**;
+this review did not edit either handed-off file or reclaim its ownership.
+
 ## Runner installed-driver implementation after explicit handoff
 
 Merged `origin/main` through `97a2d5e`, preserving the local runner validation
@@ -60,7 +93,6 @@ checks, not actual runner authentication, process or provider proof. The editor
 handoff and callable-driver wiring are no longer outstanding; remaining step-4
 scenario/input preparation and native check/export readiness are still open.
 
-
 ## Bounded runner installed-driver handoff after `9629c8e`
 
 Inspected clean HEAD `9629c8e`; native UI/cache/history source is `d838262` on top
@@ -111,7 +143,6 @@ actor guards, explicit retry, shared retirement and non-atomic coordinated logou
 remain selected. Outstanding step-5 visual/combined-history/Linux checks still
 block full acceptance, not this two-file editor handoff. No builds/tests/provider
 or deployment operations were run for this inspection/documentation handoff.
-
 
 ## Native Soda pages step 5 — cache/history candidate; acceptance still open
 
@@ -226,7 +257,6 @@ shared retirement/logout and migrated browser callers remain unchanged. Runner
 native/provider parity and separately authorized appliance delivery are independent
 of these local source/browser results.
 
-
 ## Runner step 4 continuation — pinned builder and native postconditions
 
 Continued runner-owned preparation from `23bef53`; shared Soda-pages driver/UI/
@@ -269,7 +299,6 @@ Shared driver handoff/integration, remaining installed scenario preparation, fin
 candidate export/compatibility review and exact target/provider approvals remain
 open. No services, provider jobs/resources, retained roots or credentials changed.
 
-
 ## Runner plan revision after pulling native page integration
 
 Revised `docs/runners-port.md` steps 4–7 against the pulled source at `4cfeea1`.
@@ -292,7 +321,6 @@ receipts remain historical, not a new combined-checkout PASS.
 Documentation-only revision: reviewed current plans, handoff and Git state; checked
 diff whitespace. No code, shared browser files, toolchains, targets, credentials or
 provider resources changed; no builds/tests/native phases were run in this revision.
-
 
 ## Native Soda navigation and shell retirement — integration step 4
 
@@ -411,7 +439,6 @@ jobs/interruption/concurrency, boot/preservation and provider-record cleanup pro
 remain step 5; no deployment, host/provider mutation, reboot, retained-data change
 or Cockpit retirement occurred.
 
-
 ## Runner step 3 — bounded backend correctness and local regressions
 
 On source base `89a0124`, implemented the runner-owned step-3 gaps without editing
@@ -469,7 +496,6 @@ service units, provider resources, installed runner/project state or real creden
 changed. Native build/stage, provider jobs/lifecycle/preservation and coordinated
 Cockpit retirement remain unrun; Cockpit Runners and Tailnet are unchanged.
 
-
 ## Native Soda page bodies — step 3
 
 All three native dashboard hosts now mount the existing Lit body after the shared
@@ -519,7 +545,6 @@ includes the complete page/drawer handoff and passing affected packaging checks.
 Step 5 closes remaining real-history, authority, visual and cached-client acceptance
 gaps using those migrated suites; step 6 owns separately authorized delivery. Runner backend/provider parity and
 Cockpit retirement remain the separate runners lane. No deployment occurred.
-
 
 ## Native Soda page connection and logout — step 2
 
@@ -602,7 +627,6 @@ target/window, with distinct acceptance obligations and no borrowed authorizatio
 Changed planning documentation only; no step-2 source, runtime, fixture, credential
 or provider state changed. Checks: documentation diff/whitespace and added local
 link/anchor validation. No builds, tests, deployment or provider operations ran.
-
 
 ## Native Soda page host — step 1 implemented and locally exercised
 
