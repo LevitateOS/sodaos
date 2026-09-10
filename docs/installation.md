@@ -5,7 +5,9 @@ Native execution has begun on the local x86_64 builder and an isolated CoreOS VM
 The [Sodaspaces plan](sodaspaces-plan.md) and production callers own application
 payload/configuration/credentials/migrations/cutover. [Native support](native-support.md)
 supplies artifact inspection/bundling and provisioning transport, not a second
-installer or product gate. ISO/QCOW2 wrappers are unselected/unimplemented. See
+installer or product gate. The requested [CoreOS installer plan](coreos-installer-plan.md)
+selects upstream ISO customization instead of Anaconda; implementation remains
+pending. QCOW2 wrappers remain unselected/unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning; do not assume a Soda host OCI,
 installer ISO or preinstalled QCOW2, or replay first-install as a service upgrade.

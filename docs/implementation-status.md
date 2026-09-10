@@ -1,5 +1,20 @@
 # Current handoff
 
+## CoreOS installer planning
+
+The user dropped Anaconda and requested a quick implementation plan. Added
+[CoreOS installer implementation plan](coreos-installer-plan.md): stock upstream
+installer plus a proposed bounded console interface, explicit disk confirmation,
+private operator inputs, separate live/destination Ignition and installed-host
+continuation through existing extension/bundle/setup contracts. ISO implementation
+is pending; QCOW2/release machinery is not selected. Legacy source/assets and all
+retained targets are unchanged.
+
+Evidence: read-only local source inspection and upstream Fedora/CoreOS Installer
+web documentation research; documentation diff checks only. No code implementation,
+builds, tests, credential generation, installation or native validation. This plan
+does not authorize disk writes, fixture lifecycle actions or deployment.
+
 ## Merge of origin/main at 711606f
 
 Merged the incoming illustration/form redesign and consistency commits with the

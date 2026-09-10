@@ -8,8 +8,9 @@ historical plan/audit are retired from active docs; unresolved checks are retain
 
 The [Sodaspaces plan](sodaspaces-plan.md) and production callers own API/config/schema,
 build/stage and product behavior. These tools supply transport/artifacts/observations,
-not duplicate product scenarios or a second readiness gate. Optional ISO/QCOW2
-wrappers remain unselected. U/P labels in existing CLI arguments and observations
+not duplicate product scenarios or a second readiness gate. The requested
+[CoreOS installer plan](coreos-installer-plan.md) selects upstream ISO customization,
+not Anaconda; implementation remains pending. QCOW2 wrappers remain unselected. U/P labels in existing CLI arguments and observations
 are retained protocol/evidence identifiers, not an active numbered roadmap. No
 helper, flag, commit or report grants execution permission.
 
