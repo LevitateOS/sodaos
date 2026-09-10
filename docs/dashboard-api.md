@@ -17,6 +17,36 @@ source/script/browser coverage. Native delivery/access proof and automated outbo
 Git credentials remain pending. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
 and test coverage; concurrent native/CLI acceptance and delivery remain separate.
 
+## Native page connection and coordinated logout
+
+The [native integration plan](forgejo-soda-pages-plan.md) steps 1–2 now provide
+fixed native hosts and entry-only automatic OAuth. Matching sessions are reused;
+callbacks for Spaces, Runners and repository settings return to the corresponding
+`/?soda-view=...` host. Required `read:user`, `read:repository` and
+`read:organization` consent is verified after exchange. Failed named transactions
+return with a bounded `soda-connect=failed` UI marker, not an arbitrary return URL
+or a replayed mutation. Invalid browser callbacks use a fixed native login/error
+entry. Unsigned/expired legacy page URLs first redirect to native login; authenticated
+legacy bodies remain pending their source port.
+
+`GET /api/login/cancel` supplies a no-store cookie-bound CSRF value only with
+`X-Soda-Logout: 1`, one expected actor and same-origin fetch metadata. Missing OAuth
+cookie returns 204. `POST` requires that cookie, configured Origin, the same headers,
+`X-CSRF-Token`, and exactly an empty JSON object. It resolves the latest cookie's
+existing context, refuses rotated/ambiguous cookies or a different authenticated
+actor/context, then ends that context and its streams under the existing lock.
+It expires both Soda cookies only after successful cancellation. It never creates
+an anonymous context or accepts a selected context/actor as authentication.
+
+The shared coordinator captures the native menu action before Forgejo's listener,
+cancels pending OAuth or the captured authenticated session, then activates the
+original native link once. Failure offers Retry and explicit native-only sign-out;
+native failure after Soda cancellation remains a visible partial outcome. Existing
+component buttons use this coordinator. Browser retirement signals carry no credentials
+and grant no authority. Native-only logout, unavailable JavaScript/storage, missed
+events and a first login cookie not yet received remain non-atomic limits.
+
+
 ## Spaces page and fixed OAuth return
 
 `/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
@@ -24,7 +54,7 @@ Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--
 defines the workspace and Soda-owned shell (canonical assets, fixed native links
 and labelled Soda identity, not fabricated native context). `GET /spaces` now serves
 that escaped HTML shell with a server-authorized actor. Anonymous/expired sessions
-receive explicit Connect; unavailable grant/provider authority produces 503, not a
+receive the fixed native login entry; unavailable grant/provider authority produces 503, not a
 complete empty workspace. Queries are refused. Existing repository-scoped collection
 guards remain unchanged.
 

@@ -77,7 +77,7 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	r.Header.Del("Cookie")
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "destination=runners") || strings.Contains(w.Body.String(), "soda-runners-page.js") {
+	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Drunners") || strings.Contains(w.Body.String(), "soda-runners-page.js") {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	if output := os.Getenv("SODA_RUNNERS_PAGE_HTML"); output != "" {

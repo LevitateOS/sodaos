@@ -43,6 +43,7 @@ async function runnersPage(t: TestContext, mode = 'html') {
       await route.fulfill({status: state.sessionStatus, json: {user: {id: state.actor, login: 'alice'}, csrf_token: 'csrf-alice', soda_operator: state.operator, forgejo_url: origin}});
       return;
     }
+    if (pathname === '/-/soda/api/login/cancel') {await route.fulfill({status: 204}); return;}
     if (pathname === '/-/soda/api/session/logout') {
       state.logoutRequests++;
       assert.equal(request.headers()['x-soda-expected-user-id'], '1');
@@ -227,12 +228,12 @@ test('retired session continuations cannot dispatch runner or logout requests af
   assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
   assert.match(await page.locator('.settings-notice').innerText(), /Operation was not sent/);
   await pauseNextFetch(page, 'session');
-  await page.getByRole('button', {name: 'Sign out of Soda'}).click();
+  await page.getByRole('button', {name: 'Sign out', exact: true}).click();
   await hide(page);
-  await restore(page);
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true})));
   await releaseFetch(page);
   assert.equal(state.logoutRequests, 0);
-  assert.match(await page.locator('.settings-notice').innerText(), /Soda sign-out was not sent/);
+  await page.getByText(/Soda sign-out could not be confirmed/).waitFor();
 });
 
 test('late inventory and mutation replies cannot replace a restored page or replay effects', browserCase, async t => {
@@ -281,17 +282,17 @@ test('unconfirmed operations survive refresh; auth loss scrubs drafts and hides 
 test('Soda logout clears credentials on success and unconfirmed failure', browserCase, async t => {
   const {page, state} = await runnersPage(t);
   await registerDraft(page); state.logoutStatus = 503;
-  await page.getByRole('button', {name: 'Sign out of Soda'}).click(); await settled(page);
-  await page.getByText(/Soda sign-out unconfirmed/).waitFor();
+  await page.getByRole('button', {name: 'Sign out', exact: true}).click(); await settled(page);
+  await page.getByText(/Soda sign-out could not be confirmed/).waitFor();
   assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
   state.logoutStatus = 204;
-  await page.getByRole('button', {name: 'Sign out of Soda'}).click();
-  await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor();
-  assert.equal(await page.locator('input[type=password]').count(), 0);
+  await page.getByRole('button', {name: 'Retry sign-out'}).click();
+  await page.getByRole('link', {name: 'Continue to Forgejo to sign out'}).waitFor();
+  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
 });
 
-test('first-use and denied Go shells expose explicit connection without runner metadata', browserCase, async t => {
-  for (const mode of ['anonymous', 'denied']) {
+test('denied Go shell exposes explicit connection without runner metadata', browserCase, async t => {
+  for (const mode of ['denied']) {
     const {page, mutations} = await runnersPage(t, mode);
     assert.equal(await page.locator('soda-runners').count(), 0);
     assert.equal(await page.getByRole('link', {name: 'Connect to Soda', exact: true}).getAttribute('href'), '/-/soda/login?destination=runners');

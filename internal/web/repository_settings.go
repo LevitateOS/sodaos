@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 //go:embed templates/repository-spaces.html
@@ -75,6 +76,10 @@ func (s *Server) repositorySpacesPage(w http.ResponseWriter, r *http.Request) {
 			data.Repository = repo.Owner.Login + "/" + repo.Name
 			data.RepositoryURL = s.Config.ForgejoURL + "/" + url.PathEscape(repo.Owner.Login) + "/" + url.PathEscape(repo.Name)
 		}
+	}
+	if !data.Authorized {
+		s.nativePageEntry(w, r, store.OAuthLogin{RepositorySettingsReturn: true, RepositoryID: id})
+		return
 	}
 	if writePageTemplate(w, repositorySpacesTemplate, data, http.StatusOK) != nil {
 		http.Error(w, "Cannot render settings.", 500)

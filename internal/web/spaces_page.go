@@ -13,6 +13,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 //go:embed templates/spaces.html
@@ -74,6 +75,10 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 			status = 503
 			data.Message = "Soda session storage is unavailable. No workspace was inferred."
 		}
+	}
+	if !data.Authorized && status == http.StatusOK {
+		s.nativePageEntry(w, r, store.OAuthLogin{SpacesReturn: true})
+		return
 	}
 	if writePageTemplate(w, spacesTemplate, data, status) != nil {
 		http.Error(w, "Could not render Spaces.", 500)

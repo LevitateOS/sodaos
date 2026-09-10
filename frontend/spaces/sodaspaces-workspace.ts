@@ -223,6 +223,7 @@ export class SodaSpaces extends LitElement {
     };
     this.factory = factory;
     this.storageKey = 'soda-spaces:v2:' + context.expectedUserId;
+    window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal
     });
@@ -251,11 +252,7 @@ export class SodaSpaces extends LitElement {
     this.addEventListener('soda-project-changed', e => {
       if (!(e instanceof CustomEvent))
         return;
-      const value = object(e.detail);
-      if (value.logout)
-        this.invalidate();
-      else
-        void this.refresh();
+      void this.refresh();
     });
   }
   disconnectedCallback() {

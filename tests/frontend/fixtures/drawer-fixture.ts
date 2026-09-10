@@ -19,6 +19,7 @@ function createFixture(extra: Partial<State> = {}) {
     if (method !== 'GET') {
       const input: unknown = JSON.parse(encoded || '{}');
       if (!input || typeof input !== 'object') throw Error('invalid fixture action');
+      if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
       if (url.endsWith('/api/session/logout')) return new Response(null, {status: 204});
       if (url.endsWith('/api/environments')) body = {id: environmentID, repository_id: '7', provisioned: true, profile: fixtureProfile};
       else if (url.endsWith('/join')) body = {login: 'alice'};
@@ -26,7 +27,8 @@ function createFixture(extra: Partial<State> = {}) {
       else if (url.endsWith('/access-keys')) body = {applied: true, login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: 'saved_fingerprints' in input ? input.saved_fingerprints : null};
       else if (method === 'DELETE') body = {removed: true, existing_project_access_changed: false};
       else body = {items: []};
-    } else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
+    } else if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
+    else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
     else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
     else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
     else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};

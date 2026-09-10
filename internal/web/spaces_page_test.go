@@ -35,6 +35,9 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			s.ServeHTTP(w, r)
 			body := w.Body.String()
 			expected := 200
+			if mode == "anonymous" {
+				expected = 303
+			}
 			if mode == "mismatch" || mode == "unavailable" {
 				expected = 503
 			}
@@ -47,9 +50,10 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			if mode == "anonymous" && calls != 0 {
 				t.Fatal("anonymous page contacted provider")
 			}
-			if mode == "anonymous" && (!strings.Contains(body, "For local runner settings, connect as the configured Soda operator.") || !strings.Contains(body, "destination=spaces")) {
-				t.Fatal("missing explicit first-use route to operator settings")
+			if mode == "anonymous" && !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Dspaces") {
+				t.Fatal("missing native entry")
 			}
+
 			if mode == "authorized" && !strings.Contains(body, s.Config.ForgejoURL+"/-/soda/settings/runners") {
 				t.Fatal("configured operator has no settings destination")
 			}

@@ -1,3 +1,4 @@
+import {signOut} from './soda-connection.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
@@ -156,6 +157,7 @@ export class SodaProjectControls extends LitElement {
     this.binding = {
       ...context
     };
+    window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal
     });
@@ -240,7 +242,7 @@ export class SodaProjectControls extends LitElement {
         if (!this.disposed && event.currentTarget instanceof HTMLElement && !event.currentTarget.closest('[hidden], [inert]'))
           window.location.reload();
       },
-      logout: event => this.command(event, () => this.mutate('/api/session/logout', {}, 'Signed out of Soda.'), true),
+      logout: event => this.command(event, () => signOut(this.session?.user.id || ''), true),
       create: event => this.command(event, () => this.mutate('/api/environments', {
         repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile
       }, 'Environment created. Explicitly Join for a browser terminal; external SSH keys are optional. Creation does not join you.')),
@@ -317,7 +319,7 @@ export class SodaProjectControls extends LitElement {
   }
   private async api(path: string, method = 'GET', body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const headers: Record<string, string> = {};
-    const actor = method === 'POST' && path === '/api/session/logout' ? this.session?.user.id : this.binding?.expectedUserId;
+    const actor = this.binding?.expectedUserId;
     if (path !== '/api/session' && actor)
       headers['X-Soda-Expected-User-ID'] = actor;
     if (method !== 'GET') {
@@ -450,7 +452,7 @@ export class SodaProjectControls extends LitElement {
     }
   }
   private async mutate(path: string, body: Record<string, unknown>, message: string, method = 'POST') {
-    if (this.busy || this.stale || this.disposed || (this.uncertain && path !== '/api/session/logout') || !this.session)
+    if (this.busy || this.stale || this.disposed || this.uncertain || !this.session)
       return;
     const n = this.epoch;
     this.busy = true;
@@ -462,13 +464,11 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n))
         return;
       check(current.user.id === this.session.user.id && current.csrf_token === this.session.csrf_token && current.forgejo_url === location.origin);
-      if (path !== '/api/session/logout') {
-        check(current.user.id === this.binding?.expectedUserId);
-        const provider = object(await this.api('/api/forgejo/me', 'GET', undefined, controller.signal));
-        if (!this.active(n))
-          return;
-        check(provider.id === this.binding?.expectedUserId);
-      }
+      check(current.user.id === this.binding?.expectedUserId);
+      const provider = object(await this.api('/api/forgejo/me', 'GET', undefined, controller.signal));
+      if (!this.active(n))
+        return;
+      check(provider.id === this.binding?.expectedUserId);
       dispatched = true;
       this.outcome = 'Request dispatched. Closing does not cancel or undo native work.';
       const raw = await this.api(path, method, body, controller.signal), result = raw === null ? null : object(raw);
@@ -490,19 +490,12 @@ export class SodaProjectControls extends LitElement {
         const publicKey = body.public_key;
         check(keys.some(k => k.public_key?.trim().split(/\s+/).slice(0, 2).join(' ') === publicKey.trim().split(/\s+/).slice(0, 2).join(' ')));
       }
-      else if (path === '/api/session/logout')
-        check(result === null);
       this.outcome = message;
       this.dispatchEvent(new CustomEvent('soda-project-changed', {
         bubbles: true, detail: {
-          repositoryId: this.binding?.repositoryId, logout: path === '/api/session/logout'
+          repositoryId: this.binding?.repositoryId
         }
       }));
-      if (path === '/api/session/logout') {
-        this.invalidate();
-        this.status = 'Signed out of Soda, not Forgejo or Linux. Reload to connect again.';
-        return;
-      }
       this.busy = false;
       await this.refresh();
     }

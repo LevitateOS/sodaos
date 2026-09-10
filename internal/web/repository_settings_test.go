@@ -36,7 +36,7 @@ func TestRepositorySettingsUsesFreshStableIdentityAndSharedControls(t *testing.T
 	route := config.SodaPath + "/repositories/7/settings/spaces"
 	anonymous := httptest.NewRecorder()
 	s.ServeHTTP(anonymous, httptest.NewRequest("GET", route, nil))
-	if anonymous.Code != 200 || !strings.Contains(anonymous.Body.String(), "destination=repository-spaces&amp;repository_id=7") || strings.Contains(anonymous.Body.String(), "data-actor") {
+	if anonymous.Code != 303 || !strings.Contains(anonymous.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Drepository-spaces%26repository_id%3D7") || strings.Contains(anonymous.Body.String(), "data-actor") {
 		t.Fatal(anonymous.Code, anonymous.Body.String())
 	}
 	for _, suffix := range []string{"?repository_id=8", "?", "/../spaces"} {

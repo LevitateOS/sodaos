@@ -77,6 +77,10 @@ func (s *Server) runnersPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if !data.Authorized && status == http.StatusOK {
+		s.nativePageEntry(w, r, store.OAuthLogin{SettingsReturn: "runners"})
+		return
+	}
 	if writePageTemplate(w, runnersTemplate, data, status) != nil {
 		http.Error(w, "Cannot render settings.", 500)
 		return

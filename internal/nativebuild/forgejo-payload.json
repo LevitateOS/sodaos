@@ -389,5 +389,6 @@
   "templates/user/settings/security/webauthn.tmpl": "appliance/forgejo/templates/user/settings/security/webauthn.tmpl",
   "templates/user/settings/storage_overview.tmpl": "appliance/forgejo/templates/user/settings/storage_overview.tmpl",
   "templates/webhook/new.tmpl": "appliance/forgejo/templates/webhook/new.tmpl",
-  "templates/webhook/shared-settings.tmpl": "appliance/forgejo/templates/webhook/shared-settings.tmpl"
+  "templates/webhook/shared-settings.tmpl": "appliance/forgejo/templates/webhook/shared-settings.tmpl",
+  "public/assets/soda-connection.js": "@build/forgejo-js/soda-connection.js"
 }

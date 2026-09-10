@@ -42,9 +42,9 @@ checking and typed composition before further UI expansion.
 The subsequent [native page integration plan](forgejo-soda-pages-plan.md) replaces
 the separate Spaces, Runners and repository Spaces HTML shells with selected views
 of Forgejo's existing dashboard. Forgejo renders the actual header/profile menus;
-Soda retains protected content/APIs and its OAuth context. Automatic entry connection
-and coordinated profile-menu logout are planned, not implemented or atomic shared
-authentication. This supersedes the separate-shell recommendation without changing
+Soda retains protected content/APIs and its OAuth context. Automatic native-page entry connection and coordinated profile-menu logout now
+have local implementation and real Forgejo browser proof. This is coordinated
+browser behavior, not atomic shared authentication. This supersedes the separate-shell recommendation without changing
 the existing management pages or their recorded evidence. Step 1 now provides
 minimal native page hosts with local Forgejo browser proof; their links still open
 the current protected pages. The full page-body migration remains later work.

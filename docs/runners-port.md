@@ -14,8 +14,8 @@ reuse the existing controls, API and native bridge.
 **Subsequent integration request:** the [native page integration plan](forgejo-soda-pages-plan.md)
 now owns moving this page body into Forgejo's real header/profile shell, naming its
 operator navigation link Runners, automatic connection on initial entry and
-coordinated normal logout. Only the minimal native page host now has implementation
-and local browser proof; the full runner controls still use their current page.
+coordinated normal logout. Native page hosts and shared connection/logout now have local implementation
+and browser proof; the full runner controls still use their current page.
 The plan supersedes
 the separate HTML placement and explicit-only connection guidance below; the
 completed presentation/lifetime slice remains historical evidence. Native/provider
@@ -28,7 +28,8 @@ is authoritative for dividing these two implementation lanes. **This lane owns
 runner operation correctness, native/provider parity, paired management delivery
 and Cockpit retirement—not native page hosting, navigation, OAuth/connection,
 coordinated logout, shell migration or their browser/payload fixture ports.**
-The Soda-pages agent is reported to be working on step 2. Do not edit its shared
+The Soda-pages lane has implemented step 2 with local proof; its shared files
+remain reserved until the explicit source handoff. Do not edit its shared
 session/OAuth/store work or implement a competing runner-specific flow.
 
 Step 1 below is a completed historical slice, not an active UI assignment.

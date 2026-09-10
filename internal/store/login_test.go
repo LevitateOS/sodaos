@@ -8,6 +8,63 @@ import (
 	"time"
 )
 
+func TestV9PreservesPendingCancellationAndExistingGrant(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v8.db")
+	key := bytes.Repeat([]byte{8}, 32)
+	s, err := OpenEncrypted(path, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	if err = s.UpsertUser(ctx, User{ID: 1, Login: "alice", Name: "Keep"}); err != nil {
+		t.Fatal(err)
+	}
+	grant := Grant{Access: "fixture-access", Refresh: "fixture-refresh", Scopes: "read:user", Expires: time.Now().Add(time.Hour).Unix()}
+	if err = s.CreateGrantedSession(ctx, "existing", 1, "existing-csrf", grant); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.BeginOAuth(ctx, "pending", OAuthLogin{Verifier: "keep-verifier", SpacesReturn: true}, "existing", ""); err != nil {
+		t.Fatal(err)
+	}
+	before, err := s.Session(ctx, "existing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Remove only the v9 additions from this synthetic database. Existing v8
+	// session/grant/pending rows must survive the actual upgrade on reopen.
+	if _, err = s.db.Exec(`DROP INDEX login_context_oauth_cookie; ALTER TABLE login_contexts DROP COLUMN oauth_cookie; UPDATE schema_version SET version=8;`); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	s, err = OpenEncrypted(path, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	after, err := s.Session(ctx, "existing")
+	if err != nil || before != after {
+		t.Fatal("session changed", err)
+	}
+	kept, err := s.Grant(ctx, "existing", 1)
+	if err != nil || kept != grant {
+		t.Fatal("grant changed", err)
+	}
+	id, actor, err := s.OAuthCancellationContext(ctx, "pending")
+	if err != nil || id != before.ContextID || actor != 1 {
+		t.Fatal("pending context lost", err)
+	}
+	a, err := s.ConsumeOAuth(ctx, "pending", "existing")
+	if err != nil || a.Verifier != "keep-verifier" || !a.SpacesReturn {
+		t.Fatal("transaction changed", err)
+	}
+	if err = s.EndLoginContext(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if s.FinishOAuth(ctx, a, User{ID: 1, Login: "alice"}, "late", "csrf", grant) == nil {
+		t.Fatal("cancelled migrated callback committed")
+	}
+}
+
 func TestLoginCancellationSupersessionAndAtomicFailure(t *testing.T) {
 	for _, mode := range []string{"logout", "superseded", "expired", "transaction failure", "success"} {
 		t.Run(mode, func(t *testing.T) {

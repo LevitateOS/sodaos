@@ -256,7 +256,7 @@ test('unknown mutation outcome blocks replay, not safe refresh or logout', async
   await page.evaluate(() => window.drawerFixture.setReply(async call => call.method === 'POST' && call.url.endsWith('/api/environments') ? new Response(null, {status: 502}) : null));
   await refresh(page); await click(page, 'Create environment'); await refresh(page);
   assert.equal(await page.locator('[data-control=create]').isDisabled(), true); assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
-  await click(page, 'Sign out of Soda'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
+  await click(page, 'Sign out'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
 });
 test('stale project controls cannot refresh/replay on focus', async t => {
   const page = await fixture(t); await refresh(page);

@@ -1,3 +1,4 @@
+import {signOut, connectionSuppressed} from '../spaces/soda-connection.js';
 import {LitElement, html} from 'lit';
 import {id, object, readSodaJSON, sessionResponse} from '../spaces/sodaspaces-api.js';
 import {decodeRunnerResponse} from './soda-runner-response.js';
@@ -10,7 +11,6 @@ const effects: Record<LifecycleAction, string> = {
   remove: 'Permanently remove this local Linux account, provider credentials, dependencies, work files and uncommitted job changes. Provider registration and history remain. There is no rollback.',
 };
 const unconfirmed = 'Operation unconfirmed: local account, files or listener may have changed. Inspect local and Forgejo state before retrying. Refresh does not confirm the operation; no automatic retry or rollback occurred.';
-const logoutUnconfirmed = 'Soda sign-out unconfirmed. Refresh authorization or try signing out again. Native Forgejo sign-out is separate.';
 
 class RunnerRequestError extends Error {
   constructor(readonly status: number) {super('Runner request rejected');}
@@ -32,7 +32,7 @@ class SodaRunners extends LitElement {
   // One controller is both the current document/element lifetime and its request
   // generation. An abort is not proof that a dispatched native effect stopped.
   private lifetime: AbortController | null = null;
-  private operation: {kind: 'runner' | 'logout'; sent: boolean} | null = null;
+  private operation: {kind: 'runner'; sent: boolean} | null = null;
   private confirmationTrigger: HTMLButtonElement | null = null;
   private dirty = false;
   private readonly beforeDeparture = (event: BeforeUnloadEvent) => {
@@ -61,6 +61,7 @@ class SodaRunners extends LitElement {
     if (!this.actor) this.actor = this.dataset.actor || '';
     window.addEventListener('beforeunload', this.beforeDeparture);
     window.addEventListener('pagehide', this.pageHidden);
+    window.addEventListener('soda-session-retired', this.pageHidden);
     window.addEventListener('pageshow', this.pageShown);
     document.addEventListener('visibilitychange', this.visibilityChanged);
     this.resume();
@@ -69,6 +70,7 @@ class SodaRunners extends LitElement {
     this.retire();
     window.removeEventListener('beforeunload', this.beforeDeparture);
     window.removeEventListener('pagehide', this.pageHidden);
+    window.removeEventListener('soda-session-retired', this.pageHidden);
     window.removeEventListener('pageshow', this.pageShown);
     document.removeEventListener('visibilitychange', this.visibilityChanged);
     super.disconnectedCallback();
@@ -88,8 +90,7 @@ class SodaRunners extends LitElement {
     this.lifetime = null;
     if (this.operation?.kind === 'runner') {
       this.notice = this.operation.sent ? unconfirmed : 'Operation was not sent. Check authorization and refresh before trying again.';
-    } else if (this.operation?.kind === 'logout') {
-      this.notice = this.operation.sent ? logoutUnconfirmed : 'Soda sign-out was not sent. Try signing out again.';
+
     }
     this.operation = null;
     this.pending = null;
@@ -100,7 +101,7 @@ class SodaRunners extends LitElement {
     this.message = 'Refresh authorization before managing runners.';
   }
   private resume() {
-    if (this.lifetime || !this.isConnected) return;
+    if (this.lifetime || !this.isConnected || connectionSuppressed()) return;
     this.lifetime = new AbortController();
     this.clearToken(); // Also discard a password restored by browser form history.
     void this.refresh();
@@ -273,35 +274,9 @@ class SodaRunners extends LitElement {
     void this.mutate(`/${runner}/${action}`, JSON.stringify({confirm_id: runner}));
   }
   private async logout() {
-    const lifetime = this.lifetime;
-    if (this.busy || !this.current(lifetime)) return;
-    this.busy = true;
-    this.clearToken();
-    this.pending = null;
+    if (this.busy || !this.current(this.lifetime)) return;
     this.dirty = false;
-    this.operation = {kind: 'logout', sent: false};
-    try {
-      const session = await this.session(lifetime, false);
-      this.requireCurrent(lifetime);
-      this.operation = {kind: 'logout', sent: true};
-      const ended = await fetch('/-/soda/api/session/logout', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token, 'X-Soda-Expected-User-ID': this.actor},
-        body: '{}', signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(15000)]),
-      });
-      this.requireCurrent(lifetime);
-      if (ended.status !== 204) {await ended.body?.cancel(); throw Error('Logout unconfirmed');}
-      this.operation = null;
-      this.retire();
-      location.reload();
-    } catch {
-      if (this.current(lifetime)) {
-        this.operation = null;
-        this.authorizationLost();
-        this.notice = logoutUnconfirmed;
-        this.busy = false;
-      }
-    }
+    await signOut(this.actor);
   }
 
   private runnerView(row: Runner, disabled: boolean) {
@@ -358,7 +333,7 @@ class SodaRunners extends LitElement {
     return html`
       <div class="settings-actions">
         <button type="button" ?disabled=${this.busy || !this.lifetime} @click=${() => void this.refresh()}>Refresh status</button>
-        <button type="button" ?disabled=${this.busy || !this.lifetime} @click=${() => void this.logout()}>Sign out of Soda</button>
+        <button type="button" ?disabled=${this.busy || !this.lifetime} @click=${() => void this.logout()}>Sign out</button>
       </div>
       <p role="status">${this.message}</p>
       ${this.notice ? html`<p role="status" class="settings-notice">${this.notice}</p>` : ''}

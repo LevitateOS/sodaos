@@ -38,7 +38,7 @@ func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, 
 		err = tx.QueryRowContext(ctx, `SELECT context_id FROM sessions WHERE token=? AND expires>?`, hash(session), now).Scan(&id)
 	case previous != "":
 		// pending remains available even after the earlier callback claimed its state.
-		err = tx.QueryRowContext(ctx, `SELECT id FROM login_contexts WHERE pending=? AND expires>?`, hash(previous), now).Scan(&id)
+		err = tx.QueryRowContext(ctx, `SELECT id FROM login_contexts WHERE oauth_cookie=? AND expires>?`, hash(previous), now).Scan(&id)
 	default:
 		id = hash(state)
 		_, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, id, expires)
@@ -52,7 +52,7 @@ func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, 
 	if _, err = tx.ExecContext(ctx, `DELETE FROM oauth WHERE context_id=?`, id); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE login_contexts SET pending=? WHERE id=?`, hash(state), id); err != nil {
+	if _, err = tx.ExecContext(ctx, `UPDATE login_contexts SET pending=?,oauth_cookie=? WHERE id=?`, hash(state), hash(state), id); err != nil {
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return) VALUES(?,?,?,?,?,?,?,?,?)`, hash(state), login.Verifier, expires, login.RepositoryID, login.ExpectedUserID, id, login.SpacesReturn, login.SettingsReturn, login.RepositorySettingsReturn)
@@ -131,4 +131,13 @@ func (s *Store) FinishOAuth(ctx context.Context, a OAuthAttempt, user User, sess
 		return err
 	}
 	return tx.Commit()
+}
+
+// OAuthCancellationContext retains only the latest cookie association through
+// callback completion. It never authenticates an API request.
+func (s *Store) OAuthCancellationContext(ctx context.Context, cookie string) (string, int64, error) {
+	var id string
+	var actor int64
+	err := s.db.QueryRowContext(ctx, `SELECT c.id,COALESCE(s.user_id,0) FROM login_contexts c LEFT JOIN sessions s ON s.context_id=c.id WHERE c.oauth_cookie=? AND c.expires>?`, hash(cookie), time.Now().Unix()).Scan(&id, &actor)
+	return id, actor, err
 }

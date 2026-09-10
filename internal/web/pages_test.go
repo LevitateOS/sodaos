@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +28,7 @@ func TestPageGuardsCSPAndBufferedRendering(t *testing.T) {
 					r := apiTestRequest("GET", page.path, "", "")
 					origin, storage := s.Config.ForgejoURL, s.Store
 					t.Cleanup(func() { s.Config.ForgejoURL, s.Store = origin, storage })
-					status := 200
+					status := 303
 					switch mode {
 					case "expired":
 						r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "expired"})
@@ -73,7 +74,14 @@ func TestPageGuardsCSPAndBufferedRendering(t *testing.T) {
 					"fail": func() (string, error) { return "", errors.New("private-render-detail") },
 				}).Parse(`partial-authorized-html{{fail}}`))
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, apiTestRequest("GET", page.path, "", ""))
+				renderServer := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Path == "/api/v1/user" {
+						fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+					} else {
+						fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"},"permissions":{"admin":true}}`)
+					}
+				})
+				renderServer.ServeHTTP(w, apiTestRequest("GET", page.path, "", "alice"))
 				if w.Code != 500 || w.Body.String() != page.renderError+"\n" || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
 					t.Fatal("partial HTML or internal render error escaped", w.Code, w.Body.String())
 				}

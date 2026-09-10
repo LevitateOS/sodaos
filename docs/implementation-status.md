@@ -1,5 +1,70 @@
 # Current handoff
 
+
+## Native Soda page connection and logout — step 2
+
+Implemented the shared native-entry/OAuth/logout contract in
+[the Soda-pages plan](forgejo-soda-pages-plan.md). Matching Soda sessions are reused;
+initial native-page entry starts at most one marked OAuth attempt. Named callbacks
+verify actual required scopes and return to fixed native views, with stable failure
+and explicit Retry/Back. Unsigned/expired legacy Spaces, Runners and repository
+settings URLs now establish native login before connection. Their authenticated
+management bodies remain in the existing Go shells until the next page port.
+
+Schema v9 adds the latest OAuth-cookie hash to the existing login context and
+preserves populated-v8 session/grant/pending state. Same-origin, cookie/CSRF-bound
+cancellation refuses ambiguity, rotation and foreign authenticated contexts, and
+ends pending/completed callbacks with the existing terminal lock/stream cancellation.
+The short-lived OAuth cookie survives callback completion; successful cancellation
+expires both Soda cookies. Late cookies cannot authenticate a deleted context.
+
+One shared browser coordinator captures the native menu before its POST listener,
+retires requests/credentials/attachment attempts and then permits the original
+Forgejo action once. Existing component sign-out buttons use it too; their current
+standalone documents offer a native continuation after Soda cancellation because
+they do not contain Forgejo's menu. Explicit native-only escape and the opposite
+partial outcome remain labelled. Storage notices are UI signals, not authority;
+pagehide aborts undispatched continuations. No native notification transport,
+provider grant revocation, runner semantics or project lifecycle behavior was added.
+
+Local checks passed: strict TypeScript/Lit; complete frontend/page/layout/Forgejo/
+Cockpit suites (319 passes, 35 separately gated skips); Go store/web/template tests;
+store/web race tests including populated-v8 migration, cancellation before/after
+callback completion, late cookies, cookie rotation, foreign actors and request
+protection; and all four canonical payload checks. The expected negative catalog
+check prints an error inside that passing payload suite. The full native build,
+installed/provider runner journeys and appliance rollout were not run.
+
+Real Forgejo 15.0.7 authentication passed separately using the authorized local
+`soda-screenshot` account through normal native login, a fixture-owned OAuth client,
+fresh retained Soda database and a browser-scoped loopback TLS proxy. Actual native
+HTML/scripts and OAuth handlers supplied consent, decline/retry, repeat confidential
+consent reuse, unchanged sessions across all three native hosts and keyboard menu
+sign-out. Both partial outcomes passed with narrowly injected logout transport
+failures; OAuth remained real. This is local authentication proof, not production
+proxy delivery, native terminal process proof or runner/provider parity.
+
+Evidence: final real fixture `.artifacts/step2-native-connection-04/` and
+`.artifacts/step2-native-final.log`; source/check manifest
+`.artifacts/forgejo-connection-step2/`; full frontend log
+`.artifacts/step2-frontend-full-third.log`; final race/typecheck/payload logs use the
+`step2-` prefix. Fixtures 01–04 and their OAuth applications, credentials, databases
+and failures are retained. The first browser run exposed stale cookies after
+cancellation; the second exposed native double-navigation timing in the browser
+assertion. Both were corrected and rerun. An early default Go-cache access failure
+was resolved by using a workspace-owned cache. No retained VM, existing project,
+runner service, fixture profile or appliance installation was changed.
+
+Next is step 3: port all three page bodies. Shared UI/auth/page/test files remain
+reserved to the Soda-pages lane until its explicit source handoff; the other lane
+owns runner backend/native/provider completion. Native-only logout, missed/offline
+browser events and a first login cookie not yet received remain non-atomic limits.
+Delivery must also invalidate cached entry/transitive modules (the inspected stock
+asset cache lasts six hours); packaging/cache delivery remains step 5. The standalone
+read-only native-host browser test was adapted for missing-backend failure, but was
+not rerun against its separate preview; the real authentication fixture supplied
+current emitted assets and all-three-host reuse proof.
+
 ## Soda-pages and runner completion — separate implementation lanes
 
 At the user's request, the [single ownership table and handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)

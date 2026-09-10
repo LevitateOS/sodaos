@@ -1,7 +1,7 @@
 # Integrate Soda pages into native Forgejo
 
-**Status, 10 September 2026: step 1 is implemented and has local stock-Forgejo
-browser proof. Steps 2–6 remain.** The original plan used source baseline `f3efebc`;
+**Status, 10 September 2026: steps 1–2 are implemented and have local stock-Forgejo
+browser proof. Steps 3–6 remain.** The original plan used source baseline `f3efebc`;
 step 1 follows planning commit `a995f9e`. Its three bodies are read-only entry
 scaffolds, not the migrated management pages. No appliance delivery is claimed.
 
@@ -21,9 +21,9 @@ new environment profiles and additional runner functionality are not added here.
 
 **This is the single ownership boundary for this plan and
 [runners-port](runners-port.md#implementation-lane-boundary).** They are separate
-implementation lanes, not two agents completing the same runner page. The user
-reports the Soda-pages agent is working on step 2; that is an active assignment,
-not a claim that step 2 has passed. Runner work must not edit that implementation.
+implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented step 2 with local authentication/browser
+proof. Shared files remain reserved through the source handoff below; runner work
+must not independently edit that implementation.
 
 | Work | Sole implementation owner | Other lane's responsibility |
 | --- | --- | --- |
@@ -332,7 +332,42 @@ candidate instead of silently restoring separate shells or forking Forgejo.
 
 ### Step 2 — implement the shared connection and sign-out flow
 
-**Assigned to the Soda-pages lane; reported in progress, not yet accepted.**
+**Implemented with local handler/store, emitted-browser and real Forgejo proof.**
+The shared `soda-connection` module reuses matching sessions and makes one marked
+initial-entry attempt. Failures remain in the native host with explicit Retry/Back;
+focus, polling and generic API failures never start OAuth. Unsigned legacy entries
+now go through native login with a fixed destination. Authenticated legacy bodies
+remain until step 3 and final bridges/shell deletion in step 4.
+
+Schema v9 retains the latest OAuth-cookie hash on its existing login context.
+Same-origin cancellation bootstrap/POST handles pending and completed callbacks,
+checks the expected actor when a session exists, and shares the terminal lock and
+context cancellation. The short-lived OAuth cookie remains through callback success;
+confirmed cancellation expires both Soda cookies. Callback/rotation failures do not
+restore revoked database authority, even if a response sets a cookie late.
+
+Native menu capture permits one original Forgejo activation after cancellation.
+Existing Soda controls use the same coordinator; until their bodies move into
+Forgejo, their completed Soda sign-out offers a native continuation because their
+old document has no native menu to activate. Local storage carries only retirement
+signals; pagehide aborts undispatched logout continuations. No native notification
+transport or replacement Forgejo logout implementation was added.
+
+Real proof uses the authorized local fixture account, fixture-owned OAuth apps,
+fresh retained Soda databases and a browser-scoped loopback TLS proxy to stock
+Forgejo 15.0.7. Consent/decline, repeat consent reuse, all three hosts preserving a
+session, keyboard menu logout and both partial outcomes passed. Logout failures
+were injected at the browser transport; provider authentication remained real.
+See the leading handoff for final checks and evidence. This is not appliance delivery
+or native runner/terminal process proof.
+
+The documented non-atomic limit remains: a cancellation request can resolve only
+cookies already supplied by that browser. A brand-new login response whose first
+cookie has not arrived is not an identifiable context for this endpoint. Late cookies
+for a context already cancelled cannot authenticate. Blocked storage/missed events
+also cannot provide cross-tab revocation; backend authorization remains mandatory.
+
+The implemented step follows this contract:
 Implement the contract above in the existing API/store/OAuth owners and one narrow
 native integration module. Preserve existing session lifetime and terminal
 correlation. Return only to the fixed native views. Adapt the profile-menu action
@@ -389,6 +424,12 @@ header/account UI or stale full-page bootstrap remains. No runner/provider/root
 state changes occur as a consequence of opening or redirecting a page.
 
 ### Step 5 — validate the complete source and packaged candidate
+
+**Delivery cache check:** the local stock asset response currently uses a six-hour
+private cache. Version changed entry modules and their transitive Soda imports as
+part of this packaging step; a fresh-browser source check alone is not evidence
+that an already-open/cached client has received the new logout/retirement code.
+
 
 Adapt the existing owners instead of adding a second test runner:
 

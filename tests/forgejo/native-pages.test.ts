@@ -11,6 +11,9 @@ const origin = 'http://localhost:3300';
 
 // Uses actual Forgejo HTML, scripts, authentication and assets. No response mocks,
 // provider/project operations, cookie borrowing or native-header fixtures.
+// Prepare current canonical preview assets first. Without a Soda backend, the
+// native host must show stable connection failure; the separate connection journey
+// supplies real Soda/OAuth proof.
 test('native Forgejo hosts all three bounded Soda views', {
   skip: process.env.SODA_FORGEJO_NATIVE_PAGES !== '1',
   timeout: 120000,
@@ -60,11 +63,11 @@ test('native Forgejo hosts all three bounded Soda views', {
       assert.equal(response?.headers()['content-security-policy'], baselinePolicy, 'Soda must not replace native document policy');
       assert.equal(await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content'), revision);
       const mount = page.locator('#soda-native-content');
-      await mount.locator('a.ui.button').waitFor();
+      await mount.getByRole('button', {name: 'Retry connection'}).waitFor();
       assert((await page.title()).startsWith(view.title + ' - '));
       assert.equal(await mount.getAttribute('data-actor'), nativeActor);
       assert.equal(await mount.getAttribute('data-repository-id'), view.repository);
-      assert.equal(await mount.locator('a.ui.button').getAttribute('href'), view.destination);
+      assert.equal(await mount.getAttribute('data-destination'), view.destination);
       assert.equal(await page.locator('main,[role=main]').count(), 1);
       assert.equal(await page.locator('#sodaspaces-root,.soda-dashboard,.soda-workspace,soda-runners').count(), 0);
       assert.equal(await page.locator('.soda-native-page form').count(), 0, 'Step 1 mounts no privileged controls');
@@ -158,7 +161,7 @@ test('native login returns guests to Soda views and native logout still works', 
   } catch { throw new Error('Could not fill the authorized fixture login form'); }
   await page.locator('form[action="/user/login"] button.ui.primary').click();
   await page.waitForURL(origin + destination);
-  await page.locator('#soda-native-content a.ui.button').waitFor();
+  await page.locator('#soda-native-content').getByRole('button', {name: 'Retry connection'}).waitFor();
   for (const query of ['?soda-view=runners', '?soda-view=repository-spaces&repository_id=1']) {
     await page.goto(`${origin}/user/login?redirect_to=${encodeURIComponent('/' + query)}`);
     assert.equal(page.url(), origin + '/' + query);
@@ -178,6 +181,8 @@ test('native login returns guests to Soda views and native logout still works', 
   await profile.locator('summary').click();
   const response = page.waitForResponse(value => new URL(value.url()).pathname === '/user/logout' && value.request().method() === 'POST');
   await profile.locator('a[data-url="/user/logout"]').click();
+  // This read-only preview has no Soda backend: choose the explicit native-only escape.
+  await page.getByRole('button', {name: 'Sign out of Forgejo only'}).click();
   assert.equal((await response).status(), 200);
   await page.waitForURL(origin + '/');
   assert.equal(await page.locator('#soda-settings-link,#soda-native-content').count(), 0);

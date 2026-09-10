@@ -33,6 +33,9 @@ ALTER TABLE oauth ADD COLUMN context_id TEXT REFERENCES login_contexts(id) ON DE
 	`ALTER TABLE projects ADD COLUMN creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile)));
 CREATE TRIGGER immutable_creation_profile BEFORE UPDATE OF creation_profile ON projects BEGIN SELECT RAISE(ABORT,'creation profile is immutable'); END;
 ALTER TABLE oauth ADD COLUMN repository_settings_return INTEGER NOT NULL DEFAULT 0 CHECK(repository_settings_return IN(0,1) AND (repository_settings_return=0 OR (repository_id>0 AND spaces_return=0 AND settings_return='')));`,
+	`ALTER TABLE login_contexts ADD COLUMN oauth_cookie TEXT;
+CREATE UNIQUE INDEX login_context_oauth_cookie ON login_contexts(oauth_cookie);
+UPDATE login_contexts SET oauth_cookie=pending;`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
@@ -89,7 +92,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT token,user_id,csrf,expires,context_id FROM sessions LIMIT 0`,
 		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return FROM oauth LIMIT 0`,
-		`SELECT id,pending,expires FROM login_contexts LIMIT 0`,
+		`SELECT id,pending,expires,oauth_cookie FROM login_contexts LIMIT 0`,
 		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
 		`SELECT session_token,ciphertext FROM session_grants LIMIT 0`,
 	} {

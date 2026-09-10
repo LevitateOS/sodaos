@@ -250,3 +250,20 @@ login or refresh can invalidate an older refresh token when upstream invalidatio
 is enabled. The affected Soda session reauthenticates; no credential sharing or
 upstream setting change hides this limitation. Local sign-out deletes the local
 grant only; native Git/Forgejo/SSH authority and access lifetimes remain separate.
+
+
+## Schema v9: pending OAuth cancellation
+
+The append-only migration adds `login_contexts.oauth_cookie` with a unique index,
+backfilling current pending hashes. It retains only the latest transaction's hash
+through callback completion; it is not API authentication. Existing sessions, grants,
+CSRF values, keys, projects and memberships retain their values. The callback's
+short-lived cookie remains available for cancellation until expiry; confirmed
+cancellation expires both Soda cookies. Cookie arrival ordering cannot resurrect a
+deleted context. Unknown/rotated contexts fail closed.
+
+Local populated-v8 preservation and callback-before/after cancellation tests cover
+this change. Pre-v9 binaries reject v9; rollback still requires the matching prior
+DB/key/config/artifacts. No retained appliance database was migrated by this source
+step. The real-browser fixture uses its own fresh database and fixture OAuth client;
+this is not delivery or permission to change an installed target.

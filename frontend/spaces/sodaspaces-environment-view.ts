@@ -62,7 +62,7 @@ export function renderEnvironment(view: EnvironmentPresentation, commands: Envir
       <button data-control="reload" type="button" class="ui basic button" ?hidden=${!view.stale}
         @click=${commands.reload}>Reload repository page</button>
       <button data-control="sign-out" type="button" class="ui basic button" ?hidden=${!view.signedIn}
-        ?disabled=${view.busy || view.stale || !view.signedIn} @click=${commands.logout}>Sign out of Soda</button>
+        ?disabled=${view.busy || view.stale || !view.signedIn} @click=${commands.logout}>Sign out</button>
       <button data-control="create" type="button" class="ui primary button" ?hidden=${!view.canCreate}
         ?disabled=${view.blocked} @click=${commands.create}>Create environment</button>
       <button data-control="join" type="button" class="ui primary button" ?hidden=${!view.canJoin}

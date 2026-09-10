@@ -84,12 +84,16 @@ INSERT INTO oauth(state,verifier,expires,settings_return) VALUES('pending','fixt
 						t.Fatal("unexpected refusal", err)
 					}
 				}
-				if err := db.QueryRow(catalog).Scan(&after); err != nil || after != before {
+				if err := db.QueryRow(catalog).Scan(&after); err != nil || (tc.omit != "" && after != before) {
 					t.Fatal("schema was repaired or changed", err)
 				}
 				var version int
+				expectedVersion := 8
+				if tc.omit == "" {
+					expectedVersion = len(migrations)
+				}
 				var name, ip, login, verifier string
-				if err := db.QueryRow(`SELECT version,users.name,projects.ip,memberships.login,oauth.verifier FROM schema_version,users,projects,memberships,oauth`).Scan(&version, &name, &ip, &login, &verifier); err != nil || version != 8 || name != "Preserve name" || ip != "10.0.0.2" || login != "original-login" || verifier != "fixture-verifier" {
+				if err := db.QueryRow(`SELECT version,users.name,projects.ip,memberships.login,oauth.verifier FROM schema_version,users,projects,memberships,oauth`).Scan(&version, &name, &ip, &login, &verifier); err != nil || version != expectedVersion || name != "Preserve name" || ip != "10.0.0.2" || login != "original-login" || verifier != "fixture-verifier" {
 					t.Fatal("version or retained records changed", err)
 				}
 			}
