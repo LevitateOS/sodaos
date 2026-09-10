@@ -113,6 +113,8 @@ class MediaConfiguration(unittest.TestCase):
         self.assertEqual(loader['mode'], 0o755)
         self.assertTrue(all(set(f['contents']) == {'inline'} for f in files.values()))
         self.assertEqual(files['/etc/motd']['contents']['inline'].splitlines()[0], 'canonical-artwork')
+        self.assertEqual([f['path'] for f in files.values() if f.get('overwrite')], ['/etc/motd'])
+        self.assertIs(files['/etc/motd']['overwrite'], True)
         service = config['systemd']['units'][0]['contents']
         self.assertIn('ExecStart=/usr/local/libexec/soda/load-install-console ' + 'a' * 64, service)
         self.assertIn('RequiresMountsFor=/run/media/iso', service)

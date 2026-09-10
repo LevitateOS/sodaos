@@ -1,5 +1,23 @@
 # Current handoff
 
+## Installer boot debugging — reproduced live Ignition failure
+
+The user reported `ignition-files.service` failure and requested repeated installer
+testing. Their original libvirt domain was observed in the failed live boot, then
+was deleted by the user during diagnosis; no further action targeted that domain.
+A separate named **diskless, networkless** x86_64 KVM test (`soda-installer-boot-test`)
+was started under `.artifacts/installer-vm-FbqpKn/`. QMP inventory confirms only a
+read-only installer CD-ROM and an empty CD-ROM device, with no destination disk.
+No retained Soda VM, project root or provider was touched.
+
+Original `392dd10` reproduced the failure. Emergency-console journal inspection
+identified the exact cause: `/sysroot/etc/motd` already exists and `overwrite` is
+false. Screenshots and the serial capture retain the native error. Source now sets
+`overwrite: true` only for the authored live `/etc/motd`; every other file retains
+its default protection. All 14 focused Python tests passed, including an assertion
+that this is the sole overwrite-enabled live file. Revised-media build/boot proof
+follows separately; this diagnosis is not successful boot or disk-install proof.
+
 ## Authorized local artifact cleanup
 
 The user requested pruning `.artifacts`. Removed only obsolete dependency caches:

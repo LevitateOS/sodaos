@@ -65,7 +65,9 @@ esac
              'contents': {'inline': json.dumps(media)}},
             {'path': '/etc/profile.d/soda-installer.sh', 'mode': 0o644,
              'contents': {'inline': profile}},
-            {'path': '/etc/motd', 'mode': 0o644,
+            # Stock CoreOS already supplies this file. Replace only the live
+            # welcome text, not arbitrary existing provisioning destinations.
+            {'path': '/etc/motd', 'mode': 0o644, 'overwrite': True,
              'contents': {'inline': artwork + '\nSodaOS — CoreOS installation media\n'
                           'Run: sudo /usr/local/libexec/soda/soda-install disk\n'
                           'No disk is selected or erased automatically.\n'}},
