@@ -1,5 +1,58 @@
 # Current handoff
 
+## Step 6c native candidate prepared — `5a21ad6`, not deployed
+
+After the user requested the remainder **including deployment**, native x86_64
+build/check/export preparation completed for
+`5a21ad65033da858caea89de790b1caf553b6cea`. The exact deployment target was asked
+before mutation: isolated `soda-native-spaces-658f2af`, retained `soda-test`, or both
+validation-first. The later “cont” continued preparation but did not select between
+those targets. No deployment, package/project maintenance or installed journey has
+been performed in this continuation. Do not reinterpret an old backup waiver or
+EL9→EL10 root replacement as part of the generic deployment request.
+
+From the new clean worktree under `.artifacts/step6c-5a21ad6-KgP8Eh/`:
+
+- Production `build-native.sh x86_64`, `check-native.sh x86_64`, bundle export and
+  independent exported-bundle verification all exited **0**. Go 1.26.7/Bun 1.4.2,
+  existing locks and verified cached Tea **source**, not historical binaries/stages.
+- Full Go, TS7/analyzer/fixtures (19 sources), frontend **188 /3 gated skips**,
+  actual Go HTML/CSP page **1**, 20 layout cases, Forgejo source **30 /18 optional
+  skips**, Cockpit **60**, all Python build tests **72 /1 opt-in skip**, and all
+  **11 actual-stage packaging tests** passed. The intentional negative locale
+  diagnostic is not a build failure. The skipped installed/stock-browser checks
+  are not acceptance results.
+- Separately, explicit `test:lit` **127** and uncached race web/store/host passed in
+  that same fresh checkout. Its source remained clean. Renderer preparation now
+  works without the development checkout's old vendor cache.
+- Exported `build-info.json` SHA256:
+  `90146bbd23c2e4fed57cffc3e9652fe602597afc6d1e661c1d0506b64d5ed5c3`.
+  Exported `SHA256SUMS` SHA256:
+  `1626199bb757fa8ed070fe6a3b635494e06161a19e2dbc2341d56e8116540ab1`.
+  Establish the selected bundle's identity over a trusted channel before running
+  anything on a target; neither digest is a publication/signature or rollout.
+
+The three preceding build/check attempts and failed logs are retained under
+`.artifacts/step6c-bb8b689-b9rf3H/`, `.artifacts/step6c-6922377-Iuywij/` and
+`.artifacts/step6c-02df448-ugsQT1/`. Corrections below address missing fresh browser
+assets, a metadata-fixture input and local PTY synchronization/inherited signals;
+**they do not fix or pass the historical native tmux framing failure**.
+
+Only pinned-SSH read-only preflight contacted the isolated validation VM: its exact
+original CIDs/accounts/sshd PIDs remain, on Rocky 9.6 with tmux 3.2a; four services
+are active and no managed units were listed. Standard checked CLI binary/auth paths
+contained no Codex/Claude Code/Pi setup; no credential contents were read/copied.
+The native terminal program/project-init are source-identical to `22d8591`, so the
+new image's Rocky 10.2 default is not a reason to replace retained roots. Actual
+installed files still require fresh admission checks before delivery. `soda-test`
+was not contacted. No provider use, account/key/root/network change or push occurred.
+
+Next: select target(s), declare the affected-component interruption and current
+backup/rehearsal, then deliver and run the scoped native matrix/framing/cleanup
+checks. Selected CLI proof additionally needs approved tool setup and restricted
+personal credential inputs; do not infer or borrow them. Native CLI/physical-keyboard,
+state-preserving installed proof and aarch64 remain unverified.
+
 ## Step 6c requested — native preparation and fresh-check correction
 
 The `02df448` build and frontend checks also succeeded, but its detached full check

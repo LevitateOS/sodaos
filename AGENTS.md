@@ -71,6 +71,14 @@ client used management forwarding, not laptop routing. See the leading handoff
 for exact tested bytes, failed probes and the public-mode packaging correction.
 This does not authorize further targets, deletion or a `soda-test` rollout.
 
+The user subsequently requested the remainder of Lit step 6, including deployment.
+Fresh native x86_64 build/check/export passed for `5a21ad6`; artifacts and three
+failed preceding attempts are retained under `.artifacts/step6c-*/`. Read-only
+preflight contacted only the existing isolated validation VM. Deployment target
+selection (isolated VM, `soda-test`, or validation-first both) was requested before
+mutation and remains pending; no old backup waiver/root replacement or borrowed
+CLI credentials are implied. See the leading handoff for actual results and scope.
+
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
 - Edit source and author tests, configuration and build/install recipes.
