@@ -1,5 +1,33 @@
 # Current handoff
 
+## Upstream-first refactoring review — documentation only
+
+Added [the reviewed maintenance plan](refactoring-plan.md) after the user's audit
+and explicit request to avoid remaking established upstream mechanisms. Source
+basis is `c20abc3`; no product refactor or feature removal was performed. The plan
+prioritizes existing Go/browser fixture wiring, one aggregate browser preparation,
+schema-v8 completeness and current guidance. It narrows the initial broad frontend
+split to existing Lit composition/controllers, recognizes the already implemented
+`executeDisk` boundary and tmux/systemd supervision, and makes registry/Python
+extraction and project parallelism conditional rather than a new framework or gate.
+Unfinished installer/media, runner, profile/KDE, marketplace, AI, credential and
+native/CLI work remain with their feature owners.
+
+Reviewed installed locked Lit controller source, retained selected Forgejo/tmux and
+CoreOS source, current production callers and upstream docs. Fresh Forgejo 15.0.7
+template-lookup and CoreOS Installer 0.26.0 CLI files matched retained source hashes.
+OpenSSH 10.2p1 confirms that `forced-commands-only` is public-key-only for root, not
+password enrollment; no SSH configuration was changed. Public research responses,
+hashes and the failed initial Bun documentation URL are retained under
+`.artifacts/refactoring-upstream-review-GVDpXf/`. Source/documentation inspection is
+not native compatibility or acceptance evidence.
+
+Documentation-only verification: the plan's 46 local links/anchors resolve and Git
+whitespace checks passed. No product tests, compilation/build, dependency install,
+downloaded-code execution, VM/retained-project access, deployment, provider mutation,
+network-policy change or cleanup was performed. Prior execution records below retain
+their original revisions, targets and limits.
+
 ## Services scope correction — documentation only
 
 Recorded the user's explicit correction in the

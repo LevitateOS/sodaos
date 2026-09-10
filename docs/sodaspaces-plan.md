@@ -6,6 +6,11 @@ and Soda-owned Go/template workspace page. No new Forgejo repository tab; tabs
 **inside the drawer and Spaces panes** are required. Both surfaces will use the
 shared **Lit** component implementation, not separate frontends.
 
+The [upstream-first refactoring review](refactoring-plan.md) records bounded
+maintenance recommendations and corrections to the initial audit. It preserves
+this feature sequence and unfinished work; it is not a framework rewrite, a new
+native readiness gate or deployment permission.
+
 **Current source:** native Forgejo hooks, real management/access integration and
 managed-tmux reattachment exist; management and terminal controls are ported to Lit
 with local emitted-browser/layout coverage. Xterm and transport stay imperative.
