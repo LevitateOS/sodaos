@@ -17,7 +17,9 @@ type runnerDouble struct {
 }
 
 func (f *runnerDouble) List(context.Context) ([]runners.RunnerView, error) {
-	f.calls = append(f.calls, "list")
+	if err := f.action("list"); err != nil {
+		return nil, err
+	}
 	return []runners.RunnerView{}, nil
 }
 func (f *runnerDouble) Create(_ context.Context, in runners.CreateRequest) error {
@@ -54,6 +56,10 @@ func TestRunnerSocketStrictFixedOperations(t *testing.T) {
 		{"/runners/start", "POST", `{"id":"../one"}`, 502},
 		{"/runners/start", "POST", `{"id":"one","id":"two"}`, 502},
 		{"/runners/start", "POST", `{"id":"one","unit":"sshd"}`, 502},
+		{"/runners/list", "POST", `{} {}`, 502},
+		{"/runners/remove", "POST", `{"id":"one","account":"root"}`, 502},
+		{"/runners/create", "POST", `{"id":"one","provider":"github","registration_token":"fixture"}`, 502},
+		{"/runners/create", "POST", `{"id":"one","provider":"unknown","registration_token":"fixture"}`, 502},
 		{"/runners/create", "POST", `{"id":"one","registration_token":"` + strings.Repeat("s", 65536) + `"}`, 502},
 	} {
 		before := len(f.calls)
@@ -63,15 +69,25 @@ func TestRunnerSocketStrictFixedOperations(t *testing.T) {
 			t.Fatal(tc.path, w.Code, len(f.calls)-before)
 		}
 	}
+	if got := strings.Join(f.calls, ","); got != "list,start:one,stop:one,restart:one,remove:one,create:one" {
+		t.Fatal("wrong native dispatch", got)
+	}
 	f.fail = true
-	w := httptest.NewRecorder()
-	d.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/runners/start", strings.NewReader(`{"id":"one"}`)))
-	if w.Code != 502 || strings.Contains(w.Body.String(), "private-registration-secret") {
-		t.Fatal(w.Code, w.Body.String())
+	for _, action := range []string{"list", "start", "stop", "restart", "remove"} {
+		body := `{"id":"one"}`
+		if action == "list" {
+			body = `{}`
+		}
+		before := len(f.calls)
+		w := httptest.NewRecorder()
+		d.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/runners/"+action, strings.NewReader(body)))
+		if w.Code != 502 || strings.Contains(w.Body.String(), "private-registration-secret") || w.Body.String() == "[]" || len(f.calls) != before+1 || w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal(action, w.Code, w.Body.String())
+		}
 	}
 	// Missing paired integration must not fall through to a fake successful action.
 	d.Runners = nil
-	w = httptest.NewRecorder()
+	w := httptest.NewRecorder()
 	d.ServeHTTP(w, httptest.NewRequest("POST", "/runners/list", strings.NewReader("{}")))
 	if w.Code != 503 {
 		t.Fatal(w.Code)

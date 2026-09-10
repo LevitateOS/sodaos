@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/filelock"
+	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/sys/unix"
 )
 
@@ -138,13 +139,13 @@ func (native *Native) Remove(ctx context.Context, id string) error {
 		return err
 	}
 	if _, err = native.run(ctx, "systemctl", "disable", "--now", native.unit(id)); err != nil {
-		return errors.New("stop local runner listener")
+		return errors.New("listener stop is unconfirmed; account and state removal were not attempted")
 	}
 	if _, err = native.run(ctx, "userdel", descriptor.Account); err != nil {
-		return errors.New("remove runner Linux account")
+		return errors.New("account removal is unconfirmed; local state was not removed")
 	}
 	if err = os.RemoveAll(filepath.Join(native.rootPath(), id)); err != nil {
-		return fmt.Errorf("remove runner state: %w", err)
+		return errors.New("account was removed, but local state was not fully removed")
 	}
 	return nil
 }
@@ -172,10 +173,8 @@ func (native *Native) readDescriptor(id string) (Descriptor, error) {
 		return Descriptor{}, err
 	}
 	var descriptor Descriptor
-	decoder := json.NewDecoder(bytes.NewReader(contents))
-	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&descriptor); err != nil {
-		return Descriptor{}, fmt.Errorf("decode local runner %s: %w", id, err)
+	if err = strictjson.Decode(bytes.NewReader(contents), &descriptor); err != nil {
+		return Descriptor{}, fmt.Errorf("local runner %s descriptor is invalid", id)
 	}
 	account, accountErr := AccountName(id)
 	if accountErr != nil || descriptor.ID != id || descriptor.Account != account {
@@ -219,7 +218,19 @@ func (native *Native) serviceState(ctx context.Context, id string) (ServiceState
 	for _, line := range strings.Split(result.Stdout, "\n") {
 		key, value, found := strings.Cut(line, "=")
 		if found {
+			if _, duplicate := values[key]; duplicate {
+				return ServiceState{}, fmt.Errorf("local runner %s service observation is ambiguous", id)
+			}
 			values[key] = value
+		}
+	}
+	// systemctl show can succeed with absent/empty properties (for example a
+	// missing unit). That is unavailable inventory, not an observed boot policy.
+	// Keep systemd's state vocabulary upstream-owned; require the observations,
+	// not a copied enumeration of every possible state.
+	for _, key := range []string{"LoadState", "ActiveState", "SubState", "UnitFileState"} {
+		if strings.TrimSpace(values[key]) == "" {
+			return ServiceState{}, fmt.Errorf("local runner %s service observation is incomplete", id)
 		}
 	}
 	return ServiceState{Load: values["LoadState"], Active: values["ActiveState"], Sub: values["SubState"], Enabled: values["UnitFileState"]}, nil
@@ -227,7 +238,7 @@ func (native *Native) serviceState(ctx context.Context, id string) (ServiceState
 
 func (native *Native) forgejoVersion(ctx context.Context) (string, error) {
 	result, err := native.run(ctx, "forgejo-runner", "--version")
-	if err != nil {
+	if err != nil || strings.TrimSpace(result.Stdout) == "" {
 		return "", errors.New("read Forgejo runner version")
 	}
 	return strings.TrimSpace(result.Stdout), nil

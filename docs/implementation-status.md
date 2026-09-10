@@ -1,5 +1,51 @@
 # Current handoff
 
+## Runner step 3 — bounded backend correctness and local regressions
+
+On source base `89a0124`, implemented the runner-owned step-3 gaps without editing
+Soda-pages' reserved UI, OAuth/session/store, page-handler or browser-fixture files.
+Native inventory now refuses duplicate/trailing descriptor JSON through the existing
+strict decoder, missing/blank/duplicate systemd observations and blank client version
+output. It returns unavailable, never earlier partial rows or fabricated emptiness.
+Valid legacy descriptors, saved origins, credential modes and work data remain
+unchanged. Systemd's state vocabulary remains upstream-owned: this adds no copied
+state enumeration or provider-availability query. Inspected the existing service/
+caller, local upstream systemctl/D-Bus manuals (including suppressed empty
+properties), and Go's actual RemoveAll implementation; no target package/version
+or installed compatibility claim follows from that local inspection.
+
+Native/CLI Remove failures identify whether listener stop or account removal is
+unconfirmed, or account deletion succeeded but state removal failed. Diagnostics
+exclude raw command output and state-file paths. Web/socket consumers retain the
+existing generic unconfirmed protocol; stage-specific web presentation, if needed
+to close that UI contract, requires the reserved-file handoff, not parallel UI work.
+No recovery, rollback, automatic retry, descriptor rewrite or provider cleanup added.
+
+Local regressions exercise separate test processes calling Native with a shared
+temporary lock and command doubles: all reads/mutations wait, cancelled waiters
+never dispatch, Restart excludes another process at both enable/restart boundaries,
+and success/failure releases admission. Remove fault cases use owned files and
+command doubles; the post-account deletion case temporarily makes only its fixture
+parent path unresolvable, producing a real RemoveAll failure without privileges,
+mounts or a new production filesystem hook. Legacy/unrelated fixture state survives.
+Runner APIs now cover every operation's authority rejection before body reads/native
+dispatch, missing/ambiguous cookies, wrong/missing actor, missing/expired grants,
+provider subject/availability/denial, logout during authorization, strict mutation
+bodies and exact configured native targets. Socket fixed-operation/error tests and
+existing CLI/root admission coverage remain; this is not installed CLI/socket overlap.
+
+Actual checks: new regression probes first reproduced the observation/descriptor/
+Remove diagnostic gaps (`runner-red.log`), then focused runner/host/web and both
+runner commands passed (`focused.log`). After final API/whole-list cases, affected
+runner/host/web/Linux-identity and both runner command race suites passed
+(`race.log`). Go 1.27.0, Bun 1.4.2, Linux x86_64; evidence and local upstream-manual
+copies are retained under `.artifacts/runners-step3-KkjbJr/`. Aggregate source-gate
+execution is next, not yet claimed here. No dependencies, service units, provider
+resources, installed runner/project state or real credentials changed. Native-stage,
+provider jobs/lifecycle/preservation and the Soda-pages browser integration handoff
+remain open; Cockpit Runners and Tailnet are unchanged.
+
+
 ## Native Soda page bodies — step 3
 
 All three native dashboard hosts now mount the existing Lit body after the shared

@@ -192,7 +192,8 @@ Current local listing reads the descriptors, systemd `LoadState`, `ActiveState`,
 number of descriptors, active/running listener units, and one configured slot per
 descriptor. It does **not** query provider online/offline or busy state, queued or
 running jobs, available slots, labels, job history, machine load, or disk use. One
-unreadable descriptor, unit, or client version currently makes the whole list fail;
+unreadable/ambiguous descriptor, missing or ambiguous required unit observation,
+or unavailable/blank client version makes the whole list fail;
 the UI must report status as unavailable rather than render an empty inventory.
 
 The original M12 source was later included in the recorded `8b823db` full native
@@ -395,10 +396,27 @@ from this source change.
 
 ### 3. Complete local parity and regression coverage
 
-**Status: substantial existing coverage; extend specific missing cases.** Keep
-tests with their current owners and use the ordinary source gate. Do not create a
-second runner test orchestrator or infer that previously passing fixtures cover
-new behavior. This step owns runner operation/backend gaps only. The Soda-pages
+**Status: runner-owned backend gaps implemented with local focused/race checks;
+aggregate candidate check and Soda-pages integration handoff remain separate.**
+The Native fixtures now use separate test processes sharing one temporary lock,
+cover Restart's enable/restart admission and failed-command release, and require
+cancelled contenders to exit without dispatch. New fixtures cover Remove failures
+at stop/account/state stages, malformed/duplicate/trailing descriptors, missing or
+ambiguous systemd observations, blank client versions, whole-list failure and
+unchanged legacy files/credentials. Every runner API has operation-specific
+admission/strict-body/target/sanitized-failure checks; socket tests retain the
+same fixed protocol. These are synthetic peers and command doubles, not real
+provider registrations, Linux account deletion or installed process proof.
+
+Native/CLI Remove errors now identify the reached stage without command output;
+the existing web/socket protocol deliberately still returns generic unconfirmed
+outcomes. Any stage-specific web presentation belongs to a subsequent explicit
+shared-file handoff, not an edit to the Soda-pages agent's reserved files. The
+[handoff](implementation-status.md) records exact checks and remaining limits.
+
+Keep tests with their current owners and use the ordinary source gate. Do not
+create a second runner test orchestrator or infer that previously passing fixtures
+cover new behavior. This step owns runner operation/backend gaps only. The Soda-pages
 lane ports the shared page/browser tests and owns connection, logout, navigation
 and restoration integration; consume that evidence rather than adding a second
 matrix. Reserve shared UI/test files until its explicit commit handoff.
