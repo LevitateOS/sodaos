@@ -10,7 +10,7 @@ existing Spaces workspace; its local evidence belongs in the handoff.
 The user clarified the desired AI experience: **issue → resolver → PR → review →
 the same resolver fixes findings → review again**, with the configured bound. AI
 processes should appear as real, named terminals in Spaces and its repository
-drawer, launched with predefined prompts and commands. This replaces the earlier
+drawer, launched with user-defined commands and task variables. This replaces the earlier
 proposal's implication that Actions logs alone would be the user interface.
 
 The user also requested graphical workspaces for the actual Codex/Claude desktop
@@ -21,13 +21,13 @@ The subsequent user decision selects **Linux desktops**, with Rocky/Fedora headl
 and KDE [creation profiles](project-os.md#selected-environment-profiles); GNOME is
 deferred. This supersedes the earlier Windows-first compatibility recommendation.
 
-For marketplace and AI automation, two product choices remain pending:
-appliance-wide versus project-local installation, and automatic trusted-contributor
-runs versus a maintainer trigger.
-The candidate below assumes **appliance-wide, operator-managed apps** and
-**automatic runs for trusted contributors after repository opt-in**. Do not treat
-those proposed defaults as a user answer. Existing projects, runner registrations,
-credentials, services and retained validation fixtures remain unchanged.
+The reviewed first implementation candidate is **appliance-wide, operator-managed
+services with online digest-pinned downloads** and **automatic runs for current
+trusted contributors after repository opt-in**. These are explicit planning defaults,
+not evidence that the user answered the earlier placement/trust questions. Keep one
+candidate for each; a different placement or trigger policy changes its scope before
+implementation. Do not build parallel global/project catalogs or an alternative AI
+scheduler. Existing projects, registrations, credentials and fixtures stay intact.
 
 ## Containers, pods and runtime lifetimes
 
@@ -56,54 +56,155 @@ nested engine; they are not interchangeable with an operator's host catalog.
 
 ## 1. Services marketplace
 
-Start with a small shipped catalog containing **Adminer, Vaultwarden and Homepage**.
-Each entry owns its description, upstream links/license, reviewed image reference,
-supported architectures, typed configuration, persistent paths, ports and native
-health observation. Resolve and record real image digests during packaging; no
-fabricated pins, automatic dependency upgrades or unverified architecture claims.
+### Scope and native ownership
 
-Use ordinary [Quadlet files](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
-for container, volume and optional pod definitions. Catalog presentation metadata
-does not become a new repository workload language. App data must live outside
-the replaceable container layer in explicit persistent storage. This is a separate
-contract from retained project roots, which normal Start must never recreate.
+The first candidate is a global **Services** catalog and operator management page
+under `/-/soda/services`, linked from Global SodaOS settings. Start with **Adminer,
+Vaultwarden and Homepage**, as requested. Adminer is an operator-provisioned appliance
+utility in this scope, not a database service installed into a repository. Project
+services retain their existing native nested-engine workflow; no project marketplace
+controls or second engine backend are implied.
 
-The first complete user journey is:
+Every catalog view, configuration/log read and mutation requires the configured
+Soda operator with fresh server-side authority. Intended users access app URLs under
+each app's own authentication; sharing a URL is not a Soda access grant. A general
+member-facing service directory is separate from this first management surface.
+Homepage is the requested operator-maintained shared start page, independent
+of Soda's operator installation inventory; do not duplicate automatic discovery.
 
-1. Open Services and select an app.
-2. Configure the instance name, app-specific settings and actual access endpoint.
-3. Review the image, persistent storage and listening address, then Install.
-4. See real download/start/failure state; Open appears only with a usable endpoint.
-5. Inspect status and bounded logs, Stop and Start while retaining configuration
-   and data. A restart or page refresh must not silently install a newer image.
+Use versioned shipped catalog metadata and ordinary
+[Quadlet definitions](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
+Each entry specifies reviewed license/source, immutable per-architecture image
+digests, fixed internal ports, typed bounded settings, native health checks and
+explicit durable paths (possibly none). Installation pulls the selected digest
+online and verifies its platform/image identity. No `latest`, arbitrary image input
+or invented digest; unsupported architectures are unavailable before Install. The
+existing four-image appliance bundle does not include these apps. Offline catalog
+installation would require an explicitly extended bundle/notices/installer contract,
+not an assumption that the current export includes them.
 
-Do not turn arbitrary image names, host paths, shell scripts or Podman flags into
-browser-controlled host commands. The configured Soda operator authorizes actions
-server-side. A native fixed-operation helper resolves catalog entries and installed
-instance targets. Keep host state authoritative rather than running a second
-service scheduler or storing a competing running/stopped truth in SQLite.
+Allocate an opaque instance ID for native paths, units and containers; the bounded
+display name never selects a native target. Retain the installed recipe/digest and
+non-secret configuration snapshot under `/etc/soda/services/<id>/`, restricted secret
+files alongside it, and declared data under `/var/lib/soda/services/<id>/`. Add these
+owned paths to staging/tmpfiles and documented backup inputs with correct numeric
+ownership and SELinux labels. Native unit/Podman state remains running truth; there
+is no competing SQLite running/desired-state model. An installed snapshot remains
+manageable if a newer catalog withdraws its entry.
 
-For the first catalog:
+### Install, retry and persistent lifecycle
 
-- **Adminer:** use the upstream container and a configured reachable database
-  endpoint. Database authentication remains with the database; do not ingest saved
-  database passwords into catalog metadata or attach unrelated database volumes.
-- **Vaultwarden:** retain its data directory and require a working HTTPS origin
-  for the complete browser journey. Native Vaultwarden owns vault accounts and
-  encrypted data. Configuration/secret input and backup requirements must be
-  reviewed before enabling a real instance. See its
-  [deployment examples](https://github.com/dani-garcia/vaultwarden/wiki/Deployment-examples).
-- **Homepage:** retain configuration, set the actual allowed host and use the
-  selected version's authentication options. Static service links do not require
-  giving Homepage the host engine socket. See its
-  [installation requirements](https://gethomepage.dev/installation/).
+1. Select the catalog entry, display name, app settings and preprovisioned private
+   HTTPS hostname/certificate. Validate exact catalog version, architecture, input
+   bounds, data-path type/ownership and hostname/listener collisions before effects.
+2. Review the selected image, endpoint, durable storage and application account setup,
+   then explicitly Install. A settings edit or page visit does not start a pull.
+3. Short fixed Services methods on the existing root:soda Unix-socket helper
+   authorize the dedicated Soda service caller and start an exact per-instance
+   systemd installation unit. The web handler separately checks the human operator.
+   That unit owns the long pull/start work across browser/backend disconnects; the
+   UI polls its native phase/status and bounded journal. The current project helper's
+   global mutex and three-minute request cannot own registry pulls. Use short control
+   calls, serialization per instance and a separate shared proxy-update lock; do not
+   block project Join/key/lifecycle operations for an app download.
+4. The unit creates protected configuration/data paths, pulls the exact digest,
+   atomically writes its owned Quadlet/proxy inputs, reloads systemd, validates and
+   applies proxy configuration, then enables/starts and checks the app. Existing
+   unexpected paths/units/containers are conflicts, never overwrite or cleanup targets.
+5. Show the last confirmed phase on failure. Preserve data, installed configuration,
+   pinned image and bounded diagnostics. Explicit Retry examines only that same
+   instance, skips completed effects and resumes its original immutable install input;
+   double-click, timeout or lost HTTP response must not create another instance. A
+   changed form is not a retry and cannot overwrite later app-native settings. If the
+   native state cannot safely be identified, report a conflict for operator inspection.
 
-Ingress is part of a usable installation, not a guessed link. Select private
-reachable endpoints and TLS configuration explicitly; localhost on the appliance
-is not localhost on the user's laptop. Keep third-party app cookies/content off
-the authenticated Forgejo origin. Do not default to a public bind or wildcard host
-validation. Updates, uninstall/data deletion and automatic discovery are separate
-scope; Stop is sufficient to retain an installed service safely in this first version.
+This is bounded correctness for an install operation, not a recovery service or
+reconciler. Do not accept host paths, command strings, Podman flags or arbitrary
+unit names from the browser. The fixed root operation resolves only owned instances
+and catalog inputs. Log reads must be bounded/redacted; never return full inspection,
+environments, private app configuration or tokens.
+
+**Start** enables host-boot start and starts the installed pinned instance.
+**Stop** disables boot start and stops that instance, interrupting its users while
+retaining settings/data. Implement boot intent through the owned Quadlet `[Install]`
+drop-in and generator reload, then start/stop the exact generated service; ordinary
+`systemctl enable/disable` cannot manage generated Quadlet units. Observe the effective
+boot target wiring separately from active state. See the native
+[Quadlet enabling contract](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#enabling-unit-files).
+Start, reboot and refresh never repull a moving tag or
+upgrade the image; use installed digest identity with `Pull=never`. App durable
+storage must survive any native container recreation needed by Quadlet. This is
+separate from retained Project OS roots, whose normal Start must start the original
+container. Updates, uninstall/data deletion and discovery remain separate scope.
+
+### Private ingress and truthful readiness
+
+Use an exact **distinct hostname for each app**, separate from the Forgejo hostname,
+on the configured private listener with an operator-preprovisioned matching TLS
+certificate and client DNS/route. A different port on the Forgejo hostname does not
+isolate cookies. No app under Forgejo paths or `/-/soda/`, wildcard host acceptance,
+public bind, public ACME automation or forwarding of Soda cookies/OAuth grants.
+
+Publish backend ports only on unique loopback listeners and generate exact-host
+Caddy fragments pointing to them. Extend existing proxy mounts/configuration for
+app fragments and restricted certificate paths. Validate the whole candidate before
+reload; on failure leave the previous working proxy configuration active and report
+this instance unavailable. Stop can leave its route returning unavailable without
+deleting configuration. A browser never supplies arbitrary certificate paths or a
+proxy destination. Current activation config serves only the Forgejo origin, so this
+is required new source work, not existing ingress support.
+
+Report image installation, local unit running/boot-enabled state, app-native health,
+proxy configuration and client reachability separately. Open can be offered for a
+validated HTTPS URL when the app/proxy are ready, but a loopback health check cannot
+claim the user's DNS, route or certificate trust works. Complete the install journey
+from the intended client. No endpoint probing API may become arbitrary host forwarding.
+
+### App-specific first-version contracts
+
+- **Adminer:** use the reviewed
+  [Docker Official Image](https://hub.docker.com/_/adminer/) (community maintained).
+  Configure a fixed operator-selected database target/list through the shipped
+  `login-servers` integration; `ADMINER_DEFAULT_SERVER` alone only pre-fills a host.
+  Validate driver/host/port and prove the installed login controls enforce the list;
+  this is not a claim of network isolation. Keep HTTPS for credential entry. Database
+  authentication/authorization remains native, and Soda neither saves database
+  passwords nor mounts unrelated database data. Adminer has no mandatory data volume;
+  retain only its generated non-secret plugin configuration.
+- **Vaultwarden:** retain `/data`, set `DOMAIN` to the exact HTTPS origin and use its
+  shipped health check. First-version onboarding uses closed public signup, a protected
+  operator admin secret and native invitations delivered through configured SMTP.
+  Include the SMTP connection and secret input plus a real invite → account → vault
+  journey before calling Install complete; no open-signup bootstrap window. Keep the
+  admin token in the supported Argon2-hashed form and private file input supported by
+  the pinned app; do not emit it in Quadlet arguments, logs or Soda's database. Vaultwarden
+  owns vault identities and its admin configuration; `/data/config.json` can override
+  environment inputs, so later Start/Retry must not overwrite app-native changes or
+  label the original form as effective settings. Record backup inputs and consistent
+  native backup procedure without creating a new backup platform. See the upstream
+  [configuration](https://github.com/dani-garcia/vaultwarden/blob/main/.env.template)
+  and [deployment guide](https://github.com/dani-garcia/vaultwarden/wiki/Deployment-examples).
+- **Homepage:** retain `/app/config`, use its native health endpoint, exact allowed
+  Host and external HTTPS URL, and the pinned version's native authentication.
+  Current [installation documentation](https://gethomepage.dev/installation/)
+  describes v2 authentication; pin/verify that capability instead of assuming older
+  versions have it. The first candidate uses its native password mode with private
+  auth secret/password input and the declared trusted private audience. Its password
+  mode has no app-level rate limiting; do not portray it as public-service protection.
+  Auth settings need a reviewed restricted environment-file channel; config-only
+  `HOMEPAGE_FILE_*` substitution does not cover every auth setting. Full Podman
+  inspection may expose environment secrets and must never reach the UI/evidence.
+  Start with static links, no host engine socket, auto-discovery or secret-bearing
+  widgets. The install form accepts a bounded initial static-link list and renders native
+  configuration. Later edits use the operator's ordinary access to that exact native
+  config; ordinary members get no host files, accounts or implied per-user page editor.
+
+Verify pinned app-specific secret input, signup/auth defaults, startup requirements,
+health endpoint and x86_64/aarch64 artifacts before packaging. Declare necessary
+outbound destinations (database, SMTP, registry and any enabled app features);
+network reachability is not permission to broaden the host listener. Include disk
+full, pull interruption, unsupported platform, proxy failure, healthy-unit/unhealthy-app,
+retry-after-disconnect and normal Stop/Start/reboot persistence in completion checks.
 
 ## 2. Issue resolver and 3. PR review/fix
 
@@ -115,45 +216,129 @@ is global/operator-only. Preserve native repository Actions runners/secrets/vari
 Project OS selection is independent of the isolated job's eligible execution image;
 changing AI settings never retargets a personal terminal or project root.
 
-Use one repository AI configuration experience with independent controls for the
-two event types. Proposed fields:
+### User-defined commands and variables
+
+The integration is **user-defined CLI commands with documented variables**, not
+an AI-provider API or a Soda conversation framework. Configure a **Resolver command**
+(used for issue resolution and fixes) and a **Reviewer command**. Either can invoke
+Codex, Claude Code, pi or a repository script; the same command can inspect the phase
+variable to serve both roles. Models, prompts, CLI flags and provider-specific resume
+options belong in that command. Soda must not require provider presets, parse a
+vendor's terminal output or pretend that repeating an executable resumes a conversation.
 
 | Setting | Behavior |
 | --- | --- |
-| Issue automation | Off, or resolve newly opened issues under the selected trigger policy |
-| PR automation | Off, review, or review and fix; include new commits deliberately |
-| Agent command and prompt | Claude Code, Codex, pi, or a repository-maintained command; launched once with predefined task input in a real terminal |
-| Reviewer and fixer | Reuse the originating resolver for fixes; reviewer may use a separately configured command/model |
-| Setup and tests | Repository-owned commands executed inside the job sandbox |
-| Credentials | Named native Forgejo secret references; no values in versioned configuration |
-| Maximum fix rounds | Integer; zero means review only; proposed default two, upper bound five |
-| Run timeout | Finite overall deadline, covering setup, agents, tests and publication |
-| Output | Live Spaces/drawer terminal, native issue-linked PR/review, test result and Forgejo Actions run link |
+| Issue automation | Off, or resolve newly opened issues under the configured native trigger/trust policy |
+| PR automation | Off, review, or review and fix; explicitly include new commits if enabled |
+| Resolver / Reviewer command | Trusted workflow-authored command, run inside the isolated job in its checkout; required only for enabled phases |
+| Setup and tests | Optional setup and declared required-check commands, with failures reported accurately |
+| Execution image | Eligible shipped headless job image/tool set and compatible native runner labels; independent of a repository's persistent Project OS |
+| Credentials | Named native Forgejo secret references; no values in versioned configuration or command fields |
+| Maximum fix rounds | Integer 0–5; proposed default two in review-and-fix mode; zero means one review and no fix invocation |
+| Run timeout | Positive finite overall deadline within the native runner/operator ceiling, covering setup, commands, tests and publication |
+| Output | Real live terminal, native issue-linked PR/review, actual check outcomes and Forgejo Actions run link |
 
-The agent-command presets must be checked against the selected tools' actual
-prompt input, unattended execution, PTY and native session-resume interfaces and
-credential support before claiming compatibility.
-The Project OS provides the batteries-included development foundation. Agent choice
-and repository scripts remain configurable, but choosing a supported agent must
-provide its declared runtime dependencies and a working launch path; do not leave
-manual prerequisite assembly to the user. Personal or automation credentials remain
-explicitly owned and separate. Optional provider spending limits belong to the actual
-provider/CLI integration; a loop count alone is not an exact monetary budget.
+Use the native workflow's explicit Bash shell and ordinary environment variables.
+Do not invent another string-template language or splice issue/PR text into shell
+source. The job wrapper supplies the following contract; it is planned source work,
+not an existing environment-variable API:
 
-Keep the effective automation in ordinary `.forgejo/workflows/` files and native
-Actions secrets/variables. The UI should prepare a reviewable change through
-supported native Git/API workflows, handle concurrent edits and show unsupported
-hand-edited workflows honestly. It must not silently overwrite an existing
-workflow or maintain a second authoritative copy in Soda's database. Simply
-downloading YAML or adding mock configuration does not complete this feature.
+| Variable | Value |
+| --- | --- |
+| `SODA_PHASE` | `resolve`, `review` or `fix` |
+| `SODA_EXECUTION_ID` | Native Actions run ID plus rerun number; exact identity for this execution's terminals/artifacts |
+| `SODA_PUBLICATION_KEY` | Stable logical event identity used for native branch/PR deduplication, as defined below |
+| `SODA_REPOSITORY_ID` | Stable native repository ID; names/URLs are context data |
+| `SODA_ISSUE_NUMBER`, `SODA_PR_NUMBER` | Decimal identifier when applicable, empty otherwise |
+| `SODA_BASE_SHA`, `SODA_HEAD_SHA` | Exact captured base and current candidate commit; the context file separately records the expected remote PR head |
+| `SODA_ROUND` | Zero for the initial resolution/review; 1–N for each fix and its following review |
+| `SODA_WORKSPACE` | Absolute attempt-owned checkout path, also the command's working directory |
+| `SODA_COMMAND_DIR` | Read-only snapshot of automation scripts from the trusted configuration revision |
+| `SODA_CONTEXT_FILE` | Readable UTF-8 JSON file with a versioned schema, captured event/issue/PR text, revisions and links; untrusted task data |
+| `SODA_STATE_DIR` | Private attempt-owned directory retained between phases for the user's CLI state/session identifiers |
+| `SODA_CREDENTIALS_DIR` | Private runtime directory of configured agent credential files; no Forgejo write/publication credential |
+| `SODA_REVIEW_FILE` | Bounded UTF-8 findings from the latest completed review; output path during review, input during fix |
+| `SODA_REVIEW_STATUS_FILE` | Review output path for exactly `clean` or `changes_requested`, optionally followed by a newline |
+
+For example, a repository can set `"$SODA_COMMAND_DIR/resolve" "$SODA_CONTEXT_FILE"` and
+`"$SODA_COMMAND_DIR/review" "$SODA_CONTEXT_FILE"`. The user-authored scripts translate that
+input into their CLI's prompt/stdin/flags. Ordinary quoted variable expansion passes
+data; never `eval` event text. Issue and PR command source/scripts come from the
+repository's captured default-branch workflow commit, never the PR head or candidate tree; record that commit and the
+script tree/blob identities. The PR's selected target/base can be a different branch
+and remains task input. Stage scripts read-only in `SODA_COMMAND_DIR`. A relative
+script in `SODA_WORKSPACE` is candidate code, not the trusted automation snapshot;
+the settings generator must preserve that distinction. Repository code,
+including setup/tests, is still executable untrusted input; this rule is not a sandbox
+against a malicious command or dependency. Named agent secret references map to
+bounded file names in `SODA_CREDENTIALS_DIR`; the user command can use the CLI's
+supported credential-file, stdin or environment interface without echoing values. The wrapper must prove
+how the selected native runner materializes these private files and removes its
+original secret inputs; no automatic `_FILE` support or existing secret mount is
+assumed. Never substitute secrets into logged command source or argv.
+
+Agent/provider credentials are deliberately available to the command sandbox.
+Setup, tests and agent-invoked repository code in that same security domain may read
+or exfiltrate them; private file modes do not prevent that. Their provider scope and
+spending authority define the exposure. The Forgejo publication credential belongs
+outside that sandbox. Repository writers able to author runnable workflows are also
+inside native repository-secret trust unless a stronger supported mechanism is proved.
+
+A nonzero command exit is failure, not review feedback. A successful reviewer writes
+both its findings and explicit status; exit zero alone does not mean clean. Missing,
+malformed, oversized or contradictory output is inconclusive and stops automatic
+fixing. The wrapper clears stale outputs before each review, accepts only regular
+non-symlink files at its fixed attempt-owned paths, limits findings to 64 KiB and
+validates status after successful exit. Findings remain untrusted data, never shell
+source or permission to publish. This small result contract enables a finite loop;
+it does not require an AI SDK. Resolver success is determined from actual Git changes
+and declared checks, not a vendor's prose. Persist every round's bounded findings and
+check outcomes before reusing the paths.
+
+Keep all command phases in one isolated native job so the same attempt preserves
+the resolver's checkout, branch and state directory; distinct Actions jobs do not
+share a filesystem implicitly.
+The user's command chooses whether/how its CLI resumes native conversation state.
+A reviewer may use separate CLI state within that directory. A manually requested
+native rerun gets a new execution ID and fresh checkout/state;
+cross-execution provider conversation restoration is not promised. Its publication
+key and budget rule follow the explicit retry contract below. Do not borrow personal
+CLI credentials or workspaces. Supported optional
+CLIs must include their dependencies and a working launch path; arbitrary commands
+remain possible when their repository-managed dependencies are available. Provider
+spending limits remain provider/CLI-owned; a round count is not a monetary budget.
+
+Keep effective automation in ordinary `.forgejo/workflows/` files and native Actions
+secrets/variables. The settings page prepares a reviewable native Git/API change,
+checks the expected configuration revision and preserves unrelated/manual workflow
+content. Offer a diff or report unsupported edits; never silently overwrite them.
+A proposed change is pending until its required commit/merge takes effect. No second
+activation toggle or authoritative workflow copy lives in Soda's database. Merely
+exporting YAML or presenting mock configuration does not complete the save journey.
 
 Forgejo owns events, dispatch, queueing, cancellation, job history and results.
 Its [v15 workflow reference](https://forgejo.org/docs/v15.0/user/actions/reference/)
-documents issue, PR and manual-dispatch events. Use those native interfaces before
-considering a webhook receiver. Soda supplies local execution capacity and the
-bounded agent integration, not a parallel queue or Git scheduler.
+documents issue, PR, manual-dispatch and concurrency controls. Use these before
+considering a webhook receiver. Soda supplies capacity and the bounded command/terminal
+adapter, not a parallel queue or Git scheduler. Set the issues event's `types` to
+`[opened]` and the PR event's `types` to `[opened, synchronize]` when enabled; do not
+inherit broader upstream edited/reopened defaults. Snapshot trusted configuration at attempt start.
+Before checkout, setup, secret materialization or terminal creation, validate current
+native event/actor/repository/head eligibility. A workflow from PR content is not a
+trusted policy merely because its actor was approved before. Native event/token
+selection must uphold that gate; `pull_request_target` is not blanket authority to
+execute PR code with its secrets. Disabling automation stops future eligible dispatch;
+active native runs require explicit Cancel. Renames resolve by repository ID; transfer, permission
+loss, Actions disablement or missing secrets must prevent new work/publication and
+report a native failure, not fall back to cached authority.
 
 ### Live AI terminals in Spaces and the drawer
+
+The job wrapper launches each CLI once under a run-owned PTY/supervisor inside the
+single command job; normal Actions logs are not attachable terminals. Native Actions
+Cancel and deadline termination must reach that supervisor and all its owned command
+descendants. Viewer loss never restarts or ends a command. The ordinary terminal
+rendering is shared, but this process/attachment owner is new source work.
 
 Every running resolver/reviewer has an exact execution identity, repository and
 issue/PR link, useful name (for example `Issue #42 · resolver`) and a real terminal
@@ -181,56 +366,127 @@ interactive takeover, if offered, requires explicit control transfer. Job deadli
 and cancellation still apply even if nobody is viewing. Reopening a completed run
 shows its retained result and does not create a replacement process.
 
-The originating resolver keeps its checkout/branch and agent conversation through
-the review/fix loop. Feed structured review findings to that same resolver. When
-the CLI requires another process invocation, resume its verified native session
-and working directory; do not equate "same executable" with "same conversation".
-If continuation is unavailable, report that honestly instead of silently claiming
-context preservation. The reviewer can have a separate terminal and clean review
-context. A PR opened directly begins the same review/fix flow without an issue step.
+The run-owned terminal identity includes attempt and phase; it is not a project
+membership or a personal tmux session. One workflow may have sequential resolver and
+reviewer processes with separately named phase terminals. Reopen shows the exact live
+phase or retained result. Removing access revokes discovery, viewing and control on
+fresh authorization and bounded live-connection revalidation; an open socket is not
+permanent permission. Log/terminal retention follows native run retention and must
+not preserve secrets or invent an unlimited Soda archive.
 
-Repository configuration still enables events, agent commands, prompts and limits.
-Merely opening Spaces or an ordinary New terminal never starts automation.
+Repository configuration enables events, commands and limits. Merely opening Spaces
+or an ordinary New terminal never starts automation. The same resolver command and
+attempt state continue the loop under the command contract above; Soda does not own
+an AI conversation or use a GUI app's private protocol.
 
 ### Issue journey
 
-1. Resolve the repository, issue and trusted configuration revision using native
-   authority. An issue body is task data, never a shell command or authorization.
-2. Create a fresh checkout of the selected default-branch commit in a job container.
-3. Run setup, the fixer and required tests within the configured deadline.
-4. Publish a new automation branch and issue-linked PR, including actual test
-   outcomes and the run link, then enter the configured PR review flow. Preserve
-   the originating resolver context for subsequent findings. Do not push directly
-   to the default branch or close an issue merely because an agent says it succeeded.
+1. Resolve repository, issue and trusted configuration revision using native authority.
+   Snapshot the default-branch commit. Issue text is task data, never authorization.
+2. Start an isolated, attempt-owned checkout and real terminal; run setup, the resolver
+   in `resolve` phase and declared required checks within the overall deadline.
+3. Before publication re-resolve native authority, require the issue still open and
+   eligible, and compare the captured default-branch base. A moved base or closed issue
+   supersedes the result. On successful changes, create the deterministic branch and
+   issue-linked PR for this publication key with actual check outcomes and the native run link. On no change, report no change;
+   on failure, retain the bounded diff/result without claiming a resolved issue.
+   Never push to the default branch or close the issue based on command output.
+4. If PR automation is enabled, this **same native attempt** owns the initial
+   review/fix loop and preserves its checkout/state directory. If PR automation is
+   off, finish after PR creation. A human-created PR starts a new attempt directly
+   in review phase. No browser must remain open for either journey.
 
 ### PR journey and exact loop semantics
 
-1. Capture the PR's exact head and base commits and review the proposed changes.
-2. With fixes disabled, publish the review and finish.
-3. With fixes enabled and actionable findings, send them to the originating
-   resolver (or start the configured resolver for a directly submitted PR), run
-   tests and review the resulting tree again. Each fix attempt consumes one round.
-4. Stop on a clean review with passing required checks, the configured limit,
-   timeout/cancellation, an agent/test infrastructure error, or no further change.
-   Exhaustion or inconclusive output is not an approval.
-5. Publish only against the still-current PR head. Recheck before writing. If it
-   changed, mark the attempt superseded instead of overwriting someone else's work.
+1. After the eligibility gate, capture exact remote head/base and trusted configuration,
+   then run setup once in the isolated checkout before any CLI phase. The inline
+   issue continuation reuses its completed setup and configuration snapshot. Setup failure
+   stops both issue and direct-PR attempts. Review that candidate commit with
+   `SODA_PHASE=review` and round zero. Required checks run after each state-changing
+   resolve/fix; review-only checks run only if explicitly configured.
+2. In review-only mode (or with a zero fix limit), record the review and finish.
+   Publish a commit-pinned native COMMENT/check/result, not APPROVE or REQUEST_CHANGES.
+   A clean result is an automation finding, not a human approval or merge instruction.
+3. With fixes enabled and `changes_requested`, invoke the configured resolver with
+   `SODA_PHASE=fix`, increment the round, run declared checks and create a candidate
+   commit from actual changes. Review that exact candidate again. Each fix invocation
+   consumes one round, including a failed or no-change attempt.
+4. Stop on clean review, limit, timeout/cancellation, command/check failure,
+   inconclusive output or no further change. Required checks must pass before fixes
+   are eligible for publication. Checks not run are reported as not run; exhaustion
+   and inconclusive output are never approvals. Preserve failed/unpublished diffs
+   as bounded native run artifacts rather than pushing known failed fixes.
+5. Before any write, resolve current native permission and compare the expected PR
+   head **and base**. If either moved or the PR closed/merged, finish as superseded.
+   Push only normal commits descending from the captured writable branch head;
+   native non-force push rejects divergent updates. A preflight read is not an atomic
+   lock: handle rejected pushes and ambiguous responses, re-read published identity,
+   and pin reviews/results to the actual commit. Never retry a stale diff on a new head.
 
-For example, a limit of two means **review → fix → tests → review → fix → tests →
-final review**, with earlier exit when appropriate. A zero limit runs one review.
-Structured review output needs validation; command exit zero alone is not a clean
-review. Preserve the final diff, findings and actual check outcomes.
+A limit of two means **review → fix → checks → review → fix → checks → final review**,
+with earlier exits as above. The initial issue resolution does not consume a fix
+round. Keep intermediate findings as native run artifacts. Stage fixes locally through
+the loop, then publish the tested candidate and one matching final summary. An older
+review must not be attached as a verdict on a newer commit. A review failure does not erase earlier evidence or count as a clean
+review. Native required-check/branch-protection rules continue to govern the PR.
 
-Proposed publication policy: append normal commits to a writable same-repository
-PR branch only when repository configuration permits it. For a fork or otherwise
-unwritable branch, offer a patch or separate follow-up PR; never force-push or infer
-permission to write another repository. No automatic merge is proposed.
+Append normal commits to a writable same-repository PR branch only when configured.
+For a fork or protected/unwritable branch, finish with findings and a patch artifact;
+a separate follow-up PR requires its explicit configured native publication policy.
+Do not modify another repository, force-push or merge automatically.
 
-The initial resolver-created PR must start its first configured review. Subsequent
-bot publications must not reset the round budget or spawn duplicate loops. Use
-provider concurrency plus explicit attempt/head identity and verified automation
-authorship; a bot-like username or issue text is not sufficient. New human commits
-can supersede the old attempt. Retry must not duplicate a previously created PR.
+### Execution identity, duplicate events and reruns
+
+`SODA_EXECUTION_ID` identifies one native execution and its phase terminals.
+`SODA_PUBLICATION_KEY` identifies the logical publication independently of deliveries
+and reruns. For an automatic issue-opened event it derives from repository ID and
+issue number; for an eligible PR event from repository ID, PR number and event head
+SHA. Opened/synchronize deliveries for the same PR head share a key. Configuration
+and base snapshots belong to the claimed execution, not a caller-edited key. A native
+manual dispatch explicitly requesting a new logical generation uses its native run
+identity; show existing linked work before allowing a deliberately additional PR.
+
+Use a deterministic branch in a reserved automation namespace derived from the issue
+publication key. Before creating it or its PR, query the exact native branch/PR and
+verify repository, immutable creator identity and expected commit. Never trust a
+body/title/label or Git author text as proof. An existing unrelated branch is a
+conflict, not an adoption opportunity. A lost push/create response requires native
+lookup by this key before retry; duplicate delivery cannot create a second branch/PR.
+
+The issue execution performs its first review/fix loop inline. Generic PR-triggered
+workflows skip its initial and final bot publications only after verifying the native
+PR creator, reserved branch and commit-bound Actions status/run association written
+by the trusted publisher. This association lives in native Git/Actions objects, not a
+Soda job database. It must remain queryable after the originating execution finishes.
+Later human commits to that PR have a new head and follow the configured PR policy;
+they are not skipped just because its branch is automation-owned. Native creation
+and status-write ordering, duplicate delivery before status appears and conflicting
+claims need proof before enabling the workflow; an ambiguous association must stop
+for native inspection, never launch another potentially recursive loop.
+
+Use explicit native concurrency per repository and target branch/PR to reduce overlap.
+Forgejo documents it as best-effort, not an atomic lock or exactly-once guarantee.
+Native branch/PR conflict handling and immutable expected-head publication must
+independently protect writes. New eligible human commits supersede old work.
+
+A deliberately requested native **rerun** has a new execution ID and fresh bounded
+round budget, while retaining the same publication key and looking up already
+published work before any write. It starts with fresh CLI state; if the issue PR
+already exists and PR automation
+is off, return that result without creating more work. With review enabled it may
+resume only from the verified published head through a new review, never replay an
+old diff. This is a visible human-requested retry, not automatic loop continuation. Generated
+workflows do not automatically rerun failed/exhausted attempts. Duplicate event
+delivery is suppressed and gets no new budget. A fresh manual logical generation is
+explicitly different from retry and may create additional linked work only as selected.
+
+Prove the exact native event/claim/publication mechanism before enabling workflows.
+Fake-command tests cover PR-created delivery while the issue job still runs, final
+bot synchronize events, duplicate delivery, ambiguous creation response, explicit
+rerun budget, concurrent human pushes/base changes, cancellation during publication,
+PR attempts to replace trusted command scripts and mutation of a candidate after
+checks. These are bounded integration requirements, not a generic reconciliation
+service.
 
 ### Trust, credentials and the concrete runtime gap
 
@@ -258,6 +514,20 @@ untrusted even when an event can be scheduled. Untrusted/fork execution requires
 an explicit supported approval path; never silently give it privileged credentials.
 
 Read/review and write/publication credentials need an explicit verified boundary.
+The publisher must execute outside the command sandbox, accept only the bound
+repository/attempt/revision and validated result, and never execute repository code
+with its write credential. Handoff a bounded immutable, content-addressed Git
+commit/tree or patch plus expected parent and observed check receipt, never a path
+to the live command checkout. Quiesce command descendants for the snapshot, validate
+paths/object bounds, and publish from a clean trusted Git context with repository
+hooks/configured credential helpers disabled. Retain the original command job's
+checkout/state directory for subsequent fixes, but never mount it into the publisher.
+Initial issue publication uses the same immutable handoff as final fixes. Merely
+removing a secret from a child process environment
+is insufficient when the child can read its parent or later job steps. Maintaining
+the one-job command state while publishing the initial PR is a concrete integration
+gate: prove a bounded trusted publication path using native interfaces, rather than
+claiming that sequential steps or a separate YAML job automatically provide it.
 The [v15 PR security guidance](https://forgejo.org/docs/v15.0/admin/actions/security/)
 explains why checking out PR code in a privileged `pull_request_target` workflow is
 unsafe. Separate YAML jobs alone do not prove a read-only agent: inspect the
@@ -304,8 +574,9 @@ Sources: [OpenAI Linux desktop](https://learn.chatgpt.com/docs/linux/linux-app),
 [OpenAI computer use](https://learn.chatgpt.com/docs/computer-use),
 [Claude Linux desktop](https://code.claude.com/docs/en/desktop-linux) and
 [Claude computer use](https://support.claude.com/en/articles/14128542-let-claude-use-your-computer-in-cowork).
-The user's [Linux preview announcement](https://community.openai.com/t/codex-in-chatgpt-desktop-app-for-linux-is-now-in-preview/1390027)
-and the platform guide explicitly list Fedora 43/44. Rocky is not on that list;
+The user-linked [preview announcement](https://community.openai.com/t/codex-in-chatgpt-desktop-app-for-linux-is-now-in-preview/1390027)
+prompted this Linux selection. The official platform guide is the compatibility
+authority and lists Fedora 43/44. Rocky is not on that supported list;
 Claude's Linux desktop currently supports neither selected distribution. Keep
 those app-specific limits visible and verify actual packaging/runtime compatibility.
 OpenAI's former Codex app documentation currently redirects to its desktop app
@@ -315,12 +586,14 @@ Linux is the selected direction despite the current computer-use gap. Ship actua
 GUI access and supported app/browser workflows, and add native computer use when
 the selected app and Linux environment support it. Do not advertise missing
 capabilities or make them a prerequisite to the Linux desktop feature. Windows
-is outside the selected desktop direction. Viewer disconnection must preserve the
-same desktop; lock/sleep and future computer-use continuity need native checks.
+is outside the selected desktop direction. Reconnect preserves the same desktop
+within its finite lifetime; the canonical session contract below owns Lock/unlock
+and power-action behavior.
 
-Claude Cowork on Linux additionally hosts its own QEMU/KVM VM; inside
-a desktop VM that would require nested virtualization. Do not silently pass host
-devices into current project containers to make it work. An API-based computer-use
+Claude Cowork on Linux is an optional app feature with its own QEMU/KVM and device
+requirements, on distributions outside the selected matrix. It neither establishes
+a Project OS runtime blocker nor selects a Soda VM. Do not pass host devices into
+current projects to make it work. An API-based computer-use
 integration would be a separate agent integration, not proof that either vendor's
 Linux desktop app gained its native feature.
 
@@ -329,87 +602,107 @@ workflow, but remote shell access alone does not move screen capture/input into
 Soda. The UI must identify the actual computer and desktop under control. Desktop
 apps must run as the intended project account for the streamed project desktop.
 
-### Native integration and ownership
+### Native integration, transport and lifetime
 
-First establish a per-user KDE session with the correct login environment, user
-service manager/session bus, display permissions, persistent home and shared tools
-inside the Project OS candidate. Inspect the selected desktop packages and actual
-display/input requirements before choosing transport. Virtual display access must
-not borrow the appliance host's desktop, grant arbitrary device access or weaken
-existing project boundaries. No GPU or nested-virtualization requirement is inferred
-from ordinary GUI use. A failed requirement is a runtime decision to review with
-its effects on the whole Project OS, not permission to add a speculative VM backend.
+The [Project OS desktop contract](project-os.md#desktop-session-and-access-boundary)
+is canonical for the login-quality session, exact identity, locked Linux accounts,
+finite viewer/desktop lifetime, credential store and scoped cleanup. The selected
+first surface is one private desktop per project account, one virtual display and
+one keyboard/pointer controller at a time. Duplicate views from the creating Soda
+sign-in context may observe that same display; another account or sign-in cannot
+adopt it. Do not add cross-user screen-sharing roles or a separate desktop identity
+system.
 
-KDE must satisfy the [batteries-included desktop contract](project-os.md#batteries-included-by-default):
-include functional defaults for browsing, file management and editing, with fonts,
-clipboard and credential-storage integration. Users can replace those applications
-or customize their settings; optional preferences do not justify an unusable default.
+Prove the current-runtime candidate in this order: per-account Plasma Wayland
+startup, existing-session KRFB capture/input, private RFB → authenticated WebSocket →
+noVNC in the shared Lit view. This is one investigation candidate, not existing
+transport support. Fedora's supported Plasma session is Wayland; an X11-only desktop
+server cannot silently change that selection. Exact package compatibility, private
+transport credentials and display integration must be established before declaring
+the candidate workable. The [profile guide](project-os.md#selected-environment-profiles)
+records upstream constraints and why remote access does not itself supply a headless
+session. A failed probe needs an actual cause; it does not automatically select a VM.
 
-One shared Lit Desktop view serves the page and drawer. Resolve exact project,
-account and graphical-session targets server-side; an authorized member cannot
-browse another user's display. Project sudo/root remains able to administer/read
-project state as documented. Keep display endpoints private and authenticate each
-viewer; no arbitrary host/port forwarding or host command endpoint. Clipboard and
-file transfer, if implemented, need explicit direction and account-scoped access.
-The terminal API and PTY are not a graphical transport.
+The first desktop includes software rendering, resize, keyboard/pointer and explicit
+directional clipboard. Existing SSH/SCP/SFTP handles files. Audio, cameras/microphones,
+GPU/USB passthrough, printing, multiple monitors and browser file transfer are outside
+this first surface. Keep viewer endpoints private, authenticate each attachment and
+resolve all native targets server-side; a repository ID is not permission to forward
+to an arbitrary host/port. Browser Origin checks and current authority apply to the
+WebSocket too. Transport credentials remain ephemeral runtime-local inputs, never browser
+URL/query/JavaScript payloads, logs or evidence. The intended account and project/host
+root may inspect native credentials under the documented trust boundary; private
+listener confinement and revocation must work independently of hiding that password.
 
-Keep the original project root, homes, installed apps and shared service data.
-Hide/navigation disconnects a viewer; it does not end the desktop session or stop
-the project. Project Stop interrupts all its work while retaining durable state.
-Restart preserves files and app settings, not process memory. Define explicit desktop
-end, access expiry/logout and last-viewer retention before implementation; don't
-copy terminal leases blindly or promise perpetual GUI processes. Existing personal
-terminal logout/expiry remains unchanged. Automation execution can outlive its
-viewer under its separately defined run owner.
+One Lit Desktop view serves both Spaces and the repository drawer. An explicit
+**Start desktop** creates the account-owned session; **Open** attaches to an existing
+ID. Hide/navigation detaches; last-viewer retention, the hard cap and logout/expiry
+follow the separate desktop contract. **End desktop** terminates only that graphical
+scope, preserving the user manager, independent tmux/SSH and project services. **Stop project** interrupts all project work and retains durable state;
+Restart cannot restore process memory. Terminal End and AI Cancel keep their distinct
+owners. Missing native integration refuses with an actionable unavailable state;
+opening the viewer never installs packages, joins or starts the project as a repair.
 
-Desktop-launched editors and terminal shells must edit the same real checkout.
-There is no synchronization layer or automatically copied home. Personal AI GUI
-apps use the user's own project-local configuration/credentials. Automated issue/PR
-runs use their dedicated checkout and credentials; they must not adopt an existing
-personal desktop. If graphical automation is later supported, its terminal and
-desktop must address that exact run's files/account, with explicit viewer authority.
+GUI tools, terminal and SSH edit the same real checkout and use the same original
+HOME/groups/shared mise/tools. The [batteries-included requirement](project-os.md#batteries-included-by-default)
+includes a usable browser/editor/file manager, fonts, clipboard and credential-store
+integration. Native desktop Lock/unlock and password-locked-account keyring behavior
+must work under the canonical account contract; don't hide a trapping lock screen or
+pretend Forgejo OAuth is a Linux password. Project sudo/root retains administrative
+access to project state.
 
-Observation should not type into an agent-controlled desktop. Human takeover must
-pause/release the agent's control before granting input; merely suppressing browser
-input cannot stop a native GUI agent. If an app offers no verified pause/control
-interface, use its real stop control and report the limitation. Project-local credentials
-and provider approvals stay with their intended account and desktop, separate from
-repository automation credentials.
+### Personal GUI apps and future computer use
 
-The existing issue/PR proposal still uses supported unattended command interfaces.
-Launching a GUI app is not evidence of a supported event-to-prompt API, resumable
-conversation or machine-readable review result. Inspect those contracts separately
-before promising fully automatic GUI-based resolver/reviewer runs. Desktop access
-can ship independently; neither an AI job nor a personal desktop should depend on
-keeping the Forgejo page open.
+Personal desktop apps use that user's project-local configuration and credentials.
+Issue/PR commands use a dedicated job checkout and credentials; they cannot borrow an
+existing personal desktop. Launching a GUI app does not provide an event-to-prompt
+API, resumable conversation or validated review result. The current issue/PR feature
+is the command contract above and ships independently of desktop availability.
+
+If a vendor later supports computer use on the selected Linux profile, recheck and
+prove the exact app version/account/session before exposing that capability. Identify
+the actual remote project desktop under control. A laptop app connected to remote
+files still controls its own supported computer-use target; SSH does not relocate
+screen capture and input. An API-driven screen agent is a different integration,
+not a substitute claim about the vendor desktop app.
+
+Future agent-controlled desktops need explicit agent stop/pause before human input.
+A read-only browser view cannot stop an agent's native input. If the app has no
+verified control-transfer interface, use its real stop control and state the limit.
+Cross-user sharing and graphical issue/PR automation remain outside the first
+personal desktop surface; they must not become hidden prerequisites for KDE.
 
 ### Desktop completion criteria
 
-Before calling a desktop profile supported, prove a real GUI task and each
-advertised app's installation/sign-in as the original project account; correct
-HOME/groups/mise in both terminal and GUI; edits to the same checkout; exact
-screen/input targeting; browser detach/reconnect and
-page/drawer navigation without desktop replacement; authorized observation/control
-transfer; isolation between users; and explicit Stop/Start persistence. Include
-desktop lock/sleep, logout/access loss, service coexistence and provider approvals.
-Run computer-use checks only when that capability is actually available, and mark
-it unavailable otherwise; desktop acceptance does not imply computer-use acceptance.
-Synthetic viewer tests alone cannot prove these behaviors. Native provisioning,
-private sign-in and provider use require a separately scoped target and inputs;
-no retained VM or project is repurposed by this proposal. Validate each claimed
-architecture natively before advertising support.
+Extend the existing [native validation](native-validation.md#kde-desktop-profile-checks)
+with an actual GUI task as the original account, two-account display isolation,
+correct shared files/tools, one-controller duplicate views, page/drawer navigation,
+detach/reattach, Lock/unlock, scoped End/logout/expiry and project Stop/Start
+persistence. Prove baseline desktop tasks without package repair and each advertised
+app's real installation/sign-in with separately authorized private fixture inputs.
+Advertise the OpenAI GUI only on an exact supported Fedora KDE/version/architecture
+combination after proof; Claude Desktop remains unavailable on the currently selected
+Rocky/Fedora profiles. CLI support is a separate capability.
+
+Do not count synthetic viewer tests as native session/cleanup proof. Test each claimed
+profile and architecture's affected behavior; unavailable Linux computer use stays
+unavailable, and desktop acceptance does not imply it. No retained VM/project is
+repurposed by this proposal. Only the currently supported profiles appear executable
+in Create; feasibility research and a populated dropdown are not profile acceptance.
 
 ## Marketplace and AI implementation sequence
 
 The [leading extension order](sodaspaces-plan.md#extension-order-and-dependency-boundaries)
 owns integration with Project OS and Spaces. These are feature-specific completion
-steps, not a replacement foundation or a dependency on GUI availability. Run images
+steps, not a replacement foundation or a dependency on GUI availability. Marketplace
+and AI can proceed independently; the numbering groups their own completion steps. Run images
 reuse applicable project-owned tooling/packaging; an unattended job still needs its
 own verified isolation, credentials and execution owner. No duplicate account, tool
 installer or project-lifecycle framework is implied.
 
-1. Settle marketplace placement and trigger policy. Inspect exact upstream runtime,
-   token and UI extension contracts; retain one candidate for each feature.
+1. Carry the explicit first candidates above through exact upstream runtime, token
+   and UI extension inspection; any changed placement/trust decision revises that
+   candidate before implementation, rather than adding a dormant alternative.
 2. Implement the Services catalog, operator API/native helper, persistent recipes,
    usable ingress and native/Lit UI. Complete all three app journeys; do not count
    a read-only catalog or generated unit files as a working marketplace.
@@ -420,10 +713,11 @@ installer or project-lifecycle framework is implied.
    shared Spaces/drawer UI and issue-to-PR publication. Prove background execution
    with no browser, authorized attachment and view-only navigation. Complete a
    fake-agent local journey, then a separately scoped real provider run.
-5. Add PR review, bounded fixes, stale-head refusal, fork handling and recursion
-   prevention with continuation of the original resolver. Test zero rounds, early
-   success, exhaustion, malformed output, view closure versus job cancellation,
-   context preservation and concurrent human commits as observable outcomes.
+5. Add PR review, bounded fixes, exact-revision publication, fork handling and
+   duplicate-event prevention with the same resolver command/attempt state. Test
+   zero rounds, independent event toggles, early success, exhaustion, malformed
+   output, failed checks, view closure versus cancellation, retry identity and
+   concurrent human commits as observable outcomes.
 6. Validate native persistence for services and native isolation/cleanup for AI
    jobs on an explicitly authorized fixture. Cover operator/member denial, secret
    isolation, image/pull/start failures, usable endpoints and actual provider results.

@@ -16,12 +16,14 @@ the project's real service endpoints; opening it does not copy a database or ins
 a second workload engine. Revalidate changed package/runtime behavior per profile;
 the Rocky evidence below is not automatic Fedora/KDE acceptance.
 
-The [marketplace proposal](services-and-ai-plan.md#1-services-marketplace) still has
-an open placement decision. Project-local catalog installation, if selected, must
-use this engine and project-native authorization. Appliance-wide services instead
-use operator authority and their own durable data. Neither choice grants an ordinary
-member access to the rootful project engine or the host Podman socket. AI job isolation
-remains the runner's separately verified boundary, not borrowed project credentials.
+The [marketplace candidate](services-and-ai-plan.md#1-services-marketplace) is a
+single appliance-wide, operator-managed catalog, including Adminer as an appliance
+utility. Its data, app authentication and private ingress are separate from project
+roots and this nested engine. If project-local catalog installation is later chosen,
+revise that scope around this engine and existing project authority before adding it;
+do not implement both candidates now. Neither surface grants ordinary members the
+rootful project engine or host Podman socket. AI job isolation remains the runner's
+separately verified boundary, not borrowed project credentials.
 
 ## Service and permission corrections
 

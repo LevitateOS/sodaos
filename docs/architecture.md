@@ -74,6 +74,15 @@ Dependency baselines belong in source recipes/locks, not repeated prose version 
 The `soda-dashboard` command/container/config/data names still identify the Go backend.
 Do not rename persistent records or roots simply because the UI is called Sodaspaces.
 
+The [settings contract](sodaspaces-plan.md#settings-pages-and-os-selection) places
+Sodaspaces and CLI-based AI automation in repository settings and local Sodarunners
+capacity in global Soda-operator settings. “Move runners to the dashboard” means
+this bounded native-interface extension, not reviving either removed frontend.
+Forgejo retains Actions settings/scheduling/permissions; Cockpit Runners remains
+until parity is proved, and Tailnet stays there. Marketplace apps, persistent
+Project OS roots, isolated AI jobs and account-owned desktop sessions have distinct
+native lifetimes and credentials; sharing UI does not combine their privileges.
+
 The backend also renders [original robot avatars](avatars.md) from embedded SVG
 parts using Forgejo's supported provider setting. Only the avatar namespace is
 public and credential-stripped on the Forgejo origin. Protected Sodaspaces API/OAuth
@@ -84,9 +93,11 @@ and terminal routes share that origin under `/-/soda/` with their normal credent
 - **Forgejo** owns identity, passwords/factors, native sessions, permissions, Git,
   collaboration and administrator workflows. Use supported customization/APIs;
   never access its database directly or copy its business rules into Soda.
-- **Soda** owns only its additional preferences, development-access public keys,
-  environment associations/memberships and protected adapter sessions/grants.
-  Native Git key management is separate. No second password or provider-role inventory.
+- **Soda** owns its additional identity/access records: preferences, development-access
+  public keys, environment associations/memberships and protected adapter sessions/grants.
+  Its appliance integration also owns local runner state/lifecycle and the selected
+  catalog recipes/installed configuration. Native Git keys and collaboration remain
+  upstream-owned. No second password, provider-role inventory or CI scheduler.
 - **Host root, configured Soda operator, Forgejo site administrator, organization
   owner/admin and repository owner are distinct authorities.** Owning a repository
   does not grant appliance access. Arbitrary site/org administrators are not project
@@ -140,7 +151,7 @@ assets cannot supply native CSRF or authentication, and template overrides canno
 install Go handlers upstream. Lit renders only the Soda workspace. Page-only CSP,
 styles/clipboard and fixed return have local checks; installed integration remains pending;
 no copied native authentication logic, HTML relay or borrowed cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
-remain intact. A future global Runners link/page must enforce the configured Soda
+remain intact. The selected global settings entry/page for Sodarunners must enforce the configured Soda
 operator boundary server-side; Forgejo site administration is not a substitute.
 
 ## Projects and explicit joining

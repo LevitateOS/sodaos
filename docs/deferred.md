@@ -18,6 +18,14 @@ KDE session/display integration is selected work; a separate VM backend is not.
 Investigate the current runtime first and bring a concrete compatibility blocker
 back with its effects on the shared Project OS contract before changing that runtime.
 
+The [services/AI plan](services-and-ai-plan.md) selects a small catalog and repository
+CLI automation. Catalog-owned native recipes and a command/variables/result contract
+are bounded integrations, not a new repository workload language or a Soda scheduler.
+Runner migration changes operator presentation and its fixed-operation access path;
+it does not select broader capacity admission, drain/reconciliation or a CI platform.
+Desktop viewer expiry and attempt-owned AI cancellation are in scope despite the
+broader cross-system access/recovery deferrals below.
+
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
 
 The user-requested [CoreOS product strategy](os-product-strategy.md) now evaluates
@@ -26,7 +34,7 @@ as future investments, with effort estimates and narrow first slices. Writing th
 strategy does not select their implementation, import the predecessor Updates
 platform or authorize native actions. Existing selected work keeps its current scope.
 
-The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. The predecessor's operator Cockpit **Tailnet and Runners pages and backing logic are selected for reuse, not deferred**. Deferral is not a request to strip their existing working validation or focused error handling.
+The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. Stock operator Cockpit and its Tailnet page remain selected. Runner backing logic, native integration and focused tests are retained; the Cockpit Runners page remains until its selected global-settings replacement passes parity and coordinated cutover. Deferral does not authorize stripping working validation or error handling.
 
 The user subsequently selected the bounded authenticated **Spaces** listing and
 global navigation link; the earlier environment-catalog exclusion is superseded.
@@ -34,7 +42,7 @@ See the [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
 Go/template ownership, authorization and the selected Soda-owned page shell. The
 [Lit plan](lit-migration-plan.md) implements this workspace and its companion drawer,
 not Forgejo workflows. This selection does not reopen deletion, reconciliation,
-resource branching or a general replacement dashboard. Future Runners navigation remains Soda-operator-only.
+resource branching or a general replacement dashboard. The global settings entry for Sodarunners remains Soda-operator-only.
 
 The [Project OS baseline](project-os.md) additionally selects bounded native
 maintenance for required package/helper/config additions to the **same** retained
@@ -84,7 +92,7 @@ The working project-admin rule is the owner of the associated Forgejo project/re
 
 Do not expand the first join/create/service flow into a general solution for every interrupted request, concurrent retry, partially created resource or cross-system failure.
 
-Automatic reconciliation, rollback/compensation, durable cross-system workflows and exhaustive recovery matrices are deferred. Use the selected native operations, report their actual outcomes and do not claim that a failed provision succeeded. This is not permission to destructively recreate existing work as a shortcut.
+Automatic reconciliation, rollback/compensation, general durable cross-system workflows and exhaustive recovery matrices are deferred. The selected marketplace explicitly includes one native per-instance install unit with bounded retry of its original inputs, and AI publication includes native duplicate-event/conflict handling. These are ordinary correctness within those selected flows, not general recovery machinery. Use the selected native operations, report their actual outcomes and do not claim that a failed provision succeeded. This is not permission to destructively recreate existing work as a shortcut.
 
 ## 5. Deferred: broader recovery and lifecycle management
 

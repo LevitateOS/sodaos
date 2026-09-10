@@ -45,6 +45,83 @@ input focus while navigating Forgejo and moving between page/drawer. Explicit de
 end, logout/access expiry, last-viewer retention and project Stop need their declared
 effects checked independently of terminal End and AI Cancel.
 
+For every new creation, compare the persisted profile ID, distribution ID/version,
+interface/session type, architecture, exact image ID/digest and recipe revision with
+the native project's labels and `/etc/os-release`. An unavailable profile must fail
+before reservation/native creation. A legacy environment with missing metadata must
+remain legacy/unknown and keep its original CID/root; changing the configured image
+default or mutable tag must not change its displayed identity. Exercise the current
+single-image build/install callers while introducing the matrix: each exact profile
+artifact must be native to its architecture, and dashboard/application artifacts must
+not acquire the selected project distribution accidentally.
+
+### KDE desktop profile checks
+
+Use an ordinary newly joined, password-locked member; do not enable a reusable Linux
+password, password SSH, automatic display-manager login or an operator repair path.
+An explicit Start must produce one exact desktop ID and a login-quality session for
+that original account. Observe UID/GID/groups, `HOME`, `/run/user/UID`, logind/PAM or
+the declared equivalent, the user service manager, session D-Bus, Wayland socket,
+portals/PipeWire, shared mise settings and the owned graphical cgroup. Starting with
+`podman exec --user` and a compositor process is not sufficient evidence.
+
+On Fedora, prove the supported Plasma Wayland session; do not install or select a
+Plasma X11 session to make an X11-only VNC/RDP server pass. Before accepting the
+KRFB/private-RFB/WebSocket/noVNC investigation candidate, inspect the exact packaged
+versions and prove a headless software-rendered session, no public listener,
+short-lived private transport authentication, authorized browser attachment, resize,
+keyboard/pointer, Unicode, explicit clipboard copy in each direction and clean refusal
+when the native server asks for interactive approval or a standing password. Compare
+KRDP only if its browser gateway, headless behavior and credential boundary are tested
+as one complete path. An upstream limitation or failed first probe is a concrete
+finding to analyze against the existing container; it is not automatic VM selection.
+
+The finite first-slice matrix uses Alice and Bob in the same project:
+
+1. Start one desktop for each account and confirm separate runtime directories,
+   Wayland/display endpoints, buses, app/browser profiles, credential stores and
+   process scopes. Alice cannot discover, view or control Bob's desktop through Soda.
+   Project root's documented native visibility is not a browser observation feature.
+2. In Alice's creating Soda sign-in context, open the same desktop in two views. Both
+   may observe, but only one explicit input lease can inject keyboard/pointer events;
+   transfer control without overlap or implicit eviction. Another Soda sign-in context,
+   including one for Alice, cannot adopt, replace or renew the live desktop.
+3. Move Alice's original attachment between Spaces and the drawer, Hide and reconnect
+   to the exact desktop ID; no new compositor, desktop, home or app process appears.
+   After loss of the last visible authorized viewer, reattach within the 30-minute
+   deadline to the same running app and unsaved editor state and confirm that successful
+   visible reattachment clears that grace deadline. Output, retry and hidden views do
+   not clear or renew grace; duplicate views do not extend the 12-hour hard cap or the
+   creating context's authority, and neither cap exceeds that Soda sign-in context's
+   configured expiry. Use bounded test values where supported; do not wait out
+   production durations merely to create evidence.
+4. Exercise Desktop Lock and the selected authorized unlock design from detach and
+   reconnect. It must neither trap the password-locked account nor accept a reusable
+   Soda/Forgejo credential as a general PAM password. Desktop power actions cannot
+   stop/suspend the whole project without the existing explicit project operation.
+5. On native safety-lease loss, explicit Soda logout, context rotation/expiry or
+   confirmed authority loss, verify immediate transport denial and bounded cleanup of
+   the graphical scope. The user service manager, managed tmux, ordinary SSH, project
+   services and nested workloads remain. A cleanup timeout stays uncertain/unavailable
+   and cannot be replaced under the same ID.
+6. End Alice's desktop and independently prove its graphical cgroup, session-owned
+   D-Bus/systemd-activated GUI apps and private transport state are gone while Alice's
+   terminal/SSH/shared user infrastructure and Bob's desktop continue.
+   Then Stop/Start the project and verify durable homes, app/browser settings,
+   per-user credential-store files, checkouts, shared files/tools and service data
+   remain while old desktop processes/IDs do not.
+7. In a GUI editor and terminal, edit the same dirty checkout seen over SSH; use the
+   packaged file manager, basic editor and browser without manual dependency repair.
+   Exercise provider sign-in only with separately supplied private fixture inputs and
+   record no cookie, token, clipboard content or screen containing secrets.
+
+The first desktop acceptance excludes audio, camera/microphone, USB/device access,
+GPU acceleration, printing, multiple monitors, cross-user sharing/control and GUI
+file transfer. Do not make those unselected peripherals prerequisites. Mark OpenAI
+and Claude Computer Use unavailable on Linux according to current vendor docs; a
+generic screen-driving test, API computer-use agent or successful browser automation
+is not evidence that either Linux desktop app supplies its native Computer Use feature.
+
 Existing terminal/native results remain valid only for their recorded mechanisms
 and targets. New Fedora/KDE claims require affected native proof. Test advertised
 GUI applications separately from native computer use, marking unavailable provider

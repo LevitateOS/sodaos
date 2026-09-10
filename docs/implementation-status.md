@@ -1,5 +1,61 @@
 # Current handoff
 
+## Six-feature plan audit — commands, ownership and native prerequisites
+
+Reviewed the runner migration, marketplace, issue/PR automation, OS profiles, desktop
+transport and Codex computer-use plans together, with independent source/contract
+reviews. The [leading settings/dependency plan](sodaspaces-plan.md#settings-pages-and-os-selection)
+now gives concrete Soda routes and separates independently deliverable workstreams.
+“Dashboard” means bounded native-interface operator settings, not either removed UI.
+Earlier provider-preset/conversation-resumption promises are superseded by the
+[user-defined CLI contract](services-and-ai-plan.md#user-defined-commands-and-variables).
+
+The runner guide now specifies the existing root:soda bridge candidate, distinct
+operator/provider authority, actual listener/configured-slot observations, lifecycle
+and partial-failure effects, secret handling, legacy descriptors and cross-Cockpit/web
+serialization. Cockpit Runners remains until verified replacement and coordinated
+removal; Tailnet and native runner logic/tests remain. No provider availability or
+isolated OCI execution is inferred from a running host listener.
+
+The marketplace candidate uses global operator management, online immutable image
+pulls, per-instance native install ownership/retry, preserved recipe/data, private
+app hostnames/TLS and separate health/client-reachability states. Adminer is an
+appliance utility with a fixed database list; Vaultwarden has closed-signup native
+invitation/SMTP onboarding; Homepage is an operator-maintained shared link page with
+version-verified native authentication. These are explicit planning defaults, not
+installed services or a user answer to earlier placement/trust questions. Broader
+project catalogs, offline bundles and lifecycle/recovery platforms are not implied.
+
+AI setup now means resolver/reviewer CLI commands, ordinary variables and restricted
+context/result/credential files. It distinguishes the one-job checkout/state lifetime,
+run-owned PTY, execution ID and stable publication key; defines setup/check order,
+independent event toggles, exact loop/explicit-rerun semantics and native COMMENT
+results; and requires immutable publication outside the command sandbox. Duplicate
+bot events, concurrent head/base changes, ambiguous publication and untrusted policy
+replacement have explicit checks. The exact native claim/token/publisher path remains
+an implementation gate; an authored plan does not prove those security properties.
+
+Profile work now includes the actual single-image build/install/helper coupling,
+immutable creation metadata and legacy unknowns. The canonical Project OS desktop
+contract specifies original account/sign-in ownership, login-quality session setup,
+finite last-viewer retention, one input controller and graphical-scope cleanup that
+preserves independent user services/SSH/tmux. Fedora Wayland → KRFB/private RFB →
+WebSocket/noVNC is one investigation candidate. Usable Lock/unlock and credential-store
+behavior for password-locked accounts require native design/proof before KDE is offered.
+No VM backend or host-device expansion follows from these gaps.
+
+Official vendor/platform documentation checked for this audit confirms the Linux app
+and computer-use limits recorded in the profile/desktop guides. OpenAI GUI support
+requires the advertised Fedora/version/architecture and actual Soda proof; its Linux
+preview has no native computer use. Claude Desktop does not support the selected
+Rocky/Fedora profiles. Existing Rocky headless and terminal evidence is preserved;
+new images, settings handlers, runners, apps, AI execution and GUI transport remain
+unimplemented by this documentation change.
+
+Validation: source/plan and independent cross-plan reviews completed; all 16 added
+local file/anchor references and Git whitespace checks passed. No product builds/tests, package downloads,
+credentials, native fixtures, provider actions, service changes or deployment ran.
+
 ## OS dropdown and settings placement
 
 Selected one Project OS dropdown, Repository settings → Sodaspaces and AI automation,
