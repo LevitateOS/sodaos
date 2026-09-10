@@ -11,6 +11,7 @@ import {matrixInput} from '../installed/sodaspaces-matrix-input';
 import {exerciseWorkspaceMatrix, type MatrixEvidence} from '../installed/sodaspaces-workspace-journey';
 import {inspectMatrixProcess} from '../installed/sodaspaces-matrix-native';
 import {cliProtocolObservation} from '../installed/sodaspaces-cli';
+import {newManagedTerminal} from '../installed/sodaspaces-controls';
 const base = journeyInput({ca_file: '/synthetic/ca', origin: 'https://fixture.invalid', target: 'fixture', oauth_client_id: 'synthetic-client', repository_id: '7', repository_path: '/alice/Alpha', revision: '1'.repeat(40), terminal_actions: ['create', 'end'], users: [{id: '1', login: 'alice', password_file: '/synthetic/a'}, {id: '2', login: 'bob', password_file: '/synthetic/b'}]}, false, true);
 const scope = () => ({target: base.target, revision: base.revision, actors: ['1', '2'], sessions_per_actor: 6, actions: ['create', 'attach', 'hide', 'return', 'end'], ssh_config: '/synthetic/ssh', projects: [{environment: 'p' + '1'.repeat(24), repository_id: '7', repository_path: '/alice/Alpha', ssh: ['soda-matrix-a-alice', 'soda-matrix-a-bob']}, {environment: 'p' + '2'.repeat(24), repository_id: '8', repository_path: '/alice/Beta', ssh: ['soda-matrix-b-alice', 'soda-matrix-b-bob']}], cli: [], cli_effects: [], provider_use: 'none'});
 test('matrix approval cannot inherit a single-terminal, foreign actor/project or provider scope', () => {
@@ -45,12 +46,14 @@ test('CLI parser records observed protocol only, never generated agent semantics
   const observation = cliProtocolObservation('\x1b[?1049h\x1b[?1006h\x1b[?2004h\x1b[2;3H答案', '答案');
   assert(Object.values(observation).every(Boolean)); assert(!('outcome' in observation));
 });
-for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses actual controls, six exact sockets and single-use requests against a synthetic peer`, {timeout: 30000}, async () => {
+for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor ${actorIndex} preserve exact sessions against a synthetic peer`, {timeout: 60000}, async () => {
   const request = matrixInput(scope(), base), actor = request.actors[actorIndex]; assert(actor);
   const login = actorIndex ? 'bob' : 'alice', now = Math.floor(Date.now() / 1000), root = path.resolve(import.meta.dirname, '../..');
   const spaces: Space[] = request.projects.map(project => ({environment: {id: project.environment, repository_id: project.repository_id, repository: project.repository_path.slice(1), owner_id: '1', name: project.repository_path.split('/').at(-1) || '', provisioned: true}, login, environment_administrator: actor === '1', authority_unavailable: false, native_unavailable: false, observed: {id: project.environment, running: true}, terminals: []}));
   type Wire = {environment: string; id: string};
   const writers = new Map<string, ServerWebSocket<Wire>>(), writes: string[] = [], frames: string[] = [], errors: string[] = [];
+  const connections: {action: string; id: string}[] = [];
+  const footer = (await Bun.file(path.join(root, 'appliance/forgejo/templates/custom/footer.tmpl')).text()).split('{{if .IsSigned}}\n<div id="soda-notification-preview"')[0]; assert(footer);
   let ids = 0, attachments = 0, allowed = '';
   const tls = await mkdtemp(path.join(root, '.artifacts/matrix-tls-')); await chmod(tls, 0o700);
   assert.equal(Bun.spawnSync(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=localhost', '-days', '1', '-keyout', tls + '/key.pem', '-out', tls + '/cert.pem'], {stdout: 'ignore', stderr: 'ignore'}).exitCode, 0);
@@ -66,6 +69,11 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
         if (route.endsWith('/session')) return Response.json({user: {id: actor, login}, csrf_token: 'synthetic-only', forgejo_url: url.origin});
         if (route.endsWith('/spaces')) return Response.json({items: spaces, complete: true});
         if (route.endsWith('/forgejo/me')) return Response.json({id: actor});
+        if (route === '/-/soda/api/environments') {
+          const space = spaces.find(space => space.environment.repository_id === url.searchParams.get('repository_id')); assert(space);
+          // Current upstream names differ from the persisted project label.
+          return Response.json({items: [space.environment], repository: {id: space.environment.repository_id, owner: 'current', name: space.environment.name + '-renamed'}, can_create: false});
+        }
         const space = spaces.find(space => route.includes(space.environment.id)); assert(space);
         if (route.includes('/terminal-sessions/')) {
           const terminal = space.terminals.find(terminal => terminal.id === route.split('/').at(-1)); assert(terminal);
@@ -82,6 +90,12 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
       }
       const source = Object.entries(payload).find(([dest]) => dest === 'public' + route)?.[1];
       if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : 'application/octet-stream'}});}
+      const project = spaces.find(space => route === '/current/' + space.environment.name + '-renamed');
+      if (project || route === '/issues') {
+        const markup = footer.replace(/{{AssetUrlPrefix}}/g, '/assets').replace(/{{AppSubUrl}}/g, '').replace(/{{\.Repository.ID}}/g, project?.environment.repository_id || '')
+          .replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, actor).replace(/{{[\s\S]*?}}/g, '');
+        return new Response(`<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css">${project ? '<div class="repo-header"><div class="repo-buttons"></div></div>' : ''}<a href="/issues">Browse issues</a><a href="/current/Beta-renamed">Other repository</a><input id="native-draft" value="unsaved">${markup}`, {headers: {'Content-Type': 'text/html'}});
+      }
       if (route !== '/-/soda/spaces') return new Response(null, {status: 404});
       return new Response(`<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><main id="spaces-page" data-soda-actor="${actor}"></main><script type="module" src="/assets/sodaspaces-page.js"></script>`, {headers: {'Content-Type': 'text/html'}});
     }, websocket: {
@@ -95,6 +109,7 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
           space.terminals.push(terminal);
         }
         assert(terminal && !terminal.attached); terminal.attached = true; ws.data.id = terminal.id; writers.set(terminal.id, ws);
+        connections.push({action: String(frame.action), id: terminal.id});
         ws.send(JSON.stringify({type: 'session', id: terminal.id, request_id: terminal.request_id, attachment_id: (++attachments).toString(16).padStart(32, '0')})); ws.send(JSON.stringify({type: 'ready'}));
       }, close(ws) {const terminal = spaces.flatMap(space => space.terminals).find(terminal => terminal.id === ws.data.id); if (terminal && writers.get(terminal.id) === ws) {terminal.attached = false; writers.delete(terminal.id);}},
     }});
@@ -119,6 +134,48 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
     assert.deepEqual(evidence.cli, {outcome: 'not-run', reason: 'No declared CLI/provider scope'});
     assert.equal(frames.filter(action => action === 'create').length, 6); assert.equal(frames.filter(action => action === 'attach').length, 6);
     assert.deepEqual(writes, ['hide', 'return', 'end', 'end', 'end', 'end', 'end', 'end']); assert.equal(allowed, ''); assert.deepEqual(errors, []);
+
+    // Additional local navigation coverage, not part of the installed matrix's
+    // reported native proof. Actual page entrypoint, footer and drawer adapter.
+    const first = spaces[0]; assert(first);
+    await newManagedTerminal(page, first.environment.repository, 'From Spaces', first.environment.id);
+    const fromSpaces = first.terminals.at(-1); assert(fromSpaces);
+    const layout = await page.evaluate(actor => sessionStorage.getItem('soda-spaces:v2:' + actor), actor);
+    const screen = await page.locator('.xterm:visible').elementHandle();
+    await page.evaluate(() => {window.onbeforeunload = event => {event.preventDefault(); event.returnValue = 'Unsaved fixture draft'; return event.returnValue;};});
+    const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
+    await page.getByRole('button', {name: 'Open in drawer', exact: true}).click(); await cancelled;
+    assert.equal(new URL(page.url()).pathname, '/-/soda/spaces'); assert(await screen?.evaluate(node => node.isConnected));
+    assert.deepEqual(connections.at(-1), {action: 'create', id: fromSpaces.id});
+    await page.evaluate(() => {window.onbeforeunload = null;});
+
+    await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
+    await page.waitForURL('**/current/Alpha-renamed#sodaspaces'); await page.locator('#sodaspaces-drawer .is-connected').waitFor();
+    assert.deepEqual(connections.at(-1), {action: 'attach', id: fromSpaces.id});
+    assert.equal(await page.evaluate(actor => sessionStorage.getItem('soda-spaces:v2:' + actor), actor), layout);
+    await page.getByRole('link', {name: 'Other repository', exact: true}).click();
+    await page.locator('#sodaspaces-drawer .is-connected').waitFor();
+    assert.deepEqual(connections.at(-1), {action: 'attach', id: fromSpaces.id});
+    await page.getByRole('link', {name: 'Browse issues', exact: true}).click();
+    await page.locator('#sodaspaces-drawer .is-connected').waitFor();
+    assert.deepEqual(connections.at(-1), {action: 'attach', id: fromSpaces.id});
+    assert.equal(await page.locator('#sodaspaces-button.sodaspaces-global-resume').count(), 1);
+    // The global resume button is intentionally hidden while its drawer is open.
+    assert(await page.locator('#sodaspaces-drawer').isVisible());
+    await page.locator('#native-draft').fill('Continue browsing');
+    assert.equal(await page.locator('#native-draft').inputValue(), 'Continue browsing');
+
+    await newManagedTerminal(page, first.environment.repository, 'From drawer', first.environment.id);
+    const fromDrawer = first.terminals.at(-1); assert(fromDrawer && fromDrawer.id !== fromSpaces.id);
+    await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
+    await page.waitForURL('**/-/soda/spaces'); await page.locator('.is-connected').waitFor();
+    assert.deepEqual(connections.at(-1), {action: 'attach', id: fromDrawer.id});
+    await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
+    await page.waitForURL('**/current/Alpha-renamed#sodaspaces'); await page.locator('#sodaspaces-drawer .is-connected').waitFor();
+    assert.deepEqual(connections.at(-1), {action: 'attach', id: fromDrawer.id});
+    assert.equal(frames.filter(action => action === 'create').length, 8);
+    assert.deepEqual(writes, ['hide', 'return', 'end', 'end', 'end', 'end', 'end', 'end']);
+    assert.deepEqual(errors, []);
   } catch (error) {console.error({fixtureText: await page.locator('body').innerText(), errors, frames}); throw error;}
   finally {await browser.close(); server.stop(true);}
 });

@@ -1,8 +1,9 @@
 # Project OS baseline
 
-The foundation for the selected development workspace, **not a new distribution or
-a design for every possible workload**. Keep the existing persistent Rocky + mise
-userspace and ordinary Linux extension points. The [Sodaspaces plan](sodaspaces-plan.md)
+The foundation for the development workspace. The current implementation is the
+persistent Rocky + mise userspace with ordinary Linux extension points. The user
+has selected the bounded Rocky/Fedora and headless/KDE expansion below; GNOME is
+deferred. This does not replace existing roots. The [Sodaspaces plan](sodaspaces-plan.md)
 owns implementation order; this guide consolidates the project contracts and actual
 gaps. [Terminal](terminal-integration.md), [development](development-environment.md),
 [services](project-services.md) and [CLI](project-clis.md) guides own their details.
@@ -13,6 +14,300 @@ and bounded x86_64 account, shared-tool, nested-workload and persistence results
 is implemented with bounded isolated reload/cleanup proof; broader native safety/UX,
 key-free browser onboarding and the combined Git workflow remain incomplete.
 This baseline is documentation, not a new build, installed inventory or acceptance.
+
+## One foundation for every profile
+
+This guide remains the Project OS authority. Distribution and desktop choices extend
+the already planned environment; they do not create independent vanilla machines,
+new account systems or a second development product. The responsibilities remain:
+
+| Contract | Owner |
+| --- | --- |
+| Product order, onboarding and Git-credential decisions | [Sodaspaces plan](sodaspaces-plan.md) |
+| Accounts, native permissions, shared installations, persistence and maintenance | This Project OS guide |
+| Personal checkouts, editors, shared mise and ordinary developer workflows | [Development environment](development-environment.md) |
+| Native workload engine, service permissions and project networking | [Project services](project-services.md) |
+| Tea/gh packaging and personal provider authentication | [Project CLIs](project-clis.md) |
+| Managed terminal identity, supervision, leases and cleanup | [Terminal integration](terminal-integration.md) |
+| Shared page/drawer views and rendering | [Spaces design](spaces-design.md), [drawer design](spaces-drawer-design.md), [Lit sequence](lit-migration-plan.md) |
+| Service catalog and issue/PR automation integration | [Services and AI plan](services-and-ai-plan.md) |
+
+A desktop session belongs to the existing project-local account. Terminal, desktop
+apps and ordinary SSH use that account's real home, checkouts, permissions and shared
+tools. Desktop launch must establish the correct user session/environment, including
+mise paths; opening an app must not silently create another home, clone, tool store
+or credential identity. Per-user graphical sessions must not expose peers' displays
+or browser credentials; project sudo/root retains the documented administrator trust.
+
+A desktop is not a large terminal lease. It has its own desktop ID, display socket,
+input lease, runtime directory and graphical process scope. Ending that scope must not
+end the account's managed tmux terminals, ordinary SSH sessions, user service manager,
+native services or nested workloads. Conversely, a retained terminal neither retains
+nor authorizes a desktop. The first desktop slice is account-owned: one graphical
+session for one `(project, original login)`. Another Linux account cannot observe it;
+duplicate browser views from its creating Soda sign-in context may observe the same
+display, but exactly one holds keyboard/pointer control.
+
+Installed OS packages, native service data and shared tools belong to the persistent
+project root. A KDE profile adds the graphical session and its access transport to
+that foundation. Forgejo still owns identity/Git authority; Soda binds authorized
+viewers to exact native targets. No blank VM or desktop image alone completes a
+Project OS profile.
+
+The existing onboarding, credential, CLI, reachability and native-proof gaps remain
+work. Keep their evidence and priority; profile expansion must neither reset completed
+work nor describe those gaps as solved. Read this guide and the relevant owner above
+before extending images, runtime, desktop sessions or automation environments.
+
+## Batteries included by default
+
+Every supported profile must arrive as a complete working Project OS. Soda owns
+installation and integration of the non-preference foundation; users must not
+assemble missing accounts, tools, desktop plumbing or workload support themselves.
+This supersedes the earlier minimal-tool interpretation. A small image is not a
+goal when it leaves an ordinary supported workflow incomplete.
+
+| Supplied and wired by Soda | Remains a user or repository choice |
+| --- | --- |
+| Native account/home/group setup, locale, shell startup, permissions, CA trust and persistent directories | Personal dotfiles, preferred shell, locale and appearance overrides |
+| Working terminal, tmux, basic editor/pager, file search, archives, transfer and process/network diagnostics | Preferred editor/IDE, extensions, keybindings and terminal theme |
+| Git, packaged forge CLIs, shared mise, standard native build/debug tools and development prerequisites | Repository language/runtime versions, dependency graph, build/test commands and trust decisions |
+| Native workload engine, Compose support, service supervision, storage and usable access integration | Which databases/services to run, their versions, configuration and data |
+| On KDE: functioning user desktop/session, display/input transport, fonts, clipboard integration, file manager, basic graphical editor, browser and credential-storage integration | Preferred applications, browser profile, extensions, desktop customization and personal accounts |
+| Required dependencies and integration for every offered optional tool/app | Whether to install/use that tool, AI provider/model, subscription, credentials and prompts |
+
+Ship useful defaults even where users may later choose alternatives. A working
+basic editor/browser is part of a usable environment; choosing a different one
+must not require undoing Soda's account or tool integration. Clipboard access is
+explicit and directional, not automatic copying of the user's local clipboard.
+Private identity, credentials and repository trust are never preconfigured with
+someone else's account to create the appearance of readiness.
+
+Missing standard build prerequisites are a product packaging gap, not a task for
+each project administrator. The image recipes must enumerate the selected native
+build/debug/development packages for each distro and verify representative build,
+link and diagnostic operations as the ordinary project user. Keep version pins and
+resolved package inventories in their existing source/build owners. A tool-manager
+binary alone is not proof that the development foundation is complete.
+
+Repository-specific runtimes and dependencies still follow native mise/package
+workflows and authorized trust/install decisions. When a user selects a supported
+optional app, Soda must supply its declared dependencies and working launch path;
+"install these prerequisite packages yourself" is not the completed integration.
+Personal provider sign-in and consent remain explicit. An unsupported app must be
+reported honestly rather than offered as a working preset.
+
+Fresh-image acceptance starts with an ordinary new member and no operator repair:
+join/open a terminal, manipulate files, use Git, build/debug a representative native
+sample, use shared tools and a native service; KDE also opens, edits and browses
+the same project through the real desktop. Cover required setup/error paths and
+persistence. Manual package fixes invalidate that candidate's batteries-included
+claim until incorporated into packaging and rechecked. This is a requirement for
+the existing product tests, not another provisioning framework or readiness daemon.
+The current image is not declared complete merely by adding this policy.
+
+## Selected environment profiles
+
+The user selected Linux for desktops and these creation choices on 2026-09-10:
+
+| Profile | Distribution | Interface | Status |
+| --- | --- | --- | --- |
+| Rocky headless | Rocky Linux | Terminal | Existing implementation; preserve as the default |
+| Rocky KDE | Rocky Linux | Terminal and KDE Plasma desktop | Selected; not implemented |
+| Rocky GNOME | Rocky Linux | Terminal and GNOME desktop | Deferred |
+| Fedora Server | Fedora Linux | Terminal / headless | Selected; not implemented |
+| Fedora KDE | Fedora Linux | Terminal and KDE Plasma desktop | Selected; recommended first desktop implementation |
+| Fedora GNOME | Fedora Linux | Terminal and GNOME desktop | Deferred |
+
+The creation UI uses one **Project OS** dropdown with the four selected combinations,
+as specified in [repository settings](sodaspaces-plan.md#settings-pages-and-os-selection).
+Distribution/interface remain profile properties rather than independently saved
+UI settings. GNOME stays out of executable choices until its
+implementation is selected and ready. Existing environments show their original
+profile; this is not a live distro/desktop switcher. Resolve a bounded profile ID
+server-side to installed, architecture-compatible artifacts. Do not accept arbitrary
+image references, package lists or native runtime flags from the browser.
+
+Profiles describe initial userspace and interface, not six independent backends.
+Preserve the shared Soda contracts for accounts, home/shared files, mise, Git, SSH,
+terminals and Start/Stop persistence. Keep common authored files with their existing
+owner and isolate real distribution/package differences in the image recipes.
+Container init and native guest boot are distinct; do not blindly copy
+container-only units, seccomp/capability policy or network assumptions into a VM.
+
+The current helper uses one configured image and directly creates a persistent
+Podman container; the Create API accepts only a repository ID. There is no profile
+catalog, Fedora recipe or desktop/VM backend today. Preserve that Rocky mechanism
+for existing projects. First investigate KDE session/display integration against the
+existing persistent Project OS boundary. Selecting Linux/KDE does not select a VM.
+If a concrete native requirement cannot fit that boundary, document the blocker and
+the effects on accounts, storage, workloads and access before a runtime decision.
+Do not implement a parallel VM backend or silently split a project into a headless
+container and disconnected desktop. A profile is not itself a runtime selector.
+Fedora Server names the requested headless experience: document the actual Fedora
+image/edition used during packaging rather than representing a generic Fedora OCI
+image as an installed upstream Server edition.
+
+The current build/install path also has one project-image slot:
+[`scripts/build-native.sh`](../scripts/build-native.sh) builds one `project-os`
+artifact and requires its base reference to match the dashboard base;
+[`scripts/install-native.sh`](../scripts/install-native.sh) loads one
+`localhost/soda-project-os:dev` tag; and the host helper configuration contains one
+image reference. A fixed profile map therefore requires deliberate build metadata,
+staging, install and helper changes. Decouple project profile bases from the appliance
+application base rather than multiplying the whole appliance build per distribution.
+Keep the existing single image path until a complete replacement caller exists.
+
+Each new environment must persist immutable creation metadata: the bounded profile
+ID, distribution ID and version, interface/session type, native architecture, exact
+OCI image ID/digest and Soda recipe revision. Put the same trusted profile ID on the
+native project object so database and helper observations can be compared. Mutable
+tags and the current configured default are not environment identity. For legacy
+roots that lack this metadata, report a legacy/unknown profile plus separately
+observed `/etc/os-release` and image facts; do not backfill a precise profile from
+today's default or change the root to make the label true.
+
+**Use Fedora KDE as the first desktop compatibility target** within the shared
+foundation work, not as a replacement for outstanding Project OS work. OpenAI currently
+supports Fedora 43/44 in its Linux preview, while Rocky is outside its supported
+distro list. An RPM package alone does not prove Rocky compatibility. Both
+[Fedora KDE](https://www.fedoraproject.org/kde/download/) and
+[Rocky KDE](https://docs.rockylinux.org/teams/rel_eng/image/#about-live-images) have
+upstream x86_64/aarch64 media; availability is not installed Soda evidence. Exact
+version/digest/package baselines belong in reviewed recipes/locks when implemented.
+
+Desktop availability and individual AI capabilities must be reported separately.
+The [OpenAI Linux preview](https://learn.chatgpt.com/docs/linux/linux-app) currently
+lacks built-in computer use. The
+[Claude Linux desktop beta](https://code.claude.com/docs/en/desktop-linux) supports
+Ubuntu/Debian, not Fedora/RHEL, and also lacks computer use. These are current app
+compatibility gaps, not reasons to change the user's selected Linux distributions
+or quietly substitute an unofficial package. Recheck before each app integration;
+do not promise Claude GUI parity on the selected profiles yet.
+
+Fedora KDE has shipped only the Plasma Wayland session since Fedora 40; X11 apps run
+through Xwayland, but a Plasma X11 session is not a supported fallback. KDE's August
+2026 remote-desktop status says its single-user headless work is still in progress
+and a multi-user remote server is unlikely for Plasma 6.8. That upstream limitation
+does not prove a private virtual KWin session cannot work in the project container;
+it makes per-account headless startup the first native investigation. Do not choose
+TigerVNC/Xvnc or xrdp by relying on a Plasma X11 session Fedora does not ship.
+Sources: [Fedora's Plasma 6 change](https://fedoraproject.org/wiki/Changes/KDE_Plasma_6),
+[KDE remote-desktop status](https://planet.kde.org/david-edmundson-2026-08-25-whats-happening-in-kde-remote-desktop-improved-unattended-mode-and-more/).
+
+After a private Plasma Wayland session works, investigate KRFB with a private RFB
+endpoint and a bounded WebSocket/noVNC adapter as the first browser-transport
+candidate. It matches the existing-session model, the browser surface and separate
+view/control modes. It is not selected production source: verify exact Fedora/Rocky
+packages, headless operation, resize, clipboard, software rendering and cleanup.
+The RFB listener must remain private. Any RFB credential is ephemeral runtime state,
+confined to the account-owned graphical scope and revoked at End; never deliver it in
+a browser URL/JavaScript payload or logs/evidence. The project account and project/
+appliance root retain their documented native visibility. Reject the candidate if a
+secure session-scoped native setup is impossible, not merely because RFB itself uses
+a password. KRDP/RDP remains a comparison, but an RDP-to-browser gateway does not
+itself create the needed headless session. [KDE's KRFB guide](https://docs.kde.org/stable_kf6/en/krfb/krfb/krfb.pdf)
+describes its existing-desktop and view/control behavior.
+
+Deliver each new profile through creation, native provisioning, account/access
+wiring, packaging/staging and the real Spaces/drawer experience before enabling
+its choice. Prove persistence and authorization per profile and claimed native
+architecture. Profile changes apply to new environments; existing CIDs, roots,
+accounts, keys and installed tools remain untouched. No automatic conversion,
+OS upgrade, image replacement or project migration is selected.
+
+## Desktop session and access boundary
+
+Project accounts remain password-locked. Forgejo/Soda authorizes desktop access;
+Project OS does not add a native password authority, enable password SSH or expose an
+SDDM/xrdp greeter. After an explicit **Start desktop**, the restricted host helper
+must resolve the trusted project, original identity marker and Linux login and invoke
+one fixed native start operation. **Open desktop** attaches only to that exact existing
+desktop ID. Opening a page, selecting a tab, Refresh or returning from navigation must
+not create a replacement session.
+
+Starting the graphical process with `podman exec --user` alone is insufficient. The
+launcher must establish a login-quality session for the real account: correct UID,
+GID and supplementary groups, `HOME`, shared mise environment, a private
+`XDG_RUNTIME_DIR`, a registered logind/PAM session or a documented equivalent, user
+service manager, D-Bus session, Wayland display, portals and the PipeWire services the
+selected transport needs. Review the actual distribution PAM and user-session stack;
+do not copy the host Cockpit PAM policy, accept a browser-supplied Linux password,
+expose a general session launcher or pass Soda OAuth/session material into the desktop.
+
+The initial lifecycle is finite and separate from managed-terminal implementation:
+
+- One desktop ID belongs to one project, original login and creating Soda sign-in
+  context. Other sign-in contexts, including another login by the same person, cannot
+  silently adopt, replace or renew it. Duplicate views in the creating context may
+  observe it; one explicit input lease controls keyboard/pointer and transfers without
+  concurrent injection or implicit eviction.
+- Hide, page/drawer navigation and unexpected loss of the last **visible authorized**
+  view start a 30-minute detached deadline for the exact desktop. A successful visible
+  reattachment from the creating context, after fresh matching user, membership and
+  repository authority checks, clears that grace deadline. Output, retries and hidden
+  views neither clear nor renew it. No attachment extends the hard cap or creating
+  context's authority.
+- The desktop has a 12-hour hard cap and never outlives the configured expiry of its
+  creating Soda sign-in context. A short independent native safety lease is renewed
+  only while those bounds and authority remain valid. Lease loss, explicit Soda logout,
+  context rotation/expiry or confirmed authority loss closes every display attachment
+  and ends the owned graphical scope. Cleanup failure remains unavailable/uncertain;
+  it must not free the ID or start a replacement.
+- **End desktop** terminates only the owned graphical session/cgroup and its
+  desktop-launched descendants. Include GUI apps activated through D-Bus/systemd,
+  which may not remain ordinary child processes: prove their exact session-owned
+  units/scopes and cleanup without killing shared user infrastructure. It does not
+  kill by UID or stop the user's service
+  manager, personal tmux, ordinary SSH, project services or nested workloads.
+  **Stop project** retains its existing whole-project meaning and interrupts the
+  desktop with everything else.
+
+Show the live retention/expiry deadline and the effect on unsaved GUI work. A native
+Plasma logout ends this desktop and is observed as ended; it does not log out the Soda
+web account or launch a replacement. Expired/ended IDs show their reason and require
+an explicit new Start after confirmed cleanup.
+
+Desktop Lock must have a defined, usable unlock path. The accounts have no reusable
+Linux password, so a stock locker cannot be assumed to work and automatic login is
+not an answer. Before enabling KDE, select and test a bounded unlock design tied to
+the same authorized account/context, without turning Soda/Forgejo credentials into a
+general PAM password or allowing another sign-in context to unlock the display. If
+that cannot be done with the selected session stack, stop for a product decision;
+do not silently disable or leave a trapping Lock action. Project suspend remains the
+existing explicit whole-project Stop, not a desktop power-menu side effect.
+
+The first desktop surface has one resizable virtual display with software rendering,
+keyboard, pointer and explicit directional clipboard actions. It does not promise
+audio, microphone/camera, USB/device passthrough, GPU acceleration, printing, multiple
+monitors, cross-user screen sharing or drag-and-drop file transfer. Existing SSH/SCP/
+SFTP remains the file-transfer path. This keeps Fedora/Rocky and x86_64/aarch64
+acceptance about the same Project OS rather than a workstation-peripheral platform.
+
+Browser cookies, app profiles, provider sign-ins, wallets/keyrings and clipboard data
+belong to the original user. Store them only in account-owned persistent paths with
+private modes; never in `/srv/project/shared`, image layers, Soda's database, transport
+URLs, argv, logs, screenshots or retained evidence. The account currently has no login
+password, so do not assume PAM will unlock KWallet or another Secret Service. Select
+and test an explicit per-user unlock/sign-in behavior before advertising credential
+storage as integrated. Project root/wheel and appliance root retain their documented
+ability to inspect project state; the UI must not imply stronger secrecy.
+
+Codex/ChatGPT and Claude availability are application claims layered on this desktop.
+As of 2026-09-10, OpenAI's Linux desktop preview supports Fedora 43/44 on x64 and
+ARM64 but explicitly lacks Computer Use, and Claude's Linux beta supports Ubuntu/
+Debian rather than Fedora/RHEL and lacks Computer Use. Desktop success therefore
+does not imply either vendor app is available: advertise and validate OpenAI's app
+only on its supported Fedora/version/architecture combinations, and do not offer the
+Claude desktop app on the four selected profiles today. Codex CLI and Claude Code CLI
+are separate terminal integrations with their own package/runtime checks. Report
+missing native automation features unavailable instead of adding screen-scraping
+automation or changing the Project OS runtime. Claude Cowork's optional QEMU/KVM guest
+is an application feature and does not select a VM for Soda. Sources:
+[OpenAI Linux desktop](https://learn.chatgpt.com/docs/linux/linux-app),
+[OpenAI Computer Use](https://learn.chatgpt.com/docs/computer-use),
+[Claude Linux desktop](https://code.claude.com/docs/en/desktop-linux),
+[Claude Code installation](https://code.claude.com/docs/en/installation).
 
 ## Ownership and trust
 
@@ -53,11 +348,12 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
   rolling RPM repositories: retain the resolved digest and actual package inventory.
   System helpers use the OS interpreter/absolute paths; project-selected language
   versions must not replace it.
-- The small interactive baseline includes a UTF-8 login environment, file/text/process
+- The currently packaged interactive subset includes a UTF-8 login environment, file/text/process
   tools, a terminal editor (`vi`/`vim-minimal`), pager (`less`), CA certificates and
   working terminal descriptions. The saved `dad2945` x86_64 build RPM inventory lists
   those editor/pager/CA packages, but not tmux. That is a past image inventory, not a
-  current survey of retained roots. Make required tools explicit in recipe/check
+  current survey of retained roots or fulfillment of the batteries-included contract.
+  Make required tools explicit in recipe/check
   ownership rather than relying indefinitely on transitive base-image contents.
 - Keep the implemented **tmux** package and bounded native supervision for browser
   terminals; do not swap in a new web IDE or multiplexer backend. Bash remains the
@@ -74,14 +370,17 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
   language package managers/virtual environments and native Compose/systemd files.
   Users may install personal tools in their homes within ordinary permissions;
   separate personal mise storage requires explicit native environment configuration,
-  not a Soda selector. Shared OS packages/build prerequisites need project-admin
-  installation. Do not preinstall every compiler, editor, AI tool or database.
+  not a Soda selector. Soda supplies the standard OS/build prerequisites described
+  above. Project administrators install additional project-specific packages through
+  normal native permissions; toolchain versions, preferred editors/AI tools and
+  application services remain deliberate choices with complete dependency handling.
 
 GUI/GPU/device access, kernel-dependent workloads and every third-party tool are not
 implied compatibility promises. A concrete new need gets its own native compatibility
 review; no privileged-parent shortcut, arbitrary host device/mount or automatic
-capability expansion. This is extensibility through Linux, not a plugin/OS-profile
-catalog or private-resource branching system.
+capability expansion. The selected creation profiles above reopen only those
+specific userspaces/interfaces; arbitrary profiles and private-resource branching
+remain outside scope.
 
 ## Persistent state and lifecycle
 
@@ -247,9 +546,13 @@ operator/project coordination. No automatic fleet patching is currently supplied
 | Zero-key real account provisioning and explicit Forgejo public-key selection | Browser-only onboarding slice; preserve current accounts/key files and password-SSH denial. Not a prerequisite for testing tmux with an existing member. |
 | Personal Git credential trust/consent/passphrase choice and native endpoint trust | Resolve before automated Git setup/combined clone-edit-build-push proof; do not fabricate credentials or treat profile keys as repository-scoped. |
 | Current Forgejo authority versus already issued Linux sudo/SSH rights | Explicit limitation on rename/transfer/offboarding claims; no automatic native permission reconciliation is selected. |
+| Fixed Project OS profiles and immutable environment metadata | Current build/install/helper paths support one configured project image and do not retain a profile/version/architecture contract. Extend the existing owners without changing legacy roots or coupling every appliance application to the selected project base. |
+| KDE login-quality session, Lock and credential store | Current password-locked accounts have shell/SSH setup only. Prove the selected user-session/unlock design and private per-user Secret Service before advertising a desktop profile. |
+| Fedora/Rocky headless Wayland and browser transport | Investigate virtual KWin in the existing container, then the bounded KRFB/private-RFB/WebSocket/noVNC candidate. Upstream headless limitations guide the probe but do not select a VM or prove this candidate fails. |
 
-The existing foundation does not justify a new OS backend or universal-workstation
-planning phase. The [Lit workspace sequence](lit-migration-plan.md) preserves this
+The selected profiles extend this foundation through concrete implementation work;
+they do not require a universal-workstation planning phase. The
+[Lit workspace sequence](lit-migration-plan.md) preserves this
 implemented terminal mechanism while adding real multi-session UI/backend support.
 Onboarding and the combined Git workflow keep their separate scope. Extend the existing [product validation](native-validation.md)
 entrypoints for fresh and maintained projects; package lists, source tests or socket

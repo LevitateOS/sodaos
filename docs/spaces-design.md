@@ -1,4 +1,35 @@
-# Spaces design: parallel work, one terminal workspace
+# Spaces design: parallel work in one Project OS workspace
+
+## Scope of the selected extension
+
+The terminal layout below remains the implemented baseline. Extend this same
+workspace for [Project OS profiles](project-os.md#selected-environment-profiles),
+KDE desktops and [AI run views](services-and-ai-plan.md); do not build a second UI
+or separate development environment. Product order belongs to the
+[leading plan](sodaspaces-plan.md#extension-order-and-dependency-boundaries).
+
+- Profile selection belongs to explicit project creation. It never retargets an
+  existing terminal, upgrades a root or installs a desktop on Open.
+- Terminal and Desktop identify the same project/account and use its real files,
+  shared tools and permissions. KDE keeps terminal access available.
+- A desktop tab references an exact graphical session, with its own authorized
+  display/input owner. It is not a PTY or an ID in the existing personal-terminal
+  API. Reuse page/drawer layout and navigation without pretending native protocols
+  or lifetimes are interchangeable.
+- AI run views identify the issue/PR attempt and execution owner. Personal "My
+  sessions" semantics below remain unchanged; authorized run views need explicit
+  discovery/attachment and must not appear through a fabricated personal login.
+- Move between Spaces and the drawer without creating another native session.
+  Observe/control, desktop End, terminal End, project Stop and job Cancel remain
+  explicit distinct actions. Output and mere connection do not prove AI status.
+- Fit desktop content with its actual display geometry; terminal cell minima and
+  PTY resize rules below apply only to terminals. On compact screens, provide one
+  usable selected view, accessible navigation and deliberate input focus.
+
+Desktop and AI views remain unimplemented. Existing terminal diagrams, tests and
+native evidence do not establish graphical/session or automation behavior.
+
+## Existing terminal design and evidence
 
 **Revised design specification, not full implementation/acceptance or deployment
 permission.** This replaces the earlier grid-first proposal and interactive mockup.
@@ -42,8 +73,12 @@ screenshots of installed Soda.
 | Hide, End and Stop are different actions | Keep End/Stop out of everyday toolbar controls; make Hide's finite retention explicit |
 | Existing access/lifetime boundaries | Agent activity is advisory, separate from attachment, project state and authorization |
 
-No automatic task naming, command execution, agent launch, agent installation, branch
-selection, shared-state promotion, command broadcasting or Git-review backend is added.
+This existing workspace implementation adds no automatic task naming, command
+execution, agent launch, agent installation, branch selection, shared-state
+promotion, command broadcasting or Git-review backend. The subsequently requested
+[repository AI automation](services-and-ai-plan.md#live-ai-terminals-in-spaces-and-the-drawer)
+selects predefined agent launches and live terminals as separate, unimplemented
+work, with run ownership independent of a viewer's sign-in context.
 The user can type any installed CLI in their shell. A session called “Auth refactor”
 is a user label, not a claim that Soda understands the task.
 

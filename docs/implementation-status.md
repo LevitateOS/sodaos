@@ -1,5 +1,15 @@
 # Current handoff
 
+## Merge of origin/main at 4d1007c
+
+Merged the incoming feature plans and Spaces → drawer navigation with the local
+installer branding and BIOS/UEFI boot fixes. The only conflict was independently
+prepended handoff history; both histories and their evidence/limitations are retained
+below. Product source merged without textual conflicts. This merge ran Git whitespace
+and conflict-marker checks only, not product builds/tests, media generation, native
+validation or deployment. Earlier artifact evidence remains tied to its exact revision,
+not this merged candidate.
+
 ## Final branded installer media: bounded BIOS/UEFI boot evidence
 
 Clean **`17a8846431097650ca4630786baa359286c4157c`** built successfully into
@@ -81,6 +91,225 @@ inspected and retained under the fixture's `research/`. Thus the display overrid
 alone does not rebrand installed-disk GRUB entries. Native release-identity packaging
 needs an explicit supported choice; no upstream executable patch, boot-entry
 reconciliation loop, new OS-image pipeline or installed proof is silently implied.
+
+## Merge of origin/main at 63a8456
+
+Merged the incoming CoreOS installer work with the local six-feature plans and
+Spaces → drawer navigation. The only textual conflict was the independently prepended
+handoff history; both sets of entries and their evidence/limitations are preserved
+below. Installer source merged unchanged from the incoming branch. Its host-media
+work does not implement the selected Project OS desktop profiles or expand native
+execution permission. This merge performed documentation/conflict checks only;
+no product build/test, media generation, VM action or deployment ran.
+
+## Six-feature plan audit — commands, ownership and native prerequisites
+
+Reviewed the runner migration, marketplace, issue/PR automation, OS profiles, desktop
+transport and Codex computer-use plans together, with independent source/contract
+reviews. The [leading settings/dependency plan](sodaspaces-plan.md#settings-pages-and-os-selection)
+now gives concrete Soda routes and separates independently deliverable workstreams.
+“Dashboard” means bounded native-interface operator settings, not either removed UI.
+Earlier provider-preset/conversation-resumption promises are superseded by the
+[user-defined CLI contract](services-and-ai-plan.md#user-defined-commands-and-variables).
+
+The runner guide now specifies the existing root:soda bridge candidate, distinct
+operator/provider authority, actual listener/configured-slot observations, lifecycle
+and partial-failure effects, secret handling, legacy descriptors and cross-Cockpit/web
+serialization. Cockpit Runners remains until verified replacement and coordinated
+removal; Tailnet and native runner logic/tests remain. No provider availability or
+isolated OCI execution is inferred from a running host listener.
+
+The marketplace candidate uses global operator management, online immutable image
+pulls, per-instance native install ownership/retry, preserved recipe/data, private
+app hostnames/TLS and separate health/client-reachability states. Adminer is an
+appliance utility with a fixed database list; Vaultwarden has closed-signup native
+invitation/SMTP onboarding; Homepage is an operator-maintained shared link page with
+version-verified native authentication. These are explicit planning defaults, not
+installed services or a user answer to earlier placement/trust questions. Broader
+project catalogs, offline bundles and lifecycle/recovery platforms are not implied.
+
+AI setup now means resolver/reviewer CLI commands, ordinary variables and restricted
+context/result/credential files. It distinguishes the one-job checkout/state lifetime,
+run-owned PTY, execution ID and stable publication key; defines setup/check order,
+independent event toggles, exact loop/explicit-rerun semantics and native COMMENT
+results; and requires immutable publication outside the command sandbox. Duplicate
+bot events, concurrent head/base changes, ambiguous publication and untrusted policy
+replacement have explicit checks. The exact native claim/token/publisher path remains
+an implementation gate; an authored plan does not prove those security properties.
+
+Profile work now includes the actual single-image build/install/helper coupling,
+immutable creation metadata and legacy unknowns. The canonical Project OS desktop
+contract specifies original account/sign-in ownership, login-quality session setup,
+finite last-viewer retention, one input controller and graphical-scope cleanup that
+preserves independent user services/SSH/tmux. Fedora Wayland → KRFB/private RFB →
+WebSocket/noVNC is one investigation candidate. Usable Lock/unlock and credential-store
+behavior for password-locked accounts require native design/proof before KDE is offered.
+No VM backend or host-device expansion follows from these gaps.
+
+Official vendor/platform documentation checked for this audit confirms the Linux app
+and computer-use limits recorded in the profile/desktop guides. OpenAI GUI support
+requires the advertised Fedora/version/architecture and actual Soda proof; its Linux
+preview has no native computer use. Claude Desktop does not support the selected
+Rocky/Fedora profiles. Existing Rocky headless and terminal evidence is preserved;
+new images, settings handlers, runners, apps, AI execution and GUI transport remain
+unimplemented by this documentation change.
+
+Validation: source/plan and independent cross-plan reviews completed; all 16 added
+local file/anchor references and Git whitespace checks passed. No product builds/tests, package downloads,
+credentials, native fixtures, provider actions, service changes or deployment ran.
+
+## OS dropdown and settings placement
+
+Selected one Project OS dropdown, Repository settings → Sodaspaces and AI automation,
+and Global SodaOS settings → Sodarunners. The
+[leading contract](sodaspaces-plan.md#settings-pages-and-os-selection) now specifies
+page contents, creation-only OS selection, existing-profile display, operation-specific
+authorization and native workflow/secret authority. The drawer reuses the same
+selector/Create path. Native repository Actions runners remain upstream-owned;
+global host capacity remains Soda-operator-only, with Cockpit preserved until replacement.
+
+Reviewed current repository settings overrides, runner guide and operator configuration.
+The local menu already retains Actions runners/secrets/variables. Public v15
+customization documentation was checked; exact-tag remote navbar retrieval failed
+and is not counted as upstream source verification. Updated Project OS, AI, runner
+and Forgejo integration guides. This is a settings design, not implemented dropdowns,
+handlers, configuration saves or runner provisioning. Only documentation/link/
+whitespace checks ran; no product build/test, provider mutation or deployment ran.
+
+## Batteries-included Project OS requirement
+
+The user requires every Project OS to include the complete non-preference foundation.
+The [baseline](project-os.md#batteries-included-by-default) now distinguishes shipped
+tools/build prerequisites, native workload integration and usable KDE defaults from
+personal application preferences, repository versions and private accounts. A supported
+optional app must include dependency/launch integration when selected. Removed the
+earlier implication that users must assemble standard build prerequisites themselves.
+
+Aligned architecture, leading sequence, developer, desktop/AI and validation plans.
+Fresh-profile checks must work without manual platform-package repair; actual image
+package coverage and implementation remain outstanding. Documentation/whitespace and
+added local-link checks only; no packages, images, credentials, projects or runtime
+behavior changed. No product build/test or deployment ran for this clarification.
+
+## Plans reconciled around the existing Project OS
+
+Revised the active architecture, Project OS, development/workload/CLI/terminal,
+Spaces/page/drawer/Lit/frontend, host strategy, deferral, validation and services/AI
+plans to extend one existing foundation. The Project OS guide now has an explicit
+ownership map; the leading Sodaspaces plan owns extension order and dependencies.
+Rocky/Fedora headless/KDE choices retain real accounts, homes, shared mise/tools,
+services, persistent roots and bounded maintenance. GNOME remains deferred.
+
+Removed the active assumption that KDE means a separate QEMU/KVM guest or a copied
+desktop workspace. First investigate the current project runtime; document a concrete
+blocker and its effects before selecting another backend. Desktop views use the same
+project account/files as terminals and SSH, while display access/lifetime requires
+its own contract. AI run ownership/credentials remain separate from personal work;
+headless automation does not depend on GUI availability. Marketplace placement and
+trigger trust policy remain open; earlier defaults are proposals, not user answers.
+
+Existing onboarding/Git/CLI and native acceptance gaps remain explicit; no completed
+Lit work or retained execution evidence was reset. Earlier desktop runtime proposals
+below are historical and superseded by this reconciliation. This revision changes
+plans only. Source/document review, checks of 27 added local file/anchor references
+and Git whitespace checks passed;
+no product builds/tests, guest provisioning, provider execution or deployment ran.
+
+## Linux desktop and Rocky/Fedora profile selection — runtime proposal superseded
+
+The user selected Linux desktops and six named profile choices: Rocky headless,
+Rocky KDE, Fedora Server/headless and Fedora KDE are in scope; Rocky GNOME and
+Fedora GNOME are deferred. The [Project OS baseline](project-os.md#selected-environment-profiles)
+now owns that matrix and creation-only behavior. Updated architecture, deferral and
+feature plans to remove the stale OS-profile exclusion and Windows-first candidate.
+
+Fedora KDE is the recommended first desktop implementation because the linked
+OpenAI announcement and current platform guide explicitly support Fedora 43/44.
+Rocky KDE has upstream media, but that does not establish vendor app compatibility.
+Claude's Linux GUI currently supports Ubuntu/Debian, not either selected distro;
+both vendors still document a Linux computer-use gap. These limits are recorded
+per app and do not change the user's Linux selection.
+
+Source inspection confirmed a single helper image and a repository-ID-only Create
+API. Only Rocky headless is currently implemented; new profiles, Linux desktop
+transport and guest provisioning remain source work. This update changes the design,
+not existing environments or the current native build baseline. Only read-only
+source/vendor research, documentation edits and Git whitespace checks ran. No
+builds/tests, image downloads/installs, provider jobs or VM changes ran.
+
+## Desktop workspace request and platform research — earlier candidate superseded
+
+Extended the [feature proposal](services-and-ai-plan.md#4-desktop-workspaces) with
+the user's GUI/computer-use request: a real Desktop view beside Terminal, shared
+between Spaces and the repository drawer. The proposal separates the viewer,
+guest desktop, human/automation control and persistent checkout. A VM is a proposed
+new responsibility; current Rocky containers and fixed-operation helpers are unchanged.
+
+Official platform documentation checked on 2026-09-10 lists Linux desktop apps for
+both OpenAI/Codex and Claude, but neither currently includes native computer use
+on Linux. Windows was initially proposed for the first guest compatibility probe;
+the user's Linux selection above supersedes it. OpenAI explicitly documents Windows VM
+use; exact Soda guest integration, Claude account eligibility, active desktop
+continuity and safe control transfer remain unproved. Claude Linux Cowork's separate
+KVM requirement is also recorded rather than assumed to work in a project container.
+
+Only source/document reads, public vendor/transport documentation research and
+documentation edits ran for this follow-up. No builds/tests, guest provisioning,
+desktop installation, provider sign-in/jobs or deployment ran. No GUI transport,
+VM lifecycle or GUI-driven issue/PR automation is implemented by this change.
+
+## Spaces → repository drawer and AI workflow clarification
+
+Added **Open in drawer** to the full Spaces toolbar (labelled compact icon on
+narrow screens). It resolves the selected terminal's repository through the
+existing actor-guarded environment GET, saves the shared layout and navigates to
+the current native repository with `#sodaspaces`. Stored repository names can be
+stale after transfer/rename and are not used as the destination. Failed resolution,
+invalid/mismatched paths or failed layout persistence leave the terminal in place.
+No new API, OAuth flow, terminal creation or lifetime extension was added.
+
+The existing drawer → Spaces link and shared ID-keyed collection/layout already
+support the other direction. Local emitted-browser checks now cover both origins,
+exact session reattachment in both directions, selection/layout preservation,
+cross-repository and non-repository browsing, native editing and cancelled
+beforeunload. These remain personal sessions within the same Soda sign-in context;
+other writers cannot be evicted and existing finite deadlines still apply.
+
+Passed `bun run build:forgejo`, required `bun run typecheck` including Lit analyzer/
+fixtures, and **93 focused tests** across workspace, workspace journey, drawer
+adapter and drawer controls. Evidence: `.artifacts/spaces-navigation-xYHgeB/`.
+Initial sandboxed Chromium startup failed on macOS process-service access; browser
+checks subsequently ran with normal host process access and Chromium's sandbox
+enabled. The new journey's initial one-shot beforeunload fixture and its incorrect
+expectation that the global resume button stays visible while the drawer is open
+were corrected; product unload/visibility behavior was preserved. Failed attempts
+and synthetic TLS fixture directories remain. This is local browser/fake-peer
+evidence, not new native tmux/process proof or VM delivery.
+
+Updated the [AI proposal](services-and-ai-plan.md) to record the user's clarification:
+issue resolver opens a PR, review findings return to that same resolver/context,
+and each real agent process appears as a live terminal in Spaces and its drawer.
+Unattended runs need execution ownership independent of browser viewers; today's
+personal sign-in-bound terminal registry cannot supply that behavior. AI launches,
+run attachment, resolver continuation and provider automation remain unimplemented.
+No credentials, provider jobs, retained projects or VM deployments changed.
+
+## Requested services marketplace and repository AI automation
+
+Added the [feature proposal](services-and-ai-plan.md) for Adminer/Vaultwarden/
+Homepage installation and issue resolution/PR review with bounded fix rounds.
+It distinguishes persistent services, retained development projects and fresh AI
+job checkouts. Appliance-wide operator installation and automatic trusted-user
+runs are proposed defaults, pending the user's placement/trigger answers.
+
+Source inspection found that current Forgejo runner validation permits only
+`name:host` labels and does not provision a Podman job engine. Upstream v15 Actions
+documentation covers the requested events and OCI runner labels, but exact
+runner/token confinement and native behavior still require investigation. This
+is a design record, **not implemented features or passing runtime evidence**.
+Only local source/document reads and public upstream research ran; one exact-tag
+source fetch timed out and is not counted as complete source verification.
+No tests/builds, private credential use, provider mutation or native delivery ran.
 
 ## Installer boot debugging — second observed contract correction
 

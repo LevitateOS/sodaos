@@ -12,17 +12,30 @@ native access proof at `bdbce8e`, followed by separately approved retained cutov
 private-page browser and existing-account SSH/PTY checks. Exact evidence and limits
 remain in the handoff, not a general release/installation acceptance.
 
-**UX correction in progress:** the user rejected the modal overlay and blocked native
-page. The first source slice uses a non-modal aside, adjustable native left pane and
-full-height Terminal/Environment/Access views. Multiple terminal sessions and native
-navigation/network reattachment remain pending; source layout tests are synthetic. See the
-[leading product correction](sodaspaces-plan.md#product-correction--development-workspace-not-a-modal-form).
-The dialog/backdrop details below describe the old candidate, not current shell code
-or constraints to preserve. Actual document departure still requires reload until
-reattachment is implemented; focus/view/Hide changes now retain the same mount. Native routes, forms, authentication,
-customization ownership and no-fork boundaries remain selected.
+**Current workspace:** the selected non-modal aside preserves native Forgejo pages.
+The shared Lit workspace now supports multiple managed terminals, finite native
+reattachment and page/drawer navigation; source/native evidence and remaining CLI
+acceptance are in the [handoff](implementation-status.md). Open in drawer has local
+coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
+below are historical, not current behavior to preserve. The six new feature plans
+extend this same boundary; they do not restore a standalone dashboard or borrow a
+Forgejo authenticated shell for Soda pages.
 
 ## Verified source surface
+
+The selected [Soda settings pages](sodaspaces-plan.md#settings-pages-and-os-selection)
+extend repository settings navigation with Sodaspaces and AI automation, and add a
+global operator-only Sodarunners destination. The current local
+[`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
+already preserves native Actions runners/secrets/variables links. Add Soda links
+through the versioned customization mechanism without replacing those workflows.
+Render new protected Soda pages through the existing Soda namespace/Go/Lit boundary;
+a template link does not supply a Forgejo handler, authentication or authorization.
+Before implementation, inspect the exact upstream context/gates and verify native
+menu rendering and scoped OAuth return paths. No new settings adapter or handler
+has been implemented by this plan. Public v15 customization documentation was
+reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
+note claims local override inspection rather than fresh upstream source verification.
 
 The inspected **15.0.7** source establishes:
 

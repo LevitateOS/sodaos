@@ -2,6 +2,29 @@
 
 Adapted from the predecessor's developer handbook for project-local identities and shared resources. The [Project OS baseline](project-os.md) owns supported userspace, native permissions, persistent state and same-root maintenance. Recorded x86_64 clients have bounded SSH/file-transfer, personal Git, shared-tool and lifecycle evidence, not general laptop/client or final-product acceptance; see the [current handoff](implementation-status.md#accepted-native-evidence).
 
+## Planned profiles and desktop access
+
+The planned profiles are [batteries included](project-os.md#batteries-included-by-default).
+Standard shell/file/network tools, native build/debug prerequisites, shared tool
+management and workload support are supplied by Soda. KDE includes a usable desktop
+and basic apps. Users choose personal tools, accounts and repository versions;
+ordinary development must not begin with a prerequisite-repair checklist. The current
+image still needs its package coverage audited against that requirement.
+
+The selected Rocky/Fedora headless/KDE profiles inherit this developer workflow.
+Desktop apps, shells and SSH use the same project-local account, real home and
+personal checkout, with shared tools/services under the existing permissions.
+GUI application startup must receive the native mise paths and correct user session;
+it must not create an independent tool cache, copied checkout or credential store
+as a substitute for this integration. Per-user app settings may use normal native
+locations in the existing home.
+
+KDE and Fedora profiles are not implemented yet. Until they are, the current access
+instructions below describe the Rocky headless implementation. Desktop access does
+not resolve unfinished browser-only Join or outbound Git setup, and does not imply
+that all GUI/AI applications are supported. Follow the
+[Project OS plan](project-os.md#one-foundation-for-every-profile) for shared contracts.
+
 ## Join, verify and connect
 
 Sign in through Forgejo and explicitly connect Sodaspaces. Today's Join requires a saved public development-access key: use the drawer's key controls, then select **Add me to this project**. The creator joins explicitly too. No private key is uploaded and no human account is created on the appliance host.

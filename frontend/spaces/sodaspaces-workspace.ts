@@ -21,7 +21,7 @@ const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u
 // Both surfaces share this owner. Pane chrome is keyed separately; live terminal
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
-  static properties = {spaces: {state: true}, status: {state: true}, busy: {state: true}, layout: {state: true}, storageNotice: {state: true}, view: {state: true}, stale: {state: true}, search: {state: true}, thisPage: {state: true}, creation: {state: true}, creating: {state: true}, editing: {state: true}, attentionOnly: {state: true}};
+  static properties = {spaces: {state: true}, status: {state: true}, busy: {state: true}, layout: {state: true}, storageNotice: {state: true}, view: {state: true}, stale: {state: true}, search: {state: true}, thisPage: {state: true}, creation: {state: true}, creating: {state: true}, editing: {state: true}, attentionOnly: {state: true}, openingDrawer: {state: true}};
   declare private spaces: Space[];
   declare private status: string;
   declare private busy: boolean;
@@ -35,6 +35,7 @@ export class SodaSpaces extends LitElement {
   declare private creating: boolean;
   declare private editing: {key: string; name: string} | null;
   declare private attentionOnly: boolean;
+  declare private openingDrawer: boolean;
   private observedAt = 0;
   private now = Date.now();
   private attentionTimer: number | undefined;
@@ -65,7 +66,7 @@ export class SodaSpaces extends LitElement {
   private lastMinimum = 0;
   constructor() {
     super(); this.spaces = []; this.status = 'Refresh to inspect Spaces.'; this.busy = this.stale = this.thisPage = this.creating = false;
-    this.attentionOnly = false; this.view = 'terminal'; this.search = this.storageNotice = ''; this.creation = this.editing = null; this.layout = emptyLayout(crypto.randomUUID());
+    this.attentionOnly = this.openingDrawer = false; this.view = 'terminal'; this.search = this.storageNotice = ''; this.creation = this.editing = null; this.layout = emptyLayout(crypto.randomUUID());
   }
   protected createRenderRoot() {return this;}
   private get activeSurface() {return this.surfaceVisible && this.isConnected && !this.closest('[hidden], [inert]');}
@@ -129,6 +130,7 @@ export class SodaSpaces extends LitElement {
           ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
         `)}
         ${this.binding?.kind === 'native' ? html`<a href="/-/soda/spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
+        ${this.binding?.kind === 'page' ? html`<button class="ui button" aria-label="Open in drawer" title=${this.openingDrawer ? 'Opening repository…' : 'Open in drawer'} ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>${this.workspaceWidth < 800 ? '↘' : this.openingDrawer ? 'Opening repository…' : 'Open in drawer'}</button>` : ''}
         <a ?hidden=${this.available && !this.stale} href=${'/-/soda/login?' + connect + (this.binding?.expectedUserId ? '&expected_user_id=' + this.binding.expectedUserId : '')}>Connect to Soda</a>
       </header>
       <p id="sodaspaces-status" role="status" ?hidden=${!this.status}>${this.status}</p><p role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
@@ -338,9 +340,34 @@ export class SodaSpaces extends LitElement {
     } catch {this.storageWritable = false; this.storageNotice = 'Stored workspace is invalid, obsolete or inaccessible. No locators were guessed or overwritten.';}
   }
   private persist() {
-    if (!this.storageWritable || !this.storageLoaded || this.stale || this.disposed) return;
-    try {sessionStorage.setItem(this.storageKey, serializeLayout(this.layout));}
+    if (!this.storageWritable || !this.storageLoaded || this.stale || this.disposed) return false;
+    try {sessionStorage.setItem(this.storageKey, serializeLayout(this.layout)); return true;}
     catch {this.storageNotice = 'Live workspace remains usable, but reload restoration could not be saved.';}
+    return false;
+  }
+  private async openInDrawer() {
+    if (this.binding?.kind !== 'page' || this.openingDrawer || !this.available || !this.activeSurface) return;
+    const entry = this.layout.entries.find(entry => entry.key === this.selected);
+    const space = this.spaces.find(space => space.environment.id === entry?.environmentId);
+    if (!entry || entry.locator.kind !== 'existing' || !space || space.authority_unavailable || !space.login) return;
+    const n = this.epoch, request = new AbortController();
+    const timer = window.setTimeout(() => request.abort(), 15000);
+    this.openingDrawer = true;
+    try {
+      // Resolve current native names by stable ID; stored project labels may be
+      // stale after a rename/transfer. This existing endpoint also checks actor
+      // and repository authority. No new route, credential or return URL.
+      const response = object(await this.api('/api/environments?repository_id=' + space.environment.repository_id, undefined, request.signal));
+      if (!this.live(n) || request.signal.aborted || this.selected !== entry.key) return;
+      const repository = object(response.repository);
+      const part = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 255 && value !== '.' && value !== '..' && !/[\/\\\p{Cc}]/u.test(value);
+      check(repository.id === space.environment.repository_id && part(repository.owner) && part(repository.name));
+      if (!this.persist()) {this.status = 'Save the workspace before opening it in the drawer; restoration is unavailable.'; return;}
+      // Native navigation preserves beforeunload. Only actual pagehide detaches;
+      // a cancelled departure leaves the existing terminal mounted and attached.
+      window.location.assign('/' + encodeURIComponent(repository.owner) + '/' + encodeURIComponent(repository.name) + '#sodaspaces');
+    } catch {if (this.live(n)) this.status = 'Could not open the repository drawer. Your terminal remains here; refresh and try again.';}
+    finally {window.clearTimeout(timer); this.openingDrawer = false;}
   }
   private async restoreLocators(n: number, signal: AbortSignal) {
     if (this.storageWritable) for (const space of this.spaces) {

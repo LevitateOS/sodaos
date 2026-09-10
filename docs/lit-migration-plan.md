@@ -31,6 +31,25 @@ the superseded mockup or reintroduce grid presets/fake state machines.
 The user subsequently requested end-to-end implementation and local testing.
 Deployment, new appliance fixtures and project recreation remain separately scoped.
 
+## Extension after the current terminal implementation
+
+The [leading plan](sodaspaces-plan.md#extension-order-and-dependency-boundaries)
+now selects Project OS profiles, Desktop and AI run views. Preserve completed Lit
+steps and outstanding 6c evidence; do not repeat this migration or treat the new
+features as already covered. All profiles inherit the existing Project OS contracts.
+
+Extend the shared page/drawer owners only when each new native operation has a
+defined authorization, identity and lifetime contract. Profile choices must reach
+real provisioning; desktop controls must reach a real project-user graphical
+session; AI views must attach to the exact run. Keep transport-specific resources
+with their owner and reuse existing presentation/layout. Do not generalize personal
+terminal IDs or leases into an unvalidated universal session backend.
+
+Extend local behavior tests for denial, stale targets, shared navigation, correct
+input focus and existing-terminal preservation. Native profile/account/desktop
+proof belongs to the existing product validation owners; no static design sheet,
+synthetic socket or terminal matrix is graphical/runtime acceptance.
+
 ## Cleanup after step 5
 
 The architecture research was checked against `8e812dc`

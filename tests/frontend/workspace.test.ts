@@ -51,11 +51,33 @@ async function paneAction(page: Page, name: string) {
   await page.getByLabel('Pane actions', {exact: true}).click();
   await page.getByRole('button', {name, exact: true}).click();
 }
+for (const failure of ['unavailable', 'unsafe-path', 'wrong-repository', 'storage']) test(`Open in drawer preserves the terminal when ${failure} prevents a safe handoff`, async t => {
+  const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
+  const screen = await page.locator('.xterm').elementHandle(), original = page.url();
+  await page.evaluate(failure => {
+    if (failure === 'unavailable') window.workspaceFixture.setStatus(503);
+    else if (failure === 'storage') {
+      const save = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {if (key.startsWith('soda-spaces:v2:')) throw Error('Synthetic storage failure'); save.call(this, key, value);};
+    } else {
+      const fetch = window.fetch;
+      Object.defineProperty(window, 'fetch', {configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/api/environments?')
+        ? Response.json({repository: {id: failure === 'wrong-repository' ? '8' : '7', owner: 'alice', name: failure === 'unsafe-path' ? '../elsewhere' : 'Alpha'}})
+        : fetch(input, init)});
+    }
+  }, failure);
+  await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
+  await page.getByText(failure === 'storage' ? 'Save the workspace before opening it in the drawer; restoration is unavailable.' : 'Could not open the repository drawer. Your terminal remains here; refresh and try again.', {exact: true}).waitFor();
+  assert.equal(page.url(), original); assert(await screen?.evaluate(node => node.isConnected));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.method !== 'GET').length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+});
 for (const mode of ['native', 'page'] as const) for (const theme of ['light', 'dark'] as const) for (const width of [1440, 390]) test(`${mode}/${theme}/${width}: resolved tokens, focus, menu and warning preserve native draft and terminal`, async t => {
   const page = await fixture(t, mode);
   await page.setViewportSize({width, height: 900});
   await page.evaluate(theme => {document.documentElement.style.colorScheme = theme;}, theme);
   await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
+  assert(await page.locator('.soda-workspace-toolbar').evaluate(node => node.scrollWidth <= node.clientWidth), 'workspace controls overflow');
   const screen = await page.locator('.xterm').elementHandle();
   await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).focus();
   await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');

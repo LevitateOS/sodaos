@@ -1,4 +1,28 @@
-# Spaces drawer: browse the forge, work in terminals
+# Spaces drawer: browse the forge, work in the project
+
+## Project OS extension
+
+The drawer remains the compact view of the same Spaces workspace. The selected
+[profile/desktop extension](spaces-design.md#scope-of-the-selected-extension) adds
+graphical project sessions and authorized AI run views here as well as on the full
+page. Terminal and Desktop use the same project account, home and shared tools;
+neither opening the drawer nor changing its native repository page provisions a
+second environment, copies a checkout or restarts an agent.
+
+Preserve native Forgejo forms, navigation and focus behavior below. A desktop viewer
+captures input only while deliberately focused/controlled, releases held input on
+focus loss, and must not swallow shortcuts or typing intended for Forgejo. Page/drawer
+navigation reattaches the exact authorized session. Desktop sizing uses its own
+display geometry rather than terminal columns; compact mode shows one usable chosen
+surface. Reuse the existing Lit layout/chrome owners, with separate native session
+contracts. Existing terminal Hide/End/retention rules do not automatically define
+desktop logout, retention or automation cancellation.
+
+The detailed terminal specification and evidence below remain applicable to current
+terminals. Desktop transport and AI run attachment are separate unfinished work under
+the [leading order](sodaspaces-plan.md#extension-order-and-dependency-boundaries).
+
+## Existing terminal drawer design
 
 **Design specification, not deployed behavior.** The user approved the direction of
 the full-page [Spaces design](spaces-design.md) and requested an equally concrete
@@ -205,6 +229,7 @@ That is useful cross-project work, not an account mismatch or a warning conditio
 | Open/reopen Sodaspaces | Restore this window's drawer and selected surviving session | Original targets; no implicit new terminal or automatic project start |
 | Select terminal / open Sessions / view project details | Only the right-hand view or focused tab | Native form/scroll and existing sessions |
 | Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs, groups, labels and server deadlines; no fresh shells |
+| Open in drawer from Spaces | Resolve the selected terminal's repository by stable ID, then navigate to its current native page with `#sodaspaces` | Same saved working set/selected session; existing attachment restoration; no creation or lifetime extension |
 | Browser Back from Spaces | Native page history and authorized drawer restoration | Existing surviving session identity; no arbitrary `return_to` URL or promised draft resurrection |
 | Hide workspace | Restore full-width native page; retain this document's owned working-set sessions within finite limits | Files/projects and discoverable surviving sessions; no End or Stop |
 | Compact Forge/Terminal switch | Change which surface is visible in the same document | Native draft/scroll, open state and sessions; **not** Hide workspace |

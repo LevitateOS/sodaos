@@ -46,7 +46,15 @@ credential onboarding are not prerequisites to the Lit source ports.
 
 The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,
 account/sudo, shared-state, SSH/credential, native-service and persistence contracts.
-Keep that foundation, not a new distribution or a design for every possible user tool.
+Every selected Rocky/Fedora headless/KDE profile inherits that foundation. KDE is
+graphical access to the same project account, home, tools and services; no separate
+desktop machine or VM backend is selected by the distro/interface choice.
+The [ownership map](project-os.md#one-foundation-for-every-profile) keeps the existing
+development, workload, CLI, terminal and maintenance plans authoritative.
+All profiles must meet the [batteries-included contract](project-os.md#batteries-included-by-default):
+Soda supplies and wires standard tools, build prerequisites, workload support and
+the chosen interface. Personal preferences and repository-specific versions remain
+choices; requiring users to assemble the ordinary foundation is an implementation gap.
 Its concrete gaps remain native tmux safety/required-tool coverage, real zero-key
 onboarding and agreed Git credentials; the existing session mechanism is preserved
 while the Lit workspace is implemented. Current Forgejo
@@ -80,8 +88,8 @@ This replaces the earlier exclusion of an environment catalog. It is a bounded S
 feature, not restoration of either old standalone frontend or Forgejo workflow adapters.
 
 - **Global navigation:** add Spaces after Explore, alongside Issues, Pull requests
-  and Milestones, through supported native template hooks/overrides. A future Runners
-  link and its handlers are restricted to the configured **Soda operator**, not any
+  and Milestones, through supported native template hooks/overrides. The selected
+  global settings entry/page for Sodarunners is restricted to the **Soda operator**, not any
   Forgejo site administrator. Retain Cockpit Runners until its replacement works.
 - **Page ownership:** a Soda-owned, server-rendered Go/template page at
   `/-/soda/spaces`, inside the existing proxy namespace. This deliberately extends
@@ -360,6 +368,161 @@ and scoped. Until these required controls reach real effects in the integrated n
 UI, call delivered slices milestones—not complete end-to-end Sodaspaces management.
 
 ## Remaining work — ordered
+
+The user also requested a services marketplace, repository AI issue/PR automation
+and graphical workspaces for desktop AI apps and computer use. The
+[feature proposal](services-and-ai-plan.md) records the proposed app lifetime,
+Forgejo Actions ownership, current host-only runner gap and bounded review/fix
+behavior. The user selected [Linux creation profiles](project-os.md#selected-environment-profiles):
+Rocky headless, Rocky KDE, Fedora Server/headless and Fedora KDE, with Rocky/Fedora
+GNOME deferred. Its [desktop section](services-and-ai-plan.md#4-desktop-workspaces)
+proposes Terminal/Desktop views of the same Project OS in both page and drawer.
+Fedora KDE is the first desktop compatibility target; investigate the existing
+runtime before selecting any new backend. Current Linux app/computer-use limits
+remain explicit compatibility facts, not reasons to change that selection. The
+reviewed first candidates are global operator-managed services and repository-opt-in
+trusted-contributor automation; those explicit defaults remain revisable product
+choices, not parallel backends. Only Rocky headless is currently implemented. This
+extends requested scope without changing existing project roots, provider authority
+or deployment permission.
+
+### Settings pages and OS selection
+
+The user selected an OS dropdown and dedicated repository settings pages. Use the
+following placement in the unified interface:
+
+| Location | Contents and authority |
+| --- | --- |
+| Repository settings → Sodaspaces | Project OS selection before Create; existing project/profile/status, access summary and links to the real Spaces/drawer controls. Preserve current operation-specific project authority. |
+| Repository settings → AI automation | Issue resolver and PR review/fix configuration, user-defined CLI commands and documented variables, eligible execution image, setup/tests, event policy, secret references, timeout and fix-round bound. Native repository/workflow/secret permissions govern writes. |
+| Global SodaOS settings → Sodarunners | Operator-only local runner registration/service controls, configured slots, listener state and verified execution support. Repository owners do not administer host runners. |
+| Existing repository settings → Actions | Keep Forgejo's native runner visibility/registration scope, secrets and variables pages. These do not become local host-capacity controls. |
+
+**Sodaspaces page:** use a single labelled **Project OS** dropdown containing the
+available shipped profiles: Rocky headless, Rocky KDE, Fedora Server/headless and
+Fedora KDE. Both GNOME variants remain deferred. This is the user-facing selector
+for the canonical profile ID, replacing the earlier two-control UI suggestion.
+Show a short explanation of headless versus KDE and the batteries-included
+foundation. Do not expose internal engine flags or suggest choosing a profile
+changes Forgejo's host OS.
+
+Before the first environment exists, choose the profile and explicitly **Create
+environment**. Reuse this selector and the same Create operation in the drawer;
+do not maintain competing repository defaults or a second provisioning path.
+Selection alone neither downloads nor starts anything. Resolve availability,
+architecture and authorization server-side before reservation. The current source
+only supports Rocky headless; future choices must not appear usable until their
+complete native artifacts/integration are available.
+
+For an existing environment, show its recorded creation profile and current observed
+state. The [profile contract](project-os.md#selected-environment-profiles) owns immutable
+profile/distro/version/interface/architecture/image/recipe metadata and legacy unknowns.
+OS selection is read-only, with a clear explanation that changing distribution
+or interface is not implemented for an existing persistent root. Do not infer the
+current profile from the appliance's newest image default, overwrite legacy roots,
+offer a destructive recreate shortcut or imply that Save converts the OS. Legacy
+profile display must use trusted existing metadata and report unknowns honestly.
+Reuse authorized Start/Stop/access actions and Open in Spaces/drawer; their existing
+permissions, state and error handling remain with their current owners. A new settings
+page does not broaden Create beyond the currently supported human repository owner.
+
+**AI automation page:** separate Issue resolution and PR review/fixes within one
+page, plus shared execution settings. A single native attempt retains the resolver
+checkout and CLI state directory through issue → PR → review → same resolver command
+fixes → review, with the finite round budget. CLI-specific conversation resumption
+belongs to the user command, not a Soda provider adapter. A repository can enable
+either event independently. Distinguish selecting
+the project OS from selecting an eligible isolated AI job image; never run the job
+inside a person's live project just because it has the same profile name. Supported CLI
+dependencies follow the batteries-included integration contract. Show known local
+listener state separately from native provider eligibility/availability,
+and link to native Actions results and authorized live Spaces views.
+
+Prepare configuration changes as reviewable native workflow changes, preserving
+concurrent/manual edits and branch protection. Native Actions files/secrets remain
+authoritative; there is no second effective AI policy in Soda's database. Distinguish
+a proposed workflow change from the effective native configuration after its required
+commit/merge, and show off/pending/effective state truthfully. Do not add a second
+activation switch that disagrees with the workflow. No activation occurs by opening
+a page. Secret fields
+refer to native secret names/settings, never reveal saved values. The detailed
+[AI command contract](services-and-ai-plan.md#user-defined-commands-and-variables)
+owns variables, validated review results and workflow-backed configuration. The same
+guide owns triggers, duplicate-event prevention, publication and loop semantics.
+
+**Routing and integration:** extend the existing native repository settings menu
+through official template customization, preserving all native entries and gates.
+New Soda-owned pages live under the existing `/-/soda/` namespace with Go-rendered
+HTML and shared Lit controls, using Soda's actual OAuth/session/CSRF protections.
+Use `/-/soda/repositories/{repository_id}/settings/spaces` and
+`/-/soda/repositories/{repository_id}/settings/ai`, plus
+`/-/soda/settings/runners` for the operator page. These are selected new Soda routes,
+not current handlers. Resolve repository identity and native back-links from its
+stable ID and fresh native authority, including rename/transfer handling. Bind each
+OAuth return to an enumerated page kind and validated repository ID in the original
+transaction; never accept an arbitrary return URL. Add bounded route/return tests
+and preserve current fixed Spaces and native Forgejo returns. Keep native navigation
+and honest
+Soda actor context without copying a Forgejo authenticated page shell. Settings are
+not a new top-level repository tab or an always-open drawer configuration panel.
+
+The Soda operator entry must be available to the configured operator even when that
+person is not a Forgejo site administrator; native site-admin status alone cannot
+grant it. Server-side checks apply to every read and mutation, including deep links.
+Keep Cockpit Runners and all its backing logic/tests until the replacement works.
+These pages/selectors are selected source work, not implemented settings or runtime
+evidence. Test unauthorized/stale actors, unavailable profiles, legacy project display,
+failed provisioning, unsaved forms, concurrent workflow edits and native menu coexistence.
+
+### Extension order and dependency boundaries
+
+These are dependency-aware workstreams, not a requirement to finish every numbered
+item before starting the next. The detailed Lit steps and historical evidence below
+remain intact. Feature guides own detailed checks rather than competing roadmaps.
+
+| Workstream | Actual prerequisite; independent work |
+| --- | --- |
+| Runner settings migration | Existing native runner logic plus the protected operator web/helper adapter; does not require OCI jobs, AI or desktop profiles |
+| Marketplace | Catalog placement, fixed host operations and private app ingress; does not require new Project OS profiles or runner migration |
+| OS selection | Canonical profile metadata, images and Create integration; expose only supported installed choices |
+| Desktop view | Working account-owned KDE session and proven display/input transport; does not require computer use or AI automation |
+| Issue/PR CLI automation | Isolated runner execution, command/result contract, trusted publication and run-owned terminal access; does not require KDE, personal projects or the new runner settings UI |
+| Repository settings pages | Native extension links, bounded Soda routes/authority and real feature APIs; links or forms alone do not implement the associated feature |
+
+1. Preserve the current Project OS and complete its outstanding browser-only Join,
+   explicit credential and selected-CLI journeys under their existing contracts.
+   Independent profile/package investigation can proceed alongside those gaps;
+   claiming a complete new profile requires the applicable access journey to work.
+2. Complete the batteries-included package/integration inventory and extend the
+   existing image/build/staging owners for bounded Rocky/Fedora creation
+   profiles. Resolve exact native inputs and persist the original profile at Create;
+   reject unsupported/unavailable choices before reserving or provisioning. Check
+   ordinary development without post-create operator package repairs. No live
+   distro switching, dependency upgrades of retained roots or arbitrary image input.
+3. Prove KDE startup as the project user, correct HOME/mise/groups, persistent app
+   state, display isolation and display/input transport. Start with Fedora KDE and
+   repeat affected checks for Rocky KDE. Record a concrete runtime blocker before
+   proposing VM responsibilities; do not implement two speculative backends.
+4. Add Desktop to the existing shared Lit page/drawer after a real authorized native
+   attachment exists under the [desktop account/lifetime contract](project-os.md#desktop-session-and-access-boundary).
+   That contract owns creating-context authority, finite last-viewer retention, single
+   input control, usable Lock/unlock and preservation of the independent user manager.
+   Preserve exact session identity across navigation and both
+   surfaces; terminal End, desktop-session end, project Stop and AI Cancel have
+   different scopes. Keep existing terminal leases/logout semantics intact.
+5. Implement marketplace and AI features through their existing owners and the
+   explicit first candidates in their guide: global operator-managed catalog apps
+   and repository-opt-in trusted-contributor runs. A changed scope revises the
+   candidate; it does not add a speculative project catalog or second scheduler.
+   Headless issue/PR automation does not depend on desktop availability. Reuse the
+   relevant Project OS tooling contracts for run images while keeping run checkout,
+   credentials and execution lifetime separate from a person's ongoing work.
+6. Validate each advertised profile/capability and finish its real creation/access/
+   persistence journey before exposing it as available. Build, native fixtures,
+   provider execution and retained-target delivery remain separately scoped. GNOME
+   stays deferred. Keep actual outcomes in the handoff, not invented readiness states.
+
+### Existing workspace completion and retained boundaries
 
 1. **Complete scoped native/CLI proof of Spaces and its companion drawer.** The
    single [detailed sequence](lit-migration-plan.md) records locally completed steps

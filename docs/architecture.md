@@ -53,13 +53,35 @@ open. It is not a replacement for ordinary SSH or a separate public terminal ser
 it is not a user database, init system or filesystem. Project containers share the
 host kernel; Rocky supplies userspace. The [Project OS baseline](project-os.md)
 consolidates native ownership, supported tools, persistent/runtime state and bounded
-same-root maintenance. It is not a new OS backend or a universal-workstation roadmap.
+same-root maintenance. Its [selected creation profiles](project-os.md#selected-environment-profiles)
+extend requested scope to Rocky/Fedora headless and KDE, with GNOME deferred.
+Only Rocky headless is currently implemented. All profiles inherit the
+[same Project OS foundation](project-os.md#one-foundation-for-every-profile): native
+accounts, shared tools/services, persistent roots, access and maintenance. KDE adds
+a per-user graphical session to that environment. No VM backend is selected by the
+profile decision; first investigate the existing runtime and bring a concrete
+compatibility blocker back for a decision. CoreOS and existing projects keep their topology.
+
+Profiles are [batteries included](project-os.md#batteries-included-by-default):
+Soda supplies the complete non-preference development and interface foundation.
+Personal application choices, accounts and repository versions remain native user
+decisions. A minimal image plus manual prerequisite instructions is not a completed
+Project OS, and selecting an optional supported app must include its dependencies.
 See `appliance/services/`, `project-os/`, [installation](installation.md) and
 [development environment](development-environment.md) for implementation and usage.
 Dependency baselines belong in source recipes/locks, not repeated prose version rules.
 
 The `soda-dashboard` command/container/config/data names still identify the Go backend.
 Do not rename persistent records or roots simply because the UI is called Sodaspaces.
+
+The [settings contract](sodaspaces-plan.md#settings-pages-and-os-selection) places
+Sodaspaces and CLI-based AI automation in repository settings and local Sodarunners
+capacity in global Soda-operator settings. “Move runners to the dashboard” means
+this bounded native-interface extension, not reviving either removed frontend.
+Forgejo retains Actions settings/scheduling/permissions; Cockpit Runners remains
+until parity is proved, and Tailnet stays there. Marketplace apps, persistent
+Project OS roots, isolated AI jobs and account-owned desktop sessions have distinct
+native lifetimes and credentials; sharing UI does not combine their privileges.
 
 The backend also renders [original robot avatars](avatars.md) from embedded SVG
 parts using Forgejo's supported provider setting. Only the avatar namespace is
@@ -71,9 +93,11 @@ and terminal routes share that origin under `/-/soda/` with their normal credent
 - **Forgejo** owns identity, passwords/factors, native sessions, permissions, Git,
   collaboration and administrator workflows. Use supported customization/APIs;
   never access its database directly or copy its business rules into Soda.
-- **Soda** owns only its additional preferences, development-access public keys,
-  environment associations/memberships and protected adapter sessions/grants.
-  Native Git key management is separate. No second password or provider-role inventory.
+- **Soda** owns its additional identity/access records: preferences, development-access
+  public keys, environment associations/memberships and protected adapter sessions/grants.
+  Its appliance integration also owns local runner state/lifecycle and the selected
+  catalog recipes/installed configuration. Native Git keys and collaboration remain
+  upstream-owned. No second password, provider-role inventory or CI scheduler.
 - **Host root, configured Soda operator, Forgejo site administrator, organization
   owner/admin and repository owner are distinct authorities.** Owning a repository
   does not grant appliance access. Arbitrary site/org administrators are not project
@@ -127,7 +151,7 @@ assets cannot supply native CSRF or authentication, and template overrides canno
 install Go handlers upstream. Lit renders only the Soda workspace. Page-only CSP,
 styles/clipboard and fixed return have local checks; installed integration remains pending;
 no copied native authentication logic, HTML relay or borrowed cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
-remain intact. A future global Runners link/page must enforce the configured Soda
+remain intact. The selected global settings entry/page for Sodarunners must enforce the configured Soda
 operator boundary server-side; Forgejo site administration is not a substitute.
 
 ## Projects and explicit joining
@@ -168,8 +192,11 @@ see [project services](project-services.md) and [validation](native-validation.m
 
 The runtime is a trusted-team namespaced boundary, not hostile-tenant isolation.
 Investigate project-scoped host workloads only after a concrete nested-runtime blocker.
-No dormant fallback, unrestricted host socket, privileged parent or VM substitute is
-implemented or authorized. Bring a genuine architecture gap back for a decision.
+No dormant workload fallback, unrestricted host socket or privileged parent is
+implemented or authorized. The requested Linux desktop integration is scoped in the
+[desktop design](services-and-ai-plan.md#4-desktop-workspaces) and must preserve the
+Project OS contracts. A VM remains an architectural option requiring a concrete
+runtime decision, not a selected desktop or nested-workload replacement.
 
 ## Networking and operator tools
 
