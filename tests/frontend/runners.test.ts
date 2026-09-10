@@ -279,6 +279,44 @@ test('native runner controls refuse non-operator access without listing or mutat
  assert.equal(mutations.length, 0);
 });
 
+test('populated runner pages keep long inventory, drafts and keyboard controls usable without writes', browserCase, async t => {
+  const {page,state,mutations}=await runnersPage(t);
+  state.runners=Array.from({length:24},(_,index)=>({...exampleRunner(),id:'runner-'+index,
+    account:'soda-runner-runner-'+index,version:'fixture-version-'+ 'long-native-version-'.repeat(12)}));
+  await registerDraft(page);
+  for(const colorScheme of ['light','dark'] as const) {
+    await page.emulateMedia({colorScheme});
+    for(const width of [360,768,1440]) {
+      await page.setViewportSize({width,height:720});
+      await page.getByRole('button',{name:'Refresh status',exact:true}).click(); await settled(page);
+      await page.evaluate(()=>document.fonts.ready);
+      assert.equal(await page.locator('soda-runners .settings-runner').count(),24);
+      assert.equal(await page.getByLabel('Local runner ID',{exact:true}).inputValue(),'one');
+      assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'synthetic-secret-never-store');
+      const metrics=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,height:innerHeight,content:document.documentElement.scrollHeight}));
+      assert.equal(metrics.scroll,metrics.width,'Long inventory caused document horizontal overflow');
+      assert(metrics.content > metrics.height,'Fixture must exercise vertical scrolling');
+      const remove=page.getByRole('button',{name:'remove runner-23',exact:true});
+      await remove.scrollIntoViewIfNeeded(); await remove.focus(); await page.keyboard.press('Enter');
+      const confirmation=page.getByLabel('Exact runner ID',{exact:true});
+      assert(await confirmation.evaluate(node=>node === document.activeElement));
+      await confirmation.scrollIntoViewIfNeeded();
+      const box=await confirmation.boundingBox();
+      assert(box && box.x >= 0 && box.x+box.width <= width && box.y >= 0 && box.y+box.height <= 720);
+      await page.keyboard.press('Escape');
+      assert(await remove.evaluate(node=>node === document.activeElement));
+      assert.equal(await confirmation.count(),0);
+      assert.equal(await page.locator('#soda-native-content > soda-runners').count(),1);
+      assert.equal(mutations.length,0,'Layout/refresh/confirmation cancellation dispatched a mutation');
+    }
+  }
+  // History retirement still scrubs the secret even after scrolling/refreshing
+  // a populated owner. This event is synthetic, not a real BFCache receipt.
+  await hide(page); await restore(page);
+  assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'');
+  assert.equal(mutations.length,0);
+});
+
 test('keyboard confirmation, native Back navigation and both-theme responsive presentation', browserCase, async t => {
   const {page, state, mutations} = await runnersPage(t);
   state.runners = [exampleRunner()];

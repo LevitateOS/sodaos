@@ -55,7 +55,15 @@ acceptance gaps are the tasks below, not reasons to pause independent local work
 
 ## 1. Close combined local page and browser acceptance
 
-**Next implementation task.** Review current production callers and existing tests
+**In progress.** Additional populated-runner scroll/focus/draft and real native
+profile-draft Back/Forward cases are authored in the existing consumers. Strict
+TypeScript/emitted build and the local synthetic connection suite pass. Their real
+native fixture run is currently blocked on missing local fixture/private inputs
+(`localhost:3300` unavailable and the documented credential file absent), not editor
+ownership. Neither new case nor populated visual acceptance is claimed passing;
+see the leading handoff for the failed attempt and remaining gaps.
+
+Review current production callers and existing tests
 against the remaining gaps, reusing applicable receipts for unchanged behavior.
 Fix reproduced defects directly with their regression tests.
 

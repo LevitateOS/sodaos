@@ -1,5 +1,45 @@
 # Current handoff
 
+## Combined step 1 — additional browser acceptance cases; native fixture unavailable here
+
+Added two cases to existing owners, not a new harness. The Runners consumer now
+exercises 24 populated rows with long version strings at 360/768/1440 widths in
+both media color schemes: no document horizontal overflow, real vertical scroll,
+reachable final-row confirmation, keyboard focus/escape, one owner, unchanged
+registration drafts through Refresh and zero operation writes. It separately
+requires token scrubbing on synthetic retirement/restoration; that event is not
+real BFCache proof. Inventory/operation responses remain explicit synthetic peers.
+
+The existing real native connection parent now covers an unsaved Forgejo profile
+full-name draft through native Spaces navigation, Back/BFCache and Forward. It
+requires the original restored document/draft, usable single Spaces owner, no new
+consent and no observed profile submission. It fills only a synthetic unsaved name;
+no Save action, screenshots, provider registration or project/runner operation was
+added. This case must run against the actual native fixture before being accepted.
+
+Executed strict tooling TypeScript and the emitted frontend build successfully.
+The existing emitted-browser connection/logout suite passed both tests (16.70s),
+including its synthetic history/late-response matrix. These are local module tests,
+not native Forgejo page/auth/process proof. Evidence is in
+`.artifacts/local-page-acceptance/` (`types.log`, `build-frontend.log`, `connection.log`).
+
+The actual `bun run test:pages:prepared` attempt failed before authentication or
+fixture application creation: `TestNativeConnectionFixture` reports `fixture
+credential unavailable` at line 49. The documented ignored
+`.local/screenshot-fixture/create-output.txt` is absent, and a separate read-only
+probe could not connect to `http://localhost:3300/`. The failed attempt is retained
+at `.artifacts/pages-3Uhyan/` with `native-fixture.log` in the evidence directory.
+Consequently neither new acceptance case has browser execution evidence yet.
+Do not replace the native host with fabricated HTML, silently initialize a new
+provider fixture or claim the missing credentials came with pulled Git changes.
+Restore the documented authorized fixture/private inputs, or obtain explicit scope
+for a new local equivalent, before native page/screenshot execution. Browser-channel
+availability/trust must also be checked before that run. No fixture/service/trust
+change occurred here. Genuine predecessor-to-candidate cached-client proof, populated
+screenshots, remaining authority/history combinations and final aggregate acceptance
+remain open; step 1 is not closed by these authored cases or two local passes.
+
+
 ## One active combined completion plan
 
 At the user's request, added `docs/native-pages-runners-plan.md` as the single

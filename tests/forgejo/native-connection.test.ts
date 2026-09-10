@@ -186,6 +186,42 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     assert.equal(await page.locator('#soda-native-content > soda-spaces, #soda-native-content > soda-project-controls').count(), 1);
     assert.equal(await page.getByRole('button', {name: 'Retry connection'}).count(), 0);
   }
+  // Native Forgejo owns this form and its unsaved data. Entering a Soda view
+  // must neither submit it nor replace the browser's history restoration.
+  const nativeProfileWrites: string[]=[];
+  const profileRequest=(request: import('playwright').Request)=>{
+    if(request.method() === 'POST' && new URL(request.url()).pathname === '/user/settings') nativeProfileWrites.push('profile');
+  };
+  page.on('request',profileRequest);
+  const leaveDraft=async (dialog: import('playwright').Dialog)=>{
+    assert.equal(dialog.type(),'beforeunload'); await dialog.accept();
+  };
+  page.on('dialog',leaveDraft);
+  try {
+    await page.goto(origin+'/user/settings');
+    const fullName=page.locator('form[action="/user/settings"] input[name="full_name"]');
+    await fullName.fill('Unsaved local fixture draft');
+    await page.evaluate(()=>{
+      document.documentElement.dataset.historyDocument='native-profile-draft';
+      window.addEventListener('pageshow',event=>{document.documentElement.dataset.historyPersisted=String(event.persisted);});
+    });
+    const beforeDraftGrants=grants;
+    await page.goto(origin+'/?soda-view=spaces');
+    await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    await page.goBack({waitUntil:'commit'});
+    await fullName.waitFor();
+    assert.equal(await fullName.inputValue(),'Unsaved local fixture draft','Native draft lost across Soda navigation');
+    assert.equal(await page.locator('html').getAttribute('data-history-document'),'native-profile-draft');
+    assert.equal(await page.locator('html').getAttribute('data-history-persisted'),'true');
+    await page.goForward({waitUntil:'commit'});
+    await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+    assert.equal(await page.locator('#soda-native-content > soda-spaces').count(),1);
+    assert.equal(await page.getByRole('button',{name:'Retry connection'}).count(),0);
+    assert.equal(grants,beforeDraftGrants,'History unexpectedly requested fresh consent');
+    assert.deepEqual(nativeProfileWrites,[],'Draft navigation submitted the native profile');
+  } finally {
+    page.off('request',profileRequest); page.off('dialog',leaveDraft);
+  }
   assert.deepEqual(errors, [], 'Native entry/history raised a browser error');
   await peer.close();
   await page.goto(origin + '/?soda-view=spaces');
