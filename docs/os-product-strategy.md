@@ -67,10 +67,14 @@ dependencies or portability barriers merely to prevent a service edition.
 ## Use the CoreOS foundation deliberately
 
 The current delivery provisions upstream Fedora CoreOS, layers native packages and
-installs Soda's units and container payloads. It does not produce a Soda host image,
-installer ISO or signed OS release. The [installation guide](installation.md) owns
-that actual mechanism; the [native support guide](native-support.md) owns evidence
-transport, not another installer. Product positioning does not change these facts.
+installs Soda's units and container payloads. A customized installer ISO now exists
+with bounded diskless BIOS/UEFI boot evidence, but complete fresh-disk installation
+is still unvalidated. There is no preinstalled Soda QCOW2, host OCI image or signed
+Soda OS release. The [installation guide](installation.md#publication-direction)
+owns the ISO-first/QCOW2-next delivery direction and matching-payload inclusion;
+the [installer plan](coreos-installer-plan.md) owns the selected password-only manual
+flow. The [native support guide](native-support.md) owns evidence transport, not
+another installer. Product positioning does not change execution evidence.
 
 Use upstream boot, kernel, package and service mechanisms. The recommended host
 customization consists of reviewed provisioning, supported package/runtime versions,
@@ -83,11 +87,55 @@ data under /var is shared across deployments. Soda should build on that separati
 while explicitly handling the compatibility of its applications and persistent data.
 A previous host deployment is not a snapshot of later database or project writes.
 
-A future Soda boot artifact would require a separate delivery design, including
+Product media still requires the remaining delivery work, including
 authenticity, signer/key custody where applicable, supported architectures, licensing,
 security updates and failure recovery. This proposal does not select bootc, a new
 image builder, an independent release service or the predecessor's reserved Updates
 platform. The current upstream-based installation path remains in effect.
+
+## Update ownership
+
+The 10 September 2026 discussion distinguishes the operating system, its deployment
+tools and the application marketplace. Fedora CoreOS is the host OS.
+[rpm-ostree](https://coreos.github.io/rpm-ostree/administrator-handbook/) prepares a
+new bootable deployment while the running system remains on its current version;
+reboot activates the new deployment and a previous one remains available for OS
+rollback. Layered package requests are carried across upgrades, subject to package
+resolution and compatibility. OS rollback does not rewind shared application data.
+
+[Zincati](https://coreos.github.io/zincati/) is Fedora CoreOS's automatic-update
+agent. It follows the upstream update graph, asks rpm-ostree to stage the selected
+OS update and coordinates finalization/reboot. Its default strategy is immediate;
+native [maintenance windows](https://coreos.github.io/zincati/usage/updates-strategy/)
+can control reboot timing. This describes upstream behavior, not a fresh observation
+of the configuration on any retained Soda target. No new reboot schedule or update
+policy was applied in this discussion.
+
+| Scope | Owner and remaining Soda responsibility |
+| --- | --- |
+| CoreOS host and layered system packages | Reuse native rpm-ostree/Zincati; Soda must account for supported package compatibility and an explicit host reboot policy |
+| Soda's own programs, app containers, configuration and schemas | Coordinated Soda release delivery remains to design; a CoreOS update does not deliver all Soda changes |
+| Marketplace apps such as Vaultwarden and Homepage | The [Services plan](services-and-ai-plan.md#install-retry-and-persistent-lifecycle) owns reviewed recipes and installed versions; app upgrades are separate from host updates and catalog refreshes |
+
+After a host reboot, native systemd/Quadlet services start the instances configured
+for boot. This is startup of installed versions, not an app-image upgrade. App
+database migration, compatibility and backups cannot be delegated to Zincati, and
+rolling back a container image alone does not restore its changed database.
+
+**A Soda host OCI is optional.** OCI is a packaging/distribution format, QCOW2 a
+virtual-disk format, and ISO installation media. A bootable host OCI can carry OS
+content, unlike an ordinary application image. [bootc](https://bootc.dev/bootc/)
+specializes in installing/updating such OS images; it is not the only way to use
+OCI on CoreOS. [rpm-ostree also supports OCI-based OS transport and upgrades](https://coreos.github.io/rpm-ostree/container/).
+Do not turn “Soda has no host OCI update path” into “CoreOS cannot use OCI,” or make
+a bootc migration a prerequisite for the manual installer or Services marketplace.
+The exact selected OS/version, trust and native behavior would need review before
+changing transport. Existing application OCI archives remain independent of that
+optional host-image decision.
+
+These upstream references were consulted for the discussion; they do not add
+native validation results, a custom updater, a central marketplace service or the
+predecessor's separately reserved Updates platform to the implementation scope.
 
 ## Priority and effort comparison
 

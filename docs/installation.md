@@ -9,11 +9,60 @@ installer or product gate. The [CoreOS installer implementation](coreos-installe
 now has source and focused local tests for upstream ISO customization, a Go console
 and installed-host continuation instead of Anaconda. The console ships on media,
 not through a required hosting URL; see the handoff for generation evidence.
-Bounded diskless BIOS/UEFI boot checks passed; fresh-disk validation remains unrun. QCOW2 wrappers remain unselected/unimplemented. See
+Bounded diskless BIOS/UEFI boot checks passed; fresh-disk validation remains unrun.
+A prepared Soda QCOW2 is a recommended future download; its producer remains
+unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning. The separately built installer
 ISO does not contain a populated Soda appliance; no Soda host OCI or preinstalled
 QCOW2 is supplied. Do not replay first-install as a service upgrade.
+
+## Publication direction
+
+The 10 September 2026 discussion records the following delivery direction, not
+artifacts already available or permission to publish them:
+
+| Artifact | Intended role | Current state |
+| --- | --- | --- |
+| SodaOS ISO | Primary download for physical USB installation and manual VM installation | Console-bearing media exists; password-only interaction, included Soda payload and complete fresh-install validation remain work |
+| SodaOS QCOW2 | Recommended second download: a prepared VM disk booting into the same first-time operator setup | No preinstalled Soda product image or producer exists; the exact image-production and first-boot recipe still needs design |
+| SodaOS host OCI | Optional delivery architecture for a versioned host OS; not required for the current CoreOS approach | Not produced; no bootc migration or whole-host OCI update path is selected |
+| Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Built separately today and manually transferred; the preferred media design includes it in ISO/QCOW2 delivery |
+
+The target user-facing downloads are ISO and QCOW2, containing the matching Soda
+payload, with release/architecture identity and verifiable checksums. The artifact
+distribution/signing contract still needs definition; existing checksums are not a
+Soda release signature. An ISO is bootable installation media;
+QCOW2 is a virtual disk, not a complete VM definition. Generic media must contain no
+operator credentials or initialized personal app state. Establish the password,
+per-machine identity/host keys and remaining configuration for each new installation;
+do not distribute a copy of a retained test appliance.
+
+Payload inclusion must reuse the production build, inventory, verifier and native
+installation contracts. The ISO must preserve the verified payload on the selected
+destination for installed-host continuation before asking the user to remove media;
+its exact transfer/activation implementation remains to be authored. The QCOW2
+producer must deliver the same release and first-boot behavior without cloning
+credential-bearing fixture state. No manual builder-bundle transfer should remain
+in the normal product-media journey. Including application images does not remove
+the current network requirement for host RPM dependencies or provide offline
+marketplace apps.
+
+OCI means image packaging, not inherently a whole-host updater. Application OCI
+images remain ordinary components of the Soda payload and may be distributed through
+that payload without a separately operated registry. A specially built host OCI is
+an optional different delivery choice. See [host and application update ownership](os-product-strategy.md#update-ownership).
+
+The immediate [installer correction](coreos-installer-plan.md) removes the public-key
+prompt from USB/VM disk installation and uses the native root password. Publishing a
+usable image also requires the complete first-boot, access and application setup
+journey. Historical tests used upstream CoreOS QCOW2 plus private Ignition and SSH
+installation; they are runtime evidence, not proof of a public Soda QCOW2 or manual
+ISO installation. See [recorded VM setup](local-testing.md) and the [handoff](implementation-status.md).
+
+Keep the following commands as **current component/fixture recipes** until the new
+media path is implemented. Source documentation does not authorize builds, new
+fixtures, destination disk writes, uploads, retained-target changes or publication.
 
 ## 1. Prepare the native builder
 
@@ -111,7 +160,7 @@ proof at `bdbce8e`; retained-target cutover and whole-appliance acceptance remai
 
 ### Existing-state dashboard migration
 
-The current source dashboard requires `grant_key_file` and schema v7, retaining the
+The current source dashboard requires `grant_key_file` and schema v8, retaining the
 session-grant encryption introduced in v3. Do not run first-install or OAuth bootstrap again on an existing target.
 Follow the [controlled credential migration and rollback procedure](dashboard-credentials.md),
 including a consistent SQLite backup, matching config/key/artifact set and

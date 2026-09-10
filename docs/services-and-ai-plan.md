@@ -22,10 +22,11 @@ and KDE [creation profiles](project-os.md#selected-environment-profiles); GNOME 
 deferred. This supersedes the earlier Windows-first compatibility recommendation.
 
 The reviewed first implementation candidate is **appliance-wide, operator-managed
-services with online digest-pinned downloads** and **automatic runs for current
-trusted contributors after repository opt-in**. These are explicit planning defaults,
-not evidence that the user answered the earlier placement/trust questions. Keep one
-candidate for each; a different placement or trigger policy changes its scope before
+services with a bundled, versioned catalog and online digest-pinned downloads** and
+**automatic runs for current trusted contributors after repository opt-in**. These
+are explicit planning defaults, not evidence that the user answered the earlier
+placement/trust questions. Keep one candidate for each; a different placement or
+trigger policy changes its scope before
 implementation. Do not build parallel global/project catalogs or an alternative AI
 scheduler. Existing projects, registrations, credentials and fixtures stay intact.
 
@@ -58,12 +59,19 @@ nested engine; they are not interchangeable with an operator's host catalog.
 
 ### Scope and native ownership
 
-The first candidate is a global **Services** catalog and operator management page
-under `/-/soda/services`, linked from Global SodaOS settings. Start with **Adminer,
-Vaultwarden and Homepage**, as requested. Adminer is an operator-provisioned appliance
-utility in this scope, not a database service installed into a repository. Project
-services retain their existing native nested-engine workflow; no project marketplace
-controls or second engine backend are implied.
+Add **Services** to the product navigation. Its `/-/soda/services` surface has an
+**Available** catalog for choosing and installing reviewed apps and an **Installed**
+view for managing their configuration, health and lifecycle. Start with **Adminer,
+Vaultwarden and Homepage**, as requested. This is proposed design: no marketplace
+page or app-manager implementation exists in the current source yet. Adminer is an
+operator-provisioned appliance utility in this scope, not a database service installed
+into a repository. Project services retain their existing native nested-engine
+workflow; no project marketplace controls or second engine backend are implied.
+
+This is a bounded application manager over the appliance's existing host Podman and
+native Quadlet/systemd ownership. It is not a new package manager, container runtime,
+repository workload format or replacement service supervisor. The catalog supplies
+reviewed app recipes; the app images remain in their upstream registries.
 
 Every catalog view, configuration/log read and mutation requires the configured
 Soda operator with fresh server-side authority. Intended users access app URLs under
@@ -74,14 +82,24 @@ of Soda's operator installation inventory; do not duplicate automatic discovery.
 
 Use versioned shipped catalog metadata and ordinary
 [Quadlet definitions](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
-Each entry specifies reviewed license/source, immutable per-architecture image
-digests, fixed internal ports, typed bounded settings, native health checks and
-explicit durable paths (possibly none). Installation pulls the selected digest
-online and verifies its platform/image identity. No `latest`, arbitrary image input
-or invented digest; unsupported architectures are unavailable before Install. The
-existing four-image appliance bundle does not include these apps. Offline catalog
-installation would require an explicitly extended bundle/notices/installer contract,
-not an assumption that the current export includes them.
+Each entry is a reviewed app recipe specifying license/source, immutable
+per-architecture image digests, fixed internal ports, typed bounded settings, native
+health checks and explicit durable paths (possibly none). Installation pulls the
+selected digest online from its upstream registry and verifies its platform/image
+identity. No `latest`, arbitrary image input or invented digest; unsupported
+architectures are unavailable before Install. The existing four-image appliance
+bundle does not include these apps. Offline catalog installation would require an
+explicitly extended bundle/notices/installer contract, not an assumption that the
+current export includes them.
+
+A dedicated hosted marketplace backend is not required for this design. Public app
+recipe source can live in a public GitHub repository. The recommended distribution
+baseline is a catalog bundled with SodaOS plus explicit, reviewed versioned catalog
+updates published through [GitHub releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases).
+This delivery/update mechanism is not
+implemented: do not infer a repository URL, signer, trust root or executable remote
+script. Public catalog metadata, releases and image downloads require no marketplace
+account or marketplace credential.
 
 Allocate an opaque instance ID for native paths, units and containers; the bounded
 display name never selects a native target. Retain the installed recipe/digest and
@@ -135,7 +153,35 @@ Start, reboot and refresh never repull a moving tag or
 upgrade the image; use installed digest identity with `Pull=never`. App durable
 storage must survive any native container recreation needed by Quadlet. This is
 separate from retained Project OS roots, whose normal Start must start the original
-container. Updates, uninstall/data deletion and discovery remain separate scope.
+container. A catalog refresh can expose a newer reviewed recipe, but does not change
+an installed instance. Installation, Start and host reboot likewise keep the installed
+version. Zincati updates the host OS only; it does not update marketplace apps. systemd
+starts each boot-enabled installed version after a host reboot.
+
+An explicit per-app upgrade flow remains to design. It must account for version and
+architecture compatibility, durable data, backup prerequisites, application migration
+steps and truthful post-upgrade readiness. This does not select a general rollback or
+backup platform. Podman's
+[auto-update facility](https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html)
+is an available underlying primitive, but blanket automatic app upgrades are not
+selected and it cannot supply application/database rollback. Uninstall and data
+deletion also remain separate scope. The linked upstream auto-update contract was
+checked on 2026-09-10.
+
+### App credentials and configuration ownership
+
+Users own, supply and manage credentials required by an installed application. There
+is no central marketplace secret service. Reusable recipes and templates remain
+public; real credential values and application data remain local to the appliance.
+When an application natively owns credential or account settings, keep management in
+that application. When Soda must accept an installation input, preserve it through
+restricted local files and the existing secret-input rules: never put it in source,
+argv, tracing, terminal echo, UI diagnostics or logs.
+
+The marketplace must preserve working application onboarding rather than reduce an
+app to a static catalog card. In particular, retain the Adminer native database login,
+Vaultwarden SMTP/invitation and native authentication, and Homepage native
+authentication recipes described below.
 
 ### Private ingress and truthful readiness
 

@@ -14,8 +14,9 @@ checks for upstream ISO customization and a production-owned console/continuatio
 not Anaconda. Its console is now packaged on the ISO without hosted executable
 retrieval; see the handoff for generation/inspection and bounded diskless BIOS/UEFI
 boot evidence. Disk installation remains unrun.
-QCOW2 wrappers remain
-unselected. U/P labels in existing CLI arguments and observations
+A prepared product QCOW2 is a recommended [future download](installation.md#publication-direction);
+its producer remains unimplemented and is not an outside-support wrapper.
+U/P labels in existing CLI arguments and observations
 are retained protocol/evidence identifiers, not an active numbered roadmap. No
 helper, flag, commit or report grants execution permission.
 

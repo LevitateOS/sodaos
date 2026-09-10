@@ -42,6 +42,15 @@ The [CoreOS product strategy](os-product-strategy.md) is longer-term host guidan
 Capacity/recovery/boot work, the separate Rocky 10.2 retained-root decision and
 credential onboarding are not prerequisites to the Lit source ports.
 
+The [manual installer correction](coreos-installer-plan.md#manual-install-decision--10-september-2026)
+records the subsequent password-only USB/VM flow, separate post-boot SSH enrollment
+and complete fresh-install validation work. The [media direction](installation.md#publication-direction)
+is ISO first, a recommended prepared QCOW2 next, and the matching Soda payload in
+the media; a host OCI remains optional. [Update ownership](os-product-strategy.md#update-ownership)
+separates native CoreOS updates from Soda releases and Services app upgrades.
+These documented directions do not claim implementation, authorize media publication
+or block independent selected developer work.
+
 ## Project OS foundation
 
 The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,

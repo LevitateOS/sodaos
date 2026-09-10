@@ -159,6 +159,21 @@ passed locally. Pre-v7 binaries reject this schema. Delivery still needs a fresh
 paired DB/config/key/artifact backup, copied-state rehearsal and explicit rollout;
 no retained database was migrated during source work.
 
+## Schema v8: repository settings return and creation identity
+
+Source appends nullable `projects.creation_profile` with immutable-update protection
+and `oauth.repository_settings_return`, constrained to a repository target without
+a simultaneous Spaces/operator-settings return. Legacy projects keep unknown
+creation metadata; existing memberships and pending runner returns retain their
+original values. This changes no grant key, OAuth client or provider authority.
+
+The incoming `a741c65` [handoff](implementation-status.md) records local populated-v7
+preservation, profile immutability and transaction-bound return checks. They were
+not rerun during this merge. Pre-v8 binaries reject the newer schema; do not lower
+the version marker or discard later data to attempt rollback. Delivery still needs
+fresh paired DB/config/key/artifact backups, copied-state rehearsal and explicit
+target approval. Local source checks are not native deployment evidence.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth

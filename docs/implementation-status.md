@@ -1,5 +1,14 @@
 # Current handoff
 
+## Merge of installer decisions and headless foundation work
+
+Merged remote `74ea442` installer/media/Services documentation with local `9f86344`
+existing-root OS observation and native-tooling work. The only textual conflict was
+independently prepended handoff entries; both are preserved below. Incoming changes
+are documentation only. This merge checked whitespace, conflict-marker removal and
+preservation of both parent handoffs; it did not rerun product tests or perform a
+build/deployment. Earlier checks remain evidence for their recorded source bytes.
+
 ## Existing-root OS observations and native tooling — local source
 
 The settings/drawer shared Lit command owner now has an explicit **Inspect current
@@ -54,6 +63,54 @@ no legacy backfill, literal browser text and clearing stale observations. Eviden
 reviewed upstream archive/spec hashes: `.artifacts/runner-isolation-a741c65/`.
 No native image build, appliance deployment, retained-target read/exec, provider
 registration/job, lifecycle action or credential mutation occurred in this slice.
+
+## Merge of remote feature work with installer decisions
+
+Merged incoming `a741c65` repository-settings/profile work and its preceding
+Sodarunners, browser-only Join and packaging changes with local installer/media/
+Services documentation. The only textual conflict was independently prepended
+handoff entries; both histories and their original evidence are preserved below.
+Production source merged without textual conflicts. Appliance root-password
+installation remains planned work, distinct from incoming browser-only **project**
+account provisioning. The installation guide now identifies source schema v8;
+retained deployments and their earlier schema evidence are unchanged.
+
+This merge checked Git whitespace, conflict-marker removal and preservation of both
+parent handoff histories. It did not rerun product builds/tests, generate media or
+perform native deployment. Incoming checks below remain evidence for their recorded
+candidates, not a fresh test result for this merged commit.
+
+## Manual installation, media and Services decisions — documentation only
+
+Recorded the user's 10 September 2026 manual-install/voice discussion in the
+[installer plan](coreos-installer-plan.md), [media direction](installation.md#publication-direction),
+[host update ownership](os-product-strategy.md#update-ownership) and
+[Services plan](services-and-ai-plan.md). The selected USB/VM disk-install flow asks
+for a root password/confirmation with no public-key prompt. Source still requires
+the key; console correction/restart, password-only destination provisioning and
+post-boot access remain work. The recommended later access bridge is locally armed,
+short-lived native SSH key enrollment; the existing Forgejo bootstrap still needs
+its operator SSH tunnel. Normal root-password SSH is not being enabled.
+
+ISO is the primary product download; a prepared QCOW2 is the recommended second
+download, with matching Soda payload included in both. Neither payload inclusion
+nor a product QCOW2 exists yet; the current ISO needs a separate bundle and native
+RPM dependencies still need network access. A host OCI is optional, not a CoreOS
+requirement. Native rpm-ostree/Zincati host updates, Soda releases and marketplace
+app upgrades have separate owners. Services uses reviewed recipes over native
+Podman/Quadlet, with Available/Installed views, user-owned local credentials and no
+required hosted marketplace backend. A bundled catalog plus reviewed GitHub release
+updates is the recommended distribution design, not an implemented catalog updater.
+
+The reported manual screens reached networking/disk/hostname/key entry and exposed
+the input/restart gaps; they are not fresh-disk success evidence. Earlier appliance
+checks used upstream CoreOS QCOW2, pre-supplied private Ignition and SSH delivery.
+Keep those runtime results distinct from the still-unrun complete manual install.
+This documentation change inspected source/prior evidence and upstream references.
+Documentation diff/whitespace checks and all 32 added local links/heading anchors
+passed. No product
+builds/tests, new media, native execution, retained-state changes or publication
+were performed. The earlier evidence and exact artifact identities remain below.
 
 ## Repository Sodaspaces settings and creation identity — local source
 

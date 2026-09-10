@@ -34,6 +34,16 @@ as future investments, with effort estimates and narrow first slices. Writing th
 strategy does not select their implementation, import the predecessor Updates
 platform or authorize native actions. Existing selected work keeps its current scope.
 
+The later [manual-install decision](coreos-installer-plan.md#manual-install-decision--10-september-2026)
+selects a root-password USB/VM installation with no key prompt, pre-write console
+correction/restart and a usable continuation. [Media delivery](installation.md#publication-direction)
+records payload inclusion and a recommended prepared QCOW2 as remaining work;
+a host OCI/bootc migration remains optional and unselected. Documenting these does
+not authorize disk writes, publication or a new release/update platform. The
+[Services marketplace](services-and-ai-plan.md) can use GitHub-hosted public recipes;
+it does not require a central credential service. Catalog delivery and app-upgrade
+mechanisms still need their bounded design, without reopening general recovery.
+
 The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. Stock operator Cockpit and its Tailnet page remain selected. Runner backing logic, native integration and focused tests are retained; the Cockpit Runners page remains until its selected global-settings replacement passes parity and coordinated cutover. Deferral does not authorize stripping working validation or error handling.
 
 The user subsequently selected the bounded authenticated **Spaces** listing and
