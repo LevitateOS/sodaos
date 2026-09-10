@@ -17,7 +17,21 @@ Evidence is retained under `.artifacts/refactor-step1/` and `.artifacts/pages-PD
 The local tools were Go 1.27.0 and pinned Bun 1.4.2; this is source/browser evidence,
 not a check with the native gate's pinned Go 1.26.7 or a sealed native-stage check.
 No dependency baselines, retained fixtures/projects, services or deployment changed.
-Aggregate preparation/source-command work follows in this same bounded step.
+The aggregate now prepares assets once, then reuses the frontend/page/layout/Forgejo
+suite bodies; focused commands still prepare their own assets. `test:pages` is the
+three-page entrypoint, with `test:spaces-page` retained as an alias. Forgejo source
+checks now enable the local Lit runtime/settings-link journeys; focused `test:lit`
+also includes settings-link. Installed/provider flags remain separate.
+
+`bun run test` passed in 66.60 seconds: 302 passes across the five suite invocations,
+24 skips (the broad passes skip the separately run page/layout fixtures and optional
+browser-pipe/native/upstream-export checks). All required page/layout/Lit-runtime/
+settings-link journeys executed. Logs show one full asset preparation; a separate
+warm preparation took 0.08 seconds, not evidence of a large speedup. All five focused
+commands (`test:pages`, `test:layout`, `test:frontend`, `test:forgejo`, `test:lit`),
+`bun run typecheck` including Lit diagnostics/negative fixtures and the three terminal
+asset contract tests passed. No dependency installation was needed. Source-command
+sharing and its documentation follow in the final slice of this step.
 
 ## Upstream-first refactoring review — documentation only
 
