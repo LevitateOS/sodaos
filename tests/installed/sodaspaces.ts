@@ -201,7 +201,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant',
+  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant', '/-/soda/api/session/logout',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
@@ -417,7 +417,9 @@ try {
   await open(other);
   await projectView(other, input.repository_id);
   const loggedOut = other.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/session/logout' && r.request().method() === 'POST');
-  await control('sign-out', other).click(); assert.equal((await loggedOut).status(), 200);
+  await control('sign-out', other).click();
+  const logoutStatus = (await loggedOut).status(); result.soda_logout_status = logoutStatus;
+  assert.equal(logoutStatus, 204);
   await page.bringToFront();
   await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).click();
   await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor({state: 'visible'});
