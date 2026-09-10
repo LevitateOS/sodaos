@@ -423,10 +423,13 @@ host storage or protection from ordinary native writes.
 ## Access, credentials and connectivity
 
 Browser terminal access uses Soda's authenticated bridge and the existing Linux
-account, **not SSH or a device private key**. The intended browser-only Join must
-allow zero external SSH keys without enabling password/root SSH. Today the API,
-helper and account script still require a nonempty key set; changing only the UI is
-insufficient. Optional device → project SSH keeps explicit public-key review/apply,
+account, **not SSH or a device private key**. The new browser-only Join source allows zero external SSH keys through the API,
+helper and account script without enabling password/root SSH. The script creates
+a real password-locked account/home, identity marker, shared link and empty managed
+key file. Repeated provisioning refuses changed native keys rather than truncating
+them; use explicit key maintenance. Local script tests mock only root/account commands,
+not file effects. Fresh native account/access proof and same-root delivery remain
+pending. Optional device → project SSH keeps explicit public-key review/apply,
 key-only OpenSSH, SSH/SCP/SFTP and independent host-key trust. No automatic profile-
 key import, later synchronization or termination of unrelated authenticated SSH.
 Explicit Soda logout/expiry and confirmed authority loss remain hard browser-access

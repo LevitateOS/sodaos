@@ -49,7 +49,8 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	}
 	server.Config.OperatorID = 99
 	nativeCalls := 0
-	reject := false
+	reject := true
+	expectedKeys := 0
 	server.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Path == "/inspect" {
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":"p0123456789abcdef01234567","ip":"10.89.0.2","running":true}`)), Header: make(http.Header)}, nil
@@ -59,7 +60,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		if e := json.NewDecoder(r.Body).Decode(&account); e != nil {
 			t.Fatal(e)
 		}
-		if account.Project != id || account.Identity <= 0 || len(account.Keys) != 1 {
+		if account.Project != id || account.Identity <= 0 || len(account.Keys) != expectedKeys {
 			t.Fatal(account)
 		}
 		code := 200
@@ -79,9 +80,13 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		server.ServeHTTP(w, r)
 		return w
 	}
-	if w := post("bob"); w.Code != 422 || nativeCalls != 0 {
-		t.Fatal("missing-key join reached native setup", w.Code)
+	if w := post("bob"); w.Code != 502 || nativeCalls != 1 {
+		t.Fatal("account-only join must reach native provisioning and report its failure", w.Code)
 	}
+	if _, err = db.MemberLogin(ctx, id, 2); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatal("failed account-only join recorded membership", err)
+	}
+	expectedKeys = 1
 	for _, uid := range []int64{1, 2} {
 		if err = db.AddKey(ctx, uid, "canonical-public-key-test-double", "fingerprint"); err != nil {
 			t.Fatal(err)

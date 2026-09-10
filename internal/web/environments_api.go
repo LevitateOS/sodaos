@@ -181,11 +181,18 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	}{reader.authorityUnavailable, environmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if !decodeAPIObject(w, r, &struct{}{}) {
+	var input struct {
+		SSHKeys string `json:"ssh_keys"`
+	}
+	if !decodeAPIObject(w, r, &input) {
 		return
 	}
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
+		return
+	}
+	if input.SSHKeys != "" && input.SSHKeys != "saved" && input.SSHKeys != "none" {
+		jsonError(w, 400, "invalid_ssh_selection", "Select saved or none for optional external SSH keys.")
 		return
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
@@ -213,14 +220,15 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 		jsonError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
 		return
 	}
-	keys, err := s.Store.Keys(r.Context(), v.User.ID)
-	if err != nil {
-		jsonError(w, 503, "store_unavailable", "Could not read development keys.")
-		return
-	}
-	if len(keys) == 0 {
-		jsonError(w, 422, "development_key_required", "Register a public development-access key before joining.")
-		return
+	// Empty legacy requests retain saved-key behavior. New browser callers can
+	// explicitly choose account-only provisioning even when saved SSH keys exist.
+	var keys []store.Key
+	if input.SSHKeys != "none" {
+		keys, err = s.Store.Keys(r.Context(), v.User.ID)
+		if err != nil {
+			jsonError(w, 503, "store_unavailable", "Could not read development keys.")
+			return
+		}
 	}
 	if len(keys) > 32 {
 		jsonError(w, 422, "too_many_keys", "Native onboarding supports at most 32 development keys.")

@@ -41,12 +41,12 @@ class SodaRunners extends LitElement {
   }
   private async request(path: string, body?: string): Promise<unknown> {
     if (!id(this.actor) || this.retired) throw Error('Unavailable');
-    const sessionRead = await fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', headers: {'X-Soda-Expected-User-ID': this.actor}, signal: AbortSignal.timeout(15000)});
+    const sessionRead = await fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': this.actor}, signal: AbortSignal.timeout(15000)});
     if (!sessionRead.ok) {this.blocked = true; throw Error('Reconnect');}
     const raw = await readSodaJSON(sessionRead), session = sessionResponse(raw, location.origin);
     if (session.user.id !== this.actor || object(raw).soda_operator !== true || this.retired) {this.blocked = true; throw Error('Reconnect');}
     const response = await fetch('/-/soda/api/settings/runners' + path, {
-      method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
+      method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
       headers: {'X-Soda-Expected-User-ID': this.actor, ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token})},
       ...(body === undefined ? {} : {body}), signal: AbortSignal.timeout(190000),
     });
@@ -104,10 +104,10 @@ class SodaRunners extends LitElement {
     if (this.busy) return;
     this.busy = true;
     try {
-      const response = await fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', headers: {'X-Soda-Expected-User-ID': this.actor}, signal: AbortSignal.timeout(15000)});
+      const response = await fetch('/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': this.actor}, signal: AbortSignal.timeout(15000)});
       if (!response.ok) throw Error('Session unavailable');
       const session = sessionResponse(await readSodaJSON(response), location.origin);
-      const ended = await fetch('/-/soda/api/session/logout', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token, 'X-Soda-Expected-User-ID': this.actor}, body: '{}', signal: AbortSignal.timeout(15000)});
+      const ended = await fetch('/-/soda/api/session/logout', {method: 'POST', credentials: 'same-origin', redirect: 'error', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token, 'X-Soda-Expected-User-ID': this.actor}, body: '{}', signal: AbortSignal.timeout(15000)});
       if (ended.status !== 204) throw Error('Logout unconfirmed');
       this.dirty = false; this.busy = false; location.reload();
     } catch {this.message = 'Soda sign-out unconfirmed. Native Forgejo sign-out is separate.'; this.busy = false;}

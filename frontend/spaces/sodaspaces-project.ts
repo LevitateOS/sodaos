@@ -2,10 +2,10 @@
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
 import {renderEnvironment} from './sodaspaces-environment-view.js';
-import {renderConnection, renderKeys, renderProjectStatus} from './sodaspaces-project-view.js';
+import {renderConnection, renderKeys, renderForgejoKeys, renderProjectStatus} from './sodaspaces-project-view.js';
 import type {TemplateResult} from 'lit';
-import {object, check, id, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
-import type {Session, Environment, Detail, KeyPreview, SavedKey} from './sodaspaces-api.js';
+import {object, check, id, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, profileKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
+import type {Session, Environment, Detail, KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
 export interface ProjectContext { expectedUserId?: string | undefined; repositoryId: string; page?: boolean }
 
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
@@ -45,9 +45,9 @@ export class SodaProjectControls extends LitElement {
   static properties = {
     status: {state: true}, outcome: {state: true}, repository: {state: true}, session: {state: true},
     environment: {state: true}, detail: {state: true}, saved: {state: true}, keyPreview: {state: true},
-    lifecycle: {state: true}, connection: {state: true}, busy: {state: true}, stale: {state: true},
+    profileKeys: {state: true}, lifecycle: {state: true}, connection: {state: true}, busy: {state: true}, stale: {state: true},
     uncertain: {state: true}, connectVisible: {state: true}, canCreate: {state: true},
-    selected: {state: true}, draft: {state: true}, stopConfirmed: {state: true}, emptyConfirmed: {state: true},
+    selected: {state: true}, draft: {state: true}, stopConfirmed: {state: true}, emptyConfirmed: {state: true}, useSavedKeys: {state: true},
   };
   declare private status: string;
   declare private outcome: string;
@@ -56,6 +56,7 @@ export class SodaProjectControls extends LitElement {
   declare private environment: Environment | undefined;
   declare private detail: Detail | undefined;
   declare private saved: SavedKey[] | undefined;
+  declare private profileKeys: ProfileKeys | undefined;
   declare private keyPreview: KeyPreview | undefined;
   declare private lifecycle: Lifecycle | undefined;
   declare private connection: {command: string; fingerprint: string} | undefined;
@@ -68,6 +69,7 @@ export class SodaProjectControls extends LitElement {
   declare private draft: string;
   declare private stopConfirmed: boolean;
   declare private emptyConfirmed: boolean;
+  declare private useSavedKeys: boolean;
   private binding: ProjectContext | undefined;
   private readController: AbortController | undefined;
   private lifetime = new AbortController();
@@ -77,9 +79,9 @@ export class SodaProjectControls extends LitElement {
   constructor() {
     super();
     this.status = 'Refresh to inspect your shared environment.'; this.outcome = this.repository = this.draft = '';
-    this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = undefined;
+    this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.busy = this.stale = this.uncertain = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
-    this.connectVisible = true; this.selected = 'environment';
+    this.connectVisible = true; this.selected = 'environment'; this.useSavedKeys = false;
   }
   protected createRenderRoot() { return this; }
   configure(context: ProjectContext) {
@@ -119,13 +121,15 @@ export class SodaProjectControls extends LitElement {
       <section id=${'soda-project-' + this.binding?.repositoryId + '-environment'} class="soda-spaces-view" role="tabpanel" aria-label="Environment" ?hidden=${this.selected !== 'environment'}>
         ${renderEnvironment({connectURL: '/-/soda/login?' + intent, connectVisible: this.connectVisible,
           busy: this.busy, stale: this.stale, signedIn: !!this.session, blocked: this.blocked, canCreate: this.canCreate,
-          canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && !!this.saved?.length}, {
+          canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && !!this.saved,
+          sshKeys: this.saved?.map(key => key.fingerprint) || [], useSavedKeys: this.useSavedKeys}, {
+          selectSSH: checked => {this.useSavedKeys = checked;},
           connect: event => {if (this.busy || this.stale || this.disposed) event.preventDefault();},
           refresh: event => this.command(event, () => this.refresh(), true),
           reload: event => {if (!this.disposed && event.currentTarget instanceof HTMLElement && !event.currentTarget.closest('[hidden], [inert]')) window.location.reload();},
           logout: event => this.command(event, () => this.mutate('/api/session/logout', {}, 'Signed out of Soda.'), true),
-          create: event => this.command(event, () => this.mutate('/api/environments', {repository_id: this.binding?.repositoryId}, 'Environment created. Save a public key and explicitly Join; creation does not join you.')),
-          join: event => this.command(event, () => {if (this.environment) return this.mutate('/api/environments/' + this.environment.id + '/join', {}, 'Native join confirmed. Later saved-key changes require a separate explicit Apply.');}),
+          create: event => this.command(event, () => this.mutate('/api/environments', {repository_id: this.binding?.repositoryId}, 'Environment created. Explicitly Join for a browser terminal; external SSH keys are optional. Creation does not join you.')),
+          join: event => this.command(event, () => {if (this.environment) return this.mutate('/api/environments/' + this.environment.id + '/join', {ssh_keys: this.useSavedKeys ? 'saved' : 'none'}, 'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.');}),
         }, renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed,
           event => this.command(event, () => this.changeLifecycle(false)),
           event => this.command(event, () => this.changeLifecycle(true)),
@@ -140,6 +144,10 @@ export class SodaProjectControls extends LitElement {
           review: event => this.command(event, () => this.reviewKeys()), confirmEmpty: checked => {this.emptyConfirmed = checked;},
           apply: event => this.command(event, () => this.applyKeys()),
         })}
+        ${this.saved ? renderForgejoKeys(this.profileKeys, this.blocked, page => {void this.reviewProfileKeys(page);}, key => {
+          if (this.blocked || this.selected !== 'access' || this.closest('[hidden], [inert]')) return;
+          this.draft = key; this.outcome = 'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
+        }) : ''}
       </section>
       ${renderProjectStatus(this.repository,
         this.session ? `Soda account: ${this.session.user.login} (ID ${this.session.user.id})` : '',
@@ -152,7 +160,7 @@ export class SodaProjectControls extends LitElement {
     catch {if (!this.disposed) this.outcome = 'Copy failed. Select and copy the displayed SSH command.';}
   }
   private reset() {
-    this.environment = this.detail = this.keyPreview = this.saved = this.lifecycle = this.connection = undefined;
+    this.environment = this.detail = this.keyPreview = this.saved = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.draft = ''; this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
   }
   invalidate() {
@@ -248,7 +256,7 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n)) return;
       const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
       this.uncertain = dispatched && !rejected.has(e.status);
-      const reasons: Record<string, string> = {unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', development_key_required: 'Save a development public key before joining.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'};
+      const reasons: Record<string, string> = {unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'};
       const reason = reasons[e.code || ''];
       this.outcome = !this.uncertain && reason ? reason : this.uncertain ? 'Outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. Refresh reads state only.' : 'Request rejected. Refresh and review current state before another explicit action.';
     } finally {window.clearTimeout(timeout); if (this.active(n)) this.busy = false;}
@@ -262,6 +270,16 @@ export class SodaProjectControls extends LitElement {
     const value = this.draft.trim();
     if (!/^(ssh-|ecdsa-|sk-)/.test(value) || /PRIVATE KEY/.test(value) || /[\r\n]/.test(value)) {this.outcome = 'Provide one public SSH key. Never upload a private key.'; return;}
     this.draft = ''; return this.mutate('/api/me/development-keys', {public_key: value}, 'Public key saved for future joins. Existing project access is unchanged until explicitly applied.');
+  }
+  private async reviewProfileKeys(page: number) {
+    if (this.blocked || this.selected !== 'access' || this.closest('[hidden], [inert]') || !Number.isInteger(page) || page < 1 || page > 8) return;
+    const epoch = this.epoch; this.busy = true;
+    const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 20000);
+    try {
+      const keys = profileKeysResponse(await this.api('/api/me/forgejo-keys?page=' + page, 'GET', undefined, controller.signal), page);
+      if (this.active(epoch)) this.profileKeys = keys;
+    } catch {if (this.active(epoch)) {this.profileKeys = undefined; this.outcome = 'Own Forgejo keys are unavailable. Nothing was imported; use native profile settings or explicitly paste a public key.';}}
+    finally {window.clearTimeout(timeout); if (this.active(epoch)) this.busy = false;}
   }
   private async reviewKeys() {
     if (this.blocked || !this.environment || !this.detail) return;

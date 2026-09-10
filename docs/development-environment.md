@@ -27,9 +27,20 @@ that all GUI/AI applications are supported. Follow the
 
 ## Join, verify and connect
 
-Sign in through Forgejo and explicitly connect Sodaspaces. Today's Join requires a saved public development-access key: use the drawer's key controls, then select **Add me to this project**. The creator joins explicitly too. No private key is uploaded and no human account is created on the appliance host.
+Sign in through Forgejo and explicitly connect Sodaspaces, then **Join environment**.
+The new source defaults to browser-only access: native provisioning creates the same
+real password-locked project account with an empty managed SSH-key file. The creator
+joins explicitly too. No private key is uploaded or human host account created.
+This source has local Go/script/browser coverage; retained installations have not
+received this new account path.
 
-The selected browser-only path will provision the same real account without an external SSH key; it is not implemented yet. The browser terminal itself uses Soda's bridge, not SSH. Optional reviewed Forgejo profile-key selection and automated outbound Git setup are separate unfinished actions, not current behavior. SSH/editor instructions below remain native alternatives, not the intended prerequisite for development in the drawer.
+For optional external SSH, explicitly select the saved public-key set at Join, or
+later Review → Apply in Access. Access can also read your own Forgejo public keys
+through its bounded supported API; select/review one and explicitly Save it for
+Soda development access. Key titles do not prove private-key custody. Reads and
+selection alone never save/install keys; deletion upstream is not automatic project
+revocation. Automated outbound Git setup remains unfinished, with its separate
+credential trust/passphrase decision. SSH/editor instructions below remain native alternatives, not the intended prerequisite for development in the drawer.
 
 Use the project's displayed IP, not its label as a hostname. The operator must establish the real client route to the project subnet; a bridge address alone is not connectivity. Before accepting a first SSH host-key prompt, obtain the project's fingerprint through trusted operator access. On the authorized host, the operator can inspect the public host key using:
 

@@ -265,7 +265,7 @@ func (d *Daemon) connection(ctx context.Context, id string) (Connection, error) 
 }
 
 func (d *Daemon) account(ctx context.Context, in Account) error {
-	if !loginName.MatchString(in.Login) || in.Identity <= 0 || len(in.Keys) == 0 || len(in.Keys) > 32 {
+	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || len(in.Keys) > 32 {
 		return errors.New("invalid project account")
 	}
 	env, owner, err := d.inspect(ctx, in.Project)
@@ -284,6 +284,16 @@ func (d *Daemon) account(ctx context.Context, in Account) error {
 		keys = append(keys, string(ssh.MarshalAuthorizedKey(key)))
 	}
 	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "admin": in.Identity == owner, "keys": keys})
-	_, err = d.podman(ctx, body, "exec", "--interactive", "soda-"+in.Project, "/usr/libexec/soda/project-account")
-	return err
+	out, err := d.podman(ctx, body, "exec", "--interactive", "soda-"+in.Project, "/usr/libexec/soda/project-account")
+	if err != nil {
+		return err
+	}
+	var result struct {
+		Login    string `json:"login"`
+		Identity int64  `json:"identity"`
+	}
+	if len(out) > 4096 || strictjson.Decode(bytes.NewReader(out), &result) != nil || result.Login != in.Login || result.Identity != in.Identity {
+		return errors.New("native account identity was not confirmed")
+	}
+	return nil
 }

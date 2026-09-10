@@ -1,5 +1,41 @@
 # Current handoff
 
+## Browser-only Join and explicit own-profile public-key selection
+
+The API, root helper and actual project account script now permit zero external
+SSH keys. The Lit controls default to account-only Join even when saved keys exist;
+installing the saved set is an explicit checkbox with fingerprints. Legacy empty
+requests retain saved-key semantics and now permit an empty set. The script creates
+the real locked account/home, identity marker, shared link and empty managed key
+file. It refuses occupied/unassociated paths, unsafe links and changed existing keys
+rather than truncating them; Join is not key revocation. The host requires an exact
+login/identity receipt before reporting success, and membership still follows only
+confirmed native success. Existing member calls never reprovision accounts.
+
+Access additionally reads the acting user's own Forgejo keys through the inspected
+15.0.7 `/user/keys` interface (10 per page, at most eight pages, no global fingerprint
+query). Fresh subject, own-user key type/owner, public-key validation and original
+Soda context apply. Selecting a key fills the review draft; explicit Save and later
+Join/Apply remain separate. No private key, provider write, automatic synchronization
+or outbound Git credential setup is added. The picker warns that titles do not
+establish private-key custody.
+
+Actual checks in `.artifacts/feature-mvp-972b1ab/`: full `go test ./...` passed with
+cached Go 1.26.7; required types/Lit/analyzer fixtures passed; all **38** emitted
+project-controls browser tests passed; **8** real-script/file-effect Python tests
+passed with root/pwd/account commands mocked. Initial legacy missing-key assertions
+and a browser fixture shape failed and were updated for the intentional contract.
+Those are local source checks, not a newly provisioned native Linux account/SSH or
+managed-terminal proof. The runner follow-up keeps the existing footer fixture split
+and refuses browser API redirects; no native service changed.
+
+Retained projects still use their original scripts. Delivery requires matching
+backend/helper plus the reviewed same-root account-script addition or a newly built
+image; it must not recreate roots or silently install on Join/Open. No retained VM,
+project, account, key, provider registration or credential changed. Automated outbound
+Git still needs its trust/passphrase/consent decision; marketplace, AI publication/
+isolation, repository settings and new OS/KDE profiles remain unfinished.
+
 ## MVP implementation — protected Sodarunners settings (local source)
 
 Implemented `/-/soda/settings/runners`, fixed transaction-bound OAuth return

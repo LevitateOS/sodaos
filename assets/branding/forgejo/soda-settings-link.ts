@@ -12,11 +12,11 @@ if (marker && id(marker.dataset.actor)) {
   const check = async () => {
     hide(); const current = generation;
     try {
-      const response = await fetch(sub + '/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', headers: {'X-Soda-Expected-User-ID': actor}, signal: AbortSignal.timeout(10000)});
+      const response = await fetch(sub + '/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': actor}, signal: AbortSignal.timeout(10000)});
       if (!response.ok) {await response.body?.cancel(); return;}
       const raw = await readSodaJSON(response), session = sessionResponse(raw, location.origin);
       if (current === generation && marker.isConnected && session.user.id === actor && object(raw).soda_operator === true) marker.after(link);
-    } catch {hide();}
+    } catch {if (current === generation) hide();}
   };
   window.addEventListener('pagehide', hide);
   window.addEventListener('pageshow', () => void check());

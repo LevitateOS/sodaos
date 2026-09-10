@@ -12,8 +12,9 @@ The split-view drawer uses
 [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
 with separate creation, exact attach, detach and HTTP End. Isolated `22d8591` has
 bounded same-shell reload/cleanup evidence, not the full native safety/UX matrix.
-Browser-only joining, optional Forgejo-key selection and Git credentials remain
-unimplemented. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
+Browser-only joining and explicit own-Forgejo public-key selection now have local
+source/script/browser coverage. Native delivery/access proof and automated outbound
+Git credentials remain pending. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
 and test coverage; concurrent native/CLI acceptance and delivery remain separate.
 
 ## Spaces page and fixed OAuth return
@@ -48,6 +49,26 @@ is never guessed. Unknown cleanup preserves the locator; only acknowledged clean
 can retire it. Storage failure permits live use without guaranteed restoration.
 These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
 concurrent native tmux or selected-CLI acceptance.
+
+## Browser-only Join and optional public keys
+
+`POST /api/environments/{id}/join` accepts `{"ssh_keys":"none"}` for account-only
+provisioning, or `{"ssh_keys":"saved"}` to install the actor's saved development
+keys. New browser controls default to none. Legacy `{}` preserves saved-key behavior,
+now also permitting an empty set. Identity, fresh repository visibility, Linux-name
+eligibility, provisioning and confirmation-before-membership checks remain. Existing
+membership returns its original login without applying/removing keys. The native
+account script verifies its exact identity receipt, creates password-locked accounts,
+and refuses changed/unassociated key files instead of using Join as revocation.
+
+`GET /api/me/forgejo-keys?page=1` lists only the acting user's profile public keys
+through native `GET /user/keys`. Pages 1–8 contain at most ten entries; no global
+fingerprint query or arbitrary username is accepted. Fresh subject, owner, user-key
+type, bounds and normalized public-key checks apply. Responses contain ID, title,
+public key and computed fingerprint, plus page/more; reading/selecting does not
+persist a Soda key or invoke the helper. Explicit Save uses the existing development
+key API; optional Join/Apply remains separate. No automatic upstream synchronization,
+Git registration or private-key handling is introduced.
 
 ## Operator runner settings
 

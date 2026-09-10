@@ -9,8 +9,11 @@ export interface EnvironmentPresentation {
   readonly blocked: boolean;
   readonly canCreate: boolean;
   readonly canJoin: boolean;
+  readonly sshKeys: readonly string[];
+  readonly useSavedKeys: boolean;
 }
 export interface EnvironmentCommands {
+  readonly selectSSH: (checked: boolean) => void;
   readonly connect: (event: MouseEvent) => void;
   readonly refresh: (event: MouseEvent) => void;
   readonly reload: (event: MouseEvent) => void;
@@ -24,6 +27,10 @@ export function renderEnvironment(view: EnvironmentPresentation, commands: Envir
     <a data-control="sign-in" class="ui primary button" href=${view.connectURL}
       ?hidden=${!view.connectVisible || view.stale} aria-disabled=${view.busy || view.stale ? 'true' : 'false'}
       @click=${commands.connect}>Connect to Soda</a>
+    ${view.canJoin ? html`<p>Join creates your real, password-locked project account. Browser terminals do not need an SSH key. External SSH and outbound Git credentials are separate.</p>
+      ${view.sshKeys.length ? html`<label><input type="checkbox" .checked=${view.useSavedKeys} ?disabled=${view.blocked}
+        @change=${(event: Event) => {if (event.target instanceof HTMLInputElement) commands.selectSSH(event.target.checked);}}>Also install my saved public keys for external SSH</label>
+        ${view.useSavedKeys ? html`<ul>${view.sshKeys.map(key => html`<li>${key}</li>`)}</ul>` : ''}` : html`<p>No external SSH keys will be installed. You can explicitly add and apply keys later in Access.</p>`}` : ''}
     <div class="soda-spaces-actions">
       <button data-control="refresh" type="button" class="ui basic button" ?disabled=${view.busy || view.stale}
         @click=${commands.refresh}>Refresh status</button>
