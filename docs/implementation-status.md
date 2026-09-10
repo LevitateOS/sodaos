@@ -1,5 +1,34 @@
 # Current handoff
 
+## Continued frontend implementation — installed-driver source (6b)
+
+The existing guarded `tests/installed/sodaspaces.ts` now has a separately scoped
+`--allow-workspace-matrix` mode, not a parallel acceptance runner. Its closed extra
+input binds six simultaneous sessions per actor across two exact existing projects;
+old single-terminal/access/management inputs cannot select it. UI commands retain
+single-use actor/path/body admission. Wire observation binds create requests and
+later attachments to exact IDs, and source scenarios cover another-writer refusal,
+layout/compact resource identity, Hide/Return, reload, original shell memory and
+named End with independent PID/start/unit/cgroup/socket/record checks plus siblings.
+
+Codex CLI, Claude Code and Pi browser/ordinary-SSH scenarios require exact declared
+versions, restricted non-secret fixture prompts and explicit provider/personal-state
+scope. They record bounded wire/streaming observations and actual context; visual,
+physical-keyboard and CLI behavior review remains required, never an inferred PASS.
+See [the complete input/effect contract](native-validation.md#integrated-six-session-workspace-matrix-authored-not-installed-proof).
+No source work authorizes executing this mode or changes existing target approvals.
+
+Actual checks before this slice: required types/analyzer/fixtures and **5** focused
+driver tests, including both real emitted six-socket actor journeys against synthetic
+TLS/API peers, input refusals, CLI protocol observation, and compiled-but-not-executed
+native observation Python. Synthetic SSH/process facts are explicitly doubles, not
+native evidence. Failed iterations retained under
+`.artifacts/frontend-continuation-512afb0/`: an incomplete fixture environment response,
+HTTP versus required WSS, a hidden menu selector, and a reload issued before Return
+completed. The final driver also preserves transport-unconfirmed End when native
+closure/disposal races its HTTP response; only independent inspection establishes
+cleanup. Combined candidate checks and documentation reconciliation follow below.
+
 ## Continued frontend implementation — observed attention (6a)
 
 The terminal owner emits bounded typed output/state observations only from validated
