@@ -7,8 +7,9 @@ payload/configuration/credentials/migrations/cutover. [Native support](native-su
 supplies artifact inspection/bundling and provisioning transport, not a second
 installer or product gate. The [CoreOS installer implementation](coreos-installer.md)
 now has source and focused local tests for upstream ISO customization, a Go console
-and installed-host continuation instead of Anaconda. Actual ISO generation/boot and
-fresh-disk validation remain unrun. QCOW2 wrappers remain unselected/unimplemented. See
+and installed-host continuation instead of Anaconda. The console ships on media,
+not through a required hosting URL; see the handoff for generation evidence.
+Boot and fresh-disk validation remain unrun. QCOW2 wrappers remain unselected/unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning; do not assume a Soda host OCI,
 installer ISO or preinstalled QCOW2, or replay first-install as a service upgrade.
@@ -33,7 +34,7 @@ Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist w
 
 Candidate: Fedora CoreOS stable 44.20260817.3.2. Use its upstream installer/image matching the target architecture and native install instructions. Do not add a separate Soda distribution/release pipeline.
 
-For the network-assisted console-media recipe, see [CoreOS installation media](coreos-installer.md).
+For the on-media console recipe, see [CoreOS installation media](coreos-installer.md).
 It reuses the bootstrap/bundle/setup contracts below; it is not an offline appliance
 image or permission to reinstall an existing host.
 

@@ -1,6 +1,56 @@
 # Current handoff
 
-## CoreOS installer source candidate and local checks
+## On-media installer correction — source and prerequisite inspection
+
+The user rejected the mandatory hosted executable. The 256 KiB Ignition embed
+limit was incorrectly treated as the ISO's payload limit; that design is removed.
+`scripts/build-installer.py` now adds the console/LICENSE/NOTICE under `/soda/`
+with xorriso boot-equipment replay, then uses unpatched CoreOS Installer 0.26.0 for
+small live Ignition. `appliance/installer/load-console.sh` copies from the selected
+CoreOS `/run/media/iso` mount, verifies SHA-256, publishes without overwriting an
+existing path, restores SELinux labels and only then makes the console executable.
+Failed copies remain non-executable. No hosting URL or executable download is needed;
+Soda RPM dependencies and the separately supplied sealed bundle remain unchanged.
+
+The builder checks upstream file hashes, EFI/BIOS references, volume identity,
+relocated BIOS boot-info/PVD fields, native kernel arguments and Ignition readback.
+It preserves ISO level-1 primary names needed by stock metadata lookups. Obsolete
+absolute-offset `/coreos/miniso.dat` is removed: full ISO is selected, not minimal
+ISO/PXE export or eject-before-start/fromram. No OS filesystem/initramfs rebuild,
+upstream executable patch or unattended disk action is introduced.
+
+Actual local evidence:
+
+- `.artifacts/iso-on-media-source-3z90PW/`: **13 focused Python tests passed**,
+  including real shell copy/hash/exec on substituted fixture paths, failed hash/
+  relabel/no-overwrite cases, synthetic nonbootable ISO remaster/tamper checks and
+  BIOS relocation/primary-name regressions. Root/mount/SELinux commands are doubles,
+  not native live-OS proof. Go 1.26.7 `go test ./...` passed with existing Go results
+  cached. Full Python build suite: **88 tests, one failure, one skip**; the same
+  unrelated 15 missing Forgejo template inventory entries remain unfixed, not waived.
+- `.artifacts/iso-build-inputs-yO2uuO/`: downloaded and verified the locked x86_64
+  upstream ISO against Fedora's public keyring and Fedora 44 fingerprint
+  `36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6`, checked against the independent
+  official security-page fingerprint. Public trust inputs stay in that directory;
+  no system trust import occurred. Official native CoreOS Installer 0.26.0 and the
+  already cached Butane v2.27.0 were exercised through exact-image rootless tool
+  wrappers; xorriso is 1.5.6. These are build tools, not booted installer fixtures.
+- Retained prototype remaster exposed two real tooling contracts: xorriso's mirrored
+  PVD can be at LBA 48 with a 32-block volume-size adjustment; default xorriso primary
+  `KARGS.JSON` is wrong for Installer's `KARGS.JSO` lookup. The first prototype's
+  native kargs read failed. After explicit ISO level 1, `prototype-level1.iso`
+  preserved 14 ordinary upstream file hashes and the normalized BIOS executable,
+  and native kargs readback succeeded. These prototypes have no final live launcher
+  customization and are **not delivery images**. An earlier keep-id tool-wrapper
+  probe timed out; the final rootless wrapper uses the ordinary caller mapping.
+
+Final exact-revision customized media generation follows separately. Boot/tty1,
+real SELinux launch, static networking, disk writes, first boot/activation and full
+Soda continuation/operator setup remain unrun. No VM lifecycle, retained project/
+appliance mutation, disk installation, global policy/trust change, deployment or
+publication occurred. Preserve all earlier roots, credentials, fixtures and evidence.
+
+## CoreOS installer source candidate and local checks (initial packaging)
 
 Implemented the user-requested [CoreOS installer plan](coreos-installer-plan.md);
 [usage and limitations](coreos-installer.md) distinguish source from media/native

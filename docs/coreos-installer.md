@@ -1,15 +1,18 @@
 # CoreOS installation media
 
-Source implementation of the [installer plan](coreos-installer-plan.md), **not yet
-built/booted ISO evidence or a fresh-appliance acceptance result**. Anaconda and
-Kickstart are not used. No upstream CoreOS Installer patches or custom OS image
-are introduced. The legacy repository and canonical artwork remain unchanged.
+Implementation of the [installer plan](coreos-installer-plan.md); see the
+[handoff](implementation-status.md) for actual media-generation evidence.
+**ISO generation/inspection is not boot or fresh-appliance acceptance.** Anaconda
+and Kickstart are not used. No upstream installer patches or OS filesystem
+replacements are introduced. Legacy source and canonical artwork remain unchanged.
 
 ## Owners and prerequisites
 
 - `scripts/build-installer.py` builds the native Go console and artifact verifier,
   fetches/verifies the selected upstream ISO, converts public Butane configuration
-  and invokes stock `coreos-installer iso customize --live-ignition`.
+  and adds the console with xorriso's imported boot-equipment replay before stock
+  `coreos-installer iso customize --live-ignition`. It compares upstream file hashes,
+  boot references, volume identity and native kernel-argument/Ignition readback.
 - `appliance/locks/coreos-iso.json` records actual release metadata for both native
   architectures, separate from the existing QEMU lock. Both selected RPM inventories
   report CoreOS Installer **0.26.0**; customization and runtime version checks require
@@ -17,36 +20,48 @@ are introduced. The legacy repository and canonical artwork remain unchanged.
 - `appliance/installer` / `internal/installer` own the interactive disk adapter and
   explicit installed-host continuation. The media-only command stays outside the
   runtime `cmd/` staging loop: the application bundle must not overwrite a running
-  bootstrap executable. Ignition delivers it; no media build becomes an application
-  build prerequisite.
+  bootstrap executable. The live launcher loads it from the ISO; no media build
+  becomes an application build prerequisite.
 - `scripts/render-provisioning.py::public_config()` remains the public bootstrap
   owner. Butane strictly converts FCOS 1.6.0 to Ignition 3.5.0 at media-build time.
   The live Go adapter adds only validated per-machine fields to that template;
   Python and Butane are **not required on the live OS**. The standalone renderer
   also accepts `--appliance-hostname`; fixture `--hostname soda-native-*` is unchanged.
 
-### Why the console executable is a separate payload
+### The console ships on the ISO
 
-The upstream ISO has a **256 KiB Ignition embed area**, not space for a Go executable.
-The ISO embeds a small live configuration that fetches the exact generated public
-console binary through **HTTPS with an Ignition SHA-256 verification hash**. The
-URL is revision/architecture-specific. The builder emits that file under `payload/`
-but never hosts or publishes it. Use an existing operator-selected HTTPS location
-with ordinary trusted certificates; no token in the URL or trust bypass.
+The **256 KiB limit applies to the Ignition embed area, not ISO capacity**. The
+previous mandatory HTTPS executable payload was unnecessary and is removed.
+The executable, LICENSE and NOTICE live in the ISO's ordinary `/soda/` directory.
+Small live Ignition embeds `appliance/installer/load-console.sh` and the expected
+console SHA-256. The launcher uses CoreOS's read-only `/run/media/iso` mount, copies
+the executable to restricted live storage, verifies the copied bytes, publishes
+without replacing an existing file and applies normal SELinux labeling before
+making it executable. Failed copies remain non-executable for inspection.
+**No web server, payload URL or executable download is needed.**
 
-This is a **network-assisted installer**, not an offline Soda ISO. DHCP must make
-that HTTPS payload reachable before the console can start. A static-only network
-can use the explicitly supplied private NetworkManager keyfile below. Later Soda
-bootstrap also needs network access for RPM/repository dependencies. CoreOS disk
-writing itself uses the full ISO's offline image and never falls forward to a newer
-stream download.
+Xorriso replays the imported BIOS/EFI hybrid boot equipment. The volume label,
+live kernel arguments, EFI image, kernel, initramfs and OS image are preserved;
+BIOS boot-info addresses/checksum and outer ISO partition/layout metadata are
+regenerated for the relocated files. ISO level 1 preserves primary names such as
+`COREOS/KARGS.JSO`, which stock Installer 0.26.0 reads rather than Rock Ridge names.
+The obsolete `/coreos/miniso.dat` absolute-offset copy table is removed: this is
+**full-ISO delivery**, not a minimal-ISO/PXE export recipe. The normal live-ISO boot
+is selected; `coreos.liveiso.fromram`/eject-before-start is not supported here.
+
+Later Soda bootstrap still needs network access for RPM/repository dependencies;
+this is not a fully offline appliance. CoreOS disk writing uses the full ISO's
+offline image and never falls forward to a newer stream download. Optional static
+networking remains available below, but is not needed to fetch the interface.
 
 ## Build recipe (not installation permission)
 
 Use a clean exact-revision checkout on matching-native Linux, the repository-pinned
 Go toolchain, native `gpgv`, an independently trusted Fedora keyring/full signer
-fingerprint, CoreOS Installer 0.26.0 and a Butane executable supporting FCOS 1.6.0.
-Butane's observed version and executable hash are recorded, not an invented tool lock.
+fingerprint, xorriso, CoreOS Installer 0.26.0 and Butane supporting FCOS 1.6.0.
+Observed tool versions and supplied executable hashes are recorded, not invented
+locks. An auditable matching-native tool-container wrapper is allowed; its recorded
+hash is the wrapper's, so retain its exact image digest/identity as well.
 No tool installation, key import, host service or publication follows automatically.
 
 Create a new output below an existing real `.artifacts/` parent:
@@ -56,16 +71,15 @@ python3 scripts/build-installer.py --arch x86_64 \
   --butane /absolute/tools/butane \
   --coreos-installer /absolute/tools/coreos-installer \
   --keyring /absolute/trusted/fedora.gpg --signer TRUSTED_FULL_FINGERPRINT \
-  --payload-base-url https://operator-selected.example/soda-media \
+  --xorriso /usr/bin/xorriso \
   --out "$PWD/.artifacts/new-installer-attempt"
 ```
 
-The URL is an operator input/example, not a provided Soda hosting service. Before
-booting, place the exact file printed by the builder at its matching URL, under
-separately authorized hosting scope. Distribute the matching `soda.iso`, not an
-unrelated build's ISO. Inspect `media-build.json`, `SHA256SUMS`, `live.ign` and the
-upstream signature-verification receipt. Checksums identify bytes; they are not a
-Soda release signature, a signed customized ISO or installed acceptance.
+The output `soda.iso` carries its matching console. Inspect `media-build.json`,
+`iso-inspection.json`, `SHA256SUMS`, `live.ign`, `remaster.log` and the upstream
+signature-verification receipt. Checksums identify bytes; the upstream signature
+covers the original image, **not the customized ISO**. No Soda release signature
+or installed acceptance is implied.
 
 For static/pre-Ignition networking, optionally add:
 
@@ -76,7 +90,7 @@ For static/pre-Ignition networking, optionally add:
 This input must be a bounded regular mode-0600 file, not a symlink. It is snapshotted
 in the private attempt and its ISO-embedded bytes are read back and compared.
 **That ISO is private per-machine media**, potentially containing network credentials.
-Do not publish it as general media. The separately served console binary is still
+Do not publish it as general media. The console binary itself is still
 public/credential-free. General-purpose builds have no network keyfile, passwords,
 SSH keys or destination disk. Occupied output directories are refused; failed
 attempts are retained, never automatically removed or overwritten.
@@ -155,12 +169,15 @@ provider enrollment nor project creation/client routing occurs implicitly.
 
 Local Go/race tests cover inputs, private terminal echo/cancellation, disk inventory
 changes/use, pre-write cancellation/marker failures, command-failure redaction,
-private file bounds and extension activation. Python doubles cover strict conversion,
+private file bounds and extension activation. Python tests cover strict conversion,
 private network snapshots, live-only customization/readback and fresh-output refusal.
-They never exercise real disk writes, network edits, ISO boot or appliance services.
+Launcher tests substitute only fixed paths and root/mount/SELinux commands, exercising
+real copy/hash/exec and failure handling on synthetic files. A deliberately nonbootable
+synthetic EFI ISO tests real xorriso preservation, primary names and tamper rejection;
+synthetic BIOS bytes test relocated boot-info/PVD checks. These are not native proof.
 
-Actual full-media generation, hosted-payload retrieval, tty1 boot, static networking,
-confirmed disk writes, first boot/reboot/continuation and complete operator setup
-still require explicit fresh-target/disk approval and native proof. Native aarch64
+Actual tty1 boot and enforcing-SELinux launch, static networking, confirmed disk
+writes, first boot/reboot/continuation and complete operator setup still require
+explicit fresh-target/disk approval and native proof. Native aarch64
 is independent; cross-compilation or metadata are not installed evidence. See the
 [handoff](implementation-status.md) for actual checks and unrelated packaging failures.

@@ -4,17 +4,19 @@
 
 The user subsequently requested implementation. Steps 1–4 now have a source
 candidate and focused local coverage; see [the implementation/usage guide](coreos-installer.md).
-Step 5's real media generation, hosted-payload retrieval, boot/disk writes and full
-installed journey remain unrun, not accepted. The candidate has a tty1 console,
+Step 5 now includes on-media packaging/readback checks; see the handoff for actual
+media-generation evidence. Boot/disk writes and the installed journey remain unrun. The candidate has a tty1 console,
 not a graphical or serial-only interface. An invalid/cancelled form exits; native
 effects are never automatically retried.
 
-Source-backed packaging correction: the upstream 256 KiB Ignition embed area cannot
-hold the Go console. The small live config fetches the exact revision/architecture
-binary from operator-selected HTTPS with an Ignition SHA-256 hash. The builder emits
-but does not host/publish that public payload. Optional private NetworkManager input
-supports pre-Ignition/static networking; it makes that ISO private per-machine media.
-This is network-assisted, not an offline Soda appliance. Public bootstrap conversion
+Corrected packaging: 256 KiB is the **Ignition embed** limit, not the ISO's capacity.
+Xorriso replays the imported boot equipment and adds the console to `/soda/` on the
+ISO. A small live launcher copies it from CoreOS's read-only ISO mount and verifies
+its SHA-256 before execution; no hosting URL or executable download is required.
+ISO level-1 primary names preserve Installer 0.26.0's metadata lookups. Obsolete
+absolute-offset miniso metadata is removed; full ISO, not PXE/minimal/fromram, is
+selected. Optional private NetworkManager input makes the ISO private per-machine
+media. Soda's later RPM setup remains network-assisted, not an offline appliance. Public bootstrap conversion
 runs with Butane at build time; the live Go adapter adds only bounded private fields
 because the selected live OS does not provide Python/Butane.
 
@@ -36,8 +38,9 @@ installer. QCOW2 delivery and a release/update platform remain outside this slic
 - Inspect the exact selected CoreOS release and bundled installer capabilities.
   Add verified upstream live-ISO inputs for x86_64 and aarch64; the current
   `appliance/locks/coreos-qemu.json` covers QEMU disks, not ISOs.
-- Use `coreos-installer iso customize --live-ignition` to deliver the bounded
-  interface and Soda welcome/instructions. Keep upstream boot, storage and SELinux
+- Add the console through xorriso boot replay, then use
+  `coreos-installer iso customize --live-ignition` for its bounded verified launcher
+  and Soda welcome/instructions. Keep upstream boot, storage and SELinux
   mechanisms; do not carry over `enforcing=0` or Anaconda CSS/profile files.
 - General-purpose media contains neither credentials nor a fixed destination disk.
   `--dest-device` enables destructive unattended installation without confirmation;
@@ -107,8 +110,9 @@ an offline appliance. Embedding/caching those dependencies is separate work.
 1. Local focused tests: input/hostname/key validation, hidden secret handling,
    network errors, wrong architecture, disk identity changes, in-use disks,
    cancellation, command failures and prevention of unintended auto-install.
-2. Inspect customized output for expected live configuration, absence of credentials
-   in general media and preservation of upstream verification/security settings.
+2. Inspect customized output for expected on-media console bytes/live configuration,
+   no credentials in general media, native Ignition/kargs readback, preserved upstream
+   file hashes and boot references. Cover primary ISO names and BIOS relocation.
 3. With explicit fresh-target/disk approval, test boot, confirmed installation,
    destination Ignition, networking, extension activation, bundle installation and
    operator setup. Include failure paths without touching retained targets.
@@ -122,8 +126,13 @@ an offline appliance. Embedding/caching those dependencies is separate work.
 - [CoreOS Installer ISO customization](https://coreos.github.io/coreos-installer/cmd/iso/)
 - [CoreOS Installer install options](https://coreos.github.io/coreos-installer/cmd/install/)
 - [Fedora live-media reference](https://docs.fedoraproject.org/en-US/fedora-coreos/live-reference/)
+- [Selected live generator](https://github.com/coreos/fedora-coreos-config/blob/682c839aabbc01564f1605bb41687a7511180031/overlay.d/05core/usr/lib/dracut/modules.d/35coreos-live/live-generator)
+- [Installer 0.26.0 embed metadata](https://github.com/coreos/coreos-installer/blob/v0.26.0/src/live/embed.rs)
+- [Installer 0.26.0 miniso copy table](https://github.com/coreos/coreos-installer/blob/v0.26.0/src/miniso.rs)
 
 These upstream pages and exact CoreOS Installer v0.26.0 source were consulted.
 Selected release/commit metadata is retained under `.artifacts/coreos-installer-research/`.
-Local code checks are recorded in the handoff; no actual ISO generation, disk
-installation or native validation accompanied the implementation.
+The selected live generator's `/run/media/iso` mount and Installer v0.26.0's primary
+ISO-name lookup/miniso copy-table code were also inspected. Source checks and actual
+media generation/inspection are recorded in the handoff, separately from still-held
+boot/disk installation and native acceptance.

@@ -1,12 +1,15 @@
 """Local media/provisioning contract doubles, not ISO boot or disk-write tests."""
 import base64
 import gzip
+import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import shutil
+import struct
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -31,16 +34,72 @@ class MediaConfiguration(unittest.TestCase):
         self.assertFalse((ROOT / 'cmd/soda-install').exists())
         self.assertNotIn('soda-install', (ROOT / 'scripts/stage.py').read_text())
 
-    def test_payload_url_has_no_credentials_or_unsafe_transport(self):
-        self.assertEqual(self.module.payload_url('https://media.example.test/soda/', 'console'),
-                         'https://media.example.test/soda/console')
-        for url in ('http://media.test', 'https://user:secret@media.test', 'https://media.test/?token=x',
-                    'https://media.test/#fragment', 'https://media.test/?', 'file:///tmp/a', 'https://media.test/\n'):
-            with self.assertRaises(ValueError):
-                self.module.payload_url(url, 'console')
+    def test_console_launcher_is_on_media_and_verifies_before_execution(self):
+        script = (ROOT / 'appliance/installer/load-console.sh').read_text()
+        subprocess.run(['bash', '-n'], input=script.encode(), check=True)
+        self.assertIn('mountpoint -q /run/media/iso', script)
+        self.assertIn('source=/run/media/iso/soda/soda-install', script)
+        self.assertIn('! -e "$destination"', script)
+        self.assertLess(script.index('sha256sum --check --status'), script.index('exec "$destination" disk'))
+        self.assertLess(script.index('restorecon -F'), script.index('exec "$destination" disk'))
+        self.assertNotIn('curl', script)
+        self.assertNotIn('wget', script)
+        self.assertNotIn('coreos-installer install', script)
+
+    def test_launcher_copy_hash_failure_and_existing_destination(self):
+        # Substitute only fixed filesystem roots; root/mount/SELinux commands
+        # are doubles. The real shell copy/hash/exec path runs on synthetic files.
+        script = (ROOT / 'appliance/installer/load-console.sh').read_text()
+        for case in ('valid', 'wrong-hash', 'occupied', 'missing-mount', 'relabel-failure'):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                media = root / 'iso'
+                (media / 'soda').mkdir(parents=True)
+                signal = root / 'executed'
+                source = media / 'soda/soda-install'
+                source.write_text(f'#!/bin/sh\nprintf reached > {signal}\n')
+                destination = root / 'console'
+                marker = root / 'ostree-live'
+                marker.touch()
+                tools = root / 'tools'
+                tools.mkdir()
+                for name, body in {'id': 'echo 0',
+                                   'mountpoint': 'exit ' + ('1' if case == 'missing-mount' else '0'),
+                                   'restorecon': 'exit ' + ('1' if case == 'relabel-failure' else '0')}.items():
+                    tool = tools / name
+                    tool.write_text('#!/bin/sh\n' + body + '\n')
+                    tool.chmod(0o755)
+                local = script.replace('/run/media/iso', str(media)).replace('/run/ostree-live', str(marker))
+                local = local.replace('/usr/local/libexec/soda/soda-install', str(destination))
+                launcher = root / 'loader.sh'
+                launcher.write_text(local)
+                expected = hashlib.sha256(source.read_bytes()).hexdigest()
+                if case == 'wrong-hash':
+                    expected = '0' * 64
+                if case == 'occupied':
+                    destination.write_text('preserve existing file')
+                result = subprocess.run(['bash', str(launcher), expected],
+                    env=dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH']),
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                self.assertEqual(result.returncode == 0, case == 'valid')
+                self.assertEqual(signal.exists(), case == 'valid')
+                if case == 'occupied':
+                    self.assertEqual(destination.read_text(), 'preserve existing file')
+                if case == 'missing-mount':
+                    self.assertFalse(destination.exists())
+                staging = Path(str(destination) + '.incoming')
+                if case == 'valid':
+                    self.assertEqual(destination.stat().st_mode & 0o777, 0o700)
+                    self.assertFalse(staging.exists())
+                if case == 'wrong-hash':
+                    self.assertFalse(destination.exists())
+                    self.assertEqual(staging.stat().st_mode & 0o777, 0o600)
+                if case == 'relabel-failure':
+                    self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(staging.stat().st_mode & 0o777, 0o600)
 
     def test_live_configuration_is_public_and_has_no_automatic_erase_target(self):
-        config = self.module.live_config('https://media.test/console', 'a' * 64,
+        config = self.module.live_config('a' * 64,
             {'ignition': {'version': '3.5.0'}}, {'Architecture': 'x86_64'}, 'canonical-artwork')
         raw = json.dumps(config)
         self.assertNotIn('passwd', config)
@@ -49,12 +108,14 @@ class MediaConfiguration(unittest.TestCase):
         self.assertNotIn('passwordHash', raw)
         self.assertNotIn('enforcing=0', raw)
         files = {f['path']: f for f in config['storage']['files']}
-        binary = files[self.module.BINARY_PATH]
-        self.assertEqual(binary['contents']['verification']['hash'], 'sha256-' + 'a' * 64)
-        self.assertEqual(binary['mode'], 0o755)
+        loader = files[self.module.LOADER_PATH]
+        self.assertEqual(loader['contents']['inline'], (ROOT / 'appliance/installer/load-console.sh').read_text())
+        self.assertEqual(loader['mode'], 0o755)
+        self.assertTrue(all(set(f['contents']) == {'inline'} for f in files.values()))
         self.assertEqual(files['/etc/motd']['contents']['inline'].splitlines()[0], 'canonical-artwork')
         service = config['systemd']['units'][0]['contents']
-        self.assertIn('ExecStart=/usr/local/libexec/soda/soda-install disk', service)
+        self.assertIn('ExecStart=/usr/local/libexec/soda/load-install-console ' + 'a' * 64, service)
+        self.assertIn('RequiresMountsFor=/run/media/iso', service)
         self.assertIn('StandardError=tty', service)
         self.assertIn('Restart=no', service)
         self.assertNotIn('coreos-installer install', service)
@@ -118,18 +179,19 @@ class MediaConfiguration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
-                         'appliance/locks/coreos-iso.json', 'assets/branding/terminal/sodaos.txt', 'LICENSE', 'NOTICE'):
+                         'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
+                         'assets/branding/terminal/sodaos.txt', 'LICENSE', 'NOTICE'):
                 dest = root / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, dest)
             (root / '.artifacts').mkdir()
-            for name in ('butane', 'coreos-installer'):
+            for name in ('butane', 'coreos-installer', 'xorriso'):
                 tool = root / name
                 tool.write_text('fixture tool, not executable code')
                 tool.chmod(0o755)
             args = SimpleNamespace(arch='x86_64', butane=str(root / 'butane'),
                 coreos_installer=str(root / 'coreos-installer'), keyring=str(root / 'trusted.gpg'),
-                signer='A' * 40, payload_base_url='https://media.test/soda',
+                signer='A' * 40, xorriso=str(root / 'xorriso'),
                 out=str(root / '.artifacts/media'), network_keyfile=None)
             calls = []
             def check_output(argv, **kwargs):
@@ -139,6 +201,10 @@ class MediaConfiguration(unittest.TestCase):
                     return b''
                 if argv[:3] == ['go', 'env', 'GOVERSION']:
                     return b'go1.26.7'
+                if argv[-1] == '-version':
+                    return b'xorriso fixture'
+                if argv[1:4] == ['iso', 'kargs', 'show']:
+                    return b'fixture stock live kargs'
                 if argv[-1] == '--version':
                     return b'coreos-installer 0.26.0' if 'coreos-installer' in argv[0] else b'butane fixture'
                 if argv[1:4] == ['iso', 'ignition', 'show']:
@@ -162,10 +228,15 @@ class MediaConfiguration(unittest.TestCase):
                     config.pop('version')
                     config['ignition'] = {'version': '3.5.0'}
                     return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(config).encode())
+                elif argv[0] == args.xorriso:
+                    self.assertEqual(argv[argv.index('-boot_image') + 1:argv.index('-boot_image') + 3], ['any', 'replay'])
+                    self.assertIn('/coreos/miniso.dat', argv)
+                    Path(argv[argv.index('-outdev') + 1]).write_bytes(b'synthetic-remastered-iso')
                 elif argv[1:3] == ['iso', 'customize']:
                     self.assertEqual(kwargs['stdout'], subprocess.DEVNULL)
                     self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
                     self.assertIn('--live-ignition', argv)
+                    self.assertEqual(argv[-1], str(Path(args.out) / 'with-console.iso'))
                     self.assertNotIn('--dest-device', argv)
                     self.assertNotIn('--dest-ignition', argv)
                     self.assertNotIn('--force', argv)
@@ -173,8 +244,10 @@ class MediaConfiguration(unittest.TestCase):
                 else:
                     self.fail(f'unexpected effect {argv}')
                 return subprocess.CompletedProcess(argv, 0)
-            with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch('sys.stdout', new_callable=io.StringIO):
+            with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch('sys.stdout', new_callable=io.StringIO):
                 self.module.build(args)
+                inspect_iso.assert_called_once_with(root / 'xorriso', Path(args.out) / 'upstream/coreos.iso',
+                                                   Path(args.out) / 'soda.iso', Path(args.out) / 'payload')
                 count = len(calls)
                 with self.assertRaises(FileExistsError):
                     self.module.build(args)
@@ -182,8 +255,85 @@ class MediaConfiguration(unittest.TestCase):
             record = json.loads((Path(args.out) / 'media-build.json').read_text())
             self.assertFalse(record['PrivateMedia'])
             self.assertEqual(record['Revision'], 'a' * 40)
+            self.assertEqual(record['ConsoleISOPath'], '/soda/soda-install')
+            self.assertNotIn('PayloadURL', record)
             self.assertTrue((Path(args.out) / 'SHA256SUMS').exists())
             self.assertFalse(any('install' in argv or 'reboot' in argv for argv in calls))
+
+    def test_bios_table_relocation_and_mirrored_volume_descriptor(self):
+        # Synthetic bytes only: validates the inspector, not BIOS execution.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hashes = []
+            for index, (lba, pvd_lba) in enumerate(((64, 16), (96, 48))):
+                image = bytearray(256 * 2048)
+                pvd = bytearray(2048)
+                pvd[:7] = b'\x01CD001\x01'
+                pvd[80:88] = (256).to_bytes(4, 'little') + (256).to_bytes(4, 'big')
+                image[16 * 2048:17 * 2048] = pvd
+                count = 256 - (pvd_lba - 16)
+                pvd[80:88] = count.to_bytes(4, 'little') + count.to_bytes(4, 'big')
+                image[pvd_lba * 2048:(pvd_lba + 1) * 2048] = pvd
+                binary = bytearray(bytes(range(256)) * 2)
+                checksum = sum(struct.unpack('<' + 'I' * 112, binary[64:])) & 0xffffffff
+                struct.pack_into('<IIII', binary, 8, pvd_lba, lba, len(binary), checksum)
+                offset = lba * 2048
+                image[offset:offset + len(binary)] = binary
+                path = root / f'{index}.iso'
+                path.write_bytes(image)
+                hashes.append(self.module.iso_digest(path, (offset, len(binary)), True))
+            self.assertEqual(*hashes)
+            for position in (offset + 12, offset + 20, pvd_lba * 2048 + 156, pvd_lba * 2048 + 84):
+                damaged = bytearray(image)
+                damaged[position] ^= 1
+                path.write_bytes(damaged)
+                with self.assertRaises(ValueError):
+                    self.module.iso_digest(path, (offset, len(binary)), True)
+
+    @unittest.skipUnless(shutil.which('xorriso'), 'xorriso required for synthetic ISO roundtrip')
+    def test_remaster_preserves_files_and_detects_tampering(self):
+        # Real ISO filesystem manipulation, deliberately nonbootable dummy EFI
+        # and OS bytes. This is not a CoreOS boot/install fixture.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tree = root / 'tree'
+            for name in ('coreos/miniso.dat', 'coreos/kargs.json', 'coreos/igninfo.json',
+                         'images/ignition.img', 'images/pxeboot/rootfs.img',
+                         'images/pxeboot/initrd.img', 'images/pxeboot/vmlinuz'):
+                path = tree / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('synthetic ISO fixture: ' + name)
+            (tree / 'images/efiboot.img').write_bytes(bytes(4096))
+            upstream = root / 'upstream.iso'
+            xorriso = Path(shutil.which('xorriso'))
+            subprocess.run([str(xorriso), '-as', 'mkisofs', '-r', '-V', 'fixture',
+                '-e', 'images/efiboot.img', '-no-emul-boot', '-o', str(upstream), str(tree)],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            payload = root / 'payload'
+            payload.mkdir()
+            (payload / 'soda-install').write_text('synthetic non-executable console fixture')
+            final = root / 'final.iso'
+            self.module.remaster(xorriso, upstream, payload, final, root / 'remaster.log')
+            receipt = self.module.verify_remaster(xorriso, upstream, final, payload)
+            self.assertEqual(receipt['RemovedMetadata'], ['/coreos/miniso.dat'])
+            self.assertEqual(receipt['BootMetadata']['volume'], 'fixture')
+            primary = self.module.iso_files(xorriso, final, 'ecma119')
+            self.assertIn('/COREOS/KARGS.JSO', primary)
+            self.assertIn('/COREOS/IGNINFO.JSO', primary)
+            self.assertNotIn('/COREOS/KARGS.JSON', primary)
+            original = final.read_bytes()
+            inventory = self.module.iso_files(xorriso, final)
+            for name in ('/soda/soda-install', '/images/pxeboot/rootfs.img', '/images/efiboot.img'):
+                changed = bytearray(original)
+                changed[inventory[name][0]] ^= 1
+                final.write_bytes(changed)
+                with self.assertRaises(ValueError):
+                    self.module.verify_remaster(xorriso, upstream, final, payload)
+            final.write_bytes(original)
+            with self.assertRaises(FileExistsError):
+                self.module.remaster(xorriso, upstream, payload, final, root / 'not-created.log')
+            self.assertFalse((root / 'not-created.log').exists())
+            self.assertEqual(final.read_bytes(), original)
 
     def test_selected_iso_lock_contains_real_distinct_architecture_inputs(self):
         lock = json.loads((ROOT / 'appliance/locks/coreos-iso.json').read_text())

@@ -319,6 +319,7 @@ The predecessor repository is separate. Do not modify it, close its issues or im
 | Entrypoint | Effects to account for |
 | --- | --- |
 | `scripts/build-native.sh ARCH` | Resolves Go/frontend dependencies, builds native commands/project CLIs/images (including Tea's version execution), fetches locked inputs and stages artifacts; does not install or publish the appliance |
+| `scripts/build-installer.py` | Builds native media commands, fetches/verifies the locked CoreOS ISO, adds the console with xorriso and embeds live Ignition with stock CoreOS Installer; writes fresh media/evidence only, never boots, writes a destination disk or deploys Soda |
 | `scripts/check-native.sh ARCH` | Runs Go tests, TypeScript/UI checks, Python build-fixture and staging tests; needs prepared dependencies and the native stage |
 | `scripts/stage.py --arch ARCH` | Writes a deployment tree from existing outputs; does not install it |
 | `scripts/render-provisioning.py` | Writes private Butane input containing an operator password hash; not a harmless documentation preview |

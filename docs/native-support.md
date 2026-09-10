@@ -11,7 +11,9 @@ build/stage and product behavior. These tools supply transport/artifacts/observa
 not duplicate product scenarios or a second readiness gate. The requested
 [CoreOS installer implementation](coreos-installer.md) now has source and local
 checks for upstream ISO customization and a production-owned console/continuation,
-not Anaconda. Actual media generation/boot remains unrun. QCOW2 wrappers remain
+not Anaconda. Its console is now packaged on the ISO without hosted executable
+retrieval; see the handoff for generation/inspection evidence. Boot remains unrun.
+QCOW2 wrappers remain
 unselected. U/P labels in existing CLI arguments and observations
 are retained protocol/evidence identifiers, not an active numbered roadmap. No
 helper, flag, commit or report grants execution permission.

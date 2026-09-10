@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a network-assisted stock CoreOS ISO; never boot, publish or install it.
+"""Build a CoreOS ISO carrying Soda's console; never boot, publish or install it.
 
 Requires explicitly supplied native Butane/CoreOS Installer tools and trusted
 Fedora signing inputs. Outputs are fresh and retained, including failed attempts.
@@ -15,12 +15,12 @@ from pathlib import Path
 import platform
 import re
 import stat
+import struct
 import subprocess
-from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER_VERSION = 'coreos-installer 0.26.0'
-BINARY_PATH = '/var/usrlocal/libexec/soda/soda-install'
+LOADER_PATH = '/var/usrlocal/libexec/soda/load-install-console'
 DATA_PATH = '/var/usrlocal/share/soda-installer'
 
 
@@ -29,18 +29,9 @@ def sha256(path):
         return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
-def payload_url(base, filename):
-    u = urlsplit(base)
-    if (u.scheme != 'https' or not u.hostname or u.username is not None
-            or u.password is not None or u.query or u.fragment or '?' in base
-            or '#' in base or any(ord(c) <= 32 for c in base)):
-        raise ValueError('public credential-free HTTPS payload base URL required')
-    return base.rstrip('/') + '/' + filename
-
-
-def live_config(binary_url, binary_hash, destination, media, artwork):
-    # Only the executable exceeds the upstream 256 KiB embed area. Fetch that
-    # exact public output using Ignition's hash verification, not a shell downloader.
+def live_config(binary_hash, destination, media, artwork):
+    # The small Ignition configuration fits the embed area. The executable is an
+    # ordinary ISO file, copied and verified from the native read-only live mount.
     if not re.fullmatch('[0-9a-f]{64}', binary_hash):
         raise ValueError('payload digest required')
     profile = """# Guidance only; no automatic disk action or credential collection.
@@ -58,16 +49,16 @@ esac
         'systemd': {'units': [{'name': 'soda-installer-console.service', 'enabled': True,
             'contents': '[Unit]\nDescription=SodaOS installation console\n'
                         'After=systemd-user-sessions.service NetworkManager.service\nConflicts=getty@tty1.service\n'
+                        'RequiresMountsFor=/run/media/iso\n'
                         '[Service]\nType=simple\n'
-                        'ExecStart=/usr/local/libexec/soda/soda-install disk\n'
+                        f'ExecStart=/usr/local/libexec/soda/load-install-console {binary_hash}\n'
                         'StandardInput=tty-force\nStandardOutput=tty\nStandardError=tty\n'
                         'TTYPath=/dev/tty1\nTTYReset=yes\nTTYVHangup=yes\n'
                         'Restart=no\n[Install]\nWantedBy=multi-user.target\n'},
             {'name': 'getty@tty1.service', 'mask': True}]},
         'storage': {'files': [
-            {'path': BINARY_PATH, 'mode': 0o755,
-             'contents': {'source': binary_url,
-                          'verification': {'hash': 'sha256-' + binary_hash}}},
+            {'path': LOADER_PATH, 'mode': 0o755,
+             'contents': {'inline': (ROOT / 'appliance/installer/load-console.sh').read_text()}},
             {'path': DATA_PATH + '/destination.ign', 'mode': 0o644,
              'contents': {'inline': json.dumps(destination)}},
             {'path': DATA_PATH + '/media.json', 'mode': 0o644,
@@ -126,8 +117,9 @@ def build(args):
         raise ValueError('repository-pinned Go toolchain required')
     lock = ROOT / 'appliance/locks/coreos-iso.json'
     selected = json.loads(lock.read_text())
-    filename = f'soda-install-{revision}-{args.arch}'
-    url = payload_url(args.payload_base_url, filename)
+    filename = 'soda-install'
+    xorriso = tool(args.xorriso)
+    xorriso_version = output([str(xorriso), '-version'])
     out = Path(args.out)
     artifact_root = ROOT / '.artifacts'
     if (not out.is_absolute() or out.parent.resolve() != out.parent
@@ -164,15 +156,21 @@ def build(args):
     artwork = (ROOT / 'assets/branding/terminal/sodaos.txt').read_text()
     for marker in ('$1', '$2', '$3'):
         artwork = artwork.replace(marker, '')
-    config = live_config(url, sha256(payload / filename), destination, media, artwork)
+    for name in ('LICENSE', 'NOTICE'):
+        (payload / name).write_bytes((ROOT / name).read_bytes())
+        (payload / name).chmod(0o644)
+    (payload / filename).chmod(0o755)
+    payload.chmod(0o755)
+    config = live_config(sha256(payload / filename), destination, media, artwork)
     convert(butane, config, out / 'live.ign')
+    remaster(xorriso, out / 'upstream/coreos.iso', payload, out / 'with-console.iso', out / 'remaster.log')
     customize = [str(installer), 'iso', 'customize', '--live-ignition', str(out / 'live.ign')]
     network = None
     if args.network_keyfile:
         network = snapshot_network(Path(args.network_keyfile), out)
         customize += ['--network-keyfile', str(network)]
     subprocess.run(customize + ['--output', str(out / 'soda.iso'),
-                               str(out / 'upstream/coreos.iso')], check=True,
+                               str(out / 'with-console.iso')], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if network:
         extracted = out / 'network-readback'
@@ -189,11 +187,17 @@ def build(args):
                                        str(out / 'soda.iso')], timeout=60,
                                       stderr=subprocess.DEVNULL)
     verify_embedded(embedded, json.loads((out / 'live.ign').read_bytes()))
+    preservation = verify_remaster(xorriso, out / 'upstream/coreos.iso', out / 'soda.iso', payload)
+    before = output([str(installer), 'iso', 'kargs', 'show', str(out / 'upstream/coreos.iso')])
+    after = output([str(installer), 'iso', 'kargs', 'show', str(out / 'soda.iso')])
+    if before != after:
+        raise ValueError('upstream live kernel arguments changed')
+    preservation['LiveKernelArguments'] = before
+    (out / 'iso-inspection.json').write_text(json.dumps(preservation, indent=2) + '\n')
     if output(['git', 'rev-parse', 'HEAD']) != revision or output(['git', 'status', '--porcelain', '--untracked-files=normal']):
         raise ValueError('source changed during media build; output is not sealed')
-    for name in ('LICENSE', 'NOTICE'):
-        (payload / name).write_bytes((ROOT / name).read_bytes())
-    record = dict(media, PayloadURL=url, PayloadSHA256=sha256(payload / filename),
+    record = dict(media, ConsoleISOPath='/soda/soda-install', ConsoleSHA256=sha256(payload / filename),
+                  XorrisoVersion=xorriso_version, XorrisoSHA256=sha256(xorriso),
                   ISOSHA256=sha256(out / 'soda.iso'), LiveIgnitionSHA256=sha256(out / 'live.ign'),
                   PrivateMedia=network is not None,
                   NetworkKeyfileSHA256=sha256(network) if network else None,
@@ -202,12 +206,153 @@ def build(args):
                   ButaneSHA256=sha256(butane), CoreOSInstallerSHA256=sha256(installer))
     (out / 'media-build.json').write_text(json.dumps(record, indent=2) + '\n')
     (out / 'SHA256SUMS').write_text(''.join(f'{sha256(p)}  {p.relative_to(out)}\n' for p in
-        (out / 'soda.iso', out / 'live.ign', out / 'destination.ign', payload / filename, out / 'media-build.json')))
+        (out / 'soda.iso', out / 'live.ign', out / 'destination.ign', payload / filename,
+         out / 'media-build.json', out / 'iso-inspection.json')))
     print(f'Media built, not booted or installed: {out}')
     if network:
         print('PRIVATE PER-MACHINE ISO: contains network configuration; do not publish or distribute as general media.')
-    print(f'Before boot, serve the exact payload file at {url} through your existing trusted HTTPS hosting.')
+    print('The console is on the ISO; no web server or payload URL is required. Soda RPM setup still needs network access.')
     print('No hosting, publication, certificate changes, disk writes or validation VM were performed.')
+
+
+def remaster(xorriso, upstream, payload, destination, log):
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError('refusing occupied ISO output')
+    with log.open('xb') as capture:
+        # Replay the imported BIOS/EFI hybrid boot equipment, not a guessed
+        # mkisofs command. Only the new /soda files and stale miniso metadata
+        # change in the filesystem; the upstream OS images remain untouched.
+        subprocess.run([str(xorriso), '-abort_on', 'FAILURE', '-indev', str(upstream),
+                        '-outdev', str(destination), '-boot_image', 'any', 'replay',
+                        # v0.26.0 reads primary ISO names such as KARGS.JSO;
+                        # Rock Ridge names alone are not its lookup contract.
+                        '-compliance', 'iso_9660_level=1',
+                        '-map', str(payload), '/soda', '-chown_r', '0', '/soda', '--',
+                        '-chgrp_r', '0', '/soda', '--', '-rm', '/coreos/miniso.dat', '--',
+                        '-commit', '-end'], check=True, stdout=capture, stderr=capture)
+
+
+def iso_files(xorriso, iso, filesystem='any'):
+    report = subprocess.check_output([str(xorriso), '-read_fs', filesystem, '-indev', str(iso), '-find', '/',
+        '-type', 'f', '-exec', 'report_lba', '--'], stderr=subprocess.DEVNULL, text=True)
+    files = {}
+    for line in report.splitlines():
+        if not line.startswith('File data lba:'):
+            continue
+        match = re.fullmatch(r"File data lba:\s+0\s*,\s*(\d+)\s*,\s*\d+\s*,\s*(\d+)\s*,\s*'([^']+)'", line)
+        if not match or match[3] in files:
+            raise ValueError('unsupported multi-extent or ambiguous ISO file inventory')
+        offset, size = int(match[1]) * 2048, int(match[2])
+        if offset + size > iso.stat().st_size:
+            raise ValueError('ISO file extent exceeds image')
+        files[match[3]] = (offset, size)
+    if not files:
+        raise ValueError('empty ISO file inventory')
+    return files
+
+
+def iso_digest(iso, entry, boot_info=False):
+    offset, size = entry
+    digest = hashlib.sha256()
+    with iso.open('rb') as source:
+        source.seek(offset)
+        if boot_info:
+            # ISOLINUX's standard boot-info table is patched by xorriso when
+            # relocating the file. Validate its real LBA/length/checksum and
+            # compare all executable bytes outside those four 32-bit fields.
+            data = source.read(size)
+            if len(data) != size or size < 64 or size % 4:
+                raise ValueError('invalid BIOS boot image size')
+            pvd, lba, length, checksum = struct.unpack_from('<IIII', data, 8)
+            actual = sum(struct.unpack('<' + 'I' * ((size - 64) // 4), data[64:])) & 0xffffffff
+            if (lba, length, checksum) != (offset // 2048, size, actual) or pvd < 16:
+                raise ValueError('BIOS boot-info table does not match relocated image')
+            # xorriso's emulated session can reference a PVD at LBA 48.
+            # Its volume-space size excludes the 32-block session prefix; root
+            # directory and every other descriptor byte must remain identical.
+            source.seek(16 * 2048)
+            primary = source.read(2048)
+            source.seek(pvd * 2048)
+            referenced = source.read(2048)
+            if (len(referenced) != 2048 or primary[:7] != b'\x01CD001\x01'
+                    or primary[:80] != referenced[:80] or primary[88:] != referenced[88:]
+                    or int.from_bytes(primary[80:84], 'little') != int.from_bytes(primary[84:88], 'big')
+                    or int.from_bytes(referenced[80:84], 'little') != int.from_bytes(referenced[84:88], 'big')
+                    or int.from_bytes(primary[80:84], 'little') - int.from_bytes(referenced[80:84], 'little') != pvd - 16):
+                raise ValueError('BIOS boot-info table references the wrong volume descriptor')
+            digest.update(data[:8] + bytes(16) + data[24:])
+        else:
+            remaining = size
+            while remaining:
+                data = source.read(min(remaining, 1024 * 1024))
+                if not data:
+                    raise ValueError('truncated ISO file')
+                digest.update(data)
+                remaining -= len(data)
+    return digest.hexdigest()
+
+
+def boot_metadata(xorriso, iso, files):
+    report = subprocess.check_output([str(xorriso), '-indev', str(iso), '-pvd_info',
+        '-report_el_torito', 'plain', '-report_system_area', 'plain'],
+        stderr=subprocess.DEVNULL, text=True)
+    result = {'volume': '', 'system_area': '', 'images': {}, 'paths': {}, 'partition_paths': {}}
+    lbas = {}
+    for line in report.splitlines():
+        key, sep, value = line.partition(':')
+        if not sep:
+            continue
+        key, value = key.strip(), value.strip()
+        if key == 'Volume Id':
+            result['volume'] = value
+        elif key == 'System area summary':
+            result['system_area'] = value
+        elif key == 'El Torito boot img':
+            fields = value.split()
+            if len(fields) != 8 or fields[1] not in ('BIOS', 'UEFI') or fields[2] != 'y':
+                raise ValueError('unsupported or disabled ISO boot entry')
+            result['images'][fields[0]] = fields[1:-1]
+            lbas[fields[0]] = int(fields[-1])
+        elif key == 'El Torito img path':
+            number, path = value.split(maxsplit=1)
+            result['paths'][number] = path
+        elif key in ('MBR partition path', 'GPT partition path'):
+            result['partition_paths'][key + ' ' + value.split()[0]] = value.split(maxsplit=1)[1]
+    if not result['volume'] or not result['images'] or set(result['images']) != set(result['paths']):
+        raise ValueError('incomplete ISO boot metadata')
+    for number, path in result['paths'].items():
+        if path not in files or files[path][0] // 2048 != lbas[number]:
+            raise ValueError('El Torito boot entry points outside its boot image')
+    return result
+
+
+def verify_remaster(xorriso, upstream, final, payload):
+    original = iso_files(xorriso, upstream)
+    current = iso_files(xorriso, final)
+    added = {'/soda/' + p.name: p for p in payload.iterdir()}
+    removed = {'/coreos/miniso.dat'}
+    if set(current) != (set(original) - removed) | set(added):
+        raise ValueError('unexpected remastered ISO file inventory')
+    before = boot_metadata(xorriso, upstream, original)
+    after = boot_metadata(xorriso, final, current)
+    if before != after:
+        raise ValueError('upstream volume identity or boot equipment changed')
+    preserved = {}
+    bios = {}
+    for name, entry in original.items():
+        if name in removed or name == '/images/ignition.img':
+            continue
+        boot_info = name == '/isolinux/isolinux.bin'
+        expected = iso_digest(upstream, entry, boot_info)
+        if expected != iso_digest(final, current[name], boot_info):
+            raise ValueError('upstream ISO file changed: ' + name)
+        (bios if boot_info else preserved)[name] = expected
+    for name, path in added.items():
+        if iso_digest(final, current[name]) != sha256(path):
+            raise ValueError('on-media console payload differs from built source')
+    return {'BootMetadata': after, 'PreservedFileSHA256': preserved,
+            'BIOSBootInfoNormalizedSHA256': bios, 'RemovedMetadata': sorted(removed),
+            'AddedFileSHA256': {name: sha256(path) for name, path in added.items()}}
 
 
 def verify_embedded(raw, expected):
@@ -253,7 +398,7 @@ def main():
     p.add_argument('--coreos-installer', required=True)
     p.add_argument('--keyring', required=True)
     p.add_argument('--signer', required=True)
-    p.add_argument('--payload-base-url', required=True)
+    p.add_argument('--xorriso', default='/usr/bin/xorriso')
     p.add_argument('--network-keyfile', help='optional private NetworkManager keyfile for pre-Ignition/static networking; makes the ISO private')
     p.add_argument('--out', required=True)
     args = p.parse_args()
