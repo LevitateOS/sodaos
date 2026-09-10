@@ -1,5 +1,18 @@
 # Current handoff
 
+## Phase 0 — physical temporary fixture path
+
+`tests/build/test_source_checks.py` now resolves the temporary root before constructing
+fixture paths and comparing the child's physical cwd. The exact cwd assertion and
+production source-check command remain unchanged. On Linux, a fresh test-owned
+symlinked TMPDIR reproduced the original mismatch before the fix; all three command
+tests then passed with both normal and symlinked temporary paths. The full Python
+build-fixture suite passed: 120 tests, two explicitly gated Caddy skips. Logs and the
+symlink fixture are retained under `.artifacts/refactor-phase0-hnTqHw/`.
+Native macOS execution remains pending; the Linux reproduction is not macOS proof.
+No production logic, dependencies, native services, retained projects or deployments
+changed. Only Python fixture tests and documentation/whitespace checks ran in this slice.
+
 ## Runner providers — GitHub support removed
 
 The user explicitly requested removing GitHub runner compatibility throughout the

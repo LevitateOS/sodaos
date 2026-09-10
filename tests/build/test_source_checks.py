@@ -15,7 +15,8 @@ class SourceChecks(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        # Child getcwd() reports the physical path (e.g. macOS /private/var).
+        self.root = Path(self.tmp.name).resolve()
         (self.root / 'scripts').mkdir()
         shutil.copyfile(ROOT / 'scripts/check-source.sh', self.root / 'scripts/check-source.sh')
         self.tools = self.root / 'tools'

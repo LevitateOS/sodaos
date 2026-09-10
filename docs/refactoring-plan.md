@@ -413,7 +413,7 @@ starting another; a focused independent review may run alongside it.
 
 | Phase | Work | Current state / dependency |
 | --- | --- | --- |
-| 0 | Correct stale audit status and macOS test fixture | Audit status corrected with this plan; the reproduced fixture failure still needs its small code fix. |
+| 0 | Correct stale audit status and macOS test fixture | Source fixed; normal/symlink-path Linux checks passed. Native macOS rerun remains pending. |
 | 1 | Remove unused bootstrap-token retention/access | Open; can proceed independently. |
 | 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
@@ -430,6 +430,10 @@ to Join, Start/Stop or key Apply. These source facts do not establish appliance
 delivery or native acceptance. The x86 ISO build and full install remain deferred.
 
 ### Phase 0 — reliable baseline
+
+**Source fixed; native macOS rerun pending.** The
+[handoff](implementation-status.md#phase-0--physical-temporary-fixture-path)
+records the reproduced symlink-path failure and passing local checks.
 
 **Owner:** [source-command tests](../tests/build/test_source_checks.py).
 Normalize the temporary fixture root with `Path(...).resolve()` before comparing it
