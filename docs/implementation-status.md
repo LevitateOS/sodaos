@@ -1,5 +1,18 @@
 # Current handoff
 
+## Refactoring step D — frontend readability and measurement ownership
+
+Expanded dense statements, callbacks and request objects in the existing workspace,
+project and terminal owners. The one-off formatting used the analyzer workspace's
+already declared TypeScript 5.9.3 printer/formatter, not a new dependency or compiler
+boundary. Parsed syntax trees and every raw template segment were compared against
+retained originals and matched; executable ordering, strings and rendered whitespace
+were not changed. Early formatter layouts were refined before the final comparison.
+Final formatting passed `bun run typecheck` (including Lit diagnostics/fixtures) and
+`bun run test:lit`. Originals and logs are retained under
+`.artifacts/refactor-stepD-TtCZ3j/`. Measurement lifecycle extraction and its focused
+browser checks follow in this same step; no native delivery is implied.
+
 ## Audit remediation plan — current source reconciled, implementation not started
 
 Added the [ordered remediation plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
