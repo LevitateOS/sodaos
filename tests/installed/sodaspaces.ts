@@ -370,6 +370,9 @@ try {
     await page.emulateMedia({colorScheme});
     await open();
     const box = await drawer.boundingBox();
+    result.native_layout = {width, colorScheme, box, terminal_pressed: await page.getByRole('button', {name: 'Terminal', exact: true, includeHidden: true}).getAttribute('aria-pressed'),
+      viewport: await page.evaluate(() => ({width: window.visualViewport?.width, height: window.visualViewport?.height, top: window.visualViewport?.offsetTop,
+        control_height: getComputedStyle(document.body).getPropertyValue('--soda-control-height')}))};
     assert(box && box.x >= -1 && box.width <= width + 1 && Math.abs(box.x + box.width - width) < 2);
     if (width === 360) {assert(box.height >= 854); assert.equal(await page.getByRole('button', {name: 'Terminal', exact: true}).getAttribute('aria-pressed'), 'true');}
     else {assert(box.height >= 898 && box.x >= 480);}
