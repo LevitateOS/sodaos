@@ -5,8 +5,9 @@ Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 and a full workspace page. The new [native page integration plan](forgejo-soda-pages-plan.md)
 replaces the current separate Go HTML shell with a view rendered inside Forgejo's
 real header/profile/navigation. It also covers Runners and repository Spaces
-settings, automatic connection and coordinated normal logout. This is planning,
-not implemented integration or deployment evidence. No new Forgejo repository tab; tabs
+settings, automatic connection and coordinated normal logout. Its first step now
+has three minimal native page hosts and local Forgejo browser proof; full page-body
+migration, connection/logout integration and delivery remain. No new Forgejo repository tab; tabs
 **inside the drawer and Spaces panes** are required. Both surfaces will use the
 shared **Lit** component implementation, not separate frontends.
 

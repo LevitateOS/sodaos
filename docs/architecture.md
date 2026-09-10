@@ -45,7 +45,9 @@ of Forgejo's existing dashboard. Forgejo renders the actual header/profile menus
 Soda retains protected content/APIs and its OAuth context. Automatic entry connection
 and coordinated profile-menu logout are planned, not implemented or atomic shared
 authentication. This supersedes the separate-shell recommendation without changing
-the current implementation or its recorded evidence.
+the existing management pages or their recorded evidence. Step 1 now provides
+minimal native page hosts with local Forgejo browser proof; their links still open
+the current protected pages. The full page-body migration remains later work.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
 is stock Rocky tmux under each original project account, with a private supervised
 server per managed browser terminal. Soda retains access/lifetime authority; tmux

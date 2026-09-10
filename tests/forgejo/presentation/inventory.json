@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "026b06e4f6c8545febf20e87f84ae868166696a2dc33e4960884d59d37e6ded3",
-      "presentationReview": "Retain signed non-repository resume, non-modal aside, repository-only disclosure and native notification markup. Add the signed-only settings-link module after existing notification content; no runner state is read on page load. Local source/browser checks are not native acceptance.",
+      "beforeRoleHash": "f96191ab425f5d70fc3afd21c53b2ecf5abc53b268893da62aa0aff10b625183",
+      "presentationReview": "Suppress the drawer only for the signed root dashboard with one recognized Soda view; preserve notifications, settings discovery and all other drawer callers. Native page-host browser evidence is recorded in the handoff.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -920,12 +920,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c83f1baa81baf64a4b373b5d240395faebc3f838828a70ba44ea2e4d33507650",
+      "beforeRoleHash": "1718fa692e753922199cf02a3a57dd35561ce45267d80516a95999f5a17f2d55",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Bump the native-page presentation revision; existing stylesheet registry and native document policy remain unchanged."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -7815,9 +7815,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "c52db97f959e0ca554ee1844a668bd5165f4e53282f7ead0ba140e189c27f03a",
+      "beforeRoleHash": "2a196270408ecf67dca4c29293a6e41d63c83197378e389ea83c50e5552c0805",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one inert Lit content mount. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."
     },
     {
       "template": "user/dashboard/issues.tmpl",

@@ -19,7 +19,9 @@ Forgejo's real header/profile/navigation. Read
 It supersedes earlier separate Go-shell and routine manual-connection guidance for
 Spaces, Runners and repository Spaces settings. It is a proposal using the existing
 native dashboard/template host, with bounded automatic OAuth and coordinated normal
-logout; it is not implemented integration, atomic SSO or a new deployment grant.
+logout. Step 1 now has minimal native page hosts and local Forgejo browser proof;
+the full page bodies, connection/logout integration and delivery remain. This is
+not atomic SSO or a new deployment grant.
 Existing shell descriptions below remain current-source/historical facts, and the
 runner parity/Cockpit retirement and native acceptance obligations remain in force.
 

@@ -1,5 +1,58 @@
 # Current handoff
 
+## Native Soda page host — step 1 implemented and locally exercised
+
+At the user's request, step 1 of the [integration plan](forgejo-soda-pages-plan.md)
+now adds three minimal read-only presentations to the existing native dashboard:
+Spaces, Runners and repository Spaces settings. Native `base/head`/`base/footer`
+remain; exact single selectors and canonical positive int64 repository locators
+select one content mount. Invalid repository locators render bounded feedback;
+unknown/duplicate view selectors preserve the ordinary dashboard HTML. The footer
+suppresses only the selected page's drawer, retaining notifications and operator
+discovery. A small Lit entry sets the document title and links to the existing
+protected page. No full management body, API/OAuth behavior, normal navbar
+destination or coordinated logout changed; steps 2–6 remain.
+
+The stock 15.0.7 aarch64 development container `sodaos-local-forgejo` received a
+template reload and the matching public assets in its existing mounts. Previous
+public files/hashes are retained under `.artifacts/native-page-host-h4eo83uh/`;
+the previously absent settings-link module was also supplied from the canonical
+payload. No container restart/recreation, configuration/data change, appliance
+delivery, provider registration/job or project/runner lifecycle action occurred.
+The existing authorized non-admin fixture account/profile and a separate normal
+fixture login/logout were used; the test-only xterm module was removed by exact
+run-owned filename after use. Its rendered output is local browser evidence only.
+
+Both opt-in real-Forgejo browser tests passed: three views at 1440px/390px, native
+actor hints, profile/settings navigation, notification preview, default dashboard
+HTML, invalid IDs/selectors, guest exclusion, native login/return/logout and native
+account-form cross-origin refusal. Real Lit/workspace/xterm assets loaded and the
+local xterm renderer fitted, displayed output and disposed without Soda API effects.
+The preview has no Soda backend: the existing operator-discovery session request
+returns 404. Soda authorization, OAuth and terminal/process behavior are not proved.
+Mandatory account-activation/password-change/2FA gates are retained in the inspected
+upstream Home handler; fixture flags/2FA were not mutated or separately exercised.
+
+Actual browser investigation corrected two assumptions: remembered-session entry
+can discard a raw root query, so later entry bridges must use the native login's
+fixed `redirect_to`; and protected account routes use Go's cross-origin protection,
+not hidden CSRF fields, while the native logout route is outside that middleware.
+Earlier failed probes also retain their incorrect login selector/credential-output
+parser, viewport-dependent dashboard comparison and missing preview asset results.
+No native authentication mechanism was replaced to make those checks pass.
+
+`bun run typecheck`, the complete `bun run test` suites (315 passes, 34 independently
+gated skips), `go test ./scripts -count=1`, and all four Forgejo payload tests passed.
+The two real-Forgejo tests ran separately and passed. `bun run check:source` failed
+on unchanged macOS-incompatible installer compilation (`commandRunner` is defined
+only in `console_linux.go`) and existing temporary-path/symlink tests. Those source
+files match `a995f9e`; they were not repaired as part of the page-host step.
+Logs, candidate public hashes and real captures are retained in the evidence folder.
+The first raw-query capture returned to the ordinary dashboard; subsequent captures
+use native login return. Captures do not use `--verify` because this preview lacks
+the Soda API; native HTML/assets/behavior were checked separately, and images remain
+private review material rather than published product screenshots.
+
 ## Native Forgejo hosting for Soda pages — plan only
 
 The user requested a plan to make the existing Soda pages seamless with Forgejo.

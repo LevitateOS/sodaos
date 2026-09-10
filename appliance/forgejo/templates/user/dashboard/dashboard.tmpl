@@ -1,4 +1,41 @@
 {{template "base/head" .}}
+{{/* Presentation only: the native Home handler has already enforced account gates.
+     FormString initializes Req.Form before FormStrings checks duplicate selectors. */}}
+{{$sodaView := ""}}
+{{if and .IsSigned .PageIsNews (eq .Link AppSubUrl)}}
+  {{$requested := ctx.Context.FormString "soda-view"}}
+  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "spaces") (eq $requested "runners") (eq $requested "repository-spaces"))}}
+    {{$sodaView = $requested}}
+  {{end}}
+{{end}}
+{{if $sodaView}}
+  {{$title := "Spaces"}}
+  {{$destination := printf "%s/-/soda/spaces" AppSubUrl}}
+  {{$repositoryID := ctx.Context.FormInt64 "repository_id"}}
+  {{$valid := eq (len (ctx.Context.FormStrings "repository_id")) 0}}
+  {{if eq $sodaView "runners"}}
+    {{$title = "Runners"}}
+    {{$destination = printf "%s/-/soda/settings/runners" AppSubUrl}}
+  {{else if eq $sodaView "repository-spaces"}}
+    {{$title = "Repository Spaces settings"}}
+    {{$valid = and (eq (len (ctx.Context.FormStrings "repository_id")) 1) (gt $repositoryID 0) (eq (printf "%d" $repositoryID) (ctx.Context.FormString "repository_id"))}}
+    {{$destination = printf "%s/-/soda/repositories/%d/settings/spaces" AppSubUrl $repositoryID}}
+  {{end}}
+  <main class="page-content soda-page soda-native-page" aria-labelledby="soda-native-title">
+    <div class="soda-page-container">
+      {{template "custom/soda/page_intro" dict "TitleID" "soda-native-title" "Title" $title "Class" "soda-page-intro--compact"}}
+      {{if $valid}}
+        <div id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="{{if eq $sodaView "repository-spaces"}}{{$repositoryID}}{{end}}" data-title="{{$title}}" data-document-title="{{$title}} - {{AppDisplayName}}" data-destination="{{$destination}}">
+          <noscript><p>JavaScript is required for this view. <a href="{{$destination}}">Open {{$title}}</a></p></noscript>
+        </div>
+        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=1"></script>
+      {{else}}
+        <p role="alert">Invalid Soda page destination.</p>
+        <p><a href="{{AppSubUrl}}/">Return to your dashboard</a></p>
+      {{end}}
+    </div>
+  </main>
+{{else}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds soda-page soda-dashboard" data-signed="true">
   <div class="soda-page-container">
     <div class="soda-dashboard-grid">
@@ -27,4 +64,5 @@
     </div>
   </div>
 </div>
+{{end}}
 {{template "base/footer" .}}

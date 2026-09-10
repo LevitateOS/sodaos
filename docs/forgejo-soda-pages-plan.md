@@ -1,7 +1,9 @@
 # Integrate Soda pages into native Forgejo
 
-**Status: implementation plan, 10 September 2026. No integration changes have
-been implemented or deployed by this planning work.** Source baseline: `f3efebc`.
+**Status, 10 September 2026: step 1 is implemented and has local stock-Forgejo
+browser proof. Steps 2–6 remain.** The original plan used source baseline `f3efebc`;
+step 1 follows planning commit `a995f9e`. Its three bodies are read-only entry
+scaffolds, not the migrated management pages. No appliance delivery is claimed.
 
 The user wants Spaces and Runners to feel like parts of SodaOS's Forgejo interface:
 the same real header, navigation, profile menu, login and account settings. This
@@ -49,6 +51,7 @@ new environment profiles and additional runner functionality are not added here.
 | The drawer already mounts the shared workspace inside Forgejo through `custom/footer.tmpl`. | Native embedding is implemented. The new full-page hosting, navigation and lifecycle still need real-browser proof. |
 | Forgejo 15.0.7 `AuthorizeOAuth` automatically redirects confidential clients with an existing user grant; Soda's setup creates a confidential client. | Automatic connection is possible through normal OAuth, with first consent and failure paths retained. |
 | Current Soda callback handling can retire an old context and cancel terminals. Native logout does not revoke the OAuth grant. | Repeated OAuth is not a harmless session probe. Navigation integration alone cannot establish shared revocation. |
+| In 15.0.7, protected account routes use Go's cross-origin request protection, not hidden CSRF fields. The native logout route is outside that middleware. | Preserve each native route's actual behavior; Soda's coordinated cancellation still needs its own protections. Do not invent a native logout-token contract. |
 
 Exact upstream references: [home handler](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/home.go),
 [dashboard handler](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/web/user/home.go),
@@ -67,13 +70,26 @@ header or copied native authentication implementation is part of this plan.
 ## 3. Proposed page host and ownership
 
 Use **one query-selected presentation of Forgejo's existing global dashboard**.
-The following are proposed destinations, not routes already implemented:
+Step 1 implements the following rendering destinations with minimal bodies:
 
 | Soda view | Proposed native destination | Content owner |
 | --- | --- | --- |
 | Spaces | `/?soda-view=spaces` | Existing `SodaSpaces` component in full-page mode |
 | Runners | `/?soda-view=runners` | Existing runner Lit component |
 | Repository Spaces settings | `/?soda-view=repository-spaces&repository_id=123` | Existing shared project controls, authorized for that stable repository ID |
+
+The content-owner column is the later migration target. Step 1 renders a heading
+and a Lit navigation link to the existing protected page, with no inventory,
+repository metadata or mutation controls.
+
+**Entry constraint found in the real browser:** a raw root query does not force
+native authentication. In particular, Forgejo's remember-me redirect can discard
+that query; an anonymous home configured to redirect elsewhere also bypasses this
+template. Use native `/user/login?redirect_to=<encoded fixed rendering destination>`
+when a native session must be established. Normal fixture login and already-signed
+return through that upstream endpoint passed. Steps 2/4 must use fixed entry bridges
+and OAuth returns; they must not advertise a raw rendering query as a universally
+reliable signed-out bookmark. This is not solved by the dashboard body template.
 
 Construct these under the configured native origin and actual `AppSubUrl`. Do not
 create `/spaces` or `/settings/runners` handlers inside Forgejo, proxy a fake native
@@ -146,7 +162,9 @@ operator inventory.
 Intercept only the native navbar's exact sign-out activation, synchronously in
 capture phase, and prevent duplicate activation. Complete Soda cancellation first,
 then permit one activation of the original native link. Forgejo's existing
-`linkAction` continues to own its POST, native CSRF, error handling and redirect.
+`linkAction` continues to own its POST, error handling and redirect. Preserve the
+native route's actual cookie/origin behavior; Soda cancellation needs the separate
+CSRF protection below. Do not invent a native logout-token exchange.
 An async bubble listener is insufficient because the native POST can already run.
 Preserve the original native-only action when Forgejo's JavaScript works but the
 Soda coordinator cannot complete; test keyboard activation too. The upstream anchor
@@ -201,6 +219,41 @@ does not establish that guarantee; report that limitation, not a completed SSO c
 ## 5. Implementation sequence and exits
 
 ### Step 1 — prove the native page host
+
+**Implemented with local browser proof.** Evidence:
+`.artifacts/native-page-host-h4eo83uh/`. Stock Forgejo 15.0.7 runs as an aarch64
+container on this development machine; Chrome used the authorized local fixture
+account. Actual server HTML, scripts and styles were used without response mocks.
+The existing preview received canonical public assets and a template reload;
+prior public files were backed up, and its data/configuration were preserved.
+
+The signed root-dashboard branch accepts exactly one recognized selector and
+canonical positive int64 repository IDs. Invalid/incompatible repository locators
+produce feedback without a mount. Unknown/duplicate view selectors retain the
+ordinary dashboard HTML. The footer suppresses only the selected view's drawer;
+native header/profile/notifications and ordinary dashboard/drawer callers remain.
+One minimal Lit mount sets the final document title and links to the current
+protected page. Normal navigation, OAuth returns and full controls are unchanged.
+
+Passing local checks cover the native profile/settings and notification menus,
+all three views at 1440px/390px, guest exclusion, native login/return and ordinary
+logout, protected-account cross-origin refusal, unchanged default dashboard HTML,
+invalid IDs and the real workspace/Lit/xterm imports plus measured local renderer
+output/disposal. This opens no native terminal or Soda operation. Mandatory
+activation/password-change/2FA gates remain before rendering in the inspected
+upstream Home handler; fixture account flags/2FA were not mutated or separately
+exercised. The preview has no Soda backend: its existing operator-discovery session
+request returns 404, so this does not prove Soda login, operator admission or OAuth.
+
+The complete local frontend suites (315 passes, 34 independently gated skips),
+strict TypeScript/Lit checks, Go template package and four payload tests passed;
+the two separately enabled real-Forgejo browser tests also passed. The aggregate
+`check:source` command is not passing on this macOS checkout: unchanged installer
+code references a Linux-only `commandRunner`, and existing tests reject macOS
+temporary-path symlinks. Logs retain those failures and corrected browser-probe
+assumptions. The [handoff](implementation-status.md) owns exact evidence/limits.
+
+The implementation contract for this step was:
 
 Use the exact selected Forgejo version and an authorized local fixture. Add the
 bounded dashboard view branch and mount a minimal Soda body between the untouched

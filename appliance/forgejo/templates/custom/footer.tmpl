@@ -1,5 +1,12 @@
 {{/* SPDX-License-Identifier: Apache-2.0 */}}
-{{if or .IsSigned .Repository}}{{if not (and .Repository (or .Repository.IsBeingCreated .Repository.IsBroken))}}
+{{/* The selected dashboard body owns its content mount, including invalid-ID feedback.
+     Other routes and unknown/duplicate selectors keep their ordinary drawer. */}}
+{{$sodaPage := false}}
+{{if and .IsSigned .PageIsNews (eq .Link AppSubUrl)}}
+  {{$view := ctx.Context.FormString "soda-view"}}
+  {{$sodaPage = and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $view "spaces") (eq $view "runners") (eq $view "repository-spaces"))}}
+{{end}}
+{{if and (not $sodaPage) (or .IsSigned .Repository)}}{{if not (and .Repository (or .Repository.IsBeingCreated .Repository.IsBroken))}}
 <div id="sodaspaces-root" hidden data-sub-url="{{AppSubUrl}}" data-repository-id="{{if .Repository}}{{.Repository.ID}}{{end}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" data-user-id="{{if .IsSigned}}{{.SignedUserID}}{{end}}">
 	<button id="sodaspaces-button" type="button" aria-label="Sodaspaces" class="ui primary button" aria-expanded="false" aria-controls="sodaspaces-drawer">{{svg "octicon-terminal" 16}} <span>Sodaspaces</span></button>
 	<aside id="sodaspaces-drawer" hidden aria-labelledby="sodaspaces-title">

@@ -53,6 +53,17 @@ CSS and artwork changes need a browser refresh; template changes need:
 docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
+The [native Soda page host](../../docs/forgejo-soda-pages-plan.md#step-1--prove-the-native-page-host)
+has an opt-in browser check against this exact local preview:
+`SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts`.
+Prepare the matching canonical public payload first; missing server assets fail
+the check. It uses the authorized screenshot profile plus a separate normal
+fixture-account login/logout, reads the ignored fixture credential internally and
+removes only its unique test-owned public probe module. It does not change account
+settings, notifications, repositories or Soda state. The xterm probe is browser-local,
+not native terminal/process evidence. Native login return is required for reliable
+entry from an expired/remembered session; raw root queries alone can lose that return.
+
 The stylesheets use `AssetUrlPrefix` through the template and relative CSS imports.
 Guest pages use the shared light/dark palette; signed-in pages derive their
 appearance from Forgejo's native account theme. Below 900px the login illustration

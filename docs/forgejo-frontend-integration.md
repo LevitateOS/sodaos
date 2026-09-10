@@ -23,7 +23,10 @@ now proposes rendering the three existing Soda page bodies within Forgejo's own
 dashboard template and real native shell. This replaces the separate Go HTML
 placement below; it does not borrow cookies or transfer native authentication to
 Soda. The plan includes automatic entry connection, coordinated menu logout and
-explicit browser/upgrade limitations. No integration implementation is claimed.
+explicit browser/upgrade limitations. Step 1 now implements minimal signed
+dashboard page hosts with real local Forgejo browser proof. Full management-page
+migration and connection/logout integration remain unimplemented. The plan records
+the native login-entry constraint found during that proof.
 
 ## Verified source surface
 
