@@ -137,8 +137,10 @@ func TestTerminalIdentityAndIsolationRefusal(t *testing.T) {
 }
 func TestTerminalStreamUsesVerifiedIDAndDoesNotHoldMutationLock(t *testing.T) {
 	d, c, f := terminalFixture(t)
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	if err := d.acquireAdmission(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { <-d.admission }()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	stream, err := c.OpenTerminal(ctx, terminalInput())

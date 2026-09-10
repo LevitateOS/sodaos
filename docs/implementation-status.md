@@ -1,5 +1,44 @@
 # Current handoff
 
+## Refactoring E — cancellation-aware helper admission only
+
+Following the conditional review, replaced only the buffered-operation mutex in
+`internal/host/daemon.go` with one lazily initialized serial channel gate. Cancelled
+or expired waiters leave without decoding their body or calling the executor. The
+successful-admission branch rechecks cancellation because Go select can choose an
+available gate when Done is also ready; successful decoding rechecks again before
+operation dispatch. Every admitted path releases the gate, including decode/native
+failure and unknown routes. Existing struct-literal callers need no constructor.
+
+Buffered operations remain globally serialized with the existing three-minute total
+request deadline. Terminal streaming still bypasses this gate; its existing test now
+holds the real admission gate. Runner routing/cross-surface file locking, terminal
+registry coordination and Python account-validator reuse are unchanged. No per-project
+parallelism, lock framework or cancellation rollback was introduced. Requests cancelled
+before admission now receive sanitized HTTP 408; cancellation during decoding retains
+the existing generic operation-failure response. Already-running native commands retain
+their existing context handling and uncertain-outcome policy.
+
+The earlier isolated review reproduced the blocked waiter/fake-executor dispatch five
+times under the race detector (`.artifacts/refactor-E-review-CE8Ss2/`). New product-owned
+regressions first failed on the old code for waiting cancellation/deadlines, cancelled
+contexts competing for available admission, and cancellation during body decoding.
+After the fix, five repetitions of focused race tests passed, including twelve-request
+serialization, no decode/dispatch for cancelled waiters, gate reuse on invalid/native
+failures and terminal-stream bypass. The full uncached `internal/host` race suite also
+passed. These checks use fake executors, not real native mutation evidence.
+
+On source base `0e12b18`, `bun run check:source` passed in 141.96 seconds: Go/module
+checks, complete TypeScript/Lit checks, 305 browser/Cockpit passes with 24 separately
+gated skips, and 120 Python tests with two optional real-Caddy skips. A separate verbose
+Python run confirmed both skips are the explicitly gated loopback proxy/TLS checks.
+Final Go HTML fixtures are `.artifacts/pages-xsN0A7/`; regression failures, passing logs
+and timing are retained in `.artifacts/refactor-E-admission-rqtSax/`. Local tools remain
+Go 1.27.0/Bun 1.4.2, not the native gate's pinned Go/stage evidence. No native build/check,
+VM/retained-project access, deployment, provider mutation, dependency or host-policy
+change occurred. The other two E slices remain deferred for lack of demonstrated
+benefit; F and all unfinished product work remain with their feature owners.
+
 ## Refactoring step D — frontend readability and measurement ownership
 
 Expanded dense statements, callbacks and request objects in the existing workspace,

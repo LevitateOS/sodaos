@@ -284,6 +284,14 @@ claim of native CLI compatibility follows from this source refactor.
 
 ### E. Native and terminal coupling — separate conditional slices
 
+**Reviewed; only cancellation-aware helper admission was justified and implemented.**
+The [handoff](implementation-status.md#refactoring-e--cancellation-aware-helper-admission-only)
+records the reproduced contention, new regressions, serial gate and passing local
+source/race checks. Registry extraction is deferred: moving fields alone would not
+improve its atomic logout/OAuth/Stop coordination. Account validation already has one
+source; changing embedded/installed packaging and exact-program verification is not
+justified by a measured benefit. Neither deferred slice blocks feature work.
+
 Do not make these prerequisites for runner parity, the installer or independent
 feature work. Native effects and later paired delivery need their existing scope.
 
@@ -306,11 +314,11 @@ imports. If it adds more deployment/module machinery than it removes, retain the
 current reuse. Account creation/key mutation/credential dropping remain separate
 operations; do not create a user-management framework.
 
-**Helper admission:** [daemon dispatch](../internal/host/daemon.go) holds one mutex
-across buffered reads/mutations and creation's readiness wait. Author a delayed-Exec
-contention test before changing it. Use ordinary Go context/channel admission if
-needed to preserve serialization while allowing cancelled waiters to leave; recheck
-cancellation after admission and before native effects. Existing
+**Helper admission (implemented):** [daemon dispatch](../internal/host/daemon.go)
+formerly held one mutex across buffered reads/mutations and creation's readiness wait.
+A delayed-Exec contention test reproduced blocked cancelled waiters. Ordinary Go
+context/channel admission now preserves serialization while allowing those waiters
+to leave, with cancellation rechecked after admission and decoding before dispatch. Existing
 [provider gates](../internal/web/provider.go) demonstrate the primitive, and
 [filelock](../internal/filelock/filelock.go) already handles cancellation for native
 cross-process locks. Do not route host policy through the web package or add a generic

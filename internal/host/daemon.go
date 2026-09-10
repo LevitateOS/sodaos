@@ -75,7 +75,8 @@ type Daemon struct {
 	Runners        *runners.Operations
 	Config         Config
 	Exec           Executor
-	mu             sync.Mutex
+	admissionOnce  sync.Once
+	admission      chan struct{}
 	terminalMu     sync.Mutex
 	terminals      map[*http.Request]context.CancelFunc
 	terminalClosed bool
@@ -85,6 +86,25 @@ type Daemon struct {
 func (d *Daemon) podman(ctx context.Context, in []byte, args ...string) ([]byte, error) {
 	return d.Exec.Run(ctx, in, "/usr/bin/podman", args...)
 }
+
+// Keep buffered operations globally serialized, but let cancelled waiters leave.
+// Lazy initialization keeps Daemon struct literals usable without a constructor.
+// This gate is independent of terminal streams and runner file locks.
+func (d *Daemon) acquireAdmission(ctx context.Context) error {
+	d.admissionOnce.Do(func() { d.admission = make(chan struct{}, 1) })
+	select {
+	case d.admission <- struct{}{}:
+		// Done and the gate can both be ready; select does not prioritize Done.
+		if err := ctx.Err(); err != nil {
+			<-d.admission
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/runners/") {
 		d.runnerHandler(w, r)
@@ -106,11 +126,18 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r.Body = http.MaxBytesReader(w, r.Body, 65536)
 	decode := func(v any) error {
-		return strictjson.Decode(r.Body, v)
+		if err := strictjson.Decode(r.Body, v); err != nil {
+			return err
+		}
+		// A body read can outlive admission. Refuse cancellation before dispatch;
+		// already-running native commands retain their existing context handling.
+		return ctx.Err()
 	}
-	// Serialize the small native mutations; this is not a persistent workflow engine.
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	if err := d.acquireAdmission(ctx); err != nil {
+		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
+		return
+	}
+	defer func() { <-d.admission }()
 	var out any
 	var err error
 	switch r.URL.Path {
