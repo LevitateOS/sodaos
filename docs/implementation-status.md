@@ -39,11 +39,23 @@ Remove diagnostic gaps (`runner-red.log`), then focused runner/host/web and both
 runner commands passed (`focused.log`). After final API/whole-list cases, affected
 runner/host/web/Linux-identity and both runner command race suites passed
 (`race.log`). Go 1.27.0, Bun 1.4.2, Linux x86_64; evidence and local upstream-manual
-copies are retained under `.artifacts/runners-step3-KkjbJr/`. Aggregate source-gate
-execution is next, not yet claimed here. No dependencies, service units, provider
-resources, installed runner/project state or real credentials changed. Native-stage,
-provider jobs/lifecycle/preservation and the Soda-pages browser integration handoff
-remain open; Cockpit Runners and Tailnet are unchanged.
+copies are retained under `.artifacts/runners-step3-KkjbJr/`.
+
+After committing `7cb316b`, `bun run check:source` passed on that clean candidate
+in 170.42 seconds (`check-source.log`): module verification/all Go tests, strict
+TypeScript/Lit, 208 frontend passes/14 initial gated skips, 14 required Go-HTML page
+passes (including all 11 runner cases), one measured layout pass, 33 Forgejo
+passes/21 gated skips, all 60 Cockpit tests, and 135 Python tests with two optional
+skips. Required page consumers ran within the aggregate after their initial gate;
+fixtures are retained at `.artifacts/pages-37foxz/`. The opt-in real-Forgejo page-host
+cases remain gated, not run by this source command. No additional browser fixture,
+login, API or test orchestrator was introduced, and no reserved source file changed.
+
+This closes the runner-owned backend/local-regression work, not the Soda-pages
+migrated-shell browser handoff or stage-specific web feedback. No dependencies,
+service units, provider resources, installed runner/project state or real credentials
+changed. Native build/stage, provider jobs/lifecycle/preservation and coordinated
+Cockpit retirement remain unrun; Cockpit Runners and Tailnet are unchanged.
 
 
 ## Native Soda page bodies — step 3

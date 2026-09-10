@@ -396,8 +396,8 @@ from this source change.
 
 ### 3. Complete local parity and regression coverage
 
-**Status: runner-owned backend gaps implemented with local focused/race checks;
-aggregate candidate check and Soda-pages integration handoff remain separate.**
+**Status: runner-owned backend gaps implemented; focused/race and aggregate
+source checks passed for `7cb316b`. Soda-pages integration handoff remains open.**
 The Native fixtures now use separate test processes sharing one temporary lock,
 cover Restart's enable/restart admission and failed-command release, and require
 cancelled contenders to exit without dispatch. New fixtures cover Remove failures
@@ -438,8 +438,12 @@ Record exact revision, actual tool versions, failures, skips and new evidence pa
 Do not repeat full suites without a new change or unresolved concern.
 
 **Exit:** the candidate's local checks pass, both Cockpit and dashboard still work
-against one protocol, and every test result is labelled synthetic/local. No native
-service or provider acceptance follows from this exit.
+against one protocol, and every test result is labelled synthetic/local. The
+runner-owned backend exit passed for `7cb316b`, including all 11 existing Go-HTML/
+runner browser cases and retained Cockpit tests. This does not close the Soda-pages
+lane's migrated native-shell browser exit or any stage-specific web feedback still
+requiring its shared-file handoff. No native service or provider acceptance follows
+from these local checks.
 
 ### 4. Prepare product-owned native journeys and a paired candidate
 
