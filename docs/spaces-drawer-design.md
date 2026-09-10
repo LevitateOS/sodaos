@@ -1,4 +1,28 @@
-# Spaces drawer: browse the forge, work in terminals
+# Spaces drawer: browse the forge, work in the project
+
+## Project OS extension
+
+The drawer remains the compact view of the same Spaces workspace. The selected
+[profile/desktop extension](spaces-design.md#scope-of-the-selected-extension) adds
+graphical project sessions and authorized AI run views here as well as on the full
+page. Terminal and Desktop use the same project account, home and shared tools;
+neither opening the drawer nor changing its native repository page provisions a
+second environment, copies a checkout or restarts an agent.
+
+Preserve native Forgejo forms, navigation and focus behavior below. A desktop viewer
+captures input only while deliberately focused/controlled, releases held input on
+focus loss, and must not swallow shortcuts or typing intended for Forgejo. Page/drawer
+navigation reattaches the exact authorized session. Desktop sizing uses its own
+display geometry rather than terminal columns; compact mode shows one usable chosen
+surface. Reuse the existing Lit layout/chrome owners, with separate native session
+contracts. Existing terminal Hide/End/retention rules do not automatically define
+desktop logout, retention or automation cancellation.
+
+The detailed terminal specification and evidence below remain applicable to current
+terminals. Desktop transport and AI run attachment are separate unfinished work under
+the [leading order](sodaspaces-plan.md#extension-order-and-dependency-boundaries).
+
+## Existing terminal drawer design
 
 **Design specification, not deployed behavior.** The user approved the direction of
 the full-page [Spaces design](spaces-design.md) and requested an equally concrete

@@ -1,4 +1,35 @@
-# Spaces design: parallel work, one terminal workspace
+# Spaces design: parallel work in one Project OS workspace
+
+## Scope of the selected extension
+
+The terminal layout below remains the implemented baseline. Extend this same
+workspace for [Project OS profiles](project-os.md#selected-environment-profiles),
+KDE desktops and [AI run views](services-and-ai-plan.md); do not build a second UI
+or separate development environment. Product order belongs to the
+[leading plan](sodaspaces-plan.md#extension-order-and-dependency-boundaries).
+
+- Profile selection belongs to explicit project creation. It never retargets an
+  existing terminal, upgrades a root or installs a desktop on Open.
+- Terminal and Desktop identify the same project/account and use its real files,
+  shared tools and permissions. KDE keeps terminal access available.
+- A desktop tab references an exact graphical session, with its own authorized
+  display/input owner. It is not a PTY or an ID in the existing personal-terminal
+  API. Reuse page/drawer layout and navigation without pretending native protocols
+  or lifetimes are interchangeable.
+- AI run views identify the issue/PR attempt and execution owner. Personal "My
+  sessions" semantics below remain unchanged; authorized run views need explicit
+  discovery/attachment and must not appear through a fabricated personal login.
+- Move between Spaces and the drawer without creating another native session.
+  Observe/control, desktop End, terminal End, project Stop and job Cancel remain
+  explicit distinct actions. Output and mere connection do not prove AI status.
+- Fit desktop content with its actual display geometry; terminal cell minima and
+  PTY resize rules below apply only to terminals. On compact screens, provide one
+  usable selected view, accessible navigation and deliberate input focus.
+
+Desktop and AI views remain unimplemented. Existing terminal diagrams, tests and
+native evidence do not establish graphical/session or automation behavior.
+
+## Existing terminal design and evidence
 
 **Revised design specification, not full implementation/acceptance or deployment
 permission.** This replaces the earlier grid-first proposal and interactive mockup.

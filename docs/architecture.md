@@ -55,8 +55,12 @@ host kernel; Rocky supplies userspace. The [Project OS baseline](project-os.md)
 consolidates native ownership, supported tools, persistent/runtime state and bounded
 same-root maintenance. Its [selected creation profiles](project-os.md#selected-environment-profiles)
 extend requested scope to Rocky/Fedora headless and KDE, with GNOME deferred.
-Only Rocky headless is currently implemented; the Linux desktop runtime remains a
-candidate to validate. The CoreOS host and existing projects keep their topology.
+Only Rocky headless is currently implemented. All profiles inherit the
+[same Project OS foundation](project-os.md#one-foundation-for-every-profile): native
+accounts, shared tools/services, persistent roots, access and maintenance. KDE adds
+a per-user graphical session to that environment. No VM backend is selected by the
+profile decision; first investigate the existing runtime and bring a concrete
+compatibility blocker back for a decision. CoreOS and existing projects keep their topology.
 See `appliance/services/`, `project-os/`, [installation](installation.md) and
 [development environment](development-environment.md) for implementation and usage.
 Dependency baselines belong in source recipes/locks, not repeated prose version rules.
@@ -172,10 +176,10 @@ see [project services](project-services.md) and [validation](native-validation.m
 The runtime is a trusted-team namespaced boundary, not hostile-tenant isolation.
 Investigate project-scoped host workloads only after a concrete nested-runtime blocker.
 No dormant workload fallback, unrestricted host socket or privileged parent is
-implemented or authorized. The separately requested Linux desktop guest candidate
-is scoped in the [desktop design](services-and-ai-plan.md#4-desktop-workspaces);
-it is not a replacement for the nested project workload runtime. Bring other
-genuine architecture gaps back for a decision.
+implemented or authorized. The requested Linux desktop integration is scoped in the
+[desktop design](services-and-ai-plan.md#4-desktop-workspaces) and must preserve the
+Project OS contracts. A VM remains an architectural option requiring a concrete
+runtime decision, not a selected desktop or nested-workload replacement.
 
 ## Networking and operator tools
 

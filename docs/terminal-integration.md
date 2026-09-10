@@ -1,5 +1,21 @@
 # Drawer terminal integration contract
 
+## Boundary with planned desktop and automation views
+
+This remains the authority for personal managed terminals in every supported
+Project OS profile. KDE adds graphical access to the same native account/home/tools;
+it does not replace tmux, convert a PTY into desktop transport or alter current
+End/logout/lease behavior. A graphical viewer needs its own exact session identity,
+authorization and lifetime contract while sharing the existing Spaces presentation.
+
+The [AI integration](services-and-ai-plan.md#live-ai-terminals-in-spaces-and-the-drawer)
+needs unattended run-owned processes and separately authorized viewers. Reuse actual
+terminal rendering/transport where its contract applies, but do not fabricate a
+personal sign-in, commandeer a user's shell or assume current personal-terminal
+enumeration includes jobs. Preserve the current managed terminal evidence and
+extend native tests for changed profile/package behavior. Desktop and agent feature
+availability cannot be inferred from successful PTY attachment.
+
 ## Multi-project workspace design and implementation
 
 The user now explicitly wants multiple concurrent terminals across multiple projects,

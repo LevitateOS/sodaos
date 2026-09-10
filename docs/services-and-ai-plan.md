@@ -16,7 +16,7 @@ proposal's implication that Actions logs alone would be the user interface.
 The user also requested graphical workspaces for the actual Codex/Claude desktop
 apps and their computer-use features. The [desktop proposal](#4-desktop-workspaces)
 below extends the product beyond terminal transport. It is an architecture proposal,
-not an implemented VM backend or a change to existing Rocky projects.
+not an implemented desktop runtime or a change to existing Rocky projects.
 The subsequent user decision selects **Linux desktops**, with Rocky/Fedora headless
 and KDE [creation profiles](project-os.md#selected-environment-profiles); GNOME is
 deferred. This supersedes the earlier Windows-first compatibility recommendation.
@@ -46,7 +46,7 @@ its companions actually benefit from sharing networking.
 | Marketplace service | Persistent app and data; appliance operator | Host Podman, native Quadlet/systemd |
 | Development project | Existing shared accounts, files and tools; project administrators | Preserve the current Rocky project and nested Podman |
 | AI run | Linked issue/PR attempt with bounded review/fix rounds; repository policy and Forgejo Actions | Isolated checkout and agent process, with a live terminal projected into Spaces/drawer |
-| Desktop workspace | Persistent desktop, apps and user data; separately authorized user or dedicated automation identity | Selected Linux KDE profiles, proposed optional Linux VM guest; not currently implemented |
+| Desktop session | Graphical session of a project-local account; persistent app data in that account’s home | KDE within the Project OS foundation; desktop transport is not implemented |
 
 Automatic AI runs must not commandeer a developer's existing shell, dirty checkout,
 home or personal credentials. Sharing the Spaces UI does not require sharing those
@@ -274,11 +274,13 @@ The [Project OS profile contract](project-os.md#selected-environment-profiles) o
 this matrix and creation behavior. Start desktop implementation with Fedora KDE,
 where the Codex Linux preview has an explicitly supported distribution.
 
-A Linux GUI can run in a container with a display server; a GUI does not inherently
-require a VM. A VM supplies its own kernel and guest OS for kernel-dependent features.
-The current CoreOS appliance can remain headless. The proposed Linux desktop runs
-inside its guest, not on the host's display. Existing validation appliances being
-VMs does not mean Soda already manages desktop guests.
+Desktop is an additional access surface for the same Project OS. Its native account,
+HOME, checkouts, shared mise/tools, package state, services and permissions follow
+[the existing foundation](project-os.md#one-foundation-for-every-profile). The
+CoreOS host remains headless. The first investigation targets the existing project
+runtime; a concrete display/session or kernel requirement must justify any proposed
+runtime change. Linux/KDE selection does not select QEMU/KVM, a second machine per
+project, or a new guest provisioning product.
 
 ### Verified vendor constraints — 2026-09-10
 
@@ -302,7 +304,7 @@ Linux is the selected direction despite the current computer-use gap. Ship actua
 GUI access and supported app/browser workflows, and add native computer use when
 the selected app and Linux environment support it. Do not advertise missing
 capabilities or make them a prerequisite to the Linux desktop feature. Windows
-is no longer the proposed first guest. Viewer disconnection must preserve the
+is outside the selected desktop direction. Viewer disconnection must preserve the
 same desktop; lock/sleep and future computer-use continuity need native checks.
 
 Claude Cowork on Linux additionally hosts its own QEMU/KVM VM; inside
@@ -314,45 +316,47 @@ Linux desktop app gained its native feature.
 Running a desktop app on the user's laptop against a remote checkout is another
 workflow, but remote shell access alone does not move screen capture/input into
 Soda. The UI must identify the actual computer and desktop under control. Desktop
-apps must run in the intended guest for the proposed streamed-guest experience.
+apps must run as the intended project account for the streamed project desktop.
 
-### One bounded candidate and its ownership
+### Native integration and ownership
 
-Investigate a Fedora KDE Linux QEMU/KVM guest with a private virtual-display
-endpoint and a browser viewer integrated into the existing Lit workspace. QEMU's
-[VNC display](https://www.qemu.org/docs/master/system/invocation.html) and the
-[noVNC client](https://novnc.com/info.html) provide a candidate display/input path.
-This is a compatibility investigation, not an instruction to install either or
-build interchangeable runtime/transport backends. Review exact selected versions,
-CoreOS packaging, guest installation inputs and native hardware support first.
-Apply that desktop path to Rocky KDE after its own package/app checks; do not add
-a separate transport/backend per distribution. Preserve the existing headless
-Rocky container, and implement Fedora headless through its verified native recipe.
+First establish a per-user KDE session with the correct login environment, user
+service manager/session bus, display permissions, persistent home and shared tools
+inside the Project OS candidate. Inspect the selected desktop packages and actual
+display/input requirements before choosing transport. Virtual display access must
+not borrow the appliance host's desktop, grant arbitrary device access or weaken
+existing project boundaries. No GPU or nested-virtualization requirement is inferred
+from ordinary GUI use. A failed requirement is a runtime decision to review with
+its effects on the whole Project OS, not permission to add a speculative VM backend.
 
-Soda's operator provisions guest capacity; authorized users attach to their own
-desktop or an explicitly shared automation desktop. Project membership must not
-automatically expose another member's desktop, browser cookies or AI account.
-Resolve exact guest/session targets server-side. Keep raw console endpoints private
-and authorize each browser connection with the existing Soda authority; a generic
-browser-controlled host/port proxy or reusable console password is not acceptable.
-The existing fixed-operation project helper is not a VM command passthrough.
+One shared Lit Desktop view serves the page and drawer. Resolve exact project,
+account and graphical-session targets server-side; an authorized member cannot
+browse another user's display. Project sudo/root remains able to administer/read
+project state as documented. Keep display endpoints private and authenticate each
+viewer; no arbitrary host/port forwarding or host command endpoint. Clipboard and
+file transfer, if implemented, need explicit direction and account-scoped access.
+The terminal API and PTY are not a graphical transport.
 
-Preserve the guest disk, home, app state and checkout independently of the viewer.
-Hide, navigation and disconnect detach the view. Explicit Stop interrupts guest
-work while preserving storage; it is distinct from ending a terminal or cancelling
-an AI attempt. Existing personal-terminal logout/retention rules still apply to
-existing terminals. A desktop's access and lifetime need their own explicit contract.
+Keep the original project root, homes, installed apps and shared service data.
+Hide/navigation disconnects a viewer; it does not end the desktop session or stop
+the project. Project Stop interrupts all its work while retaining durable state.
+Restart preserves files and app settings, not process memory. Define explicit desktop
+end, access expiry/logout and last-viewer retention before implementation; don't
+copy terminal leases blindly or promise perpetual GUI processes. Existing personal
+terminal logout/expiry remains unchanged. Automation execution can outlive its
+viewer under its separately defined run owner.
 
-Terminal and Desktop must identify the actual workspace and checkout. If an AI run
-executes in a guest, its terminal and GUI need access to that same run's files.
-Separate containers and guests do not automatically share a filesystem or resolver
-conversation. Do not silently copy dirty work or mount retained project roots into
-a guest to create that appearance.
+Desktop-launched editors and terminal shells must edit the same real checkout.
+There is no synchronization layer or automatically copied home. Personal AI GUI
+apps use the user's own project-local configuration/credentials. Automated issue/PR
+runs use their dedicated checkout and credentials; they must not adopt an existing
+personal desktop. If graphical automation is later supported, its terminal and
+desktop must address that exact run's files/account, with explicit viewer authority.
 
 Observation should not type into an agent-controlled desktop. Human takeover must
 pause/release the agent's control before granting input; merely suppressing browser
 input cannot stop a native GUI agent. If an app offers no verified pause/control
-interface, use its real stop control and report the limitation. Guest credentials
+interface, use its real stop control and report the limitation. Project-local credentials
 and provider approvals stay with their intended account and desktop, separate from
 repository automation credentials.
 
@@ -366,19 +370,27 @@ keeping the Forgejo page open.
 ### Desktop completion criteria
 
 Before calling a desktop profile supported, prove a real GUI task and each
-advertised app's installation/sign-in in the selected guest; exact screen/input
-targeting; browser detach/reconnect and
+advertised app's installation/sign-in as the original project account; correct
+HOME/groups/mise in both terminal and GUI; edits to the same checkout; exact
+screen/input targeting; browser detach/reconnect and
 page/drawer navigation without desktop replacement; authorized observation/control
 transfer; isolation between users; and explicit Stop/Start persistence. Include
-guest lock/sleep, disconnect during computer use and provider approval handling.
+desktop lock/sleep, logout/access loss, service coexistence and provider approvals.
 Run computer-use checks only when that capability is actually available, and mark
 it unavailable otherwise; desktop acceptance does not imply computer-use acceptance.
-Synthetic viewer tests alone cannot prove these behaviors. Guest provisioning,
+Synthetic viewer tests alone cannot prove these behaviors. Native provisioning,
 private sign-in and provider use require a separately scoped target and inputs;
 no retained VM or project is repurposed by this proposal. Validate each claimed
 architecture natively before advertising support.
 
 ## Marketplace and AI implementation sequence
+
+The [leading extension order](sodaspaces-plan.md#extension-order-and-dependency-boundaries)
+owns integration with Project OS and Spaces. These are feature-specific completion
+steps, not a replacement foundation or a dependency on GUI availability. Run images
+reuse applicable project-owned tooling/packaging; an unattended job still needs its
+own verified isolation, credentials and execution owner. No duplicate account, tool
+installer or project-lifecycle framework is implied.
 
 1. Settle marketplace placement and trigger policy. Inspect exact upstream runtime,
    token and UI extension contracts; retain one candidate for each feature.

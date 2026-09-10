@@ -10,7 +10,13 @@ This records the user's requested product direction and recommended investments.
 It is a strategy document, not implementation acceptance or a new execution grant.
 The [Sodaspaces plan](sodaspaces-plan.md) still owns immediate coding order; the
 [deferred guide](deferred.md) still distinguishes proposed work from selected features.
-The host strategy here is separate from the existing Rocky [Project OS](project-os.md).
+The host strategy here is separate from the [Project OS foundation](project-os.md),
+currently implemented on Rocky and selected for Fedora/headless/KDE variants.
+Those profiles retain the same account, tools, services, persistence and maintenance
+contracts. KDE is a project desktop, not a desktop installed on CoreOS. Profile
+selection does not select a VM platform, host device broker, new OS updater or any
+of this strategy's still-proposed capacity/recovery features. The leading plan owns
+their integration order alongside existing onboarding and credential work.
 
 ## The three recommendations
 

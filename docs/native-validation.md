@@ -35,6 +35,23 @@ Current authored probes and UI ports require new, scoped execution; do not relab
 old results. See the [terminal proof requirements](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate).
 No project/package/service mutation is authorized by these requirements.
 
+For selected profiles, extend these same product-owned journeys rather than creating
+a parallel guest/readiness suite. Record distribution, exact image/package inputs,
+interface and native architecture. Verify original account/HOME/groups, shared mise
+paths and installed bytes from shell, SSH and GUI-launched tools; edits through an
+editor and terminal must reach the same checkout. Check per-user display denial,
+project-admin trust, actual private service access, app-state persistence and safe
+input focus while navigating Forgejo and moving between page/drawer. Explicit desktop
+end, logout/access expiry, last-viewer retention and project Stop need their declared
+effects checked independently of terminal End and AI Cancel.
+
+Existing terminal/native results remain valid only for their recorded mechanisms
+and targets. New Fedora/KDE claims require affected native proof. Test advertised
+GUI applications separately from native computer use, marking unavailable provider
+capabilities honestly. For AI runs, prove no-browser execution, dedicated credentials,
+exact viewer attachment and resolver continuation without modifying personal work.
+GNOME and unselected runtime alternatives do not become validation prerequisites.
+
 ## Native source and build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.

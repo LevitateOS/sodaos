@@ -2,6 +2,15 @@
 
 The predecessor supplied Tea and GitHub CLI as developer tools. Here they belong in the **Rocky project image**, not the immutable host or a new Soda credential service. They are separate from the host's GitHub Actions runner client.
 
+The planned Fedora/KDE variants inherit these Project OS tooling and personal-auth
+contracts. Reuse the existing source/license/build owners and verify distro-specific
+packaging; do not create separate GUI installers or copy one user's authenticated
+CLI state. Desktop-launched tools must resolve the same account, home and shared
+paths as the terminal. Current recipe/evidence below applies to Rocky; adding a
+profile does not upgrade the tool pins or imply authenticated provider compatibility.
+Unattended AI jobs use dedicated run credentials as defined in the
+[AI plan](services-and-ai-plan.md), not a member's personal login.
+
 ## Source and packaging
 
 - **Tea 0.15.1:** retained `tea-source.toml`, source/archive/license checksums, license and fetch logic from `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. `scripts/build-project-tools.py` uses upstream's own Makefile/version flags with static Go on matching-native Linux. The binary and license feed the project image; no Fedora RPM is copied into Rocky.

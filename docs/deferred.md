@@ -11,6 +11,13 @@ the earlier OS-profile-selection exclusion. Resource-limit/usage extensions rema
 unselected; destruction still requires its explicit scope decision. [Outside support tools](native-support.md)
 cannot change production policy or make optional installer media a product prerequisite.
 
+Selected creation profiles inherit [one Project OS foundation](project-os.md#one-foundation-for-every-profile).
+They do not reopen private toolchain/service branching, live distro switching,
+automatic root conversion, credential/identity remapping or generalized recovery.
+KDE session/display integration is selected work; a separate VM backend is not.
+Investigate the current runtime first and bring a concrete compatibility blocker
+back with its effects on the shared Project OS contract before changing that runtime.
+
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.
 
 The user-requested [CoreOS product strategy](os-product-strategy.md) now evaluates

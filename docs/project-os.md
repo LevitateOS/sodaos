@@ -15,6 +15,41 @@ is implemented with bounded isolated reload/cleanup proof; broader native safety
 key-free browser onboarding and the combined Git workflow remain incomplete.
 This baseline is documentation, not a new build, installed inventory or acceptance.
 
+## One foundation for every profile
+
+This guide remains the Project OS authority. Distribution and desktop choices extend
+the already planned environment; they do not create independent vanilla machines,
+new account systems or a second development product. The responsibilities remain:
+
+| Contract | Owner |
+| --- | --- |
+| Product order, onboarding and Git-credential decisions | [Sodaspaces plan](sodaspaces-plan.md) |
+| Accounts, native permissions, shared installations, persistence and maintenance | This Project OS guide |
+| Personal checkouts, editors, shared mise and ordinary developer workflows | [Development environment](development-environment.md) |
+| Native workload engine, service permissions and project networking | [Project services](project-services.md) |
+| Tea/gh packaging and personal provider authentication | [Project CLIs](project-clis.md) |
+| Managed terminal identity, supervision, leases and cleanup | [Terminal integration](terminal-integration.md) |
+| Shared page/drawer views and rendering | [Spaces design](spaces-design.md), [drawer design](spaces-drawer-design.md), [Lit sequence](lit-migration-plan.md) |
+| Service catalog and issue/PR automation integration | [Services and AI plan](services-and-ai-plan.md) |
+
+A desktop session belongs to the existing project-local account. Terminal, desktop
+apps and ordinary SSH use that account's real home, checkouts, permissions and shared
+tools. Desktop launch must establish the correct user session/environment, including
+mise paths; opening an app must not silently create another home, clone, tool store
+or credential identity. Per-user graphical sessions must not expose peers' displays
+or browser credentials; project sudo/root retains the documented administrator trust.
+
+Installed OS packages, native service data and shared tools belong to the persistent
+project root. A KDE profile adds the graphical session and its access transport to
+that foundation. Forgejo still owns identity/Git authority; Soda binds authorized
+viewers to exact native targets. No blank VM or desktop image alone completes a
+Project OS profile.
+
+The existing onboarding, credential, CLI, reachability and native-proof gaps remain
+work. Keep their evidence and priority; profile expansion must neither reset completed
+work nor describe those gaps as solved. Read this guide and the relevant owner above
+before extending images, runtime, desktop sessions or automation environments.
+
 ## Selected environment profiles
 
 The user selected Linux for desktops and these creation choices on 2026-09-10:
@@ -45,14 +80,18 @@ container-only units, seccomp/capability policy or network assumptions into a VM
 The current helper uses one configured image and directly creates a persistent
 Podman container; the Create API accepts only a repository ID. There is no profile
 catalog, Fedora recipe or desktop/VM backend today. Preserve that Rocky mechanism
-for headless projects. A Linux QEMU/KVM guest remains the proposed desktop candidate
-in the [desktop design](services-and-ai-plan.md#4-desktop-workspaces); runtime and
-native compatibility still need proof. A profile is not itself a runtime selector.
+for existing projects. First investigate KDE session/display integration against the
+existing persistent Project OS boundary. Selecting Linux/KDE does not select a VM.
+If a concrete native requirement cannot fit that boundary, document the blocker and
+the effects on accounts, storage, workloads and access before a runtime decision.
+Do not implement a parallel VM backend or silently split a project into a headless
+container and disconnected desktop. A profile is not itself a runtime selector.
 Fedora Server names the requested headless experience: document the actual Fedora
 image/edition used during packaging rather than representing a generic Fedora OCI
 image as an installed upstream Server edition.
 
-**Implement Fedora KDE first for desktop app compatibility.** OpenAI currently
+**Use Fedora KDE as the first desktop compatibility target** within the shared
+foundation work, not as a replacement for outstanding Project OS work. OpenAI currently
 supports Fedora 43/44 in its Linux preview, while Rocky is outside its supported
 distro list. An RPM package alone does not prove Rocky compatibility. Both
 [Fedora KDE](https://www.fedoraproject.org/kde/download/) and

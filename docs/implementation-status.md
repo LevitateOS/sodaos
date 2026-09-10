@@ -1,6 +1,30 @@
 # Current handoff
 
-## Linux desktop and Rocky/Fedora profile selection
+## Plans reconciled around the existing Project OS
+
+Revised the active architecture, Project OS, development/workload/CLI/terminal,
+Spaces/page/drawer/Lit/frontend, host strategy, deferral, validation and services/AI
+plans to extend one existing foundation. The Project OS guide now has an explicit
+ownership map; the leading Sodaspaces plan owns extension order and dependencies.
+Rocky/Fedora headless/KDE choices retain real accounts, homes, shared mise/tools,
+services, persistent roots and bounded maintenance. GNOME remains deferred.
+
+Removed the active assumption that KDE means a separate QEMU/KVM guest or a copied
+desktop workspace. First investigate the current project runtime; document a concrete
+blocker and its effects before selecting another backend. Desktop views use the same
+project account/files as terminals and SSH, while display access/lifetime requires
+its own contract. AI run ownership/credentials remain separate from personal work;
+headless automation does not depend on GUI availability. Marketplace placement and
+trigger trust policy remain open; earlier defaults are proposals, not user answers.
+
+Existing onboarding/Git/CLI and native acceptance gaps remain explicit; no completed
+Lit work or retained execution evidence was reset. Earlier desktop runtime proposals
+below are historical and superseded by this reconciliation. This revision changes
+plans only. Source/document review, checks of 27 added local file/anchor references
+and Git whitespace checks passed;
+no product builds/tests, guest provisioning, provider execution or deployment ran.
+
+## Linux desktop and Rocky/Fedora profile selection — runtime proposal superseded
 
 The user selected Linux desktops and six named profile choices: Rocky headless,
 Rocky KDE, Fedora Server/headless and Fedora KDE are in scope; Rocky GNOME and

@@ -8,6 +8,21 @@ rootful API. Giving that API to ordinary members would grant project-root power.
 The [Project OS baseline](project-os.md) consolidates shared state, native authority,
 startup/terminal distinctions and required additions to existing writable roots.
 
+## Profile and catalog extension
+
+The selected Fedora and KDE profiles must preserve this native workload ownership,
+shared persistent service data and ordinary endpoint access. A desktop browser uses
+the project's real service endpoints; opening it does not copy a database or install
+a second workload engine. Revalidate changed package/runtime behavior per profile;
+the Rocky evidence below is not automatic Fedora/KDE acceptance.
+
+The [marketplace proposal](services-and-ai-plan.md#1-services-marketplace) still has
+an open placement decision. Project-local catalog installation, if selected, must
+use this engine and project-native authorization. Appliance-wide services instead
+use operator authority and their own durable data. Neither choice grants an ordinary
+member access to the rootful project engine or the host Podman socket. AI job isolation
+remains the runner's separately verified boundary, not borrowed project credentials.
+
 ## Service and permission corrections
 
 Installed testing found two concrete defects: `CONTAINER_HOST=` selected remote

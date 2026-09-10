@@ -18,6 +18,13 @@ repeat the rendering ports, replace the session model or mark step 6 complete.
 If implementation has advanced since this review, preserve that work and apply
 the same contracts to the current owners rather than restoring this checkout.
 
+The subsequently selected Project OS profiles, Desktop and AI views inherit these
+same token, typing, template and build rules. They extend the shared Lit workspace;
+this cleanup plan does not introduce another UI stack or override the
+[Project OS ownership map](project-os.md#one-foundation-for-every-profile).
+Preserve completed cleanup and require real backend/native behavior before showing
+new actions as available. Feature order belongs to the leading Sodaspaces plan.
+
 ## Implementation progress after the reviewed baseline
 
 The local implementation now covers canonical workspace tokens and computed

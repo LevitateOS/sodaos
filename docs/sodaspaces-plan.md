@@ -46,7 +46,11 @@ credential onboarding are not prerequisites to the Lit source ports.
 
 The [Project OS baseline](project-os.md) consolidates the existing Rocky + mise,
 account/sudo, shared-state, SSH/credential, native-service and persistence contracts.
-Keep that foundation, not a new distribution or a design for every possible user tool.
+Every selected Rocky/Fedora headless/KDE profile inherits that foundation. KDE is
+graphical access to the same project account, home, tools and services; no separate
+desktop machine or VM backend is selected by the distro/interface choice.
+The [ownership map](project-os.md#one-foundation-for-every-profile) keeps the existing
+development, workload, CLI, terminal and maintenance plans authoritative.
 Its concrete gaps remain native tmux safety/required-tool coverage, real zero-key
 onboarding and agreed Git credentials; the existing session mechanism is preserved
 while the Lit workspace is implemented. Current Forgejo
@@ -368,13 +372,48 @@ Forgejo Actions ownership, current host-only runner gap and bounded review/fix
 behavior. The user selected [Linux creation profiles](project-os.md#selected-environment-profiles):
 Rocky headless, Rocky KDE, Fedora Server/headless and Fedora KDE, with Rocky/Fedora
 GNOME deferred. Its [desktop section](services-and-ai-plan.md#4-desktop-workspaces)
-proposes Terminal/Desktop views in the same Spaces page/drawer and a Linux VM
-candidate, starting with Fedora KDE. This supersedes the earlier Windows-first
-recommendation. Current Linux app/computer-use limits remain explicit compatibility
-facts, not reasons to change that selection. Marketplace placement and trigger
+proposes Terminal/Desktop views of the same Project OS in both page and drawer.
+Fedora KDE is the first desktop compatibility target; investigate the existing
+runtime before selecting any new backend. Current Linux app/computer-use limits
+remain explicit compatibility facts, not reasons to change that selection. Marketplace placement and trigger
 policy remain product choices; only Rocky headless is currently implemented. This
 extends requested scope without changing existing project roots, provider authority
 or deployment permission.
+
+### Extension order and dependency boundaries
+
+This is the integration order for the newly selected features; the detailed Lit
+steps and historical evidence below remain intact. Feature guides own detailed
+checks rather than starting competing roadmaps.
+
+1. Preserve the current Project OS and complete its outstanding browser-only Join,
+   explicit credential and selected-CLI journeys under their existing contracts.
+   Independent profile/package investigation can proceed alongside those gaps;
+   claiming a complete new profile requires the applicable access journey to work.
+2. Extend the existing image/build/staging owners for bounded Rocky/Fedora creation
+   profiles. Resolve exact native inputs and persist the original profile at Create;
+   reject unsupported/unavailable choices before reserving or provisioning. No live
+   distro switching, dependency upgrades of retained roots or arbitrary image input.
+3. Prove KDE startup as the project user, correct HOME/mise/groups, persistent app
+   state, display isolation and display/input transport. Start with Fedora KDE and
+   repeat affected checks for Rocky KDE. Record a concrete runtime blocker before
+   proposing VM responsibilities; do not implement two speculative backends.
+4. Add Desktop to the existing shared Lit page/drawer after a real authorized native
+   attachment exists. Preserve exact session identity across navigation and both
+   surfaces; terminal End, desktop-session end, project Stop and AI Cancel have
+   different scopes. Keep existing terminal leases/logout semantics intact.
+5. Implement marketplace and AI features through their existing owners. Marketplace
+   placement and event trust policy remain open choices. Project-local services, if
+   selected, use Project OS's native engine; appliance services remain operator-owned.
+   Headless issue/PR automation does not depend on desktop availability. Reuse the
+   relevant Project OS tooling contracts for run images while keeping run checkout,
+   credentials and execution lifetime separate from a person's ongoing work.
+6. Validate each advertised profile/capability and finish its real creation/access/
+   persistence journey before exposing it as available. Build, native fixtures,
+   provider execution and retained-target delivery remain separately scoped. GNOME
+   stays deferred. Keep actual outcomes in the handoff, not invented readiness states.
+
+### Existing workspace completion and retained boundaries
 
 1. **Complete scoped native/CLI proof of Spaces and its companion drawer.** The
    single [detailed sequence](lit-migration-plan.md) records locally completed steps
