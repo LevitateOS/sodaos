@@ -1,5 +1,29 @@
 # Current handoff
 
+## Runner plan revision after pulling native page integration
+
+Revised `docs/runners-port.md` steps 4–7 against the pulled source at `4cfeea1`.
+Native connection/logout (`6097564`) and page bodies (`a77dea1`) are landed, not
+missing implementation. Step 4 remains partial: review those contracts, obtain an
+explicit shared-file editor handoff, wire the installed runner caller/guard,
+complete scenario preparation, validate combined source, prepare the pinned builder
+and produce/inspect the paired native candidate. Independent runner-owned local
+work does not wait for provider/deployment grants. The revised plan distinguishes
+unfinished implementation, cross-lane dependencies and action-specific approvals.
+
+Step 5 now inventories callable preparation versus missing interruption, concurrent
+caller/fault, preserved activation/reboot and provider-aftermath scenarios; none is
+waived or labelled native proof. Step 6 requires the final Soda-pages navigation/
+assets/schema contract and applicable exact-candidate evidence, with one delivery
+executor. Step 7's delivered-parity/Cockpit-retirement gate is unchanged. Updated
+the companion preparation guide's stale page-body dependency. Earlier revision
+receipts remain historical, not a new combined-checkout PASS.
+
+Documentation-only revision: reviewed current plans, handoff and Git state; checked
+diff whitespace. No code, shared browser files, toolchains, targets, credentials or
+provider resources changed; no builds/tests/native phases were run in this revision.
+
+
 ## Native Soda navigation and shell retirement — integration step 4
 
 Normal Spaces, operator Runners, repository settings and Open in Spaces links now

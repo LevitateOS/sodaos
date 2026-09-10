@@ -448,9 +448,13 @@ from these local checks.
 
 ### 4. Prepare product-owned native journeys and a paired candidate
 
-**Status: runner-owned test/input preparation implemented; `9476858` passed local
-focused and aggregate source checks. Shared driver wiring and the verified native
-candidate exit remain open.** The
+**Status: partially implemented, not blocked as a whole.** Runner-owned inputs,
+callable phases and observers are implemented. Native connection/logout and all
+three page bodies have now landed in Soda-pages (`6097564`, `a77dea1`). Its step 4
+still owns navigation/legacy-shell retirement and caller/test migration. Do not
+wait for page bodies that already exist or treat them as the final source handoff.
+The earlier `9476858` source-check receipt is historical; the pulled combined
+checkout needs its own applicable checks and exact-candidate evidence. The
 [native runner preparation guide](runners-native-validation.md) owns exact source
 entrypoints, private input/effect gates, candidate artifact checklist and blockers.
 `tests/installed/runners.ts` supplies callable list/denial, registration and exact
@@ -459,14 +463,49 @@ state/credential hashes and official exact-run Forgejo APIs. The manual-only tru
 workflow records native job identity and two-step workspace proof. Local tests use
 synthetic command/HTTP outputs and owned files, not native/provider execution.
 
-The Soda-pages lane still owns wiring these cases into its existing installed
-browser driver after its page-body/authentication handoff. No duplicate login,
-shell, browser fixture or standalone test orchestrator was added. The original
-Cockpit/Tailnet probes remain unchanged and read-only within their existing scope.
-The native scripts require Go 1.26.7, while this shell has Go 1.27.0; do not bypass
-that shared contract. No target/provider inputs or final matching native export
-have been selected/verified here. Support tools supply transport and observations,
-not copied scenarios or a second readiness gate.
+Complete the following preparation in order, without turning execution approvals
+into a hold on independent local implementation:
+
+1. **Review the landed contracts.** Consume the native entry URLs, original-actor
+   binding, connection/logout/retirement behavior and request guard. Record any
+   runner-specific mismatch against its actual owner; do not rebuild the shell or
+   authentication integration.
+2. **Integrate the installed caller after a file-level handoff.**
+   `loadRunnerInput` and `exerciseRunners` currently have no installed callers.
+   Soda-pages retains ownership of `tests/installed/sodaspaces.ts` and shared
+   browser/authentication files until an explicit committed handoff names the
+   editor and files. Wire the phases into that existing driver/one-shot guard,
+   then test admission, credential clearing, failure evidence and no replay.
+   Runner-owned module/test improvements can proceed before this handoff; do not
+   edit reserved files in parallel or add a second login/test orchestrator.
+3. **Finish scenario preparation.** Use step 5's coverage table below to distinguish
+   callable phases from missing integrated scenarios. Author missing scoped cases
+   with the existing product-owned journeys, or specify exact approved native-tool
+   procedures where automation is not selected. Every required case needs explicit
+   inputs, effects, observations and failure/evidence retention before execution;
+   do not leave it as an unspecified manual checklist or a new support-tool gate.
+4. **Validate the combined source and prepare the builder.** Run applicable focused
+   checks and the ordinary source gate on the final combined source. Prepare the
+   pinned native Go 1.26.7/Bun 1.4.2 toolchain locally; the observed Go 1.27.0 shell
+   mismatch is a resolvable prerequisite, not a reason to change the shared pin.
+   Reuse applicable exact-candidate receipts; do not transfer historical PASS
+   records across changed source merely because commits were pulled/rebased.
+5. **Prepare the candidate and execution proposal.** Produce/inspect the matching
+   native export and affected-artifact set below. Select and document exact
+   target/provider resources and the compatibility/effect list for authorization.
+   Preparing inputs does not create a provider record, fixture or permission grant.
+
+The distinction is explicit:
+
+| Category | Remaining requirement |
+| --- | --- |
+| Local unfinished work | Runner scenario/caller integration, combined checks, pinned builder, native export and compatibility preparation. Routine authorized local implementation/testing may continue. |
+| Cross-lane dependency | Committed file-level driver handoff and final Soda-pages navigation/assets/schema contract. Only dependent shared edits/final candidate readiness wait for these. |
+| Execution approval/input | Exact native target, actors, provider resources, credentials and allowed actions. Real registration/jobs/lifecycle, reboot, cleanup and deployment remain separately scoped. |
+
+The original Cockpit/Tailnet probes stay unchanged and read-only within their
+existing scope. Support tools supply transport and observations, not copied
+scenarios or a second readiness gate.
 
 The test inputs must identify the exact target, browser origin/trust, configured
 operator and denied test actor, each approved provider scope/repository/registration,
@@ -503,8 +542,23 @@ does not grant new VM, provider, reboot or cleanup actions.
 
 ### 5. Prove the delivered replacement on an isolated native fixture
 
-**Status: not run.** Use an explicitly authorized fixture and trusted provider
-resources. Retain failed attempts and partial states.
+**Status: native/provider execution not run; scenario preparation is incomplete.**
+Finish each case's preparation under step 4 before its separately approved run.
+Use an explicitly authorized fixture and trusted provider resources. Retain failed
+attempts and partial states. Existing local fixtures are not installed acceptance.
+
+| Required proof | Current preparation and remaining work |
+| --- | --- |
+| Native page admission and exact runner operations | Callable list/denial, register/start/stop/restart/remove phases exist; shared driver/guard wiring and its integration checks remain. Native proxy/socket/systemd proof is unrun. |
+| Real trusted job and exact result | Dispatch/exact-run reads and a two-step identity/workspace fixture exist. Workflow publication, approved registration/unique label, driver sequencing and real provider execution are not done. |
+| Idle/active-job lifecycle and termination | Individual lifecycle actions and PID/start/cgroup observations exist, not a complete interruption/process-tree/provider-outcome scenario. Prepare the exact sequence and observations; do not infer cleanup from listener state or one PID. |
+| Cockpit/CLI/web overlap and faults | Local lock/command-double regressions exist. Installed concurrent callers, scoped fault procedures and partial-outcome receipts still need preparation and execution. |
+| Existing-state activation and reboot | Selected state/hash observers exist, not a quiesced backup or prior-version activation/reboot journey. Define the baseline, activation comparison and separately gated reboot procedure without cloning live listeners. |
+| Local Remove and provider aftermath | Local removal phase exists. Exact provider record/history inspection and any separately authorized provider cleanup procedure remain to be prepared; local deletion is not provider deletion. |
+
+This table identifies remaining preparation, not optional acceptance criteria.
+Keep these scenarios at their existing owners; do not duplicate Soda-pages shell,
+OAuth, logout or common installed-artifact verification suites.
 
 Before candidate activation, inventory the preservation baseline. Saved unsupported
 providers require an explicit operator decision before deployment; do not reinterpret
@@ -551,8 +605,16 @@ An unavailable provider leaves that part open and Cockpit retirement pending.
 
 ### 6. Rehearse preserved-state delivery, then cut over the chosen target
 
-**Status: not authorized or executed by this planning pass.** This step owns
-runner-management delivery only. Consume the Soda-pages shell/schema handoff;
+**Status: execution requires a later explicit delivery grant; recipe preparation
+may proceed locally.** Entry requires step 5's applicable exact-candidate native/
+provider proof plus the Soda-pages committed final navigation/assets/schema contract,
+applicable integration receipts and reviewed affected-component delivery recipe.
+Landed page bodies alone do not satisfy those prerequisites. Identify one executor,
+one exact candidate manifest and the shared versus runner-only effects before any
+maintenance window. Do not require a duplicate Soda-pages rollout if its applicable
+delivery is already complete.
+
+This step owns runner-management delivery only. Consume the Soda-pages shell/schema handoff;
 common phases of an approved combined rollout have one executor and receipt,
 not two competing maintenance recipes. A later runner-only rollout preserves the
 already delivered shell/schema and rehearses only its actual compatibility delta,
@@ -599,7 +661,10 @@ Cockpit Runners remains until the final coordinated removal.
 
 ### 7. Retire only Cockpit's runner presentation
 
-**Status: gated on delivered parity and a coordinated removal change.** Remove
+**Status: unchanged, gated on delivered parity and a coordinated removal change.**
+This is downstream work, not a blocker to step 4 preparation. Applicable steps 5–6
+proof must precede retirement; a local source pass or completed page mount is not
+permission to remove the fallback. Remove
 `cockpit/soda-runners/`, runner-only React presentation/store/transport and their
 exclusive UI tests only after their applicable behavioral coverage exists at the
 new owner. Adjust `cockpit/vite.config.ts`, package inventory, staging and payload

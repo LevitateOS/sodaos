@@ -8,9 +8,13 @@ continues to own the shared browser driver, authentication and shell/schema deli
 
 **Current status:** runner inputs, callable scenarios, fixed read-only native
 observations and provider dispatch/exact-run observations have source implementations.
-Candidate `9476858` passed the ordinary aggregate source gate and focused local
-input/transport-double/filesystem checks. The shared driver has not yet called them: its native page-body/authentication
-handoff is pending. No target/provider inputs have been selected, and no matching
+The historical candidate `9476858` passed the ordinary aggregate source gate and
+focused local input/transport-double/filesystem checks; this is not a fresh receipt
+for the pulled combined checkout. Native connection/logout and page bodies have
+now landed (`6097564`, `a77dea1`). The shared driver has not yet called the runner
+phases: its explicit file-level handoff and final navigation/caller migration remain
+pending. Follow the revised step 4 sequence for independent local work, cross-lane
+dependencies and execution approvals rather than treating all three as one hold. No target/provider inputs have been selected, and no matching
 native candidate build/check/export has run for this work. Do not call step 4's
 verified-candidate exit complete or these scenarios provider-validated.
 
