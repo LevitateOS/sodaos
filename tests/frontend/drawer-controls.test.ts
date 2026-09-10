@@ -160,6 +160,36 @@ test('create never implicitly joins, saves keys or starts; rapid clicks dispatch
   assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7', profile_id: 'rocky-headless'});
   assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1'); assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
 });
+test('legacy OS observation is explicit, read-only and never becomes a creation profile', async t => {
+  const page = await fixture(t); await refresh(page);
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter(c => c.url.endsWith('/os')).length), 0);
+  await click(page, 'Inspect current OS');
+  await page.getByText('Rocky Linux 9.7 · rocky 9.7', {exact: true}).waitFor();
+  await page.getByText(/Legacy \/ unknown creation profile/).waitFor();
+  assert.deepEqual(await writes(page), []);
+  await page.evaluate(() => {window.drawerFixture.state.running = false;}); await refresh(page);
+  assert.equal(await page.getByText('Rocky Linux 9.7 · rocky 9.7', {exact: true}).count(), 0);
+  await click(page, 'Inspect current OS');
+  await page.getByText('OS release not read: environment is stopped.', {exact: true}).waitFor();
+  assert.deepEqual(await writes(page), []);
+});
+
+test('OS text stays text, malformed receipts clear observations, and denial invalidates context', async t => {
+  const page = await fixture(t); await refresh(page);
+  await page.evaluate(() => window.drawerFixture.setReply(async call => call.url.endsWith('/os') ? Response.json({environment: {id: 'p0123456789abcdef01234567', running: true}, os_release: {id: 'rocky', version: '9.7', name: '<img src=x onerror=alert(1)>'}, os_release_unavailable: false}) : null));
+  await click(page, 'Inspect current OS');
+  await page.getByText('<img src=x onerror=alert(1)> · rocky 9.7', {exact: true}).waitFor();
+  assert.equal(await page.locator('[aria-label="Observed project userspace"] img').count(), 0);
+  await page.evaluate(() => window.drawerFixture.setReply(async call => call.url.endsWith('/os') ? Response.json({environment: {id: 'wrong-target', running: true}, os_release: null, os_release_unavailable: true}) : null));
+  await click(page, 'Inspect current OS');
+  await page.getByText('OS observation unavailable. Nothing was started or repaired.', {exact: true}).waitFor();
+  assert.equal(await page.getByText('<img src=x onerror=alert(1)> · rocky 9.7', {exact: true}).count(), 0);
+  await page.evaluate(() => window.drawerFixture.setReply(async call => call.url.endsWith('/os') ? Response.json({error: {code: 'forbidden'}}, {status: 403}) : null));
+  await click(page, 'Inspect current OS');
+  await page.getByText(/Page context changed/).waitFor();
+  assert.deepEqual(await writes(page), []);
+});
+
 test('Stop requires explicit shared-impact confirmation and Start is separate', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Stop'); assert.deepEqual(await writes(page), []);
   await page.locator('input[type=checkbox]').first().check(); await click(page, 'Stop');

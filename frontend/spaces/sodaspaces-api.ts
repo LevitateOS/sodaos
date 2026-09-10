@@ -61,6 +61,21 @@ export function detailResponse(value: unknown, environment: Environment): Detail
   }
   return { environment: { ...environmentResponse(env, environment.repository_id), provisioned: env.provisioned }, login: data.login, environment_administrator: data.environment_administrator, native_unavailable: data.native_unavailable, authority_unavailable: data.authority_unavailable, observed };
 }
+export interface OSObservation {running: boolean; image: string | null; release: {id: string; version: string; name: string} | null}
+export function osObservation(value: unknown, environmentID: string): OSObservation {
+  const data = object(value), env = object(data.environment);
+  check(env.id === environmentID && typeof env.running === 'boolean' && typeof data.os_release_unavailable === 'boolean');
+  const image = env.image === undefined ? null : env.image;
+  check(image === null || (typeof image === 'string' && /^sha256:[0-9a-f]{64}$/.test(image)));
+  let release: OSObservation['release'] = null;
+  if (data.os_release !== null) {
+    const r = object(data.os_release);
+    check(env.running && !data.os_release_unavailable && typeof r.id === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/.test(r.id) && typeof r.version === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(r.version));
+    check(typeof r.name === 'string' && r.name.length > 0 && new TextEncoder().encode(r.name).length <= 256 && !/[\p{Cc}\p{Cf}]/u.test(r.name));
+    release = {id: r.id, version: r.version, name: r.name};
+  } else check(data.os_release_unavailable);
+  return {running: env.running, image, release};
+}
 export interface SavedKey { id: string; fingerprint: string; public_key?: string }
 export function savedKeysResponse(value: unknown): SavedKey[] {
   const data = object(value); check(Array.isArray(data.items));

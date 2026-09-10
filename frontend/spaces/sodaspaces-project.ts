@@ -1,11 +1,11 @@
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
-import {renderEnvironment, renderProjectOS} from './sodaspaces-environment-view.js';
+import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
 import {renderConnection, renderKeys, renderForgejoKeys, renderProjectStatus} from './sodaspaces-project-view.js';
 import type {TemplateResult} from 'lit';
-import {object, check, id, creationProfile, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, profileKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
-import type {CreationProfile, Session, Environment, Detail, KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
+import {object, check, id, creationProfile, osObservation, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, profileKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
+import type {OSObservation, CreationProfile, Session, Environment, Detail, KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
 export interface ProjectContext { expectedUserId?: string | undefined; repositoryId: string; page?: boolean; settings?: boolean }
 
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
@@ -43,12 +43,14 @@ function renderLifecycle(
 
 export class SodaProjectControls extends LitElement {
   static properties = {
-    profiles: {state: true}, selectedProfile: {state: true}, status: {state: true}, outcome: {state: true}, repository: {state: true}, session: {state: true},
+    observedOS: {state: true}, osStatus: {state: true}, profiles: {state: true}, selectedProfile: {state: true}, status: {state: true}, outcome: {state: true}, repository: {state: true}, session: {state: true},
     environment: {state: true}, detail: {state: true}, saved: {state: true}, keyPreview: {state: true},
     profileKeys: {state: true}, lifecycle: {state: true}, connection: {state: true}, busy: {state: true}, stale: {state: true},
     uncertain: {state: true}, connectVisible: {state: true}, canCreate: {state: true},
     selected: {state: true}, draft: {state: true}, stopConfirmed: {state: true}, emptyConfirmed: {state: true}, useSavedKeys: {state: true},
   };
+  declare private observedOS: OSObservation | undefined;
+  declare private osStatus: string;
   declare private profiles: CreationProfile[];
   declare private selectedProfile: string;
   declare private status: string;
@@ -80,7 +82,7 @@ export class SodaProjectControls extends LitElement {
 
   constructor() {
     super();
-    this.profiles = []; this.selectedProfile = '';
+    this.profiles = []; this.selectedProfile = ''; this.observedOS = undefined; this.osStatus = '';
     this.status = 'Refresh to inspect your shared environment.'; this.outcome = this.repository = this.draft = '';
     this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.busy = this.stale = this.uncertain = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
@@ -124,6 +126,7 @@ export class SodaProjectControls extends LitElement {
           @click=${() => this.select(view)} @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}>${view[0]?.toUpperCase()}${view.slice(1)}</button>`)}</div>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-environment'} class="soda-spaces-view" role="tabpanel" aria-label="Environment" ?hidden=${this.selected !== 'environment'}>
         ${renderProjectOS(this.profiles, this.selectedProfile, this.detail?.environment || this.environment, this.blocked, value => {if (this.profiles.some(p => p.id === value)) this.selectedProfile = value;})}
+        ${this.environment ? renderOSObservation(this.observedOS, this.osStatus, this.blocked, event => this.command(event, () => this.inspectOS())) : ''}
         ${renderEnvironment({connectURL: '/-/soda/login?' + intent, connectVisible: this.connectVisible,
           busy: this.busy, stale: this.stale, signedIn: !!this.session, blocked: this.blocked, canCreate: this.canCreate,
           canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && !!this.saved,
@@ -166,7 +169,7 @@ export class SodaProjectControls extends LitElement {
   }
   private reset() {
     this.environment = this.detail = this.keyPreview = this.saved = this.lifecycle = this.connection = this.profileKeys = undefined;
-    this.profiles = [];
+    this.profiles = []; this.observedOS = undefined; this.osStatus = '';
     this.draft = ''; this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
   }
   invalidate() {
@@ -275,6 +278,21 @@ export class SodaProjectControls extends LitElement {
       const reason = reasons[e.code || ''];
       this.outcome = !this.uncertain && reason ? reason : this.uncertain ? 'Outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. Refresh reads state only.' : 'Request rejected. Refresh and review current state before another explicit action.';
     } finally {window.clearTimeout(timeout); if (this.active(n)) this.busy = false;}
+  }
+  private async inspectOS() {
+    if (this.blocked || !this.environment) return;
+    const epoch = this.epoch, target = this.environment.id;
+    this.busy = true; this.observedOS = undefined; this.osStatus = 'Reading current userspace…';
+    this.readController?.abort();
+    const controller = this.readController = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 15000);
+    try {
+      const observation = osObservation(await this.api('/api/environments/' + target + '/os', 'GET', undefined, controller.signal), target);
+      if (this.active(epoch)) {this.observedOS = observation; this.osStatus = 'Read completed. Creation metadata was not changed.';}
+    } catch (error) {
+      if (!this.active(epoch)) return;
+      if (error instanceof SodaRequestError && (error.status === 401 || error.status === 403)) this.invalidate();
+      else this.osStatus = 'OS observation unavailable. Nothing was started or repaired.';
+    } finally {window.clearTimeout(timeout); if (this.active(epoch)) this.busy = false;}
   }
   private changeLifecycle(stop: boolean) {
     if (!this.environment) return;

@@ -1,5 +1,60 @@
 # Current handoff
 
+## Existing-root OS observations and native tooling — local source
+
+The settings/drawer shared Lit command owner now has an explicit **Inspect current
+OS** read. Protected `GET /api/environments/{id}/os` shares environment read authority,
+rejects query retargeting, validates the native receipt/profile association and
+rechecks the Soda context after native I/O. The fixed `/os` helper first inspects the
+trusted existing container, then reads only `/etc/os-release` if already running.
+Python uses isolated/no-site/no-bytecode mode; the bounded regular-file parser never
+shell-sources input, returns only validated ID/version/name fields and reports missing,
+malformed, special or oversized inputs as unavailable. Ordinary symlinks are supported.
+The actual original container image is normalized from inspection, not today's
+configured image. Read results are not current package inventories or immutable
+creation identities. Stopped roots stay stopped; no profile/readiness backfill, root
+conversion, account write or implicit terminal attachment follows. UI refresh/context
+invalidation clears old observations, and untrusted display text stays text.
+
+The Rocky recipe explicitly adds native GCC/C++/headers, Make/CMake/Ninja,
+pkg-config/binutils, GDB/strace, OpenSSL/zlib development packages and standard
+archive/transfer/network diagnostics. Repository runtimes remain a mise choice.
+`tests/installed/project-foundation.sh` is an **unrun installed probe**, not an
+installer: explicit native scope and an ordinary user are required before it creates
+one private, retained `soda-foundation.*` directory in that user's project home.
+It uses a fresh test-only HOME, builds/links C and C++17 samples, runs CTest/GDB/strace
+and retains logs/ELF evidence. It installs nothing and performs no cleanup or provider
+access. The expanded RPM recipe has not been built/resolved here; package availability,
+real member compilation/debugging and full-profile acceptance remain unverified.
+Existing roots have received no additions or maintenance. No extra schema migration
+was added; the preceding schema-v8/labelled-image paired-delivery requirements remain.
+
+Runner isolation investigation did **not** enable OCI labels or jobs. Current Fedora
+44 package source selects runner 12.13.2, not necessarily any retained VM's installed
+version. Its socket-mount controls and unsupported workflow/job `permissions:` handling,
+plus Forgejo 15.0.7 automatic task-token injection and same-repository non-fork write
+access, confirm why a rootless engine alone does not meet the AI credential boundary.
+The planned trusted launcher/publisher outside command sandboxes and real run-owned
+terminals still need implementation; no Forgejo fork or weaker trust model was selected.
+Exact source references and implications are in the [AI plan](services-and-ai-plan.md#trust-credentials-and-the-concrete-runtime-gap).
+Marketplace, Fedora/multiple image slots, KDE, AI workflow saving/publication/terminals
+and the unresolved personal outbound-Git trust/consent work remain unfinished.
+
+**Actually executed:** full `go test ./...`; host/store/web races, followed by final
+host/web races after stricter OS-receipt validation; strict TypeScript/Lit checks;
+Forgejo asset build; full root Bun suite (**203 frontend passed / 5 conditional skips**,
+Go Spaces-page fixture and layout journey, **31 Forgejo / 21 conditional skips**,
+**60 Cockpit**). The skipped repository-settings browser case was then explicitly run
+against freshly exported actual Go HTML/CSP and emitted assets: both tests passed.
+Python build discovery: **107 tests, OK, 1 skip**, including real parser/filesystem
+checks and the installed probe's authorization/no-write guard, not its native body.
+New coverage includes stopped/no-start behavior, fixed exec arguments, shell nonexecution,
+malformed/mismatched native receipts, denied reads, logout winning publication,
+no legacy backfill, literal browser text and clearing stale observations. Evidence and
+reviewed upstream archive/spec hashes: `.artifacts/runner-isolation-a741c65/`.
+No native image build, appliance deployment, retained-target read/exec, provider
+registration/job, lifecycle action or credential mutation occurred in this slice.
+
 ## Repository Sodaspaces settings and creation identity — local source
 
 Added the selected `/-/soda/repositories/{id}/settings/spaces` Go page and one

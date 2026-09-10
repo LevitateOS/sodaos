@@ -1,6 +1,6 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
-import type {CreationProfile, Environment} from './sodaspaces-api.js';
+import type {CreationProfile, Environment, OSObservation} from './sodaspaces-api.js';
 
 export function renderProjectOS(profiles: readonly CreationProfile[], selected: string, environment: Environment | undefined, blocked: boolean, select: (id: string) => void): TemplateResult {
   if (environment) {
@@ -14,6 +14,15 @@ export function renderProjectOS(profiles: readonly CreationProfile[], selected: 
   return profiles.length ? html`<label>Project OS <select .value=${selected} ?disabled=${blocked} @change=${(event: Event) => {if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);}}>
     ${profiles.map(p => html`<option value=${p.id} ?selected=${p.id === selected}>Rocky ${p.version} headless (${p.architecture})</option>`)}
     </select></label><p>Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.</p>` : html``;
+}
+
+export function renderOSObservation(observed: OSObservation | undefined, status: string, blocked: boolean, inspect: (event: MouseEvent) => void): TemplateResult {
+  return html`<section aria-label="Observed project userspace"><h3>Current userspace</h3>
+    <button type="button" class="ui basic button" ?disabled=${blocked} @click=${inspect}>Inspect current OS</button>
+    <p>Reads this root’s OS release and original container image. Does not start, modify or assign a creation profile.</p>
+    ${observed ? html`<p>${observed.release ? `${observed.release.name} · ${observed.release.id} ${observed.release.version}` : observed.running ? 'OS release unavailable; current distribution/version are unknown.' : 'OS release not read: environment is stopped.'}</p>
+      <p>Original container image (not current installed packages):</p><code>${observed.image || 'Unknown'}</code>` : ''}
+    <p role="status">${status}</p></section>`;
 }
 
 export interface EnvironmentPresentation {

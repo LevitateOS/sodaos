@@ -83,8 +83,16 @@ Environment DTOs now include `profile`, either null for legacy/unknown or the im
 this with the reservation and rejects later profile updates. Native labels carry
 the same identity; detail/Spaces reads mark a mismatched observation unavailable.
 This describes the original image, **not current mutable RPM state**. Legacy metadata
-is not inferred/backfilled from today's image; separate legacy `/etc/os-release`
-inspection remains follow-up work. Existing Start/Stop/account/terminal operations
+is not inferred/backfilled from today's image. Explicit `GET /api/environments/{id}/os`
+now returns `environment` (observed ID/running state and `image` when known),
+`os_release` (`id`, `version`, `name`, or null), and `os_release_unavailable`.
+It accepts no query parameters or caller-selected file paths, shares environment read authority and
+rechecks the Soda context before publication. The helper reads only `/etc/os-release`
+inside an already running project through a fixed isolated-Python invocation, never
+shell-sources it, and returns only validated ID/version/display-name fields. Stopped
+roots stay stopped; missing/malformed/special/oversized files report unavailable.
+The settings/drawer **Inspect current OS** button is explicit, not a background
+terminal poll. These observations never write creation metadata or infer a profile. Existing Start/Stop/account/terminal operations
 never resolve the current default image or convert a root.
 
 ## Browser-only Join and optional public keys

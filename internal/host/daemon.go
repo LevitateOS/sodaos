@@ -24,6 +24,7 @@ import (
 
 var projectID = regexp.MustCompile(`^p[0-9a-f]{24}$`)
 var loginName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+var imageID = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
@@ -93,7 +94,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.terminalHandler(w, r)
 		return
 	}
-	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/profile" || r.URL.Path == "/create") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
+	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/profile" || r.URL.Path == "/create" || r.URL.Path == "/os") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
 		http.Error(w, "invalid native operation path", 400)
 		return
 	}
@@ -131,6 +132,11 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var in Create
 		if err = decode(&in); err == nil {
 			out, _, err = d.inspect(ctx, in.ID)
+		}
+	case "/os":
+		var in Create
+		if err = decode(&in); err == nil {
+			out, err = d.observeOS(ctx, in.ID)
 		}
 	case "/connection":
 		var in Create
@@ -236,6 +242,9 @@ func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, er
 		return env, 0, errors.New("invalid native inspection")
 	}
 	item := items[0]
+	if imageID.MatchString(item.Image) {
+		env.Image = "sha256:" + strings.TrimPrefix(item.Image, "sha256:")
+	}
 	if item.Config.Labels["org.soda.project"] != id {
 		return env, 0, errors.New("container is not owned by this project")
 	}

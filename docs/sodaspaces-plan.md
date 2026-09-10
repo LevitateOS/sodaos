@@ -473,7 +473,11 @@ grant it. Server-side checks apply to every read and mutation, including deep li
 Keep Cockpit Runners and all its backing logic/tests until the replacement works.
 Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with local
 coverage; native/provider acceptance and Cockpit removal remain pending. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
-creation metadata now also have local source coverage (schema v8). AI settings,
+creation metadata now also have local source coverage (schema v8). The shared
+explicit **Inspect current OS** control now reads the existing root’s bounded
+OS-release/image facts without profile backfill, Start or repair. The Rocky recipe
+adds native build/debug/development tooling and a gated ordinary-user installed
+probe; expanded-image installation/compiler proof remains unrun. AI settings,
 multiple OS artifacts, marketplace and desktop integration remain unimplemented;
 none of these source checks is installed/native proof. Test unauthorized/stale actors, unavailable profiles, legacy project display,
 failed provisioning, unsaved forms, concurrent workflow edits and native menu coexistence.

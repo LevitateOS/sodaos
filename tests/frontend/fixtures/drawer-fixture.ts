@@ -31,6 +31,7 @@ function createFixture(extra: Partial<State> = {}) {
     else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
     else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};
     else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((fingerprint, i) => ({id: String(i + 1), fingerprint}))};
+    else if (url.endsWith('/os')) body = {environment: {id: environmentID, running: state.running, image: 'sha256:' + 'a'.repeat(64)}, os_release: state.running ? {id: 'rocky', version: '9.7', name: 'Rocky Linux 9.7'} : null, os_release_unavailable: !state.running};
     else if (url.endsWith('/lifecycle')) body = {environment: {id: environmentID, running: state.running}, boot_enabled: state.running};
     else if (url.endsWith('/access-keys')) body = {login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: state.installed, saved_fingerprints: state.saved};
     else if (url.endsWith('/connection')) body = {login: 'alice', connection: {environment: {id: environmentID, running: true, ip: '10.89.0.2'}, fingerprint: fixtureFingerprint}};

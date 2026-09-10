@@ -90,6 +90,17 @@ link and diagnostic operations as the ordinary project user. Keep version pins a
 resolved package inventories in their existing source/build owners. A tool-manager
 binary alone is not proof that the development foundation is complete.
 
+The Rocky recipe now explicitly adds GCC/C++, native C/C++ headers, Make,
+CMake/Ninja, pkg-config, binutils, GDB/strace, OpenSSL/zlib development packages,
+and archive/transfer/network diagnostics. Language versions still belong to mise.
+`tests/installed/project-foundation.sh` owns the ordinary-user C/C++ link/check/debug
+probe, with a fresh private HOME and retained test-only artifacts; see the
+[native journey](native-validation.md#explicitly-permitted-product-journey).
+Packaging/parser/probe-guard tests have local coverage. The expanded RPM installation
+and real compiler/debugger probe have **not run in a newly built native image**;
+this is not yet batteries-included acceptance. Existing roots receive no automatic
+package addition or maintenance from this recipe change.
+
 Repository-specific runtimes and dependencies still follow native mise/package
 workflows and authorized trust/install decisions. When a user selects a supported
 optional app, Soda must supply its declared dependencies and working launch path;
@@ -170,6 +181,19 @@ tags and the current configured default are not environment identity. For legacy
 roots that lack this metadata, report a legacy/unknown profile plus separately
 observed `/etc/os-release` and image facts; do not backfill a precise profile from
 today's default or change the root to make the label true.
+
+The shared settings/drawer **Inspect current OS** control now implements that
+separate observation through the protected `/api/environments/{id}/os` route and
+fixed native `/os` helper operation. It reads a bounded, regular `/etc/os-release`
+(standard symlinks allowed), validates only ID/version/display-name, and never
+shell-sources it; Python runs in isolated mode without site initialization or bytecode writes.
+Other fields are not returned. The original container image is
+read from actual inspection, not the configured default; neither fact describes
+an immutable inventory of subsequently installed packages. Stopped roots stay
+stopped and have no OS-release read. Malformed/missing/special/oversized files are
+unavailable, not repaired. Reads never assign profiles or change readiness; the
+session is rechecked before returning observations. Local parser, Go and synthetic
+browser checks passed; installed helper/root observations remain unrun.
 
 **Use Fedora KDE as the first desktop compatibility target** within the shared
 foundation work, not as a replacement for outstanding Project OS work. OpenAI currently

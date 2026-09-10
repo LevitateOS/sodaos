@@ -490,6 +490,28 @@ service.
 
 ### Trust, credentials and the concrete runtime gap
 
+**Source investigation, not runtime proof:** the current Fedora 44 package source
+selects runner **12.13.2** (this is not a read of any retained VM's installed RPM).
+Its `internal/pkg/config/config.example.yaml` distinguishes the client engine
+endpoint from `container.docker_host`: a URL in the latter **mounts the engine
+socket into the job**; `-`/empty suppress that mount. A future rootless candidate
+must keep the socket outside command jobs, not expose it to make OCI execution work.
+The runner's `act/jobparser/model.go` explicitly says workflow/job `permissions:`
+is unsupported. Forgejo **15.0.7** `services/actions/secret.go` supplies the task
+credential as `GITHUB_TOKEN`, `GITEA_TOKEN` and `FORGEJO_TOKEN`; its API
+`routers/api/v1/permissions/repo_access.go` assigns same-repository non-fork tasks
+write access (fork-PR tasks read access). Consequently, rootless OCI execution alone,
+secret-name selection, sequential steps or a GitHub-style permissions stanza cannot
+establish the selected read-only-command/trusted-publisher boundary. This is not a
+reason to fork Forgejo or weaken the boundary. The planned trusted launcher/publisher
+outside the command sandbox still needs implementation and native proof, together
+with run-owned terminals. No OCI label or automatic workflow was enabled by this
+investigation. Sources/evidence: `.artifacts/runner-isolation-a741c65/`,
+[Fedora spec](https://src.fedoraproject.org/rpms/forgejo-runner/raw/f44/f/forgejo-runner.spec),
+[runner 12.13.2 source](https://code.forgejo.org/forgejo/runner/src/tag/v12.13.2),
+[Forgejo token injection](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/services/actions/secret.go),
+[Forgejo task repository authority](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/permissions/repo_access.go).
+
 The current Soda Forgejo runner accepts only `name:host` labels in
 [`internal/runners/model.go`](../internal/runners/model.go). Its
 [configuration](../internal/runners/native_create.go) and

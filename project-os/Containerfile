@@ -7,7 +7,11 @@ ARG GH_VERSION=2.97.0
 LABEL org.soda.profile="rocky-headless" org.soda.distribution="rocky" org.soda.distribution.version="10.2" org.soda.interface="headless"
 # Native GitHub CLI repository; signature verification remains enabled.
 COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git tmux ncurses vim-minimal less ca-certificates curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
+# Non-preference headless foundation. Repository runtimes still belong to mise;
+# native compilers, headers and diagnostics must not need post-Create repairs.
+RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git tmux ncurses vim-minimal less ca-certificates curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns \
+    gcc gcc-c++ glibc-devel libstdc++-devel make cmake ninja-build pkgconf-pkg-config binutils gdb strace \
+    openssl-devel zlib-devel patch diffutils file unzip zip xz bzip2 rsync iproute iputils bind-utils lsof jq bash-completion && dnf clean all
 # The rolling repository no longer indexes this pinned version. Its signed
 # release RPM is retained upstream; enforce signature checking for local/URL RPMs
 # too, rather than upgrading the CLI or disabling the configured trust boundary.

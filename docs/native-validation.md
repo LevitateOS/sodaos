@@ -504,6 +504,14 @@ a failed inspection is not evidence of absent state or forbidden access.
 3. Alice creates an ordinary Forgejo repository with native Git credentials and then creates its Soda environment. Only its human owner may create that environment. Both explicitly select **Add me to this project**. No creator auto-enrollment is assumed.
 4. From the real developer client, verify the SSH host key through native operator access and connect to the displayed project IP as Alice and Bob. Exercise interactive SSH, a noninteractive command, SCP and SFTP. Do not disable host-key checking to manufacture a pass.
 5. Run `tests/installed/project-os.sh` inside the project with `SODA_NATIVE_VALIDATE` set only for that named target. Inspect `sudo -l`: Alice is project-local administrator, Bob is not. Neither acquires a host account or the host engine socket. A second project must have separate writable state and native identities.
+   Also run `tests/installed/project-foundation.sh` as an ordinary member in the
+   approved project. It requires the same explicit native scope, checks packaged
+   tools and creates one private `soda-foundation.*` directory in the project-local home
+   (not a potentially noexec/ephemeral `/tmp`). It compiles/links C against OpenSSL/zlib and a C++17 sample via CMake/Ninja,
+   runs CTest, GDB and strace, and retains sources/build/logs/ELF evidence. It does
+   not install packages, use provider credentials, start services/containers or clean up.
+   A missing package or required operator repair fails that image candidate; no
+   native execution of this new probe has yet been recorded.
 6. Both use personal home checkouts, ordinary Git commits/pushes/merges and `~/shared`. Verify shared writes/readback by both. No Soda-managed branches/selectors or cleanup are expected.
 7. Alice installs a shared tool with native mise using the documented root/global path (see [development environment](development-environment.md)). Execute `tests/installed/shared-tools.sh` from the real client with explicit Alice/Bob/project inputs. Verify both resolve and execute the same `/opt/mise/installs` installation without independent downloads.
 8. In Alice's ordinary checkout of `tests/fixtures/workload`, provide a disposable database password and explicitly run `tests/installed/workloads.sh`. This builds images and starts services. Confirm the web/database from Bob and the actual client, not only localhost. Inspect a real bind-mounted file and persistent database write/read. Do not delete volumes automatically.

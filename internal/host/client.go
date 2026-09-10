@@ -26,6 +26,7 @@ type Account struct {
 	Keys     []string `json:"keys"`
 }
 type Environment struct {
+	Image   string             `json:"image,omitempty"`
 	Profile *projectos.Profile `json:"profile,omitempty"`
 	ID      string             `json:"id"`
 	IP      string             `json:"ip"`
