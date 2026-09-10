@@ -6,12 +6,16 @@ step 1 follows planning commit `a995f9e`. The three native hosts now mount the e
 Normal navigation reaches those hosts; old Go URLs are fixed bookmark bridges
 and the duplicate shells are removed. No appliance delivery is claimed.
 
-**Whole-plan review at `97a2d5e`: changes required.** The
+**Whole-plan review findings corrected in `18c6b07`.** The
 [source-backed review](forgejo-soda-pages-review.md) reproduced a late-entry OAuth
-navigation bug, permanently stale full-page BFCache restoration and missed Go
-asset-version assertions; it also identifies the old Runners navigation label.
-Earlier step receipts remain historical evidence, not a waiver of these defects.
-These corrective source changes can proceed locally without a Linux builder.
+navigation bug, permanently stale full-page BFCache restoration, missed Go
+asset-version assertions and the old Runners navigation label. All four now have
+source fixes and local regressions, including actual persisted Back for Spaces
+and repository settings in the existing native fixture. Restoration validates the
+original actor without auto-login and does not discard unconfirmed project writes.
+The wider visual/cache-upgrade/history/authority evidence gaps and final supported-
+Linux aggregate still prevent step-5 exit; no step-6 delivery is implied. See the
+leading [handoff](implementation-status.md) for exact checks and retained evidence.
 
 The user wants Spaces and Runners to feel like parts of SodaOS's Forgejo interface:
 the same real header, navigation, profile menu, login and account settings. This

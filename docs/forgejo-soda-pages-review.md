@@ -1,11 +1,33 @@
 # Native Soda pages — review of the complete integration plan
 
+## Resolution of R1–R4 — `18c6b07`
+
+All four findings below have been corrected and locally verified. Entry lifetime
+now guards OAuth navigation; real BFCache restores usable full-page owners after
+original-actor validation without auto-login; uncertain/dispatched project writes
+remain blocked; Go template callers follow the common epoch; navigation says
+Runners. The restoration work also fixed repository mounting discarding the entry's
+Lit marker. The common graph epoch is `2026-09-10.native-pages-6`.
+
+The existing native fixture passed all 15 consumers and its real authentication/
+cache/history/logout parent, including actual persisted Back for both affected
+pages. Exact terminal/retention/Return/End and uncertain-write assertions use the
+existing synthetic operation peers, not native project processes. Focused Go
+template, TypeScript/Lit, Forgejo/frontend, fresh web/store race, Cockpit and
+payload/staging/orchestrator checks passed. See the leading
+[implementation handoff](implementation-status.md) and
+`.artifacts/pages-review-fixes/` for complete receipts, retained failed attempts
+and the local preview reload. The wider coverage gaps below remain open; no
+step-5 exit or step-6 delivery is claimed.
+
+## Original review (historical baseline)
+
 Review baseline: **`97a2d5e`**, with production source from `d838262` and native
 navigation/shell retirement from `99c2c31`. The checkout was clean. This reviews
 steps 1–5 and the step-6 delivery boundary in [the plan](forgejo-soda-pages-plan.md),
 not the separate runner backend/provider parity implementation.
 
-**Verdict: changes required.** The native-host architecture and most security/
+**Baseline verdict: changes required.** The native-host architecture and most security/
 operation boundaries are implemented, but the remaining work is not only visual
 review or Linux validation. Two lifecycle defects and a mandatory-test regression
 were reproduced locally. Do not describe steps 1–4's earlier passing evidence as

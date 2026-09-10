@@ -1,6 +1,68 @@
 # Current handoff
 
-## Whole native-pages plan review — changes required at `97a2d5e`
+## Native-pages review findings fixed — `18c6b07`
+
+All four findings in the [whole-plan review](forgejo-soda-pages-review.md) now have
+source corrections and applicable local regressions. Step 5 is still incomplete;
+this is not final-product or installed/native-process acceptance.
+
+- Entry currentness now guards the connection operation's side effects as well as
+  rendering. Delayed 401s after retirement/removal or a newer Retry neither navigate
+  to OAuth nor consume the per-tab attempt marker.
+- Real persisted history restoration disposes the retired Spaces/repository owner
+  (including measurements/listeners), validates the original actor and remounts
+  through the existing adapters. It never automatically starts OAuth. Missing or
+  changed sessions and sign-out suppression produce explicit Retry instead.
+  Repository mounting preserves the entry's Lit marker for subsequent renders.
+- Project mutations that are dispatched or unconfirmed prevent automatic remount;
+  the old owner stays blocked with explicit uncertainty. Late replies cannot erase
+  that state. Workspace remount eligibility includes its nested project controls.
+  Exact terminal locators still use the existing restore path: no create, takeover
+  or mutation replay. Disposal detaches, not End.
+- Go template assertions derive their version from the canonical header epoch;
+  paths/subpaths, escaping and single-owner checks remain. The graph epoch is now
+  `2026-09-10.native-pages-6`, with updated template inventory hashes. Navigation
+  and its test now say **Runners**; current placement guidance matches the host.
+
+**Performed checks:** emitted build and strict TypeScript/Lit passed; Forgejo
+browser/source group 37 pass / 21 gated skips; frontend 216 pass / 15 gated skips;
+Cockpit 60 pass; fresh web/store Go race tests passed. The focused Go native-page,
+Sodaspaces-template and operator-navigation checks pass, fixing the regression
+that was previously misclassified as environment-only. Payload/staging/page
+orchestrator fixtures pass (4/7/3). `git diff --check` passed.
+
+The existing `TestNativeConnectionFixture` passed its 15 consumers plus the real
+OAuth/cache/history/logout parent. Actual Back/BFCache now leaves both full-page
+controls usable, with one owner and no browser errors. The routed workspace
+consumer separately preserves the exact terminal ID and retention through a
+synthetic history event, drawer/page navigation, Return and both named Ends;
+it is not native terminal-process proof. Repository consumers cover both an
+already-unconfirmed write and a late reply after departure, without replay.
+The existing synthetic socket peer now releases its own writer on close without
+changing terminal state or retention, correcting the same-document fixture model.
+
+Evidence: `.artifacts/pages-review-fixes/`; successful private native fixture:
+`.artifacts/pages-fyQhLj/native/`. Earlier failed attempts remain retained: one
+TypeScript inference annotation, overly broad held-module interception, native
+network-idle waits, missing synthetic writer-detachment, stale preview templates,
+hidden-menu selectors, and the repository Lit-marker defect. The first staging
+invocation used a nonexistent test-module name; the corrected seven-test run
+passed. These are not discarded or represented as passing runs.
+
+The authorized local preview assets were backed up in the evidence directory,
+refreshed from the canonical payload and its existing `sodaos-local-forgejo`
+container restarted once to reload templates. Its persistent data and original
+mounts were preserved. No retained VM/project, host trust/network policy, provider
+registration/job, deployment schema or Cockpit ownership changed. The runner-owned
+installed driver and guard test were untouched; their handoff remains in force.
+
+**Remaining:** populated visual review, genuine old/new-payload cached-client
+acceptance, the wider combined history/draft/authority matrix, final supported-
+Linux aggregate and guide consistency. No new screenshot was captured here.
+The repairs and local tests do not close those broader step-5 obligations or
+start separately authorized step-6 delivery.
+
+## Historical native-pages review — findings at `97a2d5e` (resolved above)
 
 Completed a source/evidence review of steps 1–5 and the step-6 delivery boundary.
 [Full findings and step matrix](forgejo-soda-pages-review.md) name the owners,
