@@ -258,12 +258,19 @@ class LocalTerminalProcess(unittest.TestCase):
             for f in (p.stdin, p.stdout, p.stderr):
                 if f: f.close()
 
-    def start(self, lease=3, failed=False):
-        harness = '''import importlib.util,os,sys,types
+    def start(self, lease=3, failed=False, ignored_signals=False):
+        harness = '''import importlib.util,os,signal,sys,types
 from pathlib import Path
 s=importlib.util.spec_from_file_location('terminal',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 m.LEASE_SECONDS=float(sys.argv[3])
+if sys.argv[5]=='ignored':
+ signal.signal(signal.SIGINT,signal.SIG_IGN)
+ signal.signal(signal.SIGQUIT,signal.SIG_IGN)
 def shell(account,path):
+ # This fixture substitutes Bash for tmux. Do not inherit a detached build
+ # coordinator's ignored interrupts into Bash's future foreground children.
+ signal.signal(signal.SIGINT,signal.SIG_DFL)
+ signal.signal(signal.SIGQUIT,signal.SIG_DFL)
  Path(account.pw_dir,'pid').write_text(str(os.getpid()))
  if sys.argv[4]=='fail':raise ValueError('SYNTHETIC_PRIVATE_ERROR')
  os.chdir(account.pw_dir)
@@ -271,7 +278,7 @@ def shell(account,path):
 m.launch_attach=shell
 sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synthetic-socket'))
 '''
-        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok', 'ignored' if ignored_signals else 'normal'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.processes.append(p)
         if not failed:
             self.assertEqual(self.receive(p), {'type': 'ready'})
@@ -316,7 +323,13 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
 
     def test_real_pty_resize_interrupt_and_eof(self):
-        p = self.start()
+        self.exercise_pty_resize_interrupt_and_eof(False)
+
+    def test_real_pty_with_ignored_coordinator_interrupts(self):
+        self.exercise_pty_resize_interrupt_and_eof(True)
+
+    def exercise_pty_resize_interrupt_and_eof(self, ignored_signals):
+        p = self.start(ignored_signals=ignored_signals)
         self.input(p, b'printf "__TTY__%s\\n" "$(tty)"\n')
         self.output_until(p, b'__TTY__/dev/pts/')
         self.send(p, {'type': 'resize', 'cols': 103, 'rows': 37})

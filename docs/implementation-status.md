@@ -2,6 +2,16 @@
 
 ## Step 6c requested — native preparation and fresh-check correction
 
+The `02df448` build and frontend checks also succeeded, but its detached full check
+still hit the local PTY test. A controlled comparison reproduced the difference:
+foreground coordinator passed, inherited ignored SIGINT/SIGQUIT failed with lease
+expiry. The Bash-for-tmux **fixture** now restores default interrupt dispositions
+before exec; production `project_terminal.py` is unchanged. Forty local runs under
+an intentionally ignored-signal coordinator and full Python discovery (**72 tests,
+one opt-in skip**) passed. Both the earlier VINTR/input sequencing correction and
+this distinct inherited-signal correction are retained; no native tmux result is
+claimed. Evidence: `.artifacts/step6c-02df448-ugsQT1/`.
+
 A second fresh candidate, `6922377`, built successfully and passed Go, required
 TypeScript/analyzer and combined browser/Cockpit checks. Full Python discovery then
 exposed an unported avatar-metadata fixture (missing the required analyzer manifest)
