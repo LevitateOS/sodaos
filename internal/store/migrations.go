@@ -30,6 +30,9 @@ CREATE UNIQUE INDEX sessions_context ON sessions(context_id);
 ALTER TABLE oauth ADD COLUMN context_id TEXT REFERENCES login_contexts(id) ON DELETE CASCADE;`,
 	`ALTER TABLE oauth ADD COLUMN spaces_return INTEGER NOT NULL DEFAULT 0 CHECK(spaces_return IN(0,1) AND (spaces_return=0 OR repository_id=0));`,
 	`ALTER TABLE oauth ADD COLUMN settings_return TEXT NOT NULL DEFAULT '' CHECK(settings_return IN ('','runners') AND (settings_return='' OR (spaces_return=0 AND repository_id=0)));`,
+	`ALTER TABLE projects ADD COLUMN creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile)));
+CREATE TRIGGER immutable_creation_profile BEFORE UPDATE OF creation_profile ON projects BEGIN SELECT RAISE(ABORT,'creation profile is immutable'); END;
+ALTER TABLE oauth ADD COLUMN repository_settings_return INTEGER NOT NULL DEFAULT 0 CHECK(repository_settings_return IN(0,1) AND (repository_settings_return=0 OR (repository_id>0 AND spaces_return=0 AND settings_return='')));`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {

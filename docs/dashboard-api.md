@@ -50,6 +50,43 @@ can retire it. Storage failure permits live use without guaranteed restoration.
 These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
 concurrent native tmux or selected-CLI acceptance.
 
+## Repository settings and immutable creation profiles
+
+`GET /-/soda/repositories/{repository_id}/settings/spaces` is Soda-owned HTML with
+fresh acting-user repository visibility and a post-provider session-context check.
+Native links use the freshly resolved owner/name, not stored names or provider URLs.
+Anonymous navigation offers fixed `destination=repository-spaces&repository_id=ID`
+OAuth; schema v8 binds that return to the original single-use transaction. Query
+parameters/encoded route aliases do not retarget the settings page. Every embedded
+control still uses the original protected APIs; repository settings do not broaden
+Create, lifecycle or membership authority. The page mounts the same Lit project
+command owner as the drawer, not another provisioning implementation.
+
+`GET /api/repositories/{repository_id}/profiles` requires the current human owner
+and returns `{items:[profile]}` only after read-only inspection of the configured
+installed native image. It accepts no query, image, architecture or runtime flags.
+Unavailable/incompatible/old unlabelled images produce `503 profile_unavailable`,
+not a usable dropdown. The only implemented ID is `rocky-headless`; no Fedora/KDE
+choice, multi-image map or live conversion is supplied yet.
+
+Create accepts optional `profile_id` (the legacy omission selects Rocky headless).
+Unknown choices are rejected before provider/native work. Installed-image preflight,
+then fresh ownership/context validation, precede the unique reservation; unavailable
+images return `422 profile_unavailable` without reserving. A profile change between
+reservation and helper Create retains the incomplete reservation rather than replaying.
+Native creation uses the exact resolved image ID with `--pull=never`, not a mutable
+tag. Successful replies must match the requested profile and running endpoint.
+
+Environment DTOs now include `profile`, either null for legacy/unknown or the immutable
+`id`, `distribution`, `version`, `interface`, `architecture` (OCI `amd64`/`arm64`),
+`image` (sha256 image ID), and `revision` (full Soda recipe commit). Schema v8 stores
+this with the reservation and rejects later profile updates. Native labels carry
+the same identity; detail/Spaces reads mark a mismatched observation unavailable.
+This describes the original image, **not current mutable RPM state**. Legacy metadata
+is not inferred/backfilled from today's image; separate legacy `/etc/os-release`
+inspection remains follow-up work. Existing Start/Stop/account/terminal operations
+never resolve the current default image or convert a root.
+
 ## Browser-only Join and optional public keys
 
 `POST /api/environments/{id}/join` accepts `{"ssh_keys":"none"}` for account-only
@@ -311,7 +348,7 @@ does not change the authentication rules of the JSON operations below.
 | `GET/POST /api/environments/{id}/access-keys` | Source implemented: own managed-file preview and explicit compare-and-swap of saved keys into that existing account |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
 | `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
-| `POST /api/environments` | `{"repository_id":"ID"}`; canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |
+| `POST /api/environments` | `{"repository_id":"ID","profile_id":"rocky-headless"}` (profile omission remains supported); canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |
 | `GET /api/environments/{id}` | Provisioning record, nullable live observation, own login and current-authority hint; incomplete reservations remain inspectable |
 | `POST /api/environments/{id}/join` | `{ssh_keys:"none"}` (new browser default), `{ssh_keys:"saved"}`, or legacy `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
 | `GET /api/environments/{id}/members` | Current native human/org owner or explicit Soda operator sees permitted members; otherwise own membership only |
@@ -321,7 +358,7 @@ Collection lookup requires current visibility even for operators/members; provid
 failure is not an absent environment. It returns `items` (zero or one), `repository`
 (`id`, `owner_id`, `owner`, `name`) and `can_create` (absent and current human owner).
 Missing/duplicate/malformed/unknown query fields or queries over 8 KiB return 400.
-Creation takes only `{"repository_id":"ID"}`. Numeric/noncanonical IDs and the old
+Creation takes `repository_id` and optional bounded `profile_id`. Numeric/noncanonical IDs and the old
 owner/name body are rejected. The advisory read is never authorization: create
 rechecks fresh subject, actual user/repository consent and current ownership through
 `RepositoryByID` before reserving or calling the helper. Rename/transfer does not

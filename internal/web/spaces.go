@@ -84,6 +84,9 @@ func (s *Server) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Sessi
 			response.Complete = false
 		}
 		observed, err := s.Host.Inspect(check, p.ID)
+		if err == nil && p.Profile != nil && (observed.Profile == nil || *observed.Profile != *p.Profile) {
+			err = errors.New("creation profile mismatch")
+		}
 		row.NativeUnavailable = err != nil
 		if err == nil {
 			row.Observed = &observed

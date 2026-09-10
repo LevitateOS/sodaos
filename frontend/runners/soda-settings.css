@@ -16,3 +16,7 @@ body.soda-settings { margin: 0; font: var(--soda-font-body); }
 .soda-settings :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: var(--soda-space-half); }
 .soda-settings [role=status] { padding: var(--soda-space-3); background: var(--soda-page-selected); }
 .soda-settings article p { overflow-wrap: anywhere; }
+#soda-repository-spaces soda-project-controls { display: block; }
+#soda-repository-spaces .soda-spaces-tabs { width: 100%; }
+#soda-repository-spaces .soda-spaces-view, #soda-repository-spaces .soda-spaces-controls { height: auto; }
+#soda-repository-spaces input[type=checkbox] { width: auto; min-height: auto; justify-self: start; }

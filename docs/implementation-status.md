@@ -1,5 +1,66 @@
 # Current handoff
 
+## Repository Sodaspaces settings and creation identity — local source
+
+Added the selected `/-/soda/repositories/{id}/settings/spaces` Go page and one
+stable-ID entry in Forgejo's existing repository settings override. The page uses
+fresh acting-user visibility, current-context publication, escaped current native
+back-links and a labelled Soda account. It mounts the **same** Lit project command
+owner as the drawer: no duplicate Create/lifecycle/key implementation or Forgejo
+handler/authentication replacement. Schema **v8** adds a constrained, single-use
+repository-settings OAuth return and nullable immutable project creation metadata.
+Populated-v7 legacy projects, memberships and pending runner returns are preserved.
+
+Only **Rocky headless** is implemented. Both settings and drawer obtain the one
+supported installed profile through a guarded, read-only helper preflight. Create
+rejects unsupported/unavailable images before reservation, rechecks current owner
+and Soda context after that I/O, and records profile/distro/version/interface/native
+OCI architecture/exact image ID/recipe revision with the reservation. The root helper
+rechecks the installed selection and uses that exact image ID with `--pull=never`;
+changed selection or uncertain creation retains the reservation. The native object
+carries the same identity; Create receipts and subsequent detail/Spaces observations
+are compared. The recipe labels and **final** `/etc/os-release` assertion accompany
+the existing build-supplied source revision. No new image slot or default image tag
+was introduced. Existing roots neither consult the current image nor convert on
+Start/Open. Legacy rows display unknown; separate legacy OS-release observations
+remain unimplemented rather than guessed from the default or backfilled.
+
+Actual local checks are retained in `.artifacts/profiles-settings-0196e77/`:
+
+- Full Go tests passed; affected host/store/web race checks passed. Coverage includes
+  profile preflight failure/logout/transfer, immutable populated-v7 migration,
+  transaction-bound OAuth, native receipt/label/image mismatch and legacy unknowns.
+- Strict TypeScript/Lit checks passed. `bun run test` passed: **202 frontend / 4
+  opt-in skips**, actual Go Spaces-page fixture and layout journey, **31 Forgejo /
+  21 opt-in skips**, **60 Cockpit**. The new actual Go settings HTML/CSP → emitted
+  browser fixture ran explicitly through profile selection, one protected Create,
+  separate Join availability, immutable/legacy display and unavailable profiles.
+- Python build discovery: **100 tests, OK, one opt-in skip**. Frontend assets built
+  through the canonical payload owner; no full native image/export build was run.
+- The **256 native repository-menu gate combinations** ran explicitly against the
+  retained exact Forgejo 15.0.7 templates using `SODA_FORGEJO_TEMPLATES`. Existing
+  native destinations/gates match; only the bounded Soda destination is added.
+  The default export path is absent, so the ordinary Go suite skips that optional
+  source comparison without the explicit path. This is source rendering, not a live
+  authenticated Forgejo menu/browser result.
+
+Initial runs caught old helper/creation fixture expectations, a closure-narrowing
+error and two incorrectly initialized Lit reactive fields. Those were corrected;
+failed logs are retained. The inspected Podman 5.8.4 dependency metadata selects
+`go.podman.io/common v0.67.1`; its exact `ImageData` source confirms the selected
+image inspection fields. Failed old-location source fetches were followed to the
+actual container-libs source, not replaced with assumed output. No native Podman
+image inspection, project creation, provider mutation or deployment ran here.
+
+**Remaining:** native build/create/persistence/paired schema-v8 delivery proof,
+legacy OS observations, complete batteries-included tooling, Fedora/KDE artifacts,
+KDE session/Lock/transport, marketplace and isolated AI/workflow/publication settings.
+The unresolved personal Git credential model is unchanged. Matching backend/helper/
+assets and a newly built labelled image are required for future creation; old
+unlabelled images intentionally fail preflight. Retained data, roots, credentials,
+VMs and evidence remain untouched. This is another implemented source slice, not
+completion of the whole roadmap or authorization to deploy/convert retained roots.
+
 ## MVP regression and packaging closure
 
 Fixed the reproduced delivery-inventory omission for **15 existing** native Forgejo

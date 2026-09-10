@@ -5700,10 +5700,11 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1b3809b0c2290b703d44ef6c9b7c116ada96f7333ded439580231d1c5430c8da",
+      "beforeRoleHash": "70afeba4126b24a9a13eefd03f438dfc8ba03f2b8cb4b77b8c1e7cd09b155d8c",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "repository-settings-structural-overhaul"
+      "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",
+      "presentationDelta": "Adds one signed-in stable-ID Soda settings link; all native destinations and feature/permission gates remain unchanged. The Soda page and every action reauthorize independently."
     },
     {
       "template": "repo/settings/options.tmpl",

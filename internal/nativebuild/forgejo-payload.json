@@ -1,4 +1,5 @@
 {
+  "public/assets/soda-repository-spaces.js": "@build/forgejo-js/soda-repository-spaces.js",
   "public/assets/soda-runners-page.js": "@build/forgejo-js/soda-runners-page.js",
   "public/assets/soda-runner-response.js": "@build/forgejo-js/soda-runner-response.js",
   "public/assets/soda-settings.css": "frontend/runners/soda-settings.css",

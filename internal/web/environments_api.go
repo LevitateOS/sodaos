@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -10,9 +11,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/projectos"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -21,6 +24,7 @@ import (
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 func (s *Server) environmentRoutes() {
+	s.mux.HandleFunc("/api/repositories/{repositoryID}/profiles", s.apiProtected(s.apiProjectProfiles, "GET"))
 	s.mux.HandleFunc("/api/environments/{id}/lifecycle", s.apiProtected(s.apiLifecycle, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}/access-keys", s.apiProtected(s.apiAccessKeys, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}/terminal", s.apiTerminal)
@@ -38,12 +42,13 @@ func (s *Server) environmentRoutes() {
 }
 
 type environmentView struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	RepositoryID string `json:"repository_id"`
-	Repository   string `json:"repository"`
-	OwnerID      string `json:"owner_id"`
-	Provisioned  bool   `json:"provisioned"`
+	Profile      *projectos.Profile `json:"profile"`
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	RepositoryID string             `json:"repository_id"`
+	Repository   string             `json:"repository"`
+	OwnerID      string             `json:"owner_id"`
+	Provisioned  bool               `json:"provisioned"`
 }
 
 type repositoryContextView struct {
@@ -54,7 +59,7 @@ type repositoryContextView struct {
 }
 
 func environmentDTO(p store.Project) environmentView {
-	return environmentView{p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
+	return environmentView{p.Profile, p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
 }
 func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if r.Method == "POST" {
@@ -98,13 +103,14 @@ func validRepositoryPart(value string) bool {
 func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var input struct {
 		RepositoryID string `json:"repository_id"`
+		ProfileID    string `json:"profile_id"`
 	}
 	if !decodeAPIObject(w, r, &input) {
 		return
 	}
 	repositoryID, valid := positiveID(input.RepositoryID)
-	if !valid {
-		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+	if !valid || (input.ProfileID != "" && input.ProfileID != projectos.RockyHeadless) {
+		jsonError(w, 400, "invalid_repository", "Provide a repository_id and a supported profile_id.")
 		return
 	}
 	access, err := s.visibleRepository(r, v, repositoryID)
@@ -117,15 +123,52 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		jsonError(w, 403, "owner_required", "Only the human repository owner can create its environment. Organization-owned environments are not supported.")
 		return
 	}
+	if _, err = s.Store.ProjectByRepository(r.Context(), repositoryID); !errors.Is(err, sql.ErrNoRows) {
+		if err != nil {
+			jsonError(w, 503, "store_unavailable", "Could not inspect reservation.")
+		} else {
+			jsonError(w, 409, "reservation_failed", "Repository already has a reservation. Refresh; do not recreate it.")
+		}
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	profile, err := s.Host.ResolveProfile(ctx)
+	cancel()
+	if err != nil {
+		jsonError(w, 422, "profile_unavailable", "The native installed Project OS is unavailable or incompatible. No reservation was created.")
+		return
+	}
+	// The read-only native preflight can take time. Do not reserve using a
+	// cancelled context or an owner observed before that I/O.
+	access, err = s.visibleRepository(r, v, repositoryID)
+	if err != nil {
+		providerError(w, err)
+		return
+	}
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil {
+		jsonError(w, 401, "unauthorized", "Reconnect to Soda.")
+		return
+	}
+	current, currentErr := s.Store.Session(r.Context(), cookie.Value)
+	if currentErr != nil || current.ContextID != v.ContextID || current.CSRF != v.CSRF || current.User.ID != v.User.ID {
+		jsonError(w, 401, "unauthorized", "Soda context changed.")
+		return
+	}
+	repo = access.repository
+	if repo.Owner.ID != v.User.ID {
+		jsonError(w, 403, "owner_required", "Repository ownership changed.")
+		return
+	}
 	bytes := make([]byte, 12)
 	rand.Read(bytes)
-	p := store.Project{ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
+	p := store.Project{Profile: &profile, ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
 	if err = s.Store.CreateProject(r.Context(), p); err != nil {
 		jsonError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")
 		return
 	}
 	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
-	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID})
+	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
 	if err != nil {
 		jsonResponse(w, 502, struct {
 			Error       apiError        `json:"error"`
@@ -168,6 +211,9 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	// provisioning result, not evidence of a running or client-reachable service.
 	env, nativeErr := s.Host.Inspect(r.Context(), p.ID)
 	var observed *host.Environment
+	if nativeErr == nil && p.Profile != nil && (env.Profile == nil || *p.Profile != *env.Profile) {
+		nativeErr = errors.New("creation profile mismatch")
+	}
 	if nativeErr == nil {
 		observed = &env
 	}

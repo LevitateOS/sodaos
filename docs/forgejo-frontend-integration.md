@@ -33,7 +33,9 @@ Render new protected Soda pages through the existing Soda namespace/Go/Lit bound
 a template link does not supply a Forgejo handler, authentication or authorization.
 Before implementation, inspect the exact upstream context/gates and verify native
 menu rendering and scoped OAuth return paths. The operator Sodarunners page/API/root bridge now has local source/browser coverage;
-repository settings handlers remain unimplemented. See the leading handoff for
+repository Sodaspaces settings now also has a Go HTML/shared Lit handler, with
+one stable-ID link added to the existing native settings override and all native
+destinations/gates preserved. Repository AI settings remains unimplemented. See the leading handoff for
 scope, schema-v7 return and pending native/provider proof. Public v15 customization documentation was
 reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
 note claims local override inspection rather than fresh upstream source verification.

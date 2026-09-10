@@ -78,7 +78,7 @@ func TestCreateRechecksCurrentOwnerAfterAdvisoryRead(t *testing.T) {
 }
 
 func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
-	for _, outcome := range []string{"success", "native failure", "invalid native result", "persistence failure"} {
+	for _, outcome := range []string{"success", "native failure", "invalid native result", "invalid profile receipt", "persistence failure"} {
 		t.Run(outcome, func(t *testing.T) {
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -97,6 +97,9 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 			defer unblock()
 			var calls atomic.Int32
 			s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/profile" {
+					return profileTestResponse(), nil
+				}
 				calls.Add(1)
 				if r.URL.Path != "/create" {
 					t.Error("implicit join or unexpected operation", r.URL.Path)
@@ -116,11 +119,14 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 				if outcome == "persistence failure" {
 					s.Store.Close()
 				}
+				if outcome == "invalid profile receipt" && input.Profile != nil {
+					input.Profile.Image = "sha256:" + strings.Repeat("c", 64)
+				}
 				ip := "10.89.0.2"
 				if outcome == "invalid native result" {
 					ip = "127.0.0.1"
 				}
-				return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":%q,"running":true,"ip":%q}`, input.ID, ip)))}, nil
+				return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":%q,"running":true,"ip":%q,"profile":%s}`, input.ID, ip, func() []byte { raw, _ := json.Marshal(input.Profile); return raw }())))}, nil
 			})}
 			perform := func() *httptest.ResponseRecorder {
 				w := httptest.NewRecorder()
@@ -145,7 +151,7 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 			unblock()
 			w := <-done
 			want := 201
-			if outcome == "native failure" || outcome == "invalid native result" {
+			if outcome == "native failure" || outcome == "invalid native result" || outcome == "invalid profile receipt" {
 				want = 502
 			}
 			if outcome == "persistence failure" {
@@ -156,7 +162,7 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 			}
 			if outcome != "persistence failure" {
 				p, err = s.Store.ProjectByRepository(t.Context(), 7)
-				if err != nil || p.ID != id || p.Ready != (want == 201) {
+				if err != nil || p.ID != id || p.Ready != (want == 201) || p.Profile == nil || *p.Profile != testCreationProfile() {
 					t.Fatal("lost reservation", p, err)
 				}
 				members, err := s.Store.Members(t.Context(), id)

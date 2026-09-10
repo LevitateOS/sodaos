@@ -457,8 +457,8 @@ New Soda-owned pages live under the existing `/-/soda/` namespace with Go-render
 HTML and shared Lit controls, using Soda's actual OAuth/session/CSRF protections.
 Use `/-/soda/repositories/{repository_id}/settings/spaces` and
 `/-/soda/repositories/{repository_id}/settings/ai`, plus
-`/-/soda/settings/runners` for the operator page. These are selected new Soda routes,
-not current handlers. Resolve repository identity and native back-links from its
+`/-/soda/settings/runners` for the operator page. The repository Sodaspaces and global Sodarunners routes now have source handlers;
+AI settings remains a selected route, not an implemented handler. Resolve repository identity and native back-links from its
 stable ID and fresh native authority, including rename/transfer handling. Bind each
 OAuth return to an enumerated page kind and validated repository ID in the original
 transaction; never accept an arbitrary return URL. Add bounded route/return tests
@@ -472,9 +472,10 @@ person is not a Forgejo site administrator; native site-admin status alone canno
 grant it. Server-side checks apply to every read and mutation, including deep links.
 Keep Cockpit Runners and all its backing logic/tests until the replacement works.
 Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with local
-coverage; native/provider acceptance and Cockpit removal remain pending. Repository
-settings/selectors and other feature integrations remain unimplemented, not runtime
-evidence. Test unauthorized/stale actors, unavailable profiles, legacy project display,
+coverage; native/provider acceptance and Cockpit removal remain pending. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
+creation metadata now also have local source coverage (schema v8). AI settings,
+multiple OS artifacts, marketplace and desktop integration remain unimplemented;
+none of these source checks is installed/native proof. Test unauthorized/stale actors, unavailable profiles, legacy project display,
 failed provisioning, unsaved forms, concurrent workflow edits and native menu coexistence.
 
 ### Extension order and dependency boundaries

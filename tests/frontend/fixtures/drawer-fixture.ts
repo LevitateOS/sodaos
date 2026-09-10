@@ -1,6 +1,7 @@
 // Browser-realm fixture only. Production modules are emitted separately, never bundled into this double.
 import {mountProjectControls} from '../../../frontend/spaces/sodaspaces-project.js';
 export const environmentID = 'p0123456789abcdef01234567';
+export const fixtureProfile = {id: 'rocky-headless', distribution: 'rocky', version: '10.2', interface: 'headless', architecture: 'amd64', image: 'sha256:' + 'a'.repeat(64), revision: 'b'.repeat(40)};
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}
 export interface State {running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
@@ -19,7 +20,7 @@ function createFixture(extra: Partial<State> = {}) {
       const input: unknown = JSON.parse(encoded || '{}');
       if (!input || typeof input !== 'object') throw Error('invalid fixture action');
       if (url.endsWith('/api/session/logout')) return new Response(null, {status: 204});
-      if (url.endsWith('/api/environments')) body = {id: environmentID, repository_id: '7', provisioned: true};
+      if (url.endsWith('/api/environments')) body = {id: environmentID, repository_id: '7', provisioned: true, profile: fixtureProfile};
       else if (url.endsWith('/join')) body = {login: 'alice'};
       else if (url.endsWith('/lifecycle')) body = {environment: {id: environmentID, running: 'action' in input && input.action === 'start'}, boot_enabled: 'action' in input && input.action === 'start'};
       else if (url.endsWith('/access-keys')) body = {applied: true, login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: 'saved_fingerprints' in input ? input.saved_fingerprints : null};
@@ -27,6 +28,7 @@ function createFixture(extra: Partial<State> = {}) {
       else body = {items: []};
     } else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
     else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
+    else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
     else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};
     else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((fingerprint, i) => ({id: String(i + 1), fingerprint}))};
     else if (url.endsWith('/lifecycle')) body = {environment: {id: environmentID, running: state.running}, boot_enabled: state.running};

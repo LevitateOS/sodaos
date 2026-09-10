@@ -10,11 +10,14 @@ import (
 	"net/http"
 	"net/netip"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/projectos"
 )
 
 type Create struct {
-	ID    string `json:"id"`
-	Owner int64  `json:"owner"`
+	Profile *projectos.Profile `json:"profile,omitempty"`
+	ID      string             `json:"id"`
+	Owner   int64              `json:"owner"`
 }
 type Account struct {
 	Project  string   `json:"project"`
@@ -23,9 +26,10 @@ type Account struct {
 	Keys     []string `json:"keys"`
 }
 type Environment struct {
-	ID      string `json:"id"`
-	IP      string `json:"ip"`
-	Running bool   `json:"running"`
+	Profile *projectos.Profile `json:"profile,omitempty"`
+	ID      string             `json:"id"`
+	IP      string             `json:"ip"`
+	Running bool               `json:"running"`
 }
 type Connection struct {
 	Environment Environment `json:"environment"`
@@ -71,7 +75,7 @@ func (c *Client) call(ctx context.Context, path string, in, out any) error {
 func (c *Client) Create(ctx context.Context, in Create) (Environment, error) {
 	var out Environment
 	err := c.call(ctx, "/create", in, &out)
-	if err == nil && (out.ID != in.ID || !out.Running || !validAddress(out.IP)) {
+	if err == nil && (out.ID != in.ID || !out.Running || !validAddress(out.IP) || in.Profile == nil || out.Profile == nil || *out.Profile != *in.Profile) {
 		err = fmt.Errorf("native creation did not return the expected running endpoint")
 	}
 	return out, err

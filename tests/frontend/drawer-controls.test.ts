@@ -157,7 +157,7 @@ test('create never implicitly joins, saves keys or starts; rapid clicks dispatch
   await page.evaluate(async () => {const b = await window.drawerFixture.showButton('Create environment'); b.click(); b.click();});
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   const sent = await writes(page); assert.equal(sent.length, 1);
-  assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7'});
+  assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7', profile_id: 'rocky-headless'});
   assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1'); assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
 });
 test('Stop requires explicit shared-impact confirmation and Start is separate', async t => {

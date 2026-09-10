@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/projectos"
 	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/crypto/ssh"
@@ -92,7 +93,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d.terminalHandler(w, r)
 		return
 	}
-	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
+	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/profile" || r.URL.Path == "/create") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
 		http.Error(w, "invalid native operation path", 400)
 		return
 	}
@@ -112,6 +113,11 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var out any
 	var err error
 	switch r.URL.Path {
+	case "/profile":
+		var in struct{}
+		if err = decode(&in); err == nil {
+			out, err = d.resolveProfile(ctx)
+		}
 	case "/create":
 		var in Create
 		if err = decode(&in); err == nil {
@@ -160,6 +166,17 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
+	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil {
+		return Environment{}, errors.New("invalid creation identity")
+	}
+	profile, err := d.resolveProfile(ctx)
+	if err != nil {
+		return Environment{}, err
+	}
+	if profile != *in.Profile {
+		return Environment{}, errors.New("installed profile changed; reservation retained")
+	}
+	encoded, _ := json.Marshal(profile)
 	if _, err := d.podman(ctx, nil, "network", "exists", d.Config.Network); err != nil {
 		if _, err = d.podman(ctx, nil, "network", "create", "--driver", "bridge", "--subnet", d.Config.Subnet, "--interface-name", d.Config.Bridge, d.Config.Network); err != nil {
 			return Environment{}, err
@@ -170,7 +187,7 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	// NET_ADMIN lets nested netavark configure project-owned networking;
 	// SYS_PTRACE lets the engine enter different-UID workload process namespaces.
 	// Both are confined to the project's user namespace, not the appliance.
-	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", d.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE", "--device=/dev/fuse", "--security-opt=label=disable", d.Config.Image}
+	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", d.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE", "--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image}
 	if _, err := d.podman(ctx, nil, args...); err != nil {
 		return Environment{}, err
 	}
@@ -193,8 +210,8 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	if err != nil {
 		return env, err
 	}
-	if !env.Running || env.IP == "" {
-		return env, errors.New("project did not report a running endpoint")
+	if !env.Running || env.IP == "" || env.Profile == nil || *env.Profile != profile {
+		return env, errors.New("project did not report the expected profile and running endpoint")
 	}
 	return env, nil
 }
@@ -208,6 +225,7 @@ func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, er
 		return env, 0, err
 	}
 	var items []struct {
+		Image           string
 		Config          struct{ Labels map[string]string }
 		State           struct{ Running bool }
 		NetworkSettings struct {
@@ -224,6 +242,17 @@ func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, er
 	owner, err := strconv.ParseInt(item.Config.Labels["org.soda.owner"], 10, 64)
 	if err != nil || owner <= 0 {
 		return env, 0, errors.New("invalid native project owner")
+	}
+	if raw := item.Config.Labels["org.soda.creation-profile"]; raw != "" {
+		p, decodeErr := projectos.Decode(raw)
+		image := item.Image
+		if !strings.HasPrefix(image, "sha256:") {
+			image = "sha256:" + image
+		}
+		if decodeErr != nil || p.ID != item.Config.Labels["org.soda.profile"] || p.Image != image {
+			return env, 0, errors.New("native creation profile mismatch")
+		}
+		env.Profile = p
 	}
 	env.Running = item.State.Running
 	env.IP = item.NetworkSettings.Networks[d.Config.Network].IPAddress
