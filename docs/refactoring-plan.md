@@ -7,26 +7,24 @@ and an upstream-reuse review before turning the findings into an implementation 
 This document records that review and **narrows the initial audit** where it was
 premature or overlooked an existing mechanism.
 
-## Requested full upstream-ownership audit — outstanding
+## Requested full upstream-ownership audit — source review complete
 
-The user subsequently requested a **full audit**, in addition to completing the
-text-based installer design and implementation. The targeted review below and
-individual installer fixes do not count as completing that audit.
+The subsequent [full ownership audit](upstream-ownership-audit.md) is complete
+against installer candidate `8320f9c`. It inventories all 16 internal packages and
+follows their command, native, frontend and build callers. It is a source ownership
+review, not exhaustive security/native acceptance or implemented refactors.
 
-The audit must inventory every `internal/` package and follow its real callers
-through commands, native helpers, appliance/project recipes, frontend code and
-build/support tools. For each responsibility, record the selected upstream owner
-and version, supported mechanisms actually inspected, Soda's necessary remainder,
-and any proven duplication or unresolved capability question. Package boundaries
-alone do not establish separate ownership; missing APIs must not be assumed from
-an inconvenient interface.
+The report distinguishes confirmed defects, unnecessary retained authority, justified
+adapters and conditional reuse candidates. Its priority order adds unused bootstrap
+credential retention, missing post-provider session checks, project-key concurrency
+and GitHub's service entrypoint to the earlier maintenance recommendations below.
+The targeted installer reviews alone were not counted as completing this audit.
 
-The deliverable is a source-linked coverage inventory and prioritized findings
-with concrete keep/reuse/remove recommendations, evidence and validation limits.
-Distinguish a confirmed unnecessary replacement from a hypothesis or a justified
-adapter. Preserve working user journeys, authorization, persistence and unfinished
-features. An audit is not blanket permission for a rewrite or broad refactoring;
-native deployment and the deferred x86 installer validation retain their own scope.
+Preserve working user journeys, authorization, persistence and unfinished features.
+Findings are recommendations, not blanket permission for a rewrite, removal of
+retained state or broad deployment. The deferred x86 installer validation retains
+its own scope. Detailed evidence and limits live in the report; actual execution
+remains in the handoff.
 
 The strengthened [repository instructions](../AGENTS.md#human-maintainable-engineering)
 apply throughout implementation and review. This audit remains separate from the
@@ -325,10 +323,13 @@ custom network UI or install/recovery daemon. If richer interaction genuinely ne
 an established TUI library, review its exact API, maintenance, accessibility and secret
 handling before adding it; no package is selected by this document.
 
-Post-boot enrollment is **not** already implemented by OpenSSH. Use native SSH/PAM
-and restricted command configuration for its transport/authentication rather than
-inventing a password server. Resolve the exact listener/configuration and local
-arming/timeout/success closure through the feature review before implementation.
+Post-boot enrollment is Soda's integration around OpenSSH, not an upstream
+enrollment workflow. The [replacement source](coreos-installer.md#import-a-laptop-key-after-local-password-login)
+now delegates connection activation/lifetime to systemd and password authentication
+to a separate stock sshd configuration. Its temporary listener deliberately excludes
+PAM session migration so authenticated children stay in the bounded unit lifetime;
+ordinary sshd/PAM policy remains unchanged. Native account-policy, SELinux,
+arming/timeout/success closure and actual access still require validation.
 In OpenSSH 10.2p1, `PermitRootLogin forced-commands-only` permits **public-key** forced
 commands and disables other root authentication; it does not implement password-based
 enrollment. `ForceCommand` alone also does not disable forwarding. Do not silently
@@ -367,7 +368,7 @@ This review does not itself rewrite those historical entries.
 | Services marketplace | Reviewed app recipes over Podman/Quadlet/systemd, Caddy ingress and each app's native accounts/settings. Do not reproduce Vaultwarden, Adminer or Homepage, use SQLite as service-running truth, or build a generic registry/update platform/service supervisor. Preserve the selected catalog and per-app upgrade design work. |
 | Issue/PR AI automation | Forgejo Actions/workflow/secret/result authority, native Git publication and actual isolated command execution. Do not reproduce Actions or substitute a new scheduler. The documented task-token/runner isolation gap still needs exact upstream investigation; a rootless-engine label or GitHub-style `permissions:` stanza is not proof. |
 | Credentials/onboarding | Real native account provisioning and supported explicit public-key selection. Personal outbound-Git consent, scope, at-rest trust and host-key verification remain decisions before automated registration; no borrowed grants or duplicate Git permission engine. |
-| Installer/media and validation | Existing CoreOS tools, verified Soda payload and native setup/continuation. ISO payload inclusion, prepared QCOW2, keyboard-only first install, provider/CLI/client and independent aarch64 proof remain work. No release/update platform or manufactured acceptance. |
+| Installer/media and validation | Existing CoreOS tools, verified Soda payload and native setup/continuation. Payload inclusion and keyboard-only setup now have replacement source/local checks; rebuilt media, full first install, prepared QCOW2, provider/CLI/client and independent aarch64 proof remain work. No release/update platform or manufactured acceptance. |
 
 These features are preserved, not silently deprioritized because refactoring is easier.
 The [Services/AI guide](services-and-ai-plan.md), [runner guide](runners-port.md),

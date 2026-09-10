@@ -1,5 +1,30 @@
 # Current handoff
 
+## Full upstream-ownership audit — source review complete
+
+Completed the [source-linked audit](upstream-ownership-audit.md) against installer
+candidate `8320f9c`, covering all 16 internal packages and their actual command,
+native, frontend and build/support caller families. It supports keeping the selected
+architecture and distinguishes necessary integration from conditional reuse.
+Priority findings are unused bootstrap-token retention/service access, missing
+session rechecks after provider I/O, project-key replacement concurrency, omitted
+schema-v8 checks and GitHub's service-entrypoint mismatch. Additional recommendations
+cover capture/admission bounds, fixture invocation and narrow upstream reuse.
+
+These findings are **not fixed** by the audit. Root corroborated the web admission,
+credential and schema findings and completed the interrupted runner/Tailnet review.
+The earlier native/web/build reports and independent build-support corrections are
+retained under `.artifacts/upstream-audit-20260910/`. The additional independent web
+recheck was interrupted; it is not claimed complete. Template ownership inventory
+covers 253 overrides, with representative workflow review rather than every field
+and gate independently re-proven.
+
+This continuation changed documentation only. Local link/anchor and Git whitespace
+checks passed; no product tests/builds, dependency changes, provider/native operations,
+retained-state cleanup or deployment were performed by the audit. Earlier installer
+checks remain recorded below. The x86 ISO build and full fresh installation are still
+deferred; neither an updated ISO nor whole-product acceptance is claimed.
+
 ## Manual installer replacement — local source, native media deferred
 
 The selected interface is a text wizard over stock CoreOS Installer, with its
@@ -66,8 +91,8 @@ provider change, global certificate trust or retained-project action occurred. T
 build and fresh-install-through-first-project test are explicitly deferred until
 that machine is available. No native aarch64 acceptance is implied by container tests.
 
-The separate [full upstream-ownership audit](refactoring-plan.md#requested-full-upstream-ownership-audit--outstanding)
-is underway; individual installer reviews are not its completion. `AGENTS.md` now
+The separate [full upstream-ownership audit](upstream-ownership-audit.md)
+is now recorded above; individual installer reviews were not counted as its completion. `AGENTS.md` now
 requires source-backed upstream reuse before adding custom mechanisms. Services,
 AI automation, graphical installation and the prepared QCOW2 remain outside this
 implementation slice.
