@@ -17,6 +17,61 @@ only this integration sequence. [Runners](runners-port.md) retains its separate
 native/provider parity and Cockpit-retirement obligations. Services, AI automation,
 new environment profiles and additional runner functionality are not added here.
 
+## Implementation lanes and handoff
+
+**This is the single ownership boundary for this plan and
+[runners-port](runners-port.md#implementation-lane-boundary).** They are separate
+implementation lanes, not two agents completing the same runner page. The user
+reports the Soda-pages agent is working on step 2; that is an active assignment,
+not a claim that step 2 has passed. Runner work must not edit that implementation.
+
+| Work | Sole implementation owner | Other lane's responsibility |
+| --- | --- | --- |
+| Native document/mount, all three page-body ports, CSS/layout, navigation, old GET entry bridges and standalone-shell deletion | Soda-pages steps 1/3/4 | Runners supplies existing operation invariants; does not rebuild or retain a competing shell. |
+| Shared session bootstrap, automatic OAuth entry/returns, coordinated logout, context/schema migration, cross-tab retirement and wiring existing sign-out controls | Soda-pages step 2 | Runners consumes the resulting authenticated actor/session and retirement contract; does not add an alternative connection/logout mechanism or migration. |
+| Runner endpoint authorization, strict request/response contract, registration secrets, list/create/start/stop/restart/remove effects and partial outcomes | Runners step 3 | Soda-pages preserves these behaviors while moving the existing controls; reports runner defects to that owner rather than changing native semantics. |
+| Native runner lock, CLI/root bridge, accounts/state, service/launcher/client and unsupported-provider refusal | Runners steps 3–6 | Soda-pages does not change these owners or exercise provider/lifecycle effects for shell acceptance. |
+| Browser host/entry/logout/navigation/restoration fixtures, including porting existing runner browser cases and secret/no-replay assertions | Soda-pages step 5 | Runners reuses these cases and evidence; adds only missing runner-operation cases after the browser-file handoff, not a second host/auth fixture. |
+| Runner backend/CLI/socket regressions and opt-in installed registration/job/lifecycle/overlap/preservation journeys | Runners steps 3–5 | Soda-pages uses existing runner controls and bounded synthetic operation responses; shell proof is not provider parity. |
+| Page assets/hooks/CSP/notices and their canonical build/stage assertions | Soda-pages step 5 | Runners consumes the packaged page; owns only runner executable/service/client and Cockpit-specific payload assertions. |
+| Native-shell/schema delivery | Soda-pages step 6 | Runners consumes the exact delivered revision/schema and shell evidence. |
+| Paired runner management delivery, obsolete helper retirement, provider parity and later Cockpit runner presentation removal | Runners steps 4–7 | Soda-pages retains Cockpit and never marks these exits complete from a UI delivery. |
+
+**Shared-file rule:** until the Soda-pages source handoff, it is the sole editor of
+`frontend/runners/soda-runners-page.ts`, `soda-settings.css`,
+`internal/web/settings_page.go`, the retiring runner HTML template,
+`tests/frontend/runners.test.ts`, native navigation modules/templates and common
+page/browser/build fixtures. Its step-2 assignment also owns shared OAuth/session/
+logout/store changes and their tests. `internal/web/runners.go` and
+`internal/web/runners_test.go` contain shared authorization and old page fixtures:
+reserve these files too until an explicit file-level commit handoff. That reservation
+permits integration edits, not changing runner operation semantics. Runners can
+proceed now in `internal/runners/`, its CLI/host adapters, new focused runner API
+test files using existing seams, and separate installed runner cases. Changes to a
+shared authorization function or common file must be handed to its active owner.
+Do not split, duplicate or wrap production code just to avoid a file collision.
+If an operation fix needs a reserved UI/test/build file, record the exact requested
+change and serialize that edit after an explicit commit handoff. Common documentation
+and payload files likewise have one editor per change; neither agent overwrites
+uncommitted work from the other lane.
+
+**Source handoff:** Soda-pages identifies a committed revision, fixed entry URLs,
+actor/session and retirement behavior, migrated browser callers, emitted payload
+and actual checks/limits. Runners then extends the handed-off controls only for
+runner-operation gaps. Native/provider fixture preparation and backend work need
+not wait; final native-shell runner UI parity uses this handoff, not the retired
+Go shell. No duplicate standalone shell or second login/browser test harness.
+
+**Delivery handoff:** use one exact candidate manifest and one maintenance executor
+per target/window. Separate deliveries are sequential: Soda-pages owns shell/schema
+changes, then Runners owns the remaining paired management changes. If one approved
+candidate combines them, explicitly name one executor and cite its common build,
+schema rehearsal, backup and delivery receipt from both plans; do not run either
+common phase twice. Each lane still owns its distinct acceptance assertions.
+Later revisions or changed target state require fresh applicable checks/backups;
+a shared receipt is not blanket evidence or rollback. Neither lane may deploy the
+other's unreviewed pending artifacts or borrow provider, reboot or cleanup authority.
+
 ## 1. Result the user should see
 
 - Forgejo renders the surrounding document, native header, avatar/profile menu,
@@ -277,6 +332,7 @@ candidate instead of silently restoring separate shells or forking Forgejo.
 
 ### Step 2 — implement the shared connection and sign-out flow
 
+**Assigned to the Soda-pages lane; reported in progress, not yet accepted.**
 Implement the contract above in the existing API/store/OAuth owners and one narrow
 native integration module. Preserve existing session lifetime and terminal
 correlation. Return only to the fixed native views. Adapt the profile-menu action
@@ -343,9 +399,11 @@ Adapt the existing owners instead of adding a second test runner:
   host fixture. Missing real host/asset evidence must fail the relevant integration
   gate; retain synthetic unit tests without labelling them native-session proof.
 - Extend the existing Forgejo template/navigation and settings-link checks, shared
-  workspace/drawer layout journeys, runner lifecycle tests and repository settings
-  tests. Include real Back/BFCache, duplicate/stale mounts, late responses ignoring
-  abort, dark/light themes, narrow screens and keyboard/profile-menu operation.
+  workspace/drawer layout journeys and repository settings tests. Port the existing
+  runner browser lifetime/operation assertions to the native host without adding
+  native runner lifecycle scenarios; those remain in the Runners lane. Include
+  real Back/BFCache, duplicate/stale mounts, late responses ignoring abort,
+  dark/light themes, narrow screens and keyboard/profile-menu operation.
 - Include operator-without-site-admin, site-admin-without-operator, owner/member,
   missing/private repository, actor switch, unavailable provider, declined OAuth,
   missing scopes, both logout failures, native-only escape and the limits when
@@ -374,8 +432,13 @@ does not claim appliance deployment or real runner/provider parity.
 ### Step 6 — deliver the affected components with preserved state
 
 Prepare the normal exact-revision native build/check/export and affected-component
-delivery recipe. Deliver the compatible backend image, template/assets and any
-required login-context schema change together. Rehearse populated-state migration
+delivery recipe under the [single-executor delivery handoff](#implementation-lanes-and-handoff).
+This step owns shell/schema delivery only, not paired runner-management rollout,
+obsolete helper retirement, provider jobs or Cockpit removal. Account for any
+runner artifacts already present in the candidate: their activation needs the
+Runners lane's reviewed compatibility scope, not incidental inclusion. Deliver the
+compatible backend image, template/assets and any required login-context schema
+change together. Rehearse populated-state migration
 and preserve configuration, credentials, memberships, project roots, runner accounts,
 work files, units and all later writes. This UI change does not call for rebuilding
 project roots, installing another identity provider or upgrading Forgejo.

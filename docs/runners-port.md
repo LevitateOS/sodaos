@@ -21,11 +21,37 @@ the separate HTML placement and explicit-only connection guidance below; the
 completed presentation/lifetime slice remains historical evidence. Native/provider
 parity and coordinated Cockpit retirement remain governed by this runner plan.
 
+## Implementation lane boundary
+
+The [Soda-pages ownership table and handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)
+is authoritative for dividing these two implementation lanes. **This lane owns
+runner operation correctness, native/provider parity, paired management delivery
+and Cockpit retirement—not native page hosting, navigation, OAuth/connection,
+coordinated logout, shell migration or their browser/payload fixture ports.**
+The Soda-pages agent is reported to be working on step 2. Do not edit its shared
+session/OAuth/store work or implement a competing runner-specific flow.
+
+Step 1 below is a completed historical slice, not an active UI assignment.
+Proceed independently with runner backend/CLI/socket regressions and installed
+runner/provider test preparation. The Soda-pages lane reserves shared runner UI,
+page-handler, browser-fixture and page-packaging files through its source handoff;
+request an exact operation fix through that owner or serialize it afterward.
+Reuse its entry/actor/logout/retirement tests and committed interface rather than
+copying them. Final native-shell runner UI parity depends on that handoff, while
+native backend preparation does not. Runner OS/OCI/cache remain separate work,
+not part of the Soda-pages lane or prerequisites for this migration.
+
+For shared candidate builds and target maintenance, follow the linked
+single-executor delivery rule. Consume shell/schema evidence; own the additional
+runner management/provider/preservation checks. Neither plan authorizes duplicate
+deployment, changes to the other agent's files, or provider/lifecycle effects.
+
 ## Selected product boundary
 
-Move Soda's local runner capacity and service controls to **Global SodaOS
-settings → Sodarunners**. Current source uses a Soda-owned Go page and Lit
-component under the existing `/-/soda/` namespace. The subsequent integration plan
+Move Soda's local runner capacity and service controls to the operator-only
+**Runners** destination selected by the Soda-pages lane (previously named
+**Global SodaOS settings → Sodarunners**). Current source uses a Soda-owned Go page
+and Lit component under the existing `/-/soda/` namespace. The subsequent integration plan
 hosts that component within Forgejo's native dashboard through its documented
 template customization, while keeping Soda's protected API. It is not a Forgejo administrator page, a
 repository drawer, or a revival of the removed standalone dashboard. The
@@ -128,14 +154,14 @@ Forgejo runner contract and its actual behavior.
 
 | Area | Existing implementation | Remaining obligation |
 | --- | --- | --- |
-| Operator page | [`settings_page.go`](../internal/web/settings_page.go), [`runners.html`](../internal/web/templates/runners.html), [`soda-runners-page.ts`](../frontend/runners/soda-runners-page.ts): separate Go shell and Lit inventory, registration, lifecycle, provider links, HTML denial, keyboard/responsive presentation and guarded browser restoration, with local coverage. | Inspect the delivered page; this source does not embed the page in Forgejo's native shell. |
-| Navigation | [`extra_links.tmpl`](../appliance/forgejo/templates/custom/extra_links.tmpl), [`footer.tmpl`](../appliance/forgejo/templates/custom/footer.tmpl), [`soda-settings-link.ts`](../assets/branding/forgejo/soda-settings-link.ts), and the Spaces page. | Prove discoverability with native Forgejo sessions, including a configured operator without site-admin rights. |
+| Operator page | [`settings_page.go`](../internal/web/settings_page.go), [`runners.html`](../internal/web/templates/runners.html), [`soda-runners-page.ts`](../frontend/runners/soda-runners-page.ts): separate Go shell and Lit inventory, registration, lifecycle, provider links, HTML denial, keyboard/responsive presentation and guarded browser restoration, with local coverage. | Soda-pages owns migration and browser proof; this lane verifies real runner operations on its handed-off page. |
+| Navigation | [`extra_links.tmpl`](../appliance/forgejo/templates/custom/extra_links.tmpl), [`footer.tmpl`](../appliance/forgejo/templates/custom/footer.tmpl), [`soda-settings-link.ts`](../assets/branding/forgejo/soda-settings-link.ts), and the Spaces page. | Soda-pages owns discoverability/connection proof, including a nonadmin operator; consume its entry contract. |
 | Web authority and API | [`internal/web/runners.go`](../internal/web/runners.go): fresh provider subject, configured `operator_id`, original Soda session, guarded list/create/lifecycle routes; existing API middleware supplies actor/origin/CSRF checks. | Preserve denial-before-decode/native-read behavior and exercise the actual proxy/OAuth/helper chain. |
-| OAuth and persistence | Fixed `destination=runners` return was added in schema v7; current source is schema v8 and preserves that return. | Rehearse the actual target schema to the chosen candidate schema; no new runner inventory database or migration is required merely to finish the UI. |
+| OAuth and persistence | Fixed `destination=runners` return was added in schema v7; source at the page-host handoff is schema v8 and preserves that return. | Soda-pages owns subsequent shared return/logout/schema changes and rehearsal. Consume its exact candidate schema; do not add a runner inventory migration or duplicate the OAuth work. |
 | Root bridge | [`internal/host/runners.go`](../internal/host/runners.go), wired by [`cmd/soda-host`](../cmd/soda-host/main.go), dispatches six fixed operations to the existing runner implementation. | Deliver compatible binaries together and prove socket/group/service confinement natively. |
 | Native runner owner | [`internal/runners/`](../internal/runners/): provider configuration, dedicated accounts/state, one-slot listeners, lifecycle and cross-process file locking for reads and all mutations. | Real provider lifecycle/jobs and retained-state preservation remain unproved. Only Forgejo is supported; unsupported saved providers are refused before native effects. |
 | Shared frontend protocol | [`soda-runner-types.d.ts`](../frontend/runners/soda-runner-types.d.ts) and [`soda-runner-response.ts`](../frontend/runners/soda-runner-response.ts) serve Lit and Cockpit. | Keep one response contract while both surfaces coexist; preserve backend/CLI tests after Cockpit removal. |
-| Packaging | [`forgejo-payload.json`](../internal/nativebuild/forgejo-payload.json), [`build-forgejo.ts`](../scripts/build-forgejo.ts), [`stage.py`](../scripts/stage.py) include settings assets, native hooks and both Cockpit pages. | Produce and inspect a fresh matching-native export; local emitted assets are not installed proof. |
+| Packaging | [`forgejo-payload.json`](../internal/nativebuild/forgejo-payload.json), [`build-forgejo.ts`](../scripts/build-forgejo.ts), [`stage.py`](../scripts/stage.py) include settings assets, native hooks and both Cockpit pages. | Consume Soda-pages assets/hooks; this lane owns runner executable/service/client compatibility and Cockpit coexistence/retirement. Use the single-executor candidate handoff. |
 | Local checks | [`runners_test.go`](../internal/web/runners_test.go), [host bridge tests](../internal/host/runners_test.go), native runner tests, [actual Go HTML/Lit browser tests](../tests/frontend/runners.test.ts), [navigation tests](../tests/forgejo/settings-link.test.ts), and retained Cockpit tests. The ordinary page gate covers the Forgejo form and restored/retired pages using real Go HTML and synthetic peers. | Native/provider effects remain unproved. See the handoff for passing affected checks and broader platform/test-environment failures. |
 
 ### Evidence limits
@@ -296,11 +322,14 @@ permission inventory, runner database, public root listener or Forgejo fork is n
 
 ### 1. Finish dashboard presentation and browser lifetime
 
-**Status: implemented with local checks.** Owners remain the existing Lit page,
-settings CSS, Go template and native navigation hook. This step retains the separate
-Soda-rendered page and its fixed native links; it does not integrate its HTML shell
-into Forgejo's dashboard or redesign Spaces. The [handoff](implementation-status.md)
-records passing affected checks and the unsuccessful broader source-gate attempts.
+**Status: completed historical slice, not an active implementation assignment.**
+The following records what the separate Go/Lit page implemented and tested. Its
+shell, explicit entry and standalone logout are superseded by Soda-pages steps
+2–5, which alone own porting this UI and its browser tests. Do not repeat this
+checklist as parallel runner work. Preserve its operation invariants through that
+handoff. The [handoff](implementation-status.md) records the affected checks,
+earlier unsuccessful aggregate attempts and later revision-specific source passes;
+none establishes native/provider parity.
 
 The selected stock Forgejo 15.0.7 calls `custom/extra_links` from its navbar.
 Its [official v15 customization contract](https://forgejo.org/docs/v15.0/contributor/customization/)
@@ -368,16 +397,19 @@ from this source change.
 **Status: substantial existing coverage; extend specific missing cases.** Keep
 tests with their current owners and use the ordinary source gate. Do not create a
 second runner test orchestrator or infer that previously passing fixtures cover
-new behavior.
+new behavior. This step owns runner operation/backend gaps only. The Soda-pages
+lane ports the shared page/browser tests and owns connection, logout, navigation
+and restoration integration; consume that evidence rather than adding a second
+matrix. Reserve shared UI/test files until its explicit commit handoff.
 
 | Boundary | Required coverage and outcome |
 | --- | --- |
-| Page/API authority | Configured operator without site-admin rights succeeds; unrelated site/org/repository admins and ordinary users cannot read metadata or mutate. Exercise page/deep links and every API, missing/ambiguous cookies, wrong actor, missing scope, changed provider subject, expired grant/session and logout while authorization is pending. Denial precedes body decoding/native dispatch. |
-| Request and secret boundary | CSRF/origin/method/query/strict-body failures; fixed Forgejo internal destination and refusal of all other providers; no browser-selected unit/account/path/command. Link tests prove that saved URLs never override the configured Forgejo public origin. Token cleared on serialization, departure/logout and authorization loss, absent from reactive state/storage/HTML/errors; synthetic secret probes never use real credentials. |
-| Provider and UI parity | The Go-HTML/Lit journey now exercises the Forgejo form, field/actor refusals, exact target confirmation, both logout outcomes and no automatic retry after an unconfirmed operation. These use synthetic peers, not real provider registration. |
+| Runner API authority | Configured operator without site-admin rights succeeds; unrelated site/org/repository admins and ordinary users cannot read metadata or mutate. Exercise every runner API's rejection before body decoding/native dispatch for invalid actors, scopes or sessions, including logout during pending authorization. Consume shared cookie/session protection tests. Soda-pages alone owns page/deep-link, OAuth and coordinated-logout journeys and any shared auth changes. |
+| Request and secret boundary | Own runner endpoint CSRF/origin/method/query/strict-body refusals, fixed internal destination, unsupported providers and rejection of browser-selected unit/account/path/command. Own sanitized API responses and public-origin projection. Soda-pages ports existing browser link, token clearing/storage and departure/logout/no-replay assertions; request missing operation-specific cases through its file handoff. Synthetic probes never use real credentials. |
+| Provider and UI parity | Consume the Soda-pages port of the existing form, confirmation and uncertainty assertions. Add only missing runner-operation behavior after its source handoff; no duplicate host/bootstrap/logout fixture. Real provider parity belongs to step 5 below, not either lane's synthetic browser checks. |
 | Native/overlap semantics | Keep reads/create/start/stop/restart/remove under the same cross-process lock. Extend separate-process `internal/runners.Native` fixtures with a shared temporary lock path and command doubles; Restart must hold admission across enable/restart. Test CLI and socket adapters through their existing seams; actual CLI → Native and web → soda-host overlap belongs to step 5, not production test flags or another helper. A cancelled waiter must not dispatch. Invalid/unreadable descriptors and unavailable unit/version observations must not become an empty list. |
 | Partial outcomes and preservation | Cover provider registration followed by descriptor/start failure, account-delete failure before local state removal, and state-removal failure after account deletion. Use owned temporary data and native-command doubles. Preserve legacy descriptors without adding label metadata or rewriting credentials. |
-| Payload and coexistence | Settings modules/styles/runtime, hooks and legal notices appear in the canonical stage. Preserve native Actions settings and all Cockpit/Tailnet entrypoints. Verify staging and build inputs no longer fetch or contain a GitHub runner client. |
+| Payload and coexistence | Consume Soda-pages canonical assets/hooks/runtime/notices checks. Own runner executable/service/client payload, obsolete helper absence, Forgejo-only build inputs and Cockpit/Tailnet coexistence. Coordinate edits to shared staging files; do not independently port page packaging. |
 
 Run focused Go/race and browser cases during edits, then `bun run check:source`
 with the existing toolchain/dependencies. That command owns Go/module, strict
@@ -397,7 +429,9 @@ service or provider acceptance follows from this exit.
 [operator Runners journey](native-validation.md#operator-runners-journey), keeping
 the existing read-only Cockpit/Tailnet probe read-only. Add separately gated
 dashboard/provider cases using existing browser, private-input and evidence
-conventions. Support tools supply transport and observations, not copied scenarios.
+conventions. Reuse Soda-pages entry/auth/browser transport and its source handoff;
+add runner operation/provider observations, not another login, shell or logout
+journey. Support tools supply transport and observations, not copied scenarios.
 
 The test inputs must identify the exact target, browser origin/trust, configured
 operator and denied test actor, each approved provider scope/repository/registration,
@@ -407,17 +441,21 @@ observations. Separate list/auth checks, registration/job/lifecycle checks, host
 reboot and destructive local/provider cleanup. Nothing opts into all of them by
 opening the page or enabling a read-only test.
 
-For the chosen native architecture, build/check/export the exact clean candidate
-through `scripts/build-native.sh`, `scripts/check-native.sh` and the existing
-sealed-bundle producer. Inspect the real selected Forgejo runner package/version,
-host dependencies and service confinement; the package version on
+For the chosen native architecture, obtain one exact clean candidate build/check/
+export through `scripts/build-native.sh`, `scripts/check-native.sh` and the existing
+sealed-bundle producer, following the single-executor delivery handoff. Reuse a
+matching combined-candidate receipt from Soda-pages; build again only for changed
+bytes or missing applicable evidence, not to satisfy a duplicate plan checkbox.
+Inspect the real selected Forgejo runner package/version, host dependencies and
+service confinement; the package version on
 the development machine is not proof of the retained target's version.
 
 Prepare one matching affected-artifact set. The running backend is the dashboard
 image containing `soda-dashboard`; its separately staged host binary is not that
 service. Pair **`soda-host` and `soda-runners`**, since both now embed the native
-state lock. Include the Forgejo-only `soda-runner-launch`, settings assets/hooks and
-only necessary service changes; the launcher is not a management-lock owner.
+state lock. Include the Forgejo-only `soda-runner-launch`, the handed-off Soda-pages
+assets/hooks and only necessary service changes; the launcher is not a
+management-lock owner.
 An approved delivery must also identify and retire the obsolete installed
 `soda-runner-helper` executable after all earlier management processes finish;
 source/package removal alone does not disable that independently callable old writer. Preserve the old Cockpit
@@ -438,10 +476,14 @@ providers require an explicit operator decision before deployment; do not reinte
 or delete them. New disposable Forgejo runners own the job-interruption, lifecycle
 and fault cases below; the preservation baseline is not the destructive test target.
 
-1. Exercise native Forgejo navigation → explicit Soda OAuth → Sodarunners through
-   the real proxy, backend, root socket and systemd. Prove both sides of operator/
-   site-admin separation through UI and direct APIs, including the nonadmin
-   operator, logout, expired session, restored page and untouched native Actions.
+1. Enter the handed-off native Runners page using the Soda-pages connection
+   contract and cite its navigation/OAuth/logout/restoration evidence. This lane
+   proves runner-specific UI/API admission through the real proxy, backend, root
+   socket and systemd: a nonadmin operator can inspect/control local runners;
+   a nonoperator site administrator cannot. Do not repeat the common shell/auth
+   suite or restore the retired explicit-only connection flow. If that prerequisite
+   fails, hand it back to Soda-pages; runner native admission remains independently
+   required.
 2. Register one approved Forgejo runner from the
    page. Check exact account/UID, directory ownership/modes, descriptor, installed
    version, boot policy and one configured slot. Provider-native registration
@@ -474,7 +516,12 @@ An unavailable provider leaves that part open and Cockpit retirement pending.
 
 ### 6. Rehearse preserved-state delivery, then cut over the chosen target
 
-**Status: not authorized or executed by this planning pass.** Follow the current
+**Status: not authorized or executed by this planning pass.** This step owns
+runner-management delivery only. Consume the Soda-pages shell/schema handoff;
+common phases of an approved combined rollout have one executor and receipt,
+not two competing maintenance recipes. A later runner-only rollout preserves the
+already delivered shell/schema and rehearses only its actual compatibility delta,
+with fresh target-state assessment and backups as required below. Follow the current
 [installation constraints](installation.md#existing-state-dashboard-migration) and
 [credential/schema contract](dashboard-credentials.md). Select the actual target;
 previous `soda-test` or validation-VM permission is not a fresh deployment grant.
@@ -532,7 +579,8 @@ Services/Logs. Port the installed operator check's runner section; retain its
 Tailnet and root-authority checks.
 
 Update the public CI guide, installation/staging documentation, architecture and
-AGENTS guidance to name Global SodaOS settings as the normal runner entrypoint.
+AGENTS guidance to name the Soda-pages lane's handed-off native **Runners**
+destination as the normal runner entrypoint. Do not redesign its navigation.
 Describe Cockpit Services/Logs for native diagnostics and remove the interim
 "Cockpit Runners remains" copy only with this cutover. Installed removal is limited
 to the verified obsolete page/assets on approved targets; never runner state,

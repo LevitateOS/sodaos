@@ -1,5 +1,24 @@
 # Current handoff
 
+## Soda-pages and runner completion — separate implementation lanes
+
+At the user's request, the [single ownership table and handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)
+now separates native page integration from [runner completion](runners-port.md#implementation-lane-boundary).
+The user reports another agent is working on Soda-pages step 2; this records its
+assignment, not implementation acceptance. That lane exclusively owns shared
+connection/OAuth/logout/schema work, all three page-body ports, navigation, browser
+fixture ports and page asset packaging. The runner lane owns operation/API/native
+correctness, provider journeys, paired management delivery and Cockpit retirement.
+Shared runner UI/test files are reserved through the Soda-pages source handoff;
+backend and installed runner preparation can proceed independently. Common build/
+schema/delivery phases use one executor and exact-candidate receipt per approved
+target/window, with distinct acceptance obligations and no borrowed authorization.
+
+Changed planning documentation only; no step-2 source, runtime, fixture, credential
+or provider state changed. Checks: documentation diff/whitespace and added local
+link/anchor validation. No builds, tests, deployment or provider operations ran.
+
+
 ## Native Soda page host — step 1 implemented and locally exercised
 
 At the user's request, step 1 of the [integration plan](forgejo-soda-pages-plan.md)
