@@ -2,6 +2,7 @@
 
 Implementation of the [installer plan](coreos-installer-plan.md); see the
 [handoff](implementation-status.md) for actual media-generation evidence.
+A native x86_64 ISO is built with the console on media.
 **ISO generation/inspection is not boot or fresh-appliance acceptance.** Anaconda
 and Kickstart are not used. No upstream installer patches or OS filesystem
 replacements are introduced. Legacy source and canonical artwork remain unchanged.

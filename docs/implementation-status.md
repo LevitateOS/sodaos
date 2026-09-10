@@ -1,5 +1,49 @@
 # Current handoff
 
+## Built x86_64 installer ISO — console on media, not booted
+
+Clean candidate **`392dd10881dcfa516619820f1efcc7ef597beb07`** completed real native
+media generation and readback. Deliverable: `.artifacts/coreos-installer-392dd10/soda.iso`
+(**1,079,246,848 bytes**, SHA-256
+`46b2b4a4aa172f57bab646e7ad212c82e040649085c74d9d30310e546e1ec9a3`).
+The console, LICENSE and NOTICE are on the ISO; no hosted executable or payload URL
+is required. This is **installer media, not a fully populated/offline Soda appliance**:
+the matching sealed Soda application bundle remains a separate post-boot input.
+
+Actual build/inspection evidence:
+
+- Go 1.26.7 module verification and fresh static x86_64 console/artifact-verifier
+  builds passed. The console's ELF identity and embedded Go/VCS build information
+  were inspected without executing it. Strict Butane 2.27.0 conversion, native
+  unpatched CoreOS Installer 0.26.0 customization and live Ignition readback passed.
+- The locked upstream Fedora CoreOS 44.20260817.3.2 ISO's SHA-256 and Fedora 44
+  signature verified. The final image preserved 14 ordinary upstream file hashes
+  (including EFI image, kernel, initramfs and rootfs), the BIOS executable outside
+  its validated relocation fields, BIOS/UEFI boot references, volume identity and
+  native live kernel arguments. The on-media console hash matches the built binary.
+  These are file/layout observations, **not firmware boot or live-process proof**.
+- `PrivateMedia=false`: no supplied network keyfile, operator credentials or fixed
+  destination disk. `SHA256SUMS` independently rechecked all six sealed outputs.
+  `media-build.json`, `iso-inspection.json`, the upstream receipt and remaster log
+  are retained with the image. Tool identities/wrappers and public signing inputs,
+  build/checksum logs and console build-info evidence remain under
+  `.artifacts/iso-build-inputs-yO2uuO/`. Butane's cached digest was also resolved
+  against the official registry with an empty authentication file. Wrappers run
+  network-disabled, unprivileged rootless tool containers; only the exact media
+  attempt is bound for CoreOS file operations. No global SELinux/trust policy changed.
+
+Source checks remain as recorded below: 14 focused Python checks passed after the
+serializer fix, Go tests passed with existing package results cached, and the full
+build-suite's unrelated Forgejo template inventory failure remains outstanding.
+There was no appliance-bundle build or waiver of that blocker in this ISO work.
+The failed `4e7a68b` attempt and earlier prototypes are retained, not overwritten.
+
+**Not run/accepted:** boot/tty1 and real SELinux launch, static networking, disk
+installation, first boot/activation, bundle continuation, complete operator setup,
+serial/graphical delivery or native aarch64. No new VM, retained target mutation,
+provider action, deployment or publication occurred. Fresh-target/disk authorization
+is still required before any installation journey; preserve all existing state.
+
 ## Installer media generation — first real-tool attempt retained
 
 Exact clean source `4e7a68b` built its native console/verifier, fetched and verified

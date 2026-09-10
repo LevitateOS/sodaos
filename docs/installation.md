@@ -11,8 +11,9 @@ and installed-host continuation instead of Anaconda. The console ships on media,
 not through a required hosting URL; see the handoff for generation evidence.
 Boot and fresh-disk validation remain unrun. QCOW2 wrappers remain unselected/unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
-below use sealed bundles and private provisioning; do not assume a Soda host OCI,
-installer ISO or preinstalled QCOW2, or replay first-install as a service upgrade.
+below use sealed bundles and private provisioning. The separately built installer
+ISO does not contain a populated Soda appliance; no Soda host OCI or preinstalled
+QCOW2 is supplied. Do not replay first-install as a service upgrade.
 
 ## 1. Prepare the native builder
 
