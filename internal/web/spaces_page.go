@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	_ "embed"
@@ -61,11 +60,11 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 			grant, grantErr := s.userGrant(r.WithContext(ctx), v)
 			if grantErr == nil && forgejo.HasScope(grant.Scopes, "read:user") && forgejo.HasScope(grant.Scopes, "read:repository") {
 				actor, actorErr := s.Forgejo.Current(ctx, grant.Access)
-				current, currentErr := s.Store.Session(ctx, cookie.Value)
-				data.Authorized = actorErr == nil && actor.ID == v.User.ID && currentErr == nil && current.ContextID == v.ContextID && current.CSRF == v.CSRF
+				currentErr := s.requireCurrentSession(ctx, cookie.Value, v)
+				data.Authorized = actorErr == nil && actor.ID == v.User.ID && currentErr == nil
 			}
 			if data.Authorized {
-    data.Operator = v.User.ID == s.Config.OperatorID
+				data.Operator = v.User.ID == s.Config.OperatorID
 				data.Message = "Loading authorized Spaces; opening this page never creates or starts a project."
 			} else {
 				status = 503
@@ -76,12 +75,8 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 			data.Message = "Soda session storage is unavailable. No workspace was inferred."
 		}
 	}
-	var body bytes.Buffer
-	if spacesTemplate.Execute(&body, data) != nil {
+	if writePageTemplate(w, spacesTemplate, data, status) != nil {
 		http.Error(w, "Could not render Spaces.", 500)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write(body.Bytes())
 }

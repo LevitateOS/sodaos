@@ -36,8 +36,7 @@ func (s *Server) apiProjectProfiles(w http.ResponseWriter, r *http.Request, v st
 		jsonError(w, 401, "unauthorized", "Reconnect to Soda.")
 		return
 	}
-	current, err := s.Store.Session(ctx, cookie.Value)
-	if err != nil || current.ContextID != v.ContextID || current.CSRF != v.CSRF || current.User.ID != v.User.ID {
+	if err := s.requireCurrentSession(ctx, cookie.Value, v); err != nil {
 		jsonError(w, 401, "unauthorized", "Soda context changed.")
 		return
 	}

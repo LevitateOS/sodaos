@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
@@ -123,6 +124,20 @@ func (s *Server) apiProtected(next func(http.ResponseWriter, *http.Request, stor
 		}
 		next(w, r, session)
 	}
+}
+
+// requireCurrentSession performs a fresh store read at the caller's post-I/O
+// boundary. It does not authorize a role or replace terminal admission locking.
+// Cookie disambiguation and response/status policy remain with the caller.
+func (s *Server) requireCurrentSession(ctx context.Context, token string, original store.Session) error {
+	current, err := s.Store.Session(ctx, token)
+	if err != nil {
+		return err
+	}
+	if current.User.ID != original.User.ID || current.ContextID != original.ContextID || current.CSRF != original.CSRF {
+		return store.ErrGrantUnavailable
+	}
+	return nil
 }
 
 func (s *Server) validAPIMutation(r *http.Request, csrf string) bool {

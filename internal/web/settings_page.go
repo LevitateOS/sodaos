@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	_ "embed"
@@ -62,11 +61,8 @@ func (s *Server) runnersPage(w http.ResponseWriter, r *http.Request) {
 			data.Authorized = true
 		}
 	}
-	var body bytes.Buffer
-	if runnersTemplate.Execute(&body, data) != nil {
+	if writePageTemplate(w, runnersTemplate, data, http.StatusOK) != nil {
 		http.Error(w, "Cannot render settings.", 500)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(body.Bytes())
 }

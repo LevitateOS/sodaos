@@ -40,8 +40,7 @@ func (s *Server) authorizeOperator(w http.ResponseWriter, r *http.Request, v sto
 		providerError(w, store.ErrGrantUnavailable)
 		return false
 	}
-	current, err := s.Store.Session(r.Context(), cookie.Value)
-	if err != nil || current.ContextID != v.ContextID || current.CSRF != v.CSRF || current.User.ID != v.User.ID {
+	if err := s.requireCurrentSession(r.Context(), cookie.Value, v); err != nil {
 		providerError(w, store.ErrGrantUnavailable)
 		return false
 	}

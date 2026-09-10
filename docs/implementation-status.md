@@ -1,5 +1,47 @@
 # Current handoff
 
+## Refactoring step C — current-session and page mechanics
+
+Added one fresh-session comparison in `internal/web/api.go`, with explicit context,
+token and original-session inputs and an error result. Project-profile reads,
+existing-root OS reads, operator authorization and repository/Spaces pages call it
+at their existing post-I/O boundaries. Callers retain cookie disambiguation, response
+encoding/status and their distinct owner/operator/member/provider authority. Terminal
+admission/store checks, locking, grants, OAuth destinations and routes are unchanged.
+
+One explicit hardening accompanies this extraction: Spaces now compares the fresh
+stored user ID as well as context ID and CSRF. Its earlier comparison checked the
+provider's actor ID but omitted the fresh stored user ID. A test-only Go overlay of
+the previous Spaces handler reproduced a 200 authorized shell after the synthetic
+session's user changed during provider I/O; the current code refuses it using its
+existing 503 unavailable-page behavior. This does not replace API authorization.
+
+`internal/web/pages.go` owns only complete template buffering before HTML headers/body
+are committed. Each of the three pages retains its data, authorization, error text,
+status, origin/cookie policy and CSP; only Spaces permits xterm's inline styles.
+Existing cookie parsing already has one owner, and differing page failure policies
+were deliberately not folded into a new page/controller framework.
+
+New focused tests cover each session comparison field, permitted display-name drift,
+logout, cancellation/store failure, all three pages' logout/actor/CSRF changes during
+provider I/O, denied/unavailable/wrong-actor provider responses, profile-read logout
+after native I/O, duplicate cookies, query aliases, invalid origins, anonymous/expired
+sessions, missing storage, separate CSPs and partial-template failure at real handlers.
+Existing API actor/CSRF/origin, native authority and terminal tests remain intact.
+
+Final local checks passed: uncached full `internal/web` race tests in 61.78 seconds
+and `bun run check:source` in 140.15 seconds (Go/module checks, complete TypeScript/Lit
+checks, 302 browser/Cockpit passes with 24 separately gated skips, 115 Python tests
+with one optional Caddy integration skip). All three emitted Go-page journeys ran;
+final fixtures are `.artifacts/pages-5ndI8N/`. Logs, timings and the previous-handler
+overlay are retained under `.artifacts/refactor-stepC-HMQJZh/`. The initial focused
+attempt failed because new synthetic repository replies omitted required `full_name`;
+those fixtures were corrected without weakening provider validation. The old-handler
+user-change failure remains separately recorded. Local tools remain Go 1.27.0 and
+Bun 1.4.2, not native pinned-tool/stage evidence. No retained database/project access,
+native build/check, deployment, provider mutation or dependency change occurred.
+Later refactoring slices and all unfinished product work remain in scope.
+
 ## Refactoring step B — schema-v8 completeness
 
 Startup now requires `projects.creation_profile`, `oauth.repository_settings_return`

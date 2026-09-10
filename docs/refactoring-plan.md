@@ -175,6 +175,12 @@ Do not inspect or modify a retained database to manufacture a failing fixture.
 
 ### C. Current-session and page mechanics — bounded cleanup
 
+**Implemented with local source/browser and web race checks.** See the
+[handoff](implementation-status.md#refactoring-step-c--current-session-and-page-mechanics)
+for the bounded extraction, explicit Spaces stored-user consistency hardening,
+preserved caller policy and actual successful/failed checks. Cookie parsing already
+has a shared owner; differing page policies remain explicit rather than generalized.
+
 **Owners:** [API guard](../internal/web/api.go),
 [repository authority](../internal/web/environment_authority.go),
 [provider grants](../internal/web/provider.go),

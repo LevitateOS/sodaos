@@ -1,7 +1,6 @@
 package web
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	_ "embed"
@@ -61,8 +60,7 @@ func (s *Server) repositorySpacesPage(w http.ResponseWriter, r *http.Request) {
 				providerError(w, err)
 				return
 			}
-			current, err := s.Store.Session(ctx, cookie.Value)
-			if err != nil || current.ContextID != v.ContextID || current.CSRF != v.CSRF || current.User.ID != v.User.ID {
+			if err := s.requireCurrentSession(ctx, cookie.Value, v); err != nil {
 				http.Error(w, "Soda context changed; reconnect.", 401)
 				return
 			}
@@ -78,11 +76,8 @@ func (s *Server) repositorySpacesPage(w http.ResponseWriter, r *http.Request) {
 			data.RepositoryURL = s.Config.ForgejoURL + "/" + url.PathEscape(repo.Owner.Login) + "/" + url.PathEscape(repo.Name)
 		}
 	}
-	var body bytes.Buffer
-	if repositorySpacesTemplate.Execute(&body, data) != nil {
+	if writePageTemplate(w, repositorySpacesTemplate, data, http.StatusOK) != nil {
 		http.Error(w, "Cannot render settings.", 500)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(body.Bytes())
 }
