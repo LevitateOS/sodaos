@@ -447,14 +447,24 @@ from these local checks.
 
 ### 4. Prepare product-owned native journeys and a paired candidate
 
-**Status: remaining test/delivery preparation.** Extend
-[`tests/installed/`](../tests/installed/) and the
-[operator Runners journey](native-validation.md#operator-runners-journey), keeping
-the existing read-only Cockpit/Tailnet probe read-only. Add separately gated
-dashboard/provider cases using existing browser, private-input and evidence
-conventions. Reuse Soda-pages entry/auth/browser transport and its source handoff;
-add runner operation/provider observations, not another login, shell or logout
-journey. Support tools supply transport and observations, not copied scenarios.
+**Status: runner-owned test/input preparation implemented; shared driver wiring
+and the verified native candidate exit remain open.** The
+[native runner preparation guide](runners-native-validation.md) owns exact source
+entrypoints, private input/effect gates, candidate artifact checklist and blockers.
+`tests/installed/runners.ts` supplies callable list/denial, registration and exact
+lifecycle/removal cases; companion fixed native/provider observers use the real CLI,
+state/credential hashes and official exact-run Forgejo APIs. The manual-only trusted
+workflow records native job identity and two-step workspace proof. Local tests use
+synthetic command/HTTP outputs and owned files, not native/provider execution.
+
+The Soda-pages lane still owns wiring these cases into its existing installed
+browser driver after its page-body/authentication handoff. No duplicate login,
+shell, browser fixture or standalone test orchestrator was added. The original
+Cockpit/Tailnet probes remain unchanged and read-only within their existing scope.
+The native scripts require Go 1.26.7, while this shell has Go 1.27.0; do not bypass
+that shared contract. No target/provider inputs or final matching native export
+have been selected/verified here. Support tools supply transport and observations,
+not copied scenarios or a second readiness gate.
 
 The test inputs must identify the exact target, browser origin/trust, configured
 operator and denied test actor, each approved provider scope/repository/registration,

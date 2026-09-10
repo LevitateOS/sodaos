@@ -1,5 +1,62 @@
 # Current handoff
 
+## Runner step 4 — source preparation, not the final native candidate exit
+
+On source base `de1a746`, added the runner-owned callable installed phases and
+[exact input/candidate preparation contract](runners-native-validation.md).
+The Soda-pages agent's reserved page/OAuth/store/browser-driver files remain
+untouched. `tests/installed/runners.ts` is a module for that existing driver, not
+a second browser/login runner or an automatically enabled journey. Its loader
+requires restricted files, an exact clean source revision, an exact target and
+separate `--allow-runner-PHASE` selections. List/denied-GET reads do not enable
+mutations; register/start/stop/restart/remove/dispatch/job have distinct inputs.
+Declared preservation runners cannot be the disposable mutation target, and
+undeclared existing capacity is refused before effects.
+
+Added a fixed pinned-SSH native reader for existing root CLI observations, account
+UID/GID/home/shell, private credential modes/hashes, effective selected confinement,
+runner/systemd RPM versions and bounded descriptor-relative state hashes. Job proof
+reads are restricted to the exact observation and native PID/start/UID/cgroup, not
+process environments or credentials. A stock remote timeout bounds only its own
+read/CLI process group. These are changing-state observations, not quiesced backups;
+unsupported/partial/missing state remains unavailable and is never repaired.
+
+Provider phases use Forgejo 15.0.7's official version/repository preflight and
+workflow dispatch with `return_run_info`, then an exact run-ID GET bound to repository,
+workflow, commit and observation inputs. Reviewed the retained v15.0.7 API routes/
+implementation and upstream `modules/structs/action.go` / `workflow.go`; public source
+copies are under `.artifacts/runners-step4-fun2xj/`. A guessed convert-source path
+returned 404; no implementation conclusion depends on it. The reviewed Fedora
+runner RPM source remains 12.13.2 with git-core/git-lfs dependencies, not proof of
+any target's installed package. Tokens travel only through protected fields or
+curl stdin, never argv/environment/evidence. No provider registration/reset,
+workflow publication, latest-run selection, automatic retry or cleanup was added.
+The existing manual-only trusted workflow now writes unique retained identity/proof
+markers and checks a second step's shared workspace, with an explicit 0–600 second
+hold for later approved interruption cases. It was not published or dispatched.
+
+Focused strict tooling TypeScript checks and six Python reader cases passed.
+The six Bun input/transport/preservation/workflow cases passed after correcting
+an overescaped newline in the syntax-only workflow test; its failed attempt is
+retained. These checks used owned temporary data and synthetic transport outputs;
+workflow Python/Bash was syntax checked, not executed as a job. Evidence is under
+`.artifacts/runners-step4-fun2xj/`; aggregate source checks are next, not yet claimed.
+
+**Step 4 is not fully closed:** Soda-pages must hand off the migrated pages/driver
+and wire these callable cases into its existing authentication/one-shot request
+guard. That integration needs its own actual driver/browser checks. Exact approved
+target/provider resources and retained-state compatibility inputs are not yet
+selected. This shell has Go 1.27.0/Bun 1.4.2, whereas the shared native build/check
+scripts require Go 1.26.7; no pin was bypassed or upgraded and no final native
+build/check/sealed export was attempted before the shared source handoff. The new
+guide specifies the paired dashboard image, `soda-host`/`soda-runners`, launcher,
+page payload and obsolete-helper retirement review, using the existing producer/
+verifier and one maintenance executor rather than a new manifest/updater. Native
+jobs/interruption/concurrency, boot/preservation and provider-record cleanup proof
+remain step 5; no deployment, host/provider mutation, reboot, retained-data change
+or Cockpit retirement occurred.
+
+
 ## Runner step 3 — bounded backend correctness and local regressions
 
 On source base `89a0124`, implemented the runner-owned step-3 gaps without editing

@@ -547,9 +547,14 @@ Forgejo Git advertisement is refreshed only when its actual private listener acc
 
 The [runner completion plan](runners-port.md#implementation-and-completion-gate)
 owns the dashboard migration's source/native/provider/preservation exits. The
-existing installed operator probe still reads Cockpit inventory only; extend the
-product-owned installed journeys with separate opt-ins for the new page and actual
-provider effects. Local Go-HTML/Lit fixtures are not this native proof.
+existing installed operator probe still reads Cockpit inventory only. The
+[runner-native preparation guide](runners-native-validation.md) now documents
+callable runner phases, strict per-phase private inputs, fixed native state/proof
+observations and official Forgejo workflow dispatch/exact-run reads. Their shared
+Soda-pages driver integration and matching native export remain pending; importing
+the module is not an installed journey. No existing read-only probe opts into these
+effects. Local Go-HTML/Lit and new parser/transport-double/filesystem fixtures are
+not this native proof.
 
 Provider registration and jobs are **not read-only checks**. Supply explicitly approved Forgejo resources and tokens. Verify create/list/start/stop/restart, actual native runner account/capacity and a genuine provider-scheduled job on trusted code. Verify configured Forgejo administration links and one local slot per runner. Provider workflows/results stay provider-owned.
 

@@ -1,28 +1,74 @@
-# P11 opt-in trusted-job fixture. NOT under .github/.forgejo: never automatic CI.
-# An operator must explicitly approve copying/scheduling this in a trusted repo,
-# select its actual runner label, and retain the real provider run URL/attempt.
+# Opt-in trusted runner fixture, outside automatic CI discovery. An operator must
+# approve publishing these exact bytes (with the selected unique runner label) to
+# a trusted repository. Dispatch is pinned to its reviewed commit. No checkout,
+# credentials, dependency installation, provider cleanup or arbitrary commands.
 name: Native runner support observation
 on:
   workflow_dispatch:
     inputs:
       observation:
-        description: Non-secret unique observation label
+        description: Non-secret unique observation label (never reuse)
         required: true
+        type: string
+      hold_seconds:
+        description: Explicit bounded hold for separately approved interruption tests (0-600)
+        required: true
+        default: '0'
         type: string
 jobs:
   native:
     runs-on: soda-native
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
-      - name: Observe the actual native runner without credentials or checkout
+      - name: Record actual account and process identity, then hold if selected
+        env:
+          OBSERVATION: ${{ inputs.observation }}
+          HOLD_SECONDS: ${{ inputs.hold_seconds }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I - <<'PY'
+          import json, os, pwd, re, time
+          from pathlib import Path
+          observation = os.environ['OBSERVATION']
+          hold = os.environ['HOLD_SECONDS']
+          assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', observation)
+          assert re.fullmatch(r'0|[1-9][0-9]{0,2}', hold) and int(hold) <= 600
+          account = pwd.getpwuid(os.getuid())
+          assert re.fullmatch(r'soda-runner-[a-z][a-z0-9-]{0,15}', account.pw_name)
+          pid = os.getpid()
+          record = dict(observation=observation, account=account.pw_name, uid=os.getuid(), pid=pid,
+                        start=Path('/proc/self/stat').read_text().rsplit(') ', 1)[1].split()[19], steps=1)
+          marker = Path.cwd() / ('.soda-native-step-' + observation)
+          with marker.open('x') as stream:
+              stream.write(observation)
+          proof = Path(account.pw_dir) / 'work' / ('soda-native-proof-' + observation + '.json')
+          fd = os.open(proof, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(fd, 'w') as stream:
+              json.dump(record, stream)
+          print('Native runner identity recorded for ' + observation, flush=True)
+          time.sleep(int(hold))
+          PY
+      - name: Confirm the next step shares the workspace
         env:
           OBSERVATION: ${{ inputs.observation }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$OBSERVATION" =~ ^[a-zA-Z0-9_-]{1,80}$ ]]
-          printf 'observation=%s\n' "$OBSERVATION"
-          uname -s
-          uname -m
-          id -un
-          printf 'Native provider-scheduled process reached this runner. No application/project acceptance is implied.\n'
+          python3 -I - <<'PY'
+          import json, os, pwd, re
+          from pathlib import Path
+          observation = os.environ['OBSERVATION']
+          assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', observation)
+          assert (Path.cwd() / ('.soda-native-step-' + observation)).read_text() == observation
+          proof = Path(pwd.getpwuid(os.getuid()).pw_dir) / 'work' / ('soda-native-proof-' + observation + '.json')
+          fd = os.open(proof, os.O_RDWR | os.O_NOFOLLOW)
+          with os.fdopen(fd, 'r+') as stream:
+              record = json.load(stream)
+              assert record['uid'] == os.getuid() and record['observation'] == observation and record['steps'] == 1
+              record['steps'] = 2
+              stream.seek(0)
+              json.dump(record, stream)
+              stream.truncate()
+          print('Two native workflow steps completed for ' + observation)
+          PY
