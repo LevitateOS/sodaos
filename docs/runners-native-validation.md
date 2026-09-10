@@ -11,9 +11,11 @@ observations and provider dispatch/exact-run observations have source implementa
 The historical candidate `9476858` passed the ordinary aggregate source gate and
 focused local input/transport-double/filesystem checks; this is not a fresh receipt
 for the pulled combined checkout. Native connection/logout and page bodies have
-now landed (`6097564`, `a77dea1`). The shared driver has not yet called the runner
-phases: its explicit file-level handoff and final navigation/caller migration remain
-pending. Follow the revised step 4 sequence for independent local work, cross-lane
+now landed (`6097564`, `a77dea1`), followed by navigation retirement and cache/history
+source. The explicit `97a2d5e` handoff is incorporated. The existing installed driver
+now calls the runner phases through a distinct branch with isolated actor contexts
+and a one-shot page/actor/path/body guard. Its local source-backed tests use doubles;
+no installed runner phase has been executed. Follow the revised step 4 sequence for independent local work, cross-lane
 dependencies and execution approvals rather than treating all three as one hold. No target/provider inputs have been selected, and no matching
 native candidate build/check/export has run for this work. Do not call step 4's
 verified-candidate exit complete or these scenarios provider-validated.
@@ -28,11 +30,30 @@ verified-candidate exit complete or these scenarios provider-validated.
 | `tests/installed/runners-provider.ts` | Existing Forgejo 15.0.7 APIs: version/repository preflight, one workflow dispatch returning its run ID, or a GET of that exact run. The optional command seam is for local unit tests only; installed callers use real curl, never doubles. |
 | `tests/fixtures/runner/native-support.yaml` | Manual-only two-step trusted job with a unique observation and an explicit 0–600 second hold. It records native UID/account/PID/start and a retained proof file, and checks a shared workspace in the second step. It neither checks out code nor installs tools. |
 
-The concrete driver to extend at the Soda-pages handoff is
-`tests/installed/sodaspaces.ts`, which already owns private browser startup,
-real authentication and one-shot request admission. Do **not** add another login
+The integrated driver is `tests/installed/sodaspaces.ts`, which owns private browser
+startup, native authentication/consent and one-shot request admission. After explicit
+execution approval, its command shape is:
+
+```sh
+SODA_NATIVE_VALIDATE=ACTUAL_HOST bun tests/installed/sodaspaces.ts \
+  /private/auth-input.json /private/fresh-browser-home --allow-auth-transitions \
+  --runner-phase /private/runner-input.json --allow-runner-list
+```
+
+Replace the last flag only with the exact phase's approval. The existing auth input
+uses operator first, denied administrator second; its target, origin, revision and
+CA must match the runner input. Existing repository fields remain required by the
+shared auth-input contract, but runner mode does not enter repository/environment/
+terminal journeys. It creates an isolated second cookie context, checks fresh Soda
+and Forgejo identity/role facts, and uses automatic native Runners entry/consent,
+not the drawer-only OAuth helper. No browser security bypass or cookie seeding.
+
+The native asset preflight checks the full emitted module graph and settings CSS,
+including epoch-versioned URLs, against source bytes and the installed proxy's
+`max-age=0, must-revalidate` contract. This is not the stock-preview six-hour cache
+contract or a substitute for installed backend artifact verification. Do **not** add another login
 script or run `bun tests/installed/runners.ts` expecting a journey: this module has
-no standalone CLI. The driver must:
+no standalone CLI. Preserve these driver contracts:
 
 1. Call `loadRunnerInput` before any authentication/native work; retain its existing
    browser-origin/CA/private-home and clean-revision checks. Verify actual delivered
@@ -211,8 +232,9 @@ artifacts. The host default remains Go 1.27.0, but the required Go 1.26.7 is now
 available at `.artifacts/runners-step4-continued/toolchain/go/bin/go`, downloaded
 from go.dev and verified against its published SHA-256. Select its `bin` directory
 with command-local PATH and `GOTOOLCHAIN=local`; no shared pin or host installation
-changed. The final page/driver source/schema handoff remains missing, so this is
-builder preparation, not a final native candidate build/export receipt.
+changed. The `97a2d5e` page/driver handoff is incorporated. Toolchain availability and editor
+handoff are no longer blockers; only actual build/check/export receipts establish
+candidate readiness. Broader Soda-pages acceptance is still separately recorded.
 
 Review this affected set against the **real sealed inventory and target state**:
 
@@ -240,9 +262,9 @@ Common build/schema/backup/delivery phases have one executor and one exact-candi
 receipt across both lanes. Later target writes require fresh applicable backups;
 old evidence is not lossless rollback.
 
-**Remaining step-4 exit:** wire these callable scenarios at the Soda-pages source
-handoff, validate that real driver/guard integration, select approved target/provider
-inputs, use the prepared pinned builder and produce/check/inspect the matching native
+**Remaining step-4 exit:** finish applicable local driver/guard validation and
+remaining scenario preparation, select target/provider inputs for approval, and
+use the prepared pinned builder to produce/check/inspect the matching native
 export and target-specific compatibility recipe. The local parser/transport-double/
 filesystem tests below are preparation evidence, not substitutes for those exits.
 

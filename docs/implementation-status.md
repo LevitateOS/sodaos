@@ -1,5 +1,36 @@
 # Current handoff
 
+## Runner installed-driver implementation after explicit handoff
+
+Merged `origin/main` through `97a2d5e`, preserving the local runner validation
+receipt. Consumed its bounded two-file editor handoff; no reserved production
+UI/auth/payload files were edited in this implementation. The existing installed
+`tests/installed/sodaspaces.ts` now accepts `--runner-phase FILE --allow-runner-PHASE`
+after its existing auth opt-in, loads exact clean runner inputs before effects and
+runs only the runner branch, not unrelated repository/environment/terminal cases.
+It reuses native login/consent/browser transport, opens native Runners views in
+separate cookie contexts and checks fresh Soda/provider actor and operator/admin
+facts. It passes the exact serialized body to its one-shot guard without logging
+or reserializing registration secrets. Runner outcomes/evidence are distinct from
+BFCache acceptance; actual backend artifact verification remains separately required.
+
+The handed-off guard now binds runner permits to the operator page as well as
+actor/path/body, refuses further writes after interruption/refusal, and clears
+pending permits on navigation, closure and failure. Coordinated login cancellation
+has bounded origin/path/body/actor/logout-marker/CSRF admission, not a blanket
+runner API allowlist. Asset observations cover the emitted module graph and settings
+CSS, including epoch URLs, retaining installed proxy revalidation assertions rather
+than adopting the stock-preview cache policy. Existing non-runner modes remain.
+
+Focused strict TypeScript and source-backed guard/branch tests passed; tests use
+CDP/page/context doubles, not installed authentication or native/provider effects.
+They cover phase exclusivity, distinct-cookie/role failures, unconsumed permits,
+operation failures, duplicate/mismatched/late writes and cancellation constraints.
+Logs are retained under `.artifacts/runner-driver-handoff/`. Native build/check/
+export validation of a fresh exact worktree is next, not yet claimed. No installed
+journey, service action, registration, provider job or deployment has run.
+
+
 ## Bounded runner installed-driver handoff after `9629c8e`
 
 Inspected clean HEAD `9629c8e`; native UI/cache/history source is `d838262` on top

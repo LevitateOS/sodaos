@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-import {chromium, type Page, type Dialog, type WebSocket} from 'playwright';
+import {loadRunnerInput, exerciseRunners, type RunnerEvidence} from './runners.ts';
+import {chromium, type Page, type BrowserContext, type Dialog, type WebSocket} from 'playwright';
 import {journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
 import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
@@ -36,6 +37,8 @@ let accessMode = false;
 let terminalMode = false;
 let managementMode = false;
 let matrixMode = false;
+let runnerMode = false;
+let runnerConfirmed = false;
 process.umask(0o077);
 const interrupt = async () => {
   interrupted = true;
@@ -53,14 +56,23 @@ try {
   const [inputFile, home, permission, ...extra] = Bun.argv.slice(2);
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
     (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0] ?? '')) ||
-    (extra.length === 2 && ['--allow-existing-management', '--allow-workspace-matrix'].includes(extra[0] || ''))));
+    (extra.length === 2 && ['--allow-existing-management', '--allow-workspace-matrix'].includes(extra[0] || '')) ||
+    (extra.length === 3 && extra[0] === '--runner-phase' && /^--allow-runner-(list|register|start|stop|restart|remove|dispatch|job)$/.test(extra[2] || ''))));
+  runnerMode = extra[0] === '--runner-phase';
   managementMode = extra[0] === '--allow-existing-management';
   matrixMode = extra[0] === '--allow-workspace-matrix';
   accessMode = extra[0] === '--allow-environment-access';
   terminalMode = extra[0] === '--allow-existing-terminal' || managementMode || matrixMode;
   const privateRepository = extra[0] === '--private-repository';
   assert(inputFile && home);
+  // Runner inputs are checked before proxy, authentication or native effects.
+  const runnerRequest = runnerMode && extra[1] && extra[2] ? await loadRunnerInput(extra[1],extra[2]) : null;
+  assert(!runnerMode || runnerRequest);
   const input = journeyInput(JSON.parse(await privateFile(inputFile, 16384)), accessMode, terminalMode);
+  if (runnerRequest) {
+    assert(input.target === runnerRequest.target && input.origin === runnerRequest.origin && input.revision === runnerRequest.revision && input.ca_file === runnerRequest.ca_file);
+    assert(input.users[0]?.id === runnerRequest.operator_id && input.users[1]?.id === runnerRequest.denied_id, 'Declare operator then denied actor in separate authenticated contexts');
+  }
   assert(!managementMode || extra[1]);
   const managementRequest = managementMode && extra[1] ? managementInput(JSON.parse(await privateFile(extra[1], 16384))) : null;
   const matrixRequest = matrixMode && extra[1] ? matrixInput(JSON.parse(await privateFile(extra[1], 16384)), input) : null;
@@ -116,7 +128,9 @@ try {
   const forgejoVersion = object(JSON.parse(version.body.toString())).version;
   assert(typeof forgejoVersion === 'string');
   assert.match(forgejoVersion, /^15\.0\.7(?:\+gitea-1\.22\.0)?$/);
-  for (const [destination, source] of Object.entries(forgejoPayload).filter(([target]) => /^public\/assets\/sodaspaces[^/]*\.(?:js|css)$/.test(target) || target === 'public/assets/soda/forgejo/lit.js')) {
+  const presentationVersion=(await Bun.file(path.join(root,'appliance/forgejo/templates/custom/header.tmpl')).text()).match(/name="soda-presentation-revision" content="([a-zA-Z0-9.-]+)"/)?.[1];
+  assert(presentationVersion, 'Packaged presentation epoch missing');
+  for (const [destination, source] of Object.entries(forgejoPayload).filter(([target, source]) => source.startsWith('@build/forgejo-js/') || /^public\/assets\/sodaspaces[^/]*\.css$/.test(target) || target === 'public/assets/soda-settings.css')) {
     const asset = destination.slice('public'.length);
     const response = await rawRead(asset);
     assert.equal(response.status, 200);
@@ -128,6 +142,12 @@ try {
     if (response.headers.etag) validator['If-None-Match'] = response.headers.etag;
     else {assert(response.headers['last-modified']); validator['If-Modified-Since'] = response.headers['last-modified'];}
     assert.equal((await rawRead(asset, validator)).status, 304);
+    const versioned=await rawRead(asset+'?v='+presentationVersion);
+    assert.equal(versioned.status,200);
+    assert.match(versioned.headers['cache-control'] || '', /max-age=0/);
+    assert.match(versioned.headers['cache-control'] || '', /must-revalidate/);
+    assert.equal(new Bun.CryptoHasher('sha256').update(versioned.body).digest('hex'),new Bun.CryptoHasher('sha256').update(expected).digest('hex'));
+    assert.equal((await rawRead(asset+'?v='+presentationVersion,validator)).status,304);
   }
   result.asset_revalidation = 'conditional reads of current bytes; not an update/cutover proof';
 
@@ -142,11 +162,13 @@ try {
   let environmentReads = 0;
   let authorizations = 0;
   const writes = new Set(['/user/login', '/user/logout', '/login/oauth/grant', '/-/soda/api/session/logout']);
-  let accessWrite: {actor: string; path: string; body: string; method?: string} | null = null; // One exact expected request, consumed before transmission.
-  async function guardedPage() {
-    const p = await context.newPage();
+  let accessWrite: {actor: string; path: string; body: string; method?: string; page?: Page} | null = null; // One exact expected request, consumed before transmission.
+  async function guardedPage(pageContext: BrowserContext = context) {
+    const p = await pageContext.newPage();
+    p.on('close', () => {accessWrite=null;});
+    p.on('framenavigated', frame => {if(frame === p.mainFrame()) accessWrite=null;});
     await p.setViewportSize({width: 1280, height: 900});
-    const cdp = await context.newCDPSession(p);
+    const cdp = await pageContext.newCDPSession(p);
     // Playwright route handlers omit redirect hops. CDP Fetch pauses each hop
     // before transmission, including the authorization redirect from Soda.
     cdp.on('Fetch.requestPaused', async ({requestId, request}) => {
@@ -154,14 +176,20 @@ try {
         const url = new URL(request.url);
         // Native logout's link action posts this fixed navigation-only form.
         const logoutRedirect = request.method === 'POST' && url.pathname === '/-/fetch-redirect' && request.postData === 'redirect=%2F';
-        const expectedAccess = accessWrite && url.origin === origin.origin && !url.search &&
+        const header = (name: string) => Object.entries(request.headers || {}).find(([key]) => key.toLowerCase() === name)?.[1];
+        const cancellation = url.pathname === '/-/soda/api/login/cancel' && !url.search &&
+          header('x-soda-logout') === '1' && input.users.some(user => user.id === header('x-soda-expected-user-id')) &&
+          (request.method === 'GET' || (request.method === 'POST' && request.postData === '{}' && /^[A-Za-z0-9_-]{43}$/.test(header('x-csrf-token') || '')));
+        const expectedAccess = !interrupted && !refusedRequest && accessWrite && (!accessWrite.page || accessWrite.page === p) && url.origin === origin.origin && !url.search &&
           request.method === (accessWrite.method || 'POST') && url.pathname === accessWrite.path && request.postData === accessWrite.body &&
           Object.entries(request.headers || {}).some(([name, value]) => name.toLowerCase() === 'x-soda-expected-user-id' && value === accessWrite?.actor);
         if (expectedAccess) accessWrite = null;
         const denied = url.origin !== origin.origin ||
-          (!['GET', 'HEAD'].includes(request.method) && !writes.has(url.pathname) && !logoutRedirect && !expectedAccess) ||
+          (url.pathname === '/-/soda/api/login/cancel' && !cancellation) ||
+          (!['GET', 'HEAD'].includes(request.method) && ((interrupted || refusedRequest) || (!writes.has(url.pathname) && !logoutRedirect && !cancellation && !expectedAccess))) ||
           (url.pathname === '/login/oauth/authorize' && url.searchParams.get('client_id') !== input.oauth_client_id);
         if (denied) {
+          accessWrite=null;
           refusedRequest = true;
           result.refused_hop = {same_origin: url.origin === origin.origin,
             method: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(request.method) ? request.method : 'other',
@@ -173,6 +201,7 @@ try {
         if (url.pathname.startsWith('/-/soda/api/environments')) environmentReads++;
         await cdp.send('Fetch.continueRequest', {requestId}); // No response substitution.
       } catch {
+        accessWrite=null;
         if (!interrupted) refusedRequest = true;
       }
     });
@@ -184,7 +213,7 @@ try {
   });
   // Retain only fixed route labels/status codes, never URLs, queries or bodies.
   result.http = [];
-  const observedRoutes = new Set(['/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant', '/-/soda/api/session/logout',
+  const observedRoutes = new Set(['/-/soda/api/login/cancel', '/-/soda/api/settings/runners', '/', '/-/fetch-redirect', '/user/login', '/user/logout', '/login/oauth/authorize', '/login/oauth/grant', '/-/soda/api/session/logout',
     '/-/soda/login', '/-/soda/oauth/callback', '/-/soda/api/session', '/-/soda/api/forgejo/me', '/-/soda/api/environments']);
   context.on('response', response => {
     const pathname = new URL(response.url()).pathname;
@@ -220,6 +249,7 @@ try {
       p.waitForURL(url => url.pathname !== '/user/login'),
       p.locator('form:has(#user_name) button').click(),
     ]);
+    if (runnerMode) return; // Native-view connection below, not the drawer journey.
     await p.goto(repoURL);
     assert.equal(await p.locator('#sodaspaces-root').getAttribute('data-user-id'), user.id);
     assert.equal(await p.locator('#sodaspaces-root').getAttribute('data-repository-id'), input.repository_id);
@@ -293,6 +323,62 @@ try {
     assert(!(await context.cookies(repoURL)).some(cookie => cookie.name === '__Secure-sodaspaces-session'));
   }
 
+  if (runnerRequest) {
+    const browser=context.browser(); assert(browser);
+    const deniedContext=await browser.newContext({serviceWorkers:'block'});
+    deniedContext.setDefaultTimeout(30000);
+    const runnerEvidence: RunnerEvidence={}; result.runner=runnerEvidence;
+    try {
+      const deniedPage=await guardedPage(deniedContext);
+      for (const [actorPage,index] of [[page,0],[deniedPage,1]] as const) {
+        stage='runner native authentication '+index;
+        await nativeLogin(actorPage,index);
+        await actorPage.goto(origin.origin+'/?soda-view=runners');
+        await Promise.race([
+          actorPage.locator('soda-runners').waitFor({state:'attached'}),
+          actorPage.locator('#authorize-app').waitFor({state:'visible'}),
+        ]);
+        if(await actorPage.locator('#authorize-app').isVisible()) {
+          assert.equal(await actorPage.locator('input[name="client_id"]').inputValue(),input.oauth_client_id);
+          assert(!interrupted && !refusedRequest);
+          await actorPage.locator('#authorize-app').click();
+        }
+        await actorPage.locator('soda-runners').waitFor({state:'attached'});
+        assert.equal(await actorPage.locator('meta[name="soda-presentation-revision"]').getAttribute('content'),presentationVersion);
+        const user=input.users[index]; assert(user);
+        // Fresh session/provider reads prove the cookie identities, not stale DOM
+        // markers. Keep only the selected role facts, never provider metadata.
+        const identity=await actorPage.evaluate(async actor => {
+          const headers={'X-Soda-Expected-User-ID':actor};
+          const session=await fetch('/-/soda/api/session',{headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
+          const me=await fetch('/-/soda/api/forgejo/me',{headers,credentials:'same-origin',cache:'no-store',redirect:'error'});
+          if(!session.ok || !me.ok) throw Error('Actor unavailable');
+          const s: unknown=await session.json(), m: unknown=await me.json();
+          if(!s || typeof s !== 'object' || !('user' in s) || !s.user || typeof s.user !== 'object' || !('id' in s.user) ||
+            !('soda_operator' in s) || !m || typeof m !== 'object' || !('id' in m) || !('is_admin' in m)) throw Error('Invalid actor response');
+          if(typeof s.user.id !== 'string' || typeof m.id !== 'string' || typeof s.soda_operator !== 'boolean' || typeof m.is_admin !== 'boolean') throw Error('Invalid actor facts');
+          return {id:s.user.id,provider_id:m.id,operator:s.soda_operator,admin:m.is_admin};
+        },user.id);
+        assert(identity.id === user.id && identity.provider_id === user.id);
+        assert(identity.operator === (index === 0) && identity.admin === (index === 1), 'Required nonadmin operator/nonoperator administrator not established');
+      }
+      assert(context !== deniedContext && page.context() !== deniedPage.context());
+      stage='runner phase '+runnerRequest.phase;
+      const permit=(actor: string, route: string, body: string) => {
+        assert(!accessWrite && !interrupted && !refusedRequest && actor === runnerRequest.operator_id);
+        const expected='/api/settings/runners'+(runnerRequest.phase === 'register' ? '' : '/'+runnerRequest.runner_id+'/'+runnerRequest.phase);
+        assert(['register','start','stop','restart','remove'].includes(runnerRequest.phase) && route === expected);
+        accessWrite={actor,path:'/-/soda'+route,body,page}; // Preserve the exact serialized secret body; never log or reserialize it.
+      };
+      assert(extra[2]);
+      await exerciseRunners(page,deniedPage,runnerRequest,extra[2],permit,runnerEvidence);
+      assert(accessWrite === null && runnerEvidence.outcome === 'confirmed' && !interrupted && !refusedRequest);
+      runnerConfirmed=true;
+    } finally {
+      accessWrite=null;
+      await deniedContext.close();
+    }
+  } else {
   stage = 'anonymous and native-cookie-only contexts';
   const anonymous = await page.goto(repoURL);
   if (privateRepository) {
@@ -731,6 +817,7 @@ try {
       }});
     assert.equal(accessWrite,null);
   }
+  }
   assert(!refusedRequest && !interrupted);
 } catch (error) {
   if (evidence) evidence.failure_kind = (error instanceof Error ? error.name : undefined) === 'TimeoutError' ? 'timeout'
@@ -740,12 +827,12 @@ try {
 } finally {
   try { await nativeBrowser?.close(); } catch { failure = true; }
   failure ||= interrupted || refusedRequest;
-  const outcome = failure ? 'failed' : evidence?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
+  const outcome = failure ? 'failed' : runnerMode ? (runnerConfirmed ? 'confirmed-runner-phase' : 'incomplete-runner-phase') : evidence?.bfcache_restored ? 'passed-scoped-journey' : 'incomplete-bfcache-not-observed';
   if (run) {
     try {
       await writeFile(path.join(run, 'result.json'), JSON.stringify({...evidence, outcome, stage, environment_mutations: matrixMode ? 'explicit six-session/two-project per-actor matrix only; exact single-use lifetime actions; CLI observations require separately declared provider scope, not acceptance' : managementMode ? 'explicit existing-project lifecycle and temporary own-key rotation only; single-use actor/path/body/method-bound' : accessMode ? 'explicit single-use actor/path/body-bound create/key/join requests only' : 'not permitted; unexpected writes aborted', provisioning_ssh_proof: false}, null, 2) + '\n', {flag: 'wx', mode: 0o600});
     } catch { failure = true; }
   }
   console.log(failure ? `Sodaspaces journey failed at ${stage}; private profile/evidence retained if created.` : `Sodaspaces journey: ${outcome}; not whole-product or backend-artifact acceptance.`);
-  process.exitCode = failure ? 1 : evidence?.bfcache_restored ? 0 : 2;
+  process.exitCode = failure ? 1 : (runnerMode ? runnerConfirmed : evidence?.bfcache_restored) ? 0 : 2;
 }

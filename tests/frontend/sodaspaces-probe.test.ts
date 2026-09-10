@@ -14,8 +14,8 @@ const transpiler = new Bun.Transpiler({loader: 'ts', target: 'bun'});
 const runInNewContext = (source: string, scope: object): unknown => runJS(transpiler.transformSync(source), scope);
 interface Evidence {anonymous_repository?: string; own_connections?: Array<{user_id: string; command: string}>}
 interface Paused {requestId: string; redirectedRequestId?: string; request: {url: string; method: string; postData?: string | undefined; headers?: Record<string, string>}}
-interface Intent {path: string; body: string; actor: string; method?: string}
-const start = probe.indexOf('  async function guardedPage() {');
+interface Intent {path: string; body: string; actor: string; method?: string; page?: object}
+const start = probe.indexOf('  async function guardedPage(pageContext: BrowserContext = context) {');
 const end = probe.indexOf('  await context.addInitScript(', start);
 assert(start > 0 && end > start);
 
@@ -66,6 +66,61 @@ test('private repository declaration is read-only and cannot combine with access
   }
 });
 
+test('runner mode is a distinct explicit phase, never combined with environment actions', () => {
+  const from=probe.indexOf('  const [inputFile, home, permission, ...extra]');
+  const to=probe.indexOf('  assert(inputFile && home);',from);
+  for(const phase of ['list','register','start','stop','restart','remove','dispatch','job']) {
+    const scope={assert,runnerMode:false,accessMode:false,terminalMode:false,managementMode:false,matrixMode:false,
+      Bun:{argv:['bun','probe','input','home','--allow-auth-transitions','--runner-phase','/private/runner','--allow-runner-'+phase]}};
+    runInNewContext(probe.slice(from,to),scope);
+    assert(scope.runnerMode && !scope.accessMode && !scope.terminalMode && !scope.managementMode && !scope.matrixMode);
+  }
+  for(const extra of [['--runner-phase'],['--runner-phase','/private/runner','--allow-runner-all'],
+    ['--runner-phase','/private/runner','--allow-runner-stop','--allow-environment-access']]) {
+    assert.throws(()=>runInNewContext(probe.slice(from,to),{assert,Bun:{argv:['bun','probe','input','home','--allow-auth-transitions',...extra]}}));
+  }
+});
+
+test('runner branch authenticates distinct contexts and consumes one exact permit without environment journeys',async()=>{
+  const from=probe.indexOf('  if (runnerRequest) {\n    const browser');
+  const to=probe.indexOf("\n  } else {\n  stage = 'anonymous and native-cookie-only contexts';",from);
+  assert(from > 0 && to > from);
+  for(const scenario of ['confirmed','wrong-cookie','wrong-role','unconsumed','failure'] as const) {
+    let invoked=0, closed=0;
+    const visits:string[]=[];
+    const deniedContext={setDefaultTimeout(){},async close(){closed++;}};
+    const context={browser(){return {async newContext(options: {serviceWorkers: string}) {assert.equal(options.serviceWorkers,'block'); return deniedContext;}};}};
+    function actorPage(index: number) {
+      return {context(){return index === 0 ? context : deniedContext;},
+        async goto(url:string){visits.push(url);},
+        locator(){return {async waitFor(){},async isVisible(){return false;},async getAttribute(){return 'epoch';}};},
+        async evaluate(){return {id:scenario === 'wrong-cookie' ? '1' : String(index+1),provider_id:String(index+1),operator:index === 0,admin:scenario === 'wrong-role' ? true : index === 1};}};
+    }
+    const page=actorPage(0), denied=actorPage(1);
+    const scope={assert,context,page,origin:new URL('https://fixture.invalid'),presentationVersion:'epoch',
+      runnerRequest:{phase:'stop',runner_id:'one',operator_id:'1'},input:{users:[{id:'1'},{id:'2'}]},
+      extra:['--runner-phase','/private/runner','--allow-runner-stop'],result:{},
+      interrupted:false,refusedRequest:false,runnerConfirmed:false,accessWrite:null as Intent | null,
+      async guardedPage(selected:object){assert.equal(selected,deniedContext);return denied;},
+      async nativeLogin(p:object,index:number){assert.equal(p,index === 0 ? page : denied);},
+      async exerciseRunners(operator:object,nonoperator:object,_input:unknown,permission:string,
+        permit:(actor:string,route:string,body:string)=>void,evidence:{outcome?:string}) {
+        invoked++; assert.equal(operator,page); assert.equal(nonoperator,denied); assert.equal(permission,'--allow-runner-stop');
+        const body='{"confirm_id":"one"}'; permit('1','/api/settings/runners/one/stop',body);
+        assert(scope.accessWrite && scope.accessWrite.body === body && scope.accessWrite.page === page);
+        if(scenario === 'failure') throw Error('synthetic operation failure');
+        if(scenario !== 'unconsumed') scope.accessWrite=null;
+        evidence.outcome='confirmed';
+      }};
+    const attempt=runInNewContext('(async()=>{'+probe.slice(from,to)+'\n}})()',scope);
+    if(scenario === 'confirmed') {await attempt; assert(scope.runnerConfirmed);}
+    else {await assert.rejects(async()=>await attempt); assert(!scope.runnerConfirmed);}
+    assert.equal(scope.accessWrite,null); assert.equal(closed,1);
+    assert.equal(invoked,scenario === 'wrong-cookie' || scenario === 'wrong-role' ? 0 : 1);
+    assert(visits.every(url=>url === 'https://fixture.invalid/?soda-view=runners'));
+  }
+});
+
 test('private anonymous probe requires native denial without Soda repository reads', async () => {
   const from = probe.indexOf("  stage = 'anonymous and native-cookie-only contexts';");
   const to = probe.indexOf('  await nativeLogin(page, 0);', from);
@@ -98,12 +153,15 @@ test('read-only probe records only a usable displayed own connection', async () 
 test('native probe guards every paused redirect before transmission', async () => {
   let paused: ((event: Paused) => Promise<void>) | undefined;
   const calls: Array<{method: string; params: {patterns?: Array<{requestStage: string}>; errorReason?: string; requestId?: string}}> = [];
-  const page = {async setViewportSize(size: {width: number; height: number}) { assert.equal(size.width, 1280); assert.equal(size.height, 900); }};
+  const lifetime = new Map<string, (frame?: object) => void>();
+  const frame={};
+  const page = {on(event: string, callback: (frame?: object)=>void) {lifetime.set(event,callback);}, mainFrame() {return frame;},
+    async setViewportSize(size: {width: number; height: number}) { assert.equal(size.width, 1280); assert.equal(size.height, 900); }};
   const cdp = {
     on(name: string, handler: (event: Paused) => Promise<void>) { assert.equal(name, 'Fetch.requestPaused'); paused = handler; },
     async send(method: string, params: (typeof calls)[number]['params']) { calls.push({method, params}); },
   };
-  const scope = {URL, origin: new URL('https://fixture.invalid'), input: {oauth_client_id: 'synthetic-client'},
+  const scope = {URL, origin: new URL('https://fixture.invalid'), input: {oauth_client_id: 'synthetic-client', users:[{id:'1'},{id:'2'}]},
     writes: new Set(['/user/login']), accessWrite: null as Intent | null, result: {} as Evidence, refusedRequest: false, interrupted: false,
     authorizations: 0, environmentReads: 0,
     context: {async newPage() { return page; }, async newCDPSession(p: typeof page) { assert.equal(p, page); return cdp; }}};
@@ -134,27 +192,61 @@ test('native probe guards every paused redirect before transmission', async () =
   const intent = {path: '/-/soda/api/environments', body: '{"repository_id":"42"}', actor: '1'};
   const allowed = {url: 'https://fixture.invalid' + intent.path, method: 'POST', postData: intent.body, headers: {'X-Soda-Expected-User-ID': '1'}};
   for (const request of [{...allowed, postData: '{"repository_id":"43"}'}, {...allowed, headers: {'X-Soda-Expected-User-ID': '2'}}, {...allowed, url: allowed.url + '?extra=1'}]) {
+    scope.refusedRequest = false;
     scope.accessWrite = intent;
     await paused({requestId: 'wrong-access', request});
     assert.equal(calls.at(-1)?.method, 'Fetch.failRequest');
-    assert.equal(scope.accessWrite, intent);
+    assert.equal(scope.accessWrite, null);
   }
+  scope.refusedRequest = false;
   scope.accessWrite = intent;
   await paused({requestId: 'one-access', request: allowed});
   assert.equal(calls.at(-1)?.method, 'Fetch.continueRequest');
   assert.equal(scope.accessWrite, null);
   await paused({requestId: 'replay-access', request: allowed});
   assert.equal(calls.at(-1)?.method, 'Fetch.failRequest');
-  scope.accessWrite = {path:'/-/soda/api/me/development-keys/9', body:'{}', actor:'1', method:'DELETE'};
+  scope.refusedRequest=false;
+  const removeIntent = {path:'/-/soda/api/me/development-keys/9', body:'{}', actor:'1', method:'DELETE'};
+  scope.accessWrite = removeIntent;
   const removal = {url:'https://fixture.invalid'+scope.accessWrite.path, method:'DELETE', postData:'{}', headers:allowed.headers};
   await paused({requestId:'wrong-method',request:{...removal,method:'POST'}});
   assert.equal(calls.at(-1)?.method,'Fetch.failRequest');
-  assert(scope.accessWrite);
+  assert.equal(scope.accessWrite,null);
+  scope.refusedRequest=false; scope.accessWrite=removeIntent;
   await paused({requestId:'one-removal',request:removal});
   assert.equal(calls.at(-1)?.method,'Fetch.continueRequest');
   assert.equal(scope.accessWrite,null);
   await paused({requestId:'replay-removal',request:removal});
   assert.equal(calls.at(-1)?.method,'Fetch.failRequest');
+
+  // Runner mutation admission is page-bound as well as actor/path/body-bound.
+  const runnerIntent={path:'/-/soda/api/settings/runners/one/stop',body:'{"confirm_id":"one"}',actor:'1',page};
+  const runnerWrite={url:originURL(runnerIntent.path),method:'POST',postData:runnerIntent.body,headers:allowed.headers};
+  function originURL(route: string) {return 'https://fixture.invalid'+route;}
+  for(const state of ['fresh','wrong-page','interrupted','refused','navigated','closed'] as const) {
+    scope.interrupted=state === 'interrupted'; scope.refusedRequest=state === 'refused';
+    scope.accessWrite={...runnerIntent,...(state === 'wrong-page' ? {page:{}} : {})};
+    if(state === 'navigated') lifetime.get('framenavigated')?.(frame);
+    if(state === 'closed') lifetime.get('close')?.();
+    await paused({requestId:state,request:runnerWrite});
+    assert.equal(calls.at(-1)?.method,state === 'fresh' ? 'Fetch.continueRequest' : 'Fetch.failRequest');
+    assert.equal(scope.accessWrite,null);
+  }
+  scope.interrupted=false;
+  const cancel={url:originURL('/-/soda/api/login/cancel'),method:'POST',postData:'{}',headers:{'X-Soda-Logout':'1','X-Soda-Expected-User-ID':'1','X-CSRF-Token':'c'.repeat(43)}};
+  for(const request of [cancel,{...cancel,method:'GET',postData:undefined}]) {
+    scope.refusedRequest=false;
+    await paused({requestId:'bounded-cancel',request});
+    assert.equal(calls.at(-1)?.method,'Fetch.continueRequest');
+  }
+  for(const request of [{...cancel,postData:'{"extra":1}'},{...cancel,url:cancel.url+'?extra=1'},
+    {...cancel,headers:{...cancel.headers,'X-Soda-Logout':'0'}},
+    {...cancel,headers:{...cancel.headers,'X-Soda-Expected-User-ID':'3'}},
+    {...cancel,headers:{...cancel.headers,'X-CSRF-Token':'invalid'}}]) {
+    scope.refusedRequest=false;
+    await paused({requestId:'bad-cancel',request});
+    assert.equal(calls.at(-1)?.method,'Fetch.failRequest');
+  }
 });
 
 test('native browser refuses long private socket paths before starting a process', async () => {

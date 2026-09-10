@@ -475,11 +475,15 @@ into a hold on independent local implementation:
    runner-specific mismatch against its actual owner; do not rebuild the shell or
    authentication integration.
 2. **Integrate the installed caller after a file-level handoff.**
-   `loadRunnerInput` and `exerciseRunners` currently have no installed callers.
-   Soda-pages retains ownership of `tests/installed/sodaspaces.ts` and shared
-   browser/authentication files until an explicit committed handoff names the
-   editor and files. Wire the phases into that existing driver/one-shot guard,
-   then test admission, credential clearing, failure evidence and no replay.
+   The `97a2d5e` handoff is incorporated: Runners owns the bounded edits in
+   `tests/installed/sodaspaces.ts` and `tests/frontend/sodaspaces-probe.test.ts`;
+   all other shared files remain reserved. The driver now calls `loadRunnerInput`
+   before effects and `exerciseRunners` in a separate native-view branch, using
+   isolated authenticated actor contexts and its existing exact-request guard.
+   Local source-backed tests cover distinct actors, failure/permit cleanup,
+   duplicate/mismatched/late dispatch refusal and bounded login cancellation.
+   Preserve credential clearing and native retirement contracts; these tests do
+   not establish real installed/provider execution.
    Runner-owned module/test improvements can proceed before this handoff; do not
    edit reserved files in parallel or add a second login/test orchestrator.
 3. **Finish scenario preparation.** Use step 5's coverage table below to distinguish
@@ -507,7 +511,7 @@ The distinction is explicit:
 | Category | Remaining requirement |
 | --- | --- |
 | Local unfinished work | Runner scenario/caller integration, combined checks, pinned builder, native export and compatibility preparation. Routine authorized local implementation/testing may continue. |
-| Cross-lane dependency | Committed file-level driver handoff and final Soda-pages navigation/assets/schema contract. Only dependent shared edits/final candidate readiness wait for these. |
+| Cross-lane dependency | The two-file editor handoff, navigation retirement and schema-v9/cache-epoch contracts have landed. Broader Soda-pages acceptance remains its owner's work, not a reason to defer this handed-off integration. Additional shared edits need a specific handoff. |
 | Execution approval/input | Exact native target, actors, provider resources, credentials and allowed actions. Real registration/jobs/lifecycle, reboot, cleanup and deployment remain separately scoped. |
 
 The original Cockpit/Tailnet probes stay unchanged and read-only within their
@@ -556,7 +560,7 @@ attempts and partial states. Existing local fixtures are not installed acceptanc
 
 | Required proof | Current preparation and remaining work |
 | --- | --- |
-| Native page admission and exact runner operations | Callable list/denial, register/start/stop/restart/remove phases exist; shared driver/guard wiring and its integration checks remain. Native proxy/socket/systemd proof is unrun. |
+| Native page admission and exact runner operations | List/denial, register/start/stop/restart/remove phases are wired into the shared driver with local source-backed guard/branch tests; real driver execution remains unrun. Native proxy/socket/systemd proof is unrun. |
 | Real trusted job and exact result | Dispatch/exact-run reads and a two-step identity/workspace fixture exist. Workflow publication, approved registration/unique label, driver sequencing and real provider execution are not done. |
 | Idle/active-job lifecycle and termination | Individual lifecycle actions and PID/start/cgroup observations exist, not a complete interruption/process-tree/provider-outcome scenario. Prepare the exact sequence and observations; do not infer cleanup from listener state or one PID. |
 | Cockpit/CLI/web overlap and faults | Local lock/command-double regressions exist. Installed concurrent callers, scoped fault procedures and partial-outcome receipts still need preparation and execution. |
