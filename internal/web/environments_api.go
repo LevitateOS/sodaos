@@ -285,6 +285,12 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 	for _, key := range keys {
 		public = append(public, key.Public)
 	}
+	// Fresh admission after provider/state I/O, not rollback after dispatch.
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+		return
+	}
 	if err = s.Host.Join(r.Context(), host.Account{Project: p.ID, Login: login, Identity: v.User.ID, Keys: public}); err != nil {
 		jsonError(w, 502, "account_incomplete", "Native account provisioning was not confirmed. Membership was not recorded; ask the operator to inspect the account.")
 		return

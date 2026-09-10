@@ -1,5 +1,48 @@
 # Current handoff
 
+## Phase 2 — fresh-session mutation admission
+
+`apiJoinEnvironment`, POST `apiLifecycle` and POST `apiAccessKeys` now use the
+existing `requireCurrentSession` after decoding, provider authorization and relevant
+state reads. Exact-cookie disambiguation and fresh user/context/CSRF comparison
+precede account provisioning/membership publication, Stop reservation/terminal
+cancellation, native Start and native key Apply. The operator lifecycle path is
+also checked even though it intentionally skips provider I/O. Final-check refusal
+returns the existing API-style 401 unauthorized response; earlier provider/state
+errors keep their policies. Already-member Join and read-only previews are unchanged.
+
+This is fresh admission, not atomic cross-system cancellation or rollback. Logout
+completed before that decision denies the action; logout after admission does not
+undo dispatched work. No lock was added across provider/native I/O. Existing terminal
+admission/logout/Stop coordination, exact native targets/original membership login,
+saved-key confirmations, uncertain outcomes and no automatic replay remain intact.
+
+New real-handler/store regressions suspend the provider response, complete actual
+Soda logout or rebind user/context/CSRF, then return the stale provider result. The
+context-only case uses real OAuth store transactions to bind the same token/actor/CSRF
+to a new context. Lifecycle tests delay its later organization-owner lookup, while
+post-decode tests cover operator Start/Stop and Apply after saved-key reads. Store
+failure, cancellation, provider denial/unavailability and unchanged success are covered.
+Refusals make zero helper calls and no successful Join record; another actor's live
+registry-entry/peer cancellation contexts survive denied Stop, while admitted Stop
+still coordinates them before dispatch. These are transport/cancellation doubles,
+not real native account, terminal-process or cgroup proof.
+
+The old code failed these regressions, including stale Join membership and Stop's
+unwanted terminal cancellation. An initial synthetic Start response incorrectly
+reported stopped state; corrected the fixture without weakening native response
+validation, then repeated the final regressions against original production files
+through a test-only Go overlay. Failures remain in `.artifacts/refactor-phase2-JOF4EG/`.
+Three focused race repetitions passed (37.56 seconds), followed by the full uncached
+web race suite (74.00 seconds). `bun run check:source` passed in 149.57 seconds:
+module/Go checks, TypeScript/Lit, 305 browser/Cockpit passes with 24 independently
+gated skips, and 120 Python fixtures with two optional Caddy skips. Fresh Go HTML
+outputs are `.artifacts/pages-wIQuEL/`; logs/timing/overlay are retained with failures.
+Local tools remain Go 1.27.0/Bun 1.4.2. No dependencies, native build/stage/installed
+checks, deployment, retained VM/project access, provider mutations or host-policy
+changes occurred. The audit remains revision-bound and unchanged. Phase 3 still
+requires the explicit managed-key writer-coordination decision before implementation.
+
 ## Phase 1 — retire bootstrap-token retention
 
 New `soda-setup` reads the operator's private input only for the existing user/OAuth

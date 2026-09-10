@@ -79,6 +79,13 @@ func (s *Server) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Se
 			jsonError(w, 403, "administrator_required", "Only the current project administrator or Soda operator can start/stop it.")
 			return
 		}
+		// Admit before Stop reserves/cancels terminals or Start reaches native
+		// dispatch. This also covers the operator path without provider I/O.
+		cookie, err := requestCookie(r, sessionCookie)
+		if err != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+			jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+			return
+		}
 		action = in.Action
 		if action == "stop" {
 			s.terminalMu.Lock()
@@ -173,6 +180,11 @@ func (s *Server) apiAccessKeys(w http.ResponseWriter, r *http.Request, v store.S
 		in.Apply = true
 		in.Revision = input.Revision
 		in.Keys = keys
+		cookie, err := requestCookie(r, sessionCookie)
+		if err != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+			jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+			return
+		}
 	}
 	native, err := s.Host.AccessKeys(r.Context(), in)
 	if err != nil {

@@ -415,7 +415,7 @@ starting another; a focused independent review may run alongside it.
 | --- | --- | --- |
 | 0 | Correct stale audit status and macOS test fixture | Source fixed; normal/symlink-path Linux checks passed. Native macOS rerun remains pending. |
 | 1 | Remove unused bootstrap-token retention/access | Source complete with local checks; retained credential maintenance and native/provider proof remain unrun. |
-| 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
+| 2 | Reject stale-session project mutations | Source complete with local handler/race/source checks; native delivery remains separate. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
 | 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
 | 5 | Cancellable host admission and bounded capture | Admission completed locally in `22f5c20` (same work as E); capture and Tailnet stream bounds remain open. |
@@ -482,6 +482,11 @@ logs. Existing setup failures retain their uncertain external outcome. Source-re
 does not mean already installed tokens have been remediated.
 
 ### Phase 2 — finish session checks at mutation admission
+
+**Source complete, locally checked.** The existing helper now gates Join, Start/Stop
+and key Apply at their first-effect boundaries. See the
+[handoff](implementation-status.md#phase-2--fresh-session-mutation-admission)
+for reproduced failures, actual checks and the explicit admission—not rollback—limit.
 
 **Finding:** [stale-session mutation admission](upstream-ownership-audit.md#recheck-the-original-session-before-native-mutation).
 
