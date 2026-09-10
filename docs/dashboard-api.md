@@ -49,6 +49,29 @@ can retire it. Storage failure permits live use without guaranteed restoration.
 These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
 concurrent native tmux or selected-CLI acceptance.
 
+## Operator runner settings
+
+`GET /settings/runners` serves Soda-owned Go HTML; `GET /login?destination=runners`
+binds its fixed return through schema v7. No repository ID or arbitrary URL is
+accepted. The protected JSON routes are:
+
+- `GET /api/settings/runners`: bounded local inventory, configured slots/listeners;
+  not provider online/busy/available capacity. Forgejo links use the configured
+  public origin. Unavailable reads are errors, not empty inventory.
+- `POST /api/settings/runners`: existing strict runner registration fields;
+  Forgejo's internal URL is server-selected. Requires an explicitly supplied native
+  registration token. No provider record is borrowed or silently reset.
+- `POST /api/settings/runners/{id}/{start|stop|restart|remove}`: body
+  `{"confirm_id":"exact-id"}`. Fixed native lifecycle and partial effects follow
+  the [runner guide](runners-port.md).
+
+Every read/mutation checks configured operator ID, fresh acting-user identity and
+original Soda context. API actor/CSRF/origin guards remain mandatory. Site admin
+status grants no access. Tokens never enter responses; failed mutations report
+unconfirmed local/provider effects and are never replayed. The shared native runner
+lock serializes Cockpit/CLI/web reads and mutations. Local source/fixture checks
+passed, not provider/native acceptance; Cockpit remains installed.
+
 ## Browser namespace
 
 Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.

@@ -14,6 +14,7 @@
 {{if .Repository}}<script src="{{AssetUrlPrefix}}/soda/forgejo/repository-actions.js?v=4"></script>{{end}}
 {{end}}{{end}}
 {{if .IsSigned}}
+<script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-settings-link.js"></script>
 <div id="soda-notification-preview" class="soda-notification-preview" popover="auto" role="region" aria-labelledby="soda-notification-preview-title">
 	<div class="soda-notification-preview-header">
 		<strong id="soda-notification-preview-title">{{ctx.Locale.Tr "notifications"}}</strong>

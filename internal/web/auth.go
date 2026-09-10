@@ -87,7 +87,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	destination, hasDestination := query["destination"]
-	if hasDestination && (len(destination) != 1 || destination[0] != "spaces" || query.Has("repository_id")) {
+	if hasDestination && (len(destination) != 1 || (destination[0] != "spaces" && destination[0] != "runners") || query.Has("repository_id")) {
 		http.Error(w, "Unsupported sign-in destination.", http.StatusBadRequest)
 		return
 	}
@@ -107,8 +107,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	settingsReturn := ""
+	if query.Get("destination") == "runners" {
+		settingsReturn = "runners"
+	}
 	state, verifier := token(), token()
-	if err := s.Store.BeginOAuth(r.Context(), state, store.OAuthLogin{Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID, SpacesReturn: hasDestination}, session, previous); err != nil {
+	if err := s.Store.BeginOAuth(r.Context(), state, store.OAuthLogin{Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID, SpacesReturn: query.Get("destination") == "spaces", SettingsReturn: settingsReturn}, session, previous); err != nil {
 		if errors.Is(err, store.ErrLoginContext) {
 			s.cookie(w, sessionCookie, "", -1)
 			s.cookie(w, oauthCookie, "", -1)
@@ -206,6 +210,10 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	s.cookie(w, oauthCookie, "", -1)
 	s.cookie(w, sessionCookie, value, int((12 * time.Hour).Seconds()))
+	if login.SettingsReturn == "runners" {
+		http.Redirect(w, r, s.Config.ForgejoURL+config.SodaPath+"/settings/runners", http.StatusSeeOther)
+		return
+	}
 	if login.SpacesReturn {
 		http.Redirect(w, r, s.Config.ForgejoURL+config.SodaPath+"/spaces", http.StatusSeeOther)
 		return

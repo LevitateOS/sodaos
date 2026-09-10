@@ -31,7 +31,10 @@ gate below and its removal is coordinated. Tailnet stays in Cockpit.
 
 ## Current source and observed evidence
 
-The existing implementation is the Cockpit page plus
+The local source now includes the protected Go/Lit page and fixed root:soda runner
+adapter described below. Its local Go/emitted-browser proof is recorded in the
+[handoff](implementation-status.md); native/provider parity remains pending and
+Cockpit is not removed. The retained native implementation is the Cockpit page plus
 `soda-runners` → `soda-runner-helper` → `internal/runners.Native` and the
 `soda-runner@.service` launcher. Cockpit runs the coordinator in its authenticated
 root session. Both coordinator and helper independently require the native caller
@@ -63,8 +66,8 @@ and capacity. A later retained cutover delivered a strict-config `soda-runners`
 binary and its native empty `list` succeeded; the helper and runner services were
 unchanged from `8b823db`. No recorded evidence creates a Forgejo or GitHub runner,
 runs a provider-scheduled job, or exercises native runner start, stop, restart, or
-removal. There is no Global SodaOS settings page or web-to-root runner bridge in
-current source.
+removal. The new source supplies the Global SodaOS settings page and web-to-root bridge;
+neither has been deployed or exercised with real provider registrations.
 
 ## Required web and native authority path
 
@@ -96,7 +99,8 @@ repository, organization, or enterprise-account paths, not arbitrary servers.
 
 During the overlap, Cockpit, the CLI, and the web page reach the same state. Extend
 native serialization to cover **all** runner mutations before enabling the second
-UI; the current lock covers create/remove but not start/stop/restart. A Lit busy
+UI; the new source lock covers reads and all mutations, including the whole
+restart enable/restart sequence. A Lit busy
 button protects only one document and cannot prevent a Cockpit action, another tab,
 or remove/start races. Reads during a partial mutation must return unavailable or a
 specific uncertain outcome, not a fabricated previous state.
@@ -192,6 +196,6 @@ inventory, runner adoption, or generalized recovery subsystem is introduced.
 Only after those exits pass in the delivered interface may a separate coordinated
 change remove the Cockpit Runners manifest/page/assets and adjust its build/staging
 tests. Keep the native lifecycle, root boundary, CLI/support entrypoint, service
-units, provider clients, and focused non-UI tests. No build, test, provider action,
-service mutation, deployment, or Cockpit removal was performed by this documentation
-revision.
+units, provider clients, and focused non-UI tests. Local Go, TypeScript/Lit and emitted-browser checks have now run for the new source;
+see the handoff. No provider action, native service mutation, deployment or Cockpit
+removal accompanied that source work.

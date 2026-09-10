@@ -148,6 +148,17 @@ still wins finalization. No OAuth client edit or new secret/consent is required.
 Pre-v6 binaries reject schema v6. Matching backend/assets and backed-up state require
 separately authorized delivery; these local tests are not a retained-state rollout.
 
+## Schema v7: operator settings return
+
+Source appends `oauth.settings_return`, default empty and constrained to the fixed
+`runners` destination with no simultaneous Spaces/repository return. Existing
+transactions keep their original intent. Callback reads the consumed transaction,
+not caller redirect parameters. This changes no OAuth scopes, client or key.
+Populated synthetic v6 preservation, one-use consumption and logout-winning tests
+passed locally. Pre-v7 binaries reject this schema. Delivery still needs a fresh
+paired DB/config/key/artifact backup, copied-state rehearsal and explicit rollout;
+no retained database was migrated during source work.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth

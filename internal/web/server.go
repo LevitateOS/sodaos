@@ -43,6 +43,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.HandleFunc("GET /spaces", s.spacesPage)
 	s.authRoutes()
 	s.apiRoutes()
+	s.runnerRoutes()
 	return s
 }
 

@@ -1,4 +1,8 @@
 {
+  "public/assets/soda-runners-page.js": "@build/forgejo-js/soda-runners-page.js",
+  "public/assets/soda-runner-response.js": "@build/forgejo-js/soda-runner-response.js",
+  "public/assets/soda-settings.css": "frontend/runners/soda-settings.css",
+  "public/assets/soda/forgejo/soda-settings-link.js": "@build/forgejo-js/soda-settings-link.js",
   "options/locale/locale_en-US.ini": "@build/forgejo-locales/locale_en-US.ini",
   "public/assets/soda-terminal/addon-fit.mjs": "@build/terminal-assets/addon-fit.mjs",
   "public/assets/soda-terminal/fit.LICENSE": "@build/terminal-assets/fit.LICENSE",

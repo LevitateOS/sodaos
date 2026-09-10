@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/crypto/ssh"
 	"log/slog"
@@ -69,6 +70,7 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 }
 
 type Daemon struct {
+	Runners        *runners.Operations
 	Config         Config
 	Exec           Executor
 	mu             sync.Mutex
@@ -82,6 +84,10 @@ func (d *Daemon) podman(ctx context.Context, in []byte, args ...string) ([]byte,
 	return d.Exec.Run(ctx, in, "/usr/bin/podman", args...)
 }
 func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/runners/") {
+		d.runnerHandler(w, r)
+		return
+	}
 	if r.URL.Path == "/terminal" {
 		d.terminalHandler(w, r)
 		return

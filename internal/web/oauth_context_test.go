@@ -16,7 +16,7 @@ import (
 func TestOAuthLoginBindsBoundedContextToPKCEState(t *testing.T) {
 	s := apiTestServer(t)
 	for _, query := range []string{
-		"destination=", "destination=other", "destination=spaces&destination=spaces", "destination=spaces&repository_id=7", "destination=spaces&repository_id=", "destination=https://elsewhere.test",
+		"destination=runners&repository_id=7", "destination=runners&destination=spaces", "destination=", "destination=other", "destination=spaces&destination=spaces", "destination=spaces&repository_id=7", "destination=spaces&repository_id=", "destination=https://elsewhere.test",
 		"repository_id=0", "repository_id=-1", "repository_id=01", "repository_id=",
 		"repository_id=9223372036854775808", "repository_id=1&repository_id=2",
 		"expected_user_id=0", "expected_user_id=alice", "expected_user_id=%2b1",
@@ -63,6 +63,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 		{"rename and transfer", "repository_id=42&expected_user_id=1", "read:user read:repository", 200, `{"id":42,"name":"renamed","full_name":"stale/ignored","html_url":"https://evil.example/","owner":{"id":7,"login":"current"}}`, "/current/renamed#sodaspaces", 4},
 		{"anonymous start", "repository_id=42", "read:user read:repository", 200, `{"id":42,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`, "/alice/demo#sodaspaces", 4},
 		{"escaped names", "repository_id=42&expected_user_id=1", "read:user read:repository", 200, `{"id":42,"name":"demo?#","full_name":"ignored","owner":{"id":1,"login":"alice"}}`, "/alice/demo%3F%23#sodaspaces", 4},
+		{"fixed operator settings", "destination=runners&expected_user_id=1", "read:user read:repository", 0, "", "/-/soda/settings/runners", 3},
 		{"fixed Spaces", "destination=spaces&expected_user_id=1", "read:user read:repository", 0, "", "/-/soda/spaces", 3},
 		{"no context", "", "read:user read:repository", 0, "", "/", 3},
 		{"insufficient actual consent", "repository_id=42&expected_user_id=1", "read:user", 0, "", "/", 3},

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sodarunners · SodaOS settings</title>
+<link rel="icon" href="/assets/soda/forgejo/favicon.png"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css">
+</head><body class="soda-settings"><header><a href="{{.Origin}}/">SodaOS</a><nav aria-label="Soda navigation"><a href="{{.Origin}}/-/soda/spaces">Spaces</a><a href="{{.Origin}}/explore/repos">Explore</a></nav>{{if .Actor}}<span>Soda account: {{.Login}} (ID {{.Actor}})</span>{{end}}</header>
+<main class="soda-page"><h1>Sodarunners</h1>
+{{if .Authorized}}<p>Operator-only local capacity. Providers own registration authority, scheduling, jobs and results. Cockpit Runners remains available; Tailnet stays in Cockpit.</p>
+<div id="soda-runners-page" data-actor="{{.Actor}}"></div><script type="module" src="/assets/soda-runners-page.js"></script>
+{{else}}<p>Connect through Forgejo as the configured Soda operator. A Forgejo administrator is not automatically a Soda operator.</p><a href="/-/soda/login?destination=runners">Connect to Soda</a>{{end}}
+<noscript>Runner controls require JavaScript. Opening this page never registers or starts a runner.</noscript></main></body></html>

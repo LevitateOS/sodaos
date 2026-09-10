@@ -79,7 +79,7 @@ func TestGitHubRegistrationUsesBoundedPromptWithoutReplacingProviderRecords(t *t
 func TestLifecycleActionsPersistListenerStateAcrossBoot(t *testing.T) {
 	root := t.TempDir()
 	runner := &recordingCommandRunner{}
-	native := &Native{RootPath: root, Runner: runner}
+	native := &Native{RootPath: root, LockPath: filepath.Join(root, "runners.lock"), Runner: runner}
 	id := "one"
 	require.NoError(t, os.MkdirAll(filepath.Join(root, id), 0o755))
 	require.NoError(t, native.writeDescriptor(Descriptor{ID: id, Provider: ProviderGitHub, Account: "soda-runner-one"}))

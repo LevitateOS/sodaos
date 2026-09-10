@@ -68,6 +68,11 @@ func NewNative() *Native {
 }
 
 func (native *Native) List(ctx context.Context) ([]RunnerView, error) {
+	lock, err := native.lock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer lock.Close()
 	entries, err := os.ReadDir(native.rootPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return []RunnerView{}, nil
@@ -107,14 +112,29 @@ func (native *Native) runnerView(ctx context.Context, id string) (RunnerView, er
 }
 
 func (native *Native) Start(ctx context.Context, id string) error {
+	lock, err := native.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
 	return native.serviceAction(ctx, id, "enable", "--now")
 }
 
 func (native *Native) Stop(ctx context.Context, id string) error {
+	lock, err := native.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
 	return native.serviceAction(ctx, id, "disable", "--now")
 }
 
 func (native *Native) Restart(ctx context.Context, id string) error {
+	lock, err := native.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
 	if err := native.serviceAction(ctx, id, "enable"); err != nil {
 		return err
 	}

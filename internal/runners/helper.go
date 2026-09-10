@@ -27,6 +27,18 @@ func (helper Helper) Execute(ctx context.Context, actor linuxhost.PKExecIdentity
 	if err := helper.Authorizer.RequireAdministrator(ctx, actor); err != nil {
 		return MutationResponse{}, err
 	}
+	return (Operations{Local: helper.Local, Lifecycle: helper.Lifecycle}).Execute(ctx, action, input)
+}
+
+// Operations is the fixed native protocol shared by the root CLI helper and the
+// root:soda socket service. Callers enforce their own transport/caller authority;
+// this layer never accepts arbitrary commands, accounts, paths or unit names.
+type Operations struct {
+	Local     LocalReader
+	Lifecycle Lifecycle
+}
+
+func (helper Operations) Execute(ctx context.Context, action string, input io.Reader) (any, error) {
 	if action == "list" {
 		var request EmptyRequest
 		if err := strictjson.Decode(input, &request); err != nil {
@@ -40,7 +52,7 @@ func (helper Helper) Execute(ctx context.Context, actor linuxhost.PKExecIdentity
 	return helper.mutate(ctx, action, input)
 }
 
-func (helper Helper) create(ctx context.Context, input io.Reader) (MutationResponse, error) {
+func (helper Operations) create(ctx context.Context, input io.Reader) (MutationResponse, error) {
 	var request CreateRequest
 	if err := strictjson.Decode(input, &request); err != nil {
 		return MutationResponse{}, err
@@ -54,7 +66,7 @@ func (helper Helper) create(ctx context.Context, input io.Reader) (MutationRespo
 	return MutationResponse{OK: true}, nil
 }
 
-func (helper Helper) mutate(ctx context.Context, action string, input io.Reader) (MutationResponse, error) {
+func (helper Operations) mutate(ctx context.Context, action string, input io.Reader) (MutationResponse, error) {
 	var request RunnerRequest
 	if err := strictjson.Decode(input, &request); err != nil {
 		return MutationResponse{}, err

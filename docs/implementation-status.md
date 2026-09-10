@@ -1,5 +1,42 @@
 # Current handoff
 
+## MVP implementation — protected Sodarunners settings (local source)
+
+Implemented `/-/soda/settings/runners`, fixed transaction-bound OAuth return
+(schema v7), guarded list/register/start/stop/restart/remove APIs, and a complete
+Lit control surface. The configured operator need not be a Forgejo site admin;
+other admins are denied before input decoding or native reads. Fresh provider
+identity and original Soda-context rechecks protect every operation. Supported
+native hooks expose navigation only to a matching Soda operator session; Spaces
+also links to settings. No Forgejo handlers, credentials or native shell are copied.
+
+The existing root:soda service now delegates fixed runner operations to the same
+native implementation as Cockpit/CLI. All mutations **and reads** share its native
+file lock; Restart holds it across enable/restart. Registration secrets travel only
+in transient request bodies/private native inputs, not reactive state, HTML, storage
+or errors. The UI clears the input immediately, confirms exact lifecycle targets,
+refreshes after success/failure, and distinguishes configured slots/listeners from
+provider availability. Shared response types/validation serve both frontends.
+Cockpit Runners, Tailnet, provider clients, accounts and persistent state remain.
+
+Actual local checks: affected Go packages passed; required TypeScript/Lit checks
+passed; the actual Go HTML → emitted Lit browser journey passed with synthetic
+HTTP/native peers through registration and all four lifecycle controls, uncertainty,
+stale reads and authorization loss. New Go checks cover operator/admin separation,
+CSRF/actor guards, logout races, socket allowlists, cross-process lock contention and
+populated-v6 OAuth migration. Evidence: `.artifacts/feature-mvp-972b1ab/`.
+Initial TypeScript fixture typing and shared Cockpit error-message expectations
+failed and were corrected; the earlier logs remain. Full suites follow separately.
+The existing 15-template payload inventory failure reproduced; no waiver is implied.
+
+This is local source/fixture proof, **not native runner/provider-job acceptance or
+deployment**. Schema-v7 delivery needs fresh paired backup/rehearsal and matching
+backend/helper/assets. No retained VM/project, registration, host listener, network
+policy or real credential changed. Marketplace, isolated AI execution/publication,
+new OS/desktop profiles and unresolved Git credential consent remain unfinished;
+Linux vendor computer-use limitations remain explicit. Do not remove Cockpit based
+on these local checks.
+
 ## Merge of origin/main at 4d1007c
 
 Merged the incoming feature plans and Spaces → drawer navigation with the local
