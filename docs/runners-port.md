@@ -453,8 +453,12 @@ callable phases and observers are implemented. Native connection/logout and all
 three page bodies have now landed in Soda-pages (`6097564`, `a77dea1`). Its step 4
 still owns navigation/legacy-shell retirement and caller/test migration. Do not
 wait for page bodies that already exist or treat them as the final source handoff.
-The earlier `9476858` source-check receipt is historical; the pulled combined
-checkout needs its own applicable checks and exact-candidate evidence. The
+The earlier `9476858` source-check receipt is historical. The continued combined
+candidate `8e0028c` now passed the ordinary source gate with the isolated pinned
+Go 1.26.7 toolchain. Lifecycle receipt comparisons and proof-reader regressions
+have local tests; the new operation orchestration still needs shared-driver checks.
+No final native build/check/export or installed/provider proof follows from this
+source pass. The
 [native runner preparation guide](runners-native-validation.md) owns exact source
 entrypoints, private input/effect gates, candidate artifact checklist and blockers.
 `tests/installed/runners.ts` supplies callable list/denial, registration and exact

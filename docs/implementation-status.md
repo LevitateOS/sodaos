@@ -29,7 +29,15 @@ build/check/sealed export has not occurred.
 
 Executed strict tooling TypeScript checking, eight focused Bun cases and six Python
 reader cases successfully; logs are in `.artifacts/runners-step4-continued/`.
-Combined source checks with the prepared toolchain are next, not yet claimed.
+After committing clean `8e0028c`, the ordinary `bun run check:source` passed with
+command-local Go 1.26.7/Bun 1.4.2 in 198.77 seconds (`check-source.log`): module/
+Go suites, strict TypeScript/Lit, 216 frontend passes/14 initial gated skips,
+14 required page passes, one measured-layout pass, 35 Forgejo passes/22 gated skips,
+60 Cockpit passes and 139 Python tests/two optional skips. Browser fixtures remain
+at `.artifacts/pages-uQo3LV/`. This is fresh combined-source evidence, not inherited
+pre-pull receipts, native installed proof or a sealed export. The operation module's
+new failure/finally paths still require the shared driver integration checks;
+local receipt comparisons and provider transport doubles do not execute them.
 Shared driver handoff/integration, remaining installed scenario preparation, final
 candidate export/compatibility review and exact target/provider approvals remain
 open. No services, provider jobs/resources, retained roots or credentials changed.
