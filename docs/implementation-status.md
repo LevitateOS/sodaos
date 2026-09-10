@@ -1,5 +1,23 @@
 # Current handoff
 
+## Installer media generation — first real-tool attempt retained
+
+Exact clean source `4e7a68b` built its native console/verifier, fetched and verified
+CoreOS, remastered the full ISO and completed stock live customization under
+`.artifacts/coreos-installer-4e7a68b/`. The build then **failed closed at Ignition
+readback**, so this attempt is not sealed/deliverable. OS-file preservation and
+native kernel-argument equality were separately confirmed; no boot occurred.
+
+Observed cause: Installer 0.26.0 serializes the child configuration through its
+locked `ignition-config` 0.6.1 crate, adding explicit nulls for absent file `overwrite`
+and unit `contents`/`enabled`/`mask` fields. The inspector had required omitted keys.
+Inspected the exact crate against Installer's Cargo.lock checksum; the corrected
+reader allows only this precise nullable-field expansion, never arbitrary nulls or
+non-null extra effects. Real retained readback now verifies, and **14 focused Python
+tests passed** including rejection regressions (`python-serde-correction.log` under
+`.artifacts/iso-on-media-source-3z90PW/`). A new clean-revision build is still needed;
+no old attempt was overwritten or hand-sealed.
+
 ## On-media installer correction — source and prerequisite inspection
 
 The user rejected the mandatory hosted executable. The 256 KiB Ignition embed

@@ -370,7 +370,22 @@ def verify_embedded(raw, expected):
         raise ValueError('unexpected live fragment reference')
     with gzip.GzipFile(fileobj=io.BytesIO(base64.b64decode(resource['source'].split(',', 1)[1], validate=True))) as source:
         decoded = source.read(4 * 1024 * 1024 + 1)
-    if len(decoded) > 4 * 1024 * 1024 or json.loads(decoded) != expected:
+    if len(decoded) > 4 * 1024 * 1024:
+        raise ValueError('embedded live fragment exceeds limit')
+    actual = json.loads(decoded)
+    if actual == expected:
+        return
+    # v0.26.0 serializes through ignition-config 0.6.1. These particular
+    # optional v3.5 fields use serde(default), not skip_serializing_if, so
+    # absent inputs become explicit nulls. Admit only that exact expansion;
+    # do not strip arbitrary nulls or accept non-null extra effects.
+    serialized = json.loads(json.dumps(expected))
+    for file in serialized.get('storage', {}).get('files', []):
+        file.setdefault('overwrite', None)
+    for unit in serialized.get('systemd', {}).get('units', []):
+        for field in ('contents', 'enabled', 'mask'):
+            unit.setdefault(field, None)
+    if actual != serialized:
         raise ValueError('ISO embedded Ignition differs from generated live config')
 
 

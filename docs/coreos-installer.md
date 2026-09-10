@@ -16,7 +16,8 @@ replacements are introduced. Legacy source and canonical artwork remain unchange
 - `appliance/locks/coreos-iso.json` records actual release metadata for both native
   architectures, separate from the existing QEMU lock. Both selected RPM inventories
   report CoreOS Installer **0.26.0**; customization and runtime version checks require
-  that version. The source-backed wrapper/readback contract is version-specific.
+  that version. The source-backed wrapper/readback contract is version-specific,
+  including its locked Rust serializer's known absent-to-null optional fields.
 - `appliance/installer` / `internal/installer` own the interactive disk adapter and
   explicit installed-host continuation. The media-only command stays outside the
   runtime `cmd/` staging loop: the application bundle must not overwrite a running

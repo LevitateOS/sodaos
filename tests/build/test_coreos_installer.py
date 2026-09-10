@@ -137,6 +137,28 @@ class MediaConfiguration(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.module.verify_embedded(json.dumps(wrapper), expected)
 
+    def test_readback_allows_only_selected_serde_null_defaults(self):
+        expected = {'ignition': {'version': '3.5.0'},
+                    'storage': {'files': [{'path': '/fixture', 'mode': 0o644}]},
+                    'systemd': {'units': [{'name': 'fixture.service', 'enabled': True, 'contents': 'fixture'}]}}
+        serialized = json.loads(json.dumps(expected))
+        serialized['storage']['files'][0]['overwrite'] = None
+        serialized['systemd']['units'][0]['mask'] = None
+        def wrapper(config):
+            return json.dumps({'ignition': {'version': '3.3.0', 'config': {'merge': [{
+                'compression': 'gzip', 'source': 'data:;base64,' + base64.b64encode(
+                    gzip.compress(json.dumps(config).encode())).decode()}]}}})
+        self.module.verify_embedded(wrapper(serialized), expected)
+        self.assertNotIn('overwrite', expected['storage']['files'][0])
+        for field, value in (('overwrite', False), ('overwrite', True), ('unrecognizedEffect', None)):
+            modified = json.loads(json.dumps(serialized))
+            modified['storage']['files'][0][field] = value
+            with self.assertRaises(ValueError):
+                self.module.verify_embedded(wrapper(modified), expected)
+        serialized['systemd']['units'][0]['mask'] = True
+        with self.assertRaises(ValueError):
+            self.module.verify_embedded(wrapper(serialized), expected)
+
     def test_conversion_is_strict_and_failure_does_not_create_output(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'live.ign'
