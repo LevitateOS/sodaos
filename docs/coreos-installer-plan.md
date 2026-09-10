@@ -1,14 +1,31 @@
 # CoreOS installer implementation plan
 
+## Source status
+
+The user subsequently requested implementation. Steps 1–4 now have a source
+candidate and focused local coverage; see [the implementation/usage guide](coreos-installer.md).
+Step 5's real media generation, hosted-payload retrieval, boot/disk writes and full
+installed journey remain unrun, not accepted. The candidate has a tty1 console,
+not a graphical or serial-only interface. An invalid/cancelled form exits; native
+effects are never automatically retried.
+
+Source-backed packaging correction: the upstream 256 KiB Ignition embed area cannot
+hold the Go console. The small live config fetches the exact revision/architecture
+binary from operator-selected HTTPS with an Ignition SHA-256 hash. The builder emits
+but does not host/publish that public payload. Optional private NetworkManager input
+supports pre-Ignition/static networking; it makes that ISO private per-machine media.
+This is network-assisted, not an offline Soda appliance. Public bootstrap conversion
+runs with Butane at build time; the live Go adapter adds only bounded private fields
+because the selected live OS does not provide Python/Butane.
+
 ## Decision and boundary
 
 Use the upstream Fedora CoreOS live ISO and stock `coreos-installer`, not
 Anaconda, Kickstart or the predecessor's bootc installer. Add a small Soda-owned
-installation interface; do not patch the upstream installer. A console interface
-is the proposed first candidate, not an existing CoreOS form or a selected graphical
-framework. Preserve canonical artwork and the unchanged legacy repository.
+installation interface; do not patch the upstream installer. The implemented first candidate is a console interface,
+not an existing CoreOS form or a selected graphical framework. Preserve canonical artwork and the unchanged legacy repository.
 
-This is a requested implementation plan, not implemented media or permission to
+This plan and its source candidate are not built/booted media evidence or permission to
 write disks, start new fixtures, publish images or reinstall retained appliances.
 The [installation guide](installation.md) owns existing installation contracts;
 [native support](native-support.md) supplies artifacts/transport, not a second
@@ -69,8 +86,10 @@ source work; existing PNGs do not imply a graphical installer.
 - Provide a bounded continuation on the installed host: obtain the matching sealed
   Soda bundle through a trusted delivery channel, establish its integrity before
   executing bundled tools, and call existing `install-native.sh` after RPM activation.
-  Choose the concrete bundle transport before implementing this continuation; no
-  artifact publication service is assumed.
+  The candidate selects operator SSH/SCP delivery into a root-owned tree plus an
+  independently trusted SHA-256 of `SHA256SUMS`. Its already trusted compiled
+  verifier checks the bundle before executing any bundled tool. No artifact
+  publication service is assumed.
 - Do not run that script in the live environment's `--post-install` hook: it expects
   the running installed CoreOS system and activated native prerequisites.
 - Preserve first-install refusal/partial-state markers. A continuation must not
@@ -104,5 +123,7 @@ an offline appliance. Embedding/caching those dependencies is separate work.
 - [CoreOS Installer install options](https://coreos.github.io/coreos-installer/cmd/install/)
 - [Fedora live-media reference](https://docs.fedoraproject.org/en-US/fedora-coreos/live-reference/)
 
-These upstream pages were consulted for planning. No installer build, provisioning
-execution, disk installation or native validation accompanied this document.
+These upstream pages and exact CoreOS Installer v0.26.0 source were consulted.
+Selected release/commit metadata is retained under `.artifacts/coreos-installer-research/`.
+Local code checks are recorded in the handoff; no actual ISO generation, disk
+installation or native validation accompanied the implementation.

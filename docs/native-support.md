@@ -9,8 +9,10 @@ historical plan/audit are retired from active docs; unresolved checks are retain
 The [Sodaspaces plan](sodaspaces-plan.md) and production callers own API/config/schema,
 build/stage and product behavior. These tools supply transport/artifacts/observations,
 not duplicate product scenarios or a second readiness gate. The requested
-[CoreOS installer plan](coreos-installer-plan.md) selects upstream ISO customization,
-not Anaconda; implementation remains pending. QCOW2 wrappers remain unselected. U/P labels in existing CLI arguments and observations
+[CoreOS installer implementation](coreos-installer.md) now has source and local
+checks for upstream ISO customization and a production-owned console/continuation,
+not Anaconda. Actual media generation/boot remains unrun. QCOW2 wrappers remain
+unselected. U/P labels in existing CLI arguments and observations
 are retained protocol/evidence identifiers, not an active numbered roadmap. No
 helper, flag, commit or report grants execution permission.
 
@@ -33,7 +35,8 @@ Every command below is a **later, explicitly authorized recipe**, not a record o
 
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Tests, browser login and provider mutations need their own grants.
 - `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
-- `fetch-coreos`: downloads/verifies/decompresses a public base into a fresh private cache. No overwrite, key import, VM or installation.
+- `fetch-coreos`: downloads/verifies/decompresses a public QEMU base into a fresh private cache. No overwrite, key import, VM or installation.
+- `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO selected by `appliance/locks/coreos-iso.json`, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. It does not customize, boot, publish or install; `scripts/build-installer.py` is its concrete media caller.
 - `convert-butane`: runs strict native Butane conversion into a new restricted file. No boot or install.
 - `vm`: creates a new KVM overlay/NVRAM/process, boots to pinned SSH, then shuts down. `--restart` explicitly tests one restart of those same files. `--hold` keeps it available for separately authorized checks. The selected Ignition may install extensions: that requires installation permission as well as boot permission.
 - `transfer`: validates/streams only a sealed bundle into a new remote directory, checks the transferred verifier before executing it, and verifies the payload. It does **not** install.

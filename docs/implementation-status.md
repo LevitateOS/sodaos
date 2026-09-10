@@ -1,5 +1,62 @@
 # Current handoff
 
+## CoreOS installer source candidate and local checks
+
+Implemented the user-requested [CoreOS installer plan](coreos-installer-plan.md);
+[usage and limitations](coreos-installer.md) distinguish source from media/native
+proof. `appliance/installer` and `internal/installer` supply a tty1 Go console with
+native NetworkManager editing, explicit disk/erase confirmation, kernel identity/use
+rechecks, private operator provisioning and explicit installed-host continuation.
+The media-only command stays outside runtime `cmd/` staging so the bundle cannot
+overwrite its running bootstrap. The existing public bootstrap, extension service,
+first-install verifier/script and native Forgejo/OAuth/TLS setup remain owners.
+
+`scripts/build-installer.py` authors the matching-native build/customization path;
+`fetch-coreos-iso` shares existing signature verification and uses actual selected
+release metadata for both architectures. The 0.26.0 upstream customization source
+wraps live fragments in gzip data-URL merges; the readback check follows that exact
+contract. The upstream 256 KiB embed area cannot carry the Go executable, so live
+Ignition fetches the generated revision/architecture payload via operator-selected
+HTTPS with a pinned SHA-256. No hosting/publication service was added or used.
+Optional private NetworkManager input makes the ISO per-machine/private; general
+media has no credentials or fixed erase target. No Anaconda/bootc source, SELinux
+weakening, unattended disk action or recovery daemon is introduced.
+
+Actual local evidence under `.artifacts/coreos-installer-source-k7pJ3k/`:
+
+- Repository-pinned **Go 1.26.7** `go test ./...` passed, including the new media
+  command/package and existing application tests. Focused `-race` installer/native
+  artifact tests passed. A native x86_64 **static console executable** built with
+  `CGO_ENABLED=0`, `-trimpath`, `-buildvcs=true`, `-ldflags='-s -w'`; this is a local
+  dirty-source check binary, not a sealed ISO or full native appliance build.
+- Ten Python installer/provisioning/media-caller tests and eight existing native
+  support/provisioning tests passed. Terminal tests use local synthetic PTYs and
+  synthetic passwords only; media tests use command doubles, not CoreOS disk writes.
+- Full Python build suite: **85 tests, one failure, one skip**. The unrelated
+  pre-existing Forgejo payload-closure check finds 15 tracked template overrides
+  absent from `internal/nativebuild/forgejo-payload.json`; those files/inventory were
+  not changed here. The printed native-locale mismatch is an expected rejection
+  test, not an additional suite failure. Full appliance packaging remains blocked
+  by that recorded inventory failure, not waived.
+- Two earlier full-Go attempts used the system `go` wrapper (Go 1.27.0), which forces
+  a long temporary path and caused existing host terminal Unix-socket bind failures.
+  Merely setting `TMPDIR=/tmp` did not override that wrapper. The passing checks used
+  the already cached 1.26.7 executable directly, its existing module/build caches,
+  and `GOTMPDIR=/tmp TMPDIR=/tmp`. No system toolchain/configuration was changed.
+- Upstream release/commit metadata and inspected source are retained under
+  `.artifacts/coreos-installer-research/`; the ISO/signatures themselves were not
+  downloaded. Formatting and `git diff --check` passed. No TypeScript was changed.
+
+Actual ISO generation/signature fetch/customization with real tools, hosted payload
+retrieval, tty1 boot, static networking, disk installation, first boot/activation
+reboot, complete bundle continuation/operator setup and independent native aarch64
+proof remain **unrun**. Native media tools/trusted signing inputs and an explicit
+fresh target/disk grant are still needed for those phases. No VM lifecycle, retained
+appliance/project mutation, real credential generation, hosting, publication, disk
+write, service change or deployment occurred. Serial-only/graphical delivery and
+form retry UX are not implemented; invalid/cancelled input exits without automatic
+native retries. Retain all earlier fixtures, roots and evidence.
+
 ## CoreOS installer planning
 
 The user dropped Anaconda and requested a quick implementation plan. Added
