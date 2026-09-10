@@ -974,7 +974,7 @@ export class SodaSpaces extends LitElement {
     host.id = 'soda-owner-' + key;
     host.setAttribute('role', 'tabpanel');
     layer.append(host);
-    const terminal = this.factory(host, binding, undefined, locator);
+    const terminal = this.factory(host, binding, locator);
     const slot: Slot = {
       key, binding, metadata, host, terminal, unavailable: false, unread: false, readRequested: false, observedAt: metadata ? Date.now() : 0, observation: undefined
     };

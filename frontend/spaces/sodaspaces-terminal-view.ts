@@ -3,10 +3,8 @@ import type {TemplateResult} from 'lit';
 
 /** A render-time projection only. No transport, identity lookup or mutable state. */
 export interface TerminalPresentation {
-  readonly managed: boolean;
   readonly ready: boolean;
   readonly disabled: boolean;
-  readonly busy: boolean;
   readonly canConnect: boolean;
   readonly canEnd: boolean;
   readonly canReturn: boolean;
@@ -36,7 +34,7 @@ function actions(view: TerminalPresentation, commands: TerminalCommands): Templa
     <button type="button" class="ui primary button" ?disabled=${!view.canConnect}
       @click=${commands.connect}>${view.connectLabel}</button>
     <button type="button" class="ui basic button" data-action="end" ?disabled=${!view.canEnd}
-      @click=${commands.end}>${view.managed ? 'End terminal…' : 'End terminal'}</button>
+      @click=${commands.end}>End terminal…</button>
     <button type="button" class="ui basic button" ?disabled=${!view.canReturn}
       @click=${commands.return}>Continue working</button>
     <button type="button" class="ui basic button" ?disabled=${!view.canEnd}
@@ -59,32 +57,25 @@ function confirmation(view: TerminalPresentation, commands: TerminalCommands): T
 }
 export function renderTerminal(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`
-    <section class=${'soda-terminal' + (view.ready ? ' is-connected' : '') + (view.managed ? ' is-managed' : '')}>
-      ${view.managed ? html`
-        <div class="soda-terminal-context">
-          <span title=${view.project}>${view.login} @ ${view.project}</span>
-          <details class="soda-menu" @keydown=${commands.menuKey}>
-            <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
-            <div>
-              <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Environment / access</button>
-              <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>Rename terminal</button>
-              <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide session</button>
-              ${actions(view, commands)}
-            </div>
-          </details>
-        </div>
-      ` : html`
-        <h3>Project terminal as ${view.login} in ${view.project}</h3>
-        <p>The same tmux session survives navigation and connection loss. Detached or hidden work is retained for 30 minutes,
-          within Soda authentication. Reconnecting alone does not extend retention. Tmux copy-mode holds history; no commands are replayed.</p>
-        <div class="soda-terminal-toolbar">${actions(view, commands)}</div>
-      `}
-      <p class=${'soda-terminal-status' + (view.managed && !view.notice ? ' soda-visually-hidden' : '')}
+    <section class=${'soda-terminal' + (view.ready ? ' is-connected' : '')}>
+      <div class="soda-terminal-context">
+        <span title=${view.project}>${view.login} @ ${view.project}</span>
+        <details class="soda-menu" @keydown=${commands.menuKey}>
+          <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
+          <div>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Environment / access</button>
+            <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>Rename terminal</button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide session</button>
+            ${actions(view, commands)}
+          </div>
+        </details>
+      </div>
+      <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')}
         role="status" tabindex="-1">${view.message}</p>
       ${view.confirmingName !== null ? confirmation(view, commands) : ''}
       <!-- Xterm exclusively owns this stable, unconditional node's descendants. -->
       <div class="soda-terminal-screen" ?hidden=${!view.screenVisible}
-        aria-label=${`Terminal for ${view.login}; Ctrl+Shift+Enter focuses ${view.managed ? 'terminal controls' : 'End terminal'}`}
+        aria-label=${`Terminal for ${view.login}; Ctrl+Shift+Enter focuses terminal controls`}
         @keydown=${(event: KeyboardEvent) => {if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation();}}}></div>
     </section>
   `;

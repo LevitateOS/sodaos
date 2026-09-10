@@ -648,6 +648,7 @@ checks followed by the aggregate source check; no deployment or retained-state w
 - Terminal: explicitly retire no-locator mounting and port useful tests to managed
   locators. Retain legacy storage import and live pending events; this is a source
   interface change, not proof of compatibility with unknown external consumers.
+  Source complete; ported terminal and shared workspace/Lit tests passed locally.
 - Support labels and broad presentation snapshots: no demonstrated defect requiring
   replacement; retain their documented contracts and unresolved evidence reporting.
 
@@ -656,9 +657,9 @@ Actual checks and remaining native limits belong in the
 
 ### Phase 7 — optional cleanup after correctness
 
-Consider one candidate per commit: uncalled standalone terminal mode (port useful
-tests and retain legacy locators), native GCM nonce packing (prove old/new ciphertext
-compatibility), narrower OCI parsing through a
+The supported review removals above are source-complete. Other candidates remain
+conditional: native GCM nonce packing (prove old/new ciphertext compatibility),
+narrower OCI parsing through a
 verified upstream reader, or Tailnet native UI reuse. Adopt only when the existing
 authority, persistence, file-size/provenance and complete-user-journey contracts
 remain intact. Preserve Cockpit until its replacement is validated. These candidates

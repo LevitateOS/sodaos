@@ -69,11 +69,9 @@ export class SodaTerminal extends LitElement {
   declare private notice: boolean;
   declare private retainUntil: number | undefined;
   private createName = '';
-  private managed = false;
   private managedEnded = false;
   private binding: TerminalContext | undefined;
   private loadRenderer: () => Promise<Renderer> = renderer;
-  private storageKey = '';
   private requestID: string | undefined;
   private attachmentID: string | undefined;
   private lifetime = new AbortController();
@@ -108,33 +106,18 @@ export class SodaTerminal extends LitElement {
   protected createRenderRoot() {
     return this;
   }
-  configure(context: TerminalContext, load: () => Promise<Renderer>, locator?: TerminalLocator) {
+  configure(context: TerminalContext, load: () => Promise<Renderer>, locator: TerminalLocator) {
     if (this.binding || this.disposed)
       throw Error('Terminal binding is immutable');
     this.binding = {
       ...context
     };
     this.loadRenderer = load;
-    this.storageKey = `soda-terminal:${context.expectedUserId}:${context.environmentId}`;
-    this.managed = locator !== undefined;
-    if (locator?.kind === 'existing')
+    if (locator.kind === 'existing')
       this.sessionID = locator.id;
-    if (locator?.kind === 'pending') {
+    if (locator.kind === 'pending') {
       this.requestID = locator.requestId;
       this.uncertainCreate = true;
-    }
-    try {
-      const saved = this.managed ? null : sessionStorage.getItem(this.storageKey);
-      if (saved?.startsWith('pending:') && terminalID(saved.slice(8))) {
-        this.requestID = saved.slice(8);
-        this.uncertainCreate = true;
-      }
-      else if (terminalID(saved))
-        this.sessionID = saved;
-      else if (saved === 'pending')
-        this.uncertainCreate = true; // Old ambiguity must never select another session.
-    }
-    catch { /* locator only */
     }
     document.fonts.addEventListener('loadingdone', this.resize, {
       signal: this.lifetime.signal
@@ -159,10 +142,10 @@ export class SodaTerminal extends LitElement {
   protected render() {
     const disabled = this.disposed || this.state === 'stale';
     return renderTerminal({
-      managed: this.managed, ready: this.state === 'ready', disabled, busy: this.actionBusy,
+      ready: this.state === 'ready', disabled,
       canConnect: !(disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy),
       canEnd: !disabled && !!this.sessionID && !this.actionBusy,
-      canReturn: !disabled && !!this.sessionID && !this.actionBusy && (!this.managed || !!this.retainUntil),
+      canReturn: !disabled && !!this.sessionID && !this.actionBusy && !!this.retainUntil,
       connectLabel: this.sessionID ? 'Reconnect terminal' : this.uncertainCreate ? 'Find pending terminal' : 'Open terminal',
       login: this.binding?.login || '', project: this.binding?.projectName || this.binding?.environmentId || '',
       message: this.message, notice: this.notice, screenVisible: this.screenVisible,
@@ -170,7 +153,7 @@ export class SodaTerminal extends LitElement {
       canConfirm: !disabled && !this.actionBusy && this.confirming === this.sessionID,
     }, {
       connect: () => this.connectFromControls(),
-      end: () => this.managed ? this.confirmEnd() : this.control('end'),
+      end: () => this.confirmEnd(),
       confirmEnd: () => this.endConfirmedTerminal(), cancelEnd: () => this.cancelEnd(),
       return: () => {
         this.closeMenu();
@@ -229,28 +212,17 @@ export class SodaTerminal extends LitElement {
     this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
   }
   private remember(value: string | null) {
-    if (this.managed) {
-      if (value === null)
-        this.managedEnded = true;
-      this.dispatchEvent(new CustomEvent('soda-terminal-locator', {
-        bubbles: true, detail: value
-      }));
-      return;
-    }
-    try {
-      if (value)
-        sessionStorage.setItem(this.storageKey, value);
-      else
-        sessionStorage.removeItem(this.storageKey);
-    }
-    catch { /* no credentials or transcript */
-    }
+    if (value === null)
+      this.managedEnded = true;
+    this.dispatchEvent(new CustomEvent('soda-terminal-locator', {
+      bubbles: true, detail: value
+    }));
   }
   private live(generation: number) {
     return !this.disposed && this.state !== 'stale' && this.generation === generation;
   }
   private publish(kind: TerminalObservation['kind'], state: ConnectionState) {
-    if (!this.managed || this.disposed)
+    if (this.disposed)
       return;
     const detail: TerminalObservation = {
       kind, state, generation: this.generation, id: this.sessionID || null, requestId: this.requestID || null
@@ -329,13 +301,13 @@ export class SodaTerminal extends LitElement {
     };
   }
   private authorityLost() {
-    if (this.managed && !this.disposed)
+    if (!this.disposed)
       this.dispatchEvent(new CustomEvent('soda-terminal-authority-lost', {
         bubbles: true
       }));
   }
   private control(action: 'end' | 'return' | 'retain', seconds?: 1800 | 7200) {
-    if (action === 'end' && this.managed && this.confirming !== this.sessionID)
+    if (action === 'end' && this.confirming !== this.sessionID)
       return;
     if (!this.closest('[hidden], [inert]'))
       void this.retention(action, seconds);
@@ -539,7 +511,7 @@ export class SodaTerminal extends LitElement {
           this.sessionID = undefined;
           this.requestID = undefined;
           this.remember(null);
-          this.detach('Native cleanup confirmed. Nothing was created; Open terminal explicitly for a new shell.');
+          this.detach('Native cleanup confirmed. This exact session ended; use New terminal for a different shell.');
           return;
         }
         if (existing.state === 'ending' || existing.state === 'unconfirmed') {
@@ -550,10 +522,6 @@ export class SodaTerminal extends LitElement {
           this.detach('An existing writer is attached. No takeover or replacement was requested.', false, 'attached-elsewhere');
           return;
         }
-      }
-      if (!this.sessionID && this.uncertainCreate) {
-        this.detach('Legacy creation outcome remains unconfirmed. Reload cannot select another terminal; ask the operator to inspect. No creation was retried.', false, 'unconfirmed');
-        return;
       }
       if (automatic && !this.sessionID) {
         this.detach('Terminal absent. Nothing was created.');
@@ -606,18 +574,13 @@ export class SodaTerminal extends LitElement {
         if (event.ctrlKey && event.shiftKey && event.key === 'Enter') {
           event.preventDefault();
           event.stopPropagation();
-          if (this.managed) {
-            this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
-            return false;
-          }
-          const end = this.querySelector<HTMLButtonElement>('[data-action=end]');
-          (end && !end.disabled ? end : this.querySelector<HTMLElement>('[role=status]'))?.focus();
+          this.querySelector<HTMLElement>('[data-action=controls]')?.focus();
           return false;
         }
         return true;
       });
       terminal.onData(data => {
-        if (!this.live(n) || !this.viewVisible || this.closest('[hidden]') || this.managed && !screen.contains(document.activeElement))
+        if (!this.live(n) || !this.viewVisible || this.closest('[hidden]') || !screen.contains(document.activeElement))
           return;
         if (data.length > 65536) {
           this.detach('Input too large. Nothing was replayed.');
@@ -693,17 +656,15 @@ export class SodaTerminal extends LitElement {
             this.message = action === 'create' ? `Connected as ${login}.` : `Reconnected as ${login}. Choose Continue working to renew a detached deadline.`;
             this.publish('state', 'ready');
             void this.screenReady(n, terminal, screen);
-            if (this.managed) {
-              const target = this.sessionID;
-              void this.json(`/api/environments/${environmentId}/terminal-sessions/${target}`, null, null, AbortSignal.any([request.signal, AbortSignal.timeout(10000)])).then(result => {
-                if (!this.live(n) || this.sessionID !== target || !this.binding)
-                  return;
-                const metadata = terminalResponse(result, this.binding);
-                if (metadata?.id === target)
-                  this.observe(metadata);
-              }).catch(() => {
-              });
-            }
+            const target = this.sessionID;
+            void this.json(`/api/environments/${environmentId}/terminal-sessions/${target}`, null, null, AbortSignal.any([request.signal, AbortSignal.timeout(10000)])).then(result => {
+              if (!this.live(n) || this.sessionID !== target || !this.binding)
+                return;
+              const metadata = terminalResponse(result, this.binding);
+              if (metadata?.id === target)
+                this.observe(metadata);
+            }).catch(() => {
+            });
           }
           else if (frame.type === 'output' && this.state === 'ready' && keys === 'data,type' && typeof frame.data === 'string') {
             const decoded = atob(frame.data);
@@ -778,10 +739,9 @@ export class SodaTerminal extends LitElement {
       throw Error('Terminal observation changed');
     this.retainUntil = metadata.state === 'opening' || metadata.state === 'ready' ? metadata.retain_until : undefined;
     this.setName(metadata.name);
-    if (this.managed)
-      this.dispatchEvent(new CustomEvent('soda-terminal-metadata', {
-        bubbles: true, detail: metadata
-      }));
+    this.dispatchEvent(new CustomEvent('soda-terminal-metadata', {
+      bubbles: true, detail: metadata
+    }));
   }
   setName(name: string) {
     if ([...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name))
@@ -819,11 +779,11 @@ export class SodaTerminal extends LitElement {
   }
 }
 customElements.define('soda-terminal', SodaTerminal);
-export function mountTerminal(root: HTMLElement, context: TerminalContext, loadRenderer: () => Promise<Renderer> = renderer, locator?: TerminalLocator) {
+export function mountTerminal(root: HTMLElement, context: TerminalContext, locator: TerminalLocator, loadRenderer: () => Promise<Renderer> = renderer) {
   const {expectedUserId, repositoryId, environmentId, login} = context;
   if (root.ownerDocument !== document || !identifier(expectedUserId) || !identifier(repositoryId) || !/^p[0-9a-f]{24}$/.test(environmentId) || !/^[a-z][a-z0-9_-]{0,30}$/.test(login) || login === 'root')
     throw Error('Invalid terminal mounting context');
-  if (locator?.kind === 'existing' && !terminalID(locator.id) || locator?.kind === 'pending' && !terminalID(locator.requestId))
+  if (!locator || !['new', 'existing', 'pending'].includes(locator.kind) || locator.kind === 'existing' && !terminalID(locator.id) || locator.kind === 'pending' && !terminalID(locator.requestId))
     throw Error('Invalid terminal locator');
   const terminal = new SodaTerminal();
   terminal.configure(context, loadRenderer, locator);

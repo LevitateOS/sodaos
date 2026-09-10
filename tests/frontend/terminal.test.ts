@@ -16,7 +16,7 @@ before(async () => {
     const target = 'public' + pathname, source = Object.entries(payload).find(([destination]) => destination === target)?.[1];
     if (source) return new Response(Bun.file(source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : path.join(root, source)), {headers: {'Content-Type': pathname.endsWith('.css') ? 'text/css' : 'text/javascript'}});
     if (pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;height:500px;width:800px"></div><script type="module" src="/assets/terminal-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><button id="native">Native</button><div id="mount" style="display:flex;height:500px;width:800px"></div><script type="module" src="/assets/terminal-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
@@ -29,8 +29,17 @@ async function fixture(t: TestContext, options: TerminalFixtureOptions = {}) {
   await page.evaluate(async options => {window.terminalFixture = window.createTerminalFixture(options); await window.terminalFixture.api.ready;}, options);
   return page;
 }
+async function action(page: Page, name: string | RegExp) {
+  if (await page.locator('.soda-menu').getAttribute('open') === null)
+    await page.getByLabel('Terminal actions', {exact: true}).click();
+  await page.getByRole('button', {name, exact: true}).click();
+}
+async function end(page: Page) {
+  await action(page, 'End terminal…');
+  await page.getByRole('dialog', {name: 'End terminal confirmation'}).getByRole('button', {name: 'End terminal', exact: true}).click();
+}
 async function opening(page: Page) {
-  await page.locator('.soda-terminal-toolbar > button').first().click();
+  await action(page, /^(Open|Reconnect|Find pending) terminal$/);
   await page.waitForFunction(() => window.terminalFixture.sockets.length === 1);
 }
 async function ready(page: Page) {await opening(page); await page.evaluate(() => window.terminalFixture.ready());}
@@ -48,7 +57,8 @@ test('explicit auth, local renderer, original login and Unicode input/output', a
   const first = (await inputFrames(page))[0]; assert(first); assert.match(String(first.request_id), /^[0-9a-f]{32}$/);
   assert.deepEqual({...first, request_id: undefined}, {action: 'create', request_id: undefined, expected_user_id: '1', repository_id: '7', csrf_token: 'synthetic-csrf', cols: 80, rows: 24});
   assert.deepEqual(await page.evaluate(() => window.terminalFixture.term().osc), [0, 1, 2, 8, 52]);
-  const calls = await page.evaluate(() => window.terminalFixture.calls); assert.equal(calls.length, 2);
+  const calls = await page.evaluate(() => window.terminalFixture.calls); assert.equal(calls.length, 3);
+  assert(calls[2]?.url.endsWith('/terminal-sessions/' + id));
   for (const call of calls) {assert.equal(call.credentials, 'same-origin'); assert.equal(call.redirect, 'error'); assert.equal(call.headers['x-soda-expected-user-id'], '1');}
   await page.evaluate(() => {window.terminalFixture.term().input('héllo\r'); window.terminalFixture.socket().message({type: 'output', data: btoa(String.fromCharCode(...new TextEncoder().encode('世界')))});});
   const data = (await inputFrames(page))[1]?.data; assert.equal(typeof data, 'string'); if (typeof data !== 'string') throw Error('input missing');
@@ -59,7 +69,7 @@ for (const event of ['pagehide', 'pageshow']) test(`${event} retires this render
   const page = await fixture(t); await ready(page);
   await page.evaluate(async event => {const f = window.terminalFixture; window.dispatchEvent(event === 'pageshow' ? new PageTransitionEvent(event, {persisted: true}) : new Event(event)); await f.api.ready; f.socket().message({type: 'output', data: 'YWJj'}); window.dispatchEvent(new Event('focus')); f.root.querySelector('button')?.click();}, event);
   assert.deepEqual(await page.evaluate(() => ({disposed: window.terminalFixture.term().disposed, state: window.terminalFixture.socket().readyState, count: window.terminalFixture.sockets.length, output: window.terminalFixture.term().writes.length})), {disposed: 1, state: 3, count: 1, output: 0});
-  assert(await page.locator('.soda-terminal-toolbar > button').first().isDisabled()); assert.deepEqual(await writes(page), []);
+  assert(await page.getByRole('button', {name: 'Reconnect terminal', includeHidden: true}).isDisabled()); assert.deepEqual(await writes(page), []);
 });
 test('app visibility and reactive updates keep the same transport, screen and renderer', async t => {
   const page = await fixture(t); await ready(page);
@@ -97,7 +107,7 @@ test('late session response cannot launch after invalidation', async t => {
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length + window.terminalFixture.terms.length), 0);
 });
 for (const options of [{user: '2'}, {login: 'other'}, {responseStatus: 401}, {responseStatus: 403}]) test(`session/membership rejection never opens transport: ${JSON.stringify(options)}`, async t => {
-  const page = await fixture(t, options); await page.locator('button', {hasText: 'Open terminal'}).click();
+  const page = await fixture(t, options); await action(page, 'Open terminal');
   await page.getByText('Could not authorize or attach.', {exact: false}).waitFor(); assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
 });
 test('End is a separate authenticated action; Escape and control focus stay local', async t => {
@@ -106,13 +116,17 @@ test('End is a separate authenticated action; Escape and control focus stay loca
     const f = window.terminalFixture; let escaped = false; f.root.addEventListener('keydown', () => {escaped = true;});
     const escape = new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}); f.term().textarea.dispatchEvent(escape);
     const control = new KeyboardEvent('keydown', {key: 'Enter', ctrlKey: true, shiftKey: true, cancelable: true}); f.term().key(control);
-    return {prevented: escape.defaultPrevented, escaped, focus: document.activeElement?.textContent};
-  }), {prevented: true, escaped: false, focus: 'End terminal'});
-  await page.getByRole('button', {name: 'End terminal', exact: true}).click(); await page.getByText('Native cleanup confirmed', {exact: false}).waitFor();
+    return {prevented: escape.defaultPrevented, escaped, focus: document.activeElement?.getAttribute('aria-label')};
+  }), {prevented: true, escaped: false, focus: 'Terminal actions'});
+  await action(page, 'End terminal…');
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Cancel');
+  assert.deepEqual(await writes(page), [], 'opening confirmation is not End');
+  await page.getByRole('dialog').getByRole('button', {name: 'End terminal', exact: true}).click();
+  await page.getByText('Native cleanup confirmed', {exact: false}).waitFor();
   const sent = await writes(page); assert.equal(sent.length, 1); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'end'}); assert(sent[0]?.url.endsWith('/terminal-sessions/' + id));
   assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
   assert.equal((await inputFrames(page)).length, 1); assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1);
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), null);
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), null);
 });
 test('keyboard exit remains available while lifetime controls await authorization', async t => {
   const page = await fixture(t); await ready(page);
@@ -121,10 +135,31 @@ test('keyboard exit remains available while lifetime controls await authorizatio
     f.setReply(async () => new Promise(resolve => {release = resolve;}));
     f.button('Keep for two hours').click(); await f.api.ready;
     f.term().key(new KeyboardEvent('keydown', {key: 'Enter', ctrlKey: true, shiftKey: true, cancelable: true}));
-    const role = document.activeElement?.getAttribute('role');
+    const label = document.activeElement?.getAttribute('aria-label');
     f.api.dispose(); release?.(Response.json({user: {id: '1'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin}));
-    return role;
-  }), 'status');
+    return label;
+  }), 'Terminal actions');
+  assert.deepEqual(await writes(page), []);
+});
+
+test('native focus and hidden views cannot forward terminal input', async t => {
+  const page = await fixture(t); await ready(page);
+  await page.locator('#native').focus();
+  await page.evaluate(() => window.terminalFixture.term().input('native field'));
+  assert.equal((await inputFrames(page)).length, 1);
+  await page.evaluate(() => {const f = window.terminalFixture; f.api.focus(); f.api.setVisible(false); f.term().input('hidden view');});
+  assert.equal((await inputFrames(page)).length, 1);
+  await page.evaluate(() => {const f = window.terminalFixture; f.api.setVisible(true); f.api.focus(); f.term().input('explicit focus');});
+  assert.equal((await inputFrames(page)).length, 2);
+});
+test('confirmed cleanup cannot reopen the same owner as a new shell', async t => {
+  const page = await fixture(t, {locator: {kind: 'existing', id}, existing: {...existing, state: 'ended'}});
+  await page.evaluate(() => window.terminalFixture.api.restore());
+  const count = await page.evaluate(() => window.terminalFixture.calls.length);
+  await page.evaluate(async () => {const f = window.terminalFixture; await f.api.open(); await f.api.restore();});
+  assert.equal(await page.evaluate(() => window.terminalFixture.calls.length), count);
+  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), null);
   assert.deepEqual(await writes(page), []);
 });
 
@@ -137,60 +172,72 @@ test('oversized paste is refused before encoding or dispatch', async t => {
   const page = await fixture(t); await ready(page); await page.evaluate(() => window.terminalFixture.term().input('x'.repeat(65537)));
   assert.equal((await inputFrames(page)).length, 1); assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1);
 });
-test('known locator restores attach-only without credentials in storage or automatic Return', async t => {
-  const page = await fixture(t, {saved: id, existing}); assert.equal(await page.evaluate(() => window.terminalFixture.calls.length), 0);
+test('explicit locator restores attach-only and emits its ID without automatic Return', async t => {
+  const page = await fixture(t, {locator: {kind: 'existing', id}, existing}); assert.equal(await page.evaluate(() => window.terminalFixture.calls.length), 0);
   await page.evaluate(() => window.terminalFixture.api.restore()); await page.evaluate(() => window.terminalFixture.socket().open());
   assert.equal((await inputFrames(page))[0]?.action, 'attach'); assert.equal((await inputFrames(page))[0]?.id, id);
-  assert.deepEqual(await writes(page), []); assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.deepEqual(await writes(page), []); assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
 });
 for (const state of ['unconfirmed', 'ending']) test(`${state} cleanup reserves locator without attachment or replacement`, async t => {
-  const page = await fixture(t, {saved: id, existing: {...existing, state}}); await page.evaluate(() => window.terminalFixture.api.restore());
+  const page = await fixture(t, {locator: {kind: 'existing', id}, existing: {...existing, state}}); await page.evaluate(() => window.terminalFixture.api.restore());
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0); assert.deepEqual(await writes(page), []);
-  assert.match(await page.locator('#mount').innerText(), /slot is reserved/); assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.match(await page.locator('#mount').innerText(), /slot is reserved/); assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
 });
-test('missing stored target never falls back to creation', async t => {
-  const page = await fixture(t, {saved: id}); await page.evaluate(() => window.terminalFixture.api.restore());
-  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0); assert.deepEqual(await writes(page), []); assert.match(await page.locator('#mount').innerText(), /outcome remains unknown/); assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+test('missing explicit target never falls back to creation', async t => {
+  const page = await fixture(t, {locator: {kind: 'existing', id}});
+  await page.evaluate(async () => {await window.terminalFixture.api.restore(); await window.terminalFixture.api.restore();});
+  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
+  assert.deepEqual(await writes(page), []);
+  assert.match(await page.locator('#mount').innerText(), /outcome remains unknown/);
+  assert.deepEqual(await page.evaluate(() => window.terminalFixture.locators), []);
+  assert.deepEqual(await page.evaluate(() => window.terminalFixture.calls.filter(call => call.url.includes('/terminal-')).map(call => call.url)), Array(2).fill(`/-/soda/api/environments/${env}/terminal-sessions/${id}`));
 });
 test('lost creation response is looked up, never retried', async t => {
-  const page = await fixture(t, {saved: 'pending:' + 'b'.repeat(32)});
-  for (let i = 0; i < 2; i++) {await page.getByRole('button', {name: 'Find pending terminal'}).click(); await page.getByText('no creation was retried', {exact: false}).waitFor();}
+  const page = await fixture(t, {locator: {kind: 'pending', requestId: 'b'.repeat(32)}});
+  for (let i = 0; i < 2; i++) {await action(page, 'Find pending terminal'); await page.getByText('no creation was retried', {exact: false}).waitFor();}
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0); assert.deepEqual(await writes(page), []);
 });
 test('lost create is recovered by exact request correlation, never newest-session lookup', async t => {
-  const page = await fixture(t, {saved: 'pending:' + 'b'.repeat(32), existing});
+  const page = await fixture(t, {locator: {kind: 'pending', requestId: 'b'.repeat(32)}, existing});
   await opening(page); await page.evaluate(() => window.terminalFixture.socket().open());
   assert.equal((await inputFrames(page))[0]?.action, 'attach'); assert.equal((await inputFrames(page))[0]?.id, id);
   assert(await page.evaluate(() => window.terminalFixture.calls.some(call => call.url.endsWith('/terminal-attempts/' + 'b'.repeat(32)))));
 });
 test('another attempt cannot be substituted for a lost creation result', async t => {
-  const page = await fixture(t, {saved: 'pending:' + 'c'.repeat(32), existing});
-  await page.getByRole('button', {name: 'Find pending terminal'}).click();
+  const page = await fixture(t, {locator: {kind: 'pending', requestId: 'c'.repeat(32)}, existing});
+  await action(page, 'Find pending terminal');
   await page.getByText('Could not authorize or attach.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), 'pending:' + 'c'.repeat(32));
+  assert.deepEqual(await page.evaluate(() => window.terminalFixture.locators), []);
+  assert(await page.evaluate(() => window.terminalFixture.calls.some(call => call.url.endsWith('/terminal-attempts/' + 'c'.repeat(32)))));
 });
-test('legacy uncorrelated pending locators never select a session', async t => {
-  const page = await fixture(t, {saved: 'pending', existing});
-  await page.getByRole('button', {name: 'Find pending terminal'}).click();
-  await page.getByText('Legacy creation outcome', {exact: false}).waitFor();
-  assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
-  assert.equal(await page.evaluate(() => window.terminalFixture.calls.some(call => call.url.includes('/terminal-'))), false);
+// Legacy storage import belongs to the workspace; workspace.test.ts exercises
+// uncorrelated pending and unknown IDs through that production owner.
+test('missing, legacy and malformed locator arguments refuse before mounting', async t => {
+  const page = await fixture(t);
+  assert.deepEqual(await page.evaluate(() => {
+    const f = window.terminalFixture;
+    return [undefined, null, 'pending', {}, {kind: 'other'}, {kind: 'existing', id: 'bad'}, {kind: 'pending', requestId: 'bad'}].map(value => {
+      try {f.mountInvalidLocator(value); return false;} catch {return true;}
+    });
+  }), Array(7).fill(true));
+  assert.equal(await page.locator('soda-terminal').count(), 1);
+  assert.equal(await page.evaluate(() => window.terminalFixture.calls.length), 0);
 });
 test('End acknowledgment plus absent receipt preserves uncertainty and exact ID', async t => {
   const page = await fixture(t); await ready(page);
   await page.evaluate(() => window.terminalFixture.setReply(async call => call.method === 'GET' && call.url.includes('/terminal-sessions/') ? Response.json({terminal: null}) : null));
-  await page.getByRole('button', {name: 'End terminal', exact: true}).click();
+  await end(page);
   await page.getByText('absent receipt is not cleanup proof', {exact: false}).waitFor();
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
-  await page.getByRole('button', {name: 'Reconnect terminal'}).click(); await page.getByText('outcome remains unknown', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
+  await action(page, 'Reconnect terminal'); await page.getByText('outcome remains unknown', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 1);
 });
 test('attach readiness requires this socket’s new locator and writer generation', async t => {
-  const page = await fixture(t, {saved: id, existing});
+  const page = await fixture(t, {locator: {kind: 'existing', id}, existing});
   await page.evaluate(async () => {const f = window.terminalFixture; await f.api.restore(); f.socket().open(); f.socket().message({type: 'ready'}); await f.api.ready;});
   assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1);
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
   assert.equal(await page.locator('.is-connected').count(), 0);
 });
 test('Hide carries this attachment locator and is distinct from Keep', async t => {
@@ -213,7 +260,7 @@ test('late renderer import after Hide/dispose cannot open a transport', async t 
 test('late socket open after Hide sends no creation frame', async t => {
   const page = await fixture(t); await opening(page);
   await page.evaluate(() => {const f = window.terminalFixture; f.root.hidden = true; f.socket().open();});
-  assert.deepEqual(await inputFrames(page), []); assert.equal(await page.evaluate(() => window.terminalFixture.storage()), null);
+  assert.deepEqual(await inputFrames(page), []); assert.deepEqual(await page.evaluate(() => window.terminalFixture.locators), []);
 });
 test('rapid lifetime commands dispatch once; reactive control updates preserve renderer', async t => {
   const page = await fixture(t); await ready(page);
@@ -221,41 +268,42 @@ test('rapid lifetime commands dispatch once; reactive control updates preserve r
   await page.getByText('Retained until', {exact: false}).waitFor();
   const sent = await writes(page); assert.equal(sent.length, 1); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'retain', seconds: 7200});
   assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 0); assert.equal(await page.evaluate(() => window.terminalFixture.terms.length), 1);
-  await page.getByRole('button', {name: 'Continue working'}).click(); await page.getByText('Active as original-alice', {exact: false}).waitFor();
+  await action(page, 'Continue working'); await page.getByText('Active as original-alice', {exact: false}).waitFor();
   assert.equal((await writes(page)).length, 2); assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 1);
 });
 test('End acknowledgment/disposal/socket callbacks clean up exactly once', async t => {
   const page = await fixture(t); await ready(page);
+  await action(page, 'End terminal…');
   await page.evaluate(async () => {const f = window.terminalFixture; f.button('End terminal').click(); f.api.dispose(); f.socket().onclose?.(); f.socket().message({type: 'ready'}); f.term().input('not replayed'); await f.api.ready;});
   assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1); assert.equal(await page.evaluate(() => window.terminalFixture.socket().closed), 1);
   assert.equal((await inputFrames(page)).length, 1);
 });
 test('observed existing writer refuses takeover before loading a second transport', async t => {
-  const page = await fixture(t, {existing: {...existing, attached: true}, saved: id});
+  const page = await fixture(t, {existing: {...existing, attached: true}, locator: {kind: 'existing', id}});
   await page.evaluate(() => window.terminalFixture.api.restore());
   await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 0);
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
   assert.deepEqual(await writes(page), []);
 });
 test('an attachment refused by another writer never creates a replacement', async t => {
-  const page = await fixture(t, {saved: id, existing}); await page.evaluate(() => window.terminalFixture.api.restore());
+  const page = await fixture(t, {locator: {kind: 'existing', id}, existing}); await page.evaluate(() => window.terminalFixture.api.restore());
   await page.evaluate(() => {const f = window.terminalFixture; f.socket().open(); f.socket().message({type: 'closed', reason: 'unavailable'});});
-  assert.equal((await inputFrames(page))[0]?.action, 'attach'); assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id);
+  assert.equal((await inputFrames(page))[0]?.action, 'attach'); assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id);
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 1); assert.deepEqual(await writes(page), []);
 });
 test('failed creation dispatch preserves uncertainty, not an automatic retry', async t => {
   const page = await fixture(t); await opening(page);
   await page.evaluate(() => {const f = window.terminalFixture; f.socket().send = () => {throw Error('synthetic send failure');}; f.socket().open();});
-  assert.match(await page.evaluate(() => window.terminalFixture.storage()) || '', /^pending:[0-9a-f]{32}$/);
-  await page.getByRole('button', {name: 'Find pending terminal'}).click(); await page.getByText('no creation was retried', {exact: false}).waitFor();
+  assert.match(await page.evaluate(() => window.terminalFixture.locator()) || '', /^pending:[0-9a-f]{32}$/);
+  await action(page, 'Find pending terminal'); await page.getByText('no creation was retried', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.terminalFixture.sockets.length), 1);
 });
 test('unconfirmed End does not forget its ID or claim native cleanup', async t => {
   const page = await fixture(t); await ready(page);
   await page.evaluate(() => window.terminalFixture.setReply(async call => call.method === 'POST' ? Response.json({ending: false}) : null));
-  await page.getByRole('button', {name: 'End terminal', exact: true}).click(); await page.getByText('Terminal lifetime action was not confirmed.', {exact: false}).waitFor();
-  assert.equal(await page.evaluate(() => window.terminalFixture.storage()), id); assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 0);
+  await end(page); await page.getByText('Terminal lifetime action was not confirmed.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.terminalFixture.locator()), id); assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 0);
 });
 test('retired renderer input cannot reach a successor attachment', async t => {
   const page = await fixture(t); await ready(page);

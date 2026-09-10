@@ -1,8 +1,9 @@
 import {mountTerminal} from '../../../frontend/spaces/sodaspaces-terminal.js';
+import type {TerminalLocator} from '../../../frontend/spaces/sodaspaces-terminal.js';
 import type {ITerminalOptions, ITerminalInitOnlyOptions} from '@xterm/xterm';
 export const environmentID = 'p0123456789abcdef01234567';
 interface Existing {id: string; login: string; repository_id: string; request_id?: string; state?: string; retain_until?: number; attached?: boolean}
-export interface TerminalFixtureOptions {existing?: Existing; saved?: string; slow?: boolean; user?: string; login?: string; responseStatus?: number}
+export interface TerminalFixtureOptions {existing?: Existing; locator?: TerminalLocator; slow?: boolean; user?: string; login?: string; responseStatus?: number}
 interface Call {url: string; method: string; body?: string; credentials?: RequestCredentials; redirect?: RequestRedirect; headers: Record<string, string>}
 function createFixture(options: TerminalFixtureOptions = {}) {
   const root = document.getElementById('mount'); if (!root) throw Error('Missing fixture mount');
@@ -21,7 +22,11 @@ function createFixture(options: TerminalFixtureOptions = {}) {
   let reply: ((call: Call) => Promise<Response | null>) | undefined;
   let rendererWait: Promise<void> | undefined;
   window.addEventListener('beforeunload', () => before++);
-  if (options.saved) sessionStorage.setItem(`soda-terminal:1:${environmentID}`, options.saved);
+  const locators: (string | null)[] = [];
+  root.addEventListener('soda-terminal-locator', event => {
+    if (!(event instanceof CustomEvent) || !(event.detail === null || typeof event.detail === 'string')) throw Error('Invalid locator event');
+    locators.push(event.detail);
+  });
   const fetchFixture = async (url: RequestInfo | URL, init?: RequestInit) => {
     const call: Call = {url: String(url), method: init?.method || 'GET', headers: Object.fromEntries(new Headers(init?.headers).entries()),
       ...(typeof init?.body === 'string' ? {body: init.body} : {}), ...(init?.credentials ? {credentials: init.credentials} : {}), ...(init?.redirect ? {redirect: init.redirect} : {})};
@@ -79,7 +84,8 @@ function createFixture(options: TerminalFixtureOptions = {}) {
     focus() {this.textarea.focus();} dispose() {this.disposed++;}
     write(bytes: string | Uint8Array, done?: () => void) {this.writes.push(bytes); if (!options.slow) done?.();}
   }
-  const api = mountTerminal(root, {expectedUserId: '1', repositoryId: '7', environmentId: environmentID, login: 'original-alice'}, async () => {
+  const binding = {expectedUserId: '1', repositoryId: '7', environmentId: environmentID, login: 'original-alice'};
+  const api = mountTerminal(root, binding, options.locator || {kind: 'new'}, async () => {
     await rendererWait;
     return {Terminal, FitAddon: class {fit() {fitCalls++;} activate() {} dispose() {}}};
   });
@@ -90,7 +96,9 @@ function createFixture(options: TerminalFixtureOptions = {}) {
     setReply(value: typeof reply) {reply = value;}, waitRenderer(value: Promise<void>) {rendererWait = value;},
     ready() {const peer = socket(); peer.open(); peer.message({type: 'session', id: 'a'.repeat(32)}); peer.message({type: 'ready'}); return api.ready;},
     writes: () => calls.filter(call => call.method !== 'GET'),
-    storage: () => sessionStorage.getItem(`soda-terminal:1:${environmentID}`)};
+    locator: () => locators.at(-1), locators,
+    // Exercise the exported JavaScript boundary with invalid, untyped callers.
+    mountInvalidLocator(value: unknown) {Reflect.apply(mountTerminal, undefined, [root, binding, value]);}};
 }
 declare global {interface Window {createTerminalFixture: typeof createFixture; terminalFixture: ReturnType<typeof createFixture>}}
 window.createTerminalFixture = createFixture;

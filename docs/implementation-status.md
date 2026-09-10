@@ -51,6 +51,17 @@ afterward (`templates-final.log`); the initial missing-seam/obsolete-markup fail
 and path observations are retained alongside it. No served template, upstream asset,
 provider permission or native browser state changed in this slice.
 
+Terminal mounting now requires an explicit third-argument locator (renderer injection
+is fourth). The workspace caller and low-level fixture use that interface; omitted/
+malformed locators fail before mounting. Removed standalone storage, toolbar, direct
+End and alternate focus branches/CSS. The shared menu, Cancel-first End, exact-ID
+restore, finite retain/Return, pending events and workspace legacy import remain.
+Useful transport/authorization/failure tests now use the managed UI and observe locator
+events, not a duplicate storage writer. Initial typecheck and 45 ported terminal tests
+passed; after adding focus/ended-owner checks and production workspace CSS, the full
+focused Lit command passed 142 tests (`lit.log`). This is a documented source-interface
+retirement, not external-consumer compatibility or fresh native/tmux/CLI proof.
+
 ## Three-pass overengineering review — documentation only
 
 At the user's request, [the review record](overengineering-review.md) preserves the

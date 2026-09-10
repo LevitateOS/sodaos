@@ -354,28 +354,39 @@ its actual Soda actor rather than treating browser focus as authentication.
 
 ## Terminal-only mounting surface
 
-The complete component embeds this itself; never mount a second terminal for the
-same current context/project (the backend rejects duplicate streams).
+The workspace embeds this low-level component and owns locators, persistence and
+project/rename/Hide commands. Do not mount a second writer for the same terminal ID.
+Different exact IDs may coexist within the backend's authorized capacity.
+
+No-locator standalone mounting is retired: callers must explicitly select `new`,
+`existing` or correlated `pending`. The renderer-injection argument is now fourth.
+Unknown external callers must port to this signature; local tests are not proof of
+external compatibility. Legacy per-project storage import remains in the workspace,
+including refusal of uncorrelated `pending`; it is not another terminal mode.
 
 ```ts
 import {mountTerminal} from '/assets/sodaspaces-terminal.js';
 const terminal = mountTerminal(mountNode, {
   expectedUserId, repositoryId, environmentId, login,
-});
+}, {kind: 'existing', id: terminalId});
 ```
 
 Resolve environment and original own membership login through the protected API,
 not a provider rename or caller-supplied privilege. Mounting starts nothing. Explicit
-Open may create a terminal for an existing account; `restore()` only attaches a
-stored existing locator after fresh authorization. Neither provisions, joins, starts
+Open on an explicit `new` locator may create a terminal for an existing account;
+`restore()` resolves only the supplied existing ID or correlated pending request
+under fresh authorization. Confirmed cleanup never turns that owner into a new shell. Neither provisions, joins, starts
 or repairs a project. `retain()` and `returnToWork()` request the bounded lifetime
 operations above. `invalidate`, `disconnect`, `dispose` and `started` remain available;
 renderer disposal detaches, while End is the separate protected operation.
 
-Load `/assets/sodaspaces{,-drawer,-terminal}.css` and
+Load `/assets/sodaspaces{,-drawer,-page,-terminal}.css` and
 `/assets/soda-terminal/xterm.css`. The renderer is lazy-loaded from local
-`/assets/soda-terminal/{xterm,addon-fit}.mjs`; no CDN. Lit will own controls through
-the already scaffolded shared runtime, never the xterm-owned screen descendants.
+`/assets/soda-terminal/{xterm,addon-fit}.mjs`; no CDN. Lit owns the shared menu and
+Cancel-first End confirmation, never the xterm-owned screen descendants. Input
+requires the visible terminal screen to own focus. Listen for `soda-terminal-locator`
+events (`pending:REQUEST`, exact ID, or confirmed-End `null`) in the owning workspace;
+no terminal component writes a separate session-storage record.
 Keep xterm-specific styles scoped, so native form rules do not corrupt its textarea.
 Browser cookies remain HttpOnly; actor/CSRF travels only in the bounded first socket
 frame. No credential or terminal transcript belongs in logs. Terminal-driven OSC
