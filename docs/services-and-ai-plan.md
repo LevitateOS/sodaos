@@ -63,6 +63,34 @@ decisions do not resolve the AI credential boundary documented below.
 
 ## 1. Services marketplace
 
+### Development-appliance scope — user decision
+
+SodaOS helps people develop software. **Services is a small catalog of useful
+tools for that development appliance**, reachable on the **local network with
+optional Tailscale access**. The user explicitly ruled out public Internet hosting.
+The basic journey is choose an app, configure it, install it and open it privately;
+Start, Stop and explicit updates must preserve its data.
+
+**No domain purchase or ownership is required to try SodaOS or use baseline
+Services.** The earlier requirement to preprovision a separate app hostname and
+matching certificate before Install is superseded. Making users assemble a
+production hosting setup before they can try a development tool is outside the
+product goal. Local endpoint setup belongs in the appliance experience; any
+app-specific HTTPS requirement must have a usable path without an owned domain.
+
+Do not turn this into a public ingress, DNS-provider integration, general backup,
+disaster-recovery or release/update platform as a prerequisite for Services. Public
+GitHub recipes and registry downloads are distribution inputs, not public exposure
+of installed apps. Operator authorization, native app authentication, protected
+credentials, working access and data preservation remain ordinary requirements.
+
+The exact local address/discovery and, where required, certificate-trust flow still
+needs to be finished and tested. This decision fixes the scope; it does not claim
+that local HTTPS is automatic or that the Services implementation exists. Tailscale
+is optional connectivity, not a substitute for app login or evidence that local
+names and certificates already work. The remaining design must be judged against
+the complete **try locally → install → open → use** journey.
+
 ### Scope and native ownership
 
 Add **Services** to the product navigation. Its `/-/soda/services` surface has an
@@ -118,9 +146,11 @@ manageable if a newer catalog withdraws its entry.
 
 ### Install, retry and persistent lifecycle
 
-1. Select the catalog entry, display name, app settings and preprovisioned private
-   HTTPS hostname/certificate. Validate exact catalog version, architecture, input
-   bounds, data-path type/ownership and hostname/listener collisions before effects.
+1. Select the catalog entry, display name and app settings. The appliance's local
+   access flow supplies the app endpoint without requiring an owned domain or
+   separately preprovisioned app certificate. That flow remains to design under
+   the scope above. Validate exact catalog version, architecture, input bounds,
+   data-path type/ownership and endpoint/listener collisions before effects.
 2. Review the selected image, endpoint, durable storage and application account setup,
    then explicitly Install. A settings edit or page visit does not start a pull.
 3. Short fixed Services methods on the existing root:soda Unix-socket helper
@@ -191,15 +221,25 @@ authentication recipes described below.
 
 ### Private ingress and truthful readiness
 
-Use an exact **distinct hostname for each app**, separate from the Forgejo hostname,
-on the configured private listener with an operator-preprovisioned matching TLS
-certificate and client DNS/route. A different port on the Forgejo hostname does not
-isolate cookies. No app under Forgejo paths or `/-/soda/`, wildcard host acceptance,
-public bind, public ACME automation or forwarding of Soda cookies/OAuth grants.
+The selected access scope is **LAN first, with optional Tailscale**, without domain
+ownership. The earlier operator-preprovisioned DNS/TLS requirement is removed; do
+not retain it as a hidden Install prerequisite. Finish one usable local access
+candidate before implementation, including address discovery and any client trust
+step required by the actual app. Do not claim this unresolved flow is already
+provided by Caddy or Tailscale, or quietly substitute public hosting.
+
+Preserve separation from Forgejo's authentication surface: a different port on
+the Forgejo hostname does not isolate cookies. Local app endpoints must keep
+Soda/Forgejo credentials out of apps. No app under Forgejo paths or `/-/soda/`,
+wildcard host acceptance, public bind, public ingress automation or forwarding of
+Soda cookies/OAuth grants. Local-only scope does not remove an app's actual HTTPS
+or native authentication requirements.
 
 Publish backend ports only on unique loopback listeners and generate exact-host
-Caddy fragments pointing to them. Extend existing proxy mounts/configuration for
-app fragments and restricted certificate paths. Validate the whole candidate before
+Caddy fragments for local app endpoints pointing to those backends. This remains
+the bounded proxy candidate, not a requirement for purchased domains or manually supplied
+per-app certificates. Extend existing proxy mounts/configuration for app fragments
+and any required restricted certificate storage. Validate the whole candidate before
 reload; on failure leave the previous working proxy configuration active and report
 this instance unavailable. Stop can leave its route returning unavailable without
 deleting configuration. A browser never supplies arbitrary certificate paths or a
@@ -208,9 +248,10 @@ is required new source work, not existing ingress support.
 
 Report image installation, local unit running/boot-enabled state, app-native health,
 proxy configuration and client reachability separately. Open can be offered for a
-validated HTTPS URL when the app/proxy are ready, but a loopback health check cannot
-claim the user's DNS, route or certificate trust works. Complete the install journey
-from the intended client. No endpoint probing API may become arbitrary host forwarding.
+validated local app URL when its required transport and app/proxy are ready, but a
+loopback health check cannot claim the user's DNS, route or certificate trust works.
+Complete the install journey from the intended client. No endpoint probing API may
+become arbitrary host forwarding.
 
 ### App-specific first-version contracts
 

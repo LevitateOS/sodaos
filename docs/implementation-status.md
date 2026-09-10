@@ -1,5 +1,29 @@
 # Current handoff
 
+## Services scope correction — documentation only
+
+Recorded the user's explicit correction in the
+[architecture](architecture.md) and
+[Services scope](services-and-ai-plan.md#development-appliance-scope--user-decision):
+SodaOS is a development appliance. Services provides useful private tools on the
+local network with optional Tailscale; public Internet hosting is outside the
+design. Buying or owning a domain is not a prerequisite for trying SodaOS or
+using baseline Services.
+
+Removed the contradictory preprovisioned per-app hostname/certificate requirement
+from the install and ingress candidate, and aligned [deferred scope](deferred.md).
+Preserved operator/app authority, credential protection, authentication separation
+and persistent data. The exact usable local address/discovery and any required
+certificate-trust flow remain design work; this correction does not claim automatic
+HTTPS or a completed Services implementation. No new backup/update platform or
+app lifecycle mechanism was selected by the correction.
+
+This change edits documentation only. Git whitespace checks and all five added
+local documentation links/anchors passed; an independent documentation review found
+no remaining contradiction in the changed files or other active Services references.
+No product tests, builds, deployment, network configuration, certificate installation
+or retained-state changes were run.
+
 ## OS roles, runner image and mise — documentation decisions
 
 Recorded the subsequent voice design discussion in the

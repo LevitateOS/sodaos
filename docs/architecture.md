@@ -5,6 +5,14 @@ appliance. Developers use native Forgejo pages, ordinary SSH, Git, mise and cont
 tools. Soda supplies the integration; developers should not have to assemble missing
 account, key or runtime wiring themselves.
 
+The user explicitly reaffirmed that this is a **development appliance**. The
+[Services catalog](services-and-ai-plan.md#development-appliance-scope--user-decision)
+helps people run useful tools on their local network, with optional Tailscale
+access. Trying SodaOS or using its baseline Services must not require buying or
+owning a domain. Public Internet hosting and a production hosting platform are
+outside this design. Private access must still work, preserve application data and
+respect native authentication; solve app-specific requirements within that scope.
+
 The [CoreOS product strategy](os-product-strategy.md) records the user's custom-distro
 direction and proposed host features, their value, effort and limits as service
 features. It distinguishes today's upstream-based delivery from future boot/storage/

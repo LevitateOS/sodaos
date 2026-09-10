@@ -44,6 +44,13 @@ not authorize disk writes, publication or a new release/update platform. The
 it does not require a central credential service. Catalog delivery and app-upgrade
 mechanisms still need their bounded design, without reopening general recovery.
 
+The user subsequently clarified the [Services scope](services-and-ai-plan.md#development-appliance-scope--user-decision):
+SodaOS is a development appliance, with LAN access and optional Tailscale. Public
+Internet service hosting is outside that design. Buying or owning a domain and
+preprovisioning per-app certificates must not be prerequisites for trying SodaOS
+or using baseline Services. Finish the local access journey and actual app
+requirements without adding a production hosting or general recovery platform.
+
 The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. Stock operator Cockpit and its Tailnet page remain selected. Runner backing logic, native integration and focused tests are retained; the Cockpit Runners page remains until its selected global-settings replacement passes parity and coordinated cutover. Deferral does not authorize stripping working validation or error handling.
 
 The user subsequently selected the bounded authenticated **Spaces** listing and
