@@ -24,6 +24,13 @@ const installerBinary = "/usr/local/libexec/soda/soda-install"
 
 type mediaIdentity struct{ Architecture, Release, InstallerVersion, Revision string }
 
+func (m mediaIdentity) validate(imageVersion, arch string) error {
+	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !nativebuild.Revision(m.Revision) {
+		return errors.New("media release/architecture mismatch")
+	}
+	return nil
+}
+
 func architecture() string {
 	switch runtime.GOARCH {
 	case "amd64":
@@ -95,8 +102,10 @@ func coreOSHost(live bool) error {
 		if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
 			return errors.New("missing media identity")
 		}
-		if media.Architecture != architecture() || media.Release != values["VERSION_ID"] || !nativebuild.Revision(media.Revision) {
-			return errors.New("media release/architecture mismatch")
+		// Selected CoreOS reports the Fedora major in VERSION_ID (44), and
+		// the exact image release in IMAGE_VERSION (44.20260817.3.2).
+		if err := media.validate(values["IMAGE_VERSION"], architecture()); err != nil {
+			return err
 		}
 		observed, err := command(context.Background(), "coreos-installer", []string{"--version"}, nil)
 		if err != nil || strings.TrimSpace(string(observed)) != media.InstallerVersion {

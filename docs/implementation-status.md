@@ -1,5 +1,24 @@
 # Current handoff
 
+## Installer boot debugging — second observed contract correction
+
+Clean `ab911cc` rebuilt successfully and passed image readback. Its native diskless
+boot passed live Ignition and started `soda-installer-console.service`, then the Go
+console correctly failed closed with `media release/architecture mismatch`. Selected
+CoreOS's actual `/etc/os-release` reports `VERSION_ID=44` and
+`IMAGE_VERSION='44.20260817.3.2'`; the guard had compared the full release to the Fedora
+major field. Source now checks the exact `IMAGE_VERSION`, without falling back to
+major-only matching or removing architecture/revision validation. Regression cases
+cover absent/wrong release, wrong architecture, invalid revision and empty identity.
+
+Evidence is retained under `.artifacts/installer-vm-FbqpKn/`, including the second
+boot screenshots, read-only block inventory and `serial-identity.log` from inspecting
+the unchanged upstream OS in an original-media emergency boot. Go 1.26.7 full tests,
+installer/nativebuild race tests and all 14 focused Python tests passed after the
+correction. Each boot used only the read-only ISO, no network or destination disk;
+only this new run-owned VM was stopped/restarted. Successful revised UI boot remains
+to be demonstrated; no disk installation or retained-target action occurred.
+
 ## Installer boot debugging — reproduced live Ignition failure
 
 The user reported `ignition-files.service` failure and requested repeated installer

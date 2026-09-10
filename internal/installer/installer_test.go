@@ -259,8 +259,29 @@ func TestPrivateInputAndOutputBounds(t *testing.T) {
 }
 
 func TestOSReleaseParsing(t *testing.T) {
-	values := osRelease([]byte("ID=fedora\nVARIANT_ID=coreos\nVERSION_ID=\"44.example\"\n"))
-	if values["VERSION_ID"] != "44.example" || values["VARIANT_ID"] != "coreos" {
+	values := osRelease([]byte("ID=fedora\nVARIANT_ID=coreos\nVERSION_ID=44\nIMAGE_VERSION='44.20260817.3.2'\n"))
+	if values["VERSION_ID"] != "44" || values["IMAGE_VERSION"] != "44.20260817.3.2" || values["VARIANT_ID"] != "coreos" {
 		t.Fatal(values)
+	}
+	media := mediaIdentity{Architecture: "x86_64", Release: "44.20260817.3.2", Revision: strings.Repeat("a", 40)}
+	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err != nil {
+		t.Fatal(err)
+	}
+	for _, version := range []string{"", values["VERSION_ID"], "44.20260817.3.3"} {
+		if err := media.validate(version, "x86_64"); err == nil {
+			t.Fatalf("wrong/missing image version accepted: %q", version)
+		}
+	}
+	if err := media.validate(values["IMAGE_VERSION"], "aarch64"); err == nil {
+		t.Fatal("wrong native architecture accepted")
+	}
+	media.Revision = "unreviewed"
+	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err == nil {
+		t.Fatal("invalid source revision accepted")
+	}
+	media.Revision = strings.Repeat("a", 40)
+	media.Release = ""
+	if err := media.validate("", "x86_64"); err == nil {
+		t.Fatal("empty image identity accepted")
 	}
 }
