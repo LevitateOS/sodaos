@@ -1,13 +1,16 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/auth/new.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c29028426096061f9dd7473 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin new authentication")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin new authentication" "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "admin.auths.new") "Description" "Connect an external sign-in provider." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-new">
 		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.auths.new"}}
 		</h4>
 		<div class="ui attached segment soda-p-section">
-			<form class="ui form" action="{{.Link}}" method="post">
+			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<!-- Types and name -->
 				<div class="inline required field {{if .Err_Type}}error{{end}}">
@@ -118,4 +121,6 @@ Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c2902842609606
 			</div>
 		</div>
 	</div>
+</div>
+</div>
 {{template "admin/layout_footer" .}}

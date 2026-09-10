@@ -12,7 +12,7 @@
    <div class="flex-container-main">
     {{template "base/alert" .ctxData}}
     {{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
-    <h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>
+    {{if not .formPage}}<h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>{{end}}
     {{/* block: user-setting-content */}}
 {{if false}}
    </div>

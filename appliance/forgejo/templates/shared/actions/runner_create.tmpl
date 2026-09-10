@@ -4,7 +4,7 @@
 	{{if not $settings}}<h4 class="ui top attached header soda-p-heading">
 		{{ctx.Locale.Tr "actions.runners.create_runner.title"}}
 	</h4>{{end}}
-	<form class="ui form attached segment soda-p-form" action="{{.Link}}" method="post">
+	<form class="soda-form-panel ui form attached segment soda-p-form" action="{{.Link}}" method="post">
 		<fieldset{{if $settings}} class="soda-form-section soda-p-section"{{end}}>
 			<legend>{{ctx.Locale.Tr "actions.runners.create_runner.properties_fieldset"}}</legend>
 			<div class="form-field">

@@ -42,7 +42,7 @@
 			{{ctx.Locale.Tr "settings.add_new_principal"}}
 		</h2>
 		<div class="ui attached segment soda-p-section">
-			<form class="ui form soda-p-form" action="{{.Link}}" method="post">
+			<form class="soda-form-panel ui form soda-p-form" action="{{.Link}}" method="post">
 				<div class="field {{if .Err_Content}}error{{end}}">
 					<label for="ssh-principal-content">{{ctx.Locale.Tr "settings.principal_content"}}</label>
 					<input id="ssh-principal-content" name="content" value="{{.content}}" required>

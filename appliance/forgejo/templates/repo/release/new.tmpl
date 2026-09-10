@@ -1,8 +1,9 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new release soda-repository-content soda-release-editor">
 	{{template "repo/header" .}}
-	<div class="ui container soda-p-editor-container">
-		<h2 class="ui dividing header soda-p-heading">
+	<div class="ui container soda-p-editor-container soda-form-editor">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Share what changed and package the next version." "Eyebrow" "" "Artwork" "" "Class" "soda-form-editor-intro"}}
+		<h2 class="ui dividing header soda-p-heading soda-form-native-heading">
 			{{if .PageIsEditRelease}}
 				{{ctx.Locale.Tr "repo.release.edit_release"}}
 				<div class="sub header">{{ctx.Locale.Tr "repo.release.edit_subheader"}}</div>
@@ -45,6 +46,7 @@
 			</div>
 			<div class="eleven wide tw-pt-0">
 				<div class="field {{if .Err_Title}}error{{end}}">
+					<label for="release-title">{{ctx.Locale.Tr "repo.release.title"}}</label>
 					<input id="release-title" name="title" aria-label="{{ctx.Locale.Tr "repo.release.title"}}" placeholder="{{ctx.Locale.Tr "repo.release.title"}}" value="{{if .PageIsEditRelease}}{{.title}}{{else}}{{.tag_name}}{{end}}" autofocus maxlength="255">
 				</div>
 				<div class="field">

@@ -1,5 +1,31 @@
 # Current handoff
 
+## Form templates — shared implementation of the existing mockups
+
+Implemented the approved repository concept and all 40 additional mockup families
+through official Forgejo 15.0.7 overrides. [The coverage map](form-page-redesign.md)
+lists 55 distinct template paths, including shared-partial callers. One stylesheet
+owns the story/form columns, wide editors and inline creation panels. Native fields,
+defaults, capability gates, validation, actions and widgets remain authoritative;
+existing canonical artwork is reused. No images were generated in this pass.
+
+Passed: full scripts Go suite, required TypeScript/analyzer/fixtures, Forgejo suite
+(31 passed, 19 opt-in skips), isolated preview build and the explicit native form
+browser test. The latter checked 18 accessible routes at desktop/mobile widths in
+both themes (72 rendered cases), required-field validity, checkbox form data,
+keyboard disclosures, initialization controls, visibility radios and key panels.
+No forms were submitted. Repository-owner/admin-only forms and unavailable runner
+creation retain source-contract coverage; they do not have individual native visual
+acceptance. Guest registration remains disabled. See the coverage map for evidence.
+
+The existing local preview received current canonical styles after its previous
+CSS was backed up. The supported template reload refreshed mounted overrides; a
+missing existing Spaces stylesheet was supplied from the canonical preview build.
+Verified desktop/mobile/dark screenshots now check served asset bytes. Earlier
+failed probes, screenshots and original bytes remain under
+`.artifacts/form-redesign-20260910/`. No service restart, configuration change,
+resource creation, provider operation or appliance rollout occurred.
+
 ## Migration source chooser — design then implementation
 
 Completed and inspected a separate desktop/mobile/dark design before changing the

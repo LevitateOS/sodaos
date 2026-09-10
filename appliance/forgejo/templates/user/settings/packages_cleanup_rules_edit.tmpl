@@ -1,7 +1,12 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/packages_cleanup_rules_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 9f0b67fe1bda41daa237eeecf496b9f369cb0f342c3cc72fe8530cfe55f42c29. */}}
 {{$taskTitle := ctx.Locale.Tr "packages.owner.settings.cleanuprules.add"}}{{if .IsEditRule}}{{$taskTitle = ctx.Locale.Tr "packages.owner.settings.cleanuprules.edit"}}{{end}}
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings packages" "title" $taskTitle "parentURL" (printf "%s/user/settings/packages" AppSubUrl) "parentTitle" (ctx.Locale.Tr "packages.title"))}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings packages" "title" $taskTitle "parentURL" (printf "%s/user/settings/packages" AppSubUrl) "parentTitle" (ctx.Locale.Tr "packages.title") "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Choose which package versions to keep and remove." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 	<div class="user-setting-content soda-settings-editor">
 		{{template "package/shared/cleanup_rules/edit" (dict "PersonalSettings" true "ctxData" .)}}
 	</div>
+</div>
+</div>
 {{template "user/settings/layout_footer" .}}

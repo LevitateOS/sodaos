@@ -3,7 +3,9 @@
 <div role="main" aria-label="{{.Title}}" class="page-content user signup soda-page soda-federated-auth soda-federated-auth--openid-register" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}{{template "custom/soda/theme_toggle" (dict "Class" "soda-theme-toggle")}}{{end}}
 	{{template "user/auth/signup_openid_navbar" .}}
-	<div class="ui container">
+	<div class="ui container soda-page-container soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "auth.openid_register_title") "Description" "Finish setting up your account." "Eyebrow" "Your identity, a new home" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 				{{template "base/alert" .}}
 				<h4 class="ui top attached header soda-p-heading">
 					{{ctx.Locale.Tr "auth.openid_register_title"}}
@@ -33,6 +35,7 @@
 					</div>
 					</form>
 				</div>
+</div>
 	</div>
 </div>
 {{template "base/footer" .}}

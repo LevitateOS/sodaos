@@ -1,0 +1,306 @@
+{
+  "org/create.tmpl": [
+    [
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content organization new org soda-page soda-org-create\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n\t\t{{template \"custom/soda/page_intro\" dict \"Class\" \"soda-form-story\" \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Build something together\" \"Title\" (ctx.Locale.Tr \"new_org.title\") \"Description\" \"A shared home for your team and its projects.\" \"Artwork\" \"new-org-papercraft.png\"}}\n\t\t<form class=\"ui form soda-form soda-p-form soda-form-content\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\">\n\t\t\t\t{{template \"base/alert\" .}}\n",
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content organization new org soda-page soda-org-create\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container\">\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Build something together\" \"Title\" (ctx.Locale.Tr \"new_org.title\") \"Description\" \"A shared home for your team and its projects.\" \"Artwork\" \"new-org-papercraft.png\"}}\n\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\">\n\t\t\t\t{{template \"base/alert\" .}}\n"
+    ]
+  ],
+  "admin/layout_head.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.ctxData.Title}}\" class=\"page-content {{.pageClass}} soda-page soda-admin soda-native-forms\" data-signed=\"true\">\n\t<div class=\"ui container flex-container soda-page-container soda-admin-layout\">\n\t\t{{if not .formPage}}{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-admin-title\" \"Eyebrow\" \"Forgejo administration\" \"Title\" .ctxData.Title \"Description\" \"Manage Forgejo settings, identities, integrations, and service health.\" \"Artwork\" .artwork \"Class\" \"soda-page-intro--compact\"}}{{end}}\n\t\t{{template \"admin/navbar\" .ctxData}}\n\t\t<div class=\"flex-container-main\">\n",
+      "<div role=\"main\" aria-label=\"{{.ctxData.Title}}\" class=\"page-content {{.pageClass}} soda-page soda-admin soda-native-forms\" data-signed=\"true\">\n\t<div class=\"ui container flex-container soda-page-container soda-admin-layout\">\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-admin-title\" \"Eyebrow\" \"Forgejo administration\" \"Title\" .ctxData.Title \"Description\" \"Manage Forgejo settings, identities, integrations, and service health.\" \"Artwork\" .artwork \"Class\" \"soda-page-intro--compact\"}}\n\t\t{{template \"admin/navbar\" .ctxData}}\n\t\t<div class=\"flex-container-main\">\n"
+    ]
+  ],
+  "repo/create.tmpl": [
+    [
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new repo soda-page soda-create\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n\t\t<div class=\"soda-form-story-wrap\">\n\t\t{{template \"custom/soda/page_intro\" dict \"Class\" \"soda-form-story\" \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Make room for your next idea\" \"Title\" (ctx.Locale.Tr \"new_repo.title\") \"Description\" \"A home for your code. A starting point for what comes next.\" \"Artwork\" \"new-repo-papercraft.png\"}}\n\t\t{{if or .CanCreateRepo .Orgs}}<div class=\"soda-form-story-note\">{{template \"repo/create_helper\" .}}</div>{{end}}\n\t\t</div>\n\t\t<form class=\"ui form soda-form soda-p-form soda-form-content\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\">\n\t\t\t\t{{if or .CanCreateRepo .Orgs}}\n\t\t\t\t\t{{template \"base/alert\" .}}\n\n\t\t\t\t\t{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}\n",
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new repo soda-page soda-create\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container\">\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Make room for your next idea\" \"Title\" (ctx.Locale.Tr \"new_repo.title\") \"Description\" \"Every good project starts somewhere.\" \"Artwork\" \"new-repo-papercraft.png\"}}\n\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\">\n\t\t\t\t{{if or .CanCreateRepo .Orgs}}\n\t\t\t\t\t{{template \"base/alert\" .}}\n\t\t\t\t\t{{template \"repo/create_helper\" .}}\n\n\t\t\t\t\t{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}\n"
+    ],
+    [
+      "\t\t\t\t\t\t</div>\n\t\t\t\t\t{{end}}\n\t\t\t\t\t<fieldset class=\"soda-form-section soda-p-section soda-repo-basics\">\n\t\t\t\t\t\t<legend>Repository details</legend>\n\t\t\t\t\t\t{{template \"repo/create_basic\" .}}\n\t\t\t\t\t</fieldset>\n\n\t\t\t\t\t<details class=\"soda-form-options\" {{if .repo_template}}open{{end}}>\n\t\t\t\t\t\t<summary>{{ctx.Locale.Tr \"repo.new_from_template\"}}</summary>\n\t\t\t\t\t\t<p class=\"help\">{{ctx.Locale.Tr \"repo.new_from_template_description\"}}</p>\n\t\t\t\t\t\t{{template \"repo/create_from_template\" .}}\n\t\t\t\t\t</details>\n\n\t\t\t\t\t<div id=\"non_template\">\n",
+      "\t\t\t\t\t\t</div>\n\t\t\t\t\t{{end}}\n\t\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n\t\t\t\t\t\t{{template \"repo/create_basic\" .}}\n\t\t\t\t\t</fieldset>\n\n\t\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n\t\t\t\t\t\t<legend>\n\t\t\t\t\t\t\t{{ctx.Locale.Tr \"repo.new_from_template\"}}\n\t\t\t\t\t\t\t<span class=\"help\">{{ctx.Locale.Tr \"repo.new_from_template_description\"}}</span>\n\t\t\t\t\t\t</legend>\n\t\t\t\t\t\t{{template \"repo/create_from_template\" .}}\n\t\t\t\t\t</fieldset>\n\n\t\t\t\t\t<div id=\"non_template\">\n"
+    ],
+    [
+      "\n\t\t\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n\t\t\t\t\t\t\t<details><summary>{{ctx.Locale.Tr \"repo.new_advanced\"}}</summary>\n\t\t\t\t\t\t\t\t{{template \"repo/create_advanced\" .}}\n\t\t\t\t\t\t\t</details>\n\t\t\t\t\t\t</fieldset>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"soda-form-actions\">\n\t\t\t\t\t<a class=\"ui button\" href=\"{{AppSubUrl}}/\">{{ctx.Locale.Tr \"cancel\"}}</a>\n\t\t\t\t\t<button class=\"ui primary button\">\n\t\t\t\t\t\t{{ctx.Locale.Tr \"repo.create_repo\"}}\n\t\t\t\t\t</button>\n\t\t\t\t\t</div>\n\t\t\t\t{{else}}\n\t\t\t\t\t<div class=\"ui negative message\">\n",
+      "\n\t\t\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n\t\t\t\t\t\t\t<legend>{{ctx.Locale.Tr \"repo.new_advanced\"}}</legend>\n\t\t\t\t\t\t\t<details><summary>{{ctx.Locale.Tr \"repo.new_advanced_expand\"}}</summary>\n\t\t\t\t\t\t\t\t{{template \"repo/create_advanced\" .}}\n\t\t\t\t\t\t\t</details>\n\t\t\t\t\t\t</fieldset>\n\t\t\t\t\t</div>\n\t\t\t\t\t<button class=\"ui primary button\">\n\t\t\t\t\t\t{{ctx.Locale.Tr \"repo.create_repo\"}}\n\t\t\t\t\t</button>\n\t\t\t\t{{else}}\n\t\t\t\t\t<div class=\"ui negative message\">\n"
+    ]
+  ],
+  "moderation/new_abuse_report.tmpl": [
+    [
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content moderation new-report soda-page soda-moderation\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"moderation.report_abuse_form.header\") \"Description\" \"Provide the details moderators need to review this content.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n\t\t<div class=\"soda-form-content\">\n\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t<h3 class=\"ui top attached header\">\n",
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content moderation new-report soda-page soda-moderation\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t<div class=\"ui middle very relaxed page grid\">\n\t\t<div class=\"column\">\n\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t<h3 class=\"ui top attached header\">\n"
+    ]
+  ],
+  "package/shared/cleanup_rules/edit.tmpl": [
+    [
+      "{{if not $personal}}<h4 class=\"ui top attached header soda-package-section-heading\">{{if .IsEditRule}}{{ctx.Locale.Tr \"packages.owner.settings.cleanuprules.edit\"}}{{else}}{{ctx.Locale.Tr \"packages.owner.settings.cleanuprules.add\"}}{{end}}</h4>{{end}}\n<div class=\"ui attached segment soda-package-section-body soda-p-section\">\n\t<form class=\"soda-form-panel ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t<input name=\"id\" type=\"hidden\" value=\"{{.CleanupRule.ID}}\">\n\t\t<div class=\"field\">\n",
+      "{{if not $personal}}<h4 class=\"ui top attached header soda-package-section-heading\">{{if .IsEditRule}}{{ctx.Locale.Tr \"packages.owner.settings.cleanuprules.edit\"}}{{else}}{{ctx.Locale.Tr \"packages.owner.settings.cleanuprules.add\"}}{{end}}</h4>{{end}}\n<div class=\"ui attached segment soda-package-section-body soda-p-section\">\n\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t<input name=\"id\" type=\"hidden\" value=\"{{.CleanupRule.ID}}\">\n\t\t<div class=\"field\">\n"
+    ]
+  ],
+  "repo/settings/deploy_keys.tmpl": [
+    [
+      "\t\t<div class=\"soda-p-section\">\n\t\t\t<div class=\"{{if not .HasError}}tw-hidden{{end}} tw-mb-4\" id=\"add-deploy-key-panel\">\n\t\t\t\t<form class=\"soda-form-panel ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t\t<div class=\"ui info message soda-notice\">\n\t\t\t\t\t\t{{ctx.Locale.Tr \"repo.settings.deploy_key_desc\"}}\n",
+      "\t\t<div class=\"soda-p-section\">\n\t\t\t<div class=\"{{if not .HasError}}tw-hidden{{end}} tw-mb-4\" id=\"add-deploy-key-panel\">\n\t\t\t\t<form class=\"ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t\t<div class=\"ui info message soda-notice\">\n\t\t\t\t\t\t{{ctx.Locale.Tr \"repo.settings.deploy_key_desc\"}}\n"
+    ]
+  ],
+  "repo/settings/tags.tmpl": [
+    [
+      "\t\t{{else}}\n\t\t\t<div class=\"soda-p-section\">\n\t\t\t\t<form class=\"soda-form-panel ui form soda-p-form soda-settings-editor\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t\t<div class=\"field\">\n\t\t\t\t\t\t<label>{{ctx.Locale.Tr \"repo.settings.tags.protection.pattern\"}}</label>\n",
+      "\t\t{{else}}\n\t\t\t<div class=\"soda-p-section\">\n\t\t\t\t<form class=\"ui form soda-p-form soda-settings-editor\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t\t<div class=\"field\">\n\t\t\t\t\t\t<label>{{ctx.Locale.Tr \"repo.settings.tags.protection.pattern\"}}</label>\n"
+    ],
+    [
+      "\t\t\t\t\t\t\t\t\t\t<td class=\"right aligned\">\n\t\t\t\t\t\t\t\t\t\t\t<a class=\"ui tiny primary button\" href=\"{{$.RepoLink}}/settings/tags/{{.ID}}\">{{ctx.Locale.Tr \"edit\"}}</a>\n\t\t\t\t\t\t\t\t\t\t\t<form class=\"soda-form-panel tw-inline-block\" action=\"{{$.RepoLink}}/settings/tags/delete\" method=\"post\">\n\t\t\t\t\t\t\t\t\t\t\t\t<input type=\"hidden\" name=\"id\" value=\"{{.ID}}\">\n\t\t\t\t\t\t\t\t\t\t\t\t<button class=\"ui tiny red button\">{{ctx.Locale.Tr \"remove\"}}</button>\n",
+      "\t\t\t\t\t\t\t\t\t\t<td class=\"right aligned\">\n\t\t\t\t\t\t\t\t\t\t\t<a class=\"ui tiny primary button\" href=\"{{$.RepoLink}}/settings/tags/{{.ID}}\">{{ctx.Locale.Tr \"edit\"}}</a>\n\t\t\t\t\t\t\t\t\t\t\t<form class=\"tw-inline-block\" action=\"{{$.RepoLink}}/settings/tags/delete\" method=\"post\">\n\t\t\t\t\t\t\t\t\t\t\t\t<input type=\"hidden\" name=\"id\" value=\"{{.ID}}\">\n\t\t\t\t\t\t\t\t\t\t\t\t<button class=\"ui tiny red button\">{{ctx.Locale.Tr \"remove\"}}</button>\n"
+    ]
+  ],
+  "repo/settings/protected_branch.tmpl": [
+    [
+      "{{$taskTitle := ctx.Locale.Tr \"repo.settings.protect_new_rule\"}}\n{{if .Rule.RuleName}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.branch_protection\" .Rule.RuleName}}{{end}}\n{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings branches\" \"title\" $taskTitle \"parentURL\" (printf \"%s/settings/branches\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.branches\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" $taskTitle \"Description\" \"Define how changes reach protected branches.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch soda-settings-editor\">\n\t\t<form class=\"ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n",
+      "{{$taskTitle := ctx.Locale.Tr \"repo.settings.protect_new_rule\"}}\n{{if .Rule.RuleName}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.branch_protection\" .Rule.RuleName}}{{end}}\n{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings branches\" \"title\" $taskTitle \"parentURL\" (printf \"%s/settings/branches\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.branches\"))}}\n\t<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch soda-settings-editor\">\n\t\t<form class=\"ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n"
+    ],
+    [
+      "\t\t</form>\n\t</div>\n</div>\n</div>\n{{template \"repo/settings/layout_footer\" .}}\n",
+      "\t\t</form>\n\t</div>\n{{template \"repo/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "repo/settings/layout_head.tmpl": [
+    [
+      "\t\t{{if .parentURL}}<a class=\"soda-settings-parent\" href=\"{{.parentURL}}\">{{svg \"octicon-arrow-left\" 16}} {{.parentTitle}}</a>{{end}}\n\t\t<div class=\"soda-settings-bar soda-repo-settings-bar\">\n\t\t\t{{if not .formPage}}<h1 id=\"soda-settings-title\" class=\"soda-p-title\">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>{{end}}\n\t\t\t{{template \"repo/settings/navbar\" .ctxData}}\n\t\t</div>\n",
+      "\t\t{{if .parentURL}}<a class=\"soda-settings-parent\" href=\"{{.parentURL}}\">{{svg \"octicon-arrow-left\" 16}} {{.parentTitle}}</a>{{end}}\n\t\t<div class=\"soda-settings-bar soda-repo-settings-bar\">\n\t\t\t<h1 id=\"soda-settings-title\" class=\"soda-p-title\">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>\n\t\t\t{{template \"repo/settings/navbar\" .ctxData}}\n\t\t</div>\n"
+    ]
+  ],
+  "repo/settings/runner_create.tmpl": [
+    [
+      "{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings runners\" \"title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"parentURL\" (printf \"%s/settings/actions/runners\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"actions.runners\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"Description\" \"Name the runner before configuring its connection.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-runner-create soda-settings-editor\">\n\t{{template \"shared/actions/runner_create\" (dict \"SettingsPresentation\" true \"ctxData\" .)}}\n</div>\n</div>\n</div>\n{{template \"repo/settings/layout_footer\" .}}\n",
+      "{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings runners\" \"title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"parentURL\" (printf \"%s/settings/actions/runners\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"actions.runners\"))}}\n<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-runner-create soda-settings-editor\">\n\t{{template \"shared/actions/runner_create\" (dict \"SettingsPresentation\" true \"ctxData\" .)}}\n</div>\n{{template \"repo/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "repo/projects/new.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository projects edit-project new milestone soda-repository-content soda-projects-new\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container soda-form-layout\">\n\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Bring related work into one clear plan.\" \"Eyebrow\" \"Shape the work\" \"Artwork\" \"new-project-papercraft.png\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">{{template \"projects/new\" .}}</div>\n\t</div>\n</div>\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository projects edit-project new milestone soda-repository-content soda-projects-new\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container\">\n\t{{template \"projects/new\" .}}\n\t</div>\n</div>\n"
+    ]
+  ],
+  "repo/wiki/new.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository wiki new soda-repository-content soda-wiki-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container soda-form-editor\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Make useful knowledge easy to find.\" \"Eyebrow\" \"\" \"Artwork\" \"wiki-welcome-papercraft.png\" \"Class\" \"soda-form-editor-intro\"}}\n\t\t{{template \"base/alert\" .}}\n\t\t<div class=\"ui header flex-text-block tw-justify-between soda-p-heading\">\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository wiki new soda-repository-content soda-wiki-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container\">\n\t\t{{template \"base/alert\" .}}\n\t\t<div class=\"ui header flex-text-block tw-justify-between soda-p-heading\">\n"
+    ]
+  ],
+  "repo/diff/compare.tmpl": [
+    [
+      "\t\t\t</div>\n\t\t\t<div class=\"pullrequest-form {{if not .Flash}}tw-hidden{{end}}\">\n\t\t\t\t<div class=\"soda-form-editor\">{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"repo.pulls.new\") \"Description\" \"Explain the changes and invite a review.\" \"Eyebrow\" \"\" \"Artwork\" \"pulls-papercraft.png\" \"Class\" \"soda-form-editor-intro\"}}\n{{template \"repo/issue/new_form\" .}}</div>\n\t\t\t</div>\n\t\t{{else if and .HeadIsBranch .BaseIsBranch}}\n",
+      "\t\t\t</div>\n\t\t\t<div class=\"pullrequest-form {{if not .Flash}}tw-hidden{{end}}\">\n\t\t\t\t{{template \"repo/issue/new_form\" .}}\n\t\t\t</div>\n\t\t{{else if and .HeadIsBranch .BaseIsBranch}}\n"
+    ],
+    [
+      "\t\t\t{{if $.IsSigned}}\n\t\t\t\t<div class=\"pullrequest-form {{if not .Flash}}tw-hidden{{end}}\">\n\t\t\t\t\t<div class=\"soda-form-editor\">{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"repo.pulls.new\") \"Description\" \"Explain the changes and invite a review.\" \"Eyebrow\" \"\" \"Artwork\" \"pulls-papercraft.png\" \"Class\" \"soda-form-editor-intro\"}}\n{{template \"repo/issue/new_form\" .}}</div>\n\t\t\t\t</div>\n\t\t\t{{end}}\n",
+      "\t\t\t{{if $.IsSigned}}\n\t\t\t\t<div class=\"pullrequest-form {{if not .Flash}}tw-hidden{{end}}\">\n\t\t\t\t\t{{template \"repo/issue/new_form\" .}}\n\t\t\t\t</div>\n\t\t\t{{end}}\n"
+    ]
+  ],
+  "repo/release/new.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new release soda-repository-content soda-release-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container soda-form-editor\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Share what changed and package the next version.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-editor-intro\"}}\n\t\t<h2 class=\"ui dividing header soda-p-heading soda-form-native-heading\">\n\t\t\t{{if .PageIsEditRelease}}\n\t\t\t\t{{ctx.Locale.Tr \"repo.release.edit_release\"}}\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new release soda-repository-content soda-release-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container\">\n\t\t<h2 class=\"ui dividing header soda-p-heading\">\n\t\t\t{{if .PageIsEditRelease}}\n\t\t\t\t{{ctx.Locale.Tr \"repo.release.edit_release\"}}\n"
+    ],
+    [
+      "\t\t\t<div class=\"eleven wide tw-pt-0\">\n\t\t\t\t<div class=\"field {{if .Err_Title}}error{{end}}\">\n\t\t\t\t\t<label for=\"release-title\">{{ctx.Locale.Tr \"repo.release.title\"}}</label>\n\t\t\t\t\t<input id=\"release-title\" name=\"title\" aria-label=\"{{ctx.Locale.Tr \"repo.release.title\"}}\" placeholder=\"{{ctx.Locale.Tr \"repo.release.title\"}}\" value=\"{{if .PageIsEditRelease}}{{.title}}{{else}}{{.tag_name}}{{end}}\" autofocus maxlength=\"255\">\n\t\t\t\t</div>\n",
+      "\t\t\t<div class=\"eleven wide tw-pt-0\">\n\t\t\t\t<div class=\"field {{if .Err_Title}}error{{end}}\">\n\t\t\t\t\t<input id=\"release-title\" name=\"title\" aria-label=\"{{ctx.Locale.Tr \"repo.release.title\"}}\" placeholder=\"{{ctx.Locale.Tr \"repo.release.title\"}}\" value=\"{{if .PageIsEditRelease}}{{.title}}{{else}}{{.tag_name}}{{end}}\" autofocus maxlength=\"255\">\n\t\t\t\t</div>\n"
+    ]
+  ],
+  "repo/issue/new.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new issue soda-repo-issue-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-repo-issue-editor-container soda-p-editor-container soda-form-editor\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"repo.issues.new\") \"Description\" \"Describe the problem, idea, or task.\" \"Eyebrow\" \"\" \"Artwork\" \"issues-papercraft.png\" \"Class\" \"soda-form-editor-intro\"}}\n\t\t<div class=\"soda-repo-editor-card soda-p-form-host\">{{template \"repo/issue/new_form\" .}}</div>\n\t</div>\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new issue soda-repo-issue-editor\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-repo-issue-editor-container soda-p-editor-container\">\n\t\t<div class=\"soda-repo-editor-card soda-p-form-host\">{{template \"repo/issue/new_form\" .}}</div>\n\t</div>\n"
+    ]
+  ],
+  "repo/issue/milestone_new.tmpl": [
+    [
+      "\t\t</div>\n\t\t<div class=\"divider soda-p-gap\"></div>\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Give the next stage a clear destination.\" \"Eyebrow\" \"Plan the next step\" \"Artwork\" \"milestones-papercraft.png\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t\t<h2 class=\"ui dividing header soda-p-heading soda-form-native-heading\">\n\t\t\t{{if .PageIsEditMilestone}}\n\t\t\t\t{{ctx.Locale.Tr \"repo.milestones.edit\"}}\n",
+      "\t\t</div>\n\t\t<div class=\"divider soda-p-gap\"></div>\n\t\t<h2 class=\"ui dividing header soda-p-heading\">\n\t\t\t{{if .PageIsEditMilestone}}\n\t\t\t\t{{ctx.Locale.Tr \"repo.milestones.edit\"}}\n"
+    ],
+    [
+      "\t\t\t</div>\n\t\t</form>\n</div>\n</div>\n\t</div>\n</div>\n",
+      "\t\t\t</div>\n\t\t</form>\n\t</div>\n</div>\n"
+    ]
+  ],
+  "repo/pulls/fork.tmpl": [
+    [
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new fork soda-page soda-onboarding soda-fork\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n\t\t{{template \"custom/soda/page_intro\" dict \"Class\" \"soda-form-story\" \"TitleID\" \"soda-fork-title\" \"Eyebrow\" \"Start from a shared foundation\" \"Title\" (ctx.Locale.Tr \"new_fork\") \"Description\" \"Create an independent repository while keeping its connection to the original.\" \"Artwork\" \"fork-papercraft.png\"}}\n\t\t<form class=\"ui form soda-form soda-p-form soda-form-content\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\" aria-labelledby=\"soda-fork-title\">\n\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n",
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content repository new fork soda-page soda-onboarding soda-fork\" data-signed=\"true\">\n\t<div class=\"ui container soda-page-container\">\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-fork-title\" \"Eyebrow\" \"Start from a shared foundation\" \"Title\" (ctx.Locale.Tr \"new_fork\") \"Description\" \"Create an independent repository while keeping its connection to the original.\" \"Artwork\" \"fork-papercraft.png\"}}\n\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"soda-form-body\" aria-labelledby=\"soda-fork-title\">\n\t\t\t\t<fieldset class=\"soda-form-section soda-p-section\">\n"
+    ]
+  ],
+  "repo/editor/upload.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content repository file editor upload\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container soda-form-editor\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-editor-intro\"}}\n\t\t{{template \"base/alert\" .}}\n\t\t<form class=\"soda-form ui comment form soda-p-form\" method=\"post\">\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content repository file editor upload\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container\">\n\t\t{{template \"base/alert\" .}}\n\t\t<form class=\"soda-form ui comment form soda-p-form\" method=\"post\">\n"
+    ]
+  ],
+  "repo/editor/edit.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content repository file editor edit\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container soda-form-editor\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-editor-intro\"}}\n\t\t{{template \"base/alert\" .}}\n\t\t<form class=\"soda-form ui edit form soda-p-form\" method=\"post\">\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\" class=\"soda-page soda-code soda-code-editor page-content repository file editor edit\">\n\t{{template \"repo/header\" .}}\n\t<div class=\"ui container soda-p-editor-container\">\n\t\t{{template \"base/alert\" .}}\n\t\t<form class=\"soda-form ui edit form soda-p-form\" method=\"post\">\n"
+    ]
+  ],
+  "repo/settings/webhook/new.tmpl": [
+    [
+      "{{$taskTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.add_webhook\"}}{{end}}\n{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings new webhook\" \"title\" $taskTitle \"parentURL\" (printf \"%s/settings/hooks\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.hooks\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Send selected events to an external integration.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-webhook-new soda-settings-editor\">\n\t\t{{$CustomHeaderTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}\n",
+      "{{$taskTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.add_webhook\"}}{{end}}\n{{template \"repo/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"repository settings new webhook\" \"title\" $taskTitle \"parentURL\" (printf \"%s/settings/hooks\" .RepoLink) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.hooks\"))}}\n\t<div class=\"repo-setting-content soda-repo-settings-detail soda-repo-settings-webhook-new soda-settings-editor\">\n\t\t{{$CustomHeaderTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}\n"
+    ],
+    [
+      "\t\t{{template \"webhook/new\" (dict \"ctxData\" . \"CustomHeaderTitle\" $CustomHeaderTitle \"SettingsPresentation\" true)}}\n\t</div>\n</div>\n</div>\n{{template \"repo/settings/layout_footer\" .}}\n",
+      "\t\t{{template \"webhook/new\" (dict \"ctxData\" . \"CustomHeaderTitle\" $CustomHeaderTitle \"SettingsPresentation\" true)}}\n\t</div>\n{{template \"repo/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "shared/secrets/add_list.tmpl": [
+    [
+      "<div class=\"ui small modal\" id=\"add-secret-modal\">\n\t<div class=\"header\">\n\t\t<span id=\"actions-modal-header\"></span>\n\t</div>\n\t<form class=\"soda-form-panel ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n\t\t\t\t{{ctx.Locale.Tr \"secrets.description\"}}\n\t\t\t</div>\n",
+      "<div class=\"ui small modal\" id=\"add-secret-modal\">\n\t<div class=\"header\">\n\t\t<span id=\"actions-modal-header\"></span>\n\t</div>\n\t<form class=\"ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n\t\t\t\t{{ctx.Locale.Tr \"secrets.description\"}}\n\t\t\t</div>\n"
+    ],
+    [
+      "<div class=\"ui small modal\" id=\"edit-secret-modal\">\n\t<div class=\"header\">\n\t\t<span id=\"actions-modal-header\"></span>\n\t</div>\n\t<form class=\"soda-form-panel ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n\t\t\t\t{{ctx.Locale.Tr \"secrets.description\"}}\n\t\t\t</div>\n",
+      "<div class=\"ui small modal\" id=\"edit-secret-modal\">\n\t<div class=\"header\">\n\t\t<span id=\"actions-modal-header\"></span>\n\t</div>\n\t<form class=\"ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n\t\t\t\t{{ctx.Locale.Tr \"secrets.description\"}}\n\t\t\t</div>\n"
+    ]
+  ],
+  "shared/variables/variable_list.tmpl": [
+    [
+      "<div class=\"ui small modal\" id=\"edit-variable-modal\">\n\t<div class=\"header\"></div>\n\t<form class=\"soda-form-panel ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n",
+      "<div class=\"ui small modal\" id=\"edit-variable-modal\">\n\t<div class=\"header\"></div>\n\t<form class=\"ui form form-fetch-action\" method=\"post\">\n\t\t<fieldset class=\"content\">\n\t\t\t<div class=\"field\">\n"
+    ]
+  ],
+  "shared/actions/runner_create.tmpl": [
+    [
+      "\t\t{{ctx.Locale.Tr \"actions.runners.create_runner.title\"}}\n\t</h4>{{end}}\n\t<form class=\"soda-form-panel ui form attached segment soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t<fieldset{{if $settings}} class=\"soda-form-section soda-p-section\"{{end}}>\n\t\t\t<legend>{{ctx.Locale.Tr \"actions.runners.create_runner.properties_fieldset\"}}</legend>\n",
+      "\t\t{{ctx.Locale.Tr \"actions.runners.create_runner.title\"}}\n\t</h4>{{end}}\n\t<form class=\"ui form attached segment soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t<fieldset{{if $settings}} class=\"soda-form-section soda-p-section\"{{end}}>\n\t\t\t<legend>{{ctx.Locale.Tr \"actions.runners.create_runner.properties_fieldset\"}}</legend>\n"
+    ]
+  ],
+  "user/settings/applications_oauth2_list.tmpl": [
+    [
+      "<div class=\"{{if $personal}}soda-settings-editor soda-settings-disclosure-body{{else}}ui attached bottom segment soda-p-section{{end}}\">\n{{if not $personal}}<h5 class=\"ui top header\">{{ctx.Locale.Tr \"settings.create_oauth2_application\"}}</h5>{{end}}\n\t<form class=\"soda-form-panel ui form soda-form ignore-dirty{{if $personal}} soda-p-form{{end}}\" action=\"{{.Link}}/oauth2\" method=\"post\">\n\t\t<div class=\"field {{if .Err_AppName}}error{{end}}\">\n\t\t\t<label for=\"application-name\">{{ctx.Locale.Tr \"settings.oauth2_application_name\"}}</label>\n",
+      "<div class=\"{{if $personal}}soda-settings-editor soda-settings-disclosure-body{{else}}ui attached bottom segment soda-p-section{{end}}\">\n{{if not $personal}}<h5 class=\"ui top header\">{{ctx.Locale.Tr \"settings.create_oauth2_application\"}}</h5>{{end}}\n\t<form class=\"ui form soda-form ignore-dirty{{if $personal}} soda-p-form{{end}}\" action=\"{{.Link}}/oauth2\" method=\"post\">\n\t\t<div class=\"field {{if .Err_AppName}}error{{end}}\">\n\t\t\t<label for=\"application-name\">{{ctx.Locale.Tr \"settings.oauth2_application_name\"}}</label>\n"
+    ]
+  ],
+  "user/settings/keys_ssh.tmpl": [
+    [
+      "<div class=\"ui attached segment soda-p-section\">\n\t<div class=\"{{if not .HasSSHError}}tw-hidden{{end}} tw-mb-4\" id=\"add-ssh-key-panel\">\n\t\t<form class=\"soda-form-panel ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"field {{if .Err_Title}}error{{end}}\">\n\t\t\t\t<label for=\"ssh-key-title\">{{ctx.Locale.Tr \"settings.key_name\"}}</label>\n",
+      "<div class=\"ui attached segment soda-p-section\">\n\t<div class=\"{{if not .HasSSHError}}tw-hidden{{end}} tw-mb-4\" id=\"add-ssh-key-panel\">\n\t\t<form class=\"ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<div class=\"field {{if .Err_Title}}error{{end}}\">\n\t\t\t\t<label for=\"ssh-key-title\">{{ctx.Locale.Tr \"settings.key_name\"}}</label>\n"
+    ],
+    [
+      "\t\t\t\t<div class=\"ui segment\">\n\t\t\t\t\t<h2>{{ctx.Locale.Tr \"settings.ssh_token_required\"}}</h2>\n\t\t\t\t\t<form class=\"soda-form-panel ui form{{if $.HasSSHVerifyError}} error{{end}} soda-p-form\" action=\"{{$.Link}}\" method=\"post\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"content\" value=\"{{.Content}}\">\n",
+      "\t\t\t\t<div class=\"ui segment\">\n\t\t\t\t\t<h2>{{ctx.Locale.Tr \"settings.ssh_token_required\"}}</h2>\n\t\t\t\t\t<form class=\"ui form{{if $.HasSSHVerifyError}} error{{end}} soda-p-form\" action=\"{{$.Link}}\" method=\"post\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"content\" value=\"{{.Content}}\">\n"
+    ]
+  ],
+  "user/settings/packages_cleanup_rules_edit.tmpl": [
+    [
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/packages_cleanup_rules_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 9f0b67fe1bda41daa237eeecf496b9f369cb0f342c3cc72fe8530cfe55f42c29. */}}\n{{$taskTitle := ctx.Locale.Tr \"packages.owner.settings.cleanuprules.add\"}}{{if .IsEditRule}}{{$taskTitle = ctx.Locale.Tr \"packages.owner.settings.cleanuprules.edit\"}}{{end}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings packages\" \"title\" $taskTitle \"parentURL\" (printf \"%s/user/settings/packages\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"packages.title\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" $taskTitle \"Description\" \"Choose which package versions to keep and remove.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"user-setting-content soda-settings-editor\">\n\t\t{{template \"package/shared/cleanup_rules/edit\" (dict \"PersonalSettings\" true \"ctxData\" .)}}\n\t</div>\n</div>\n</div>\n{{template \"user/settings/layout_footer\" .}}\n",
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/packages_cleanup_rules_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 9f0b67fe1bda41daa237eeecf496b9f369cb0f342c3cc72fe8530cfe55f42c29. */}}\n{{$taskTitle := ctx.Locale.Tr \"packages.owner.settings.cleanuprules.add\"}}{{if .IsEditRule}}{{$taskTitle = ctx.Locale.Tr \"packages.owner.settings.cleanuprules.edit\"}}{{end}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings packages\" \"title\" $taskTitle \"parentURL\" (printf \"%s/user/settings/packages\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"packages.title\"))}}\n\t<div class=\"user-setting-content soda-settings-editor\">\n\t\t{{template \"package/shared/cleanup_rules/edit\" (dict \"PersonalSettings\" true \"ctxData\" .)}}\n\t</div>\n{{template \"user/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "user/settings/keys_principal.tmpl": [
+    [
+      "\t\t</h2>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"soda-form-panel ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t<div class=\"field {{if .Err_Content}}error{{end}}\">\n\t\t\t\t\t<label for=\"ssh-principal-content\">{{ctx.Locale.Tr \"settings.principal_content\"}}</label>\n",
+      "\t\t</h2>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"ui form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t<div class=\"field {{if .Err_Content}}error{{end}}\">\n\t\t\t\t\t<label for=\"ssh-principal-content\">{{ctx.Locale.Tr \"settings.principal_content\"}}</label>\n"
+    ]
+  ],
+  "user/settings/keys_gpg.tmpl": [
+    [
+      "<div class=\"ui attached segment soda-p-section\">\n\t<div class=\"{{if not .HasGPGError}}tw-hidden{{end}} tw-mb-4\" id=\"add-gpg-key-panel\">\n\t\t<form class=\"soda-form-panel ui form{{if .HasGPGError}} error{{end}} soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t<div class=\"field {{if .Err_Content}}error{{end}}\">\n",
+      "<div class=\"ui attached segment soda-p-section\">\n\t<div class=\"{{if not .HasGPGError}}tw-hidden{{end}} tw-mb-4\" id=\"add-gpg-key-panel\">\n\t\t<form class=\"ui form{{if .HasGPGError}} error{{end}} soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t<div class=\"field {{if .Err_Content}}error{{end}}\">\n"
+    ],
+    [
+      "\t\t\t\t<div class=\"ui  segment\">\n\t\t\t\t\t<h2>{{ctx.Locale.Tr \"settings.gpg_token_required\"}}</h2>\n\t\t\t\t\t<form class=\"soda-form-panel ui form{{if $.HasGPGVerifyError}} error{{end}} soda-p-form\" action=\"{{$.Link}}\" method=\"post\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"content\" value=\"{{.KeyID}}\">\n",
+      "\t\t\t\t<div class=\"ui  segment\">\n\t\t\t\t\t<h2>{{ctx.Locale.Tr \"settings.gpg_token_required\"}}</h2>\n\t\t\t\t\t<form class=\"ui form{{if $.HasGPGVerifyError}} error{{end}} soda-p-form\" action=\"{{$.Link}}\" method=\"post\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"title\" value=\"none\">\n\t\t\t\t\t\t<input type=\"hidden\" name=\"content\" value=\"{{.KeyID}}\">\n"
+    ]
+  ],
+  "user/settings/access_token_edit.tmpl": [
+    [
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/access_token_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42. */}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings soda-account-details-page soda-account-details-page--access-token applications\" \"title\" (ctx.Locale.Tr \"settings.generate_new_token\") \"parentURL\" (printf \"%s/user/settings/applications\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"settings.applications\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"settings.generate_new_token\") \"Description\" \"Choose the access this token needs.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n<div class=\"user-setting-content soda-settings-editor soda-account-details soda-account-details--access-token\">\n\n",
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/access_token_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42. */}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings soda-account-details-page soda-account-details-page--access-token applications\" \"title\" (ctx.Locale.Tr \"settings.generate_new_token\") \"parentURL\" (printf \"%s/user/settings/applications\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"settings.applications\"))}}\n<div class=\"user-setting-content soda-settings-editor soda-account-details soda-account-details--access-token\">\n\n"
+    ],
+    [
+      "\n</div>\n</div>\n</div>\n{{template \"user/settings/layout_footer\" .}}\n",
+      "\n</div>\n{{template \"user/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "user/settings/hook_new.tmpl": [
+    [
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/hook_new.tmpl (GPL-3.0-or-later); upstream SHA-256 7625cd383ec0618e2d629900700988de74ac2e1d08fef3c529bd9110af9204fe. */}}\n{{$taskTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.add_webhook\"}}{{end}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings new webhook\" \"title\" $taskTitle \"parentURL\" (printf \"%s/user/settings/hooks\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.hooks\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Send selected events to an external integration.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"user-setting-content soda-settings-editor\">\n\t\t{{$CustomHeaderTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}\n",
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/hook_new.tmpl (GPL-3.0-or-later); upstream SHA-256 7625cd383ec0618e2d629900700988de74ac2e1d08fef3c529bd9110af9204fe. */}}\n{{$taskTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr \"repo.settings.add_webhook\"}}{{end}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings new webhook\" \"title\" $taskTitle \"parentURL\" (printf \"%s/user/settings/hooks\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"repo.settings.hooks\"))}}\n\t<div class=\"user-setting-content soda-settings-editor\">\n\t\t{{$CustomHeaderTitle := ctx.Locale.Tr \"repo.settings.update_webhook\"}}\n"
+    ],
+    [
+      "\t\t{{template \"webhook/new\" (dict \"ctxData\" . \"CustomHeaderTitle\" $CustomHeaderTitle \"SettingsPresentation\" true)}}\n\t</div>\n</div>\n</div>\n{{template \"user/settings/layout_footer\" .}}\n",
+      "\t\t{{template \"webhook/new\" (dict \"ctxData\" . \"CustomHeaderTitle\" $CustomHeaderTitle \"SettingsPresentation\" true)}}\n\t</div>\n{{template \"user/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "user/settings/layout_head.tmpl": [
+    [
+      "    {{template \"base/alert\" .ctxData}}\n    {{if .parentURL}}<a class=\"soda-settings-parent\" href=\"{{.parentURL}}\">{{svg \"octicon-arrow-left\" 16}} {{.parentTitle}}</a>{{end}}\n    {{if not .formPage}}<h1 id=\"soda-settings-title\" class=\"soda-p-title\">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>{{end}}\n    {{/* block: user-setting-content */}}\n{{if false}}\n",
+      "    {{template \"base/alert\" .ctxData}}\n    {{if .parentURL}}<a class=\"soda-settings-parent\" href=\"{{.parentURL}}\">{{svg \"octicon-arrow-left\" 16}} {{.parentTitle}}</a>{{end}}\n    <h1 id=\"soda-settings-title\" class=\"soda-p-title\">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>\n    {{/* block: user-setting-content */}}\n{{if false}}\n"
+    ]
+  ],
+  "user/settings/runner_create.tmpl": [
+    [
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/runner_create.tmpl (GPL-3.0-or-later); upstream SHA-256 bf93598ceffc69d581da69795b565fd2aa2a8deffe4bf3bac7b4ff7c7be8b058. */}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings runners\" \"title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"parentURL\" (printf \"%s/user/settings/actions/runners\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"actions.runners\") \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"Description\" \"Name the runner before configuring its connection.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n<div class=\"user-setting-content soda-settings-editor\">\n\t{{template \"shared/actions/runner_create\" (dict \"SettingsPresentation\" true \"ctxData\" .)}}\n</div>\n</div>\n</div>\n{{template \"user/settings/layout_footer\" .}}\n",
+      "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/runner_create.tmpl (GPL-3.0-or-later); upstream SHA-256 bf93598ceffc69d581da69795b565fd2aa2a8deffe4bf3bac7b4ff7c7be8b058. */}}\n{{template \"user/settings/layout_head\" (dict \"ctxData\" . \"pageClass\" \"user settings runners\" \"title\" (ctx.Locale.Tr \"actions.runners.create_runner.title\") \"parentURL\" (printf \"%s/user/settings/actions/runners\" AppSubUrl) \"parentTitle\" (ctx.Locale.Tr \"actions.runners\"))}}\n<div class=\"user-setting-content soda-settings-editor\">\n\t{{template \"shared/actions/runner_create\" (dict \"SettingsPresentation\" true \"ctxData\" .)}}\n</div>\n{{template \"user/settings/layout_footer\" .}}\n"
+    ]
+  ],
+  "user/auth/signup_openid_register.tmpl": [
+    [
+      "\t{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}{{template \"custom/soda/theme_toggle\" (dict \"Class\" \"soda-theme-toggle\")}}{{end}}\n\t{{template \"user/auth/signup_openid_navbar\" .}}\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"auth.openid_register_title\") \"Description\" \"Finish setting up your account.\" \"Eyebrow\" \"Your identity, a new home\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t\t\t\t{{template \"base/alert\" .}}\n\t\t\t\t<h4 class=\"ui top attached header soda-p-heading\">\n",
+      "\t{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}{{template \"custom/soda/theme_toggle\" (dict \"Class\" \"soda-theme-toggle\")}}{{end}}\n\t{{template \"user/auth/signup_openid_navbar\" .}}\n\t<div class=\"ui container\">\n\t\t\t\t{{template \"base/alert\" .}}\n\t\t\t\t<h4 class=\"ui top attached header soda-p-heading\">\n"
+    ],
+    [
+      "\t\t\t\t\t</form>\n\t\t\t\t</div>\n</div>\n\t</div>\n</div>\n",
+      "\t\t\t\t\t</form>\n\t\t\t\t</div>\n\t</div>\n</div>\n"
+    ]
+  ],
+  "user/auth/signup.tmpl": [
+    [
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content soda-page soda-auth soda-native-forms user signin{{if .LinkAccountMode}} icon{{end}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n\t\t{{if and (not .DisableRegistration) (not .LinkAccountMode)}}{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"auth.create_new_account\") \"Description\" \"A shared home for your code and ideas.\" \"Eyebrow\" \"Join Soda Forge\" \"Artwork\" \"signup-papercraft.png\" \"Class\" \"soda-form-story\"}}{{else}}{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}{{end}}\n<div class=\"soda-form-content\">\n\t\t\t{{template \"user/auth/signup_inner\" .}}\n\t\t</div>\n",
+      "{{template \"base/head\" .}}\n<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content soda-page soda-auth soda-native-forms user signin{{if .LinkAccountMode}} icon{{end}}\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t<div class=\"ui middle very relaxed page grid\">\n\t\t<div class=\"column tw-flex tw-flex-col tw-gap-4 tw-max-w-2xl tw-m-auto\">\n\t\t\t{{if and (not .DisableRegistration) (not .LinkAccountMode)}}<img class=\"tw-mx-auto\" src=\"{{AssetUrlPrefix}}/soda/forgejo/signup-papercraft.png\" width=\"180\" height=\"120\" alt=\"\">{{end}}\n\t\t\t{{template \"user/auth/signup_inner\" .}}\n\t\t</div>\n"
+    ]
+  ],
+  "admin/auth/new.tmpl": [
+    [
+      "Upstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c29028426096061f9dd7473 */}}\n{{template \"admin/layout_head\" (dict \"ctxData\" . \"pageClass\" \"admin new authentication\" \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"admin.auths.new\") \"Description\" \"Connect an external sign-in provider.\" \"Eyebrow\" \"\" \"Artwork\" \"\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"admin-setting-content soda-admin-details soda-admin-details--auth-new\">\n\t\t<h4 class=\"ui top attached header soda-p-heading\">\n",
+      "Upstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c29028426096061f9dd7473 */}}\n{{template \"admin/layout_head\" (dict \"ctxData\" . \"pageClass\" \"admin new authentication\")}}\n\t<div class=\"admin-setting-content soda-admin-details soda-admin-details--auth-new\">\n\t\t<h4 class=\"ui top attached header soda-p-heading\">\n"
+    ],
+    [
+      "\t\t</h4>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t{{template \"base/disable_form_autofill\"}}\n\t\t\t\t<!-- Types and name -->\n",
+      "\t\t</h4>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"ui form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t{{template \"base/disable_form_autofill\"}}\n\t\t\t\t<!-- Types and name -->\n"
+    ],
+    [
+      "\t\t</div>\n\t</div>\n</div>\n</div>\n{{template \"admin/layout_footer\" .}}\n",
+      "\t\t</div>\n\t</div>\n{{template \"admin/layout_footer\" .}}\n"
+    ]
+  ],
+  "admin/user/new.tmpl": [
+    [
+      "Upstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29191a19ff9 */}}\n{{template \"admin/layout_head\" (dict \"ctxData\" . \"pageClass\" \"admin new user\" \"artwork\" \"admin-new-account-papercraft.png\" \"formPage\" true)}}\n<div class=\"soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" (ctx.Locale.Tr \"admin.users.new_account\") \"Description\" \"Make room for another contributor.\" \"Eyebrow\" \"\" \"Artwork\" \"admin-new-account-papercraft.png\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t<div class=\"admin-setting-content soda-admin-details soda-admin-details--user-new\">\n\t\t<h4 class=\"ui top attached header soda-p-heading\">\n",
+      "Upstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29191a19ff9 */}}\n{{template \"admin/layout_head\" (dict \"ctxData\" . \"pageClass\" \"admin new user\" \"artwork\" \"admin-new-account-papercraft.png\")}}\n\t<div class=\"admin-setting-content soda-admin-details soda-admin-details--user-new\">\n\t\t<h4 class=\"ui top attached header soda-p-heading\">\n"
+    ],
+    [
+      "\t\t</h4>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t{{template \"base/disable_form_autofill\"}}\n\t\t\t\t<!-- Types and name -->\n",
+      "\t\t</h4>\n\t\t<div class=\"ui attached segment soda-p-section\">\n\t\t\t<form class=\"ui form\" action=\"{{.Link}}\" method=\"post\">\n\t\t\t\t{{template \"base/disable_form_autofill\"}}\n\t\t\t\t<!-- Types and name -->\n"
+    ],
+    [
+      "\t\t</div>\n\t</div>\n</div>\n</div>\n{{template \"admin/layout_footer\" .}}\n",
+      "\t\t</div>\n\t</div>\n{{template \"admin/layout_footer\" .}}\n"
+    ]
+  ],
+  "org/projects/new.tmpl": [
+    [
+      "\t<div class=\"ui container soda-page-container\">\n\t\t{{template \"user/overview/header\" .}}\n\t\t<div class=\"soda-form-layout\">\n\t\t{{$artwork := \"\"}}{{if not .PageIsEditProjects}}{{$artwork = \"new-project-papercraft.png\"}}{{end}}\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-new-project-title\" \"Eyebrow\" \"Shape the work\" \"Title\" .Title \"Description\" \"Organize related work with a project board.\" \"Class\" \"soda-form-story\" \"Artwork\" $artwork}}\n\t\t<div class=\"soda-form-content\">{{template \"projects/new\" .}}</div>\n</div>\n\t</div>\n</div>\n",
+      "\t<div class=\"ui container soda-page-container\">\n\t\t{{template \"user/overview/header\" .}}\n\t\t{{$artwork := \"\"}}{{if not .PageIsEditProjects}}{{$artwork = \"new-project-papercraft.png\"}}{{end}}\n\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-new-project-title\" \"Eyebrow\" \"Shape the work\" \"Title\" .Title \"Description\" \"Organize related work with a project board.\" \"Class\" \"soda-page-intro--compact\" \"Artwork\" $artwork}}\n\t\t{{template \"projects/new\" .}}\n\t</div>\n</div>\n"
+    ]
+  ],
+  "org/team/new.tmpl": [
+    [
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content organization new team soda-page soda-org-details\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t{{template \"org/header\" .}}\n\t<div class=\"ui container soda-page-container soda-form-layout\">\n{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-form-title\" \"Title\" .Title \"Description\" \"Give your team a clear place and the access it needs.\" \"Eyebrow\" \"Build together\" \"Artwork\" \"new-team-papercraft.png\" \"Class\" \"soda-form-story\"}}\n<div class=\"soda-form-content\">\n\t\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}\" data-delete-url=\"{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete\" method=\"post\">\n\t\t\t\t\t<h3 class=\"ui top attached header soda-p-heading\">\n",
+      "<div role=\"main\" aria-label=\"{{.Title}}\" class=\"page-content organization new team soda-page soda-org-details\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\">\n\t{{template \"org/header\" .}}\n\t<div class=\"ui container soda-page-container soda-org-details-intro\">{{$artwork := \"\"}}{{if .PageIsOrgTeamsNew}}{{$artwork = \"new-team-papercraft.png\"}}{{end}}{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-org-detail-title\" \"Title\" .Title \"Class\" \"soda-page-intro--compact\" \"Artwork\" $artwork}}</div>\n\t<div class=\"ui container\">\n\t\t<div class=\"ui grid\">\n\t\t\t<div class=\"column\">\n\t\t\t\t<form class=\"ui form soda-form soda-p-form\" action=\"{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}\" data-delete-url=\"{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete\" method=\"post\">\n\t\t\t\t\t<h3 class=\"ui top attached header soda-p-heading\">\n"
+    ],
+    [
+      "\t\t\t\t\t</div>\n\t\t\t\t</form>\n</div>\n</div>\n</div>\n\n",
+      "\t\t\t\t\t</div>\n\t\t\t\t</form>\n\t\t\t</div>\n\t\t</div>\n\t</div>\n</div>\n\n"
+    ]
+  ]
+}

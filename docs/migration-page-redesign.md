@@ -3,6 +3,10 @@
 2026-09-10, starting at `eed31b7`. The user requested a full redesign of the
 `/repo/migrate` source chooser, with the design completed before implementation.
 
+The later [form template redesign](form-page-redesign.md) replaces the provider
+forms' fallback layout with official overrides. The evidence below records the
+earlier chooser-only change; native migration behavior remains upstream-owned.
+
 ## Design
 
 The original page repeated ten large cards with a second inset panel and nearly

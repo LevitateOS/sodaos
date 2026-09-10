@@ -1,0 +1,11 @@
+{{/* Soda presentation of Forgejo 15.0.7 templates/org/settings/packages_cleanup_rules_edit.tmpl; GPL-3.0-or-later. Upstream SHA-256: e4db1b90fb49078a48d25c262212fedd483225b5e8bf868b8c955fcffc391fe7. */}}
+{{template "org/settings/layout_head" (dict "ctxData" . "pageClass" "organization settings packages" "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Choose which package versions to keep and remove." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
+			<div class="org-setting-content">
+				{{template "package/shared/cleanup_rules/edit" .}}
+			</div>
+</div>
+</div>
+{{template "org/settings/layout_footer" .}}

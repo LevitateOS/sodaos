@@ -11,6 +11,7 @@
 :is(
   .soda-form.ui.form,
   .soda-p-form.ui.form,
+  .soda-form-panel.ui.form,
   .soda-p-form-host > form.ui.form,
   .soda-login .ui.form,
   .soda-native-forms :is(.user-setting-content, .repo-setting-content, .user-main-content, .org-setting-content, .admin-setting-content) > .ui.form:not(.ignore-dirty),
@@ -114,7 +115,7 @@
     min-height: var(--soda-control-height);
     border: 1px solid var(--soda-page-edge);
     border-radius: var(--soda-control-radius);
-    background: var(--soda-page-canvas);
+    background: var(--soda-form-control-bg, var(--soda-page-canvas));
     color: var(--soda-page-text);
     font: 400 16px/1.5 Barlow, sans-serif;
     box-shadow: none;

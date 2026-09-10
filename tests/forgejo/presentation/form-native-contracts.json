@@ -1,0 +1,682 @@
+{
+  "baseline": "794f86a and embedded Forgejo 15.0.7 for newly overridden forms",
+  "entries": {
+    "admin/auth/new.tmpl": {
+      "controls": "9b7a1015d2ed8fb6ea22a818d0e553e7d5783e90e229847484cea99830eb1210",
+      "gates": [
+        "{{if .Err_Name}}",
+        "{{if .Err_Type}}",
+        "{{if .attributes_in_bind}}",
+        "{{if .is_active}}",
+        "{{if .is_sync_enabled}}",
+        "{{if .skip_local_two_fa}}",
+        "{{if not (eq .type 2)}}",
+        "{{if not (eq .type 4)}}",
+        "{{range .AuthSources}}"
+      ]
+    },
+    "admin/hook_new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{else if .PageIsAdminSystemHooksNew}}",
+        "{{else if .Webhook.IsSystemWebhook}}",
+        "{{if .PageIsAdminDefaultHooksNew}}"
+      ]
+    },
+    "admin/runners/create.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "admin/user/new.tmpl": {
+      "controls": "f72f1b968ba99b0c54f0c6b2c881c07979ac906498423b291075889c8d2c2882",
+      "gates": [
+        "{{else if $mode.IsLimited}}",
+        "{{else if $mode.IsPrivate}}",
+        "{{if $mode.IsPublic}}",
+        "{{if .CanSendEmail}}",
+        "{{if .DefaultUserVisibilityMode.IsLimited}}",
+        "{{if .DefaultUserVisibilityMode.IsPrivate}}",
+        "{{if .DefaultUserVisibilityMode.IsPublic}}",
+        "{{if .Err_Email}}",
+        "{{if .Err_LoginName}}",
+        "{{if .Err_LoginType}}",
+        "{{if .Err_Password}}",
+        "{{if .Err_UserName}}",
+        "{{if .Err_Visibility}}",
+        "{{if .send_notify}}",
+        "{{if .visibility}}",
+        "{{if eq .login_type \"0-0\"}}",
+        "{{if ne .login_type \"0-0\"}}",
+        "{{if not (eq .login_type \"0-0\")}}",
+        "{{range $mode := .AllowedUserVisibilityModes}}",
+        "{{range .Sources}}"
+      ]
+    },
+    "moderation/new_abuse_report.tmpl": {
+      "controls": "5655dfb4b9ee76d2c7891d5ce51c231c3b51ce018c1f52a2d94d85e29a8163b5",
+      "gates": [
+        "{{if .ContentID}}",
+        "{{if .Err_AbuseCategory}}",
+        "{{if .Err_Remarks}}",
+        "{{if .IsSigned}}",
+        "{{if eq $.abuse_category $cat.Value}}",
+        "{{if not .ContentID}}",
+        "{{range $cat := .AbuseCategories}}"
+      ]
+    },
+    "org/create.tmpl": {
+      "controls": "d5c92eddb9d873500e329f52cb0a2d3e3951e0baa780f1c01dd480b65974fc7d",
+      "gates": [
+        "{{if .Err_OrgName}}",
+        "{{if .Err_OrgVisibility}}",
+        "{{if .repo_admin_change_team_access}}",
+        "{{if .visibility.IsLimited}}",
+        "{{if .visibility.IsPrivate}}",
+        "{{if .visibility.IsPublic}}"
+      ]
+    },
+    "org/projects/new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if not .PageIsEditProjects}}"
+      ]
+    },
+    "org/settings/hook_new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if .PageIsSettingsHooksNew}}"
+      ]
+    },
+    "org/settings/packages_cleanup_rules_edit.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "org/settings/runners_create.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "org/team/new.tmpl": {
+      "controls": "87d46a0336cc9ce12ea5f95de6a849f30e0999a5832f71e8166c46769fba9674",
+      "gates": [
+        "{{if $unit.Type.UnitGlobalDisabled}}",
+        "{{if (ge ($.Team.UnitAccessMode $.Context $unit.Type) 2)}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_TeamName}}",
+        "{{if .IsSigned}}",
+        "{{if .PageIsOrgTeamsNew}}",
+        "{{if .Team.CanCreateOrgRepo}}",
+        "{{if .Team.IncludesAllRepositories}}",
+        "{{if eq .Team.AccessMode 3}}",
+        "{{if eq .Team.LowerName \"owners\"}}",
+        "{{if ge $unit.MaxPerm 2}}",
+        "{{if lt $unit.MaxPerm 2}}",
+        "{{if not (eq .Team.LowerName \"owners\")}}",
+        "{{if not .Team.IncludesAllRepositories}}",
+        "{{if or ($unit.Type.UnitGlobalDisabled) (eq ($.Team.UnitAccessMode $.Context $unit.Type) 0)}}",
+        "{{if or (eq $.Team.ID 0) (eq ($.Team.UnitAccessMode $.Context $unit.Type) 1)}}",
+        "{{if or .PageIsOrgTeamsNew (le .Team.AccessMode 2)}}",
+        "{{range $t, $unit := $.Units}}"
+      ]
+    },
+    "package/shared/cleanup_rules/edit.tmpl": {
+      "controls": "94f10bb21e6d195cb69c5654599c1ba15affddc44465a34c93f539f517788679",
+      "gates": [
+        "{{if .CleanupRule.Enabled}}",
+        "{{if .CleanupRule.MatchFullName}}",
+        "{{if .Err_KeepCount}}",
+        "{{if .Err_KeepPattern}}",
+        "{{if .Err_RemoveDays}}",
+        "{{if .Err_RemovePattern}}",
+        "{{if .Err_Type}}",
+        "{{if .IsEditRule}}",
+        "{{if eq $.CleanupRule.Type $type}}",
+        "{{if eq .CleanupRule.KeepCount 0}}",
+        "{{if eq .CleanupRule.KeepCount 100}}",
+        "{{if eq .CleanupRule.KeepCount 10}}",
+        "{{if eq .CleanupRule.KeepCount 1}}",
+        "{{if eq .CleanupRule.KeepCount 25}}",
+        "{{if eq .CleanupRule.KeepCount 50}}",
+        "{{if eq .CleanupRule.KeepCount 5}}",
+        "{{if eq .CleanupRule.RemoveDays 0}}",
+        "{{if eq .CleanupRule.RemoveDays 14}}",
+        "{{if eq .CleanupRule.RemoveDays 180}}",
+        "{{if eq .CleanupRule.RemoveDays 30}}",
+        "{{if eq .CleanupRule.RemoveDays 60}}",
+        "{{if eq .CleanupRule.RemoveDays 7}}",
+        "{{if eq .CleanupRule.RemoveDays 90}}",
+        "{{range $type := .AvailableTypes}}",
+        "{{with .ctxData}}"
+      ]
+    },
+    "repo/create.tmpl": {
+      "controls": "f04ae5033e2622ba06a88bfb3ec53b98fc0645d7de5c269cddae1b63b6b771a2",
+      "gates": [
+        "{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}",
+        "{{if or .CanCreateRepo .Orgs}}"
+      ]
+    },
+    "repo/create_basic.tmpl": {
+      "controls": "0a0fee1e7e2396f29696f4c6c5b08477c1d218eb3b33aefb9491934b5e9552e3",
+      "gates": [
+        "{{else if .Orgs}}",
+        "{{if .CanCreateRepo}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .private}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/diff/compare.tmpl": {
+      "controls": "597fe67b2018dc7b2fc6e5bb825a37383766419d581f3a08a6c823e2325e3305",
+      "gates": [
+        "{{else if .Issue.IsClosed}}",
+        "{{else if .Repository.IsArchived}}",
+        "{{else if and .HeadIsBranch .BaseIsBranch}}",
+        "{{else if and .PageIsComparePull (gt .CommitCount 0) $canReadPullRequests}}",
+        "{{else if not .IsNothingToCompare}}",
+        "{{if $.IsSigned}}",
+        "{{if $.PageIsComparePull}}",
+        "{{if $canReadPullRequests}}",
+        "{{if $showDiffBox}}",
+        "{{if .Flash}}",
+        "{{if .HasPullRequest}}",
+        "{{if .IsNothingToCompare}}",
+        "{{if .IsSigned}}",
+        "{{if .OwnForkRepo}}",
+        "{{if .PageIsComparePull}}",
+        "{{if .Repository.ArchivedUnix.IsZero}}",
+        "{{if .RootRepo}}",
+        "{{if and $.IsSigned $.AllowEmptyPr (not .Repository.IsArchived) .PageIsComparePull}}",
+        "{{if and $.IsSigned (not .Repository.IsArchived)}}",
+        "{{if and $.PageIsComparePull $.IsSigned (not .Repository.IsArchived)}}",
+        "{{if and (not .PullRequestCtx.SameRepo) ($.HeadRepo.AllowsPulls ctx)}}",
+        "{{if and .OwnForkRepo (.OwnForkRepo.AllowsPulls ctx)}}",
+        "{{if and .RootRepo (.RootRepo.AllowsPulls ctx)}}",
+        "{{if eq $.BaseBranch .}}",
+        "{{if eq $.HeadBranch .}}",
+        "{{if not $.PullRequestCtx.SameRepo}}",
+        "{{if not .Flash}}",
+        "{{if not .PullRequestCtx.SameRepo}}",
+        "{{range .Branches}}",
+        "{{range .HeadBranches}}",
+        "{{range .HeadTags}}",
+        "{{range .OwnForkRepoBranches}}",
+        "{{range .OwnForkRepoTags}}",
+        "{{range .RootRepoBranches}}",
+        "{{range .RootRepoTags}}",
+        "{{range .Tags}}"
+      ]
+    },
+    "repo/editor/edit.tmpl": {
+      "controls": "716b858f0aeb1f0b5969753ad5f96d742483675666baad5a466f3d52b5858435",
+      "gates": [
+        "{{if .Err_TreePath}}",
+        "{{if .IsNewFile}}",
+        "{{if .IsSigned}}",
+        "{{if eq $i $l}}",
+        "{{if not .IsNewFile}}",
+        "{{range $i, $v := .TreeNames}}"
+      ]
+    },
+    "repo/editor/upload.tmpl": {
+      "controls": "9976e981614c142e01517a10a041481e7fe3465ea4af10d3290d2306e9c0d6c5",
+      "gates": [
+        "{{if .Err_TreePath}}",
+        "{{if .IsSigned}}",
+        "{{if eq $i $l}}",
+        "{{if not .IsNewFile}}",
+        "{{range $i, $v := .TreeNames}}"
+      ]
+    },
+    "repo/issue/milestone_new.tmpl": {
+      "controls": "7f7b199bdf973642e918ff3d014e9119c7333ec2c1f712eb554ea904f627aac4",
+      "gates": [
+        "{{if .Err_Deadline}}",
+        "{{if .Err_Title}}",
+        "{{if .PageIsEditMilestone}}",
+        "{{if and (or .CanWriteIssues .CanWritePulls) .PageIsEditMilestone}}"
+      ]
+    },
+    "repo/issue/new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "repo/migrate/codebase.tmpl": {
+      "controls": "a1f5c969c82593a1409c521005809186169877c6081abebb785b8e5cdc46e137",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if not .auth_username}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/git.tmpl": {
+      "controls": "79fd777d23e791134c083c7d8f02719ba8ade9359ac6d8630d7a0deef08d24e7",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .private}}",
+        "{{if not .auth_username}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/gitbucket.tmpl": {
+      "controls": "8f15b0b7a14016435180443c1dc3a0755402b214ac9006a2545371b0c48c3633",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if .releases}}",
+        "{{if .wiki}}",
+        "{{if not .auth_username}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/gitea.tmpl": {
+      "controls": "a4159717faf4e3c2e3c049fa3d270776c2565dd9824a58c532e40ddc17c75001",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if .releases}}",
+        "{{if .wiki}}",
+        "{{if not .auth_token}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/github.tmpl": {
+      "controls": "b63181fcdc3d93fd53ab2f3f4c47a937d933b62aaaef61601bc953388ebd080b",
+      "gates": [
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if .releases}}",
+        "{{if .wiki}}",
+        "{{if not .auth_token}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/gitlab.tmpl": {
+      "controls": "b63181fcdc3d93fd53ab2f3f4c47a937d933b62aaaef61601bc953388ebd080b",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if .releases}}",
+        "{{if .wiki}}",
+        "{{if not .auth_token}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/gogs.tmpl": {
+      "controls": "a4159717faf4e3c2e3c049fa3d270776c2565dd9824a58c532e40ddc17c75001",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if .releases}}",
+        "{{if .wiki}}",
+        "{{if not .auth_token}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/onedev.tmpl": {
+      "controls": "a1f5c969c82593a1409c521005809186169877c6081abebb785b8e5cdc46e137",
+      "gates": [
+        "{{if .ContextUser.CanImportLocal}}",
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if not .auth_username}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/migrate/pagure.tmpl": {
+      "controls": "f33c67dde53402a181588bb75ae51c7a4ce5e3071e58ddea6c7bc0e59cc7ab8b",
+      "gates": [
+        "{{if .Err_Auth}}",
+        "{{if .Err_CloneAddr}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsForcedPrivate}}",
+        "{{if .issues}}",
+        "{{if .labels}}",
+        "{{if .milestones}}",
+        "{{if .private}}",
+        "{{if .pull_requests}}",
+        "{{if not .auth_token}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/projects/new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "repo/pulls/fork.tmpl": {
+      "controls": "449ff017809d1dc7e093bd1f648ec37dc33ef446a1fb40f4682f76b7da64b0f2",
+      "gates": [
+        "{{if .CanForkToUser}}",
+        "{{if .Err_Description}}",
+        "{{if .Err_Owner}}",
+        "{{if .Err_RepoName}}",
+        "{{if .IsPrivate}}",
+        "{{if not .CanForkRepo}}",
+        "{{range .Branches}}",
+        "{{range .Orgs}}"
+      ]
+    },
+    "repo/release/new.tmpl": {
+      "controls": "812051a447ba0d127d0bace2d2ef74511bbdf5d0101d3922c2975ecb1ec3c324",
+      "gates": [
+        "{{if .Err_TagName}}",
+        "{{if .Err_Title}}",
+        "{{if .ExternalURL}}",
+        "{{if .IsAttachmentEnabled}}",
+        "{{if .IsDraft}}",
+        "{{if .PageIsEditRelease}}",
+        "{{if .hide_archive_links}}",
+        "{{if .prerelease}}",
+        "{{if not .DisableDownloadSourceArchives}}",
+        "{{if not .PageIsEditRelease}}",
+        "{{if not .tag_name}}",
+        "{{range .Branches}}",
+        "{{range .attachments}}"
+      ]
+    },
+    "repo/settings/deploy_keys.tmpl": {
+      "controls": "8ba788db699bcb94c083aa92e242b68bc11c62f664f6f3ae0869c022bfd603c8",
+      "gates": [
+        "{{if .Deploykeys}}",
+        "{{if .Err_Content}}",
+        "{{if .Err_IsWritable}}",
+        "{{if .Err_Title}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasUsed}}",
+        "{{if not .DisableSSH}}",
+        "{{if not .HasError}}",
+        "{{if not .IsReadOnly}}",
+        "{{range .Deploykeys}}"
+      ]
+    },
+    "repo/settings/protected_branch.tmpl": {
+      "controls": "efff1c5b7a61e59154f28a539e8cea2fb658b71a17b8a94d0097a8c8dc2e4eda",
+      "gates": [
+        "{{if $.recent_status_checks}}",
+        "{{if .Owner.IsOrganization}}",
+        "{{if .Rule.ApplyToAdmins}}",
+        "{{if .Rule.BlockOnOfficialReviewRequests}}",
+        "{{if .Rule.BlockOnOutdatedBranch}}",
+        "{{if .Rule.BlockOnRejectedReviews}}",
+        "{{if .Rule.DismissStaleApprovals}}",
+        "{{if .Rule.EnableApprovalsWhitelist}}",
+        "{{if .Rule.EnableMergeWhitelist}}",
+        "{{if .Rule.EnableStatusCheck}}",
+        "{{if .Rule.IgnoreStaleApprovals}}",
+        "{{if .Rule.RequireSignedCommits}}",
+        "{{if .Rule.RuleName}}",
+        "{{if .Rule.WhitelistDeployKeys}}",
+        "{{if and (.Rule.CanPush) (.Rule.EnableWhitelist)}}",
+        "{{if and (.Rule.CanPush) (not .Rule.EnableWhitelist)}}",
+        "{{if not .Rule.CanPush}}",
+        "{{if not .Rule.EnableApprovalsWhitelist}}",
+        "{{if not .Rule.EnableMergeWhitelist}}",
+        "{{if not .Rule.EnableStatusCheck}}",
+        "{{if not .Rule.EnableWhitelist}}",
+        "{{range $.recent_status_checks}}",
+        "{{range .Teams}}",
+        "{{range .Users}}"
+      ]
+    },
+    "repo/settings/runner_create.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    },
+    "repo/settings/tags.tmpl": {
+      "controls": "49b80f326e6c6c2e1b0941880e43ac9d89b8bc18fe2cb15a00b51c8513f30b66",
+      "gates": [
+        "{{if $.Owner.IsOrganization}}",
+        "{{if .Owner.IsOrganization}}",
+        "{{if .PageIsEditProtectedTag}}",
+        "{{if .ProtectedTags}}",
+        "{{if .Repository.IsArchived}}",
+        "{{if SliceUtils.Contains $teamIDs .ID}}",
+        "{{if SliceUtils.Contains $userIDs .ID}}",
+        "{{if or .AllowlistUserIDs (and $.Owner.IsOrganization .AllowlistTeamIDs)}}",
+        "{{range $.Teams}}",
+        "{{range $.Users}}",
+        "{{range .ProtectedTags}}",
+        "{{range .Teams}}",
+        "{{range .Users}}"
+      ]
+    },
+    "repo/settings/webhook/new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if .PageIsSettingsHooksNew}}"
+      ]
+    },
+    "repo/wiki/new.tmpl": {
+      "controls": "85eb77105be15faa5dfd5ec5f15b93448421bbca5378e4e5d9c7988148fe6198",
+      "gates": [
+        "{{if .Err_Title}}",
+        "{{if .PageIsWikiEdit}}",
+        "{{if not .PageIsWikiEdit}}"
+      ]
+    },
+    "shared/actions/runner_create.tmpl": {
+      "controls": "2a08c61da3648c4a095007c993b576393dda574889a52a8ed0c4489519be8ca1",
+      "gates": [
+        "{{if .Err_RunnerDescription}}",
+        "{{if .Err_RunnerName}}",
+        "{{with .ctxData}}"
+      ]
+    },
+    "shared/secrets/add_list.tmpl": {
+      "controls": "36fa3dfb5ae1b5b11b0f0ea272f577f08dff5091c83adadaffd2d883e05bfe5d",
+      "gates": [
+        "{{if .Secrets}}",
+        "{{range .Secrets}}",
+        "{{with .ctxData}}"
+      ]
+    },
+    "shared/variables/variable_list.tmpl": {
+      "controls": "864a3bdf651a960f14ad106554d780cf10d4cc295006f03779e5db1bc6bf0a45",
+      "gates": [
+        "{{if .Variables}}",
+        "{{range .Variables}}",
+        "{{with .ctxData}}"
+      ]
+    },
+    "user/auth/signup.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if .IsSigned}}",
+        "{{if .LinkAccountMode}}",
+        "{{if and (not .DisableRegistration) (not .LinkAccountMode)}}"
+      ]
+    },
+    "user/auth/signup_openid_register.tmpl": {
+      "controls": "944416d3015a45e7712fb14bfa0e317bb2a7b2b1785f3cd2b0fd217996e5a5e1",
+      "gates": [
+        "{{if .Err_Email}}",
+        "{{if .Err_UserName}}",
+        "{{if .IsSigned}}",
+        "{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}"
+      ]
+    },
+    "user/settings/access_token_edit.tmpl": {
+      "controls": "888fc1faf7de59846b4c87666ed35e7a452d27a7dbcd11535e6f492907dacd21",
+      "gates": [
+        "{{if $.IsAdmin}}",
+        "{{if (SliceUtils.Contains $.scope (printf \"read:%s\" .))}}",
+        "{{if (SliceUtils.Contains $.scope (printf \"write:%s\" .))}}",
+        "{{if .Err_Name}}",
+        "{{if .IsCurrent}}",
+        "{{if .IsFirst}}",
+        "{{if .IsLast}}",
+        "{{if eq (len .Repos) 0}}",
+        "{{if eq (len .SelectedRepos) 0}}",
+        "{{if eq .Autofocus \"name\"}}",
+        "{{if eq .Autofocus \"search\"}}",
+        "{{if eq .Num -1}}",
+        "{{if eq .resource \"all\"}}",
+        "{{if eq .resource \"public-only\"}}",
+        "{{if eq .resource \"repo-specific\"}}",
+        "{{if not .HasNext}}",
+        "{{if not .HasPrevious}}",
+        "{{range .Categories}}",
+        "{{range .Pages}}",
+        "{{range .Repos}}",
+        "{{range .SelectedRepos}}",
+        "{{with .Page.Paginater}}"
+      ]
+    },
+    "user/settings/applications_oauth2_list.tmpl": {
+      "controls": "2ffe1c68642b6aa64712d397327bc7efa00d4671d9fdddddb45a0a977049ef7b",
+      "gates": [
+        "{{if $isBuiltin}}",
+        "{{if .Err_AppName}}",
+        "{{if .Err_ConfidentialClient}}",
+        "{{if .Err_RedirectURI}}",
+        "{{range .Applications}}",
+        "{{with .ctxData}}"
+      ]
+    },
+    "user/settings/hook_new.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if .PageIsSettingsHooksNew}}"
+      ]
+    },
+    "user/settings/keys_gpg.tmpl": {
+      "controls": "1968a2e14b51d16aceaadf54a92190acfbf055776dc4e378ddb7ffc58c115b8d",
+      "gates": [
+        "{{if $.HasGPGVerifyError}}",
+        "{{if .Emails}}",
+        "{{if .Err_Content}}",
+        "{{if .Err_Signature}}",
+        "{{if .HasGPGError}}",
+        "{{if .Verified}}",
+        "{{if and (not .Verified) (eq $.VerifyingID .KeyID)}}",
+        "{{if and (not .Verified) (ne $.VerifyingID .KeyID)}}",
+        "{{if not .ExpiredUnix.IsZero}}",
+        "{{if not .GPGKeys}}",
+        "{{if not .HasGPGError}}",
+        "{{if or .ExpiredUnix.IsZero ($.PageStartTime.Before .ExpiredUnix.AsTime)}}",
+        "{{range .Emails}}",
+        "{{range .GPGKeys}}",
+        "{{range .SubsKey}}"
+      ]
+    },
+    "user/settings/keys_principal.tmpl": {
+      "controls": "44b00c0ea192ad516a1199698609a2d7e2e0f272f04f3d8740891acd22286c45",
+      "gates": [
+        "{{if .AllowPrincipals}}",
+        "{{if .Err_Content}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasUsed}}",
+        "{{if not .DisableSSH}}",
+        "{{if not .HasPrincipalError}}",
+        "{{if not .Principals}}",
+        "{{range .Principals}}"
+      ]
+    },
+    "user/settings/keys_ssh.tmpl": {
+      "controls": "86c22becbeef724a30fa8bd6f0ee792d5de16069f8b74f9c12b257eadf447e62",
+      "gates": [
+        "{{if $.HasSSHVerifyError}}",
+        "{{if .DisableSSH}}",
+        "{{if .Err_Content}}",
+        "{{if .Err_Title}}",
+        "{{if .HasRecentActivity}}",
+        "{{if .HasUsed}}",
+        "{{if .Verified}}",
+        "{{if and (not .Verified) (eq $.VerifyingFingerprint .Fingerprint)}}",
+        "{{if and (not .Verified) (ne $.VerifyingFingerprint .Fingerprint)}}",
+        "{{if index $.ExternalKeys $index}}",
+        "{{if not .HasSSHError}}",
+        "{{if not .Keys}}",
+        "{{range $index, $key := .Keys}}"
+      ]
+    },
+    "user/settings/packages_cleanup_rules_edit.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": [
+        "{{if .IsEditRule}}"
+      ]
+    },
+    "user/settings/runner_create.tmpl": {
+      "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "gates": []
+    }
+  }
+}

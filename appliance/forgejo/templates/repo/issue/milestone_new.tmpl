@@ -11,7 +11,10 @@
 			{{end}}
 		</div>
 		<div class="divider soda-p-gap"></div>
-		<h2 class="ui dividing header soda-p-heading">
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Give the next stage a clear destination." "Eyebrow" "Plan the next step" "Artwork" "milestones-papercraft.png" "Class" "soda-form-story"}}
+<div class="soda-form-content">
+		<h2 class="ui dividing header soda-p-heading soda-form-native-heading">
 			{{if .PageIsEditMilestone}}
 				{{ctx.Locale.Tr "repo.milestones.edit"}}
 				<div class="sub header">{{ctx.Locale.Tr "repo.milestones.edit_subheader"}}</div>
@@ -60,6 +63,8 @@
 					{{end}}
 			</div>
 		</form>
+</div>
+</div>
 	</div>
 </div>
 {{template "base/footer" .}}

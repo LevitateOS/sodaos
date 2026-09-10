@@ -1,0 +1,207 @@
+/* Creation workspaces, authoring surfaces and native inline creation panels.
+   These explicit roles share the approved ivory/cobalt form design. Native
+   handlers, validation, widgets, disclosure state and dialogs retain ownership. */
+.ui.container.soda-form-layout { display: grid; }
+.soda-form-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, .85fr) minmax(0, 1.55fr);
+  align-items: start;
+  gap: clamp(32px, 5vw, 80px);
+  padding-block: 40px 64px;
+  min-width: 0;
+}
+.ui.container.soda-form-layout,
+.ui.container.soda-form-editor,
+:is(.soda-auth, .soda-federated-auth) > .ui.container.soda-form-layout {
+  width: min(1240px, calc(100% - 64px)) !important;
+  max-width: none !important;
+  margin-inline: auto !important;
+}
+.soda-form-layout .soda-form-story {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+}
+.soda-form-story .soda-page-title {
+  font-size: clamp(40px, 4.4vw, 64px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+  margin-bottom: 24px;
+  text-wrap: balance;
+}
+.soda-form-story .soda-page-description {
+  max-width: 34ch;
+  font-size: 20px;
+  line-height: 1.5;
+}
+.soda-form-story .soda-page-art {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: 0;
+}
+.soda-form-content,
+.soda-form-editor,
+.soda-form-panel {
+  min-width: 0;
+  --soda-form-control-bg: var(--soda-page-surface);
+  --soda-font-heading: 600 22px/1.4 Barlow, Arial, sans-serif;
+  --soda-button-primary-bg: var(--soda-page-action);
+  --soda-button-primary-text: var(--soda-page-on-action);
+  --soda-button-primary-border: var(--soda-page-action);
+  --soda-button-primary-hover: var(--soda-page-action-hover);
+}
+:is(.soda-form-content, .soda-form-editor, .soda-form-panel) .button { margin-inline: 0; max-width: 100%; }
+.soda-form-content > *,
+.soda-form-content :is(.soda-settings-editor, .soda-form, .runner-container, .ui.form) {
+  min-width: 0;
+  max-width: 100% !important;
+}
+/* Flatten old stacked cards inside the new open form column. */
+.soda-form-content :is(.ui.attached.segment, .ui.top.attached.header, .soda-package-section-body),
+.soda-form-editor > .ui.dividing.header {
+  width: 100%;
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.soda-form-content .ui.top.attached.header, .soda-form-content .soda-form-section > legend),
+.soda-form-section-title {
+  margin: 0 0 20px;
+  color: var(--soda-page-text);
+  font: 600 22px/1.4 Barlow, Arial, sans-serif;
+}
+.soda-form-content.ui.form,
+.soda-form-content .ui.form,
+.soda-form-editor .ui.form,
+.ui.form.soda-form-panel {
+  width: 100% !important;
+  max-width: none !important;
+  font: var(--soda-font-body);
+
+  & :is(.field, .form-field) { min-width: 0; margin-bottom: 20px; }
+  & .inline.field > label:not(:empty) { display: block; width: auto; text-align: left; margin: 0 0 8px; }
+  & .inline.field > label:empty { display: none; }
+  & .inline.field > :is(input:not([type=checkbox]):not([type=radio]), textarea, .selection.dropdown) { width: 100%; margin: 0; }
+  & .inline.field > .help { display: block; margin: 6px 0 0 !important; padding: 0; }
+  & :where(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]):not(.search), textarea, select, .selection.dropdown) {
+    background: var(--soda-page-surface);
+    border-color: var(--soda-page-edge);
+    border-radius: 6px;
+    color: var(--soda-page-text);
+  }
+  & :is(input, textarea, select, .selection.dropdown):focus-visible {
+    outline: 2px solid var(--soda-page-focus);
+    outline-offset: 2px;
+  }
+  & :is(.field.error input, .field.error textarea, .field.error select, input.error, textarea.error) { border-color: var(--color-error-border); }
+  & fieldset { min-width: 0; margin: 0 0 24px; padding: 0; border: 0; }
+  & fieldset > legend { float: none; width: 100%; margin-bottom: 16px; font: 600 20px/1.4 Barlow, Arial, sans-serif; }
+  & fieldset > label { display: block; margin-bottom: 16px; }
+  & fieldset > label > .help { display: block; margin: 4px 0 0; }
+  & :is(.divider, .soda-form-choice-section) { border: 0; border-top: 1px solid var(--soda-page-edge); margin-block: 28px; }
+  & :is(.tw-text-right, .text.right.actions, .button-sequence) { margin-top: 24px; }
+  & .field:last-child:has(> .primary.button) { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; margin-top: 28px; }
+  & .soda-form-section + .soda-form-section { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; }
+  & details:not(.dropdown) { margin-block: 20px; border: 1px solid var(--soda-page-edge); border-radius: 6px; padding: 16px; }
+  & details:not(.dropdown) > summary { color: var(--soda-page-text); font: var(--soda-font-label); cursor: pointer; }
+  & details[open] > summary { margin-bottom: 20px; }
+}
+.soda-form-pair { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 24px; }
+.soda-form-pair > label { display: block; min-width: 0; }
+.soda-form-choice-section { padding-top: 24px; }
+.soda-form-choice-section > label,
+.soda-form-content .inline-grouped-list > .ui.radio.checkbox {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 6px;
+  background: var(--soda-page-surface);
+}
+.soda-form-choice-section > label:has(input:checked),
+.soda-form-content .inline-grouped-list > .ui.radio.checkbox:has(input:checked) {
+  border-color: var(--soda-page-link);
+  background: var(--soda-page-selected);
+}
+.soda-form-choice-section > label > .help { display: block; margin-top: 6px; }
+.soda-form-content .inline-grouped-list { width: 100%; }
+.soda-form-content .inline-grouped-list > .ui.radio.checkbox > input { left: 16px; top: 19px; z-index: 1; }
+.soda-form-content .inline-grouped-list > .ui.radio.checkbox > label { margin: 0; padding-left: 28px; }
+.soda-create .soda-form-content .hide-unless-checked { min-width: 0; }
+.soda-create .soda-form-content #non_template > fieldset:last-child > legend { margin-bottom: 0; }
+.soda-form-content .optionmatrix { table-layout: fixed; width: 100%; }
+.soda-form-content .optionmatrix td { overflow-wrap: anywhere; }
+.soda-form-content .optionmatrix th:first-child { width: 46%; }
+.soda-form-content .soda-form-native-heading { font: var(--soda-font-label); margin-bottom: 24px; }
+.soda-form-content .soda-form-native-heading .sub.header { font: var(--soda-font-meta); }
+
+/* Give native editors room; metadata remains in Forgejo's own sidebar. */
+.soda-form-editor { padding-block: 24px 48px; }
+.soda-form-editor .soda-form-editor-intro { margin: 0 0 32px; padding: 0; min-height: 0; }
+.soda-form-editor-intro .soda-page-title { font-size: 44px; line-height: 1.1; }
+.soda-form-editor-intro .soda-page-art { width: 144px; max-width: 20%; }
+.soda-form-editor .soda-form-native-heading { font: var(--soda-font-label); margin: 0 0 24px; }
+.soda-form-editor .soda-form-native-heading .sub.header { font: var(--soda-font-meta); }
+.soda-form-editor .combo-markdown-editor { border-color: var(--soda-page-edge); border-radius: 6px; }
+.soda-form-editor .dropzone { border: 1px dashed var(--soda-page-edge); border-radius: 6px; background: var(--soda-page-surface); padding: 32px 16px; }
+.soda-form-editor .commit-form-wrapper { margin-top: 32px; }
+.soda-form-editor .commit-form { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; }
+.soda-form-editor .ui.form .text.right .button { margin-inline: 0; }
+.soda-org-projects-new > .ui.container:has(> .head) { width: min(1120px, calc(100% - 32px)) !important; margin-inline: auto !important; }
+.soda-org-projects-new > .ui.container > .ui.grid.head { margin-inline: 0; }
+.soda-org-projects-new > .ui.container > .ui.grid.head > .column { padding-inline: 0; }
+
+/* Panels keep their original open/closed state, dialog roles and form actions. */
+.ui.form.soda-form-panel { padding: 24px; border: 1px solid var(--soda-page-edge); border-radius: 8px; background: var(--soda-page-canvas); }
+.modal > .ui.form.soda-form-panel { padding: 0; border: 0; border-radius: 0; }
+.modal:has(> .soda-form-panel) > .header { font: var(--soda-font-heading); }
+.soda-form-layout .ui.form.soda-form-panel { padding: 0; border: 0; background: transparent; }
+.soda-migrate-form #migrate_items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.soda-migrate-form #migrate_items > .help { grid-column: 1 / -1; }
+.soda-migrate-form #migrate_items > .field { margin: 0; }
+.soda-migrate-form .soda-form-options { margin-top: 28px; }
+.soda-fork .soda-form-content.soda-form { max-width: none !important; }
+.soda-form-story-wrap { min-width: 0; }
+.soda-form-story-note { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--soda-page-edge); padding-top: 24px; margin-top: 28px; }
+.soda-migrate-form .ui.form > .ui.header { text-align: left; }
+.soda-migrate-form #migrate_items > .help { margin-left: 0 !important; }
+
+@media (max-width: 1000px) {
+  .soda-form-layout { grid-template-columns: minmax(200px, .7fr) minmax(0, 1.5fr); gap: 32px; }
+  :is(.soda-admin-layout, .soda-org-settings-layout) .soda-form-layout { grid-template-columns: minmax(0, 1fr); }
+  :is(.soda-admin-layout, .soda-org-settings-layout) .soda-form-story .soda-page-art { display: none; }
+  .soda-form-story .soda-page-title { font-size: 44px; }
+}
+@media (max-width: 760px) {
+  .soda-form-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-block: 24px 40px; }
+  .ui.container.soda-form-layout, .ui.container.soda-form-editor,
+  :is(.soda-auth, .soda-federated-auth) > .ui.container.soda-form-layout { width: calc(100% - 32px) !important; }
+  .soda-form-layout .soda-form-story { flex-direction: row; align-items: center; gap: 16px; }
+  .soda-form-story .soda-page-art { width: 96px; flex: 0 0 96px; }
+  .soda-form-story .soda-page-title { font-size: 36px; margin-bottom: 12px; }
+  .soda-form-story .soda-page-description { font-size: 16px; }
+  .soda-form-story .soda-page-eyebrow { margin-bottom: 12px; font-size: 10px; }
+  .soda-form-pair { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .soda-form-editor-intro .soda-page-title { font-size: 36px; }
+  .soda-form-editor-intro .soda-page-art { width: 80px; }
+  .ui.form.soda-form-panel { padding: 16px; }
+  .soda-form-content .optionmatrix { table-layout: auto; }
+}
+@media (max-width: 380px) {
+  .soda-form-story .soda-page-art { display: none; }
+}
+
+/* Compact native permission rows without shrinking their controls. */
+.soda-form-content .ui.form .access-token-category { margin: 0; padding-block: 6px; border-top: 1px solid var(--soda-page-edge); }
+.soda-form-content .ui.form fieldset .field:has(> .radio.checkbox) { margin-bottom: 12px; }
+.soda-form-content .ui.form fieldset .field > .radio.checkbox { margin-bottom: 0; }

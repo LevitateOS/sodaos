@@ -1,13 +1,16 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/user/new.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29191a19ff9 */}}
-{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin new user" "artwork" "admin-new-account-papercraft.png")}}
+{{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin new user" "artwork" "admin-new-account-papercraft.png" "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "admin.users.new_account") "Description" "Make room for another contributor." "Eyebrow" "" "Artwork" "admin-new-account-papercraft.png" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 	<div class="admin-setting-content soda-admin-details soda-admin-details--user-new">
 		<h4 class="ui top attached header soda-p-heading">
 			{{ctx.Locale.Tr "admin.users.new_account"}}
 		</h4>
 		<div class="ui attached segment soda-p-section">
-			<form class="ui form" action="{{.Link}}" method="post">
+			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
 				<!-- Types and name -->
 				<div class="inline required field {{if .Err_LoginType}}error{{end}}">
@@ -89,4 +92,6 @@ Embedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29
 			</form>
 		</div>
 	</div>
+</div>
+</div>
 {{template "admin/layout_footer" .}}

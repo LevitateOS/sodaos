@@ -50,14 +50,22 @@ func TestForgejoOnboardingPreservesNativeRoutesAndFields(t *testing.T) {
 	}
 }
 
-func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) {
+func TestForgejoOnboardingMigrationProvidersUseSharedFormLayout(t *testing.T) {
 	dir := filepath.Join("..", "appliance", "forgejo", "templates", "repo", "migrate")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read migration overrides: %v", err)
 	}
-	if len(entries) != 3 || entries[0].Name() != "migrate.tmpl" || entries[1].Name() != "migrating.tmpl" || entries[2].Name() != "options.tmpl" {
-		t.Fatalf("provider forms must remain native fallbacks; found %v", entryNames(entries))
+	if len(entries) != 12 {
+		t.Fatalf("expected chooser, progress, options and nine provider bodies (Forgejo delegates to Gitea); found %v", entryNames(entries))
+	}
+	for _, provider := range []string{"git", "github", "gitlab", "gitea", "gogs", "onedev", "gitbucket", "codebase", "pagure"} {
+		source := readForgejoTemplate(t, "repo", "migrate", provider+".tmpl")
+		for _, required := range []string{"soda-form-layout", "soda-form-content", `{{template "repo/migrate/options" .}}`, `name="service"`, `name="clone_addr"`, `method="post"`} {
+			if !strings.Contains(source, required) {
+				t.Errorf("%s provider lost %s", provider, required)
+			}
+		}
 	}
 	options := readForgejoTemplate(t, "repo", "migrate", "options.tmpl")
 	if strings.Count(options, `class="soda-page-marker"`) != 1 || !strings.Contains(options, `data-signed="{{.IsSigned}}" hidden`) {
@@ -86,7 +94,6 @@ func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) 
 
 	css := readForgejoAssetFile(t, "onboarding.css")
 	for _, want := range []string{
-		`.repository.new.migrate:not(.soda-migrate-chooser)`,
 		`.soda-migrate-chooser .soda-migrate-provider`,
 		`.soda-fork .soda-form`,
 		`.page-content.repository:has(#repo_migrating)`,

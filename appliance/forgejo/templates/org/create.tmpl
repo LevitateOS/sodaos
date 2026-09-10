@@ -1,8 +1,8 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content organization new org soda-page soda-org-create" data-signed="true">
-	<div class="ui container soda-page-container">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Build something together" "Title" (ctx.Locale.Tr "new_org.title") "Description" "A shared home for your team and its projects." "Artwork" "new-org-papercraft.png"}}
-		<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
+	<div class="ui container soda-page-container soda-form-layout">
+		{{template "custom/soda/page_intro" dict "Class" "soda-form-story" "TitleID" "soda-page-title" "Eyebrow" "Build something together" "Title" (ctx.Locale.Tr "new_org.title") "Description" "A shared home for your team and its projects." "Artwork" "new-org-papercraft.png"}}
+		<form class="ui form soda-form soda-p-form soda-form-content" action="{{.Link}}" method="post">
 			<div class="soda-form-body">
 				{{template "base/alert" .}}
 				<fieldset class="soda-form-section soda-org-name {{if .Err_OrgName}}field error{{end}} soda-p-section">
