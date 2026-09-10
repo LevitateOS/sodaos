@@ -313,7 +313,7 @@ does not change the authentication rules of the JSON operations below.
 | `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
 | `POST /api/environments` | `{"repository_id":"ID"}`; canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |
 | `GET /api/environments/{id}` | Provisioning record, nullable live observation, own login and current-authority hint; incomplete reservations remain inspectable |
-| `POST /api/environments/{id}/join` | `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
+| `POST /api/environments/{id}/join` | `{ssh_keys:"none"}` (new browser default), `{ssh_keys:"saved"}`, or legacy `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
 | `GET /api/environments/{id}/members` | Current native human/org owner or explicit Soda operator sees permitted members; otherwise own membership only |
 | `GET /api/environments/{id}/connection` | Own membership required; current IP/running state and fixed public Ed25519 host key/fingerprint; `routing_verified:false` |
 
@@ -413,7 +413,7 @@ no runtime failure matrix or whole-product acceptance is inferred.
   Unknown/removed API paths return JSON 404; `/app/` no longer serves a SPA.
 - Native creation/account or result-persistence failure retains honest incomplete
   state. Do not recreate, prune, replace or claim a failed join succeeded.
-- New public keys are installed at explicit join; no automatic later propagation,
+- Selected saved public keys are installed at explicit SSH-enabled join; no automatic later propagation,
   Linux offboarding, Git authorization or client-routing proof is promised.
 
 ## Native-page and stale-tab boundary

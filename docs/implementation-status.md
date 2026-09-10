@@ -1,5 +1,47 @@
 # Current handoff
 
+## MVP regression and packaging closure
+
+Fixed the reproduced delivery-inventory omission for **15 existing** native Forgejo
+form/migration/runner overrides; no template content or native submission authority
+changed for that correction. Settings-page assets/shared runner decoder are included
+in the canonical payload. Updated only the two intentionally changed hook hashes
+and their explicit presentation reviews. The first root suite caught those stale
+hashes; the retained failed run was not waived. Added signed-nonadmin hook rendering
+and emitted operator-link/BFCache/context checks, preserving native drafts/navigation.
+
+Actual local checks (`.artifacts/feature-mvp-972b1ab/`):
+
+- `bun run build`: Forgejo assets and both retained Cockpit pages built. Native
+  Cockpit bridge script remains deliberately external (the existing bundler warning).
+- `bun run typecheck`: strict product compilers, Lit analysis and all checker
+  fixtures passed. A new navigation-fixture narrowing error was corrected first.
+- `bun run test`: **200 frontend passed / 4 opt-in skips**, Go Spaces-page browser
+  fixture passed, 20-case layout journey passed, **31 Forgejo passed / 21 opt-in
+  skips**, **60 Cockpit passed**. The extra runner HTML/control and native-link
+  browser checks ran explicitly: **3 passed**, including all runner mutations with
+  synthetic peers. No installed/provider case was enabled by these flags.
+- Full Go tests passed; affected runner/host/store/web **race tests passed**. The
+  final payload and hook change also passed `go test ./scripts ./internal/nativebuild`.
+- Full Python build discovery: **99 tests, OK, one opt-in skip**, including eight
+  real account-script/filesystem tests with mocked Linux identity/account commands.
+
+**This does not complete all six requested feature plans.** Delivered source in this
+pass is operator runner settings and browser-only/optional-public-key onboarding,
+plus packaging closure. Marketplace apps/ingress/install ownership, isolated OCI
+runner jobs, trusted AI workflow saving/publication/live run terminals, repository
+settings/immutable profile metadata, Fedora/KDE images and desktop transport remain
+unimplemented. The plans' exact image/token/session prerequisites still need work;
+none is replaced with a mock catalog, YAML-only activation, fake desktop or unsupported
+Linux vendor computer-use claim. Outbound Git trust/passphrase/consent remains an
+explicit decision. Routine local work is still authorized; no repeated approval is
+needed for it. Native/provider execution and delivery retain their target/action gates.
+
+No push, full appliance-image/export build, VM/deployment, provider registration/job,
+retained-account/project mutation, real credential use or cleanup occurred. Cockpit
+Runners and Tailnet remain. Retained data/evidence is untouched; schema-v7 and account-
+script delivery still require fresh paired backups/rehearsal and applicable scope.
+
 ## Browser-only Join and explicit own-profile public-key selection
 
 The API, root helper and actual project account script now permit zero external

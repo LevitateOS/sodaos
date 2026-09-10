@@ -32,8 +32,9 @@ through the versioned customization mechanism without replacing those workflows.
 Render new protected Soda pages through the existing Soda namespace/Go/Lit boundary;
 a template link does not supply a Forgejo handler, authentication or authorization.
 Before implementation, inspect the exact upstream context/gates and verify native
-menu rendering and scoped OAuth return paths. No new settings adapter or handler
-has been implemented by this plan. Public v15 customization documentation was
+menu rendering and scoped OAuth return paths. The operator Sodarunners page/API/root bridge now has local source/browser coverage;
+repository settings handlers remain unimplemented. See the leading handoff for
+scope, schema-v7 return and pending native/provider proof. Public v15 customization documentation was
 reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
 note claims local override inspection rather than fresh upstream source verification.
 
@@ -231,7 +232,7 @@ Always show repository/environment context, the actual Soda acting identity and 
 | Checking | Native spinner and “Checking environment…”; no mutation until state is known |
 | Authentication needed or identity mismatch | Explicit Soda sign-in/re-authentication; never silently act as another identity |
 | No environment | Human owner gets **Create shared environment**; others see why unavailable. Backend enforces ownership; no org-owned creation claim |
-| Existing environment, not joined | Registered development-key summary; when none exist, a public-key textarea and **Save public key**, then **Add me**. No private-key upload or Git-key selector |
+| Existing environment, not joined | Browser-only **Join** creates the real account without SSH keys; saved external SSH keys require explicit selection. Access also offers own Forgejo public-key review and explicit Save. No private-key upload or outbound Git setup |
 | Member, usable observation | Project login, current IP, readonly SSH command + **Copy**, public host-key fingerprint; no claim that a displayed address proves client routing |
 | Pending action | “Creating…” / “Saving key…” / “Adding you…” with duplicate submits disabled, not an invented progress/job system |
 | Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
