@@ -220,6 +220,18 @@ and dependency transaction, and updated only tmux and the two Soda-owned files.
 See the [handoff](implementation-status.md) for retained recipes, failed attempts
 and bounded browser continuity/cleanup evidence. This exception is not a general
 backup waiver, fleet-maintenance tool or permission for another root/target.
+
+The later approved b8af68c delivery maintained all four original `soda-test` roots
+with fresh private backups and copied-state rehearsals: one signed tmux RPM, the
+exact program and one directory line in each Git-proven init. Other init behavior,
+capabilities, accounts, keys, homes/shared files and original agent socket inodes
+were preserved. Do not assume raw Podman exports have container-local ownership:
+selected 5.8.4 emitted host-mapped IDs. That run instead used native GNU tar inside
+the original namespace, without numeric translation or original-root replacement.
+Virtual kernel trees and runtime/socket/process state are not restorable workload
+snapshots. See the handoff for the failed attempts, exact backups and observed scope;
+none permits automatic rollback over later writes or borrowing agent credentials.
+
 Keep `scripts/build-native.sh`, native build metadata, staging/verifier
 and [installation](installation.md) as production owners. Do not use first-install
 or activation as upgrade tools. Project administrators own their ordinary native

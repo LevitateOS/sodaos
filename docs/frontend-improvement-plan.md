@@ -28,8 +28,12 @@ compiler/build/import/payload and production/journey callers ported together.
 Owners still retain drafts, admission, original targets and live resources.
 Observed unread/lifecycle attention (6a) and candidate/installed-driver source
 coverage (6b) are locally complete. Required candidate checks include the new
-six-session/two-project driver fixtures; native/selected-CLI acceptance is **6c,
-not run on this candidate**, not an implementation blocker or inferred success.
+six-session/two-project driver fixtures. **6c now has bounded x86_64 native proof**:
+`b8af68c` passed the full terminal boundary and two-actor six-session matrix, with
+independent named-End cleanup, and was delivered to both approved preserved targets.
+Native browser/BFCache and retained account-access checks passed. Selected CLI/provider,
+physical-keyboard and broader native/aarch64 acceptance remain unrun; this is not
+whole-product acceptance.
 See the [current handoff](implementation-status.md) for exact checks, failed
 iterations and remaining proof, and [checker resolution](../tools/lit-check/README.md)
 for the analysis-only compiler boundary and known event-parameter gap. Dated research

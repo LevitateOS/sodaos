@@ -13,7 +13,8 @@ reuse the same managed session mechanism, not separate terminal owners. The
 subsequent concurrency/page/layout sequence. Management and terminal controls now
 use Lit; the shared multi-session page/drawer now has local emitted-browser checks.
 Bounded v2 pane layouts, shared chrome and compact behavior now have local coverage;
-observed attention and native/selected-CLI acceptance remain pending.
+observed attention is implemented. Bounded x86_64 native concurrency/cleanup and
+both-target delivery are recorded; selected CLI and broader native acceptance remain pending.
 It preserves current HTTP End and exact restore, not the older socket-close contract. The
 [drawer design](spaces-drawer-design.md) specifies the native-left/terminal-right
 composition, a flat view of this window's open tabs without destroying full-page
@@ -24,9 +25,12 @@ shared workspace owns multiple exact-ID children. Original bindings, one writer,
 finite retention, capacity reservations, Stop and logout/rotation remain mandatory;
 local rendering is not native concurrency or CLI compatibility proof.
 
-The [handoff](implementation-status.md) records actual `22d8591` isolated browser
-same-shell reload/End evidence and remaining native probe gaps. Older source-slice
-status language below is not an assertion that nothing has since been deployed.
+The [handoff](implementation-status.md) retains `22d8591` evidence/failures and the
+later **b8af68c** native boundary, two-actor six-session matrix and independent End
+cleanup proof. Its startup correction waits for first native output before transport
+ready/input forwarding, preserving bounded startup/input/lease limits. That prevents
+tmux's initial flush from losing input; it does not certify an agent's readiness or
+browser usability. Older source-slice status below is historical, not current deployment.
 
 ## Open product question — browser-terminal compatibility
 

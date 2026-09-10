@@ -18,7 +18,9 @@ bounded v2 layout, stable measured panes, shared chrome, compact native coexiste
 current journey source ports and actual Go HTML→emitted-page integration. Canonical
 tokens, required template analysis, typed stateless views and source/build ownership
 are implemented. Steps 6a/6b now have local observed-attention and candidate/driver
-coverage; scoped native/CLI proof (6c) remains outstanding.** The sequence below
+coverage. Step 6c now has bounded x86_64 terminal-boundary, two-actor six-session
+matrix/cleanup, both-target preserved delivery and native browser/access evidence;
+selected CLI/provider and broader native acceptance remain outstanding.** The sequence below
 is reconciled with that source, not another design cycle. Xterm/transport and native
 tmux ownership stay imperative; no Preact, second frontend or backend redesign is
 selected. Canonical branding and complete-public preview projections exist; changing
@@ -668,9 +670,12 @@ essential case. Source readiness is not native/CLI acceptance or release approva
 #### 6c — scoped native and selected-CLI proof
 
 Use section 5's build/delivery gates and existing authorized tools, with new exact
-scope where required. Diagnose and fix `TestInstalledTerminalBoundary`'s retained
-raw-output confirmation failure; retain the failed evidence. A previously passing
-same-PID smoke does not replace its missing native safety checks.
+scope where required. `b8af68c` diagnosed/fixed the retained first-input loss caused
+by tmux startup flushing, then passed `TestInstalledTerminalBoundary` and the native
+two-actor matrix with independent named cleanup. Both approved targets received the
+backed-up candidate; native browser/BFCache and retained SSH/PTY checks passed. Keep
+the earlier failures and exact revision/target distinctions in the handoff. The
+broader cases below, including selected CLIs, are not all completed by that evidence.
 
 On the approved candidate/target, exercise both real surfaces, six sessions across
 two projects and both account boundaries. Verify actual PID/start/memory/editor/build

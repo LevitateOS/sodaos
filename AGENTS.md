@@ -80,12 +80,19 @@ Both are now running their original disks/projects. Fresh backup/copied-state re
 and affected `5a21ad6`/schema-v6 delivery passed on the isolated validation VM, not
 whole-product acceptance. The reproduced tmux startup flush/input-loss correction
 then passed fresh `b8af68c` build/check/export and backed-up paired helper/program
-same-root delivery there; the full native terminal boundary probe passed. Browser
-matrix/CLI acceptance remains pending; native browser preflight exposed a probe-only
-scrollbar/visual-viewport assertion being corrected. `soda-test` remains on its prior
-application pending validation and reviewed same-root required additions.
-No replacement fixture, old backup waiver/root replacement or borrowed CLI credentials
-are implied. See the leading handoff for actual results and scope.
+same-root delivery there; the full native terminal boundary and two-actor, two-project
+six-session matrix passed, including independent cleanup of all twelve named Ends.
+`soda-test` subsequently received matching b8af68c/schema-v6 affected components after
+fresh paired application/root backups and copied-state rehearsals. Its four original
+Rocky 9 roots received only signed tmux, the exact program and terminal-directory init
+line; accounts, keys, homes, shared data, legacy agent socket inodes, original CIDs and
+all 24 original system-process PID/start pairs were preserved. Native private-browser
+checks/BFCache and all seven memberships' SSH/PTY/tmux-version checks passed there.
+Both targets retain all roots/later writes; only future creation uses the loaded
+Rocky 10.2 image. Probe-only viewport/logout/foreground/HTTPS corrections and failed
+attempts remain recorded. CLI/provider, physical-keyboard, broader native and aarch64
+acceptance remain unrun, not waived. No new target, lifecycle action, cleanup,
+capability change or borrowed CLI credentials follow. See the leading handoff.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 
@@ -123,7 +130,8 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   terminal-control rendering and the shared multi-session page/drawer. Bounded v2
   layout, measured stable panes, shared chrome/compact projections and current journey
   source ports, observed attention and extended six-session driver fixtures have local
-  coverage; scoped native/CLI acceptance remains pending. The [implementation sequence](docs/lit-migration-plan.md) owns that work. No Bootstrap UI is selected.
+  coverage. Bounded x86_64 native matrix/delivery proof is recorded; broader
+  native/CLI acceptance remains pending. The [implementation sequence](docs/lit-migration-plan.md) owns that work. No Bootstrap UI is selected.
   Root `dashboard/`, original Go/HTMX pages/forms/assets and duplicate forge
   adapters are removed; retain the Go API environment/access backend,
   OAuth/security/native integration and separate
@@ -136,7 +144,7 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   HTTP End; document disposal detaches, not End. The ID-keyed backend, exact
   correlation/cleanup receipts and bounded authorized collection now have local
   Go/race/browser coverage; the multi-session UI also has local browser coverage,
-  while concurrent native proof remains pending. Do not revive the singleton metadata endpoint or select a newest session.
+  with bounded native concurrency/cleanup proof now recorded in the handoff. Do not revive the singleton metadata endpoint or select a newest session.
   Do not force ordinary SSH/tmux into Soda, auto-create on reconnect or call local
   rendering checks native process proof. Follow the current plan and terminal guide.
   The read-only hook/drawer/context caller passed
@@ -279,7 +287,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports, observed attention and extended driver fixtures have local coverage; concurrent native/CLI acceptance remains pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses `bdbce8e` affected artifacts, native Sodaspaces and schema-v5 grants after separately approved preserved-state cutover; unchanged helper/default project image retain prior provenance. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports, observed attention and extended driver fixtures have local coverage and bounded native matrix proof; broader native/CLI acceptance remains pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses matching `b8af68c` affected artifacts and schema-v6 grants after approved preserved-state maintenance; four original Rocky 9 roots are retained with bounded tmux/program/init additions, while only future creation uses the candidate Rocky 10.2 image. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

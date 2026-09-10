@@ -1,6 +1,6 @@
 # Current handoff
 
-## Both targets delivered b8af68c; retained post-delivery checks underway
+## Both targets delivered b8af68c; bounded native checks passed
 
 `soda-test` now also serves **b8af68c/schema v6**, after the successful validation-VM
 matrix below. The exact dashboard image/executable and live helper executable were
@@ -8,6 +8,29 @@ verified; admitted Forgejo custom assets match the bundle. Schema migration pres
 all original columns/ciphertext before new browser activity. Fresh private backups
 and copied-state missing/wrong-key, migration, old-image-refusal and paired-v5-rollback
 rehearsals passed at `/var/lib/soda-step6c-retained-b8af68c/` on `soda-test`.
+
+Final retained checks passed with probe source **b7e3388**:
+
+- The existing **private-repository** journey passed in
+  `.artifacts/s6c-retained-browser-OUgYkd/`: native anonymous denial, both original
+  users/OAuth, original-target guards, logout 204, unsaved forms/focus/compact
+  coexistence, actual BFCache restoration, and authenticated Go Spaces/native links.
+- All **seven original memberships** passed ordinary SSH/PTY and `tmux -V`, using
+  their existing fixture keys and independently confirmed original host-key pins.
+  The client used pinned management forwarding, not a new direct/laptop route.
+- All **24 original system-process PID/start pairs** and four native creation
+  profiles remained unchanged; the separate matrix on the validation VM remains
+  the concurrent managed-session/cleanup proof, not these SSH/version checks.
+- Final local root tests passed: frontend **192/3 opt-in skips**, Go page **1**,
+  layout **20 cases**, Forgejo **30/18**, Cockpit **60**; explicit Lit **127** and
+  required types/analyzer/fixtures passed. The production Go/native build/check
+  remains the separately built b8af68c candidate; later changes are probe/docs only.
+
+No push, root replacement, provider calls or automatic cleanup followed. Selected
+CLI/provider setup/private inputs, physical-keyboard/editor/build comparisons,
+broader lifecycle/rotation cases, newly created Rocky 10.2 project runtime and
+aarch64 acceptance remain outside this proof; **6c is partially evidenced, not
+wholly accepted**.
 
 All four original Rocky 9.6 roots received only the signed **tmux 3.2a-5.el9** RPM
 (including its two `/etc/shells` lines), exact b8af68c program, runtime directory and
@@ -43,7 +66,12 @@ Preserved failures and backup limitations:
   `--path-as-is`, verified CA/hostname, no redirects, and public validators only.
   No CA, certificate, browser trust policy or production TLS setting was weakened.
   Constrained-CA, hostname/missing-CA refusal, exact raw-path and response-bound tests
-  were added. Retained native browser rerun is still required.
+  passed, followed by the real retained journey. The client is curl 8.12.1 with
+  OpenSSL 3.5.5; production/backend dependencies were not changed.
+- `s6c-retained-browser-Vrycec` then used the public-fixture default against an
+  existing private repository and timed out on absent anonymous repository context.
+  The existing `--private-repository` variant passed in `OUgYkd`; no repository
+  visibility, permission or native denial behavior changed.
 
 Evidence/scripts are under `.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`; failed browser
 profiles `s6c-retained-browser-E3mInu` and `s6c-retained-browser-qTOEjL` remain.
