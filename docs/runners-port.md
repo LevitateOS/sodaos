@@ -9,14 +9,23 @@ this source change performs no installed cleanup.
 replacement is implemented in source and has recorded local test coverage. It is
 not yet a delivered, provider-validated replacement for Cockpit. Finish the
 [implementation and completion plan](#implementation-and-completion-gate) below;
-do not rebuild the existing page, API or native bridge.
+reuse the existing controls, API and native bridge.
+
+**Subsequent integration request:** the [native page integration plan](forgejo-soda-pages-plan.md)
+now owns moving this page body into Forgejo's real header/profile shell, naming its
+operator navigation link Runners, automatic connection on initial entry and
+coordinated normal logout. That work is planned, not implemented. It supersedes
+the separate HTML placement and explicit-only connection guidance below; the
+completed presentation/lifetime slice remains historical evidence. Native/provider
+parity and coordinated Cockpit retirement remain governed by this runner plan.
 
 ## Selected product boundary
 
 Move Soda's local runner capacity and service controls to **Global SodaOS
-settings → Sodarunners**. The replacement is a Soda-owned Go page and Lit
-component under the existing `/-/soda/` namespace, reached through supported
-Forgejo template customization. It is not a Forgejo administrator page, a
+settings → Sodarunners**. Current source uses a Soda-owned Go page and Lit
+component under the existing `/-/soda/` namespace. The subsequent integration plan
+hosts that component within Forgejo's native dashboard through its documented
+template customization, while keeping Soda's protected API. It is not a Forgejo administrator page, a
 repository drawer, or a revival of the removed standalone dashboard. The
 [settings plan](sodaspaces-plan.md#settings-pages-and-os-selection) owns its
 placement.
@@ -312,7 +321,9 @@ no new Forgejo handler or whole-navbar override is required.
   operator signed into Forgejo but not Soda: source guidance now exposes the existing
   Spaces → explicit Soda connection → settings route and retains the direct protected
   settings login. Native signed-in markup cannot establish Soda operator authority.
-  Do not call native site-admin markup an operator check or connect OAuth silently.
+  Do not call native site-admin markup an operator check. This recorded explicit
+  connection flow is superseded by the bounded automatic-entry contract in the
+  native page integration plan; first consent and failure recovery remain visible.
 - Complete form feedback and keyboard/responsive behavior using existing tokens
   and Lit conventions. Preserve exact-ID lifecycle confirmation, boot-policy and
   destructive effects, local-state uncertainty and the distinction between listeners

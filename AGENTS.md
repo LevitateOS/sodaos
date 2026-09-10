@@ -13,6 +13,16 @@ Read these before substantial changes:
 
 For deployment changes, also read `docs/installation.md` and `docs/native-validation.md`. Read the relevant feature guide before changing project environments, Cockpit, Tailnet or Runners.
 
+The user subsequently requested a plan to integrate existing Soda pages into
+Forgejo's real header/profile/navigation. Read
+[the native page integration plan](docs/forgejo-soda-pages-plan.md) before this work.
+It supersedes earlier separate Go-shell and routine manual-connection guidance for
+Spaces, Runners and repository Spaces settings. It is a proposal using the existing
+native dashboard/template host, with bounded automatic OAuth and coordinated normal
+logout; it is not implemented integration, atomic SSO or a new deployment grant.
+Existing shell descriptions below remain current-source/historical facts, and the
+runner parity/Cockpit retirement and native acceptance obligations remain in force.
+
 ## Current execution boundary
 
 For local Forgejo page screenshots, use `scripts/screenshot.ts` and read

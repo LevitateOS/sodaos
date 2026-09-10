@@ -1,5 +1,31 @@
 # Current handoff
 
+## Native Forgejo hosting for Soda pages — plan only
+
+The user requested a plan to make the existing Soda pages seamless with Forgejo.
+[The integration plan](forgejo-soda-pages-plan.md) covers Spaces, global operator
+Runners and repository Spaces settings: one existing Forgejo dashboard/template
+host with the real header/profile menus, bounded automatic OAuth on initial entry,
+coordinated normal logout, existing content/lifetimes, navigation and duplicate-shell
+retirement. It supersedes the separate-shell and explicit-only entry guidance;
+current implementation and earlier evidence are unchanged. Repository visibility
+and Soda operator authority remain independent of Forgejo's administrator gates.
+
+Source baseline `f3efebc` and exact Forgejo 15.0.7 handlers/templates/scripts were
+inspected, with public source copies and hashes retained in
+`.artifacts/forgejo-pages-plan-9ncxei8z/`. The review identified native dashboard
+hosting, confidential-client repeat consent behavior, menu-event ordering and the
+pending-OAuth cancellation race. The first implementation gate still requires a
+real Forgejo browser proof. The plan records initial-title, guest-entry, upgrade
+compatibility and non-atomic logout limits; no native-session sharing is claimed.
+
+This change only writes planning/guidance. No product code, dependencies, builds,
+type checks, product tests, provider actions, deployment or retained-state changes
+are part of it. Existing native/provider parity and Cockpit-retirement obligations
+remain in their owning plans. All 11 inline local links/anchors in the new plan and
+added guidance, the plan's source-owner paths, and diff whitespace checked
+successfully; the documentation report is retained with the public-source evidence.
+
 ## Overengineering review follow-through
 
 The user subsequently requested implementation of the supported review findings.

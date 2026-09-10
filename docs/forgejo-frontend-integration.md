@@ -18,8 +18,12 @@ reattachment and page/drawer navigation; source/native evidence and remaining CL
 acceptance are in the [handoff](implementation-status.md). Open in drawer has local
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
-extend this same boundary; they do not restore a standalone dashboard or borrow a
-Forgejo authenticated shell for Soda pages.
+extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)
+now proposes rendering the three existing Soda page bodies within Forgejo's own
+dashboard template and real native shell. This replaces the separate Go HTML
+placement below; it does not borrow cookies or transfer native authentication to
+Soda. The plan includes automatic entry connection, coordinated menu logout and
+explicit browser/upgrade limitations. No integration implementation is claimed.
 
 ## Verified source surface
 
@@ -29,8 +33,9 @@ global operator-only Sodarunners destination. The current local
 [`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
 already preserves native Actions runners/secrets/variables links. Add Soda links
 through the versioned customization mechanism without replacing those workflows.
-Render new protected Soda pages through the existing Soda namespace/Go/Lit boundary;
-a template link does not supply a Forgejo handler, authentication or authorization.
+The current protected Soda pages use the Soda namespace/Go/Lit boundary. Their
+planned native host uses an existing Forgejo dashboard handler; adding a template
+link alone would supply neither a new handler nor Soda authorization.
 Before implementation, inspect the exact upstream context/gates and verify native
 menu rendering and scoped OAuth return paths. The operator Sodarunners page/API/root bridge now has local source/browser coverage;
 repository Sodaspaces settings now also has a Go HTML/shared Lit handler, with

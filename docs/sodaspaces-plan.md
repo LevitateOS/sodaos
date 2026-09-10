@@ -2,7 +2,11 @@
 
 Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**, plus a global **Spaces** navigation link
-and Soda-owned Go/template workspace page. No new Forgejo repository tab; tabs
+and a full workspace page. The new [native page integration plan](forgejo-soda-pages-plan.md)
+replaces the current separate Go HTML shell with a view rendered inside Forgejo's
+real header/profile/navigation. It also covers Runners and repository Spaces
+settings, automatic connection and coordinated normal logout. This is planning,
+not implemented integration or deployment evidence. No new Forgejo repository tab; tabs
 **inside the drawer and Spaces panes** are required. Both surfaces will use the
 shared **Lit** component implementation, not separate frontends.
 
@@ -20,12 +24,15 @@ fixed OAuth return and shared multi-session UI now have local source/browser cov
 Bounded v2 layout, stable measured panes, shared navigation/actions and compact
 native coexistence now have local source/browser coverage, alongside current journey
 source ports and actual Go HTML→emitted-page integration. The
-[Lit workspace implementation plan](lit-migration-plan.md) remains the single feature
-sequence: steps 1–5 and 6a/6b are locally implemented and checked, including observed
+[Lit workspace implementation plan](lit-migration-plan.md) retains the workspace
+feature sequence: steps 1–5 and 6a/6b are locally implemented and checked, including observed
 attention and extended candidate/installed-driver source coverage. Scoped native/CLI
 proof (6c) remains. No installed journey or CLI acceptance is
 inferred from the synthetic layout/socket fixtures.
 The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
+The native page integration plan supersedes their separate-shell placement and
+routine manual-connection guidance; it preserves the shared workspace and existing
+native acceptance obligations. Descriptions of Go HTML below record current source.
 
 The [frontend improvement guide](frontend-improvement-plan.md) now consolidates the
 post-step-5 architecture research and cleanup requirements. Retain Go/Forgejo + Lit;

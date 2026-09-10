@@ -28,7 +28,7 @@ x86_64 OAuth, Create/Join, lifecycle, key-revocation and SSH/PTY/transfer proof 
 isolated fixture; retained delivery and broader product acceptance remain separate.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
-The user also selected a global **Spaces** link and authenticated Soda-owned
+The current source has a global **Spaces** link and authenticated Soda-owned
 Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sessions.
 This is a bounded extension of the API backend, not restoration of Forgejo workflow
 adapters or either removed frontend. The HTML shell, fixed OAuth return, shared
@@ -39,6 +39,13 @@ both surfaces; steps 1–5 and 6a/6b, including layouts, observed attention and 
 journey source ports, have local coverage. The [frontend improvement guide](frontend-improvement-plan.md)
 preserves that baseline while defining mandatory token consolidation, template
 checking and typed composition before further UI expansion.
+The subsequent [native page integration plan](forgejo-soda-pages-plan.md) replaces
+the separate Spaces, Runners and repository Spaces HTML shells with selected views
+of Forgejo's existing dashboard. Forgejo renders the actual header/profile menus;
+Soda retains protected content/APIs and its OAuth context. Automatic entry connection
+and coordinated profile-menu logout are planned, not implemented or atomic shared
+authentication. This supersedes the separate-shell recommendation without changing
+the current implementation or its recorded evidence.
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
 is stock Rocky tmux under each original project account, with a private supervised
 server per managed browser terminal. Soda retains access/lifetime authority; tmux
