@@ -1,5 +1,38 @@
 # Current handoff
 
+## Authorized local artifact cleanup
+
+The user requested pruning `.artifacts`. Removed only obsolete dependency caches:
+`retired-dashboard-88fc21f/node_modules`,
+`merge-5c845a7-560265b/cockpit-node-modules-before-install`, and the root/Cockpit/
+Lit-check `node_modules` under `frontend-improvement-install-7QST82`. Their available
+installation/lock metadata was retained; source, built outputs and validation logs
+were not removed. Current workspace dependencies and registered worktrees were
+not touched.
+
+To reclaim substantially more without deleting retained evidence, used the existing
+XFS copy-on-write `FIDEDUPERANGE` operation on **564 identical public build-file
+pairs** within an explicit build-output allowlist. A fresh synthetic-file probe
+verified both deduplication and independent subsequent writes before the real pass.
+Each destination/source hash and destination inode, mode, owner, size and modification
+time were checked after sharing. This is not hard-link replacement or shared mutable
+file contents. Two protected upstream ISO files were skipped on permission errors;
+no permission changes were made to force them. No VM disk/raw image, fixture state,
+credential, backup, browser profile or project root was selected.
+
+Observed filesystem free space increased by **13,394,112,512 bytes (12.47 GiB)**
+during the pass. Ordinary `du` still reports roughly 97 GiB because it counts shared
+extents for each file; that is not unique physical allocation. Exact allowlists,
+retained dependency metadata, per-pair hashes/skips and before/after free-space
+measurements are in `.artifacts/prune-20260910-oMJPSQ/`. No VM/service lifecycle,
+provider action or appliance deployment accompanied cleanup.
+
+The earlier user-requested installer copy remains at
+`/home/libvirt/images/soda-installer-392dd10.iso`, mode 0644 with restored
+`virt_image_t` labeling. Its SHA-256 was rechecked after cleanup and still matches
+`46b2b4a4aa172f57bab646e7ad212c82e040649085c74d9d30310e546e1ec9a3`.
+Both final ISO locations, failed attempts and installer evidence were preserved.
+
 ## Built x86_64 installer ISO — console on media, not booted
 
 Clean candidate **`392dd10881dcfa516619820f1efcc7ef597beb07`** completed real native
