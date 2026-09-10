@@ -1,5 +1,26 @@
 # Current handoff
 
+## Desktop workspace request and platform research
+
+Extended the [feature proposal](services-and-ai-plan.md#4-desktop-workspaces) with
+the user's GUI/computer-use request: a real Desktop view beside Terminal, shared
+between Spaces and the repository drawer. The proposal separates the viewer,
+guest desktop, human/automation control and persistent checkout. A VM is a proposed
+new responsibility; current Rocky containers and fixed-operation helpers are unchanged.
+
+Official platform documentation checked on 2026-09-10 lists Linux desktop apps for
+both OpenAI/Codex and Claude, but neither currently includes native computer use
+on Linux. Windows is the proposed first guest compatibility probe for that complete
+experience, not a selected/deployed backend. OpenAI explicitly documents Windows VM
+use; exact Soda guest integration, Claude account eligibility, active desktop
+continuity and safe control transfer remain unproved. Claude Linux Cowork's separate
+KVM requirement is also recorded rather than assumed to work in a project container.
+
+Only source/document reads, public vendor/transport documentation research and
+documentation edits ran for this follow-up. No builds/tests, guest provisioning,
+desktop installation, provider sign-in/jobs or deployment ran. No GUI transport,
+VM lifecycle or GUI-driven issue/PR automation is implemented by this change.
+
 ## Spaces → repository drawer and AI workflow clarification
 
 Added **Open in drawer** to the full Spaces toolbar (labelled compact icon on

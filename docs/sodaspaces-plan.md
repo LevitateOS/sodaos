@@ -361,12 +361,18 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-The user also requested a services marketplace and repository AI issue/PR
-automation. The [feature proposal](services-and-ai-plan.md) records the proposed
-app lifetime, Forgejo Actions ownership, current host-only runner gap and bounded
-review/fix behavior. Marketplace placement and trigger policy remain pending
-product choices; implementation is not yet present. This extends requested scope
-without changing existing project roots, provider authority or deployment permission.
+The user also requested a services marketplace, repository AI issue/PR automation
+and graphical workspaces for desktop AI apps and computer use. The
+[feature proposal](services-and-ai-plan.md) records the proposed app lifetime,
+Forgejo Actions ownership, current host-only runner gap and bounded review/fix
+behavior. Its [desktop section](services-and-ai-plan.md#4-desktop-workspaces) proposes
+Terminal/Desktop views in the same Spaces page/drawer and a separately investigated
+VM guest. Both vendors' Linux desktop apps currently lack built-in computer use;
+the proposed complete-experience probe therefore uses Windows, subject to actual
+guest/app validation. Marketplace placement, trigger policy and desktop runtime
+selection remain product choices; these features are not yet implemented. This
+extends requested scope without changing existing project roots, provider authority
+or deployment permission.
 
 1. **Complete scoped native/CLI proof of Spaces and its companion drawer.** The
    single [detailed sequence](lit-migration-plan.md) records locally completed steps

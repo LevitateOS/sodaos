@@ -1,4 +1,4 @@
-# Services marketplace and repository AI automation
+# Services marketplace, repository AI and desktop workspaces
 
 The user requested three additions: a simple Podman services marketplace, an AI
 issue resolver, and AI PR review with optional fixes and a configurable loop count.
@@ -13,14 +13,20 @@ processes should appear as real, named terminals in Spaces and its repository
 drawer, launched with predefined prompts and commands. This replaces the earlier
 proposal's implication that Actions logs alone would be the user interface.
 
-Two product choices are pending: appliance-wide versus project-local marketplace
-installation, and automatic trusted-contributor runs versus a maintainer trigger.
+The user also requested graphical workspaces for the actual Codex/Claude desktop
+apps and their computer-use features. The [desktop proposal](#4-desktop-workspaces)
+below extends the product beyond terminal transport. It is an architecture proposal,
+not an implemented VM backend or a change to existing Rocky projects.
+
+For marketplace and AI automation, two product choices remain pending:
+appliance-wide versus project-local installation, and automatic trusted-contributor
+runs versus a maintainer trigger.
 The candidate below assumes **appliance-wide, operator-managed apps** and
 **automatic runs for trusted contributors after repository opt-in**. Do not treat
 those proposed defaults as a user answer. Existing projects, runner registrations,
 credentials, services and retained validation fixtures remain unchanged.
 
-## Containers, pods and the three lifetimes
+## Containers, pods and runtime lifetimes
 
 A container runs an image with its own filesystem view and processes. A Podman
 pod groups containers and can share namespaces, especially networking. Containers
@@ -37,6 +43,7 @@ its companions actually benefit from sharing networking.
 | Marketplace service | Persistent app and data; appliance operator | Host Podman, native Quadlet/systemd |
 | Development project | Existing shared accounts, files and tools; project administrators | Preserve the current Rocky project and nested Podman |
 | AI run | Linked issue/PR attempt with bounded review/fix rounds; repository policy and Forgejo Actions | Isolated checkout and agent process, with a live terminal projected into Spaces/drawer |
+| Desktop workspace | Persistent desktop, apps and user data; separately authorized user or dedicated automation identity | Proposed optional VM guest with its own graphical session; not currently implemented |
 
 Automatic AI runs must not commandeer a developer's existing shell, dirty checkout,
 home or personal credentials. Sharing the Spaces UI does not require sharing those
@@ -249,6 +256,113 @@ setup credentials or a developer's existing CLI login. Keep event data out of sh
 interpolation, private material out of argv/logs/artifacts, and agent outputs as
 untrusted data. Retain bounded run results in native Actions. Cleanup may remove
 only exact attempt-owned temporary resources, never a retained project or service.
+
+## 4. Desktop workspaces
+
+**Product proposal:** Spaces presents Terminal and Desktop views of an authorized
+workspace. Desktop opens the actual remote graphical session, with display,
+keyboard and pointer transport. The same desktop can move between the full Spaces
+page and repository drawer, maximize, and reconnect while the user browses Forgejo.
+A thumbnail, terminal emulator or app launcher alone does not provide this feature.
+
+A Linux GUI can run in a container with a display server; a GUI does not inherently
+require a VM. A VM supplies its own kernel and guest OS, which matters for native
+Windows applications and OS-dependent features. The current CoreOS appliance can
+remain headless. The proposed desktop runs inside its guest, not on the host's
+display. Existing validation appliances being VMs does not mean Soda already
+manages desktop guests.
+
+### Verified vendor constraints — 2026-09-10
+
+| Application | Linux desktop availability | Built-in computer use |
+| --- | --- | --- |
+| OpenAI desktop app with Codex | Preview on supported Ubuntu, Debian and Fedora desktop releases, x64/ARM64 | Documented for macOS and Windows; absent from the Linux preview |
+| Claude Desktop with Claude Code | Beta on Ubuntu 22.04+ and Debian 12+, x64/ARM64 | Documented for macOS and Windows; absent from the Linux beta |
+
+Sources: [OpenAI Linux desktop](https://learn.chatgpt.com/docs/linux/linux-app),
+[OpenAI computer use](https://learn.chatgpt.com/docs/computer-use),
+[Claude Linux desktop](https://code.claude.com/docs/en/desktop-linux) and
+[Claude computer use](https://support.claude.com/en/articles/14128542-let-claude-use-your-computer-in-cowork).
+OpenAI's former Codex app documentation currently redirects to its desktop app
+guide with Codex mode. Recheck these platform-specific pages before packaging;
+older Claude general desktop documentation still says Linux is unsupported.
+
+Consequently, installing either GUI in a Linux VM would not currently deliver its
+built-in computer use. **A Windows desktop VM is the proposed first compatibility
+probe for the complete requested experience.** This is an inference from vendor
+support, not Soda runtime evidence or a selected replacement for Linux projects.
+OpenAI explicitly describes using a Windows VM to contain foreground computer use.
+The app's target must stay on the active, unlocked guest desktop; browser viewer
+disconnection must not lock or replace that desktop session. Claude's account/plan
+requirements must also be checked with the intended account before a real probe.
+
+Linux remains a useful candidate when the requirement is the GUI app, editors and
+browser tools. Claude Cowork on Linux additionally hosts its own QEMU/KVM VM; inside
+a desktop VM that would require nested virtualization. Do not silently pass host
+devices into current project containers to make it work. An API-based computer-use
+integration would be a separate agent integration, not proof that either vendor's
+Linux desktop app gained its native feature.
+
+Running a desktop app on the user's laptop against a remote checkout is another
+workflow, but remote shell access alone does not move screen capture/input into
+Soda. The UI must identify the actual computer and desktop under control. Desktop
+apps must run in the intended guest for the proposed streamed-guest experience.
+
+### One bounded candidate and its ownership
+
+Investigate a QEMU/KVM guest with a private virtual-display endpoint and a browser
+viewer integrated into the existing Lit workspace. QEMU's
+[VNC display](https://www.qemu.org/docs/master/system/invocation.html) and the
+[noVNC client](https://novnc.com/info.html) provide a candidate display/input path.
+This is a compatibility investigation, not an instruction to install either or
+build interchangeable runtime/transport backends. Review exact selected versions,
+CoreOS packaging, guest installation inputs and native hardware support first.
+
+Soda's operator provisions guest capacity; authorized users attach to their own
+desktop or an explicitly shared automation desktop. Project membership must not
+automatically expose another member's desktop, browser cookies or AI account.
+Resolve exact guest/session targets server-side. Keep raw console endpoints private
+and authorize each browser connection with the existing Soda authority; a generic
+browser-controlled host/port proxy or reusable console password is not acceptable.
+The existing fixed-operation project helper is not a VM command passthrough.
+
+Preserve the guest disk, home, app state and checkout independently of the viewer.
+Hide, navigation and disconnect detach the view. Explicit Stop interrupts guest
+work while preserving storage; it is distinct from ending a terminal or cancelling
+an AI attempt. Existing personal-terminal logout/retention rules still apply to
+existing terminals. A desktop's access and lifetime need their own explicit contract.
+
+Terminal and Desktop must identify the actual workspace and checkout. If an AI run
+executes in a guest, its terminal and GUI need access to that same run's files.
+Separate containers and guests do not automatically share a filesystem or resolver
+conversation. Do not silently copy dirty work or mount retained project roots into
+a guest to create that appearance.
+
+Observation should not type into an agent-controlled desktop. Human takeover must
+pause/release the agent's control before granting input; merely suppressing browser
+input cannot stop a native GUI agent. If an app offers no verified pause/control
+interface, use its real stop control and report the limitation. Guest credentials
+and provider approvals stay with their intended account and desktop, separate from
+repository automation credentials.
+
+The existing issue/PR proposal still uses supported unattended command interfaces.
+Launching a GUI app is not evidence of a supported event-to-prompt API, resumable
+conversation or machine-readable review result. Inspect those contracts separately
+before promising fully automatic GUI-based resolver/reviewer runs. Desktop access
+can ship independently; neither an AI job nor a personal desktop should depend on
+keeping the Forgejo page open.
+
+### Desktop completion criteria
+
+Before calling this supported, prove app installation/sign-in and a real GUI task
+in the selected guest; exact screen/input targeting; browser detach/reconnect and
+page/drawer navigation without desktop replacement; authorized observation/control
+transfer; isolation between users; and explicit Stop/Start persistence. Include
+guest lock/sleep, disconnect during computer use and provider approval handling.
+Synthetic viewer tests alone cannot prove these behaviors. Guest provisioning,
+private sign-in and provider use require a separately scoped target and inputs;
+no retained VM or project is repurposed by this proposal. Validate each claimed
+architecture natively before advertising support.
 
 ## Implementation sequence and completion criteria
 
