@@ -5,8 +5,10 @@ This is the scope boundary for the [current architecture](architecture.md). It r
 The [Sodaspaces minimum-controls plan](sodaspaces-plan.md#minimum-end-to-end-user-controls)
 now selects basic Start/Stop and explicit own-project development-key apply/revoke as
 bounded follow-up work. These do not reopen broader lifecycle/reconciliation work.
-OS-profile selection and resource-limit/usage extensions remain unselected; destruction
-still requires its explicit scope decision. [Outside support tools](native-support.md)
+The user subsequently selected [Rocky/Fedora creation profiles](project-os.md#selected-environment-profiles):
+headless and KDE are in scope, while both GNOME variants are deferred. This supersedes
+the earlier OS-profile-selection exclusion. Resource-limit/usage extensions remain
+unselected; destruction still requires its explicit scope decision. [Outside support tools](native-support.md)
 cannot change production policy or make optional installer media a product prerequisite.
 
 **Deferred is not a roadmap commitment or a judgment that an idea is bad.** Reopening an item requires an explicit scope decision. **Not pursuing** identifies approaches outside the selected direction, rather than features waiting for implementation.

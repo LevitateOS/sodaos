@@ -17,6 +17,9 @@ The user also requested graphical workspaces for the actual Codex/Claude desktop
 apps and their computer-use features. The [desktop proposal](#4-desktop-workspaces)
 below extends the product beyond terminal transport. It is an architecture proposal,
 not an implemented VM backend or a change to existing Rocky projects.
+The subsequent user decision selects **Linux desktops**, with Rocky/Fedora headless
+and KDE [creation profiles](project-os.md#selected-environment-profiles); GNOME is
+deferred. This supersedes the earlier Windows-first compatibility recommendation.
 
 For marketplace and AI automation, two product choices remain pending:
 appliance-wide versus project-local installation, and automatic trusted-contributor
@@ -43,7 +46,7 @@ its companions actually benefit from sharing networking.
 | Marketplace service | Persistent app and data; appliance operator | Host Podman, native Quadlet/systemd |
 | Development project | Existing shared accounts, files and tools; project administrators | Preserve the current Rocky project and nested Podman |
 | AI run | Linked issue/PR attempt with bounded review/fix rounds; repository policy and Forgejo Actions | Isolated checkout and agent process, with a live terminal projected into Spaces/drawer |
-| Desktop workspace | Persistent desktop, apps and user data; separately authorized user or dedicated automation identity | Proposed optional VM guest with its own graphical session; not currently implemented |
+| Desktop workspace | Persistent desktop, apps and user data; separately authorized user or dedicated automation identity | Selected Linux KDE profiles, proposed optional Linux VM guest; not currently implemented |
 
 Automatic AI runs must not commandeer a developer's existing shell, dirty checkout,
 home or personal credentials. Sharing the Spaces UI does not require sharing those
@@ -265,12 +268,17 @@ keyboard and pointer transport. The same desktop can move between the full Space
 page and repository drawer, maximize, and reconnect while the user browses Forgejo.
 A thumbnail, terminal emulator or app launcher alone does not provide this feature.
 
+The user selected Linux desktops: Rocky KDE and Fedora KDE, with both GNOME
+variants deferred. Headless Rocky and Fedora Server are the terminal-only choices.
+The [Project OS profile contract](project-os.md#selected-environment-profiles) owns
+this matrix and creation behavior. Start desktop implementation with Fedora KDE,
+where the Codex Linux preview has an explicitly supported distribution.
+
 A Linux GUI can run in a container with a display server; a GUI does not inherently
-require a VM. A VM supplies its own kernel and guest OS, which matters for native
-Windows applications and OS-dependent features. The current CoreOS appliance can
-remain headless. The proposed desktop runs inside its guest, not on the host's
-display. Existing validation appliances being VMs does not mean Soda already
-manages desktop guests.
+require a VM. A VM supplies its own kernel and guest OS for kernel-dependent features.
+The current CoreOS appliance can remain headless. The proposed Linux desktop runs
+inside its guest, not on the host's display. Existing validation appliances being
+VMs does not mean Soda already manages desktop guests.
 
 ### Verified vendor constraints — 2026-09-10
 
@@ -283,21 +291,21 @@ Sources: [OpenAI Linux desktop](https://learn.chatgpt.com/docs/linux/linux-app),
 [OpenAI computer use](https://learn.chatgpt.com/docs/computer-use),
 [Claude Linux desktop](https://code.claude.com/docs/en/desktop-linux) and
 [Claude computer use](https://support.claude.com/en/articles/14128542-let-claude-use-your-computer-in-cowork).
+The user's [Linux preview announcement](https://community.openai.com/t/codex-in-chatgpt-desktop-app-for-linux-is-now-in-preview/1390027)
+and the platform guide explicitly list Fedora 43/44. Rocky is not on that list;
+Claude's Linux desktop currently supports neither selected distribution. Keep
+those app-specific limits visible and verify actual packaging/runtime compatibility.
 OpenAI's former Codex app documentation currently redirects to its desktop app
-guide with Codex mode. Recheck these platform-specific pages before packaging;
-older Claude general desktop documentation still says Linux is unsupported.
+guide with Codex mode. Recheck platform-specific pages before packaging.
 
-Consequently, installing either GUI in a Linux VM would not currently deliver its
-built-in computer use. **A Windows desktop VM is the proposed first compatibility
-probe for the complete requested experience.** This is an inference from vendor
-support, not Soda runtime evidence or a selected replacement for Linux projects.
-OpenAI explicitly describes using a Windows VM to contain foreground computer use.
-The app's target must stay on the active, unlocked guest desktop; browser viewer
-disconnection must not lock or replace that desktop session. Claude's account/plan
-requirements must also be checked with the intended account before a real probe.
+Linux is the selected direction despite the current computer-use gap. Ship actual
+GUI access and supported app/browser workflows, and add native computer use when
+the selected app and Linux environment support it. Do not advertise missing
+capabilities or make them a prerequisite to the Linux desktop feature. Windows
+is no longer the proposed first guest. Viewer disconnection must preserve the
+same desktop; lock/sleep and future computer-use continuity need native checks.
 
-Linux remains a useful candidate when the requirement is the GUI app, editors and
-browser tools. Claude Cowork on Linux additionally hosts its own QEMU/KVM VM; inside
+Claude Cowork on Linux additionally hosts its own QEMU/KVM VM; inside
 a desktop VM that would require nested virtualization. Do not silently pass host
 devices into current project containers to make it work. An API-based computer-use
 integration would be a separate agent integration, not proof that either vendor's
@@ -310,13 +318,16 @@ apps must run in the intended guest for the proposed streamed-guest experience.
 
 ### One bounded candidate and its ownership
 
-Investigate a QEMU/KVM guest with a private virtual-display endpoint and a browser
-viewer integrated into the existing Lit workspace. QEMU's
+Investigate a Fedora KDE Linux QEMU/KVM guest with a private virtual-display
+endpoint and a browser viewer integrated into the existing Lit workspace. QEMU's
 [VNC display](https://www.qemu.org/docs/master/system/invocation.html) and the
 [noVNC client](https://novnc.com/info.html) provide a candidate display/input path.
 This is a compatibility investigation, not an instruction to install either or
 build interchangeable runtime/transport backends. Review exact selected versions,
 CoreOS packaging, guest installation inputs and native hardware support first.
+Apply that desktop path to Rocky KDE after its own package/app checks; do not add
+a separate transport/backend per distribution. Preserve the existing headless
+Rocky container, and implement Fedora headless through its verified native recipe.
 
 Soda's operator provisions guest capacity; authorized users attach to their own
 desktop or an explicitly shared automation desktop. Project membership must not
@@ -354,17 +365,20 @@ keeping the Forgejo page open.
 
 ### Desktop completion criteria
 
-Before calling this supported, prove app installation/sign-in and a real GUI task
-in the selected guest; exact screen/input targeting; browser detach/reconnect and
+Before calling a desktop profile supported, prove a real GUI task and each
+advertised app's installation/sign-in in the selected guest; exact screen/input
+targeting; browser detach/reconnect and
 page/drawer navigation without desktop replacement; authorized observation/control
 transfer; isolation between users; and explicit Stop/Start persistence. Include
 guest lock/sleep, disconnect during computer use and provider approval handling.
+Run computer-use checks only when that capability is actually available, and mark
+it unavailable otherwise; desktop acceptance does not imply computer-use acceptance.
 Synthetic viewer tests alone cannot prove these behaviors. Guest provisioning,
 private sign-in and provider use require a separately scoped target and inputs;
 no retained VM or project is repurposed by this proposal. Validate each claimed
 architecture natively before advertising support.
 
-## Implementation sequence and completion criteria
+## Marketplace and AI implementation sequence
 
 1. Settle marketplace placement and trigger policy. Inspect exact upstream runtime,
    token and UI extension contracts; retain one candidate for each feature.

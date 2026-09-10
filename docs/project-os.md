@@ -1,8 +1,9 @@
 # Project OS baseline
 
-The foundation for the selected development workspace, **not a new distribution or
-a design for every possible workload**. Keep the existing persistent Rocky + mise
-userspace and ordinary Linux extension points. The [Sodaspaces plan](sodaspaces-plan.md)
+The foundation for the development workspace. The current implementation is the
+persistent Rocky + mise userspace with ordinary Linux extension points. The user
+has selected the bounded Rocky/Fedora and headless/KDE expansion below; GNOME is
+deferred. This does not replace existing roots. The [Sodaspaces plan](sodaspaces-plan.md)
 owns implementation order; this guide consolidates the project contracts and actual
 gaps. [Terminal](terminal-integration.md), [development](development-environment.md),
 [services](project-services.md) and [CLI](project-clis.md) guides own their details.
@@ -13,6 +14,67 @@ and bounded x86_64 account, shared-tool, nested-workload and persistence results
 is implemented with bounded isolated reload/cleanup proof; broader native safety/UX,
 key-free browser onboarding and the combined Git workflow remain incomplete.
 This baseline is documentation, not a new build, installed inventory or acceptance.
+
+## Selected environment profiles
+
+The user selected Linux for desktops and these creation choices on 2026-09-10:
+
+| Profile | Distribution | Interface | Status |
+| --- | --- | --- | --- |
+| Rocky headless | Rocky Linux | Terminal | Existing implementation; preserve as the default |
+| Rocky KDE | Rocky Linux | Terminal and KDE Plasma desktop | Selected; not implemented |
+| Rocky GNOME | Rocky Linux | Terminal and GNOME desktop | Deferred |
+| Fedora Server | Fedora Linux | Terminal / headless | Selected; not implemented |
+| Fedora KDE | Fedora Linux | Terminal and KDE Plasma desktop | Selected; recommended first desktop implementation |
+| Fedora GNOME | Fedora Linux | Terminal and GNOME desktop | Deferred |
+
+The creation UI can express this as **Distribution: Rocky / Fedora** and
+**Interface: Headless / KDE**. GNOME stays out of executable choices until its
+implementation is selected and ready. Existing environments show their original
+profile; this is not a live distro/desktop switcher. Resolve a bounded profile ID
+server-side to installed, architecture-compatible artifacts. Do not accept arbitrary
+image references, package lists or native runtime flags from the browser.
+
+Profiles describe initial userspace and interface, not six independent backends.
+Preserve the shared Soda contracts for accounts, home/shared files, mise, Git, SSH,
+terminals and Start/Stop persistence. Keep common authored files with their existing
+owner and isolate real distribution/package differences in the image recipes.
+Container init and native guest boot are distinct; do not blindly copy
+container-only units, seccomp/capability policy or network assumptions into a VM.
+
+The current helper uses one configured image and directly creates a persistent
+Podman container; the Create API accepts only a repository ID. There is no profile
+catalog, Fedora recipe or desktop/VM backend today. Preserve that Rocky mechanism
+for headless projects. A Linux QEMU/KVM guest remains the proposed desktop candidate
+in the [desktop design](services-and-ai-plan.md#4-desktop-workspaces); runtime and
+native compatibility still need proof. A profile is not itself a runtime selector.
+Fedora Server names the requested headless experience: document the actual Fedora
+image/edition used during packaging rather than representing a generic Fedora OCI
+image as an installed upstream Server edition.
+
+**Implement Fedora KDE first for desktop app compatibility.** OpenAI currently
+supports Fedora 43/44 in its Linux preview, while Rocky is outside its supported
+distro list. An RPM package alone does not prove Rocky compatibility. Both
+[Fedora KDE](https://www.fedoraproject.org/kde/download/) and
+[Rocky KDE](https://docs.rockylinux.org/teams/rel_eng/image/#about-live-images) have
+upstream x86_64/aarch64 media; availability is not installed Soda evidence. Exact
+version/digest/package baselines belong in reviewed recipes/locks when implemented.
+
+Desktop availability and individual AI capabilities must be reported separately.
+The [OpenAI Linux preview](https://learn.chatgpt.com/docs/linux/linux-app) currently
+lacks built-in computer use. The
+[Claude Linux desktop beta](https://code.claude.com/docs/en/desktop-linux) supports
+Ubuntu/Debian, not Fedora/RHEL, and also lacks computer use. These are current app
+compatibility gaps, not reasons to change the user's selected Linux distributions
+or quietly substitute an unofficial package. Recheck before each app integration;
+do not promise Claude GUI parity on the selected profiles yet.
+
+Deliver each new profile through creation, native provisioning, account/access
+wiring, packaging/staging and the real Spaces/drawer experience before enabling
+its choice. Prove persistence and authorization per profile and claimed native
+architecture. Profile changes apply to new environments; existing CIDs, roots,
+accounts, keys and installed tools remain untouched. No automatic conversion,
+OS upgrade, image replacement or project migration is selected.
 
 ## Ownership and trust
 
@@ -80,8 +142,9 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
 GUI/GPU/device access, kernel-dependent workloads and every third-party tool are not
 implied compatibility promises. A concrete new need gets its own native compatibility
 review; no privileged-parent shortcut, arbitrary host device/mount or automatic
-capability expansion. This is extensibility through Linux, not a plugin/OS-profile
-catalog or private-resource branching system.
+capability expansion. The selected creation profiles above reopen only those
+specific userspaces/interfaces; arbitrary profiles and private-resource branching
+remain outside scope.
 
 ## Persistent state and lifecycle
 
@@ -248,8 +311,9 @@ operator/project coordination. No automatic fleet patching is currently supplied
 | Personal Git credential trust/consent/passphrase choice and native endpoint trust | Resolve before automated Git setup/combined clone-edit-build-push proof; do not fabricate credentials or treat profile keys as repository-scoped. |
 | Current Forgejo authority versus already issued Linux sudo/SSH rights | Explicit limitation on rename/transfer/offboarding claims; no automatic native permission reconciliation is selected. |
 
-The existing foundation does not justify a new OS backend or universal-workstation
-planning phase. The [Lit workspace sequence](lit-migration-plan.md) preserves this
+The selected profiles extend this foundation through concrete implementation work;
+they do not require a universal-workstation planning phase. The
+[Lit workspace sequence](lit-migration-plan.md) preserves this
 implemented terminal mechanism while adding real multi-session UI/backend support.
 Onboarding and the combined Git workflow keep their separate scope. Extend the existing [product validation](native-validation.md)
 entrypoints for fresh and maintained projects; package lists, source tests or socket

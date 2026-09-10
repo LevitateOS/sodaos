@@ -1,6 +1,28 @@
 # Current handoff
 
-## Desktop workspace request and platform research
+## Linux desktop and Rocky/Fedora profile selection
+
+The user selected Linux desktops and six named profile choices: Rocky headless,
+Rocky KDE, Fedora Server/headless and Fedora KDE are in scope; Rocky GNOME and
+Fedora GNOME are deferred. The [Project OS baseline](project-os.md#selected-environment-profiles)
+now owns that matrix and creation-only behavior. Updated architecture, deferral and
+feature plans to remove the stale OS-profile exclusion and Windows-first candidate.
+
+Fedora KDE is the recommended first desktop implementation because the linked
+OpenAI announcement and current platform guide explicitly support Fedora 43/44.
+Rocky KDE has upstream media, but that does not establish vendor app compatibility.
+Claude's Linux GUI currently supports Ubuntu/Debian, not either selected distro;
+both vendors still document a Linux computer-use gap. These limits are recorded
+per app and do not change the user's Linux selection.
+
+Source inspection confirmed a single helper image and a repository-ID-only Create
+API. Only Rocky headless is currently implemented; new profiles, Linux desktop
+transport and guest provisioning remain source work. This update changes the design,
+not existing environments or the current native build baseline. Only read-only
+source/vendor research, documentation edits and Git whitespace checks ran. No
+builds/tests, image downloads/installs, provider jobs or VM changes ran.
+
+## Desktop workspace request and platform research — earlier candidate superseded
 
 Extended the [feature proposal](services-and-ai-plan.md#4-desktop-workspaces) with
 the user's GUI/computer-use request: a real Desktop view beside Terminal, shared
@@ -10,8 +32,8 @@ new responsibility; current Rocky containers and fixed-operation helpers are unc
 
 Official platform documentation checked on 2026-09-10 lists Linux desktop apps for
 both OpenAI/Codex and Claude, but neither currently includes native computer use
-on Linux. Windows is the proposed first guest compatibility probe for that complete
-experience, not a selected/deployed backend. OpenAI explicitly documents Windows VM
+on Linux. Windows was initially proposed for the first guest compatibility probe;
+the user's Linux selection above supersedes it. OpenAI explicitly documents Windows VM
 use; exact Soda guest integration, Claude account eligibility, active desktop
 continuity and safe control transfer remain unproved. Claude Linux Cowork's separate
 KVM requirement is also recorded rather than assumed to work in a project container.

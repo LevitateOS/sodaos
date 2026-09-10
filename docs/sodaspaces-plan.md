@@ -365,12 +365,14 @@ The user also requested a services marketplace, repository AI issue/PR automatio
 and graphical workspaces for desktop AI apps and computer use. The
 [feature proposal](services-and-ai-plan.md) records the proposed app lifetime,
 Forgejo Actions ownership, current host-only runner gap and bounded review/fix
-behavior. Its [desktop section](services-and-ai-plan.md#4-desktop-workspaces) proposes
-Terminal/Desktop views in the same Spaces page/drawer and a separately investigated
-VM guest. Both vendors' Linux desktop apps currently lack built-in computer use;
-the proposed complete-experience probe therefore uses Windows, subject to actual
-guest/app validation. Marketplace placement, trigger policy and desktop runtime
-selection remain product choices; these features are not yet implemented. This
+behavior. The user selected [Linux creation profiles](project-os.md#selected-environment-profiles):
+Rocky headless, Rocky KDE, Fedora Server/headless and Fedora KDE, with Rocky/Fedora
+GNOME deferred. Its [desktop section](services-and-ai-plan.md#4-desktop-workspaces)
+proposes Terminal/Desktop views in the same Spaces page/drawer and a Linux VM
+candidate, starting with Fedora KDE. This supersedes the earlier Windows-first
+recommendation. Current Linux app/computer-use limits remain explicit compatibility
+facts, not reasons to change that selection. Marketplace placement and trigger
+policy remain product choices; only Rocky headless is currently implemented. This
 extends requested scope without changing existing project roots, provider authority
 or deployment permission.
 

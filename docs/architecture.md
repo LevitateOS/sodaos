@@ -53,7 +53,10 @@ open. It is not a replacement for ordinary SSH or a separate public terminal ser
 it is not a user database, init system or filesystem. Project containers share the
 host kernel; Rocky supplies userspace. The [Project OS baseline](project-os.md)
 consolidates native ownership, supported tools, persistent/runtime state and bounded
-same-root maintenance. It is not a new OS backend or a universal-workstation roadmap.
+same-root maintenance. Its [selected creation profiles](project-os.md#selected-environment-profiles)
+extend requested scope to Rocky/Fedora headless and KDE, with GNOME deferred.
+Only Rocky headless is currently implemented; the Linux desktop runtime remains a
+candidate to validate. The CoreOS host and existing projects keep their topology.
 See `appliance/services/`, `project-os/`, [installation](installation.md) and
 [development environment](development-environment.md) for implementation and usage.
 Dependency baselines belong in source recipes/locks, not repeated prose version rules.
@@ -168,8 +171,11 @@ see [project services](project-services.md) and [validation](native-validation.m
 
 The runtime is a trusted-team namespaced boundary, not hostile-tenant isolation.
 Investigate project-scoped host workloads only after a concrete nested-runtime blocker.
-No dormant fallback, unrestricted host socket, privileged parent or VM substitute is
-implemented or authorized. Bring a genuine architecture gap back for a decision.
+No dormant workload fallback, unrestricted host socket or privileged parent is
+implemented or authorized. The separately requested Linux desktop guest candidate
+is scoped in the [desktop design](services-and-ai-plan.md#4-desktop-workspaces);
+it is not a replacement for the nested project workload runtime. Bring other
+genuine architecture gaps back for a decision.
 
 ## Networking and operator tools
 
