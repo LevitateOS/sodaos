@@ -1,5 +1,77 @@
 # Current handoff
 
+## Manual installer replacement — local source, native media deferred
+
+The selected interface is a text wizard over stock CoreOS Installer, with its
+[screen/effect contract](coreos-installer-plan.md#selected-text-interface-and-completion-contract)
+and [operator journey](coreos-installer.md) recorded. It asks for a root password
+and confirmation without a public-key prompt. Invalid input is correctable; Back
+retains validated hostname/subnet values and clears passwords. Disk selection and
+the exact erase confirmation have no default. Pre-write cancellation offers an
+explicit restart; any disk-write attempt blocks replay. NetworkManager, OpenSSL,
+Butane/Ignition and CoreOS Installer retain their native responsibilities.
+
+The media builder snapshots the matching sealed Soda bundle into ordinary ISO
+files and verifies final readback. After stock disk installation, the live command
+revalidates the exact root partition and copies the verified bundle into its OSTree
+stateroot before showing USB-removal guidance. It handles the pre-first-boot layout,
+including an absent `var/lib`, measures free space without resizing partitions,
+labels and syncs the copy and refuses incomplete receipts. Continuation uses that
+fixed copied bundle, with no manual bundle path/checksum entry or substitute download.
+The stock initial root's capacity is a native validation question: a large target
+disk does not establish that the bundle fits before first-boot growth.
+
+Later SSH enrollment is explicitly armed from a physical local console for a
+bounded window. Stock OpenSSH owns authentication and the forced command; native
+systemd socket activation owns accepting/limiting connections and their lifetime.
+The initial custom TCP accept/fork loop was removed during the upstream review.
+Ordinary SSH policy remains separate. This temporary listener deliberately disables
+PAM so PAM session migration cannot escape the service cgroup; its account-policy,
+SELinux, shutdown and actual login behavior still require Fedora CoreOS validation.
+Enrollment is currently limited to a selected RFC1918 IPv4 address.
+
+The installed `configure` action requires the laptop's SSH terminal before asking
+for a hidden Forgejo token. It delegates OAuth provisioning to existing setup and
+activation commands, using a selected private appliance IP and Caddy's internal CA.
+No domain purchase or automatically installed client trust is required. Guidance
+copies only the public CA certificate through SSH for explicit client trust. Native
+service checks distinguish an activation attempt from successfully running units;
+rerunning the read-only status branch does not replay setup. Application/browser
+and first-project success still require the complete installed journey.
+
+**Actually executed:** combined `go test ./internal/installer ./internal/nativebuild
+./appliance/installer` and `go test -race ./internal/installer` passed with pinned
+Go 1.26.7 in the network-disabled Linux/aarch64 checker, using read-only source and
+module-cache mounts. This includes password/Back/restart, hidden setup-token,
+payload failure/receipt, concurrent key-edit and address-retry coverage. Existing
+keys use one bounded append to the validated inode; missing files are published
+exclusively. Concurrent edits and uncertain writes are preserved and reported,
+without restoring a snapshot or retrying. Portable enrollment race tests and a
+synthetic dedicated `sshd -T` configuration check also passed on macOS; the Linux
+checker lacks sshd, so that parser test skipped there.
+
+Python media tests passed on both platforms: **18 tests, 1 skip** on macOS (the
+GNU/Linux launcher case) and **18 tests, 1 skip** on Linux (xorriso unavailable).
+The real synthetic, nonbootable xorriso metadata/tampering roundtrip passed on
+macOS; the real shell copy/hash/exec launcher against synthetic files passed on
+Linux. The first macOS invocation failed because the Linux-only launcher used GNU
+tool options and the provisioning fixture retained macOS's symlinked temporary
+path; the test now declares its platform and resolves its fixture path without
+weakening production validation. Five activation/proxy tests passed, including
+real Caddy 2.10.2 private-IP adaptation and the existing isolated loopback route
+fixture. Formatting, Git whitespace and 95 local guide links/anchors passed.
+
+No new product ISO, VM, installed disk, appliance service/key-import listener,
+provider change, global certificate trust or retained-project action occurred. The x86_64 media
+build and fresh-install-through-first-project test are explicitly deferred until
+that machine is available. No native aarch64 acceptance is implied by container tests.
+
+The separate [full upstream-ownership audit](refactoring-plan.md#requested-full-upstream-ownership-audit--outstanding)
+is underway; individual installer reviews are not its completion. `AGENTS.md` now
+requires source-backed upstream reuse before adding custom mechanisms. Services,
+AI automation, graphical installation and the prepared QCOW2 remain outside this
+implementation slice.
+
 ## Refactoring step C — current-session and page mechanics
 
 Added one fresh-session comparison in `internal/web/api.go`, with explicit context,
@@ -1842,6 +1914,7 @@ compact pane selection and stable host/renderer/socket behavior have focused che
 The fixture's native form and synthetic socket are not stock Forgejo or tmux proof.
 
 **Executed locally**, pinned Bun 1.4.2 / Go 1.26.7:
+
 - Strict TypeScript; frontend **168 pass / 3 gated skips** (Go-page and layout cases
   then run separately; the private browser-pipe opt-in remains skipped).
 - Go HTML/browser **1 pass**; measured layout **20 cases pass**; explicit Lit
@@ -2006,7 +2079,6 @@ Existing installed probes describe the earlier delivered UI; do not run them
 unchanged as proof of this candidate. Historical failed native terminal probes
 remain failures. No native build/export, deployment or push occurred. The user's
 separate 18-line terminal compatibility note is preserved unstaged.
-
 
 ## ID-keyed terminals and bounded Spaces API — local step 3, no rollout
 
@@ -3780,7 +3852,6 @@ repository navigation. It passed, as did focused Forgejo Go checks. Wiki revisio
 padding removal is source-reviewed; no wiki fixture was created for verification.
 Templates/assets refreshed only in the existing local preview.
 
-
 ## Repository file toolbar correction
 
 Local revision `2026-09-08.4` aligns the branch picker, compare/find/add controls,
@@ -3797,7 +3868,6 @@ visually inspected: `.artifacts/screenshots/capture-vUErxz/` and `capture-MkUotY
 Owner-only Add file is fixture-tested, not claimed as authenticated owner evidence.
 The earlier complete review package remains a record of revision `.3`; this is a
 scoped local correction, with no form submissions or appliance deployment.
-
 
 ## Presentation redesign local candidate
 
@@ -4071,6 +4141,7 @@ fixes remain byte-for-byte unchanged from pre-merge main. Both parent histories
 are preserved; no rebase, cherry-pick or history rewrite.
 
 Merged-tree checks on this development machine:
+
 - `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -json -count=1 -mod=readonly ./scripts -run TestForgejo`:
   **97 top-level tests passed**, no failures/skips, plus their subtests. There are
   98 matching source declarations; `TestForgejoBrandingMatchesSVGMaster` requires
@@ -4148,6 +4219,7 @@ request timeout bounds the loading state. Retry/View all/Pinned/loading/empty/er
 copy is custom English pending localization; existing notification/close keys are reused.
 
 Performed locally:
+
 - Offline readonly focused Go `./scripts -run TestForgejo`: passed, including compact
   and ordinary fragment branches, faithful embedded template-context method lookup,
   zero/one/five rows, pinned/content escaping, native subpath links and signed-in hooks.

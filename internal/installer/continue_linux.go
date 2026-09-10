@@ -30,7 +30,18 @@ func addContinuation(destination, binary []byte) ([]byte, error) {
 	// Use the real writable CoreOS path; /usr/local is its native symlink.
 	for path, content := range map[string][]byte{
 		"/var/usrlocal/libexec/soda/soda-install": binary,
-		"/etc/profile.d/soda-install-next.sh":     []byte("# Guidance only; never install or reboot from a login hook.\nif [ \"$(id -u)\" = 0 ] && [ -t 1 ] && [ ! -e /etc/soda/installed ]; then\n  printf '%s\\n' 'Soda installation is incomplete. Run: sudo /usr/local/libexec/soda/soda-install continue'\nfi\n"),
+		"/etc/profile.d/soda-install-next.sh": []byte(`# Guidance only; never install, enroll, activate or reboot from a login hook.
+if [ "$(id -u)" = 0 ] && [ -t 1 ]; then
+  if [ ! -e /etc/soda/installed ]; then
+    printf '%s\n' 'Soda components are not installed. Run: /usr/local/libexec/soda/soda-install continue'
+  elif [ ! -e /etc/soda/activated ]; then
+    printf '%s\n' 'Soda browser setup is incomplete. From your laptop SSH terminal, run: /usr/local/libexec/soda/soda-install configure'
+  fi
+  if [ ! -e /etc/soda/activated ]; then
+    printf '%s\n' 'Need SSH access? At the local console, run: /usr/local/libexec/soda/soda-install enroll-key'
+  fi
+fi
+`),
 	} {
 		mode := 0644
 		if path == "/var/usrlocal/libexec/soda/soda-install" {
@@ -150,7 +161,8 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	if err := freshAppliance(); err != nil {
 		return err
 	}
-	c.print("SodaOS installed-host continuation. No disk writes, automatic reboot, provider enrollment or public activation.")
+	c.print("SodaOS — install the included components")
+	c.print("This step installs Soda onto the existing host. It does not repartition the disk or reboot automatically.")
 	if _, err := os.Stat("/var/lib/soda/extensions-requested"); err != nil {
 		return errors.New("extensions are not confirmed: inspect systemctl status soda-extensions and its journal; do not reinstall the host")
 	}
@@ -161,12 +173,7 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	if err := extensionsBooted(data); err != nil {
 		return err
 	}
-	c.print("Transfer the matching sealed bundle through independently trusted operator SSH/SCP into a new root-owned directory (for example below /root). Keep its architecture directory name. Obtain the SHA-256 of SHA256SUMS from the trusted builder/channel, not from the received bundle itself.")
-	bundle, err := c.ask("Absolute bundle directory")
-	if err != nil {
-		return err
-	}
-	digest, err := c.ask("Independently trusted SHA-256 of SHA256SUMS")
+	bundle, digest, revision, err := installedPayload()
 	if err != nil {
 		return err
 	}
@@ -177,6 +184,9 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	inventory, err := verifyTrustedBundle(bundle, digest, architecture())
 	if err != nil {
 		return errors.New("bundle verification refused; check trusted identity, ownership, architecture and matching source inventory")
+	}
+	if inventory.Revision != revision {
+		return errors.New("installed payload revision does not match its completed media-copy receipt")
 	}
 	data, err = readRegular("/etc/soda-installer/project-subnet", 128)
 	if err != nil {
@@ -216,7 +226,10 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	if _, err := run(ctx, "bash", []string{filepath.Join(bundle, "install-native.sh"), bundle, subnet}, nil); err != nil {
 		return errors.New("Soda first-install failed or was interrupted; preserve partial state and inspect with the operator. No retry or reboot performed. " + failureSummary(err))
 	}
-	c.print("Soda components installed. Complete native Forgejo setup over operator SSH forwarding to host loopback port 3000, then soda-setup and soda-activate with the real private origin/TLS inputs. Cockpit remains loopback-first; project client routing is still required.")
+	c.print("Soda components installed. Browser setup is next.")
+	c.print("At this machine's local console, run %s enroll-key to import your laptop's public key without typing or pasting it here.", installerBinary)
+	c.print("Then connect from your laptop using that key and run %s configure in its SSH terminal. The setup guide uses native Forgejo and a private HTTPS address; no domain is needed.", installerBinary)
+	c.print("Cockpit remains loopback-first; direct project SSH still needs client routing.")
 	c.print("Guide: https://github.com/LevitateOS/sodaos/blob/main/docs/operator-setup.md")
 	return nil
 }

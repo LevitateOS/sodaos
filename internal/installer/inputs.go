@@ -80,9 +80,13 @@ func ProjectSubnet(value string, routes []string) error {
 // owns that template; this is not an arbitrary user-supplied Ignition interpreter.
 // Butane is not required on the live OS and private inputs never reach its logs.
 func Destination(template []byte, hostname, key, passwordHash, subnet string) ([]byte, error) {
-	normalized, err := PublicKey(key)
-	if err != nil {
-		return nil, err
+	var normalized string
+	if key != "" {
+		var err error
+		normalized, err = PublicKey(key)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if !Hostname(hostname) || ProjectSubnet(subnet, nil) != nil || !regexp.MustCompile(`^\$6\$[./a-zA-Z0-9]{1,16}\$[./a-zA-Z0-9]{86}$`).MatchString(passwordHash) {
 		return nil, errors.New("invalid private provisioning inputs")
@@ -122,6 +126,10 @@ func Destination(template []byte, hostname, key, passwordHash, subnet string) ([
 	}
 	storage["files"], _ = json.Marshal(files)
 	config["storage"], _ = json.Marshal(storage)
-	config["passwd"], _ = json.Marshal(map[string]interface{}{"users": []interface{}{map[string]interface{}{"name": "root", "passwordHash": passwordHash, "sshAuthorizedKeys": []string{normalized}}}})
+	root := map[string]interface{}{"name": "root", "passwordHash": passwordHash}
+	if normalized != "" {
+		root["sshAuthorizedKeys"] = []string{normalized}
+	}
+	config["passwd"], _ = json.Marshal(map[string]interface{}{"users": []interface{}{root}})
 	return json.Marshal(config)
 }

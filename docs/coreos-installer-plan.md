@@ -5,8 +5,8 @@
 The user exercised the ISO through a keyboard-only VM console and selected a
 **root-password installation with no SSH public-key prompt**. The same flow must
 work when booting physical hardware from a USB stick. This replaces the initial
-required-key design below; it is a documented change to implement, not behavior
-already present in the delivered ISO.
+required-key design below. A replacement source candidate is being integrated;
+it is not behavior already present in the delivered ISO.
 
 The current interface exposed three gaps: invalid disk input exits without a retry
 screen; key entry assumes clipboard support or an already accessible live-system
@@ -44,6 +44,43 @@ accounts. It must not silently enable ordinary root-password SSH.
    Rebuild media and validate the complete authorized fresh-disk journey before
    describing the replacement as a usable installer.
 
+### Selected text interface and completion contract
+
+The user subsequently chose a **CLI/text wizard**, with a complete design and
+implementation. A graphical session or Anaconda GUI is not selected. The broken
+prompt/retry behavior belongs to Soda's existing wrapper; stock CoreOS Installer
+continues to own disk writing and the standard layout. The text interface is a
+product feature, not an operator checklist that leaves its missing integration to
+the user.
+
+| Screen or phase | Required behavior |
+| --- | --- |
+| Welcome | Clear boot clutter, explain the installation stages, and start only on operator input. |
+| Network | Keep DHCP/current settings or open native nmtui; show observed settings and allow correction. |
+| Disk | Show disk identity, capacity, partitions and unavailable reasons; require a listed selection, never a default disk. Invalid input stays in this step. |
+| Hostname | Use `soda` initially; preserve a previously valid non-secret value when going Back. Explain validation at the field. |
+| Password | Hidden entry and confirmation for local root access; retry mismatch/invalid input without restarting the whole installer. Never echo/review the password or enable ordinary password SSH. |
+| Project network | Explain the private project subnet, validate overlaps and preserve its previous valid default when revisiting. Client routing remains a separate step. |
+| Final review | Show the actual disk and non-secret choices, then require the exact named-disk ERASE phrase. A typo leaves the review open with no disk writes. |
+| Writing and payload copy | Invoke stock CoreOS Installer once, then copy and verify the matching bundled Soda payload. Show media removal only after successful handoff; no automatic reboot or replay. |
+| Installed continuation | Show extension/activation-reboot requirements, verify the included payload and request explicit INSTALL SODA confirmation. No manual bundle path/checksum transfer in the media journey. |
+| Access and browser setup | Separate locally armed public-key import, verified laptop SSH, native Forgejo setup and private-IP HTTPS with explicit client trust. No domain purchase or console key transcription. |
+
+Every input screen provides its applicable Back, restart or cancel action. Back
+preserves useful non-secret choices; returning through password entry requires a
+fresh secret. Restart is explicit and reuses the verified loaded executable only
+before disk writing. Cancellation or failure after an attempted write retains
+partial state/evidence and gives inspection guidance; it cannot imply rollback or
+silently begin another erase. Native effects are not tied to redraw/reconnect.
+
+Source completion requires focused tests for field errors, Back and restart,
+private input, cancellation at effect boundaries, disk identity changes,
+incomplete payload/setup state and preservation of existing keys. Actual product
+completion requires a keyboard-only USB/VM journey through reboot, local password
+login, laptop key import, private browser login and a first real project terminal.
+The user deferred that x86_64 media build/install proof until the x86_64 machine is
+available; local design, implementation and checks continue in the meantime.
+
 ### Remote access after local installation
 
 The recommended follow-up is a **locally armed, short-lived native SSH key-import
@@ -57,17 +94,20 @@ required. A VM's network mode still has to provide a real client path.
 Authenticate with the native operator password only within the explicitly enabled
 window, and restrict this temporary connection to bounded key
 enrollment: no ordinary shell, PTY, forwarding, SCP or arbitrary commands. Validate and
-atomically install the key with native ownership/permissions; preserve other keys.
+install the key with native ownership/permissions while preserving other keys.
+Publish a missing file exclusively; append to a validated existing inode without
+replacing it. A detected concurrent native edit or partial write must report an
+uncertain result rather than restore a stale snapshot or retry automatically.
 Close enrollment after one successful import, cancellation, timeout or reboot, and
 require authenticated local action to reopen it. After the window closes, verify a
 fresh ordinary key-based SSH connection before bundle transfer or native Forgejo
 setup through an SSH tunnel; local password access
 remains available if that check fails. Normal SSH remains key-based.
 
-This is a design recommendation requiring implementation and exact native
-authentication/timeout/failure validation. It is not an existing `soda-install`
-subcommand, a persistent root-password SSH policy or a new Forgejo password
-authority. The existing native Forgejo installer still uses an operator SSH tunnel;
+The replacement source adds `soda-install enroll-key`; exact native
+authentication/timeout/failure validation remains required. It is separate from
+ordinary root-password SSH policy and Forgejo password authority.
+The existing native Forgejo installer still uses an operator SSH tunnel;
 there is no selected public browser-bootstrap server.
 
 USB file picking, HTTPS public-key retrieval, personalized media and paired-browser
@@ -77,14 +117,16 @@ later SSH-dependent continuation incomplete.
 
 ## Current source status
 
-The original implementation of steps 1–4 has a source candidate and focused local
-coverage; see [the implementation/usage guide](coreos-installer.md). That coverage
-does not include the password-only replacement specified above.
-Step 5 now includes on-media packaging/readback checks; see the handoff for actual
-media-generation and bounded diskless BIOS/UEFI boot evidence. Disk writes and the
-installed journey remain unrun. The candidate has a tty1 console,
-not a graphical or serial-only interface. An invalid/cancelled form exits; native
-effects are never automatically retried.
+The replacement source implements password-only fields, correctable input and
+pre-write restart, with separate key-import and private browser setup commands.
+Payload packaging/continuation is integrated in this same slice; see
+[the implementation/usage guide](coreos-installer.md) and leading handoff for its
+actual checks and remaining work. Earlier media-generation and bounded diskless
+BIOS/UEFI boot evidence apply to the previous required-key ISO. The replacement
+x86_64 build and full fresh-disk journey wait for the x86_64 machine; independent
+aarch64 installed proof also remains. Local source checks continue on ARM.
+The candidate has a tty1 console, not a graphical or serial-only interface.
+Native effects are never automatically retried after an attempted write.
 
 Corrected packaging: 256 KiB is the **Ignition embed** limit, not the ISO's capacity.
 Xorriso replays the imported boot equipment and adds the console to `/soda/` on the
@@ -109,8 +151,8 @@ write disks, start new fixtures, publish images or reinstall retained appliances
 The [installation guide](installation.md) owns existing installation contracts;
 [native support](native-support.md) supplies artifacts/transport, not a second
 installer. The [media delivery direction](installation.md#publication-direction)
-adds a recommended QCOW2 deliverable and bundled Soda payload as separate remaining
-packaging work. It does not select a host OCI/bootc migration or a release/update
+adds a recommended QCOW2 deliverable and bundled Soda payload. The QCOW2 producer
+remains unimplemented. It does not select a host OCI/bootc migration or a release/update
 platform, and discussion of downloads is not publication permission.
 
 ## 1. Lock and customize upstream media
@@ -132,7 +174,7 @@ platform, and discussion of downloads is not publication permission.
 
 ## 2. Add bounded input and confirmation UI
 
-| Input | Selected replacement behavior; implementation pending |
+| Input | Replacement source behavior; rebuilt-media validation pending |
 | --- | --- |
 | Installation disk | Explicit selection showing model, size, serial and existing partitions; exclude live backing media and reject mounted/in-use targets. Recheck identity immediately before writing. |
 | Erase confirmation | Name the selected disk and require explicit confirmation; cancellation before execution makes no disk writes. |

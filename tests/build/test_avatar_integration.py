@@ -7,6 +7,7 @@ import contextlib
 import http.client
 import http.server
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -26,7 +27,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class AvatarActivation(unittest.TestCase):
     def test_first_activation_derives_provider_from_forgejo_origin(self):
-        for origin in ('https://forge.example.test:8443', 'https://[fd00::5]:8443/'):
+        for origin, local_tls in (('https://forge.example.test:8443', False),
+                                  ('https://[fd00::5]:8443/', False),
+                                  ('https://192.168.2.100', True),
+                                  ('https://[fd00::5]', True)):
             with self.subTest(origin=origin), tempfile.TemporaryDirectory() as directory:
                 temp = Path(directory)
                 config_root = temp / 'etc/soda'
@@ -56,9 +60,13 @@ class AvatarActivation(unittest.TestCase):
                         return temp / path.relative_to('/')
                     return path
 
-                args = ['soda-activate', '--bind-ip', '127.0.0.1',
-                        '--certificate', str(temp / 'certificate'),
-                        '--private-key', str(temp / 'private-key')]
+                address = 'fd00::5' if origin == 'https://[fd00::5]' else '192.168.2.100'
+                args = ['soda-activate', '--bind-ip', address if local_tls else '127.0.0.1']
+                if local_tls:
+                    args += ['--local-tls']
+                else:
+                    args += ['--certificate', str(temp / 'certificate'),
+                             '--private-key', str(temp / 'private-key')]
                 with patch('sys.argv', args), patch('pathlib.Path', side_effect=mapped_path), \
                         patch('os.geteuid', return_value=0), patch('os.chown'), \
                         patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)), \
@@ -70,6 +78,21 @@ class AvatarActivation(unittest.TestCase):
                 self.assertEqual(values['FORGEJO__ui__DEFAULT_THEME'], 'soda-auto')
                 self.assertFalse(any('DISABLE_GRAVATAR' in k or 'FEDERATED' in k or 'OFFLINE_MODE' in k for k in values))
                 self.assertEqual(run.call_count, 3)  # existing activation phases only
+                proxy = (config_root / 'proxy.env').read_text()
+                self.assertIn('SODA_TLS=internal\n' if local_tls else
+                              'SODA_TLS=/etc/soda/tls/cert.pem /etc/soda/tls/key.pem\n', proxy)
+                self.assertEqual((config_root / 'tls/cert.pem').exists(), not local_tls)
+
+    def test_tls_mode_rejects_missing_or_mixed_inputs_before_effects(self):
+        for extra in ([], ['--certificate', '/missing'],
+                      ['--local-tls', '--certificate', '/missing'],
+                      ['--local-tls', '--private-key', '/missing']):
+            with self.subTest(extra=extra), patch('sys.argv', ['soda-activate', '--bind-ip', '192.168.1.5', *extra]), \
+                    patch('os.geteuid', return_value=0), patch('subprocess.run') as run, \
+                    patch('sys.stderr', new_callable=io.StringIO):
+                with self.assertRaises(SystemExit):
+                    runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
+                run.assert_not_called()
 
 
 class AvatarPackaging(unittest.TestCase):
@@ -110,6 +133,26 @@ class AvatarPackaging(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get('SODA_CADDY_BINARY'), 'set SODA_CADDY_BINARY for real loopback routing checks')
 class AvatarProxy(unittest.TestCase):
+    def test_local_tls_uses_native_issuer_without_automatic_client_trust(self):
+        binary = str(Path(os.environ['SODA_CADDY_BINARY']).resolve())
+        for address, origin, listener in (
+                ('192.168.2.100', 'https://192.168.2.100', '192.168.2.100:443'),
+                ('fd00::5', 'https://[fd00::5]', '[fd00::5]:443')):
+            with self.subTest(address=address):
+                env = dict(os.environ, FORGEJO_ORIGIN=origin, SODA_BIND=address, SODA_TLS='internal')
+                adapted = subprocess.run([binary, 'adapt', '--config',
+                                          str(ROOT / 'appliance/config/proxy.Caddyfile')],
+                                         env=env, check=True, capture_output=True, text=True)
+                config = json.loads(adapted.stdout)
+                self.assertTrue(config['admin']['disabled'])
+                self.assertFalse(config['apps']['pki']['certificate_authorities']['local']['install_trust'])
+                policies = config['apps']['tls']['automation']['policies']
+                self.assertEqual(policies, [{'subjects': [address], 'issuers': [{'module': 'internal'}]}])
+                servers = list(config['apps']['http']['servers'].values())
+                self.assertEqual(len(servers), 1)
+                self.assertEqual(servers[0]['listen'], [listener])
+                self.assertTrue(servers[0]['automatic_https']['disable_redirects'])
+
     def test_production_routes_with_test_owned_upstreams(self):
         binary = str(Path(os.environ['SODA_CADDY_BINARY']).resolve())
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:

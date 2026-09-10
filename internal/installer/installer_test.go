@@ -77,6 +77,10 @@ func TestDestinationUsesConvertedPublicBootstrap(t *testing.T) {
 	if len(users) != 1 || users[0].(map[string]interface{})["name"] != "root" {
 		t.Fatal("unexpected host identities")
 	}
+	keys := users[0].(map[string]interface{})["sshAuthorizedKeys"].([]interface{})
+	if len(keys) != 1 || keys[0] != fixtureKey(t) {
+		t.Fatal("explicit operator key was not preserved")
+	}
 	files := config["storage"].(map[string]interface{})["files"].([]interface{})
 	paths := map[string]interface{}{}
 	for _, file := range files {
@@ -111,6 +115,32 @@ func TestDestinationUsesConvertedPublicBootstrap(t *testing.T) {
 	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(paths["/etc/hostname"].(map[string]interface{})["contents"].(map[string]interface{})["source"].(string), "data:;base64,")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDestinationAllowsPasswordWithoutPublicKey(t *testing.T) {
+	template := []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`)
+	hash := "$6$synthetic$" + strings.Repeat("a", 86)
+	data, err := Destination(template, "soda", "", hash, "10.89.0.0/24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Passwd struct {
+			Users []map[string]interface{} `json:"users"`
+		} `json:"passwd"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Passwd.Users) != 1 || config.Passwd.Users[0]["passwordHash"] != hash {
+		t.Fatal("password-only root account missing")
+	}
+	if _, exists := config.Passwd.Users[0]["sshAuthorizedKeys"]; exists {
+		t.Fatal("password-only destination invented an SSH key field")
+	}
+	if _, err := Destination(template, "soda", "not a public key", hash, "10.89.0.0/24"); err == nil {
+		t.Fatal("explicit invalid public key accepted")
 	}
 }
 
@@ -263,7 +293,7 @@ func TestOSReleaseParsing(t *testing.T) {
 	if values["VERSION_ID"] != "44" || values["IMAGE_VERSION"] != "44.20260817.3.2" || values["VARIANT_ID"] != "coreos" {
 		t.Fatal(values)
 	}
-	media := mediaIdentity{Architecture: "x86_64", Release: "44.20260817.3.2", Revision: strings.Repeat("a", 40)}
+	media := mediaIdentity{Architecture: "x86_64", Release: "44.20260817.3.2", Revision: strings.Repeat("a", 40), BundleSHA256: strings.Repeat("b", 64)}
 	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err != nil {
 		t.Fatal(err)
 	}
@@ -283,5 +313,10 @@ func TestOSReleaseParsing(t *testing.T) {
 	media.Release = ""
 	if err := media.validate("", "x86_64"); err == nil {
 		t.Fatal("empty image identity accepted")
+	}
+	media.Release = values["IMAGE_VERSION"]
+	media.BundleSHA256 = "unreviewed"
+	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err == nil {
+		t.Fatal("invalid included payload digest accepted")
 	}
 }

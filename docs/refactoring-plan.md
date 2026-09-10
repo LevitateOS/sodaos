@@ -7,6 +7,31 @@ and an upstream-reuse review before turning the findings into an implementation 
 This document records that review and **narrows the initial audit** where it was
 premature or overlooked an existing mechanism.
 
+## Requested full upstream-ownership audit — outstanding
+
+The user subsequently requested a **full audit**, in addition to completing the
+text-based installer design and implementation. The targeted review below and
+individual installer fixes do not count as completing that audit.
+
+The audit must inventory every `internal/` package and follow its real callers
+through commands, native helpers, appliance/project recipes, frontend code and
+build/support tools. For each responsibility, record the selected upstream owner
+and version, supported mechanisms actually inspected, Soda's necessary remainder,
+and any proven duplication or unresolved capability question. Package boundaries
+alone do not establish separate ownership; missing APIs must not be assumed from
+an inconvenient interface.
+
+The deliverable is a source-linked coverage inventory and prioritized findings
+with concrete keep/reuse/remove recommendations, evidence and validation limits.
+Distinguish a confirmed unnecessary replacement from a hypothesis or a justified
+adapter. Preserve working user journeys, authorization, persistence and unfinished
+features. An audit is not blanket permission for a rewrite or broad refactoring;
+native deployment and the deferred x86 installer validation retain their own scope.
+
+The strengthened [repository instructions](../AGENTS.md#human-maintainable-engineering)
+apply throughout implementation and review. This audit remains separate from the
+[installer interface contract](coreos-installer-plan.md#selected-text-interface-and-completion-contract).
+
 ## Decision
 
 Keep the selected architecture. Improve Soda's integration and development feedback;

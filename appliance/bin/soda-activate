@@ -1,16 +1,22 @@
 #!/usr/bin/python3
-"""Operator-only activation AFTER native Forgejo setup and real TLS provisioning."""
+"""Operator-only activation after native Forgejo setup, with explicit private TLS."""
 import argparse, ipaddress, json, os, pwd, shutil, subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--bind-ip', required=True, help='explicit private appliance address')
-parser.add_argument('--certificate', required=True, help='PEM certificate covering the Forgejo/Sodaspaces browser origin')
-parser.add_argument('--private-key', required=True, help='PEM private key; never committed')
+parser.add_argument('--certificate', help='PEM certificate covering the Forgejo/Sodaspaces browser origin')
+parser.add_argument('--private-key', help='PEM private key; never committed')
+parser.add_argument('--local-tls', action='store_true', help='use Caddy local certificates for the selected private IP; client trust is explicit')
 args = parser.parse_args()
 if os.geteuid() != 0:
     parser.error('native host operator/root required')
+if args.local_tls:
+    if args.certificate or args.private_key:
+        parser.error('local TLS and supplied certificates are separate choices')
+elif not args.certificate or not args.private_key:
+    parser.error('select --local-tls or supply both --certificate and --private-key')
 address = ipaddress.ip_address(args.bind_ip)
 if address.is_unspecified or address.is_multicast or address.is_global:
     parser.error('select an explicit private/loopback address, not a public administration exposure')
@@ -24,6 +30,10 @@ for key in ('forgejo_url',):
     u = urlsplit(cfg[key])
     if u.scheme != 'https' or not u.hostname or u.username or u.password or u.query or u.fragment or u.path not in ('', '/') or any(c in cfg[key] for c in '\r\n'):
         parser.error('invalid HTTPS browser origin')
+if args.local_tls:
+    origin = urlsplit(cfg['forgejo_url'])
+    if origin.hostname != str(address) or origin.port not in (None, 443):
+        parser.error('local TLS uses the exact selected private IP on HTTPS port 443')
 if cfg['forgejo_internal_url'] != 'http://127.0.0.1:3000' or cfg['listen'] != '127.0.0.1:8080':
     parser.error('bundled service recipes require the documented internal listeners')
 account = pwd.getpwnam('soda')
@@ -38,10 +48,12 @@ for p in [root / 'dashboard.json', Path(cfg['oauth_secret_file']), Path(cfg['adm
     p.chmod(0o640)
 tls = root / 'tls'
 tls.mkdir(mode=0o700, exist_ok=True)
-for source, dest in [(args.certificate, 'cert.pem'), (args.private_key, 'key.pem')]:
-    shutil.copyfile(source, tls / dest)
-    (tls / dest).chmod(0o600)
-(root / 'proxy.env').write_text(f'FORGEJO_ORIGIN={cfg["forgejo_url"]}\nSODA_BIND={address}\n')
+if not args.local_tls:
+    for source, dest in [(args.certificate, 'cert.pem'), (args.private_key, 'key.pem')]:
+        shutil.copyfile(source, tls / dest)
+        (tls / dest).chmod(0o600)
+tls_input = 'internal' if args.local_tls else '/etc/soda/tls/cert.pem /etc/soda/tls/key.pem'
+(root / 'proxy.env').write_text(f'FORGEJO_ORIGIN={cfg["forgejo_url"]}\nSODA_BIND={address}\nSODA_TLS={tls_input}\n')
 (root / 'proxy.env').chmod(0o600)
 envpath = root / 'forgejo.env'
 values = dict(line.split('=', 1) for line in envpath.read_text().splitlines() if line and not line.startswith('#') and '=' in line)
@@ -61,3 +73,5 @@ subprocess.run(['systemctl', 'daemon-reload'], check=True)
 subprocess.run(['systemctl', 'restart', 'forgejo.service'], check=True)
 subprocess.run(['systemctl', 'start', 'soda-dashboard.service', 'soda-proxy.service'], check=True)
 print('Activation requested. Inspect native service state and perform the later login/SSH validation; this is not a validation result.')
+if args.local_tls:
+    print('Caddy manages local HTTPS certificates. Trust its public root certificate on each intended client before opening Soda; no domain or public certificate service is required.')

@@ -14,7 +14,8 @@ A prepared Soda QCOW2 is a recommended future download; its producer remains
 unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning. The separately built installer
-ISO does not contain a populated Soda appliance; no Soda host OCI or preinstalled
+ISO carries an installable bundle in the replacement source recipe; it does not
+contain a configured Soda appliance. No Soda host OCI or preinstalled
 QCOW2 is supplied. Do not replay first-install as a service upgrade.
 
 ## Publication direction
@@ -24,10 +25,10 @@ artifacts already available or permission to publish them:
 
 | Artifact | Intended role | Current state |
 | --- | --- | --- |
-| SodaOS ISO | Primary download for physical USB installation and manual VM installation | Console-bearing media exists; password-only interaction, included Soda payload and complete fresh-install validation remain work |
+| SodaOS ISO | Primary download for physical USB installation and manual VM installation | Previous required-key media exists; replacement password-only/payload/setup source is under local validation, with rebuilt media and full fresh-install proof deferred |
 | SodaOS QCOW2 | Recommended second download: a prepared VM disk booting into the same first-time operator setup | No preinstalled Soda product image or producer exists; the exact image-production and first-boot recipe still needs design |
 | SodaOS host OCI | Optional delivery architecture for a versioned host OS; not required for the current CoreOS approach | Not produced; no bootc migration or whole-host OCI update path is selected |
-| Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Built separately today and manually transferred; the preferred media design includes it in ISO/QCOW2 delivery |
+| Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Existing native bundle contract; replacement ISO recipe includes a matching snapshot for pre-removal copying. QCOW2 inclusion remains future work |
 
 The target user-facing downloads are ISO and QCOW2, containing the matching Soda
 payload, with release/architecture identity and verifiable checksums. The artifact
@@ -41,7 +42,7 @@ do not distribute a copy of a retained test appliance.
 Payload inclusion must reuse the production build, inventory, verifier and native
 installation contracts. The ISO must preserve the verified payload on the selected
 destination for installed-host continuation before asking the user to remove media;
-its exact transfer/activation implementation remains to be authored. The QCOW2
+the replacement source implements that handoff for native validation. The QCOW2
 producer must deliver the same release and first-boot behavior without cloning
 credential-bearing fixture state. No manual builder-bundle transfer should remain
 in the normal product-media journey. Including application images does not remove
@@ -60,8 +61,8 @@ journey. Historical tests used upstream CoreOS QCOW2 plus private Ignition and S
 installation; they are runtime evidence, not proof of a public Soda QCOW2 or manual
 ISO installation. See [recorded VM setup](local-testing.md) and the [handoff](implementation-status.md).
 
-Keep the following commands as **current component/fixture recipes** until the new
-media path is implemented. Source documentation does not authorize builds, new
+Keep the following commands as **component/fixture recipes**, distinct from the
+manual media journey. Source documentation does not authorize builds, new
 fixtures, destination disk writes, uploads, retained-target changes or publication.
 
 ## 1. Prepare the native builder
@@ -116,7 +117,20 @@ sudo /path/to/bundle/x86_64/install-native.sh /path/to/bundle/x86_64 10.89.0.0/2
 
 This is an explicit first-install operation, not an updater. It stages native files, establishes the dedicated service identity and non-conflicting Podman subordinate range, loads the four verified image archives and restores the existing core service references, and starts loopback-only Forgejo/Cockpit plus the root:soda helper socket and native Tailscale daemon. It does not enroll in a Tailnet, create provider runners or activate public browser endpoints. It refuses blind reinstall over existing Soda configuration or a retained `/etc/soda/install-started` marker. Bundle/platform/package/subnet/identity preflight precedes payload writes; partial installation still requires an operator recovery decision, not deleting the marker and retrying as if clean.
 
-Follow [operator setup](operator-setup.md). The native Forgejo installer is initially accessible only over an operator SSH tunnel to port 3000. `soda-setup` uses the resulting operator API token to create its actual OAuth application/configuration. Current source uses one Forgejo/Sodaspaces browser origin with Soda routes under `/-/soda/`; `public_url` and `--public-url` are removed. The isolated browser/proxy proof does not establish deployment to an appliance. Supply valid, browser-trusted TLS material covering that Forgejo origin, then:
+Follow [operator setup](operator-setup.md). The native Forgejo installer is initially accessible only over an operator SSH tunnel to port 3000. `soda-setup` uses the resulting operator API token to create its actual OAuth application/configuration. Current source uses one Forgejo/Sodaspaces browser origin with Soda routes under `/-/soda/`; `public_url` and `--public-url` are removed. The isolated browser/proxy proof does not establish deployment to an appliance.
+
+For a private IP browser origin, the replacement source supports Caddy's native
+local issuer without an owned domain:
+
+```sh
+sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP --local-tls
+```
+
+The configured HTTPS origin must use that same private IP. Explicitly copy and
+verify the appliance's public CA certificate over trusted SSH, then trust it on
+intended clients; see the [guided setup](coreos-installer.md#configure-private-browser-access).
+Automatic trust installation is disabled. A completed command is not a browser
+login or reachability test. Existing certificate-based deployment remains available:
 
 ```sh
 sudo /usr/local/sbin/soda-activate --bind-ip PRIVATE_APPLIANCE_IP \

@@ -1,22 +1,23 @@
 {
 	admin off
 	auto_https disable_redirects
+	skip_install_trust
 }
 {$FORGEJO_ORIGIN} {
-  bind {$SODA_BIND}
-  tls /etc/soda/tls/cert.pem /etc/soda/tls/key.pem
-  # Public images never receive browser credentials.
-  handle /-/soda/avatars/* {
-    reverse_proxy 127.0.0.1:8080 {
-      header_up -Cookie
-      header_up -Authorization
-    }
-  }
-  # Forward the prefix unchanged. Never capture Forgejo's other /-/ routes.
-  handle /-/soda/* {
-    reverse_proxy 127.0.0.1:8080
-  }
-  handle {
-    reverse_proxy 127.0.0.1:3000
-  }
+	bind {$SODA_BIND}
+	tls {$SODA_TLS:/etc/soda/tls/cert.pem /etc/soda/tls/key.pem}
+	# Public images never receive browser credentials.
+	handle /-/soda/avatars/* {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up -Cookie
+			header_up -Authorization
+		}
+	}
+	# Forward the prefix unchanged. Never capture Forgejo's other /-/ routes.
+	handle /-/soda/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
 }

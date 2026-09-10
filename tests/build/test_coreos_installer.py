@@ -46,13 +46,14 @@ class MediaConfiguration(unittest.TestCase):
         self.assertNotIn('wget', script)
         self.assertNotIn('coreos-installer install', script)
 
+    @unittest.skipUnless(os.uname().sysname == 'Linux', 'GNU/Linux launcher tools required')
     def test_launcher_copy_hash_failure_and_existing_destination(self):
         # Substitute only fixed filesystem roots; root/mount/SELinux commands
         # are doubles. The real shell copy/hash/exec path runs on synthetic files.
         script = (ROOT / 'appliance/installer/load-console.sh').read_text()
         for case in ('valid', 'wrong-hash', 'occupied', 'missing-mount', 'relabel-failure'):
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
+                root = Path(directory).resolve()
                 media = root / 'iso'
                 (media / 'soda').mkdir(parents=True)
                 signal = root / 'executed'
@@ -121,6 +122,7 @@ class MediaConfiguration(unittest.TestCase):
         self.assertIn('RequiresMountsFor=/run/media/iso', service)
         self.assertIn('StandardError=tty', service)
         self.assertIn('Type=idle', service)
+        self.assertIn('PrivateMounts=yes', service)
         self.assertIn('PRETTY_NAME="SodaOS"', files['/etc/os-release']['contents']['inline'])
         self.assertNotIn('IMAGE_VERSION=', files['/etc/os-release']['contents']['inline'])
         self.assertIn('Restart=no', service)
@@ -185,7 +187,7 @@ class MediaConfiguration(unittest.TestCase):
 
     def test_private_static_network_snapshot_refuses_public_or_symlink_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             source = root / 'network'
             source.write_text('[connection]\nid=fixture\n')
             source.chmod(0o644)
@@ -202,10 +204,40 @@ class MediaConfiguration(unittest.TestCase):
             with self.assertRaises(OSError):
                 self.module.snapshot_network(link, root)
 
+    def test_payload_inventory_is_recursive_and_does_not_follow_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'bundle/x86_64/nested').mkdir(parents=True)
+            target = root / 'bundle/x86_64/nested/image.oci'
+            target.write_bytes(b'fixture')
+            (root / 'bundle/x86_64/link').symlink_to('nested/image.oci')
+            files = self.module.payload_files(root)
+            self.assertEqual(files, {'/soda/bundle/x86_64/nested/image.oci': target})
+
+    def test_level_one_iso_refuses_an_oversized_individual_payload_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            oversized = root / 'oversized.oci'
+            with oversized.open('xb') as output:
+                output.truncate(1 << 32)
+            with self.assertRaisesRegex(ValueError, 'ISO 9660 level 1'):
+                self.module.payload_files(root)
+
+    def test_bundle_snapshot_requires_a_canonical_absolute_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source'
+            source.mkdir()
+            link = root / 'source-link'
+            link.symlink_to(source)
+            with self.assertRaises(ValueError):
+                self.module.snapshot_bundle(Path('/fixture/verifier'), link,
+                    root / 'out/bundle/x86_64', 'x86_64', 'a' * 40)
+
     def test_build_pipeline_uses_only_live_customization_and_retains_outputs(self):
         # Commands are doubles: this proves the caller wiring, never ISO validity.
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
                          'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
                          'assets/branding/terminal/sodaos.txt', 'assets/branding/host/os-release',
@@ -214,6 +246,8 @@ class MediaConfiguration(unittest.TestCase):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, dest)
             (root / '.artifacts').mkdir()
+            bundle_source = root / 'sealed/x86_64'
+            bundle_source.mkdir(parents=True)
             for name in ('butane', 'coreos-installer', 'xorriso'):
                 tool = root / name
                 tool.write_text('fixture tool, not executable code')
@@ -221,7 +255,8 @@ class MediaConfiguration(unittest.TestCase):
             args = SimpleNamespace(arch='x86_64', butane=str(root / 'butane'),
                 coreos_installer=str(root / 'coreos-installer'), keyring=str(root / 'trusted.gpg'),
                 signer='A' * 40, xorriso=str(root / 'xorriso'),
-                out=str(root / '.artifacts/media'), network_keyfile=None)
+                bundle_source=str(bundle_source), out=str(root / '.artifacts/media'),
+                network_keyfile=None)
             calls = []
             def check_output(argv, **kwargs):
                 if argv[:3] == ['git', 'rev-parse', 'HEAD']:
@@ -247,6 +282,14 @@ class MediaConfiguration(unittest.TestCase):
                     pass
                 elif argv[:2] == ['go', 'build']:
                     Path(argv[argv.index('-o') + 1]).write_bytes(b'synthetic-build-output')
+                elif argv[1] == 'bundle':
+                    dest = Path(argv[argv.index('--out') + 1])
+                    dest.mkdir()
+                    (dest / 'build-info.json').write_text(json.dumps({
+                        'Revision': 'a' * 40, 'Architecture': 'x86_64'}))
+                    (dest / 'SHA256SUMS').write_text('0' * 64 + '  build-info.json\n')
+                elif argv[1] == 'verify':
+                    pass
                 elif argv[1] == 'fetch-coreos-iso':
                     dest = Path(argv[argv.index('--out') + 1])
                     dest.mkdir()
@@ -257,6 +300,9 @@ class MediaConfiguration(unittest.TestCase):
                     config.pop('version')
                     config['ignition'] = {'version': '3.5.0'}
                     return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(config).encode())
+                elif argv[0] == args.xorriso and argv[1:3] == ['-osirrox', 'on']:
+                    shutil.copytree(Path(args.out) / 'payload/bundle/x86_64', Path(argv[-1]),
+                        symlinks=True)
                 elif argv[0] == args.xorriso:
                     self.assertEqual(argv[argv.index('-boot_image') + 1:argv.index('-boot_image') + 3], ['any', 'replay'])
                     self.assertIn('/coreos/miniso.dat', argv)
@@ -285,6 +331,8 @@ class MediaConfiguration(unittest.TestCase):
             self.assertFalse(record['PrivateMedia'])
             self.assertEqual(record['Revision'], 'a' * 40)
             self.assertEqual(record['ConsoleISOPath'], '/soda/soda-install')
+            self.assertEqual(record['BundleISOPath'], '/soda/bundle/x86_64')
+            self.assertRegex(record['BundleSHA256'], '^[0-9a-f]{64}$')
             self.assertNotIn('PayloadURL', record)
             self.assertTrue((Path(args.out) / 'SHA256SUMS').exists())
             self.assertFalse(any('install' in argv or 'reboot' in argv for argv in calls))
@@ -356,9 +404,19 @@ class MediaConfiguration(unittest.TestCase):
             payload = root / 'payload'
             payload.mkdir()
             (payload / 'soda-install').write_text('synthetic non-executable console fixture')
+            bundle = payload / 'bundle/x86_64'
+            bundle.mkdir(parents=True, mode=0o700)
+            artifact = bundle / 'artifact'
+            artifact.write_text('synthetic bundle bytes')
+            artifact.chmod(0o600)
+            (bundle / 'artifact-link').symlink_to('artifact')
             final = root / 'final.iso'
             self.module.remaster(xorriso, upstream, payload, final, root / 'remaster.log')
             receipt = self.module.verify_remaster(xorriso, upstream, final, payload)
+            metadata = self.module.iso_payload_entries(xorriso, final)
+            self.assertEqual(metadata['/soda/bundle/x86_64/artifact'], ('-', 0o600, None))
+            self.assertEqual(metadata['/soda/bundle/x86_64/artifact-link'],
+                ('l', (bundle / 'artifact-link').lstat().st_mode & 0o7777, 'artifact'))
             self.assertEqual(receipt['RemovedMetadata'], ['/coreos/miniso.dat'])
             self.assertEqual(receipt['BootMetadata']['volume'], 'fixture')
             primary = self.module.iso_files(xorriso, final, 'ecma119')
@@ -394,7 +452,7 @@ class ProductProvisioning(unittest.TestCase):
         self.module = load('product_provisioning_fixture', 'scripts/render-provisioning.py')
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.key = self.root / 'operator.pub'
         self.key.write_text('ssh-ed25519 AAAA synthetic-input-only\n')
         self.password = self.root / 'root.hash'

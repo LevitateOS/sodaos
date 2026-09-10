@@ -30,6 +30,98 @@ def sha256(path):
         return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
+def payload_files(root):
+    """Return exact regular ISO payload inputs without following symlinks."""
+    return {name: value[2] for name, value in payload_entries(root).items()
+            if value[0] == '-'}
+
+
+def payload_entries(root):
+    """Return type, mode, path/link for every /soda Rock Ridge entry."""
+    root_mode = root.lstat().st_mode
+    if not stat.S_ISDIR(root_mode):
+        raise ValueError('real media payload directory required')
+    result = {'/soda': ('d', root_mode & 0o7777, root)}
+    for path in sorted(root.rglob('*')):
+        info = path.lstat()
+        mode = info.st_mode
+        name = '/soda/' + path.relative_to(root).as_posix()
+        if "'" in name or '\n' in name:
+            raise ValueError('unsupported media payload path')
+        if mode & (stat.S_ISUID | stat.S_ISGID | stat.S_ISVTX):
+            raise ValueError('special media payload permissions refused')
+        if stat.S_ISREG(mode):
+            if info.st_size > (1 << 32) - 1:
+                raise ValueError('ISO 9660 level 1 cannot carry an individual payload file larger than 4 GiB minus 1 byte')
+            result[name] = ('-', mode & 0o7777, path)
+        elif stat.S_ISDIR(mode):
+            result[name] = ('d', mode & 0o7777, path)
+        elif stat.S_ISLNK(mode):
+            target = os.readlink(path)
+            if "'" in target or '\n' in target:
+                raise ValueError('unsupported media payload link')
+            result[name] = ('l', mode & 0o7777, target)
+        else:
+            raise ValueError('unsupported media payload file type')
+    if len(result) == 1:
+        raise ValueError('empty media payload')
+    return result
+
+
+def mode_bits(text):
+    if not re.fullmatch('[rwx-]{9}', text):
+        raise ValueError('unsupported ISO permissions')
+    value = 0
+    for index, bit in enumerate((0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001)):
+        if text[index] != '-':
+            value |= bit
+    return value
+
+
+def iso_payload_entries(xorriso, iso):
+    """Read back Rock Ridge types, modes and numeric ownership from the ISO."""
+    report = subprocess.check_output([str(xorriso), '-indev', str(iso), '-find',
+        '/soda', '-exec', 'lsdl', '--'], stderr=subprocess.DEVNULL, text=True)
+    result = {}
+    for line in report.splitlines():
+        match = re.fullmatch(r"([dl-])([rwx-]{9})\s+\d+\s+(\d+)\s+(\d+)\s+.*?\s'([^']+)'(?: -> '([^']*)')?", line)
+        if not match or match[5] in result:
+            raise ValueError('unsupported or ambiguous Rock Ridge payload metadata')
+        kind, mode, uid, gid, name, target = match.groups()
+        if uid != '0' or gid != '0':
+            raise ValueError('on-media payload must be owned by root')
+        result[name] = (kind, mode_bits(mode), target if kind == 'l' else None)
+    if not result:
+        raise ValueError('missing Rock Ridge payload metadata')
+    return result
+
+
+def snapshot_bundle(verifier, source, destination, arch, revision):
+    source = Path(source)
+    if not source.is_absolute() or source.resolve() != source or not source.is_dir():
+        raise ValueError('absolute canonical sealed bundle source required')
+    destination.parent.mkdir(mode=0o700)
+    subprocess.run([str(verifier), 'bundle', '--source', str(source), '--out', str(destination),
+                    '--arch', arch, '--revision', revision], check=True)
+    digest = sha256(destination / 'SHA256SUMS')
+    if not re.fullmatch('[0-9a-f]{64}', digest):
+        raise ValueError('sealed bundle manifest digest required')
+    return digest
+
+
+def verify_bundle_readback(xorriso, iso, out, verifier, arch, revision, expected_digest):
+    readback = out / 'bundle-readback'
+    readback.mkdir(mode=0o700)
+    destination = readback / arch
+    subprocess.run([str(xorriso), '-osirrox', 'on', '-indev', str(iso), '-extract',
+                    '/soda/bundle/' + arch, str(destination)], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if sha256(destination / 'SHA256SUMS') != expected_digest:
+        raise ValueError('on-media bundle manifest differs from sealed snapshot')
+    subprocess.run([str(verifier), 'verify', '--source', str(destination), '--arch', arch,
+                    '--revision', revision], check=True)
+
+
 def live_config(binary_hash, destination, media, artwork, branding):
     # The small Ignition configuration fits the embed area. The executable is an
     # ordinary ISO file, copied and verified from the native read-only live mount.
@@ -52,6 +144,7 @@ esac
                         'After=systemd-user-sessions.service NetworkManager.service\nConflicts=getty@tty1.service\n'
                         'RequiresMountsFor=/run/media/iso\n'
                         '[Service]\nType=idle\n'
+                        'PrivateMounts=yes\n'
                         f'ExecStart=/usr/local/libexec/soda/load-install-console {binary_hash}\n'
                         'StandardInput=tty-force\nStandardOutput=tty\nStandardError=tty\n'
                         'TTYPath=/dev/tty1\nTTYReset=yes\nTTYVHangup=yes\n'
@@ -153,8 +246,12 @@ def build(args):
     provisioning = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(provisioning)
     destination = convert(butane, provisioning.public_config(), out / 'destination.ign')
+    bundle = payload / 'bundle' / args.arch
+    bundle_digest = snapshot_bundle(out / 'soda-artifacts', args.bundle_source, bundle,
+                                    args.arch, revision)
     media = {'Architecture': args.arch, 'Release': selected['Release'],
-             'InstallerVersion': installer_version, 'Revision': revision}
+             'InstallerVersion': installer_version, 'Revision': revision,
+             'BundleSHA256': bundle_digest}
     artwork = (ROOT / 'assets/branding/terminal/sodaos.txt').read_text()
     for marker in ('$1', '$2', '$3'):
         artwork = artwork.replace(marker, '')
@@ -174,6 +271,8 @@ def build(args):
     subprocess.run(customize + ['--output', str(out / 'soda.iso'),
                                str(out / 'with-console.iso')], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    verify_bundle_readback(xorriso, out / 'soda.iso', out, out / 'soda-artifacts',
+                           args.arch, revision, bundle_digest)
     if network:
         extracted = out / 'network-readback'
         extracted.mkdir(mode=0o700)
@@ -198,7 +297,9 @@ def build(args):
     (out / 'iso-inspection.json').write_text(json.dumps(preservation, indent=2) + '\n')
     if output(['git', 'rev-parse', 'HEAD']) != revision or output(['git', 'status', '--porcelain', '--untracked-files=normal']):
         raise ValueError('source changed during media build; output is not sealed')
-    record = dict(media, ConsoleISOPath='/soda/soda-install', ConsoleSHA256=sha256(payload / filename),
+    record = dict(media, ConsoleISOPath='/soda/soda-install',
+                  BundleISOPath='/soda/bundle/' + args.arch,
+                  ConsoleSHA256=sha256(payload / filename),
                   XorrisoVersion=xorriso_version, XorrisoSHA256=sha256(xorriso),
                   ISOSHA256=sha256(out / 'soda.iso'), LiveIgnitionSHA256=sha256(out / 'live.ign'),
                   PrivateMedia=network is not None,
@@ -209,6 +310,7 @@ def build(args):
     (out / 'media-build.json').write_text(json.dumps(record, indent=2) + '\n')
     (out / 'SHA256SUMS').write_text(''.join(f'{sha256(p)}  {p.relative_to(out)}\n' for p in
         (out / 'soda.iso', out / 'live.ign', out / 'destination.ign', payload / filename,
+         bundle / 'SHA256SUMS', bundle / 'build-info.json',
          out / 'media-build.json', out / 'iso-inspection.json')))
     print(f'Media built, not booted or installed: {out}')
     if network:
@@ -281,6 +383,7 @@ def remaster(xorriso, upstream, payload, destination, log):
         # stale miniso metadata; upstream OS images remain untouched.
         subprocess.run([str(xorriso), '-abort_on', 'FAILURE', '-indev', str(upstream),
                         '-outdev', str(destination), '-boot_image', 'any', 'replay',
+                        '-follow', 'off',
                         # v0.26.0 reads primary ISO names such as KARGS.JSO;
                         # Rock Ridge names alone are not its lookup contract.
                         '-compliance', 'iso_9660_level=1',
@@ -386,7 +489,13 @@ def boot_metadata(xorriso, iso, files):
 def verify_remaster(xorriso, upstream, final, payload):
     original = iso_files(xorriso, upstream)
     current = iso_files(xorriso, final)
-    added = {'/soda/' + p.name: p for p in payload.iterdir()}
+    added = payload_files(payload)
+    local_entries = payload_entries(payload)
+    on_media_entries = iso_payload_entries(xorriso, final)
+    expected_entries = {name: (kind, mode, value if kind == 'l' else None)
+                        for name, (kind, mode, value) in local_entries.items()}
+    if on_media_entries != expected_entries:
+        raise ValueError('on-media Rock Ridge payload type, mode or link differs from source')
     removed = {'/coreos/miniso.dat'}
     if set(current) != (set(original) - removed) | set(added):
         raise ValueError('unexpected remastered ISO file inventory')
@@ -477,6 +586,8 @@ def main():
     p.add_argument('--coreos-installer', required=True)
     p.add_argument('--keyring', required=True)
     p.add_argument('--signer', required=True)
+    p.add_argument('--bundle-source', required=True,
+                   help='absolute canonical sealed native stage or exported bundle')
     p.add_argument('--xorriso', default='/usr/bin/xorriso')
     p.add_argument('--network-keyfile', help='optional private NetworkManager keyfile for pre-Ignition/static networking; makes the ISO private')
     p.add_argument('--out', required=True)

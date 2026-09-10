@@ -71,6 +71,12 @@ type console struct {
 }
 
 func (c console) print(format string, args ...interface{}) { fmt.Fprintf(c.tty, format+"\n", args...) }
+func (c console) page(title string) {
+	c.print("\x1b[0m\x1b[2J\x1b[HSodaOS installation")
+	c.print("")
+	c.print(title)
+	c.print("")
+}
 func (c console) ask(prompt string) (string, error) {
 	fmt.Fprint(c.tty, prompt+": ")
 	return c.line()
@@ -135,9 +141,12 @@ func (c console) secret(prompt string) (string, error) {
 			return "", err
 		}
 		select {
-		case <-signals:
+		case signal := <-signals:
 			c.print("")
-			return "", errors.New("password entry cancelled")
+			if signal == syscall.SIGINT {
+				return "", context.Canceled
+			}
+			return "", errors.New("password entry terminated")
 		default:
 		}
 		events := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
@@ -167,41 +176,87 @@ func (c console) secret(prompt string) (string, error) {
 	return "", errors.New("password exceeds limit")
 }
 
-func (c console) network(ctx context.Context) error {
-	c.print("Networking uses NetworkManager. DHCP is the default. Static address/prefix, gateway and DNS can be edited in nmtui. This changes only the live system until disk installation copies it.")
-	choice, err := c.ask("Enter edit to open nmtui, or keep to keep current networking")
-	if err != nil {
-		return err
-	}
-	switch choice {
-	case "edit":
-		cmd := exec.CommandContext(ctx, "nmtui")
-		cmd.Stdin, cmd.Stdout, cmd.Stderr = c.tty, c.tty, c.tty
-		err := cmd.Run()
-		// NEWT leaves its background/cursor position behind when it exits.
-		// Restore our page on both success and failure, before any next prompt.
-		c.print("\x1b[0m\x1b[2J\x1b[HSodaOS installation — Network settings")
-		if err != nil {
-			return errors.New("NetworkManager editor failed; no disk installation started")
+func (c console) network(ctx context.Context) error { return c.networkWith(ctx, command) }
+
+func (c console) networkWith(ctx context.Context, run commandRunner) error {
+	feedback := ""
+	openEditor := false
+	for {
+		c.page("Step 1 of 5 — Network")
+		if feedback != "" {
+			c.print("%s", feedback)
+			c.print("")
+			feedback = ""
 		}
-	case "keep":
-	default:
-		return errors.New("network configuration cancelled")
+		c.print("DHCP is ready by default.")
+		c.print("Use nmtui to set a static address, gateway, or DNS.")
+		c.print("The installed system will receive the reviewed live settings.")
+		choice := "edit"
+		if !openEditor {
+			var err error
+			choice, err = c.ask("Type keep, edit, back, restart, or cancel")
+			if err != nil {
+				return err
+			}
+		}
+		openEditor = false
+		switch strings.ToLower(choice) {
+		case "back":
+			return errBack
+		case "restart":
+			return errRestart
+		case "cancel":
+			return errCancel
+		case "edit":
+			cmd := exec.CommandContext(ctx, "nmtui")
+			cmd.Stdin, cmd.Stdout, cmd.Stderr = c.tty, c.tty, c.tty
+			err := cmd.Run()
+			// NEWT leaves its background/cursor position behind when it exits.
+			// Restore our page on both success and failure, before any next prompt.
+			c.page("Step 1 of 5 — Network")
+			if err != nil {
+				feedback = "NetworkManager editor failed. No disk installation started."
+				continue
+			}
+		case "keep":
+		default:
+			feedback = "Choose keep, edit, back, restart, or cancel."
+			continue
+		}
+
+		data, err := run(ctx, "ip", []string{"-brief", "address"}, nil)
+		if err != nil {
+			feedback = "Could not inspect live network addresses."
+			continue
+		}
+		c.print("")
+		c.print("Current live addresses:")
+		// Quote native output so a configured interface name cannot inject terminal controls.
+		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+			c.print("  %q", line)
+		}
+		for {
+			answer, err := c.ask("Type yes to use them, edit, back, restart, or cancel")
+			if err != nil {
+				return err
+			}
+			switch strings.ToLower(answer) {
+			case "yes":
+				return nil
+			case "edit":
+				openEditor = true
+				break
+			case "back":
+				return errBack
+			case "restart":
+				return errRestart
+			case "cancel":
+				return errCancel
+			default:
+				c.print("Choose yes, edit, back, restart, or cancel.")
+				continue
+			}
+			break
+		}
 	}
-	data, err := command(ctx, "ip", []string{"-brief", "address"}, nil)
-	if err != nil {
-		return err
-	}
-	// Quote native output so a configured interface name cannot inject terminal controls.
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		c.print("%q", line)
-	}
-	answer, err := c.ask("Use these network settings for the installed system? Type yes")
-	if err != nil {
-		return err
-	}
-	if answer != "yes" {
-		return errors.New("network confirmation cancelled")
-	}
-	return nil
 }
