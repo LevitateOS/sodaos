@@ -42,8 +42,12 @@ screenshots of installed Soda.
 | Hide, End and Stop are different actions | Keep End/Stop out of everyday toolbar controls; make Hide's finite retention explicit |
 | Existing access/lifetime boundaries | Agent activity is advisory, separate from attachment, project state and authorization |
 
-No automatic task naming, command execution, agent launch, agent installation, branch
-selection, shared-state promotion, command broadcasting or Git-review backend is added.
+This existing workspace implementation adds no automatic task naming, command
+execution, agent launch, agent installation, branch selection, shared-state
+promotion, command broadcasting or Git-review backend. The subsequently requested
+[repository AI automation](services-and-ai-plan.md#live-ai-terminals-in-spaces-and-the-drawer)
+selects predefined agent launches and live terminals as separate, unimplemented
+work, with run ownership independent of a viewer's sign-in context.
 The user can type any installed CLI in their shell. A session called “Auth refactor”
 is a user label, not a claim that Soda understands the task.
 

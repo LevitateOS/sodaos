@@ -205,6 +205,7 @@ That is useful cross-project work, not an account mismatch or a warning conditio
 | Open/reopen Sodaspaces | Restore this window's drawer and selected surviving session | Original targets; no implicit new terminal or automatic project start |
 | Select terminal / open Sessions / view project details | Only the right-hand view or focused tab | Native form/scroll and existing sessions |
 | Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs, groups, labels and server deadlines; no fresh shells |
+| Open in drawer from Spaces | Resolve the selected terminal's repository by stable ID, then navigate to its current native page with `#sodaspaces` | Same saved working set/selected session; existing attachment restoration; no creation or lifetime extension |
 | Browser Back from Spaces | Native page history and authorized drawer restoration | Existing surviving session identity; no arbitrary `return_to` URL or promised draft resurrection |
 | Hide workspace | Restore full-width native page; retain this document's owned working-set sessions within finite limits | Files/projects and discoverable surviving sessions; no End or Stop |
 | Compact Forge/Terminal switch | Change which surface is visible in the same document | Native draft/scroll, open state and sessions; **not** Hide workspace |

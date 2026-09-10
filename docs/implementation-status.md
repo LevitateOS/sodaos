@@ -1,5 +1,41 @@
 # Current handoff
 
+## Spaces → repository drawer and AI workflow clarification
+
+Added **Open in drawer** to the full Spaces toolbar (labelled compact icon on
+narrow screens). It resolves the selected terminal's repository through the
+existing actor-guarded environment GET, saves the shared layout and navigates to
+the current native repository with `#sodaspaces`. Stored repository names can be
+stale after transfer/rename and are not used as the destination. Failed resolution,
+invalid/mismatched paths or failed layout persistence leave the terminal in place.
+No new API, OAuth flow, terminal creation or lifetime extension was added.
+
+The existing drawer → Spaces link and shared ID-keyed collection/layout already
+support the other direction. Local emitted-browser checks now cover both origins,
+exact session reattachment in both directions, selection/layout preservation,
+cross-repository and non-repository browsing, native editing and cancelled
+beforeunload. These remain personal sessions within the same Soda sign-in context;
+other writers cannot be evicted and existing finite deadlines still apply.
+
+Passed `bun run build:forgejo`, required `bun run typecheck` including Lit analyzer/
+fixtures, and **93 focused tests** across workspace, workspace journey, drawer
+adapter and drawer controls. Evidence: `.artifacts/spaces-navigation-xYHgeB/`.
+Initial sandboxed Chromium startup failed on macOS process-service access; browser
+checks subsequently ran with normal host process access and Chromium's sandbox
+enabled. The new journey's initial one-shot beforeunload fixture and its incorrect
+expectation that the global resume button stays visible while the drawer is open
+were corrected; product unload/visibility behavior was preserved. Failed attempts
+and synthetic TLS fixture directories remain. This is local browser/fake-peer
+evidence, not new native tmux/process proof or VM delivery.
+
+Updated the [AI proposal](services-and-ai-plan.md) to record the user's clarification:
+issue resolver opens a PR, review findings return to that same resolver/context,
+and each real agent process appears as a live terminal in Spaces and its drawer.
+Unattended runs need execution ownership independent of browser viewers; today's
+personal sign-in-bound terminal registry cannot supply that behavior. AI launches,
+run attachment, resolver continuation and provider automation remain unimplemented.
+No credentials, provider jobs, retained projects or VM deployments changed.
+
 ## Requested services marketplace and repository AI automation
 
 Added the [feature proposal](services-and-ai-plan.md) for Adminer/Vaultwarden/

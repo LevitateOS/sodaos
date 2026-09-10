@@ -3,7 +3,15 @@
 The user requested three additions: a simple Podman services marketplace, an AI
 issue resolver, and AI PR review with optional fixes and a configurable loop count.
 These are requested product work. This document proposes their implementation;
-**none of these features is implemented or validated yet**.
+**the marketplace and AI automation are not implemented or validated yet**. The
+separate user-requested terminal navigation follow-up adds Open in drawer to the
+existing Spaces workspace; its local evidence belongs in the handoff.
+
+The user clarified the desired AI experience: **issue → resolver → PR → review →
+the same resolver fixes findings → review again**, with the configured bound. AI
+processes should appear as real, named terminals in Spaces and its repository
+drawer, launched with predefined prompts and commands. This replaces the earlier
+proposal's implication that Actions logs alone would be the user interface.
 
 Two product choices are pending: appliance-wide versus project-local marketplace
 installation, and automatic trusted-contributor runs versus a maintainer trigger.
@@ -28,9 +36,11 @@ its companions actually benefit from sharing networking.
 | --- | --- | --- |
 | Marketplace service | Persistent app and data; appliance operator | Host Podman, native Quadlet/systemd |
 | Development project | Existing shared accounts, files and tools; project administrators | Preserve the current Rocky project and nested Podman |
-| AI run | One issue attempt or one PR review/fix attempt; repository policy and Forgejo Actions | Fresh runner job container and checkout, with optional job services |
+| AI run | Linked issue/PR attempt with bounded review/fix rounds; repository policy and Forgejo Actions | Isolated checkout and agent process, with a live terminal projected into Spaces/drawer |
 
-AI runs must not use a developer's retained project, home, credentials or terminal.
+Automatic AI runs must not commandeer a developer's existing shell, dirty checkout,
+home or personal credentials. Sharing the Spaces UI does not require sharing those
+resources or tying execution to one viewer's browser session.
 Project service catalogs would instead need project authorization and the existing
 nested engine; they are not interchangeable with an operator's host catalog.
 
@@ -94,16 +104,17 @@ two event types. Proposed fields:
 | --- | --- |
 | Issue automation | Off, or resolve newly opened issues under the selected trigger policy |
 | PR automation | Off, review, or review and fix; include new commits deliberately |
-| Agent command | Claude Code, Codex, pi, or a repository-maintained noninteractive command |
-| Reviewer and fixer | May use the same command or separately configured commands/models |
+| Agent command and prompt | Claude Code, Codex, pi, or a repository-maintained command; launched once with predefined task input in a real terminal |
+| Reviewer and fixer | Reuse the originating resolver for fixes; reviewer may use a separately configured command/model |
 | Setup and tests | Repository-owned commands executed inside the job sandbox |
 | Credentials | Named native Forgejo secret references; no values in versioned configuration |
 | Maximum fix rounds | Integer; zero means review only; proposed default two, upper bound five |
 | Run timeout | Finite overall deadline, covering setup, agents, tests and publication |
-| Output | Native issue-linked PR or review, test result and Forgejo Actions run link |
+| Output | Live Spaces/drawer terminal, native issue-linked PR/review, test result and Forgejo Actions run link |
 
 The agent-command presets must be checked against the selected tools' actual
-noninteractive interfaces and credential support before claiming compatibility.
+prompt input, unattended execution, PTY and native session-resume interfaces and
+credential support before claiming compatibility.
 Allow ordinary repository scripts rather than preinstalling every AI tool into
 every development project. Optional provider spending limits belong to the actual
 provider/CLI integration; a loop count alone is not an exact monetary budget.
@@ -121,6 +132,45 @@ documents issue, PR and manual-dispatch events. Use those native interfaces befo
 considering a webhook receiver. Soda supplies local execution capacity and the
 bounded agent integration, not a parallel queue or Git scheduler.
 
+### Live AI terminals in Spaces and the drawer
+
+Every running resolver/reviewer has an exact execution identity, repository and
+issue/PR link, useful name (for example `Issue #42 · resolver`) and a real terminal
+connected to that process. Use the existing shared workspace/terminal rendering;
+do not substitute a static log pane, separate agent-chat frontend or second drawer.
+Selecting, moving or reopening the view attaches to the existing process and never
+replays its initial prompt. A terminal's output alone cannot report semantic agent
+states such as "review passed" or "waiting for approval"; use explicit validated
+process signals where available.
+
+**Current gap:** personal browser terminals are bound to an existing project
+account and the creating Soda sign-in context; logout ends them. The current API
+only enumerates those personal terminals and cannot launch an unattended agent.
+An automatic event can happen with no browser open, so its process owner must be
+the authorized automation run. A permitted browser viewer attaches independently.
+The implementation needs a bounded run/terminal integration and current native
+repository authorization for discovery/view/control; do not fabricate a human
+login session or remove existing personal-terminal logout/lease protections.
+
+Keep view controls separate from job controls. Hide/navigation disconnects the
+view without cancelling the job. Cancel ends the explicitly selected automation
+attempt through its execution owner and records the result. Default observation
+must not let two browser writers and automation concurrently type into one PTY;
+interactive takeover, if offered, requires explicit control transfer. Job deadlines
+and cancellation still apply even if nobody is viewing. Reopening a completed run
+shows its retained result and does not create a replacement process.
+
+The originating resolver keeps its checkout/branch and agent conversation through
+the review/fix loop. Feed structured review findings to that same resolver. When
+the CLI requires another process invocation, resume its verified native session
+and working directory; do not equate "same executable" with "same conversation".
+If continuation is unavailable, report that honestly instead of silently claiming
+context preservation. The reviewer can have a separate terminal and clean review
+context. A PR opened directly begins the same review/fix flow without an issue step.
+
+Repository configuration still enables events, agent commands, prompts and limits.
+Merely opening Spaces or an ordinary New terminal never starts automation.
+
 ### Issue journey
 
 1. Resolve the repository, issue and trusted configuration revision using native
@@ -128,15 +178,17 @@ bounded agent integration, not a parallel queue or Git scheduler.
 2. Create a fresh checkout of the selected default-branch commit in a job container.
 3. Run setup, the fixer and required tests within the configured deadline.
 4. Publish a new automation branch and issue-linked PR, including actual test
-   outcomes and the run link. Do not push directly to the default branch or close
-   an issue merely because an agent says it succeeded.
+   outcomes and the run link, then enter the configured PR review flow. Preserve
+   the originating resolver context for subsequent findings. Do not push directly
+   to the default branch or close an issue merely because an agent says it succeeded.
 
 ### PR journey and exact loop semantics
 
 1. Capture the PR's exact head and base commits and review the proposed changes.
 2. With fixes disabled, publish the review and finish.
-3. With fixes enabled and actionable findings, run one fix round, run tests and
-   review the resulting tree again. Each fixer invocation consumes one round.
+3. With fixes enabled and actionable findings, send them to the originating
+   resolver (or start the configured resolver for a directly submitted PR), run
+   tests and review the resulting tree again. Each fix attempt consumes one round.
 4. Stop on a clean review with passing required checks, the configured limit,
    timeout/cancellation, an agent/test infrastructure error, or no further change.
    Exhaustion or inconclusive output is not an approval.
@@ -153,7 +205,8 @@ PR branch only when repository configuration permits it. For a fork or otherwise
 unwritable branch, offer a patch or separate follow-up PR; never force-push or infer
 permission to write another repository. No automatic merge is proposed.
 
-Bot publication must not reset the round budget by triggering another run. Use
+The initial resolver-created PR must start its first configured review. Subsequent
+bot publications must not reset the round budget or spawn duplicate loops. Use
 provider concurrency plus explicit attempt/head identity and verified automation
 authorship; a bot-like username or issue text is not sufficient. New human commits
 can supersede the old attempt. Retry must not duplicate a previously created PR.
@@ -207,11 +260,14 @@ only exact attempt-owned temporary resources, never a retained project or servic
 3. Add isolated container execution to runner configuration, provisioning,
    lifecycle, staging and focused tests. Preserve existing host runners and Cockpit
    Runners until its separately selected replacement works. Tailnet stays in Cockpit.
-4. Implement repository AI setup, workflow integration and issue-to-PR publication.
-   Complete a fake-agent local journey, then a separately scoped real provider run.
+4. Implement repository AI setup, workflow integration, live run terminals in the
+   shared Spaces/drawer UI and issue-to-PR publication. Prove background execution
+   with no browser, authorized attachment and view-only navigation. Complete a
+   fake-agent local journey, then a separately scoped real provider run.
 5. Add PR review, bounded fixes, stale-head refusal, fork handling and recursion
-   prevention. Test zero rounds, early success, exhaustion, malformed output,
-   cancellation and concurrent human commits as observable outcomes.
+   prevention with continuation of the original resolver. Test zero rounds, early
+   success, exhaustion, malformed output, view closure versus job cancellation,
+   context preservation and concurrent human commits as observable outcomes.
 6. Validate native persistence for services and native isolation/cleanup for AI
    jobs on an explicitly authorized fixture. Cover operator/member denial, secret
    isolation, image/pull/start failures, usable endpoints and actual provider results.
