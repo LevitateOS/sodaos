@@ -56,6 +56,17 @@ change and serialize that edit after an explicit commit handoff. Common document
 and payload files likewise have one editor per change; neither agent overwrites
 uncommitted work from the other lane.
 
+**Bounded installed-driver editor handoff (after `9629c8e`):** Runners now owns
+`tests/installed/sodaspaces.ts` and `tests/frontend/sodaspaces-probe.test.ts` for
+integrating `loadRunnerInput`/`exerciseRunners` through the existing driver and its
+embedded one-shot guard. Soda-pages will not edit these files concurrently. This
+supersedes the blanket reservation only for those two files, not the outstanding
+step-5 acceptance exit or the remaining UI/auth/payload files. The driver requires
+runner argument/phase wiring, native-view entry and coordinated-cancellation guard
+updates; it is an integration baseline, not installed-ready proof. See the leading
+handoff for the exact dependencies. Any shared-file expansion needs another explicit
+handoff; no separate authentication harness or execution grant follows.
+
 **Source handoff:** Soda-pages identifies a committed revision, fixed entry URLs,
 actor/session and retirement behavior, migrated browser callers, emitted payload
 and actual checks/limits. Runners then extends the handed-off controls only for

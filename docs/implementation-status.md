@@ -1,5 +1,57 @@
 # Current handoff
 
+## Bounded runner installed-driver handoff after `9629c8e`
+
+Inspected clean HEAD `9629c8e`; native UI/cache/history source is `d838262` on top
+of step-4 navigation `99c2c31` and the subsequent runner-owned commits. No additional
+production/browser changes are pending. The preceding partial-step-5 receipt remains
+accurate, except its blanket editor reservation is now narrowed explicitly:
+
+**Handed to the runner agent:** `tests/installed/sodaspaces.ts` and
+`tests/frontend/sodaspaces-probe.test.ts`. The CDP request guard is embedded in the
+first file; its source-backed guard regressions are in the second. Soda-pages will
+not edit either concurrently. Runners owns implementing and checking the caller
+changes below with its existing `tests/installed/runners.ts` exports. All other
+shared UI/auth/payload files remain reserved; request a specific additional handoff
+if needed. This is an editor/integration handoff, not step-5 acceptance or permission
+to execute installed/provider phases.
+
+Required integration, not an already-wired caller:
+
+- Parse explicit runner phase/private-input arguments and call `loadRunnerInput`
+  before browser/native effects, preserving exact clean revision/target checks.
+  Add a runner branch rather than running unrelated environment/terminal journeys.
+- Use the existing native login, consent and browser machinery to establish the
+  required original actors at `/?soda-view=runners`; pass those pages, input,
+  permission, one-shot permit callback and evidence to `exerciseRunners`.
+  Its current `oauth()` helper is drawer-specific, not a Runners automatic-entry
+  helper. Reuse the driver rather than adding another login harness.
+- The current guard's auth-write set lacks `/-/soda/api/login/cancel`, now used by
+  coordinated native logout. Add bounded cancellation admission/assertions and
+  update logout observations; do not broadly permit Soda API mutations.
+- Adapt the existing `accessWrite` actor/exact-path/serialized-body permit without
+  reserializing runner secrets or adding runner endpoints to the broad write set.
+  Consume before transmission; clear pending permits on failure/abort and never
+  log their bodies. Test duplicate, mismatched and late dispatch refusal.
+- Both current driver pages share one browser context/cookie jar. Ensure the two
+  runner actors are genuinely authenticated as required by the module; a stale
+  native marker plus another actor's cookie must not count as nonoperator proof.
+  Reuse existing browser/authentication ownership for any necessary sequencing or
+  isolated-context support, requesting a helper-file handoff if required.
+- Expand the driver's asset observation inventory to the native entry, connection,
+  settings-link and runner graph, including the epoch-versioned URLs. The existing
+  installed proxy `max-age=0, must-revalidate` assertions are a distinct contract
+  from the stock-preview six-hour cache; do not replace them based on local fixture
+  behavior. Observe the actual packaged candidate.
+
+There is no planned new navigation destination, schema migration or replacement
+session contract blocking this integration: schema v9, fixed native views, expected
+actor guards, explicit retry, shared retirement and non-atomic coordinated logout
+remain selected. Outstanding step-5 visual/combined-history/Linux checks still
+block full acceptance, not this two-file editor handoff. No builds/tests/provider
+or deployment operations were run for this inspection/documentation handoff.
+
+
 ## Native Soda pages step 5 — cache/history candidate; acceptance still open
 
 Source candidate **`d838262`**, based on clean `99ddecf` (including navigation
