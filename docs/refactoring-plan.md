@@ -588,7 +588,7 @@ implementation phase. `22f5c20` supplies cancellation-aware serial admission and
 its regression/race checks; preserve those tests. Native delivery is not implied.
 
 **5b, native capture:** inspect the actual output needs of host/native runner/pkexec
-and [Tailnet process](../internal/process/process.go) callers. Reuse native filtered
+and [Tailnet CLI](../internal/tailnet/tailnet.go) callers. Reuse native filtered
 output where available; cap bytes while collecting, not after allocating an entire
 response. Specify per-command stdout/stderr limits from the current protocol and
 fixtures before implementation. Keep status JSON complete-or-error and errors
@@ -636,7 +636,8 @@ checks followed by the aggregate source check; no deployment or retained-state w
 - Managed keys: remove unused error classes/diagnostic distinctions; keep writer
   exclusion, durability and preservation tests. Source simplified.
 - Tailnet: remove test-only classification and generic process configuration; keep
-  the real status/endpoint callers and their cancellation/error behavior.
+  the real status/endpoint callers and their cancellation/error behavior. Source
+  complete with focused local checks; no replacement process abstraction.
 - Runners: connect the public CLI directly to native operations, preserving the
   combined root/`PKEXEC_UID`/native identity admission and cross-process lock. Retire
   the helper source and packaging together, not installed files.
@@ -655,7 +656,7 @@ Actual checks and remaining native limits belong in the
 
 Consider one candidate per commit: uncalled standalone terminal mode (port useful
 tests and retain legacy locators), native GCM nonce packing (prove old/new ciphertext
-compatibility), unused generic process methods, narrower OCI parsing through a
+compatibility), narrower OCI parsing through a
 verified upstream reader, or Tailnet native UI reuse. Adopt only when the existing
 authority, persistence, file-size/provenance and complete-user-journey contracts
 remain intact. Preserve Cockpit until its replacement is validated. These candidates

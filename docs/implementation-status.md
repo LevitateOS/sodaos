@@ -17,6 +17,15 @@ deployment, retained-state mutation or dependency change occurred. Remaining rev
 slices and the aggregate source check follow separately; paired native delivery and
 SSH proof remain unrun.
 
+Tailnet now runs its fixed `status --json` read directly with `exec.CommandContext`.
+Removed the test-only `Client.Identity`/enrollment enum chain and unused generic
+process package, not the used status identity/address fields. Parser/endpoint tests
+now exercise a test-owned CLI, retaining argument/stdin, unavailable/nonzero-exit,
+malformed JSON, address/expiry, authentication-pending and cancellation checks.
+Focused Tailnet and both command suites passed (`tailnet.log` in the same directory).
+No actual Tailscale command, enrollment or advertisement change ran. Native capture
+bounds remain separate open work; this deletion does not claim to implement them.
+
 ## Three-pass overengineering review — documentation only
 
 At the user's request, [the review record](overengineering-review.md) preserves the

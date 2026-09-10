@@ -119,8 +119,8 @@ uses [its real status/guidance adapter](../cmd/soda-tailnet/command.go), not tha
 
 The same client constructs `process.OSRunner{}`. Its production use needs `Output`,
 not `Run`, supplied stdin or configurable trace streams. The
-[trace-failure tests](../internal/process/output_test.go) and
-[stdin-wiring test](../internal/process/process_test.go) exercise those unused options;
+trace-failure tests (`internal/process/output_test.go` at the reviewed revision) and
+stdin-wiring test (`internal/process/process_test.go`) exercise those unused options;
 their existence does not supply a product requirement for them.
 
 **Removal boundary:** the unused identity/classification chain and process surface

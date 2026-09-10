@@ -8,9 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"os/exec"
 	"strings"
-
-	"github.com/levitateos/sodaos/internal/process"
 )
 
 const DefaultCLI = "/usr/bin/tailscale"
@@ -18,18 +17,8 @@ const DefaultCLI = "/usr/bin/tailscale"
 var (
 	ErrUnavailable         = errors.New("Tailscale status is unavailable")
 	ErrNotEnrolled         = errors.New("Tailscale is not enrolled")
-	ErrIdentityUnavailable = errors.New("Tailscale did not report a MagicDNS identity")
 	ErrIPv4Unavailable     = errors.New("Tailscale did not report an IPv4 address")
 	ErrInvalidMagicDNSName = errors.New("invalid Tailscale MagicDNS identity")
-)
-
-// EnrollmentState reports whether Soda can use a Tailnet connection identity.
-type EnrollmentState string
-
-const (
-	NeedsEnrollment     EnrollmentState = "needs-enrollment"
-	IdentityUnavailable EnrollmentState = "identity-unavailable"
-	Enrolled            EnrollmentState = "enrolled"
 )
 
 // Status is the stable Soda interpretation of `tailscale status --json`.
@@ -48,66 +37,37 @@ type Endpoint struct {
 	IPv4     string
 }
 
-// EnrollmentState returns Enrolled only when the local Tailscale node is
-// running and has supplied a usable MagicDNS FQDN.
-func (s Status) EnrollmentState() EnrollmentState {
-	if s.BackendState != "Running" || s.Expired {
-		return NeedsEnrollment
-	}
-	if s.Identity == "" {
-		return IdentityUnavailable
-	}
-	return Enrolled
-}
-
 // Client queries the Tailscale CLI supplied by Soda's locked runtime package.
 type Client struct {
-	runner process.Runner
-	cli    string
+	cli string
 }
 
 type Options struct {
-	Runner process.Runner
-	CLI    string
+	CLI string
 }
 
 func New(options Options) *Client {
-	if options.Runner == nil {
-		options.Runner = process.OSRunner{}
-	}
 	if options.CLI == "" {
 		options.CLI = DefaultCLI
 	}
-	return &Client{runner: options.Runner, cli: options.CLI}
+	return &Client{cli: options.CLI}
 }
 
 // Status reads the local node's authoritative Tailscale status.
 func (c *Client) Status(ctx context.Context) (Status, error) {
-	output, err := c.runner.Output(ctx, process.Command{Name: c.cli, Args: []string{"status", "--json"}})
+	output, err := exec.CommandContext(ctx, c.cli, "status", "--json").Output()
 	if err != nil {
-		return Status{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(exitError.Stderr)))
+		}
+		return Status{}, fmt.Errorf("%w: %s status --json: %w", ErrUnavailable, c.cli, err)
 	}
-	status, err := parseStatus([]byte(output))
+	status, err := parseStatus(output)
 	if err != nil {
 		return Status{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return status, nil
-}
-
-// Identity returns the canonical MagicDNS FQDN only after enrollment.
-func (c *Client) Identity(ctx context.Context) (string, error) {
-	status, err := c.Status(ctx)
-	if err != nil {
-		return "", err
-	}
-	switch status.EnrollmentState() {
-	case Enrolled:
-		return status.Identity, nil
-	case IdentityUnavailable:
-		return "", ErrIdentityUnavailable
-	default:
-		return "", ErrNotEnrolled
-	}
 }
 
 // URLHost returns a usable Tailnet host without assuming MagicDNS is enabled.
