@@ -149,7 +149,7 @@ class ProjectKeys(unittest.TestCase):
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             with patch.object(keys, 'account_for') as account:
-                with self.assertRaises(keys.KeyWriterBusy):
+                with self.assertRaises(BlockingIOError):
                     keys.update(self.request())
                 account.assert_not_called()
         finally:
@@ -169,7 +169,7 @@ class ProjectKeys(unittest.TestCase):
         with self.writer_process(soda_writer) as pipe:
             self.assertTrue(pipe.poll(5))
             self.assertEqual(pipe.recv(), 'published, still locked')
-            with self.assertRaises(keys.KeyWriterBusy):
+            with self.assertRaises(BlockingIOError):
                 keys.update(self.request(True, revision))
             fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -212,7 +212,7 @@ class ProjectKeys(unittest.TestCase):
                 with self.writer_process(native_writer) as pipe:
                     self.assertTrue(pipe.poll(5))
                     self.assertEqual(pipe.recv(), 'locked')
-                    with self.assertRaises(keys.KeyWriterBusy):
+                    with self.assertRaises(BlockingIOError):
                         keys.update(self.request(True, revision))
                     pipe.send('edit')
                     self.assertTrue(pipe.poll(5))
@@ -222,7 +222,7 @@ class ProjectKeys(unittest.TestCase):
                     self.assertNotEqual(self.file.stat().st_ino, before_inode)
                     self.assertEqual(keys.update(self.request(True, revision))['keys'], [])
                 else:
-                    with self.assertRaises(keys.KeyRevisionChanged):
+                    with self.assertRaisesRegex(ValueError, 'changed since preview'):
                         keys.update(self.request(True, revision))
                     self.assertEqual(self.file.read_bytes(), later)
                 self.assertEqual(sorted(p.name for p in self.root.iterdir()), ['alice', 'bob'])
@@ -341,16 +341,14 @@ class ProjectKeys(unittest.TestCase):
         keys.update(self.request())
         self.assertEqual(self.file.read_bytes(), b'ssh-ed25519 YWJj\n')
 
-    def test_cli_diagnostics_are_fixed_and_distinguish_refusals(self):
-        for error, message in ((keys.KeyWriterBusy('private input'), 'native key writer busy; no update performed\n'),
-                               (keys.KeyRevisionChanged('private input'), 'native key preview stale; no update performed\n'),
-                               (OSError('private input'), 'native key operation not confirmed\n')):
-            with self.subTest(message=message):
+    def test_cli_failures_do_not_expose_exception_contents(self):
+        for error in (BlockingIOError('private input'), ValueError('private input'), OSError('private input')):
+            with self.subTest(error=type(error).__name__):
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with patch.object(keys.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(b'{}'))), patch.object(keys, 'update', side_effect=error), redirect_stdout(stdout), redirect_stderr(stderr):
                     self.assertEqual(keys.key_main(), 1)
                 self.assertEqual(stdout.getvalue(), '')
-                self.assertEqual(stderr.getvalue(), message)
+                self.assertEqual(stderr.getvalue(), 'native key operation not confirmed\n')
 
     def test_account_refusal_precedes_file_access(self):
         with patch.object(keys, 'account_for', side_effect=ValueError('mismatch')):

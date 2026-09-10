@@ -416,10 +416,8 @@ starting another; a focused independent review may run alongside it.
 | 0 | Correct stale audit status and macOS test fixture | Source fixed; normal/symlink-path Linux checks passed. Native macOS rerun remains pending. |
 | 1 | Remove unused bootstrap-token retention/access | Source complete with local checks; retained credential maintenance and native/provider proof remain unrun. |
 | 2 | Reject stale-session project mutations | Source complete with local handler/race/source checks; native delivery remains separate. |
-| 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
-| 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
 | 3 | Make the managed-key writer contract safe and explicit | Cooperative-writer rule accepted; source complete with local checks. Paired native delivery/SSH proof remain unrun. |
-| 4 | Use GitHub's native service entrypoint | Open; inspect the exact selected package and generated layout first. |
+| 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
 | 5 | Cancellable host admission and bounded capture | Admission completed locally in `22f5c20` (same work as E); capture and Tailnet stream bounds remain open. |
 | 6 | Combined regression checks and scoped native delivery | After the relevant fixes; native target/effect authorization remains separate. |
 | 7 | Optional upstream reuse/dead-path cleanup | Later; only candidates with demonstrated benefit and equivalent behavior. |
@@ -550,7 +548,7 @@ preview revision, write, explicitly flush and then sync the exclusive temporary
 file, atomically publish,
 sync the directory and verify the result. Every managed-key writer must follow the
 same contract. Keep content, inode/path safety and no automatic replay/restoration
-checks; distinguish stale preview, busy writer and uncertain completion without
+checks; refuse stale previews and busy writers and preserve uncertainty without
 exposing keys in diagnostics. Normal SSH reads do not need to participate in the lock.
 
 The reviewed sync-before-flush and unlocked account-provisioning defects are now
@@ -558,7 +556,7 @@ corrected. Both writers hold the directory lock before account/key observations 
 effects, retaining exclusive missing-file creation and repeat-Join refusal on drift.
 The [API contract](dashboard-api.md) and code now specify content hashes rather than
 history/generation counters. Existing conservative public failure responses are
-unchanged; the native key program has fixed busy/stale/uncertain diagnostics.
+unchanged; the native key program uses the same single sanitized failure.
 
 **Check/exit:** deterministic separate-process fixtures cover competing Soda/native
 cooperating writers, stale preview, lock contention, append/edit/replacement before
@@ -627,6 +625,31 @@ delete old credentials, replace project roots or mutate provider registrations.
 Current target/action grants must be checked at that time. The x86 ISO build and
 complete first-install journey remain deferred until the machine is available;
 this plan does not reactivate them or authorize publication.
+
+### Overengineering review follow-through
+
+The user requested fixes for the [three-pass review](overengineering-review.md).
+Implement its supported removal boundaries, not the withdrawn inventory/hash deletion
+or an evidence-system redesign. One bounded change per commit, with existing focused
+checks followed by the aggregate source check; no deployment or retained-state work.
+
+- Managed keys: remove unused error classes/diagnostic distinctions; keep writer
+  exclusion, durability and preservation tests. Source simplified.
+- Tailnet: remove test-only classification and generic process configuration; keep
+  the real status/endpoint callers and their cancellation/error behavior.
+- Runners: connect the public CLI directly to native operations, preserving the
+  combined root/`PKEXEC_UID`/native identity admission and cross-process lock. Retire
+  the helper source and packaging together, not installed files.
+- Templates: read authored source in behavior tests; make historical normalization
+  explicit in parity checks. Preserve meaningful hashes, permissions and fixtures.
+- Terminal: explicitly retire no-locator mounting and port useful tests to managed
+  locators. Retain legacy storage import and live pending events; this is a source
+  interface change, not proof of compatibility with unknown external consumers.
+- Support labels and broad presentation snapshots: no demonstrated defect requiring
+  replacement; retain their documented contracts and unresolved evidence reporting.
+
+Actual checks and remaining native limits belong in the
+[handoff](implementation-status.md#overengineering-review-follow-through).
 
 ### Phase 7 — optional cleanup after correctness
 

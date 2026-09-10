@@ -352,9 +352,8 @@ against arbitrary root editors. A noncooperating writer can race even the last
 check/rename and have its revocation overwritten. See the
 [native editing contract](project-os.md#managed-key-writer-contract).
 
-The key program distinguishes busy/stale-preview refusal with fixed, key-free
-native diagnostics. The host/web adapter still conservatively reports native
-unconfirmed errors rather than adding new public error/status fields. Failure after
+The key program and host/web adapter conservatively report native unconfirmed
+errors without exception contents or new public error/status fields. Failure after
 publication remains uncertain; never restore an earlier snapshot, remove a published
 file or automatically replay Apply. Unpublished-temp cleanup is limited to a name
 this operation actually created exclusively; a collision is not an owned file.

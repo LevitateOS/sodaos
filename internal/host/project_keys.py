@@ -14,14 +14,6 @@ import uuid
 from project_terminal import account_for
 
 
-class KeyWriterBusy(Exception):
-    pass
-
-
-class KeyRevisionChanged(ValueError):
-    pass
-
-
 def directory(parts):
     fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
     try:
@@ -80,10 +72,7 @@ def update(data):
         # All Soda writers and native administrators use this same stable
         # directory lock before account/key observations, through publication.
         # Advisory locking cannot protect against root writers ignoring it.
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise KeyWriterBusy from None
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         account_for(login, data['identity'])
         raw, installed, old = read_keys(fd, login)
         revision = hashlib.sha256(raw).hexdigest()
@@ -92,7 +81,7 @@ def update(data):
                 raise ValueError('invalid preview')
             return {'revision': revision, 'keys': installed}
         if data['revision'] != revision:
-            raise KeyRevisionChanged('key file changed since preview')
+            raise ValueError('key file changed since preview')
         # Revision is a content hash, not an inode/history generation. Canonical
         # edits present at preview are reviewed; different later bytes refuse.
         # Under the cooperative lock no other writer can race the replacement.
@@ -135,12 +124,6 @@ def key_main():
         result = update(data)
         print(json.dumps(result, separators=(',', ':')))
         return 0
-    except KeyWriterBusy:
-        sys.stderr.write('native key writer busy; no update performed\n')
-        return 1
-    except KeyRevisionChanged:
-        sys.stderr.write('native key preview stale; no update performed\n')
-        return 1
     except (OSError, ValueError, KeyError, TypeError, RecursionError):
         # No request bytes, key contents, paths or exception body in diagnostics.
         sys.stderr.write('native key operation not confirmed\n')

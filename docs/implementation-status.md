@@ -1,5 +1,22 @@
 # Current handoff
 
+## Overengineering review follow-through
+
+The user subsequently requested implementation of the supported review findings.
+The [plan](refactoring-plan.md#overengineering-review-follow-through) owns the bounded
+changes; the three-pass record below remains historical, not a current source tally.
+Current source already excludes GitHub runner support; its retired entrypoint
+recommendation is not resumed. Duplicate stale phase rows were corrected in the plan.
+
+Managed keys now use ordinary lock/revision exceptions and a single sanitized native
+failure, matching what the Go caller already exposes. No locking, revision, flush/sync,
+exclusive-temp ownership or uncertain-publication behavior changed. The 16 key and
+12 account tests passed locally; logs are retained in
+`.artifacts/overengineering-fixes-mviJ3h/`. No native/project/account/provider operation,
+deployment, retained-state mutation or dependency change occurred. Remaining review
+slices and the aggregate source check follow separately; paired native delivery and
+SSH proof remain unrun.
+
 ## Three-pass overengineering review — documentation only
 
 At the user's request, [the review record](overengineering-review.md) preserves the
