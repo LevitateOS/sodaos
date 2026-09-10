@@ -1,4 +1,5 @@
 import {LitElement, html} from 'lit';
+import type {ReactiveController} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {attentionReason, terminalObservation} from './sodaspaces-attention.js';
 import type {TerminalObservation} from './sodaspaces-attention.js';
@@ -44,6 +45,48 @@ interface Creation {
   name: string;
 }
 const validName = (name: string) => [...name].length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(name);
+// Only subscriptions live here. Geometry, layout and minimum-size publication
+// remain with SodaSpaces. A disconnected workspace is permanently disposed, so
+// retirement must also block late font promises and already queued observer calls.
+class WorkspaceMeasurement implements ReactiveController {
+  private observer: ResizeObserver | undefined;
+  private lifetime: AbortController | undefined;
+  private retired = false;
+
+  constructor(private readonly host: LitElement, private readonly measure: () => void) {
+    host.addController(this);
+  }
+
+  hostUpdated() {
+    if (this.retired || this.observer || !this.host.isConnected) return;
+    // Connection precedes the first render. Wait for the actual canvas, and
+    // retry on a later update if the initial render did not contain it.
+    const canvas = this.host.querySelector('.soda-workspace-canvas');
+    if (!canvas) return;
+    const lifetime = this.lifetime = new AbortController();
+    const notify = () => {
+      if (!lifetime.signal.aborted && this.host.isConnected) this.measure();
+    };
+    this.observer = new ResizeObserver(notify);
+    this.observer.observe(canvas);
+    this.observer.observe(this.host);
+    document.fonts.addEventListener('loadingdone', notify, {signal: lifetime.signal});
+    window.visualViewport?.addEventListener('resize', notify, {signal: lifetime.signal});
+    void document.fonts.ready.then(notify);
+  }
+
+  hostDisconnected() {
+    this.retire();
+  }
+
+  retire() {
+    this.retired = true;
+    this.observer?.disconnect();
+    this.observer = undefined;
+    this.lifetime?.abort();
+  }
+}
+
 // Both surfaces share this owner. Pane chrome is keyed separately; live terminal
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
@@ -124,7 +167,7 @@ export class SodaSpaces extends LitElement {
   private cell = {
     width: 9, height: 20
   };
-  private observer: ResizeObserver | undefined;
+  private measurement = new WorkspaceMeasurement(this, () => this.measure());
   private maximized: string | undefined;
   private dragged: string | undefined;
   private choosingPane: string | undefined;
@@ -219,21 +262,6 @@ export class SodaSpaces extends LitElement {
     super.disconnectedCallback();
     this.dispose();
   }
-  protected firstUpdated() {
-    const canvas = this.querySelector('.soda-workspace-canvas');
-    if (!canvas)
-      return;
-    this.observer = new ResizeObserver(this.measure);
-    this.observer.observe(canvas);
-    this.observer.observe(this);
-    document.fonts.addEventListener('loadingdone', this.measure, {
-      signal: this.lifetime.signal
-    });
-    window.visualViewport?.addEventListener('resize', this.measure, {
-      signal: this.lifetime.signal
-    });
-    void document.fonts.ready.then(() => this.measure());
-  }
   protected updated() {
     this.display();
   }
@@ -274,12 +302,7 @@ export class SodaSpaces extends LitElement {
         ${this.view !== 'terminal' ? html`<button class="ui button" @click=${() => this.back()}>Back to terminal</button>` : ''}
         ${renderMenu('Workspace options', '⋯', html`
           <button class="ui button" ?disabled=${this.busy || this.stale} @click=${() => this.refresh()}>Refresh Spaces</button>
-          ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => {
-        this.layout = {
-          ...this.layout, sidebar: this.layout.sidebar === null ? 256 : null
-        };
-        this.persist();
-      }}>Toggle sidebar</button>` : ''}
+          ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>` : ''}
           ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
         `)}
         ${this.binding?.kind === 'native' ? html`<a href="/-/soda/spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
@@ -345,6 +368,19 @@ export class SodaSpaces extends LitElement {
       }) : ''}
     </section>`;
   }
+  private toggleSidebar() {
+    this.layout = {...this.layout, sidebar: this.layout.sidebar === null ? 256 : null};
+    this.persist();
+  }
+  private toggleMaximizedPane() {
+    this.closeMenus();
+    this.maximized = this.maximized ? undefined : this.layout.focused;
+    this.requestUpdate();
+  }
+  private consolidatePanes() {
+    this.closeMenus();
+    this.arrange(consolidate(this.layout));
+  }
   private paneActions() {
     return html`${this.binding?.kind === 'page' && panes(this.layout.tree).length > 1 && (this.projection.compact || this.maximized) ? html`<label>Panes (${panes(this.layout.tree).length}) <select aria-label="Focused pane" .value=${this.layout.focused} @change=${(e: Event) => {
       if (e.target instanceof HTMLSelectElement)
@@ -353,15 +389,8 @@ export class SodaSpaces extends LitElement {
       ${this.binding?.kind === 'page' ? renderMenu('Pane actions', '⊞', html`
         <p>Splits need at least 56 columns × 12 rows in each child.</p>
         <button class="ui button" ?disabled=${!this.canSplit('right')} @click=${() => this.split('right')}>Split right</button><button class="ui button" ?disabled=${!this.canSplit('below')} @click=${() => this.split('below')}>Split below</button>
-        <button class="ui button" @click=${() => {
-        this.closeMenus();
-        this.maximized = this.maximized ? undefined : this.layout.focused;
-        this.requestUpdate();
-      }}>${this.maximized ? 'Restore panes' : 'Maximize pane'}</button>
-        <button class="ui button" @click=${() => {
-        this.closeMenus();
-        this.arrange(consolidate(this.layout));
-      }}>Consolidate panes</button>
+        <button class="ui button" @click=${() => this.toggleMaximizedPane()}>${this.maximized ? 'Restore panes' : 'Maximize pane'}</button>
+        <button class="ui button" @click=${() => this.consolidatePanes()}>Consolidate panes</button>
       `) : ''}`;
   }
   private visibleSlot(slot: Slot) {
@@ -1340,6 +1369,7 @@ export class SodaSpaces extends LitElement {
     if (this.stale)
       return;
     this.stale = true;
+    this.measurement.retire();
     window.clearInterval(this.attentionTimer);
     ++this.epoch;
     this.request?.abort();
@@ -1362,7 +1392,6 @@ export class SodaSpaces extends LitElement {
       return;
     this.invalidate();
     this.disposed = true;
-    this.observer?.disconnect();
     this.lifetime.abort();
     for (const slot of this.slots)
       slot.terminal.dispose();

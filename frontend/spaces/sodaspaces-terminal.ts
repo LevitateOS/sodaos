@@ -169,16 +169,9 @@ export class SodaTerminal extends LitElement {
       confirmingName: this.confirming ? this.sessionName || this.confirming : null,
       canConfirm: !disabled && !this.actionBusy && this.confirming === this.sessionID,
     }, {
-      connect: () => {
-        this.closeMenu();
-        this.retries = 0;
-        void this.connect();
-      },
+      connect: () => this.connectFromControls(),
       end: () => this.managed ? this.confirmEnd() : this.control('end'),
-      confirmEnd: () => {
-        this.control('end');
-        this.confirming = undefined;
-      }, cancelEnd: () => this.cancelEnd(),
+      confirmEnd: () => this.endConfirmedTerminal(), cancelEnd: () => this.cancelEnd(),
       return: () => {
         this.closeMenu();
         this.control('return');
@@ -196,6 +189,16 @@ export class SodaTerminal extends LitElement {
         }
       },
     });
+  }
+  private connectFromControls() {
+    this.closeMenu();
+    this.retries = 0;
+    void this.connect();
+  }
+  private endConfirmedTerminal() {
+    // Admission must see the exact confirmed ID before the dialog is cleared.
+    this.control('end');
+    this.confirming = undefined;
   }
   private closeMenu() {
     const menu = this.querySelector('details');

@@ -125,6 +125,13 @@ shared runtime/export mapping when it is actually used, not an independent bundl
 A parent's `updateComplete` does not wait for all children or layout: await the
 relevant child, recheck retirement and use ResizeObserver for terminal geometry.
 
+The workspace's private `WorkspaceMeasurement` controller owns only resize/font/
+viewport subscriptions. Its `hostUpdated` hook waits for an actual rendered canvas;
+connection alone is too early. Invalidation/disconnection retire subscriptions and
+fence delayed callbacks, while ordinary Hide/view/Refresh preserve them. Geometry,
+layout persistence and command policy stay in `SodaSpaces`. This is not a controller
+base class or permission to split terminal transport/retention into separate stores.
+
 The loopback browser smoke test compiles a test-only component through the real
 build and loads the emitted runtime over HTTP. Native browser/access journeys
 remain separate from this scaffold proof.

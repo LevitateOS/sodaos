@@ -10,8 +10,44 @@ retained originals and matched; executable ordering, strings and rendered whites
 were not changed. Early formatter layouts were refined before the final comparison.
 Final formatting passed `bun run typecheck` (including Lit diagnostics/fixtures) and
 `bun run test:lit`. Originals and logs are retained under
-`.artifacts/refactor-stepD-TtCZ3j/`. Measurement lifecycle extraction and its focused
-browser checks follow in this same step; no native delivery is implied.
+`.artifacts/refactor-stepD-TtCZ3j/`. A supplemental token comparison also matched,
+apart from optional semicolons/trailing parameter commas; its initial overly strict
+trailing-comma rejection is retained rather than claimed as a source failure.
+
+A private `WorkspaceMeasurement` Lit reactive controller now owns only the workspace
+ResizeObserver and font/visual-viewport subscriptions. `hostUpdated` waits for the
+first real canvas (and can retry a render without it); updates reuse subscriptions.
+Invalidation and disconnect permanently retire them, with aborted-signal guards for
+queued observer callbacks and delayed `fonts.ready`. Ordinary Hide/selection/Refresh
+do not retire measurement. The workspace still owns dimensions, minimum publication,
+layout persistence, attention and commands; the terminal still owns xterm, transport,
+finite retention/Return and HTTP End. Disposal remains detach, not End.
+
+Selected multi-step sidebar/pane, terminal connect/confirmed-End and project Join/key
+selection callbacks now have named methods on their original owners. Synchronous
+admission, original bindings, generation checks, confirmation-before-dispatch order,
+uncertain outcomes and no replay remain intact. Existing typed views/pure layout
+functions remain. No `@lit/task`, framework, new custom element, duplicate state or
+production module was added; the existing payload mapping/public URLs, preview/staging
+callers, shared Lit runtime and compiler/analyzer boundaries are unchanged.
+
+Three new emitted-workspace browser probes use real observers with retained callbacks
+and delayed fonts. They passed for invalidation, explicit disposal and DOM departure:
+no subscription before first render, one observer across refresh/resize, both original
+targets, disconnected/aborted resources, no late DOM/minimum/API/socket effects and no
+subscription from disposal before first update. Existing real xterm/socket identity,
+split/resize/Hide/Refresh, project drafts, exact locators and uncertain/End journeys
+also passed in the full suite.
+
+Final `bun run check:source` passed in 100.46 seconds: Go/module checks, complete
+TypeScript/Lit checks, 305 browser/Cockpit passes with 24 separately gated skips, and
+115 Python tests with one optional Caddy integration skip. The final Go HTML fixtures
+are `.artifacts/pages-oFtN70/`; all logs/originals/timings remain in the step-D evidence
+directory above. This completes bounded D locally, not all possible template restyling
+or native acceptance. Local tools remain Go 1.27.0 and Bun 1.4.2. No retained project,
+VM, provider, native-stage check, deployment, dependency-baseline or host-policy changes
+occurred. E remains conditional, F feature-driven, and all unfinished product work
+remains in scope.
 
 ## Audit remediation plan — current source reconciled, implementation not started
 

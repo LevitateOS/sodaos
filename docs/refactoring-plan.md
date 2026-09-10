@@ -241,6 +241,13 @@ stored login merely to replace booleans or introduce arbitrary return URLs.
 
 ### D. Readable frontend ownership using Lit — incremental, not a rewrite
 
+**Implemented as a bounded local slice.** See the
+[handoff](implementation-status.md#refactoring-step-d--frontend-readability-and-measurement-ownership)
+for formatting equivalence checks, the private measurement controller, named owner
+commands and emitted-browser/source results. Existing terminal/project authority,
+payload ownership and unfinished features remain; no async-task dependency was needed.
+This is not a claim that every template needs—or received—a wholesale restyle.
+
 **Owners:** [workspace](../frontend/spaces/sodaspaces-workspace.ts),
 [project controls](../frontend/spaces/sodaspaces-project.ts),
 [terminal](../frontend/spaces/sodaspaces-terminal.ts),

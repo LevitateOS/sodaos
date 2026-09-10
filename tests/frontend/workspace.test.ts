@@ -5,6 +5,7 @@ import path from 'node:path';
 import payload from '../../internal/nativebuild/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
+import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';
 import {projectView, newManagedTerminal, terminalMenu} from '../installed/sodaspaces-controls.ts';
 import {parseLayout, focusedPane} from '../../frontend/spaces/sodaspaces-layout';
 
@@ -24,11 +25,12 @@ before(async () => {
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
 after(async () => {await browser?.close(); server?.stop(true);});
-async function fixture(t: TestContext, mode: 'native' | 'page' = 'page') {
+async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeMount?: () => void) {
   const page = await browser.newPage({viewport: {width: 1440, height: 1000}}), errors: string[] = [];
   page.setDefaultTimeout(5000); page.on('pageerror', e => errors.push(e.message));
   t.after(async () => {await page.close(); assert.deepEqual(errors, []);});
   await page.goto(server.url.href); await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  if (beforeMount) await page.evaluate(beforeMount);
   await page.evaluate(async mode => {window.workspaceFixture = window.createWorkspaceFixture(mode); await window.workspaceFixture.api.ready;}, mode);
   return page;
 }
@@ -391,6 +393,48 @@ test('authorized collection reports an observed other writer without needing a f
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.body).length), 0);
 });
+for (const retirement of ['invalidate', 'dispose', 'disconnect'] as const) test(`measurement subscriptions retire on ${retirement}, including queued callbacks`, async t => {
+  const page = await fixture(t, 'page', installMeasurementProbe);
+  await page.waitForFunction(() => window.measurementProbe.minimumNotifications > 0);
+  assert.deepEqual(await page.evaluate(() => {
+    const p = window.measurementProbe;
+    return {
+      beforeRender: p.beforeFirstRender,
+      observers: p.observers.length,
+      targets: p.observers[0]?.targets.map(target => target.matches('.soda-workspace-canvas') ? 'canvas' : target.localName),
+      activeSignals: p.signals.filter(signal => !signal.aborted).length,
+    };
+  }), {beforeRender: 0, observers: 1, targets: ['canvas', 'soda-spaces'], activeSignals: 2});
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.setViewportSize({width: 1100, height: 800});
+  assert.equal(await page.evaluate(() => window.measurementProbe.observers.length), 1, 'updates resubscribed');
+  await page.evaluate(retirement => {
+    const f = window.workspaceFixture;
+    if (retirement === 'disconnect') f.root.querySelector('soda-spaces')?.remove();
+    else f.api[retirement]();
+  }, retirement);
+  // Let the caller's own invalidation render settle before delivering stale work.
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const before = await page.evaluate(() => ({html: window.workspaceFixture.root.innerHTML, notifications: window.measurementProbe.minimumNotifications, calls: window.workspaceFixture.calls.length}));
+  await page.evaluate(async () => {
+    const p = window.measurementProbe;
+    for (const observer of p.observers) observer.deliver();
+    p.releaseFonts();
+    document.fonts.dispatchEvent(new Event('loadingdone'));
+    window.visualViewport?.dispatchEvent(new Event('resize'));
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+  assert.deepEqual(await page.evaluate(() => ({html: window.workspaceFixture.root.innerHTML, notifications: window.measurementProbe.minimumNotifications, calls: window.workspaceFixture.calls.length})), before);
+  assert.deepEqual(await page.evaluate(() => ({disconnects: window.measurementProbe.observers.map(o => o.disconnected), aborted: window.measurementProbe.signals.every(s => s.aborted), sockets: window.workspaceFixture.sockets.length})), {disconnects: [1], aborted: true, sockets: 0});
+  // A mount disposed before its first render must never install subscriptions.
+  assert.equal(await page.evaluate(async () => {
+    const f = window.createWorkspaceFixture();
+    f.api.dispose();
+    await f.api.ready;
+    return window.measurementProbe.observers.length;
+  }), 1);
+});
+
 test('departure during authorization cannot dispatch a late collection read', async t => {
   const page = await fixture(t); await page.evaluate(async () => {const f = window.workspaceFixture; let release: (() => void) | undefined; f.pause(new Promise<void>(resolve => {release = resolve;})); const pending = f.api.refresh(); f.api.dispose(); release?.(); await pending;});
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 1);

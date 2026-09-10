@@ -244,12 +244,7 @@ export class SodaProjectControls extends LitElement {
       create: event => this.command(event, () => this.mutate('/api/environments', {
         repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile
       }, 'Environment created. Explicitly Join for a browser terminal; external SSH keys are optional. Creation does not join you.')),
-      join: event => this.command(event, () => {
-        if (this.environment)
-          return this.mutate('/api/environments/' + this.environment.id + '/join', {
-            ssh_keys: this.useSavedKeys ? 'saved' : 'none'
-          }, 'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.');
-      }),
+      join: event => this.command(event, () => this.joinEnvironment()),
     }, renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed, event => this.command(event, () => this.changeLifecycle(false)), event => this.command(event, () => this.changeLifecycle(true)), checked => {
       this.stopConfirmed = checked;
     }))}
@@ -273,15 +268,21 @@ export class SodaProjectControls extends LitElement {
     })}
         ${this.saved ? renderForgejoKeys(this.profileKeys, this.blocked, page => {
       void this.reviewProfileKeys(page);
-    }, key => {
-      if (this.blocked || this.selected !== 'access' || this.closest('[hidden], [inert]'))
-        return;
-      this.draft = key;
-      this.outcome = 'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
-    }) : ''}
+    }, key => this.selectForgejoKey(key)) : ''}
       </section>
       ${renderProjectStatus(this.repository, this.session ? `Soda account: ${this.session.user.login} (ID ${this.session.user.id})` : '', this.connection ? 'Project account: ' + this.detail?.login : '', this.status, this.outcome)}
     </section>`;
+  }
+  private joinEnvironment() {
+    if (!this.environment) return;
+    return this.mutate('/api/environments/' + this.environment.id + '/join', {
+      ssh_keys: this.useSavedKeys ? 'saved' : 'none'
+    }, 'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.');
+  }
+  private selectForgejoKey(key: string) {
+    if (this.blocked || this.selected !== 'access' || this.closest('[hidden], [inert]')) return;
+    this.draft = key;
+    this.outcome = 'Review the selected public key above, then explicitly Save public key. Joining/applying to a project remains a separate action.';
   }
   private async copyConnection() {
     if (!this.binding?.page || this.blocked || !this.connection || this.selected !== 'access' || this.closest('[hidden], [inert]'))
