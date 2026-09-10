@@ -214,6 +214,13 @@ unused host fallback as implemented. Introduce Rust only for a concrete need and
 
 ## Human-maintainable engineering
 
+**Upstream-first implementation is a requirement.** Do not build simplified
+imitations of established, mature upstream implementations. Use their supported
+configuration, APIs, extension points and native workflows before writing a Soda
+replacement. A shorter implementation, an inconvenient interface or an assumed
+missing feature is not a justification for taking over their responsibility.
+This applies during implementation and review, not only in a future audit.
+
 Prefer a coherent system a person can understand, modify and remove:
 
 1. Delete dead or duplicated decisions rather than wrapping them.
@@ -234,9 +241,19 @@ integration. A bounded adapter may mutate native state and Soda's legitimate
 records without requiring durable jobs, copied permissions or reconciliation.
 
 Before adding an adapter, inspect the exact selected upstream version and
-configuration. Separate protocol requirements, defaults, optional capabilities,
-packaging conventions and hypotheses. If a mechanism fails, identify its actual
-constraint; do not silently change the product or invent a new subsystem.
+configuration and the actual Soda caller. Identify what upstream already owns,
+the concrete Soda requirement it does not supply, and the smallest integration
+needed between them. Separate protocol requirements, defaults, optional capabilities,
+packaging conventions and hypotheses. Prefer deleting proven duplication over
+wrapping or renaming it. If a mechanism fails, identify its actual constraint;
+do not silently change the product or invent a new subsystem.
+
+Audit responsibilities across their complete call chains, including internal
+packages and native helpers. A package boundary does not establish independent
+ownership. Compare current code against actual upstream behavior before labelling
+it redundant; required authorization, persistence and user-facing integration
+must survive any simplification. Follow the source-backed
+[upstream-first review](docs/refactoring-plan.md#1-upstream-first-review).
 
 Implement one source-backed candidate. Investigate project-scoped host workloads
 only after a concrete nested-runtime blocker. Do not add dormant backends, a
