@@ -1,6 +1,11 @@
 # Page illustration checklist
 
-Active goal: assess each page, decide whether art helps, record its scene prompt, generate and integrate missing appropriate art, inspect the native rendering, then advance to the next pending page.
+The [2026-09-10 story review](illustration-story-review.md) now owns illustration
+identity, distinctness and scene direction after the user's request to redesign
+repetitive art. This checklist retains page/caller coverage and historical screenshot
+evidence; its older aesthetic acceptance does not approve newly replaced image bytes.
+
+Page coverage: assess each page, decide whether art helps, record its scene prompt, generate and integrate missing appropriate art, inspect the native rendering, then advance to the next pending page.
 
 ## Workflow and status
 
@@ -12,7 +17,12 @@ Active goal: assess each page, decide whether art helps, record its scene prompt
 - `No image`: individually reviewed; record the concrete reason.
 - `Partial — trace caller`: not assumed to be a page; account for its actual page callers before closing.
 
-Preserve native headings, forms, permissions and scripts. Use the fixed references and material/character rules in [settings-art-prompts.md](../assets/branding/forgejo/settings-art-prompts.md). Decorative art must not replace meaningful status, avatars or repository content. Each generated page needs its own recorded scene; shared native components do not each need an image.
+Preserve native headings, forms, permissions and scripts. Use the fixed Dashboard
+character reference and varied scene rules in the [story review](illustration-story-review.md).
+The old settings prompts are historical; their one-bot/one-prop/oval-mat recipe is
+superseded. Decorative art must not replace meaningful status, avatars or repository
+content. Each generated page needs its own recorded scene; shared native components
+do not each need an image.
 
 Scope starts with every current override below. Shared layout coverage can include native pages without a leaf override; add those route variants as their callers are traced. This is an inventory, not a claim that every route has been visited. Existing staged and unstaged work predates this goal and must be preserved.
 
@@ -352,6 +362,11 @@ Organization settings routes discovered in the native navbar (each still needs i
 - Read-only `/api/v1/orgs?limit=20` returned an empty list. No organization fixture was created, so native desktop/mobile verification remains pending and this page is not marked Done. Proceeding to independent pages.
 
 ### Repository migration chooser
+
+The subsequent [full page redesign](migration-page-redesign.md) uses the same
+accepted illustration in a larger story column beside a new source chooser.
+That record owns the 2026-09-10 layout and native navigation evidence; the artwork
+generation notes below remain historical.
 
 - Decision: appropriate in the existing intro; replace reused new-repository art with a distinct import/history scene.
 - Prompt and rationale: [migrate-art-prompt.md](../assets/branding/forgejo/migrate-art-prompt.md). Built-in image generator; fixed Dashboard/Notifications/New-repository references.

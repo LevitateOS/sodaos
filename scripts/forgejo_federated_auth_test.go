@@ -313,5 +313,5 @@ func readForgejoFederatedTemplate(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	return withoutForgejoPresentationRoles(string(contents))
+	return withoutForgejoPresentationRoles(withoutForgejoFormLayout(t, "user/auth/"+name, string(contents)))
 }

@@ -54,7 +54,7 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
   let ids = 0, attachments = 0, allowed = '';
   const tls = await mkdtemp(path.join(root, '.artifacts/matrix-tls-')); await chmod(tls, 0o700);
   assert.equal(Bun.spawnSync(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-subj', '/CN=localhost', '-days', '1', '-keyout', tls + '/key.pem', '-out', tls + '/cert.pem'], {stdout: 'ignore', stderr: 'ignore'}).exitCode, 0);
-  const server = Bun.serve<Wire>({hostname: '127.0.0.1', port: 0, tls: {key: Bun.file(tls + '/key.pem'), cert: Bun.file(tls + '/cert.pem')}, 
+  const server = Bun.serve<Wire>({hostname: '127.0.0.1', port: 0, tls: {key: Bun.file(tls + '/key.pem'), cert: Bun.file(tls + '/cert.pem')},
     async fetch(req, server) {
       const url = new URL(req.url), route = url.pathname;
       if (route.endsWith('/terminal')) {

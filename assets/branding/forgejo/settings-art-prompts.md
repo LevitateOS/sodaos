@@ -1,5 +1,10 @@
 # Settings page illustrations
 
+Historical generation record. These nine settings illustrations now have no current
+template callers and are omitted from new public payloads; their source files remain.
+The [story review](../../../docs/illustration-story-review.md) supersedes the repeated
+one-bot/one-prop/oval-mat composition rule. Dashboard remains the character reference.
+
 Generated with the built-in image tool on 2026-09-08 after visually reviewing all twelve existing page illustrations and their prompt records. Existing artwork and canonical logos are unchanged.
 
 ## Shared references

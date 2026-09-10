@@ -2,14 +2,11 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content organization new team soda-page soda-org-details" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{template "org/header" .}}
-	<div class="ui container soda-page-container soda-org-details-intro">{{$artwork := ""}}{{if .PageIsOrgTeamsNew}}{{$artwork = "new-team-papercraft.png"}}{{end}}{{template "custom/soda/page_intro" dict "TitleID" "soda-org-detail-title" "Title" .Title "Class" "soda-page-intro--compact" "Artwork" $artwork}}</div>
-	<div class="ui container">
-		<div class="ui grid">
-			<div class="column">
+	<div class="ui container soda-page-container soda-form-layout">
+{{$taskTitle := ctx.Locale.Tr "org.teams.settings"}}{{if .PageIsOrgTeamsNew}}{{$taskTitle = ctx.Locale.Tr "org.create_new_team"}}{{end}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Give your team a clear place and the access it needs." "Eyebrow" "Build together" "Artwork" "new-team-papercraft.png" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 				<form class="ui form soda-form soda-p-form" action="{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}" data-delete-url="{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete" method="post">
-					<h3 class="ui top attached header soda-p-heading">
-						{{if .PageIsOrgTeamsNew}}{{ctx.Locale.Tr "org.create_new_team"}}{{else}}{{ctx.Locale.Tr "org.teams.settings"}}{{end}}
-					</h3>
 					<div class="ui attached segment soda-p-section">
 						{{template "base/alert" .}}
 						<div class="required field {{if .Err_TeamName}}error{{end}}">
@@ -119,7 +116,7 @@
 							</fieldset>
 						{{end}}
 
-						<div class="field">
+						<div class="field soda-form-actions">
 							{{if .PageIsOrgTeamsNew}}
 								<button class="ui primary button">{{ctx.Locale.Tr "org.create_team"}}</button>
 							{{else}}
@@ -131,9 +128,8 @@
 						</div>
 					</div>
 				</form>
-			</div>
-		</div>
-	</div>
+</div>
+</div>
 </div>
 
 <div class="ui g-modal-confirm delete modal" id="delete-team">

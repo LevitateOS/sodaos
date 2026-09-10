@@ -2,7 +2,8 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}" class="soda-page soda-code soda-code-editor page-content repository file editor upload">
 	{{template "repo/header" .}}
-	<div class="ui container soda-p-editor-container">
+	<div class="ui container soda-p-editor-container soda-form-editor">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "" "Eyebrow" "" "Artwork" "" "Class" "soda-form-editor-intro"}}
 		{{template "base/alert" .}}
 		<form class="soda-form ui comment form soda-p-form" method="post">
 			<div class="repo-editor-header">

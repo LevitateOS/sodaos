@@ -6,7 +6,7 @@
 			</div>
 		{{else}}
 			<div class="soda-p-section">
-				<form class="ui form soda-p-form soda-settings-editor" action="{{.Link}}" method="post">
+				<form class="soda-form-panel ui form soda-p-form soda-settings-editor" action="{{.Link}}" method="post">
 					<div class="field">
 						<label>{{ctx.Locale.Tr "repo.settings.tags.protection.pattern"}}</label>
 						<div id="search-tag-box" class="ui search">
@@ -47,7 +47,7 @@
 							</div>
 						</div>
 					{{end}}
-					<div class="field">
+					<div class="field soda-form-actions">
 						{{if .PageIsEditProtectedTag}}
 							<button class="ui primary button">
 								{{ctx.Locale.Tr "save"}}

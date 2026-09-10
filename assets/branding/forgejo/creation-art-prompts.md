@@ -1,5 +1,8 @@
 # Creation page illustrations
 
+The New repository scene was replaced on 2026-09-10; its current prompt is in
+[story-art-prompts.md](story-art-prompts.md). The New organization image is unchanged.
+
 Generated with the built-in image tool on 2026-09-08. Dashboard artwork was used only as the robot/material reference. Original compositions distinguish starting a repository or organization from browsing existing ones. Follow-up image edits replaced painted checkerboards with genuine alpha while preserving the compositions.
 
 ## new-repo

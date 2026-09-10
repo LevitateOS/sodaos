@@ -1,12 +1,10 @@
 {{/* Adapted from Forgejo 15.0.7 templates/moderation/new_abuse_report.tmpl (GPL-3.0-or-later); upstream SHA-256 552b7c046569127ade1615566065123fcf7f45d41072affea8d16765515d35af. Presentation changes only. */}}
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content moderation new-report soda-page soda-moderation" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
-	<div class="ui middle very relaxed page grid">
-		<div class="column">
+	<div class="ui container soda-page-container soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "moderation.report_abuse_form.header") "Description" "Provide the details moderators need to review this content." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+		<div class="soda-form-content">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
-				<h3 class="ui top attached header">
-					{{ctx.Locale.Tr "moderation.report_abuse_form.header"}}
-				</h3>
 				<div class="ui attached segment">
 					{{template "base/alert" .}}
 					<p class="ui center">{{ctx.Locale.Tr "moderation.report_abuse_form.details"}}</p>
@@ -31,7 +29,7 @@
 					</fieldset>
 
 					<div class="divider soda-p-gap"></div>
-					<div class="text right actions">
+					<div class="text right actions soda-form-actions">
 						<a class="ui cancel button" href="{{$.CancelLink}}">{{ctx.Locale.Tr "cancel"}}</a>
 						{{if .ContentID}}
 						<button class="ui primary button">{{ctx.Locale.Tr "moderation.submit_report"}}</button>

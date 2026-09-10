@@ -1,0 +1,11 @@
+{{/* Soda presentation of Forgejo 15.0.7 templates/org/settings/runners_create.tmpl; GPL-3.0-or-later. Upstream SHA-256: 04e9fe07d4e1ce0a82369f9066dd04678013f76341b59d59a8767c684ad5c807. */}}
+{{template "org/settings/layout_head" (dict "ctxData" . "pageClass" "organization settings runners" "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "actions.runners.create_runner.title") "Description" "Name the runner before configuring its connection." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
+<div class="org-setting-content">
+	{{template "shared/actions/runner_create" (dict "SettingsPresentation" true "ctxData" .)}}
+</div>
+</div>
+</div>
+{{template "org/settings/layout_footer" .}}

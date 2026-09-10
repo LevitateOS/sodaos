@@ -1,5 +1,8 @@
 {{/* Adapted from Forgejo 15.0.7 templates/user/settings/access_token_edit.tmpl (GPL-3.0-or-later); upstream SHA-256 0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42. */}}
-{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--access-token applications" "title" (ctx.Locale.Tr "settings.generate_new_token") "parentURL" (printf "%s/user/settings/applications" AppSubUrl) "parentTitle" (ctx.Locale.Tr "settings.applications"))}}
+{{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings soda-account-details-page soda-account-details-page--access-token applications" "title" (ctx.Locale.Tr "settings.generate_new_token") "parentURL" (printf "%s/user/settings/applications" AppSubUrl) "parentTitle" (ctx.Locale.Tr "settings.applications") "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "settings.generate_new_token") "Description" "Choose the access this token needs." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 <div class="user-setting-content soda-settings-editor soda-account-details soda-account-details--access-token">
 
 	<div class="ui attached bottom segment soda-p-section">
@@ -164,11 +167,15 @@
 					</div>
 				{{end}}
 			</div>
+			<div class="soda-form-actions">
 			<button id="scoped-access-submit" class="ui primary button soda-p-control">
 				{{ctx.Locale.Tr "settings.generate_token"}}
 			</button>
+			</div>
 		</form>
 	</div>
 
+</div>
+</div>
 </div>
 {{template "user/settings/layout_footer" .}}

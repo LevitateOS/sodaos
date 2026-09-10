@@ -2,9 +2,13 @@ package scripts
 
 import (
 	"bytes"
+	"html"
 	"html/template"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -46,14 +50,22 @@ func TestForgejoOnboardingPreservesNativeRoutesAndFields(t *testing.T) {
 	}
 }
 
-func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) {
+func TestForgejoOnboardingMigrationProvidersUseSharedFormLayout(t *testing.T) {
 	dir := filepath.Join("..", "appliance", "forgejo", "templates", "repo", "migrate")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("read migration overrides: %v", err)
 	}
-	if len(entries) != 3 || entries[0].Name() != "migrate.tmpl" || entries[1].Name() != "migrating.tmpl" || entries[2].Name() != "options.tmpl" {
-		t.Fatalf("provider forms must remain native fallbacks; found %v", entryNames(entries))
+	if len(entries) != 12 {
+		t.Fatalf("expected chooser, progress, options and nine provider bodies (Forgejo delegates to Gitea); found %v", entryNames(entries))
+	}
+	for _, provider := range []string{"git", "github", "gitlab", "gitea", "gogs", "onedev", "gitbucket", "codebase", "pagure"} {
+		source := readForgejoTemplate(t, "repo", "migrate", provider+".tmpl")
+		for _, required := range []string{"soda-form-layout", "soda-form-content", `{{template "repo/migrate/options" .}}`, `name="service"`, `name="clone_addr"`, `method="post"`} {
+			if !strings.Contains(source, required) {
+				t.Errorf("%s provider lost %s", provider, required)
+			}
+		}
 	}
 	options := readForgejoTemplate(t, "repo", "migrate", "options.tmpl")
 	if strings.Count(options, `class="soda-page-marker"`) != 1 || !strings.Contains(options, `data-signed="{{.IsSigned}}" hidden`) {
@@ -82,8 +94,7 @@ func TestForgejoOnboardingMigrationProvidersRemainNativeFallbacks(t *testing.T) 
 
 	css := readForgejoAssetFile(t, "onboarding.css")
 	for _, want := range []string{
-		`.repository.new.migrate:not(.soda-migrate-chooser)`,
-		`.soda-migrate-chooser .migrate-entry`,
+		`.soda-migrate-chooser .soda-migrate-provider`,
 		`.soda-fork .soda-form`,
 		`.page-content.repository:has(#repo_migrating)`,
 		`#repo_migrating_progress_message`,
@@ -139,6 +150,92 @@ func TestForgejoOnboardingMigratingPreservesNativeRuntimeHooks(t *testing.T) {
 		if strings.Count(source, `id="`+id+`"`) != 1 {
 			t.Errorf("migrating page must retain exactly one #%s hook", id)
 		}
+	}
+}
+
+type migrationChooserService struct {
+	ID    int
+	Name  string
+	Title string
+}
+
+func (s migrationChooserService) String() string { return strconv.Itoa(s.ID) }
+
+func TestForgejoMigrationChooserRendersOnlyAvailableSourcesAndPreservesContext(t *testing.T) {
+	seams := `{{define "base/head"}}head{{end}}{{define "base/footer"}}footer{{end}}{{define "repo/migrate/helper"}}native-migration-helper{{end}}`
+	functions := template.FuncMap{
+		"AppSubUrl":      func() string { return "/forge" },
+		"AssetUrlPrefix": func() string { return "/forge/assets" },
+		"svg":            func(_ string, _ ...any) string { return "icon" },
+		"ctx": func() forgejoTemplateContext {
+			return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{
+				"migrate.git.description":    "native Git description",
+				"migrate.github.description": "native GitHub description",
+				"migrate.custom.description": "native custom description",
+			}}}
+		},
+	}
+	parsed, err := template.New("page").Funcs(functions).Parse(seams + readForgejoTemplate(t, "repo", "migrate", "migrate.tmpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	git := migrationChooserService{1, "git", "Git"}
+	github := migrationChooserService{2, "github", "GitHub"}
+	custom := migrationChooserService{91, "custom", "Custom <source>"}
+	for _, tc := range []struct {
+		name      string
+		services  []migrationChooserService
+		wantIDs   []string
+		providers bool
+	}{
+		{"git in middle", []migrationChooserService{github, git, custom}, []string{"1", "2", "91"}, true},
+		{"git unavailable", []migrationChooserService{custom, github}, []string{"91", "2"}, true},
+		{"only git", []migrationChooserService{git}, []string{"1"}, false},
+		{"none available", nil, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			data := map[string]any{"Title": "Migrate", "Services": tc.services, "Org": "42&mirror=false", "Mirror": "true"}
+			if err := parsed.ExecuteTemplate(&output, "page", data); err != nil {
+				t.Fatal(err)
+			}
+			body := output.String()
+			links := regexp.MustCompile(`<a class="soda-migrate-provider[^\"]*" href="([^\"]+)"`).FindAllStringSubmatch(body, -1)
+			if len(links) != len(tc.wantIDs) {
+				t.Fatalf("rendered %d sources, want %d", len(links), len(tc.wantIDs))
+			}
+			for i, link := range links {
+				u, err := url.Parse(html.UnescapeString(link[1]))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if u.Path != "/forge/repo/migrate" || u.Query().Get("service_type") != tc.wantIDs[i] || u.Query().Get("org") != "42&mirror=false" || u.Query().Get("mirror") != "true" || len(u.Query()) != 3 {
+					t.Errorf("native route/context changed: %s", u)
+				}
+			}
+			if strings.Contains(body, "Hosting services") != tc.providers {
+				t.Error("empty or missing hosting-services group")
+			}
+			if strings.Contains(body, "No migration sources are available.") != (len(tc.services) == 0) {
+				t.Error("incorrect unavailable state")
+			}
+			for _, s := range tc.services {
+				if !strings.Contains(body, "native "+map[string]string{"git": "Git", "github": "GitHub", "custom": "custom"}[s.Name]+" description") {
+					t.Errorf("lost native %s description", s.Name)
+				}
+				if s.Name == "custom" && !strings.Contains(body, "Custom &lt;source&gt;") {
+					t.Error("provider title was not escaped")
+				}
+			}
+			for _, want := range []string{"native-migration-helper", `/forge/assets/soda/forgejo/migrate-papercraft.png`, `aria-labelledby="soda-migrate-source-title"`} {
+				if !strings.Contains(body, want) {
+					t.Errorf("missing %q", want)
+				}
+			}
+			if strings.Contains(body, "<form") || strings.Contains(body, "<script") {
+				t.Error("chooser must remain ordinary native navigation")
+			}
+		})
 	}
 }
 

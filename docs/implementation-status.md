@@ -1,5 +1,19 @@
 # Current handoff
 
+## Merge of origin/main at 711606f
+
+Merged the incoming illustration/form redesign and consistency commits with the
+local constrained-CA probe correction and completed deployment records. The sole
+text conflict was this handoff; both histories/evidence were preserved. This merged
+frontend source has **not** been deployed; both VMs retain the separately verified
+b8af68c delivery below.
+
+Merged-tree checks passed: required typecheck/analyzer/fixtures, root tests
+(frontend 192/3 opt-in skips, Go page, 20-case layout, Forgejo 31/20 opt-in skips,
+Cockpit 60), and `go test ./scripts ./internal/nativebuild`. Evidence:
+`.artifacts/merge-711606f-blI6ty/`. No installed journeys, service changes or new
+native acceptance are implied by this Git integration. Push is explicitly requested.
+
 ## Both targets delivered b8af68c; bounded native checks passed
 
 `soda-test` now also serves **b8af68c/schema v6**, after the successful validation-VM
@@ -77,6 +91,24 @@ Evidence/scripts are under `.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`; failed br
 profiles `s6c-retained-browser-E3mInu` and `s6c-retained-browser-qTOEjL` remain.
 CLI/provider, physical-keyboard and aarch64 acceptance remain unrun; no whole-product
 acceptance or push is implied.
+
+## Form consistency follow-up
+
+Reviewed the form redesign across its native template variants. Removed duplicate
+titles, retained native create/edit help in the intro, unified section typography,
+action-row spacing/alignment/mobile widths and project/milestone page widths.
+Organization/admin runner, webhook and cleanup variants now share the existing
+personal/repository presentation paths. Settings forms clear the former body inset;
+dialog content padding is preserved. Native controls, gates and action order remain
+unchanged. See [coverage and evidence](form-page-redesign.md#consistency-follow-up).
+
+Passed local Go template contracts, required typecheck/analyzer/fixtures, Forgejo
+tests (32 passed, 19 opt-in skips), preview build and 72 native browser cases with
+new title/action/alignment assertions. Verified desktop/mobile/dark captures were
+inspected. Restricted native routes retain their documented visual gaps. Evidence
+is under `.artifacts/form-consistency-20260910/`; only the existing preview's form
+CSS and supported template reload changed. No submissions, generated art, restart
+or deployment occurred. Native delivery records below retain their original scope.
 
 ## Native two-actor matrix passed; retained delivery in preparation
 
@@ -511,6 +543,82 @@ Focused local checks: required typecheck/analyzer/fixtures and explicit Lit suit
 **114 pass**, with the earlier frontend pass also retained. Evidence:
 `.artifacts/frontend-continuation-512afb0/`. Source organization, attention and
 candidate/driver coverage are continuing; this checkpoint is not native acceptance.
+
+## Form templates — shared implementation of the existing mockups
+
+Implemented the approved repository concept and all 40 additional mockup families
+through official Forgejo 15.0.7 overrides. [The coverage map](form-page-redesign.md)
+lists 55 distinct template paths, including shared-partial callers. One stylesheet
+owns the story/form columns, wide editors and inline creation panels. Native fields,
+defaults, capability gates, validation, actions and widgets remain authoritative;
+existing canonical artwork is reused. No images were generated in this pass.
+
+Passed: full scripts Go suite, required TypeScript/analyzer/fixtures, Forgejo suite
+(31 passed, 19 opt-in skips), isolated preview build and the explicit native form
+browser test. The latter checked 18 accessible routes at desktop/mobile widths in
+both themes (72 rendered cases), required-field validity, checkbox form data,
+keyboard disclosures, initialization controls, visibility radios and key panels.
+No forms were submitted. Repository-owner/admin-only forms and unavailable runner
+creation retain source-contract coverage; they do not have individual native visual
+acceptance. Guest registration remains disabled. See the coverage map for evidence.
+
+The existing local preview received current canonical styles after its previous
+CSS was backed up. The supported template reload refreshed mounted overrides; a
+missing existing Spaces stylesheet was supplied from the canonical preview build.
+Verified desktop/mobile/dark screenshots now check served asset bytes. Earlier
+failed probes, screenshots and original bytes remain under
+`.artifacts/form-redesign-20260910/`. No service restart, configuration change,
+resource creation, provider operation or appliance rollout occurred.
+
+## Migration source chooser — design then implementation
+
+Completed and inspected a separate desktop/mobile/dark design before changing the
+native source chooser. The page now pairs its title and larger existing illustration
+with a distinct Git URL option and compact provider cards. All configured `.Services`,
+native descriptions, organization/mirror context and provider forms are preserved.
+Page-owned CSS fixes the tiny padded provider marks and provides responsive columns,
+keyboard focus and hover feedback. See [design and evidence](migration-page-redesign.md).
+
+Passed: full scripts Go suite, required typecheck/analyzer/fixtures, two presentation
+inventory tests, isolated preview build and the opt-in browser test (seven widths in
+both themes, ten native provider forms, current chooser CSS/template revision).
+Final native desktop/mobile/dark screenshots were inspected. The initial full Go
+suite attempt encountered a cache permission error; its retry passed. Prior general
+preview CSS drift is not resolved or reclassified as current-source verification.
+
+The local preview received only changed onboarding CSS and the supported native
+template reload; previous bytes/evidence remain under `.artifacts/migrate-redesign-20260910/`.
+Reload also exposed earlier mounted Spaces navigation; no Spaces source changed.
+No service restart, mount/configuration change, provider operation, migration submit,
+repository mutation or appliance rollout occurred. Alternate source-availability
+states have template tests; migration execution is outside this presentation pass.
+
+## Illustration audit and narrative redesign
+
+Reviewed all 78 tracked image assets, including all 34 papercraft scenes.
+[The story review](illustration-story-review.md) now owns art direction and records
+every scene decision; older page screenshots/prompts retain their historical scope.
+Sixteen active scenes have new page-specific actions and three retain their concepts
+with corrected bot identity/interaction. All use the Dashboard character reference.
+Five existing scenes, canonical branding and every other image remain byte-identical.
+Ten unused illustrations are omitted from new canonical payloads (18.97 MiB), with
+source files preserved. Existing image filenames, templates and CSS are unchanged.
+
+Local checks passed: required TypeScript/analyzer/fixtures, three canonical-payload
+tests, isolated preview build with exactly 24 illustrations, all 19 served image
+hashes, 19 RGBA/alpha checks and preservation of the other 59 images. Visually reviewed
+light/dark and 160px/88px asset galleries, the complete active series and 25 fresh
+native screenshots across 14 pages (desktop, seven mobile and four dark captures).
+The strict screenshot verifier rejected pre-existing preview CSS drift; these are
+observations of currently served native styles, not full current-source validation.
+The fixture HTTP cache was refreshed after old images appeared; login was preserved.
+
+Evidence/originals remain in `.artifacts/image-audit-20260910/`. The existing local
+preview received only the 19 new PNGs, with its earlier bytes retained. No service
+restart, mount change, fixture mutation, provider call or appliance rollout occurred.
+Five unavailable conditional/native views retain the explicit rendering gaps listed
+in the review; their asset and source-placement review is complete. The existing
+broader frontend/native work and its limitations below remain unchanged.
 
 ## Frontend improvement — follow-up guards and combined local checks
 

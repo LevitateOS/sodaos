@@ -1,5 +1,10 @@
 # Repository fork illustration
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 Appropriate in the existing fork-form introduction. Two notebooks and a Y-shaped ribbon distinguish an independent connected copy from migration luggage or an empty new folder. Existing repository data and the native form remain unchanged.
 
 Built-in image generation, 2026-09-08. Ordered references: Dashboard (character/material), Notifications (compactness), New repository (proportions). Selected output `exec-b011a58f-9d3c-4de1-8d60-b20d098c67ba.png` copied unchanged to [fork-papercraft.png](fork-papercraft.png). Visually inspected; 1536×1024 RGBA with transparent corners. No alpha repair required.

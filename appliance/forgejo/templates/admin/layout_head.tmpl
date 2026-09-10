@@ -2,7 +2,7 @@
 {{template "base/head" .ctxData}}
 <div role="main" aria-label="{{.ctxData.Title}}" class="page-content {{.pageClass}} soda-page soda-admin soda-native-forms" data-signed="true">
 	<div class="ui container flex-container soda-page-container soda-admin-layout">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" .ctxData.Title "Description" "Manage Forgejo settings, identities, integrations, and service health." "Artwork" .artwork "Class" "soda-page-intro--compact"}}
+		{{if not .formPage}}{{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" .ctxData.Title "Description" "Manage Forgejo settings, identities, integrations, and service health." "Artwork" .artwork "Class" "soda-page-intro--compact"}}{{end}}
 		{{template "admin/navbar" .ctxData}}
 		<div class="flex-container-main">
 			{{template "base/alert" .ctxData}}

@@ -1,5 +1,10 @@
 # Repository migration illustration
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 Page: `/repo/migrate`, provider chooser. A dedicated illustration is appropriate in its existing introduction; the provider choices remain the primary controls. The prior New repository artwork confused importing existing history with starting fresh.
 
 Scene choice: an intact accordion history strip carried from a travel case into a repository box. A network of provider logos would add visual competition to the native provider grid; a success badge would imply a completed import. Neither is used.

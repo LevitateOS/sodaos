@@ -53,7 +53,7 @@
 {{if $personal}}<details id="oauth-registration" class="soda-settings-disclosure" data-settings-editor open><summary>{{ctx.Locale.Tr "settings.create_oauth2_application"}}</summary>{{end}}
 <div class="{{if $personal}}soda-settings-editor soda-settings-disclosure-body{{else}}ui attached bottom segment soda-p-section{{end}}">
 {{if not $personal}}<h5 class="ui top header">{{ctx.Locale.Tr "settings.create_oauth2_application"}}</h5>{{end}}
-	<form class="ui form soda-form ignore-dirty{{if $personal}} soda-p-form{{end}}" action="{{.Link}}/oauth2" method="post">
+	<form class="soda-form-panel ui form soda-form ignore-dirty{{if $personal}} soda-p-form{{end}}" action="{{.Link}}/oauth2" method="post">
 		<div class="field {{if .Err_AppName}}error{{end}}">
 			<label for="application-name">{{ctx.Locale.Tr "settings.oauth2_application_name"}}</label>
 			<input id="application-name" name="application_name" value="{{.application_name}}" required maxlength="255">
@@ -68,9 +68,11 @@
 				<input type="checkbox" name="confidential_client" checked>
 			</div>
 		</div>
-		<button class="ui primary button soda-p-control">
+		<div class="soda-form-actions">
+			<button class="ui primary button soda-p-control">
 			{{ctx.Locale.Tr "settings.create_oauth2_application_button"}}
 		</button>
+		</div>
 	</form>
 </div>
 

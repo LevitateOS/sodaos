@@ -4,7 +4,7 @@
 	<div class="ui container soda-page-container">
 		{{if .parentURL}}<a class="soda-settings-parent" href="{{.parentURL}}">{{svg "octicon-arrow-left" 16}} {{.parentTitle}}</a>{{end}}
 		<div class="soda-settings-bar soda-repo-settings-bar">
-			<h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>
+			{{if not .formPage}}<h1 id="soda-settings-title" class="soda-p-title">{{if .title}}{{.title}}{{else}}{{.ctxData.Title}}{{end}}</h1>{{end}}
 			{{template "repo/settings/navbar" .ctxData}}
 		</div>
 		<div class="soda-settings-layout">

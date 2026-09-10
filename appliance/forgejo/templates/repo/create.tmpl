@@ -1,29 +1,30 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new repo soda-page soda-create" data-signed="true">
-	<div class="ui container soda-page-container">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "Every good project starts somewhere." "Artwork" "new-repo-papercraft.png"}}
-		<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
+	<div class="ui container soda-page-container soda-form-layout">
+		<div class="soda-form-story-wrap">
+		{{template "custom/soda/page_intro" dict "Class" "soda-form-story" "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "A home for your code. A starting point for what comes next." "Artwork" "new-repo-papercraft.png"}}
+		{{if or .CanCreateRepo .Orgs}}<div class="soda-form-story-note">{{template "repo/create_helper" .}}</div>{{end}}
+		</div>
+		<form class="ui form soda-form soda-p-form soda-form-content" action="{{.Link}}" method="post">
 			<div class="soda-form-body">
 				{{if or .CanCreateRepo .Orgs}}
 					{{template "base/alert" .}}
-					{{template "repo/create_helper" .}}
 
 					{{if and (not .CanCreateRepo) (ne .MaxCreationLimit 0)}}
 						<div class="ui negative message">
 							<p>{{ctx.Locale.TrN .MaxCreationLimit "repo.form.reach_limit_of_creation_1" "repo.form.reach_limit_of_creation_n" .MaxCreationLimit}}</p>
 						</div>
 					{{end}}
-					<fieldset class="soda-form-section soda-p-section">
+					<fieldset class="soda-form-section soda-p-section soda-repo-basics">
+						<legend>Repository details</legend>
 						{{template "repo/create_basic" .}}
 					</fieldset>
 
-					<fieldset class="soda-form-section soda-p-section">
-						<legend>
-							{{ctx.Locale.Tr "repo.new_from_template"}}
-							<span class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</span>
-						</legend>
+					<details class="soda-form-options" {{if .repo_template}}open{{end}}>
+						<summary>{{ctx.Locale.Tr "repo.new_from_template"}}</summary>
+						<p class="help">{{ctx.Locale.Tr "repo.new_from_template_description"}}</p>
 						{{template "repo/create_from_template" .}}
-					</fieldset>
+					</details>
 
 					<div id="non_template">
 						<fieldset class="soda-form-section soda-p-section">
@@ -32,15 +33,17 @@
 						</fieldset>
 
 						<fieldset class="soda-form-section soda-p-section">
-							<legend>{{ctx.Locale.Tr "repo.new_advanced"}}</legend>
-							<details><summary>{{ctx.Locale.Tr "repo.new_advanced_expand"}}</summary>
+							<details><summary>{{ctx.Locale.Tr "repo.new_advanced"}}</summary>
 								{{template "repo/create_advanced" .}}
 							</details>
 						</fieldset>
 					</div>
+					<div class="soda-form-actions">
+					<a class="ui button" href="{{AppSubUrl}}/">{{ctx.Locale.Tr "cancel"}}</a>
 					<button class="ui primary button">
 						{{ctx.Locale.Tr "repo.create_repo"}}
 					</button>
+					</div>
 				{{else}}
 					<div class="ui negative message">
 						{{ctx.Locale.Tr "repo.form.cannot_create"}}

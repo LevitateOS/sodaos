@@ -1,6 +1,9 @@
 {{$taskTitle := ctx.Locale.Tr "repo.settings.protect_new_rule"}}
 {{if .Rule.RuleName}}{{$taskTitle = ctx.Locale.Tr "repo.settings.branch_protection" .Rule.RuleName}}{{end}}
-{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings branches" "title" $taskTitle "parentURL" (printf "%s/settings/branches" .RepoLink) "parentTitle" (ctx.Locale.Tr "repo.settings.branches"))}}
+{{template "repo/settings/layout_head" (dict "ctxData" . "pageClass" "repository settings branches" "title" $taskTitle "parentURL" (printf "%s/settings/branches" .RepoLink) "parentTitle" (ctx.Locale.Tr "repo.settings.branches") "formPage" true)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Define how changes reach protected branches." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 	<div class="repo-setting-content soda-repo-settings-detail soda-repo-settings-protected-branch soda-settings-editor">
 		<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<input name="rule_id" type="hidden" value="{{.Rule.ID}}">
@@ -254,7 +257,11 @@
 					<span class="help">{{ctx.Locale.Tr "repo.settings.enforce_on_admins_desc"}}</span>
 				</label>
 			</fieldset>
-			<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.protected_branch.save_rule"}}</button>
+			<div class="soda-form-actions">
+				<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.protected_branch.save_rule"}}</button>
+			</div>
 		</form>
 	</div>
+</div>
+</div>
 {{template "repo/settings/layout_footer" .}}

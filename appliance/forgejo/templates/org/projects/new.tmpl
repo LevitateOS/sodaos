@@ -3,9 +3,13 @@
 	{{template "shared/user/org_profile_avatar" .}}
 	<div class="ui container soda-page-container">
 		{{template "user/overview/header" .}}
+		<div class="soda-form-layout">
 		{{$artwork := ""}}{{if not .PageIsEditProjects}}{{$artwork = "new-project-papercraft.png"}}{{end}}
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-new-project-title" "Eyebrow" "Shape the work" "Title" .Title "Description" "Organize related work with a project board." "Class" "soda-page-intro--compact" "Artwork" $artwork}}
-		{{template "projects/new" .}}
+		{{$formTitle := ctx.Locale.Tr "repo.projects.new"}}{{$formDescription := ctx.Locale.Tr "repo.projects.new_subheader"}}
+{{if .PageIsEditProjects}}{{$formTitle = ctx.Locale.Tr "repo.projects.edit"}}{{$formDescription = ctx.Locale.Tr "repo.projects.edit_subheader"}}{{end}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Eyebrow" "Shape the work" "Title" $formTitle "Description" $formDescription "Class" "soda-form-story" "Artwork" $artwork}}
+		<div class="soda-form-content">{{template "projects/new" .}}</div>
+</div>
 	</div>
 </div>
 {{template "base/footer" .}}

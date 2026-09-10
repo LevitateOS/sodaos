@@ -11,15 +11,11 @@
 			{{end}}
 		</div>
 		<div class="divider soda-p-gap"></div>
-		<h2 class="ui dividing header soda-p-heading">
-			{{if .PageIsEditMilestone}}
-				{{ctx.Locale.Tr "repo.milestones.edit"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.milestones.edit_subheader"}}</div>
-			{{else}}
-				{{ctx.Locale.Tr "repo.milestones.new"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.milestones.new_subheader"}}</div>
-			{{end}}
-		</h2>
+<div class="soda-form-layout">
+{{$formTitle := ctx.Locale.Tr "repo.milestones.new"}}{{$formDescription := ctx.Locale.Tr "repo.milestones.new_subheader"}}
+{{if .PageIsEditMilestone}}{{$formTitle = ctx.Locale.Tr "repo.milestones.edit"}}{{$formDescription = ctx.Locale.Tr "repo.milestones.edit_subheader"}}{{end}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $formTitle "Description" $formDescription "Eyebrow" "Plan the next step" "Artwork" "milestones-papercraft.png" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 		{{template "base/alert" .}}
 		<form class="ui form soda-milestone-form soda-p-form" action="{{.Link}}" method="post">
 				<div class="field {{if .Err_Title}}error{{end}}">
@@ -45,7 +41,7 @@
 					)}}
 				</div>
 				<div class="divider soda-p-gap"></div>
-				<div class="tw-text-right">
+				<div class="tw-text-right soda-form-actions">
 					{{if .PageIsEditMilestone}}
 						<a class="ui primary basic button" href="{{.RepoLink}}/milestones">
 							{{ctx.Locale.Tr "repo.milestones.cancel"}}
@@ -60,6 +56,8 @@
 					{{end}}
 			</div>
 		</form>
+</div>
+</div>
 	</div>
 </div>
 {{template "base/footer" .}}

@@ -1,46 +1,76 @@
 /* Repository migration and forking retain Forgejo's native forms and handlers. */
 .soda-onboarding .soda-page-intro { margin-bottom: 24px; }
 
-.soda-migrate-entries {
+/* The chooser owns its layout classes. Native migrate-entry styling includes
+   icon padding and a second content panel, so it is not a reusable card primitive. */
+.soda-migrate-chooser .soda-migrate-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 288px) minmax(0, 1fr);
+  align-items: start;
+  gap: 64px;
+  padding-block: 48px 64px;
 }
-
-.soda-migrate-chooser .migrate-entry {
-  min-width: 0;
-  min-height: 210px;
-  margin: 0;
-  padding: 16px;
-  border: 1px solid var(--soda-page-edge);
-  border-radius: var(--soda-panel-radius);
-  background: var(--soda-page-surface);
-  color: var(--soda-page-text);
-  box-shadow: none;
+.soda-migrate-story { min-width: 0; }
+.soda-migrate-story .soda-page-title {
+  font-size: clamp(36px, 3.4vw, 48px);
+  line-height: 1.08;
+  margin-bottom: var(--soda-space-6);
 }
-
-.soda-migrate-chooser .migrate-entry:hover {
-  border-color: var(--soda-page-link);
-  background: var(--soda-page-hover);
+.soda-migrate-story .soda-page-description { font: var(--soda-font-body); }
+.soda-migrate-art { display: block; width: 100%; height: auto; margin-top: var(--soda-space-8); }
+.soda-migrate-next { margin: var(--soda-space-6) 0 0; padding-top: var(--soda-space-6); border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-migrate-next strong { display: block; color: var(--soda-page-text); font: var(--soda-font-label); margin-bottom: var(--soda-space-1); }
+.soda-migrate-selection { min-width: 0; }
+.soda-migrate-heading { margin: 0 0 var(--soda-space-2); color: var(--soda-page-text); font: var(--soda-font-heading); }
+.soda-migrate-guidance { margin: 0 0 var(--soda-space-6); color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-migrate-entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--soda-space-3); }
+.soda-migrate-chooser .soda-migrate-provider {
+  min-width: 0; display: flex; flex-direction: column; gap: var(--soda-space-3);
+  border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius);
+  padding: 20px; background: var(--soda-page-surface); color: var(--soda-page-text); text-decoration: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
-
-.soda-migrate-chooser .migrate-entry > svg { width: 54px; height: 54px; color: var(--soda-page-link); }
-.soda-migrate-chooser .migrate-entry h3 { color: var(--soda-page-text); font: var(--soda-font-heading); }
-.soda-migrate-chooser .migrate-entry .description { color: var(--soda-page-muted); line-height: 1.5; }
-
-/* Provider pages are unmodified upstream templates. This stable native root
-   keeps provider-specific fields, validation, and scripts under Forgejo ownership. */
-.repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid {
-  width: min(920px, calc(100% - 48px));
-  /* Width already supplies gutters; native page-grid padding reaches 23%. */
-  padding-inline: 0;
-  margin: 32px auto 32px;
+.soda-migrate-provider:hover { border-color: var(--soda-page-link); background: var(--soda-page-selected); }
+.soda-migrate-provider:focus-visible { outline: 3px solid var(--soda-page-focus); outline-offset: 3px; }
+.soda-migrate-provider-top { display: flex; align-items: center; justify-content: space-between; gap: var(--soda-space-3); }
+.soda-migrate-logo { display: inline-flex; align-items: center; height: 32px; color: var(--soda-page-text); }
+.soda-migrate-logo > svg { display: block; width: 32px; height: 32px; padding: 0; margin: 0; fill: currentColor; }
+.soda-migrate-logo > .gitea-codebase { width: 104px; }
+.soda-migrate-arrow { width: 16px; height: 16px; padding: 0; flex: 0 0 auto; color: var(--soda-page-muted); }
+.soda-migrate-provider:hover .soda-migrate-arrow { color: var(--soda-page-link); }
+.soda-migrate-provider h3 { margin: 0 0 var(--soda-space-1); color: inherit; font: 600 18px/1.4 Barlow, Arial, sans-serif; }
+.soda-migrate-provider p { margin: 0; color: var(--soda-page-muted); font: var(--soda-font-meta); overflow-wrap: anywhere; }
+.soda-migrate-chooser .soda-migrate-provider--git { flex-direction: row; align-items: center; gap: 20px; border-color: var(--soda-button-primary-border); background: var(--soda-page-selected); }
+.soda-migrate-chooser .soda-migrate-provider--git:hover { border-color: var(--soda-page-link); background: var(--soda-button-primary-hover); }
+.soda-migrate-provider--git .soda-migrate-logo { width: 48px; height: 48px; flex: 0 0 48px; justify-content: center; }
+.soda-migrate-provider--git .soda-migrate-logo > svg { width: 36px; height: 36px; }
+.soda-migrate-provider--git .soda-migrate-arrow { margin-left: auto; }
+.soda-migrate-divider { display: flex; align-items: center; gap: var(--soda-space-4); margin: var(--soda-space-6) 0 var(--soda-space-4); color: var(--soda-page-muted); font: var(--soda-font-meta); }
+.soda-migrate-divider::after { content: ''; height: 1px; flex: 1; background: var(--soda-page-edge); }
+@media (max-width: 1100px) {
+  .soda-migrate-chooser .soda-migrate-layout { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: var(--soda-space-8); }
+  .soda-migrate-entries { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.header,
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.segment { border-color: var(--color-secondary); }
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.header { padding: 16px 16px; font: var(--soda-font-heading); }
-.repository.new.migrate:not(.soda-migrate-chooser) .ui.form > .ui.segment { padding: 24px 16px; }
+@media (max-width: 760px) {
+  .soda-migrate-chooser .soda-migrate-layout { grid-template-columns: minmax(0, 1fr); gap: var(--soda-space-8); padding-block: 32px; }
+  .soda-migrate-story { display: grid; grid-template-columns: minmax(0, 1fr) 112px; align-items: center; gap: var(--soda-space-4); }
+  .soda-migrate-story .soda-page-title { font-size: 36px; margin-bottom: var(--soda-space-3); }
+  .soda-migrate-story .soda-page-eyebrow { margin-bottom: var(--soda-space-3); }
+  .soda-migrate-art { margin: 0; }
+  .soda-migrate-next { display: none; }
+  .soda-migrate-chooser .soda-migrate-provider { padding: var(--soda-space-4); }
+  .soda-migrate-guidance { margin-bottom: var(--soda-space-4); }
+}
+@media (max-width: 380px) {
+  .soda-migrate-story { grid-template-columns: minmax(0, 1fr) 80px; gap: var(--soda-space-3); }
+  .soda-migrate-story .soda-page-title { font-size: 32px; }
+  .soda-migrate-chooser .soda-migrate-provider { padding: var(--soda-space-3); }
+  .soda-migrate-provider h3 { font-size: 17px; }
+  .soda-migrate-logo > .gitea-codebase { width: 80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .soda-migrate-chooser .soda-migrate-provider { transition: none; }
+}
 
 .soda-fork .soda-form { max-width: 920px !important; margin-inline: auto; }
 .soda-fork .soda-form-section .inline.field > label { color: var(--soda-page-text); }
@@ -93,8 +123,6 @@
 }
 
 @media (max-width: 700px) {
-  .soda-migrate-entries { grid-template-columns: 1fr; }
-  .repository.new.migrate:not(.soda-migrate-chooser) > .ui.page.grid { width: calc(100% - 32px); margin-top: 16px; }
   .page-content.repository:has(#repo_migrating) > .ui.container { width: calc(100% - 32px) !important; margin-top: 16px; }
   .page-content.repository:has(#repo_migrating) .home { padding: 0; }
 }

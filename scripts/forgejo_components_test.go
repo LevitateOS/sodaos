@@ -668,7 +668,7 @@ func readForgejoTemplate(t *testing.T, parts ...string) string {
 	}
 	// Presentation roles are checked independently against the pre-migration bytes.
 	// These legacy tests continue to recover their exact pinned upstream source.
-	return withoutForgejoPresentationRoles(string(contents))
+	return withoutForgejoPresentationRoles(withoutForgejoFormLayout(t, filepath.ToSlash(filepath.Join(parts...)), string(contents)))
 }
 
 var forgejoTemplateCallPattern = regexp.MustCompile(`\{\{\s*template\s+"([^"]+)"`)

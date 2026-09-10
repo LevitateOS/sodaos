@@ -1,16 +1,10 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new release soda-repository-content soda-release-editor">
 	{{template "repo/header" .}}
-	<div class="ui container soda-p-editor-container">
-		<h2 class="ui dividing header soda-p-heading">
-			{{if .PageIsEditRelease}}
-				{{ctx.Locale.Tr "repo.release.edit_release"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.release.edit_subheader"}}</div>
-			{{else}}
-				{{ctx.Locale.Tr "repo.release.new_release"}}
-				<div class="sub header">{{ctx.Locale.Tr "repo.release.new_subheader"}}</div>
-			{{end}}
-		</h2>
+	<div class="ui container soda-p-editor-container soda-form-editor">
+{{$formTitle := ctx.Locale.Tr "repo.release.new_release"}}{{$formDescription := ctx.Locale.Tr "repo.release.new_subheader"}}
+{{if .PageIsEditRelease}}{{$formTitle = ctx.Locale.Tr "repo.release.edit_release"}}{{$formDescription = ctx.Locale.Tr "repo.release.edit_subheader"}}{{end}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $formTitle "Description" $formDescription "Eyebrow" "" "Artwork" "" "Class" "soda-form-editor-intro"}}
 		{{template "base/alert" .}}
 		<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<div class="ui seven wide target">
@@ -45,6 +39,7 @@
 			</div>
 			<div class="eleven wide tw-pt-0">
 				<div class="field {{if .Err_Title}}error{{end}}">
+					<label for="release-title">{{ctx.Locale.Tr "repo.release.title"}}</label>
 					<input id="release-title" name="title" aria-label="{{ctx.Locale.Tr "repo.release.title"}}" placeholder="{{ctx.Locale.Tr "repo.release.title"}}" value="{{if .PageIsEditRelease}}{{.title}}{{else}}{{.tag_name}}{{end}}" autofocus maxlength="255">
 				</div>
 				<div class="field">
@@ -132,7 +127,7 @@
 					</fieldset>
 					<div class="divider tw-mt-0 soda-p-gap"></div>
 					{{if .PageIsEditRelease}}
-						<div class="button-sequence tw-justify-between">
+						<div class="button-sequence tw-justify-between soda-form-actions">
 							<a class="danger button delete-button" data-url="{{$.RepoLink}}/releases/delete" data-id="{{.ID}}" data-modal-id="delete-release">
 								{{ctx.Locale.Tr "repo.release.delete_release"}}
 							</a>
@@ -155,7 +150,7 @@
 							</div>
 						</div>
 					{{else}}
-						<div class="button-sequence tw-justify-end">
+						<div class="button-sequence tw-justify-end soda-form-actions">
 							{{if not .tag_name}}
 								<button class="secondary button" name="tag_only" value="1">
 									{{ctx.Locale.Tr "repo.release.add_tag"}}

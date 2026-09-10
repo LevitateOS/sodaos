@@ -3,11 +3,10 @@
 <div role="main" aria-label="{{.Title}}" class="page-content user signup soda-page soda-federated-auth soda-federated-auth--openid-register" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	{{if and (not .IsSigned) (or .PageIsSignIn .LinkAccountMode)}}{{template "custom/soda/theme_toggle" (dict "Class" "soda-theme-toggle")}}{{end}}
 	{{template "user/auth/signup_openid_navbar" .}}
-	<div class="ui container">
+	<div class="ui container soda-page-container soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "auth.openid_register_title") "Description" "Finish setting up your account." "Eyebrow" "Your identity, a new home" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
 				{{template "base/alert" .}}
-				<h4 class="ui top attached header soda-p-heading">
-					{{ctx.Locale.Tr "auth.openid_register_title"}}
-				</h4>
 				<div class="ui attached segment soda-p-section">
 					<p class="tw-max-w-2xl tw-mx-auto">
 						{{ctx.Locale.Tr "auth.openid_register_desc"}}
@@ -28,11 +27,12 @@
 						<label for="openid">OpenID URI</label>
 						<input id="openid" value="{{.OpenID}}" readonly>
 					</div>
-					<div class="inline field">
+					<div class="inline field soda-form-actions">
 						<button class="ui primary button">{{ctx.Locale.Tr "auth.create_new_account"}}</button>
 					</div>
 					</form>
 				</div>
+</div>
 	</div>
 </div>
 {{template "base/footer" .}}

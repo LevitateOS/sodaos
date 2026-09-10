@@ -165,7 +165,8 @@
 				<button class="ui button primary show-form">{{ctx.Locale.Tr "repo.pulls.new"}}</button>
 			</div>
 			<div class="pullrequest-form {{if not .Flash}}tw-hidden{{end}}">
-				{{template "repo/issue/new_form" .}}
+				<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Artwork" "pulls-papercraft.png" "Class" "soda-form-editor-intro"}}
+{{template "repo/issue/new_form" .}}</div>
 			</div>
 		{{else if and .HeadIsBranch .BaseIsBranch}}
 			<div class="ui segment">{{ctx.Locale.Tr "repo.pulls.nothing_to_compare"}}</div>
@@ -212,7 +213,8 @@
 			{{end}}
 			{{if $.IsSigned}}
 				<div class="pullrequest-form {{if not .Flash}}tw-hidden{{end}}">
-					{{template "repo/issue/new_form" .}}
+					<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Artwork" "pulls-papercraft.png" "Class" "soda-form-editor-intro"}}
+{{template "repo/issue/new_form" .}}</div>
 				</div>
 			{{end}}
 			{{$showDiffBox = true}}
