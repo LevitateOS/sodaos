@@ -1,5 +1,52 @@
 # Current handoff
 
+## Combined step 2 — installed process observations and concrete scenario procedures
+
+Extended the existing product-owned runner observer/caller rather than adding a
+second harness. It now requires cgroup v2, records the boot UUID and bounded recursive
+unit PID/start/effective-UID sets, and checks effective KillMode/ProtectControlGroups/
+Delegate policy. It rejects missing/changing/oversized membership, links and foreign
+UIDs. Process identity selects effective UID from proc status rather than assuming
+proc-directory ownership (which can become root for a non-dumpable process). No
+command line, environment or process name is exported. The workflow proof reuses
+that identity reader.
+
+Post-attempt native reads carry only the disposable runner's bounded prior numeric
+identities and boot UUID through the existing fixed SSH observer. Procfs checks
+report surviving exact incarnations even outside the current unit. Unexpected boot
+changes fail a single operation. Stop/Remove require an empty current process scope;
+Stop/Restart/Remove refuse surviving prior identities. A removed account/state with
+a remaining unit cgroup is unavailable, not successful cleanup. These are bounded
+before/after observations, not a complete process journal, hostile-job containment
+proof or quiesced backup. The new effective-systemd/procfs assumptions still require
+actual native execution on the selected fixture.
+
+The runner native guide now contains concrete cases A–E and an execution-input
+proposal table: registration/successful exact job, idle/active lifecycle, native
+page/Cockpit/CLI overlap with a 20-second existing-lock holder, a stock-timeout-owned
+cancelled CLI request, dispatched browser departure/uncertainty without replay,
+pre-existing activation and separately approved reboot, exact
+local Remove and native provider record/history inspection/optional cleanup. These
+are product-owned procedures using existing tools, not new phase flags or automatic
+provider/reboot/cleanup machinery. No provider cleanup is inferred from local Remove;
+no terminal outcome is inferred from a running listener. Intrusive account/filesystem
+faults are not silently added to the bounded cancellation case.
+
+Strict tooling TypeScript, then full `bun run typecheck`, eight focused Python
+reader cases, all 141 Python build tests (two optional skips), and 18 focused Bun
+input/postcondition/shared-guard cases (one optional browser-pipe smoke skip) passed;
+logs are under
+`.artifacts/runner-scenarios/`. Tests use owned fake proc/cgroup trees and command/page
+doubles, not native execution. Exact target/provider/actor/resource/credential choices
+remain unselected; the guide must be filled and reviewed before an approval-ready
+execution proposal is claimed. The missing local native-page fixture from step 1
+remains unresolved. No SSH/native observer, lock hold, service/job, reboot, deletion,
+provider registration or deployment was executed. The full aggregate/native gate
+was not repeated because its required real page fixture remains unavailable; the
+performed local checks are not substitutes for that gate. Diff whitespace and local
+links/anchors in the changed guides were checked.
+
+
 ## Combined step 1 — additional browser acceptance cases; native fixture unavailable here
 
 Added two cases to existing owners, not a new harness. The Runners consumer now

@@ -161,14 +161,108 @@ def job_proof(identifier, observation, root=ROOT, account=pwd.getpwnam):
         raise RuntimeError('job proof does not match fixture')
     process = Path('/proc') / str(record['pid'])
     try:
-        start = (process / 'stat').read_text().rsplit(') ', 1)[1].split()[19]
-        alive = start == record['start'] and process.stat().st_uid == person.pw_uid
+        expected = {key: record[key] for key in ('pid', 'uid', 'start')}
+        alive = process_identity(record['pid']) == expected
         if alive and not any(('soda-runner@' + identifier + '.service') in line.split(':', 2)[-1].split('/')
                              for line in (process / 'cgroup').read_text().splitlines()):
             raise RuntimeError('job process outside runner unit')
+        alive = alive and process_identity(record['pid']) == expected
     except FileNotFoundError:
         alive = False
     return {**record, 'alive': alive}
+
+
+def process_identity(pid, proc=Path('/proc')):
+    """Select incarnation/effective UID only; never export names or read secrets."""
+    if type(pid) is not int or not 0 < pid < 2**31:
+        raise ValueError('invalid PID')
+    directory = proc / str(pid)
+    try:
+        # /proc directory ownership can become root for a non-dumpable process;
+        # the effective UID in status remains the actual execution identity.
+        with (directory / 'status').open() as status:
+            uids = next(line.split()[1:] for line in status if line.startswith('Uid:'))
+        if len(uids) != 4 or not all(value.isdigit() for value in uids):
+            raise RuntimeError('process UID unavailable')
+        text = (directory / 'stat').read_text()
+        start = text.rsplit(') ', 1)[1].split()[19]
+        if not re.fullmatch(r'[0-9]{1,20}', start):
+            raise RuntimeError('invalid process identity')
+        return {'pid': pid, 'uid': int(uids[1]), 'start': start}
+    except FileNotFoundError:
+        return None
+
+
+def unit_processes(identifier, group, uid, root=Path('/sys/fs/cgroup'), proc=Path('/proc')):
+    """Bounded recursive cgroup-v2 membership; churn is unavailable, not empty."""
+    if not ID.fullmatch(identifier):
+        raise ValueError('invalid runner ID')
+    if not group:
+        return []
+    parts = group.split('/')[1:]
+    if (not group.startswith('/') or not parts or any(part in ('', '.', '..') for part in parts)
+            or parts[-1] != 'soda-runner@' + identifier + '.service'):
+        raise RuntimeError('unexpected runner cgroup')
+    directory = root.joinpath(*parts)
+    # All ancestors are native cgroup directories, not arbitrary workload paths.
+    current = root
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            raise RuntimeError('symlinked cgroup refused')
+
+    def membership():
+        pids = set()
+        count = 0
+        def failed_walk(_error):
+            raise RuntimeError('cgroup traversal unavailable')
+        for parent, children, files in os.walk(directory, followlinks=False, onerror=failed_walk):
+            count += 1
+            if count > 256 or any((Path(parent) / child).is_symlink() for child in children):
+                raise RuntimeError('cgroup traversal unavailable')
+            if 'cgroup.procs' not in files:
+                raise RuntimeError('cgroup-v2 membership unavailable')
+            members = Path(parent) / 'cgroup.procs'
+            if members.is_symlink():
+                raise RuntimeError('symlinked membership refused')
+            with members.open() as stream:
+                text = stream.read(16385)
+            if len(text) > 16384:
+                raise RuntimeError('process membership exceeds bound')
+            for value in text.splitlines():
+                if not re.fullmatch(r'[1-9][0-9]{0,9}', value):
+                    raise RuntimeError('invalid cgroup PID')
+                pids.add(int(value))
+            if len(pids) > 256:
+                raise RuntimeError('process observation exceeds bound')
+        if count == 0:
+            raise RuntimeError('declared cgroup disappeared')
+        return sorted(pids)
+
+    before = membership()
+    identities = [process_identity(pid, proc) for pid in before]
+    if any(value is None or value['uid'] != uid for value in identities):
+        raise RuntimeError('runner process identity changed')
+    if before != membership() or identities != [process_identity(pid, proc) for pid in before]:
+        raise RuntimeError('runner process tree changed')
+    return identities
+
+
+def prior_survivors(text, proc=Path('/proc')):
+    if len(text) > 16384:
+        raise ValueError('prior process bound exceeded')
+    values = text.split(',') if text else []
+    if len(values) > 256 or len(set(values)) != len(values):
+        raise ValueError('invalid prior process set')
+    survivors = []
+    for value in values:
+        if not re.fullmatch(r'[1-9][0-9]{0,9}:[0-9]{1,20}:[1-9][0-9]{0,9}', value):
+            raise ValueError('invalid prior process identity')
+        pid, start, uid = value.split(':')
+        expected = {'pid': int(pid), 'start': start, 'uid': int(uid)}
+        if process_identity(expected['pid'], proc) == expected:
+            survivors.append(expected)
+    return survivors
 
 
 def main(argv):
@@ -185,6 +279,15 @@ def main(argv):
     observation = os.environ.get('SODA_RUNNER_OBSERVATION')
     if observation is not None and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,79}', observation):
         raise ValueError('invalid job observation')
+    if not Path('/sys/fs/cgroup/cgroup.controllers').is_file():
+        raise RuntimeError('native cgroup-v2 observation required')
+    boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    if not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', boot):
+        raise RuntimeError('boot identity unavailable')
+    prior = os.environ.get('SODA_RUNNER_PRIOR_PROCESSES', '')
+    if prior and os.environ.get('SODA_RUNNER_PRIOR_BOOT') != boot:
+        raise RuntimeError('boot changed across operation')
+    survivors = prior_survivors(prior)
     # Existing production CLI owns config/root admission and the list protocol.
     before = json.loads(command([CLI, 'list'], b'{}\n'))
     lock = os.open('/run/lock/soda/runners.lock', os.O_RDWR | os.O_NOFOLLOW)
@@ -202,19 +305,28 @@ def main(argv):
         proof = job_proof(ids[0], observation) if observation else None
         # Only fixed confinement properties, never Environment, credentials or logs.
         confinement = {}
-        properties = 'User,Group,NoNewPrivileges,CapabilityBoundingSet,ProtectSystem,ReadWritePaths'
+        processes = {i: [] for i in ids}
+        properties = 'User,Group,NoNewPrivileges,CapabilityBoundingSet,ProtectSystem,ReadWritePaths,ControlGroup,KillMode,ProtectControlGroups,Delegate'
         for identifier in ids:
+            if not states[identifier]['present']:
+                if command(['systemctl', 'show', '--value', '--property=ControlGroup',
+                            'soda-runner@' + identifier + '.service']).strip():
+                    raise RuntimeError('cgroup remains without runner account/state')
             if states[identifier]['present']:
                 text = command(['systemctl', 'show', '--all', '--property=' + properties,
                                 'soda-runner@' + identifier + '.service'])
-                fields = dict(line.split('=', 1) for line in text.splitlines())
-                if set(fields) != set(properties.split(',')):
+                pairs = [line.split('=', 1) for line in text.splitlines()]
+                fields = dict(pairs)
+                if len(pairs) != len(fields) or set(fields) != set(properties.split(',')):
                     raise RuntimeError('confinement observation incomplete')
+                group = fields.pop('ControlGroup')
+                processes[identifier] = unit_processes(identifier, group, states[identifier]['uid'])
                 # Retain only whether the expected effective boundary was observed.
                 confinement[identifier] = (fields == {
                     'User': 'soda-runner-' + identifier, 'Group': 'soda-runners',
                     'NoNewPrivileges': 'yes', 'CapabilityBoundingSet': '',
-                    'ProtectSystem': 'strict', 'ReadWritePaths': str(ROOT / identifier / 'state')})
+                    'ProtectSystem': 'strict', 'ReadWritePaths': str(ROOT / identifier / 'state'),
+                    'KillMode': 'mixed', 'ProtectControlGroups': 'yes', 'Delegate': 'no'})
     finally:
         os.close(lock)
     after = json.loads(command([CLI, 'list'], b'{}\n'))
@@ -223,10 +335,13 @@ def main(argv):
     # Strip saved registration URLs: only the configured public origin is emitted.
     for row in after['runners']:
         row['registration_url'] = after['forgejo_url']
+    if survivors != prior_survivors(prior):
+        raise RuntimeError('prior processes changed during observation')
     versions = command(['rpm', '-q', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}\n',
                         'forgejo-runner', 'systemd'])
     print(json.dumps({'target': target, 'architecture': platform.machine(), 'inventory': after,
                       'states': states, 'confinement': confinement, 'packages': versions.splitlines(), 'job_proof': proof,
+                      'boot_id': boot, 'processes': processes, 'prior_survivors': survivors,
                       'consistency': 'bounded observation, not a quiesced backup'}))
 
 

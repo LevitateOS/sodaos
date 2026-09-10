@@ -126,6 +126,64 @@ class RunnerState(unittest.TestCase):
                 module.job_proof('one', 'unique', root, account)
             self.assertEqual(outside.read_text(), 'must not read')
 
+    def test_recursive_process_scope_and_prior_survivors_do_not_expose_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            proc = root / 'proc'
+            group = root / 'cgroup' / 'system.slice' / 'soda-runner@one.service'
+            child = group / 'job'
+            child.mkdir(parents=True)
+            (group / 'cgroup.procs').write_text('1234\n')
+            (child / 'cgroup.procs').write_text('1235\n')
+            for pid, start in ((1234, '42'), (1235, '99')):
+                process = proc / str(pid)
+                process.mkdir(parents=True)
+                (process / 'status').write_text('Name:\tprivate-fixture-name\nUid:\t123\t123\t123\t123\n')
+                (process / 'stat').write_text(str(pid) + ' (private ) fixture name) S ' + '0 ' * 18 + start + ' 0\n')
+            expected = [{'pid': 1234, 'uid': 123, 'start': '42'}, {'pid': 1235, 'uid': 123, 'start': '99'}]
+            args = ('one', '/system.slice/soda-runner@one.service', 123, root / 'cgroup', proc)
+            self.assertEqual(module.unit_processes(*args), expected)
+            self.assertNotIn('private', repr(module.unit_processes(*args)))
+            # Leaving the unit is not termination: prior PID checks are global
+            # to the same boot's procfs and still find both exact incarnations.
+            (group / 'cgroup.procs').write_text('')
+            (child / 'cgroup.procs').write_text('')
+            self.assertEqual(module.unit_processes(*args), [])
+            prior = '1234:42:123,1235:99:123'
+            self.assertEqual(module.prior_survivors(prior, proc), expected)
+            (proc / '1234' / 'stat').write_text('1234 (reused) S ' + '0 ' * 18 + '43 0\n')
+            self.assertEqual(module.prior_survivors(prior, proc), expected[1:])
+            for invalid in ('0:42:123', '1234:42:0', '../1234:42:123', prior + ',1234:42:123'):
+                with self.assertRaises(ValueError):
+                    module.prior_survivors(invalid, proc)
+            with self.assertRaises(RuntimeError):
+                module.unit_processes('one', '/system.slice/soda-runner@other.service', 123, root / 'cgroup', proc)
+            with self.assertRaises(RuntimeError):
+                module.unit_processes('one', '/system.slice/../soda-runner@one.service', 123, root / 'cgroup', proc)
+            (child / 'escape').symlink_to(proc, target_is_directory=True)
+            with self.assertRaises(RuntimeError):
+                module.unit_processes(*args)
+
+    def test_process_scope_refuses_churn_missing_membership_and_foreign_uid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            group = root / 'soda-runner@one.service'
+            group.mkdir()
+            args = ('one', '/soda-runner@one.service', 123, root)
+            with self.assertRaises(RuntimeError):
+                module.unit_processes(*args)
+            (group / 'cgroup.procs').write_text('1234\n')
+            for observation in (None, {'pid': 1234, 'uid': 999, 'start': '1'}):
+                with patch.object(module, 'process_identity', return_value=observation):
+                    with self.assertRaises(RuntimeError):
+                        module.unit_processes(*args)
+            with patch.object(module, 'process_identity', side_effect=[{'pid': 1234, 'uid': 123, 'start': '1'}, {'pid': 1234, 'uid': 123, 'start': '2'}]):
+                with self.assertRaises(RuntimeError):
+                    module.unit_processes(*args)
+            (group / 'cgroup.procs').write_text('\n'.join(str(i) for i in range(1, 258)))
+            with self.assertRaises(RuntimeError):
+                module.unit_processes(*args)
+
     def test_gate_precedes_native_commands_or_state_reads(self):
         with patch.object(module, 'command') as command, patch.object(module, 'runner_state') as state:
             with patch.dict(os.environ, {'SODA_NATIVE_VALIDATE': 'other-target'}):

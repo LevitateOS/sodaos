@@ -98,9 +98,17 @@ No unsupported whole-product, physical-keyboard or installed-process claim.
 
 ## 2. Finish installed runner scenarios and execution inputs
 
-Use `tests/installed/sodaspaces.ts`, its existing guard tests and the
-[runner native guide](runners-native-validation.md). The driver is wired; now finish
-its applicable local validation and the scenarios that are still only primitives.
+**Source/procedure preparation implemented; actual execution inputs remain
+unselected.** Use `tests/installed/sodaspaces.ts`, its existing guard tests and the
+[runner native guide](runners-native-validation.md). The driver is wired. Its native
+observer now supplies recursive cgroup membership, boot identity and same-boot prior
+PID/start/UID survival checks; local fixture tests cover churn, bounds, PID reuse,
+escaped survivors and lifecycle postconditions. The guide's cases A–E specify the
+registration/job and idle/active sequences, native UI/CLI overlap plus bounded
+cancellation, preserved activation/reboot and provider aftermath using existing tools.
+No native/provider scenario or real browser/driver proof follows from those tests.
+Fill and review the guide's exact execution proposal before claiming this step's
+approval-ready input exit; do not guess targets or credentials.
 
 | Scenario | Remaining preparation and required observation |
 | --- | --- |

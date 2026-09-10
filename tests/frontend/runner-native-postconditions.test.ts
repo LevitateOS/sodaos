@@ -12,8 +12,9 @@ function input(phase: 'register' | 'start' | 'stop' | 'restart' | 'remove') {
     ...(phase === 'register' ? {registration:{scope:'system',uuid:'33834eef-e758-48c4-a676-1745426747aa',labels:'unique:host',token_file:'/private/token'}} : {})},
   '--allow-runner-'+phase,'fixture');
 }
-function snapshot(present=true, stopped=false): RunnerState {
+function snapshot(present=true, stopped=false, start='42'): RunnerState {
   return {target:'fixture',architecture:'x86_64',packages:['forgejo-runner fixture','systemd fixture'],proof:null,
+    boot_id:'11111111-1111-4111-8111-111111111111',prior_survivors:[],processes:{one:present && !stopped ? [{pid:1234,uid:123,start}] : []},
     states:{one:present ? {present:true,uid:123,gid:124,home:'/var/lib/soda/runners/one/state',shell:'/usr/sbin/nologin',
       registration:{descriptor:{sha256:'d'.repeat(64)},token:{sha256:'a'.repeat(64)},configuration:{sha256:'c'.repeat(64)}},tree:{sha256:'b'.repeat(64)}} : {present:false}},
     inventory:{forgejo_url:'https://fixture.invalid',runner_count:present ? 1 : 0,total_capacity:present ? 1 : 0,active_listeners:present && !stopped ? 1 : 0,
@@ -24,7 +25,7 @@ function snapshot(present=true, stopped=false): RunnerState {
 test('all installed operation postconditions require the exact native lifecycle result',()=>{
   for(const phase of ['register','start','stop','restart','remove'] as const) {
     const before=snapshot(phase !== 'register',phase === 'start');
-    const after=snapshot(phase !== 'remove',phase === 'stop');
+    const after=snapshot(phase !== 'remove',phase === 'stop','43');
     verifyRunnerOperation(input(phase),before,after);
     const wrongTarget=structuredClone(after); wrongTarget.target='other';
     assert.throws(()=>verifyRunnerOperation(input(phase),before,wrongTarget));
@@ -47,7 +48,7 @@ test('all installed operation postconditions require the exact native lifecycle 
 
 test('lifecycle preserves account, credentials and client but permits native job work changes',()=>{
   for(const phase of ['start','stop','restart'] as const) {
-    const before=snapshot(), after=snapshot(true,phase === 'stop');
+    const before=snapshot(), after=snapshot(true,phase === 'stop','43');
     after.states.one={...object(before.states.one),tree:{sha256:'e'.repeat(64)}};
     verifyRunnerOperation(input(phase),before,after);
     for(const key of ['uid','gid','home','shell','registration']) {
@@ -55,6 +56,14 @@ test('lifecycle preserves account, credentials and client but permits native job
       changed.states.one={...object(after.states.one),[key]:'changed'};
       assert.throws(()=>verifyRunnerOperation(input(phase),before,changed));
     }
+    if(phase === 'stop' || phase === 'restart') {
+      const escaped=structuredClone(after); escaped.prior_survivors=[{pid:1234,uid:123,start:'42'}];
+      assert.throws(()=>verifyRunnerOperation(input(phase),before,escaped));
+      const oldScope=structuredClone(after); oldScope.processes=structuredClone(before.processes);
+      assert.throws(()=>verifyRunnerOperation(input(phase),before,oldScope));
+    }
+    const rebooted=structuredClone(after); rebooted.boot_id='22222222-2222-4222-8222-222222222222';
+    assert.throws(()=>verifyRunnerOperation(input(phase),before,rebooted));
     const upgraded=structuredClone(after), row=upgraded.inventory.runners[0]; assert(row);
     row.version='different client';
     assert.throws(()=>verifyRunnerOperation(input(phase),before,upgraded));

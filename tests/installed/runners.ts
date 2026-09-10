@@ -53,7 +53,7 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
       } finally {
         // Dispatch can succeed upstream even if its response is lost. Preserve
         // post-attempt observations on both paths; never replay or roll back.
-        evidence.after=await readRunnerState(input);
+        evidence.after=await readRunnerState(input,before);
         preserveRunnerBaseline(input,before,evidence.after);
       }
       if (input.phase === 'job') {
@@ -129,7 +129,7 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
     } finally {
       // Inspection only, including failed/partial operations. No rollback or retry.
       await view.locator('input[type=password]').fill('').catch(()=>{});
-      evidence.after=await readRunnerState(input);
+      evidence.after=await readRunnerState(input,before);
       preserveRunnerBaseline(input,before,evidence.after);
     }
     evidence.stage='native result and preserved baseline';

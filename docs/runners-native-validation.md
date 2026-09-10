@@ -206,17 +206,209 @@ unavailable/changed observations; separately approved quiescence and fresh backu
 remain required for recoverable maintenance. Lifecycle checks compare fixture
 UID/GID/home/shell and registration/credential hashes, allowing legitimate job work
 changes. Declared preservation runners additionally require unchanged full selected
-tree hashes and listener policy; other inventory changes are refused.
+tree hashes, process identities and listener policy; other inventory changes are
+refused. Use idle/quiescent preservation baselines. Unrelated live job/process/file
+changes invalidate the comparison; they are not automatically labelled data loss.
 
-A provider status and the exact proof PID/start/cgroup are observations, not full
-process-tree cleanup or provider-online/busy acceptance. Real idle/active lifecycle,
-CLI/Cockpit/web concurrent operations, interrupted/partial outcomes, retained
-activation and boot policy still need step 5's exact native execution. No reboot,
+The reader now records the boot UUID and bounded recursive cgroup-v2 PID/start/
+effective-UID tuples for each selected unit. It refuses missing/changing membership,
+foreign UIDs, links, unsupported layouts and oversized trees. Effective KillMode,
+ProtectControlGroups and Delegate policy are checked alongside existing confinement.
+Post-operation reads additionally check the fixture's prior tuples against procfs,
+even if a process has left the unit; PID reuse with a different start is not survival.
+Stop/Remove require an empty current scope, and Stop/Restart/Remove refuse surviving
+prior incarnations. Unexpected reboot during a single phase is an error. These are
+bounded before/after observations, not a process journal or proof against arbitrary
+future forks/hostile jobs. Native execution must still establish the actual process
+and provider outcomes; a green listener or the single workflow marker is insufficient.
+
+Real idle/active lifecycle, CLI/Cockpit/web concurrent operations, interrupted/partial
+outcomes, retained activation and boot policy need the combined plan's approved
+native execution step. No reboot,
 provider deletion, fault injection, prior-version fixture creation or blanket
 cleanup phase is implemented or implied here; schedule those separately under that
 plan's explicit grants. The remaining provider record/history after local Remove
 must be checked through approved native provider access, never inferred from the
 local descriptor disappearing.
+
+## Prepared installed cases — explicit execution later
+
+These cases use the existing phase driver and native operator tools. They are not
+a second runner harness or executable approval. Each phase invocation gets a fresh
+private browser/evidence directory and exact input file; do not edit an input after
+approval or reuse an occupied attempt. Native commands below run only in the approved
+fixture's pinned **root SSH session**. `probe-one` is a synthetic disposable ID, not
+permission to operate on an existing runner. Substitute only the reviewed exact ID.
+Never enable tracing, record password entry or print client state/command lines.
+
+### Execution proposal to fill before any effects
+
+Record these concrete values in the private attempt's existing approval/evidence
+record, not in source or a new readiness database:
+
+| Required selection | What the approval must bind |
+| --- | --- |
+| Candidate | Full revision, architecture, passing check/export receipt, manifest and actual delivered-byte verifier receipt. |
+| Target | Actual hostname, origin, CA, SSH host-key pin/config, private browser home, existing versus newly approved fixture and affected activation components. |
+| Actors | Native nonadmin Soda operator, native nonoperator site administrator, and separate root/Cockpit operator. Record stable IDs and restricted login-input paths, never passwords. |
+| Provider | Already approved system runner record: native provider numeric ID/inspection URL and UUID, unique label, exact repository ID/path, workflow commit/file, provider actor/PAT scope and restricted token files. Local ID is not provider ID. |
+| Preservation | Every existing local runner ID/account/state and relevant project/root/terminal baseline; required quiescence and fresh backup scope. Unknown/unsupported inventory stops activation. |
+| Disposable resources | Exact local runner ID, provider record, unique observation per job, hold duration and exact run IDs returned by dispatch. No unrelated capacity may share the fixture label. |
+| Allowed cases | List/registration/job/lifecycle, 20-second lock hold and cancelled waiter, reboot, local Remove and provider cleanup separately. Each grant names its actual effects, not an `all` flag. |
+| Failure handling | Retain evidence/partial state; stop automatic writes. Name the person who may approve further observation or corrective actions. No automatic retry, old-snapshot restore or cleanup. |
+
+Target/provider values are currently **unselected**. Source preparation can be
+reviewed now; actual authorization cannot be completed with invented values.
+
+### A. Registration and successful trusted job
+
+1. With the provider administrator's separate grant, create/select the exact system
+   runner record in native Forgejo. Record its numeric ID/UUID and inspection URL;
+   supply its token only through the restricted registration file. Select a unique
+   label and publish the manual-only trusted workflow at the approved full commit.
+   Neither the Soda page nor the test publishes or resets this record.
+2. Run `list`, then the separately approved `register` phase for the absent local ID.
+   Require native account/UID/private-state/confinement/slot observations and page
+   inventory agreement; retain all preservation hashes. Never erase partial creation
+   to retry. Inspect actual installed runner/package versions, not builder versions.
+3. Run `dispatch` with `hold_seconds: 0` and a never-used observation. Retain the
+   returned run ID/number immediately. If the response is lost, inspect the exact
+   approved workflow/observation in native Forgejo; do not dispatch again or select
+   a newest run automatically.
+4. Use `job` with that exact returned ID. Queued/running status is not success;
+   a later separately invoked read may observe completion without another dispatch.
+   Require matching repository/commit/inputs, two completed fixture steps and native
+   account/proof correlation. Inspect the provider's actual result and native runner
+   online state. Keep its record/history; do not add provider health to Soda inventory.
+
+### B. Idle and active-job Stop/Start/Restart
+
+1. With no active/queued work on disposable capacity, invoke `stop`, `start`, then
+   `restart` as separately selected phases. Stop must be inactive/disabled with an
+   empty cgroup and no surviving prior tuples; Start must be active/enabled without
+   re-registration; Restart must be active/enabled with old incarnations gone.
+   UID/home/credentials/client version and all baseline runners must be unchanged.
+2. For **each** active interruption, use a new approved dispatch/observation with
+   `hold_seconds: 600` (or another approved bounded value). Before interruption,
+   invoke `job` and require the exact run to be running with a live step-1 native
+   proof and recursive process membership. Do not interrupt a merely queued run or
+   infer activity from the listener; restart the procedure with a new approved
+   observation if the hold elapsed, never by replaying an uncertain dispatch.
+3. Invoke exactly one approved `stop` or `restart`. The driver compares its own
+   preflight process set and post-attempt procfs survivors on the same boot, including
+   failure paths. Inspect the exact provider run afterward with `job` and its native
+   provider page until the observed terminal outcome is known. No success is expected
+   merely because systemctl returned; cancellation/failure/status lag must be recorded.
+4. Start after Stop only under its own grant, check boot policy and unchanged
+   identity/credentials, then use a fresh short job to prove usable capacity. Repeat
+   the active Restart case independently. Existing job writes/proofs remain retained.
+
+On a changing/unavailable process or state read, preserve the failed receipt and
+perform only separately permitted fresh **reads**. Do not rerun the mutation to get
+clean evidence. The observer does not freeze jobs or guarantee atomic backups.
+
+### C. Installed caller overlap and a bounded cancellation failure
+
+Use an idle disposable runner, with the native page and Cockpit already connected
+through their real operator logins. The full phase driver performs preflight reads,
+so do not start it behind an intentionally held lock and mistake preflight timeout
+for mutation contention. This case uses the prepared native UIs and the root CLI.
+
+1. In root SSH session A, verify the existing lock is a root-owned mode-0600 regular
+   file (no link). After explicit lock-hold approval, run:
+
+   ```sh
+   test -f /run/lock/soda/runners.lock && test ! -L /run/lock/soda/runners.lock
+   test "$(stat -c '%u:%a' /run/lock/soda/runners.lock)" = 0:600
+   flock --exclusive /run/lock/soda/runners.lock sleep 20
+   ```
+
+   Use a separate SSH session for contenders, so they cannot inherit the holder's
+   lock descriptor. The holder releases normally after 20 seconds; do not kill
+   unknown processes or leave an unbounded operator-owned lock.
+2. During that interval, click exact-ID Restart once in the native page and Stop
+   once in Cockpit, with both actions expressly approved. In session B request an
+   ordinary CLI read, retaining its timing/status privately:
+
+   ```sh
+   printf '{}\n' | /usr/local/libexec/soda/soda-runners list
+   ```
+
+   Neither a read nor mutation may finish through the held lock. After release,
+   require bounded completion through the shared native owner, compare both UIs
+   and native observations, and record which final enabled/active state resulted.
+   Do not assert a predetermined winner. No registration/deletion/job occurs here.
+3. Independently repeat a **cancelled CLI waiter**, without competing mutations:
+   create a mode-0600 file containing `{"id":"probe-one"}` in the run's restricted
+   directory. In session B while session A holds the lock, start:
+
+   ```sh
+   timeout --preserve-status --signal=TERM --kill-after=5s 2s \
+     /usr/local/libexec/soda/soda-runners restart < /PRIVATE/RUN/restart.json
+   ```
+
+   Stock timeout supervises only its own command/process group; do not send signals
+   to a name lookup or stale recorded PID. Record status and sanitized CLI error
+   without `set -e` hiding them. Require a graceful nonzero/context-cancelled result,
+   not a forced KILL/timeout fallback, while the independent holder still owns the
+   lock. No restart may occur; original listener PID/start/boot policy and all state
+   hashes must remain. This proves an installed CLI cancellation under held admission;
+   the local lock tests separately establish the exact internal wait/substep paths. After normal lock release, verify an ordinary list and separately approved
+   lifecycle action still work. Do not generalize this to killing a dispatched web
+   operation: aborting a browser request does not prove native cancellation.
+4. Independently prepare an unconfirmed browser request: hold the same lock for
+   20 seconds, click one approved exact-ID Restart in the native page, establish
+   that its POST was dispatched, then navigate to native Issues before the holder
+   releases. Record only the fixed operation path/timing, never headers or bodies.
+   The window is established by the held lock, not a guessed sleep after dispatch.
+   After release, use fresh native reads to establish whether the action occurred.
+   Return/refresh the page and require zero additional mutation POSTs; a departed
+   request must not become automatic success or be replayed. Cancellation can prevent
+   the operation or leave it unconfirmed; do not assume either outcome in advance.
+   This permits only the declared request, client navigation and lock hold—not
+   provider/host-network fault injection or another native action to repair it.
+5. Retain per-caller dispatch/return times, sanitized results and process/state
+   receipts. Local lock tests already cover internal Restart substeps; this installed
+   case establishes real caller overlap and cancellation, not every possible kernel,
+   account-deletion or filesystem fault. Additional intrusive fault injection needs
+   an exact reviewed procedure/grant; it is not silently included.
+
+### D. Pre-existing activation and separately approved reboot
+
+1. Before any affected delivery, retain native state/process/boot and provider
+   observations for the pre-existing runner and all other protected roots. If no
+   prior-version baseline exists, obtain separate permission to create that fixture;
+   do not invent one by downgrading a retained runner or copying live credentials.
+2. Use the combined plan's copied-state rehearsal and affected-artifact activation
+   recipe: fresh backups under approved quiescence, old-writer drain and paired
+   management delivery. Do not run cloned listeners. After activation and first
+   opening the new page, compare descriptor/account/UID/work/credential/client and
+   enabled/running state. Opening the page must not rewrite or activate anything.
+3. Only with a distinct reboot grant, capture the enabled/running policy, all
+   identities/registration/work hashes, boot UUID and exact candidate bytes. Request
+   the normal native `systemctl reboot` on that same fixture. Do not add a reboot
+   flag to a read-only runner phase or redirect to another target while it is offline.
+4. After the authorized target returns, collect fresh **unlinked** observations;
+   do not pass a pre-reboot process baseline to a single-phase survivor check.
+   Require a changed boot UUID, unchanged accounts/credentials/work/client/policy,
+   enabled listeners running and disabled listeners inactive. Compare native provider
+   state and a separately approved fresh job. Never treat reused numeric PIDs across
+   different boots as retained processes, or old backups as lossless rollback.
+
+### E. Exact local Remove and provider aftermath
+
+After separate destructive approval for the disposable ID, run `remove` and require
+no local account/state, no remaining unit cgroup and no surviving pre-operation
+process incarnations. Other declared runners and retained roots must survive.
+Partial outcomes remain unconfirmed; do not run Remove again automatically.
+
+Use the recorded **provider numeric ID/inspection URL**, not the local ID, to verify
+that its native Forgejo registration/history still exists. The automated `job` phase
+requires the local runner for native correlation and is not the post-removal history
+reader. Inspect the exact saved run IDs via native provider UI. If provider cleanup
+is expressly approved, remove only that record through native controls, verify its
+outcome and retain job/history/evidence as the provider actually supports. No blanket
+inactive-runner deletion, work-tree pruning or shared fixture cleanup.
 
 ## One paired candidate and maintenance owner
 
@@ -270,7 +462,7 @@ receipt across both lanes. Later target writes require fresh applicable backups;
 old evidence is not lossless rollback.
 
 **Remaining step-4 exit:** finish applicable local driver/guard validation and
-remaining scenario preparation, select target/provider inputs for approval, and
+review the prepared cases against the selected target/provider inputs for approval, and
 use the prepared pinned builder to produce/check/inspect the matching native
 export and target-specific compatibility recipe. The local parser/transport-double/
 filesystem tests below are preparation evidence, not substitutes for those exits.
