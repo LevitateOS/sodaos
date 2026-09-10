@@ -8,6 +8,16 @@ the console on media.
 and Kickstart are not used. No upstream installer patches or OS filesystem
 replacements are introduced. Legacy source and canonical artwork remain unchanged.
 
+**Manual-install correction selected, not implemented:** the replacement USB/VM
+installer will ask for a root password and confirmation with **no public-key prompt**.
+It also needs correctable input/Back/restart behavior and a usable first-boot
+continuation. The current source and delivered ISO still require a key and exit on
+invalid input. Do not use this decision as an instruction to skip the current prompt.
+See the [concrete change plan](coreos-installer-plan.md#manual-install-decision--10-september-2026)
+for local-password provisioning, subsequent SSH enrollment and required validation,
+and the [publication direction](installation.md#publication-direction) for including
+the Soda payload and the recommended QCOW2 download.
+
 ## Owners and prerequisites
 
 - `scripts/build-installer.py` builds the native Go console and artifact verifier,
@@ -124,7 +134,10 @@ public/credential-free. General-purpose builds have no network keyfile, password
 SSH keys or destination disk. Occupied output directories are refused; failed
 attempts are retained, never automatically removed or overwritten.
 
-## Disk installation interaction
+## Current disk installation interaction
+
+This section describes existing executable behavior. The password-only replacement
+above is pending; the steps below remain useful when inspecting the existing media.
 
 On the live ISO the bounded UI runs as root on **tty1** through a dedicated service,
 not a passwordless root shell. Supplying live Ignition disables CoreOS's default
