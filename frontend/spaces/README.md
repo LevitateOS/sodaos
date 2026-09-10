@@ -10,6 +10,9 @@ bounded HTML/OAuth/API response; Forgejo keeps its own forms, auth and navigatio
 - `*-view.ts`: stateless typed presentation. Readonly render projections are created
   from the owners, never synchronized stores or permission/resource authority.
 - `sodaspaces-layout.ts` / `sodaspaces-api.ts`: pure layout and bounded JSON contracts.
+- `sodaspaces-attention.ts`: bounded typed observations and pure lifecycle reasons;
+  workspace slots own one unread bit, not transcripts, counts or agent semantics.
+  Its mounted-only clock/visible GET refresh never creates or renews terminals.
 - `sodaspaces.ts` / `sodaspaces-page.ts`: native/page adapters, not another controller.
 - `sodaspaces-workspace.css`: shared workspace chrome plus explicitly scoped page
   shell rules. Project, terminal and native-adapter CSS have separate owners.

@@ -1,5 +1,51 @@
 # Current handoff
 
+## Frontend improvement local closure — candidate `ea2eaf0`
+
+**The requested local implementation is complete:** canonical tokens and mandatory
+analysis from `cdfb6e8`/`04a8e37`/`512afb0` are preserved; `75556fa` extracts stateless
+typed views, `f3f348b` establishes shared authored `frontend/spaces/` ownership,
+`1c5452e` implements observed attention, `0a480f2` extends the existing guarded
+journey source, and `fbc7ec9`/`ea2eaf0` close review findings. Steps **6a/6b are locally
+source-ready**, not native acceptance. Public asset URLs, action/state/resource
+owners, schema-v6 backend boundary, native Forgejo workflows and Cockpit remain.
+The compiler/build/import/payload, preview, staging and journey callers moved
+with source. No second frontend, state store, authentication authority or runtime
+analyzer was introduced. Callable-event parameter checking remains an upstream
+analyzer limitation, complemented rather than concealed by typed callbacks/tests.
+
+Final combined local checks on that product source (only guidance changed afterward):
+
+| Check | Actual result |
+| --- | --- |
+| `bun run typecheck` | Product TS7 root/browser/tests/Cockpit and tool types; required analyzer over **19** authored browser sources; positive and ten independent negative rules plus discovery refusal fixtures |
+| `bun run test` | Frontend **188 pass /3 gated skips**; actual Go HTML/CSP → emitted browser **1**; **20** geometry/theme/state cases; Forgejo source **30 pass /18 optional skips**; Cockpit **60** |
+| Explicit `test:lit` | **127 pass**, including attention, both six-session actor driver fixtures and native-observer contract/compile fixtures |
+| Explicit private-browser-pipe test | **7 pass**, including real local Bun/CDP transport to a `data:` page; no native target |
+| Go | Uncached `go test -mod=readonly ./...`; race web/store/host passed on the combined implementation (no Go changes in subsequent UI/driver review) |
+| Packaging and preview | **7** temporary-filesystem staging/preflight and **3** canonical payload tests; isolated preview matches **141** canonical public files byte-for-byte |
+| Review | 1440/dark and 320/light emitted layout images reviewed; whitespace and local Markdown paths/anchors checked; user terminal compatibility question and its entire guide unchanged |
+
+The frontend's ordinary gated layout, Go-page and private-pipe cases were each run
+through their explicit local gates; the gated Lit runtime ran in `test:lit`. The
+remaining optional Forgejo browser cases require their configured stock instance/
+profile and were **not run**, not passed or replaced by synthetic native forms.
+All new layout/attention/driver essential local cases ran. No stock Forgejo/native
+acceptance follows from the local page, protocol peer or read-only Python compilation.
+
+Evidence, failed iterations, exact commands and isolated preview remain under
+`.artifacts/frontend-continuation-512afb0/`; final layout matrix is
+`.artifacts/spaces-step5-f28f86e/layout-1789001981095/`, real Go-page fixture is
+`.artifacts/spaces-page-h6PM8J/`. Earlier passing counts below are revision-specific.
+
+**Held/not run (6c):** exact native build/export/delivery of this candidate, installed
+matrix/SSH/process proof, real selected CLI/provider/visual/physical-keyboard proof,
+Stop/logout/rotation/expiry or fault injection, aarch64 and retained rollout. The
+historical `TestInstalledTerminalBoundary` raw-output/framing failure still stands;
+isolated `22d8591` PID/cleanup evidence and undeployed Rocky candidate are not upgraded
+by these local checks. `soda-test`, retained projects/accounts/keys, all later writes,
+credentials and evidence were untouched. No push, deployment or appliance cleanup.
+
 ## Candidate review correction — observed other writers
 
 Review after `0a480f2` found that a collection's already-attached terminal only

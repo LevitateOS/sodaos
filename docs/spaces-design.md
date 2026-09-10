@@ -9,8 +9,8 @@ the detailed source sequence for this page and its companion drawer. Steps 1–5
 locally implemented: Lit controls, ID-keyed sessions/collection, authenticated
 page/fixed return, bounded v2 layout, measured stable panes and shared page/drawer
 chrome with compact projections. Current journey source ports and Go-page integration
-have local fixture coverage. Step 6 still owns observed attention, candidate closure
-and native/selected-CLI acceptance. Static sheets remain design references, not
+have local fixture coverage. Steps 6a/6b now add observed attention and candidate/
+extended-driver source coverage; 6c still owns native/selected-CLI acceptance. Static sheets remain design references, not
 runtime evidence.
 
 The [frontend improvement guide](frontend-improvement-plan.md) now owns the detailed

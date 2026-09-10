@@ -20,15 +20,20 @@ the same contracts to the current owners rather than restoring this checkout.
 
 ## Implementation progress after the reviewed baseline
 
-The first implementation slices now expose/consume canonical workspace tokens,
-add computed page/drawer checks and a scoped visual-literal guard, and integrate
-required actual-source Lit analysis plus independent fixtures. The first typed
-extraction is the project lifecycle section; its state and command admission remain
-in the project owner. See the [current handoff](implementation-status.md) for exact
-checks and remaining work, and [checker resolution](../tools/lit-check/README.md)
-for the analysis-only build adapter needed by the locked upstream packages.
-The remaining presentation/source-clarity slices and steps 6a/6b are not complete.
-Dated research observations below remain historical, not current gate status.
+The local implementation now covers canonical workspace tokens and computed
+page/drawer presentation checks; required actual-source analysis and independent
+negative fixtures; typed stateless environment/project/terminal/workspace views;
+and [one authored Spaces source directory](../frontend/spaces/README.md), with
+compiler/build/import/payload and production/journey callers ported together.
+Owners still retain drafts, admission, original targets and live resources.
+Observed unread/lifecycle attention (6a) and candidate/installed-driver source
+coverage (6b) are locally complete. Required candidate checks include the new
+six-session/two-project driver fixtures; native/selected-CLI acceptance is **6c,
+not run on this candidate**, not an implementation blocker or inferred success.
+See the [current handoff](implementation-status.md) for exact checks, failed
+iterations and remaining proof, and [checker resolution](../tools/lit-check/README.md)
+for the analysis-only compiler boundary and known event-parameter gap. Dated research
+observations below remain historical, not current gate status.
 
 ## 1. Reading order and document ownership
 

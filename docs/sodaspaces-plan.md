@@ -16,8 +16,9 @@ Bounded v2 layout, stable measured panes, shared navigation/actions and compact
 native coexistence now have local source/browser coverage, alongside current journey
 source ports and actual Go HTML→emitted-page integration. The
 [Lit workspace implementation plan](lit-migration-plan.md) remains the single feature
-sequence: steps 1–5 are locally implemented; observed attention, candidate closure and
-scoped native/CLI proof (6a–6c) remain. No installed journey or CLI acceptance is
+sequence: steps 1–5 and 6a/6b are locally implemented and checked, including observed
+attention and extended candidate/installed-driver source coverage. Scoped native/CLI
+proof (6c) remains. No installed journey or CLI acceptance is
 inferred from the synthetic layout/socket fixtures.
 The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
 
@@ -112,7 +113,8 @@ feature, not restoration of either old standalone frontend or Forgejo workflow a
 
 The authorized collection, navbar/page, fixed OAuth return and shared multi-session
 UI are source-implemented and locally tested, including step-5 measured panes and
-compact projections. Observed attention and concurrent native acceptance remain pending.
+compact projections, observed unread/lifecycle attention and extended driver fixtures.
+Concurrent native/CLI acceptance remains pending.
 The [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) now specifies
 concrete owners and exits for these features. Validate authentication/expiry/logout,
 denied/unavailable listings, per-ID actions and same-session drawer use across both
@@ -309,7 +311,7 @@ Retain the legitimate existing operation owners.
 | Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
-| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs, shared multi-session UI and measured layouts have local coverage; attention and concurrent native/CLI acceptance remain pending |
+| Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs, shared multi-session UI and measured layouts have local coverage; observed attention and extended driver source have local coverage; concurrent native/CLI acceptance remains pending |
 | Copy SSH connection | Original login, current project IP and host fingerprint; ordinary SSH/editor access, honest reachability | Implemented/proved from recorded clients; intended laptop reachability still needs proof |
 | Refresh status | Read actual state after changes/uncertainty; never replay a mutation or repair | Existing reads/refresh; preserve in replacement and extend for new controls |
 
@@ -359,13 +361,12 @@ UI, call delivered slices milestones—not complete end-to-end Sodaspaces manage
 
 ## Remaining work — ordered
 
-1. **Finish Spaces and its companion drawer with Lit.** The single
-   [detailed sequence](lit-migration-plan.md) records locally completed steps 1–5,
-   including bounded layout migration, measured panes, both projections,
-   compact/native coexistence and installed-journey source ports. Apply the
-   [frontend cleanup](frontend-improvement-plan.md#8-implementation-order-and-exits)
-   to those owners before further UI expansion; 6a–6c still own observed attention,
-   candidate closure and scoped native/selected-CLI proof.
+1. **Complete scoped native/CLI proof of Spaces and its companion drawer.** The
+   single [detailed sequence](lit-migration-plan.md) records locally completed steps
+   1–5 and 6a/6b, including layout/projections, observed attention and extended driver
+   source. The [frontend cleanup](frontend-improvement-plan.md#8-implementation-order-and-exits)
+   is implemented with local combined checks. Step 6c still owns scoped native and
+   selected-CLI proof; source readiness is not delivery or acceptance.
    Preserve existing native reattachment, management/access/security and
    incoming responsive Forgejo controls. Validate native-left/form coexistence and
    the remaining real session/cleanup matrix before claiming acceptance or delivery.
