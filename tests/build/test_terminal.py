@@ -322,9 +322,15 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
         self.send(p, {'type': 'resize', 'cols': 103, 'rows': 37})
         self.input(p, b'printf "__SIZE__%s\\n" "$(stty size)"\n')
         self.output_until(p, b'__SIZE__37 103')
-        self.input(p, b'sleep 30\n')
-        time.sleep(0.1)
-        self.input(p, b'\x03printf "__ALIVE__%s\\n" "ok"\n')
+        # Observe the foreground child, not a guessed scheduling delay. Its
+        # marker is constructed so the echoed command cannot satisfy the wait.
+        self.input(p, b'''python3 -u -c 'import time; print("__JOB__"+"ready"); time.sleep(30)'\n''')
+        self.output_until(p, b'__JOB__ready')
+        # VINTR may flush queued input. Send the next command only after Bash
+        # has regained the foreground and displayed its fixture-owned prompt.
+        self.input(p, b'\x03')
+        self.output_until(p, b'TEST> ')
+        self.input(p, b'printf "__ALIVE__%s\\n" "ok"\n')
         self.output_until(p, b'__ALIVE__ok')
         p.stdin.close()
         self.closed(p, 'disconnected')

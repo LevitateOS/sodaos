@@ -2,6 +2,18 @@
 
 ## Step 6c requested — native preparation and fresh-check correction
 
+A second fresh candidate, `6922377`, built successfully and passed Go, required
+TypeScript/analyzer and combined browser/Cockpit checks. Full Python discovery then
+exposed an unported avatar-metadata fixture (missing the required analyzer manifest)
+and the previously intermittent local PTY interrupt test. The fixture now supplies
+and verifies that actual manifest. The PTY test observes a foreground-child marker,
+sends VINTR alone, waits for its controlled Bash prompt, then sends the assertion;
+combining VINTR and the next command allowed the terminal driver to flush queued
+input. No runtime safety check or native assertion was removed. Full Python discovery
+now passes **71 tests /1 opt-in skip**, and the corrected PTY case passed **20** fresh
+local iterations. This is not the separate native tmux framing proof. Both failed
+native-check logs remain; another exact clean build/check/export follows.
+
 The user requested completing the remainder, including deployment. Native x86_64
 build/check/export preparation is now executing; the retained deployment target
 (`soda-native-spaces-658f2af`, `soda-test`, or validation-first both) was requested
