@@ -31,9 +31,9 @@ must not independently edit that implementation.
 | Shared session bootstrap, automatic OAuth entry/returns, coordinated logout, context/schema migration, cross-tab retirement and wiring existing sign-out controls | Soda-pages step 2 | Runners consumes the resulting authenticated actor/session and retirement contract; does not add an alternative connection/logout mechanism or migration. |
 | Runner endpoint authorization, strict request/response contract, registration secrets, list/create/start/stop/restart/remove effects and partial outcomes | Runners step 3 | Soda-pages preserves these behaviors while moving the existing controls; reports runner defects to that owner rather than changing native semantics. |
 | Native runner lock, CLI/root bridge, accounts/state, service/launcher/client and unsupported-provider refusal | Runners steps 3–6 | Soda-pages does not change these owners or exercise provider/lifecycle effects for shell acceptance. |
-| Browser host/entry/logout/navigation/restoration fixtures, including porting existing runner browser cases and secret/no-replay assertions | Soda-pages step 5 | Runners reuses these cases and evidence; adds only missing runner-operation cases after the browser-file handoff, not a second host/auth fixture. |
+| Browser host/entry/logout/navigation/restoration fixtures, including porting existing runner browser cases and secret/no-replay assertions | Soda-pages steps 4–5 | Runners reuses these cases and evidence; adds only missing runner-operation cases after the browser-file handoff, not a second host/auth fixture. |
 | Runner backend/CLI/socket regressions and opt-in installed registration/job/lifecycle/overlap/preservation journeys | Runners steps 3–5 | Soda-pages uses existing runner controls and bounded synthetic operation responses; shell proof is not provider parity. |
-| Page assets/hooks/CSP/notices and their canonical build/stage assertions | Soda-pages step 5 | Runners consumes the packaged page; owns only runner executable/service/client and Cockpit-specific payload assertions. |
+| Page assets/hooks/CSP/notices and their canonical build/stage assertions | Soda-pages steps 4–5 | Runners consumes the packaged page; owns only runner executable/service/client and Cockpit-specific payload assertions. |
 | Native-shell/schema delivery | Soda-pages step 6 | Runners consumes the exact delivered revision/schema and shell evidence. |
 | Paired runner management delivery, obsolete helper retirement, provider parity and later Cockpit runner presentation removal | Runners steps 4–7 | Soda-pages retains Cockpit and never marks these exits complete from a UI delivery. |
 
@@ -400,7 +400,7 @@ no runner registration or lifecycle action occurred. Existing synthetic workspac
 journeys retain exact sessions, finite retain/Return and independently named End.
 This is not new native terminal process or runner/provider proof. The complete
 navigation switch, including Open in Spaces, is intentionally step 4; browser
-caller retirement and cached-payload acceptance remain step 5.
+caller retirement accompanies step 4; cached-payload acceptance remains step 5.
 
 
 | Surface | Work and preservation |
@@ -424,8 +424,15 @@ terminal, finite retention and independently named End behavior.
 
 ### Step 4 — switch navigation and retire the duplicate shells
 
+**Sequencing revision after step 3:** migrate affected callers, tests and served
+assets in the same change as their production owners. Step 4 must leave a working,
+tested source candidate; step 5 is the remaining integrated acceptance work, not a
+place to defer broken tests or packaging. Scope and lane ownership are unchanged.
+
 Update `custom/extra_links.tmpl`, `soda-settings-link.ts`, repository settings links,
-Open in Spaces/Open in drawer, default app links and fixed OAuth returns together.
+Open in Spaces/Open in drawer and default app links together. Fixed native OAuth
+returns already exist from step 2: verify their destination and actor bindings
+against the new entry bridges rather than rebuilding that flow.
 Keep the native four links and their upstream gates; label the local capacity
 destination Runners and keep provider-owned Forgejo Actions navigation intact.
 
@@ -441,9 +448,32 @@ to the necessary entry behavior and delete the page renderer only when it has no
 remaining caller. Retain the Go API service, SQLite data, encrypted grants, existing
 configuration/service names and native integration. Do not create a replacement SPA.
 
+Port the affected Go page tests to redirect/entry tests as their HTML handlers
+retire. Preserve authorization, protected repository context, expected-actor,
+CSRF and current-session race assertions in their surviving owners. Move
+`scripts/test-spaces-page.ts` and its three browser consumers to the existing
+native-host fixture before removing the HTML producers they consume. Preserve
+runner form/confirmation, secret-clearing, uncertainty and no-replay cases; do not
+add a second host/auth harness or change runner operation semantics.
+
+Update affected navigation, repository settings and workspace/drawer tests with
+the link changes. Verify the complete full Spaces → repository drawer → full Spaces
+journey preserves the exact selected session, finite retain/Return and independently
+named End. The step-3 component regressions are supporting evidence, not proof of
+the newly switched navigation. Cover signed-in and signed-out bookmarks and ensure
+entry/reconnect never replays an operation.
+
+Update affected build, payload, staging/preview, asset/CSP assertions and notices
+alongside shell/bootstrap removal. Check transitive imports and remaining callers
+before deleting obsolete served assets; preserve retained historical artifacts.
+Run the affected Go/browser/workspace suites, strict TypeScript/Lit and payload
+checks before committing. Update current guides with the source behavior changed
+here, keeping installed/historical behavior separately labelled.
+
 **Exit:** normal navigation and old bookmarks reach the native shell; no duplicate
-header/account UI or stale full-page bootstrap remains. No runner/provider/root
-state changes occur as a consequence of opening or redirecting a page.
+header/account UI or stale full-page bootstrap remains. Migrated test callers and
+affected packaging checks pass, including the complete page/drawer handoff.
+No runner/provider/root state changes occur as a consequence of opening or redirecting a page.
 
 ### Step 5 — validate the complete source and packaged candidate
 
@@ -453,30 +483,30 @@ part of this packaging step; a fresh-browser source check alone is not evidence
 that an already-open/cached client has received the new logout/retirement code.
 
 
-Adapt the existing owners instead of adding a second test runner:
+Use step 4's migrated tests and packaged source as the baseline. Reuse the passing
+step-2 authentication/store and step-3 component evidence for unchanged behavior;
+rerun affected checks for the final candidate and add only missing coverage. Keep
+one existing test harness and record each remaining gap against its owner:
 
-- Go page/entry tests become redirect, protected-context and OAuth-return tests;
-  retain API authority, CSRF and current-session race coverage. Extend store tests
-  for the bounded logout migration and callback cancellation races.
-- Port `scripts/test-spaces-page.ts` and its three browser consumers to the native
-  host fixture. Missing real host/asset evidence must fail the relevant integration
-  gate; retain synthetic unit tests without labelling them native-session proof.
-- Extend the existing Forgejo template/navigation and settings-link checks, shared
-  workspace/drawer layout journeys and repository settings tests. Port the existing
-  runner browser lifetime/operation assertions to the native host without adding
-  native runner lifecycle scenarios; those remain in the Runners lane. Include
-  real Back/BFCache, duplicate/stale mounts, late responses ignoring abort,
-  dark/light themes, narrow screens and keyboard/profile-menu operation.
-- Include operator-without-site-admin, site-admin-without-operator, owner/member,
-  missing/private repository, actor switch, unavailable provider, declined OAuth,
-  missing scopes, both logout failures, native-only escape and the limits when
-  JavaScript is disabled.
-- Preserve unsaved native forms, exact terminal identities and existing runner
-  secrets/uncertainty boundaries. No page navigation or reconnect may replay a
-  mutation, create a terminal, start a project or register a runner.
-- Update `scripts/build-forgejo.ts`, `internal/nativebuild/forgejo-payload.json`,
-  staging, preview, asset/CSP fixtures and notices together. Delete only obsolete
-  served assets after checking all imports; preserve historical artifacts.
+- Exercise real Back/BFCache, duplicate/stale mounts and late responses ignoring
+  abort across the final native navigation. The step-3 synthetic interrupted-entry
+  checks do not establish actual browser-history restoration by themselves.
+- Complete dark/light, narrow-screen, scroll/focus, keyboard/profile-menu and
+  screenshot review under the actual native shell. Preserve unsaved native forms,
+  exact terminal identities and runner secret/uncertainty boundaries.
+- Close uncovered authority combinations: operator without site-admin, site-admin
+  without operator, owner/member, missing/private repository, actor switch and
+  unavailable provider. Reuse existing consent, missing-scope and logout-failure
+  tests where applicable; verify native-only escape and JavaScript-disabled limits.
+- Prove cached-client delivery of changed entry modules and transitive imports,
+  plus the final payload/staging/CSP contract. Missing required real host/asset
+  evidence must fail the relevant integration gate; synthetic tests remain useful
+  without being labelled native-session or native-process proof.
+
+No navigation or reconnect may replay a mutation, create a terminal, start a
+project or register a runner. Native runner lifecycle/provider scenarios remain
+in the Runners lane. Test migration and ordinary asset cleanup belong to step 4,
+not to this acceptance backlog.
 
 Run the applicable focused tests, `bun run typecheck`, the existing page/Forgejo/
 workspace suites, affected Go race tests, payload/staging checks and
@@ -484,9 +514,9 @@ workspace suites, affected Go race tests, payload/staging checks and
 [screenshot capture](screenshot-capture.md) for actual Forgejo visual review;
 screenshots complement behavior tests and do not prove native process safety.
 
-Update current architecture/API/credential/design/Lit/runner and validation guides
-to describe the final delivered source; retain dated historical evidence. Publish
-the exact local checks and remaining native assumptions in the handoff.
+Finish consistency review of architecture/API/credential/design/Lit/runner and
+validation guides to describe the final source candidate, not an assumed delivery;
+retain dated historical evidence. Publish the exact local checks and remaining native assumptions in the handoff.
 
 **Exit:** all three pages and the drawer form one verified native UI journey, with
 the first-consent and logout limits above explicitly represented. Source completion
@@ -494,8 +524,9 @@ does not claim appliance deployment or real runner/provider parity.
 
 ### Step 6 — deliver the affected components with preserved state
 
-Prepare the normal exact-revision native build/check/export and affected-component
-delivery recipe under the [single-executor delivery handoff](#implementation-lanes-and-handoff).
+After step 5 source acceptance, identify the exact committed candidate and the
+explicitly authorized target/actions. Prepare the normal exact-revision native
+build/check/export and affected-component delivery recipe under the [single-executor delivery handoff](#implementation-lanes-and-handoff).
 This step owns shell/schema delivery only, not paired runner-management rollout,
 obsolete helper retirement, provider jobs or Cockpit removal. Account for any
 runner artifacts already present in the candidate: their activation needs the

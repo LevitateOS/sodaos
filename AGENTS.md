@@ -19,8 +19,10 @@ Forgejo's real header/profile/navigation. Read
 It supersedes earlier separate Go-shell and routine manual-connection guidance for
 Spaces, Runners and repository Spaces settings. It is a proposal using the existing
 native dashboard/template host, with bounded automatic OAuth and coordinated normal
-logout. Steps 1–2 now have minimal native page hosts, shared connection/logout and
-local Forgejo browser proof; full page bodies and delivery remain. The Soda-pages
+logout. Steps 1–3 now have native hosts with the existing page bodies, shared
+connection/logout and local Forgejo browser proof. Step 4 switches navigation and
+retires old shells alongside their test callers/assets; steps 5–6 cover remaining
+integrated acceptance and separately authorized delivery. The Soda-pages
 lane retains shared-file ownership until the explicit handoff in that plan. This is
 not atomic SSO or a new deployment grant.
 Existing shell descriptions below remain current-source/historical facts, and the

@@ -43,8 +43,11 @@ preview projection; the authorized local Forgejo template reload preserved its d
 
 **Next: step 4** switches normal links and legacy GET bridges together and removes
 the old Go shells. They remain in this commit, so ordinary links can still reach
-the old presentation. Step 5 owns final browser-caller/cache/package acceptance;
-step 6 owns separately authorized delivery. Runner backend/provider parity and
+the old presentation. The revised step 4 also migrates affected browser/Go test
+callers and removes obsolete served assets with their production owners; its exit
+includes the complete page/drawer handoff and passing affected packaging checks.
+Step 5 closes remaining real-history, authority, visual and cached-client acceptance
+gaps using those migrated suites; step 6 owns separately authorized delivery. Runner backend/provider parity and
 Cockpit retirement remain the separate runners lane. No deployment occurred.
 
 
