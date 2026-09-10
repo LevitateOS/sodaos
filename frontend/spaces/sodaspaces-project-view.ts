@@ -1,6 +1,6 @@
 import {html, nothing} from 'lit';
 import type {TemplateResult} from 'lit';
-import type {KeyPreview, SavedKey} from './sodaspaces-api.js';
+import type {KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
 
 export interface Connection {readonly command: string; readonly fingerprint: string}
 export function renderConnection(connection: Connection | undefined, repository: string, page: boolean, blocked: boolean, copy: () => void): TemplateResult {
@@ -12,7 +12,7 @@ export function renderConnection(connection: Connection | undefined, repository:
       <button data-control="copy" type="button" class="ui basic button" ?disabled=${blocked}
         data-tooltip-appendto="parent" data-clipboard-target=${connection && !page ? '#soda-command-' + repository : nothing}
         @click=${copy}>Copy SSH connection</button>
-      <p>Use ordinary SSH or your editor’s Remote SSH with this account/IP. An observed IP is not proof of laptop routing.</p>
+      <p>Use ordinary SSH or your editor’s Remote SSH with this account/IP. An observed IP is not proof of laptop routing or installed SSH keys. Browser-only accounts must explicitly apply a public key before external SSH.</p>
     </fieldset>
   `;
 }
@@ -53,8 +53,8 @@ export function renderKeys(view: KeyPresentation, commands: KeyCommands): Templa
           </li>
         `)}
         ${view.saved && !view.joined ? html`<li>${view.saved.length
-          ? 'Start must be requested from the project administrator when stopped; then explicitly Join.'
-          : 'Save your public key, then explicitly Join when the environment is running.'}</li>` : ''}
+          ? 'Saved keys are optional at Join. Review and select them explicitly if you want external SSH access.'
+          : 'No saved SSH keys. You can Join for browser-only access when the environment is running.'}</li>` : ''}
       </ul>
       <label>Public SSH key
         <textarea data-control="public-key" rows="3" maxlength="16384" spellcheck="false" autocomplete="off"
@@ -75,6 +75,18 @@ export function renderKeys(view: KeyPresentation, commands: KeyCommands): Templa
         @click=${commands.apply}>Apply reviewed saved keys to this project</button>
     </fieldset>
   `;
+}
+export function renderForgejoKeys(keys: ProfileKeys | undefined, blocked: boolean, load: (page: number) => void, select: (key: string) => void): TemplateResult {
+  return html`<fieldset><legend>Optional: use one of my Forgejo public keys</legend>
+    <p>A title does not prove where a private key lives. Choose only keys you intend to allow into projects, not every key from your profile. This never grants outbound Git access or synchronizes later revocations.</p>
+    <button type="button" class="ui basic button" ?disabled=${blocked} @click=${() => load(1)}>Review my Forgejo public keys</button>
+    ${keys ? html`<p>Page ${keys.page}. Native profile settings remain authoritative; no key was saved or installed by this read.</p>
+      <ul>${keys.items.map(key => html`<li>${key.title} · ${key.fingerprint}<button type="button" class="ui basic button" ?disabled=${blocked} @click=${() => select(key.public_key)}>Select for review</button></li>`)}</ul>
+      ${keys.items.length === 0 ? html`<p>No public keys on this page.</p>` : ''}
+      <button type="button" class="ui basic button" ?disabled=${blocked || keys.page <= 1} @click=${() => load(keys.page - 1)}>Previous keys</button>
+      <button type="button" class="ui basic button" ?disabled=${blocked || !keys.more || keys.page >= 8} @click=${() => load(keys.page + 1)}>Next keys</button>
+      ${keys.page === 8 && keys.more ? html`<p>Further keys require native profile settings; this picker is bounded to eight pages.</p>` : ''}` : ''}
+  </fieldset>`;
 }
 export function renderProjectStatus(repository: string, actor: string, login: string, status: string, outcome: string): TemplateResult {
   return html`

@@ -855,8 +855,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "859790d187d703809d4cb59b7544a514e1c07f50ebae8587fd52eb6fd18f8a0d",
-      "presentationReview": "Add the fixed same-origin Spaces link through the selected native extra_links hook; retain appearance and upstream navbar visibility ownership. Native capture pending.",
+      "beforeRoleHash": "c2ae89d190ad79eb6d6bedbda97573127a78ce5e97788a716d5d265d322345e8",
+      "presentationReview": "Fixed Spaces link plus signed-actor marker for the Soda operator settings link. No native IsAdmin gate: the bounded session caller reveals navigation, while Go reauthorizes every page/API. Appearance and upstream navbar remain native. Local hook/emitted-browser checks, not installed capture.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5e8cda4ebe44a4fc3b4efe14d1f417b9429cbb7079089bd0b8cb0bcea2bc38d9",
-      "presentationReview": "Merged signed non-repository resume hook and non-modal aside with the accessible narrow-pane button/text span; repository disclosure script stays repository-only and notification markup is unchanged. Merged source checks are not native acceptance.",
+      "beforeRoleHash": "026b06e4f6c8545febf20e87f84ae868166696a2dc33e4960884d59d37e6ded3",
+      "presentationReview": "Retain signed non-repository resume, non-modal aside, repository-only disclosure and native notification markup. Add the signed-only settings-link module after existing notification content; no runner state is read on page load. Local source/browser checks are not native acceptance.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -5700,10 +5700,11 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1b3809b0c2290b703d44ef6c9b7c116ada96f7333ded439580231d1c5430c8da",
+      "beforeRoleHash": "70afeba4126b24a9a13eefd03f438dfc8ba03f2b8cb4b77b8c1e7cd09b155d8c",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "repository-settings-structural-overhaul"
+      "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",
+      "presentationDelta": "Adds one signed-in stable-ID Soda settings link; all native destinations and feature/permission gates remain unchanged. The Soda page and every action reauthorize independently."
     },
     {
       "template": "repo/settings/options.tmpl",

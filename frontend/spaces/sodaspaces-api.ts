@@ -34,10 +34,17 @@ export function sessionResponse(value: unknown, origin: string): Session {
   check(id(user.id) && typeof user.login === 'string' && typeof data.csrf_token === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(data.csrf_token) && data.forgejo_url === origin);
   return { user: { id: user.id, login: user.login }, csrf_token: data.csrf_token, forgejo_url: origin };
 }
-export interface Environment { id: string; repository_id: string }
+export interface CreationProfile {id: string; distribution: string; version: string; interface: string; architecture: string; image: string; revision: string}
+export function creationProfile(value: unknown): CreationProfile {
+  const p = object(value);
+  check(p.id === 'rocky-headless' && p.distribution === 'rocky' && p.interface === 'headless' && typeof p.version === 'string' && /^[0-9]{1,3}(\.[0-9]{1,3}){0,2}$/.test(p.version));
+  check((p.architecture === 'amd64' || p.architecture === 'arm64') && typeof p.image === 'string' && /^sha256:[0-9a-f]{64}$/.test(p.image) && typeof p.revision === 'string' && /^[0-9a-f]{40}$/.test(p.revision));
+  return {id: p.id, distribution: p.distribution, version: p.version, interface: p.interface, architecture: p.architecture, image: p.image, revision: p.revision};
+}
+export interface Environment { id: string; repository_id: string; profile?: CreationProfile | null }
 export function environmentResponse(value: unknown, repositoryId: string): Environment {
   const data = object(value); check(projectId(data.id) && data.repository_id === repositoryId);
-  return { id: data.id, repository_id: repositoryId };
+  return { id: data.id, repository_id: repositoryId, profile: data.profile == null ? null : creationProfile(data.profile) };
 }
 export interface Detail {
   environment: Environment & { provisioned: boolean };
@@ -52,7 +59,7 @@ export function detailResponse(value: unknown, environment: Environment): Detail
     const state = object(data.observed); check(state.id === environment.id && typeof state.running === 'boolean');
     observed = { id: environment.id, running: state.running };
   }
-  return { environment: { ...environment, provisioned: env.provisioned }, login: data.login, environment_administrator: data.environment_administrator, native_unavailable: data.native_unavailable, authority_unavailable: data.authority_unavailable, observed };
+  return { environment: { ...environmentResponse(env, environment.repository_id), provisioned: env.provisioned }, login: data.login, environment_administrator: data.environment_administrator, native_unavailable: data.native_unavailable, authority_unavailable: data.authority_unavailable, observed };
 }
 export interface SavedKey { id: string; fingerprint: string; public_key?: string }
 export function savedKeysResponse(value: unknown): SavedKey[] {
@@ -61,6 +68,17 @@ export function savedKeysResponse(value: unknown): SavedKey[] {
     const key = object(value); check(id(key.id) && fingerprint(key.fingerprint));
     return { id: key.id, fingerprint: key.fingerprint, ...(typeof key.public_key === 'string' ? { public_key: key.public_key } : {}) };
   });
+}
+export interface ProfileKeys {items: (SavedKey & {public_key: string; title: string})[]; page: number; more: boolean}
+export function profileKeysResponse(value: unknown, page: number): ProfileKeys {
+  const data = object(value); check(data.page === page && typeof data.more === 'boolean' && Array.isArray(data.items) && data.items.length <= 10);
+  const rawItems: unknown[] = data.items, keys = savedKeysResponse(data);
+  const items = keys.map((key, index) => {
+    const row = object(rawItems[index]);
+    check(typeof key.public_key === 'string' && typeof row.title === 'string');
+    return {...key, public_key: key.public_key, title: row.title};
+  });
+  return {items, page, more: data.more};
 }
 export interface KeyPreview { login: string; revision: string; installed_fingerprints: string[]; saved_fingerprints: string[] }
 export function keyPreviewResponse(value: unknown, login: string): KeyPreview {

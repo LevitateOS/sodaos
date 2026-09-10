@@ -29,6 +29,10 @@ UPDATE sessions SET context_id=token;
 CREATE UNIQUE INDEX sessions_context ON sessions(context_id);
 ALTER TABLE oauth ADD COLUMN context_id TEXT REFERENCES login_contexts(id) ON DELETE CASCADE;`,
 	`ALTER TABLE oauth ADD COLUMN spaces_return INTEGER NOT NULL DEFAULT 0 CHECK(spaces_return IN(0,1) AND (spaces_return=0 OR repository_id=0));`,
+	`ALTER TABLE oauth ADD COLUMN settings_return TEXT NOT NULL DEFAULT '' CHECK(settings_return IN ('','runners') AND (settings_return='' OR (spaces_return=0 AND repository_id=0)));`,
+	`ALTER TABLE projects ADD COLUMN creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile)));
+CREATE TRIGGER immutable_creation_profile BEFORE UPDATE OF creation_profile ON projects BEGIN SELECT RAISE(ABORT,'creation profile is immutable'); END;
+ALTER TABLE oauth ADD COLUMN repository_settings_return INTEGER NOT NULL DEFAULT 0 CHECK(repository_settings_return IN(0,1) AND (repository_settings_return=0 OR (repository_id>0 AND spaces_return=0 AND settings_return='')));`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
@@ -84,7 +88,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready FROM projects LIMIT 0`,
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT token,user_id,csrf,expires,context_id FROM sessions LIMIT 0`,
-		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return FROM oauth LIMIT 0`,
+		`SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return FROM oauth LIMIT 0`,
 		`SELECT id,pending,expires FROM login_contexts LIMIT 0`,
 		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
 		`SELECT session_token,ciphertext FROM session_grants LIMIT 0`,

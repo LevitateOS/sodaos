@@ -148,6 +148,32 @@ still wins finalization. No OAuth client edit or new secret/consent is required.
 Pre-v6 binaries reject schema v6. Matching backend/assets and backed-up state require
 separately authorized delivery; these local tests are not a retained-state rollout.
 
+## Schema v7: operator settings return
+
+Source appends `oauth.settings_return`, default empty and constrained to the fixed
+`runners` destination with no simultaneous Spaces/repository return. Existing
+transactions keep their original intent. Callback reads the consumed transaction,
+not caller redirect parameters. This changes no OAuth scopes, client or key.
+Populated synthetic v6 preservation, one-use consumption and logout-winning tests
+passed locally. Pre-v7 binaries reject this schema. Delivery still needs a fresh
+paired DB/config/key/artifact backup, copied-state rehearsal and explicit rollout;
+no retained database was migrated during source work.
+
+## Schema v8: repository settings return and creation identity
+
+Source appends nullable `projects.creation_profile` with immutable-update protection
+and `oauth.repository_settings_return`, constrained to a repository target without
+a simultaneous Spaces/operator-settings return. Legacy projects keep unknown
+creation metadata; existing memberships and pending runner returns retain their
+original values. This changes no grant key, OAuth client or provider authority.
+
+The incoming `a741c65` [handoff](implementation-status.md) records local populated-v7
+preservation, profile immutability and transaction-bound return checks. They were
+not rerun during this merge. Pre-v8 binaries reject the newer schema; do not lower
+the version marker or discard later data to attempt rollback. Delivery still needs
+fresh paired DB/config/key/artifact backups, copied-state rehearsal and explicit
+target approval. Local source checks are not native deployment evidence.
+
 ## Compatibility and rollback
 
 Schema v3 adds `grant_key_check` and `session_grants`; v2 already appended an OAuth

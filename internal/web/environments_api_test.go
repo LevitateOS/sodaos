@@ -30,10 +30,13 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		}
 	})
 	accountCalls := 0
-	rejectAccount := false
+	rejectAccount := true
+	expectedKeys := 0
 	id := ""
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/profile":
+			json.NewEncoder(w).Encode(testCreationProfile())
 		case "/create":
 			var input host.Create
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -43,14 +46,14 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 				t.Error("caller selected owner")
 			}
 			id = input.ID
-			json.NewEncoder(w).Encode(host.Environment{ID: id, IP: "10.89.0.2", Running: true})
+			json.NewEncoder(w).Encode(host.Environment{ID: id, IP: "10.89.0.2", Running: true, Profile: input.Profile})
 		case "/account":
 			accountCalls++
 			var input host.Account
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 				t.Error(err)
 			}
-			if input.Project != id || input.Identity < 1 || input.Identity > 2 || len(input.Keys) != 1 {
+			if input.Project != id || input.Identity < 1 || input.Identity > 2 || len(input.Keys) != expectedKeys {
 				t.Error("invalid fixed account request")
 			}
 			if rejectAccount {
@@ -88,9 +91,10 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 			t.Fatal("implicit join", err)
 		}
 	}
-	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 422 || accountCalls != 0 {
-		t.Fatal("missing keys reached native")
+	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 502 || accountCalls != 1 {
+		t.Fatal("account-only join did not reach real native boundary")
 	}
+	expectedKeys = 1
 	for _, uid := range []int64{1, 2} {
 		if err := s.Store.AddKey(context.Background(), uid, "public-key-double", "fingerprint"); err != nil {
 			t.Fatal(err)

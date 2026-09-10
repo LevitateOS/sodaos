@@ -39,7 +39,7 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data := struct {
 		Origin, Actor, Login, Message string
-		Authorized                    bool
+		Authorized, Operator          bool
 	}{Origin: s.Config.ForgejoURL, Message: "Connect through Forgejo to open your Spaces. Soda and native Forgejo sign-in are separate."}
 	status := http.StatusOK
 	cookie, err := requestCookie(r, sessionCookie)
@@ -65,6 +65,7 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 				data.Authorized = actorErr == nil && actor.ID == v.User.ID && currentErr == nil && current.ContextID == v.ContextID && current.CSRF == v.CSRF
 			}
 			if data.Authorized {
+    data.Operator = v.User.ID == s.Config.OperatorID
 				data.Message = "Loading authorized Spaces; opening this page never creates or starts a project."
 			} else {
 				status = 503

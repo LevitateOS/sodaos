@@ -158,8 +158,9 @@ operator boundary server-side; Forgejo site administration is not a substitute.
 
 **Add me to this project** must create the intended real project-local Linux account
 and install any explicitly selected external-SSH public keys, then record membership
-only after confirmed native success. The current implementation still requires a
-nonempty key set; the selected browser-only account path is unimplemented. A row,
+only after confirmed native success. The new source supports account-only Join with no external SSH keys, including
+real native script wiring and locally tested preservation checks. Native delivery
+and fresh browser-only access proof remain pending. A row,
 mock or manual-command checklist is not the feature. The creator explicitly joins
 as well. Never request a private SSH key.
 

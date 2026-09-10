@@ -42,7 +42,7 @@ export async function buildForgejoModule(source: string, destination: string) {
           // fixture entrypoints and the shared workspace's historical drawer URL.
           if (args.path.startsWith('.')) {
             const resolved = resolve(dirname(args.importer), args.path);
-            if (dirname(resolved) === resolve(root, 'frontend/spaces')) {
+            if (['frontend/spaces', 'frontend/runners'].some(directory => dirname(resolved) === resolve(root, directory))) {
               const target = destinations.get(outputName(resolved));
               assert(target, `Unstaged workspace import: ${args.path}`);
               const relative = posix.relative(posix.dirname(destination), target);
@@ -63,7 +63,7 @@ export async function buildForgejoModule(source: string, destination: string) {
 
 export async function buildForgejoAssets(out: string) {
   const sources = new Map<string, string>();
-  for (const directory of ['assets/branding/forgejo', 'frontend/spaces']) {
+  for (const directory of ['assets/branding/forgejo', 'frontend/spaces', 'frontend/runners']) {
     for (const file of new Bun.Glob('*.ts').scanSync(resolve(root, directory))) {
       if (file.endsWith('.d.ts')) continue;
       const output = outputName(file);

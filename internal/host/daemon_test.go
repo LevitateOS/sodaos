@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -12,6 +13,9 @@ type captureCreate struct{ args []string }
 func (c *captureCreate) Run(_ context.Context, _ []byte, executable string, args ...string) ([]byte, error) {
 	if executable != "/usr/bin/podman" {
 		return nil, errors.New("unexpected executable")
+	}
+	if len(args) > 1 && args[0] == "image" && args[1] == "inspect" {
+		return testImage(testProfile()), nil
 	}
 	if reflect.DeepEqual(args, []string{"network", "exists", "soda-projects"}) {
 		return nil, nil
@@ -24,13 +28,15 @@ func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	commands := &captureCreate{}
 	d := Daemon{Exec: commands, Config: Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"}}
 	id := "p123456789012345678901234"
-	if _, err := d.create(context.Background(), Create{ID: id, Owner: 2}); err == nil {
+	profile := testProfile()
+	encoded, _ := json.Marshal(profile)
+	if _, err := d.create(context.Background(), Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
 		t.Fatal("failed native creation reported success")
 	}
 	want := []string{"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
 		"--label", "org.soda.owner=2", "--network", "soda-projects", "--userns=auto:size=262144",
 		"--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE",
-		"--device=/dev/fuse", "--security-opt=label=disable", "localhost/soda-project-os:dev"}
+		"--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image}
 	if !reflect.DeepEqual(commands.args, want) {
 		t.Fatalf("unexpected native creation contract: %q", commands.args)
 	}

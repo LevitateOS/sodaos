@@ -1,5 +1,21 @@
 # Current handoff
 
+## Merge of remote feature work with installer decisions
+
+Merged incoming `a741c65` repository-settings/profile work and its preceding
+Sodarunners, browser-only Join and packaging changes with local installer/media/
+Services documentation. The only textual conflict was independently prepended
+handoff entries; both histories and their original evidence are preserved below.
+Production source merged without textual conflicts. Appliance root-password
+installation remains planned work, distinct from incoming browser-only **project**
+account provisioning. The installation guide now identifies source schema v8;
+retained deployments and their earlier schema evidence are unchanged.
+
+This merge checked Git whitespace, conflict-marker removal and preservation of both
+parent handoff histories. It did not rerun product builds/tests, generate media or
+perform native deployment. Incoming checks below remain evidence for their recorded
+candidates, not a fresh test result for this merged commit.
+
 ## Manual installation, media and Services decisions — documentation only
 
 Recorded the user's 10 September 2026 manual-install/voice discussion in the
@@ -31,6 +47,182 @@ Documentation diff/whitespace checks and all 32 added local links/heading anchor
 passed. No product
 builds/tests, new media, native execution, retained-state changes or publication
 were performed. The earlier evidence and exact artifact identities remain below.
+
+## Repository Sodaspaces settings and creation identity — local source
+
+Added the selected `/-/soda/repositories/{id}/settings/spaces` Go page and one
+stable-ID entry in Forgejo's existing repository settings override. The page uses
+fresh acting-user visibility, current-context publication, escaped current native
+back-links and a labelled Soda account. It mounts the **same** Lit project command
+owner as the drawer: no duplicate Create/lifecycle/key implementation or Forgejo
+handler/authentication replacement. Schema **v8** adds a constrained, single-use
+repository-settings OAuth return and nullable immutable project creation metadata.
+Populated-v7 legacy projects, memberships and pending runner returns are preserved.
+
+Only **Rocky headless** is implemented. Both settings and drawer obtain the one
+supported installed profile through a guarded, read-only helper preflight. Create
+rejects unsupported/unavailable images before reservation, rechecks current owner
+and Soda context after that I/O, and records profile/distro/version/interface/native
+OCI architecture/exact image ID/recipe revision with the reservation. The root helper
+rechecks the installed selection and uses that exact image ID with `--pull=never`;
+changed selection or uncertain creation retains the reservation. The native object
+carries the same identity; Create receipts and subsequent detail/Spaces observations
+are compared. The recipe labels and **final** `/etc/os-release` assertion accompany
+the existing build-supplied source revision. No new image slot or default image tag
+was introduced. Existing roots neither consult the current image nor convert on
+Start/Open. Legacy rows display unknown; separate legacy OS-release observations
+remain unimplemented rather than guessed from the default or backfilled.
+
+Actual local checks are retained in `.artifacts/profiles-settings-0196e77/`:
+
+- Full Go tests passed; affected host/store/web race checks passed. Coverage includes
+  profile preflight failure/logout/transfer, immutable populated-v7 migration,
+  transaction-bound OAuth, native receipt/label/image mismatch and legacy unknowns.
+- Strict TypeScript/Lit checks passed. `bun run test` passed: **202 frontend / 4
+  opt-in skips**, actual Go Spaces-page fixture and layout journey, **31 Forgejo /
+  21 opt-in skips**, **60 Cockpit**. The new actual Go settings HTML/CSP → emitted
+  browser fixture ran explicitly through profile selection, one protected Create,
+  separate Join availability, immutable/legacy display and unavailable profiles.
+- Python build discovery: **100 tests, OK, one opt-in skip**. Frontend assets built
+  through the canonical payload owner; no full native image/export build was run.
+- The **256 native repository-menu gate combinations** ran explicitly against the
+  retained exact Forgejo 15.0.7 templates using `SODA_FORGEJO_TEMPLATES`. Existing
+  native destinations/gates match; only the bounded Soda destination is added.
+  The default export path is absent, so the ordinary Go suite skips that optional
+  source comparison without the explicit path. This is source rendering, not a live
+  authenticated Forgejo menu/browser result.
+
+Initial runs caught old helper/creation fixture expectations, a closure-narrowing
+error and two incorrectly initialized Lit reactive fields. Those were corrected;
+failed logs are retained. The inspected Podman 5.8.4 dependency metadata selects
+`go.podman.io/common v0.67.1`; its exact `ImageData` source confirms the selected
+image inspection fields. Failed old-location source fetches were followed to the
+actual container-libs source, not replaced with assumed output. No native Podman
+image inspection, project creation, provider mutation or deployment ran here.
+
+**Remaining:** native build/create/persistence/paired schema-v8 delivery proof,
+legacy OS observations, complete batteries-included tooling, Fedora/KDE artifacts,
+KDE session/Lock/transport, marketplace and isolated AI/workflow/publication settings.
+The unresolved personal Git credential model is unchanged. Matching backend/helper/
+assets and a newly built labelled image are required for future creation; old
+unlabelled images intentionally fail preflight. Retained data, roots, credentials,
+VMs and evidence remain untouched. This is another implemented source slice, not
+completion of the whole roadmap or authorization to deploy/convert retained roots.
+
+## MVP regression and packaging closure
+
+Fixed the reproduced delivery-inventory omission for **15 existing** native Forgejo
+form/migration/runner overrides; no template content or native submission authority
+changed for that correction. Settings-page assets/shared runner decoder are included
+in the canonical payload. Updated only the two intentionally changed hook hashes
+and their explicit presentation reviews. The first root suite caught those stale
+hashes; the retained failed run was not waived. Added signed-nonadmin hook rendering
+and emitted operator-link/BFCache/context checks, preserving native drafts/navigation.
+
+Actual local checks (`.artifacts/feature-mvp-972b1ab/`):
+
+- `bun run build`: Forgejo assets and both retained Cockpit pages built. Native
+  Cockpit bridge script remains deliberately external (the existing bundler warning).
+- `bun run typecheck`: strict product compilers, Lit analysis and all checker
+  fixtures passed. A new navigation-fixture narrowing error was corrected first.
+- `bun run test`: **200 frontend passed / 4 opt-in skips**, Go Spaces-page browser
+  fixture passed, 20-case layout journey passed, **31 Forgejo passed / 21 opt-in
+  skips**, **60 Cockpit passed**. The extra runner HTML/control and native-link
+  browser checks ran explicitly: **3 passed**, including all runner mutations with
+  synthetic peers. No installed/provider case was enabled by these flags.
+- Full Go tests passed; affected runner/host/store/web **race tests passed**. The
+  final payload and hook change also passed `go test ./scripts ./internal/nativebuild`.
+- Full Python build discovery: **99 tests, OK, one opt-in skip**, including eight
+  real account-script/filesystem tests with mocked Linux identity/account commands.
+
+**This does not complete all six requested feature plans.** Delivered source in this
+pass is operator runner settings and browser-only/optional-public-key onboarding,
+plus packaging closure. Marketplace apps/ingress/install ownership, isolated OCI
+runner jobs, trusted AI workflow saving/publication/live run terminals, repository
+settings/immutable profile metadata, Fedora/KDE images and desktop transport remain
+unimplemented. The plans' exact image/token/session prerequisites still need work;
+none is replaced with a mock catalog, YAML-only activation, fake desktop or unsupported
+Linux vendor computer-use claim. Outbound Git trust/passphrase/consent remains an
+explicit decision. Routine local work is still authorized; no repeated approval is
+needed for it. Native/provider execution and delivery retain their target/action gates.
+
+No push, full appliance-image/export build, VM/deployment, provider registration/job,
+retained-account/project mutation, real credential use or cleanup occurred. Cockpit
+Runners and Tailnet remain. Retained data/evidence is untouched; schema-v7 and account-
+script delivery still require fresh paired backups/rehearsal and applicable scope.
+
+## Browser-only Join and explicit own-profile public-key selection
+
+The API, root helper and actual project account script now permit zero external
+SSH keys. The Lit controls default to account-only Join even when saved keys exist;
+installing the saved set is an explicit checkbox with fingerprints. Legacy empty
+requests retain saved-key semantics and now permit an empty set. The script creates
+the real locked account/home, identity marker, shared link and empty managed key
+file. It refuses occupied/unassociated paths, unsafe links and changed existing keys
+rather than truncating them; Join is not key revocation. The host requires an exact
+login/identity receipt before reporting success, and membership still follows only
+confirmed native success. Existing member calls never reprovision accounts.
+
+Access additionally reads the acting user's own Forgejo keys through the inspected
+15.0.7 `/user/keys` interface (10 per page, at most eight pages, no global fingerprint
+query). Fresh subject, own-user key type/owner, public-key validation and original
+Soda context apply. Selecting a key fills the review draft; explicit Save and later
+Join/Apply remain separate. No private key, provider write, automatic synchronization
+or outbound Git credential setup is added. The picker warns that titles do not
+establish private-key custody.
+
+Actual checks in `.artifacts/feature-mvp-972b1ab/`: full `go test ./...` passed with
+cached Go 1.26.7; required types/Lit/analyzer fixtures passed; all **38** emitted
+project-controls browser tests passed; **8** real-script/file-effect Python tests
+passed with root/pwd/account commands mocked. Initial legacy missing-key assertions
+and a browser fixture shape failed and were updated for the intentional contract.
+Those are local source checks, not a newly provisioned native Linux account/SSH or
+managed-terminal proof. The runner follow-up keeps the existing footer fixture split
+and refuses browser API redirects; no native service changed.
+
+Retained projects still use their original scripts. Delivery requires matching
+backend/helper plus the reviewed same-root account-script addition or a newly built
+image; it must not recreate roots or silently install on Join/Open. No retained VM,
+project, account, key, provider registration or credential changed. Automated outbound
+Git still needs its trust/passphrase/consent decision; marketplace, AI publication/
+isolation, repository settings and new OS/KDE profiles remain unfinished.
+
+## MVP implementation — protected Sodarunners settings (local source)
+
+Implemented `/-/soda/settings/runners`, fixed transaction-bound OAuth return
+(schema v7), guarded list/register/start/stop/restart/remove APIs, and a complete
+Lit control surface. The configured operator need not be a Forgejo site admin;
+other admins are denied before input decoding or native reads. Fresh provider
+identity and original Soda-context rechecks protect every operation. Supported
+native hooks expose navigation only to a matching Soda operator session; Spaces
+also links to settings. No Forgejo handlers, credentials or native shell are copied.
+
+The existing root:soda service now delegates fixed runner operations to the same
+native implementation as Cockpit/CLI. All mutations **and reads** share its native
+file lock; Restart holds it across enable/restart. Registration secrets travel only
+in transient request bodies/private native inputs, not reactive state, HTML, storage
+or errors. The UI clears the input immediately, confirms exact lifecycle targets,
+refreshes after success/failure, and distinguishes configured slots/listeners from
+provider availability. Shared response types/validation serve both frontends.
+Cockpit Runners, Tailnet, provider clients, accounts and persistent state remain.
+
+Actual local checks: affected Go packages passed; required TypeScript/Lit checks
+passed; the actual Go HTML → emitted Lit browser journey passed with synthetic
+HTTP/native peers through registration and all four lifecycle controls, uncertainty,
+stale reads and authorization loss. New Go checks cover operator/admin separation,
+CSRF/actor guards, logout races, socket allowlists, cross-process lock contention and
+populated-v6 OAuth migration. Evidence: `.artifacts/feature-mvp-972b1ab/`.
+Initial TypeScript fixture typing and shared Cockpit error-message expectations
+failed and were corrected; the earlier logs remain. Full suites follow separately.
+The existing 15-template payload inventory failure reproduced; no waiver is implied.
+
+This is local source/fixture proof, **not native runner/provider-job acceptance or
+deployment**. Schema-v7 delivery needs fresh paired backup/rehearsal and matching
+backend/helper/assets. No retained VM/project, registration, host listener, network
+policy or real credential changed. Marketplace, isolated AI execution/publication,
+new OS/desktop profiles and unresolved Git credential consent remain unfinished;
+Linux vendor computer-use limitations remain explicit. Do not remove Cockpit based
+on these local checks.
 
 ## Merge of origin/main at 4d1007c
 

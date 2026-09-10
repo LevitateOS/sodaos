@@ -41,8 +41,10 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	s.mux.HandleFunc("GET /spaces", s.spacesPage)
+	s.mux.HandleFunc("GET /repositories/{repositoryID}/settings/spaces", s.repositorySpacesPage)
 	s.authRoutes()
 	s.apiRoutes()
+	s.runnerRoutes()
 	return s
 }
 

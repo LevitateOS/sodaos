@@ -12,6 +12,15 @@ class ProjectRuntimeContracts(unittest.TestCase):
         config.read(ROOT / 'project-os/rootfs/etc/systemd/system' / name)
         return config
 
+    def test_creation_image_identity_has_recipe_and_os_guard(self):
+        recipe = (ROOT / 'project-os/Containerfile').read_text()
+        self.assertIn('org.soda.profile="rocky-headless"', recipe)
+        self.assertIn('org.soda.interface="headless"', recipe)
+        self.assertIn('RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2"', recipe)
+        build = (ROOT / 'scripts/build-native.sh').read_text()
+        self.assertIn('--label "org.opencontainers.image.revision=$revision"', build)
+        self.assertNotIn('fedora-kde', recipe)
+
     def test_service_uses_local_engine_and_activation_fd(self):
         unit = self.unit('soda-podman.service')
         service = unit['Service']

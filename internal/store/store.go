@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/projectos"
 	_ "modernc.org/sqlite"
 )
 
@@ -28,6 +30,7 @@ type Key struct {
 	Public, Fingerprint string
 }
 type Project struct {
+	Profile               *projectos.Profile
 	ID, Name              string
 	RepositoryID, OwnerID int64
 	Repository, IP        string
@@ -142,7 +145,18 @@ func (s *Store) Keys(ctx context.Context, uid int64) ([]Key, error) {
 	return out, rows.Err()
 }
 func (s *Store) CreateProject(ctx context.Context, p Project) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO projects(id,name,repository_id,owner_id,repository) VALUES(?,?,?,?,?)`, p.ID, p.Name, p.RepositoryID, p.OwnerID, p.Repository)
+	if p.Profile == nil {
+		_, err := s.db.ExecContext(ctx, `INSERT INTO projects(id,name,repository_id,owner_id,repository) VALUES(?,?,?,?,?)`, p.ID, p.Name, p.RepositoryID, p.OwnerID, p.Repository)
+		return err
+	}
+	if err := p.Profile.Validate(); err != nil {
+		return err
+	}
+	raw, err := json.Marshal(p.Profile)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO projects(id,name,repository_id,owner_id,repository,creation_profile) VALUES(?,?,?,?,?,?)`, p.ID, p.Name, p.RepositoryID, p.OwnerID, p.Repository, string(raw))
 	return err
 }
 func (s *Store) MarkReady(ctx context.Context, id, ip string) error {
@@ -151,11 +165,15 @@ func (s *Store) MarkReady(ctx context.Context, id, ip string) error {
 }
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
-	err := row.Scan(&p.ID, &p.Name, &p.RepositoryID, &p.OwnerID, &p.Repository, &p.IP, &p.Ready)
+	var profile sql.NullString
+	err := row.Scan(&p.ID, &p.Name, &p.RepositoryID, &p.OwnerID, &p.Repository, &p.IP, &p.Ready, &profile)
+	if err == nil && profile.Valid {
+		p.Profile, err = projectos.Decode(profile.String)
+	}
 	return p, err
 }
 
-const projectColumns = `id,name,repository_id,owner_id,repository,ip,ready`
+const projectColumns = `id,name,repository_id,owner_id,repository,ip,ready,creation_profile`
 
 func (s *Store) Project(ctx context.Context, id string) (Project, error) {
 	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE id=?`, id))
@@ -168,7 +186,7 @@ func (s *Store) SpaceProjects(ctx context.Context) ([]Project, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT CASE WHEN length(CAST(id AS BLOB))<=128 THEN id END,
  CASE WHEN length(CAST(name AS BLOB))<=1024 THEN name END,repository_id,owner_id,
  CASE WHEN length(CAST(repository AS BLOB))<=2048 THEN repository END,
- CASE WHEN length(CAST(ip AS BLOB))<=128 THEN ip END,ready FROM projects ORDER BY id LIMIT 129`)
+ CASE WHEN length(CAST(ip AS BLOB))<=128 THEN ip END,ready,creation_profile FROM projects ORDER BY id LIMIT 129`)
 	if err != nil {
 		return nil, err
 	}
@@ -229,8 +247,10 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 // authority. IDs may be absent (zero), including on migrated pending logins.
 // They refer to native Forgejo records, not necessarily existing Soda rows.
 type OAuthLogin struct {
-	SpacesReturn   bool
-	Verifier       string
-	RepositoryID   int64
-	ExpectedUserID int64
+	RepositorySettingsReturn bool
+	SettingsReturn           string
+	SpacesReturn             bool
+	Verifier                 string
+	RepositoryID             int64
+	ExpectedUserID           int64
 }

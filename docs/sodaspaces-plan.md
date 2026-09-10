@@ -242,10 +242,11 @@ isolated same-root maintenance is recorded in the handoff, not a universal updat
 
 The terminal itself uses the authenticated Soda/helper PTY, **not SSH**. Requiring
 manual SSH-key entry to use it is an onboarding coupling, not a transport requirement.
-The existing API, host helper and project account script all require a nonempty key
-set today. Browser-only joining needs a real account-only provisioning path without
-implicitly enabling password SSH or bypassing membership; never substitute a row or
-an unwired account. Preserve real installation of selected keys when SSH is enabled.
+The new source supplies a real account-only path through the API, helper and
+project script, with empty managed keys and explicit password locking. Local
+Go/script/emitted-browser checks passed; fresh native onboarding and retained delivery
+remain pending. The UI defaults to no external SSH keys and offers an explicit saved-
+key choice, never a row-only membership or implicit password SSH. Preserve real installation of selected keys when SSH is enabled.
 
 For optional **device → project SSH**, offer the acting user's existing Forgejo
 profile public keys rather than requiring duplicate pasting. Fetch through supported
@@ -324,8 +325,8 @@ Retain the legitimate existing operation owners.
 | --- | --- | --- |
 | Connect to Soda / Sign out | Forgejo OAuth, explicit acting account, honest local versus native logout boundary | Existing auth/API; preserve access to these actions in the replacement drawer |
 | Create environment | Human repository owner explicitly creates one shared environment; creation never joins | Implemented/proved in original drawer; retain in replacement |
-| Optional external SSH access | Review/use own Forgejo profile public keys without duplicate pasting; preserve existing saved keys and explicit native apply/revoke | Current saved-key/native Apply path is proved; Forgejo key selection is not implemented |
-| Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Current API/helper/image script require keys; browser-only account provisioning is pending |
+| Optional external SSH access | Review/use own Forgejo profile public keys without duplicate pasting; preserve existing saved keys and explicit native apply/revoke | Current saved-key/native Apply path is proved; explicit own-profile key read/select/Save has local source coverage; installed integration remains pending |
+| Join environment | Provision a real account and any explicitly selected external-SSH keys, then record membership; show the original login | Account-only API/helper/script and default browser-only UI have local coverage; new native onboarding/delivery remain pending |
 | Enable Git in this project | Explicit agreed personal credential setup using native Forgejo authority; no private-key upload/cross-project master key | Per-user/project key generation and profile registration are a proposal, not implementation or approved provider execution |
 | Start / Stop | Authorized project administrator or explicit Soda operator acts on existing unit/container; shared-impact warning and explicit boot-start semantics | Mounted helper/API controls passed bounded native same-container/boot-policy/persistence proof |
 | Terminal tabs / End terminal | Explicit new existing-account shells; preserve and reattach exact IDs; Hide differs from HTTP End and confirmed cleanup | Managed restore/retention has bounded installed proof; Lit controls, ID-keyed backend/name APIs, shared multi-session UI and measured layouts have local coverage; observed attention and extended driver source have local coverage; concurrent native/CLI acceptance remains pending |
@@ -465,8 +466,8 @@ New Soda-owned pages live under the existing `/-/soda/` namespace with Go-render
 HTML and shared Lit controls, using Soda's actual OAuth/session/CSRF protections.
 Use `/-/soda/repositories/{repository_id}/settings/spaces` and
 `/-/soda/repositories/{repository_id}/settings/ai`, plus
-`/-/soda/settings/runners` for the operator page. These are selected new Soda routes,
-not current handlers. Resolve repository identity and native back-links from its
+`/-/soda/settings/runners` for the operator page. The repository Sodaspaces and global Sodarunners routes now have source handlers;
+AI settings remains a selected route, not an implemented handler. Resolve repository identity and native back-links from its
 stable ID and fresh native authority, including rename/transfer handling. Bind each
 OAuth return to an enumerated page kind and validated repository ID in the original
 transaction; never accept an arbitrary return URL. Add bounded route/return tests
@@ -479,8 +480,11 @@ The Soda operator entry must be available to the configured operator even when t
 person is not a Forgejo site administrator; native site-admin status alone cannot
 grant it. Server-side checks apply to every read and mutation, including deep links.
 Keep Cockpit Runners and all its backing logic/tests until the replacement works.
-These pages/selectors are selected source work, not implemented settings or runtime
-evidence. Test unauthorized/stale actors, unavailable profiles, legacy project display,
+Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with local
+coverage; native/provider acceptance and Cockpit removal remain pending. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
+creation metadata now also have local source coverage (schema v8). AI settings,
+multiple OS artifacts, marketplace and desktop integration remain unimplemented;
+none of these source checks is installed/native proof. Test unauthorized/stale actors, unavailable profiles, legacy project display,
 failed provisioning, unsaved forms, concurrent workflow edits and native menu coexistence.
 
 ### Extension order and dependency boundaries

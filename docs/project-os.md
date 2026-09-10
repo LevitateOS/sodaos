@@ -135,9 +135,12 @@ owner and isolate real distribution/package differences in the image recipes.
 Container init and native guest boot are distinct; do not blindly copy
 container-only units, seccomp/capability policy or network assumptions into a VM.
 
-The current helper uses one configured image and directly creates a persistent
-Podman container; the Create API accepts only a repository ID. There is no profile
-catalog, Fedora recipe or desktop/VM backend today. Preserve that Rocky mechanism
+The current helper retains one configured image and directly creates a persistent
+Podman container. New source resolves its labelled native Rocky headless identity,
+persists immutable creation metadata and uses the exact image ID with no pull.
+The shared settings/drawer selector accepts only that supported installed profile;
+legacy omission of `profile_id` selects it too. There is no multi-image profile map,
+Fedora recipe or desktop/VM backend today. Preserve that Rocky mechanism
 for existing projects. First investigate KDE session/display integration against the
 existing persistent Project OS boundary. Selecting Linux/KDE does not select a VM.
 If a concrete native requirement cannot fit that boundary, document the blocker and
@@ -158,7 +161,8 @@ staging, install and helper changes. Decouple project profile bases from the app
 application base rather than multiplying the whole appliance build per distribution.
 Keep the existing single image path until a complete replacement caller exists.
 
-Each new environment must persist immutable creation metadata: the bounded profile
+The new schema-v8/API/helper source now persists immutable creation metadata
+(ordinary local checks, not newly installed proof). Each new environment must persist: the bounded profile
 ID, distribution ID and version, interface/session type, native architecture, exact
 OCI image ID/digest and Soda recipe revision. Put the same trusted profile ID on the
 native project object so database and helper observations can be compared. Mutable
@@ -423,10 +427,13 @@ host storage or protection from ordinary native writes.
 ## Access, credentials and connectivity
 
 Browser terminal access uses Soda's authenticated bridge and the existing Linux
-account, **not SSH or a device private key**. The intended browser-only Join must
-allow zero external SSH keys without enabling password/root SSH. Today the API,
-helper and account script still require a nonempty key set; changing only the UI is
-insufficient. Optional device → project SSH keeps explicit public-key review/apply,
+account, **not SSH or a device private key**. The new browser-only Join source allows zero external SSH keys through the API,
+helper and account script without enabling password/root SSH. The script creates
+a real password-locked account/home, identity marker, shared link and empty managed
+key file. Repeated provisioning refuses changed native keys rather than truncating
+them; use explicit key maintenance. Local script tests mock only root/account commands,
+not file effects. Fresh native account/access proof and same-root delivery remain
+pending. Optional device → project SSH keeps explicit public-key review/apply,
 key-only OpenSSH, SSH/SCP/SFTP and independent host-key trust. No automatic profile-
 key import, later synchronization or termination of unrelated authenticated SSH.
 Explicit Soda logout/expiry and confirmed authority loss remain hard browser-access
@@ -543,10 +550,10 @@ operator/project coordination. No automatic fleet patching is currently supplied
 | --- | --- |
 | Tmux source candidate native proof | Package recipe, private guard/service, lease, attach-only API and drawer restore are authored; verify actual native cgroups, login/terminfo/editor behavior and failure cleanup before acceptance. |
 | Required-tool checks and same-root package/unit delivery | Part of that feature, not a separate OS platform. Saved RPMs are not proof every retained root has the required commands; maintenance is a gate to existing-target delivery, not to source work. |
-| Zero-key real account provisioning and explicit Forgejo public-key selection | Browser-only onboarding slice; preserve current accounts/key files and password-SSH denial. Not a prerequisite for testing tmux with an existing member. |
+| Browser-only onboarding native proof | Zero-key account provisioning and explicit own-Forgejo key review/select/Save now have local source/script/browser coverage. Fresh native access and paired same-root delivery remain pending; existing accounts/key files and password-SSH denial are preserved. |
 | Personal Git credential trust/consent/passphrase choice and native endpoint trust | Resolve before automated Git setup/combined clone-edit-build-push proof; do not fabricate credentials or treat profile keys as repository-scoped. |
 | Current Forgejo authority versus already issued Linux sudo/SSH rights | Explicit limitation on rename/transfer/offboarding claims; no automatic native permission reconciliation is selected. |
-| Fixed Project OS profiles and immutable environment metadata | Current build/install/helper paths support one configured project image and do not retain a profile/version/architecture contract. Extend the existing owners without changing legacy roots or coupling every appliance application to the selected project base. |
+| Multiple complete Project OS profiles and native metadata proof | Rocky headless installed-image preflight, immutable metadata, exact-image creation and shared settings/drawer selection now have local source coverage. Build/install still has one image slot; native delivery, independent bases, new profiles and separate legacy OS observations remain pending. Never backfill/convert legacy roots from the default image. |
 | KDE login-quality session, Lock and credential store | Current password-locked accounts have shell/SSH setup only. Prove the selected user-session/unlock design and private per-user Secret Service before advertising a desktop profile. |
 | Fedora/Rocky headless Wayland and browser transport | Investigate virtual KWin in the existing container, then the bounded KRFB/private-RFB/WebSocket/noVNC candidate. Upstream headless limitations guide the probe but do not select a VM or prove this candidate fails. |
 

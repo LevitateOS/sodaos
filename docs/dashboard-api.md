@@ -12,8 +12,9 @@ The split-view drawer uses
 [managed project-local tmux](terminal-integration.md#selected-persistence-mechanism--tmux-source-candidate)
 with separate creation, exact attach, detach and HTTP End. Isolated `22d8591` has
 bounded same-shell reload/cleanup evidence, not the full native safety/UX matrix.
-Browser-only joining, optional Forgejo-key selection and Git credentials remain
-unimplemented. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
+Browser-only joining and explicit own-Forgejo public-key selection now have local
+source/script/browser coverage. Native delivery/access proof and automated outbound
+Git credentials remain pending. The [Lit plan](lit-migration-plan.md) steps 1–4 now have local source
 and test coverage; concurrent native/CLI acceptance and delivery remain separate.
 
 ## Spaces page and fixed OAuth return
@@ -48,6 +49,86 @@ is never guessed. Unknown cleanup preserves the locator; only acknowledged clean
 can retire it. Storage failure permits live use without guaranteed restoration.
 These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
 concurrent native tmux or selected-CLI acceptance.
+
+## Repository settings and immutable creation profiles
+
+`GET /-/soda/repositories/{repository_id}/settings/spaces` is Soda-owned HTML with
+fresh acting-user repository visibility and a post-provider session-context check.
+Native links use the freshly resolved owner/name, not stored names or provider URLs.
+Anonymous navigation offers fixed `destination=repository-spaces&repository_id=ID`
+OAuth; schema v8 binds that return to the original single-use transaction. Query
+parameters/encoded route aliases do not retarget the settings page. Every embedded
+control still uses the original protected APIs; repository settings do not broaden
+Create, lifecycle or membership authority. The page mounts the same Lit project
+command owner as the drawer, not another provisioning implementation.
+
+`GET /api/repositories/{repository_id}/profiles` requires the current human owner
+and returns `{items:[profile]}` only after read-only inspection of the configured
+installed native image. It accepts no query, image, architecture or runtime flags.
+Unavailable/incompatible/old unlabelled images produce `503 profile_unavailable`,
+not a usable dropdown. The only implemented ID is `rocky-headless`; no Fedora/KDE
+choice, multi-image map or live conversion is supplied yet.
+
+Create accepts optional `profile_id` (the legacy omission selects Rocky headless).
+Unknown choices are rejected before provider/native work. Installed-image preflight,
+then fresh ownership/context validation, precede the unique reservation; unavailable
+images return `422 profile_unavailable` without reserving. A profile change between
+reservation and helper Create retains the incomplete reservation rather than replaying.
+Native creation uses the exact resolved image ID with `--pull=never`, not a mutable
+tag. Successful replies must match the requested profile and running endpoint.
+
+Environment DTOs now include `profile`, either null for legacy/unknown or the immutable
+`id`, `distribution`, `version`, `interface`, `architecture` (OCI `amd64`/`arm64`),
+`image` (sha256 image ID), and `revision` (full Soda recipe commit). Schema v8 stores
+this with the reservation and rejects later profile updates. Native labels carry
+the same identity; detail/Spaces reads mark a mismatched observation unavailable.
+This describes the original image, **not current mutable RPM state**. Legacy metadata
+is not inferred/backfilled from today's image; separate legacy `/etc/os-release`
+inspection remains follow-up work. Existing Start/Stop/account/terminal operations
+never resolve the current default image or convert a root.
+
+## Browser-only Join and optional public keys
+
+`POST /api/environments/{id}/join` accepts `{"ssh_keys":"none"}` for account-only
+provisioning, or `{"ssh_keys":"saved"}` to install the actor's saved development
+keys. New browser controls default to none. Legacy `{}` preserves saved-key behavior,
+now also permitting an empty set. Identity, fresh repository visibility, Linux-name
+eligibility, provisioning and confirmation-before-membership checks remain. Existing
+membership returns its original login without applying/removing keys. The native
+account script verifies its exact identity receipt, creates password-locked accounts,
+and refuses changed/unassociated key files instead of using Join as revocation.
+
+`GET /api/me/forgejo-keys?page=1` lists only the acting user's profile public keys
+through native `GET /user/keys`. Pages 1–8 contain at most ten entries; no global
+fingerprint query or arbitrary username is accepted. Fresh subject, owner, user-key
+type, bounds and normalized public-key checks apply. Responses contain ID, title,
+public key and computed fingerprint, plus page/more; reading/selecting does not
+persist a Soda key or invoke the helper. Explicit Save uses the existing development
+key API; optional Join/Apply remains separate. No automatic upstream synchronization,
+Git registration or private-key handling is introduced.
+
+## Operator runner settings
+
+`GET /settings/runners` serves Soda-owned Go HTML; `GET /login?destination=runners`
+binds its fixed return through schema v7. No repository ID or arbitrary URL is
+accepted. The protected JSON routes are:
+
+- `GET /api/settings/runners`: bounded local inventory, configured slots/listeners;
+  not provider online/busy/available capacity. Forgejo links use the configured
+  public origin. Unavailable reads are errors, not empty inventory.
+- `POST /api/settings/runners`: existing strict runner registration fields;
+  Forgejo's internal URL is server-selected. Requires an explicitly supplied native
+  registration token. No provider record is borrowed or silently reset.
+- `POST /api/settings/runners/{id}/{start|stop|restart|remove}`: body
+  `{"confirm_id":"exact-id"}`. Fixed native lifecycle and partial effects follow
+  the [runner guide](runners-port.md).
+
+Every read/mutation checks configured operator ID, fresh acting-user identity and
+original Soda context. API actor/CSRF/origin guards remain mandatory. Site admin
+status grants no access. Tokens never enter responses; failed mutations report
+unconfirmed local/provider effects and are never replayed. The shared native runner
+lock serializes Cockpit/CLI/web reads and mutations. Local source/fixture checks
+passed, not provider/native acceptance; Cockpit remains installed.
 
 ## Browser namespace
 
@@ -267,9 +348,9 @@ does not change the authentication rules of the JSON operations below.
 | `GET/POST /api/environments/{id}/access-keys` | Source implemented: own managed-file preview and explicit compare-and-swap of saved keys into that existing account |
 | `GET /api/forgejo/me` | Bounded acting-grant identity inspection; native stable ID must match the Soda session |
 | `GET /api/environments?repository_id=ID` | Required single canonical repository ID; fresh acting-user/visibility check, zero or one reservation, current repository context and advisory `can_create`; no catalog |
-| `POST /api/environments` | `{"repository_id":"ID"}`; canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |
+| `POST /api/environments` | `{"repository_id":"ID","profile_id":"rocky-headless"}` (profile omission remains supported); canonical decimal string, fresh acting subject/user+repository consent/ID lookup/current human-owner check, reservation, actual native create; no implicit join |
 | `GET /api/environments/{id}` | Provisioning record, nullable live observation, own login and current-authority hint; incomplete reservations remain inspectable |
-| `POST /api/environments/{id}/join` | `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
+| `POST /api/environments/{id}/join` | `{ssh_keys:"none"}` (new browser default), `{ssh_keys:"saved"}`, or legacy `{}`; new joins require fresh acting identity, actual user/repository consent and repository visibility by the stored ID before native account provisioning; membership only after confirmed success |
 | `GET /api/environments/{id}/members` | Current native human/org owner or explicit Soda operator sees permitted members; otherwise own membership only |
 | `GET /api/environments/{id}/connection` | Own membership required; current IP/running state and fixed public Ed25519 host key/fingerprint; `routing_verified:false` |
 
@@ -277,7 +358,7 @@ Collection lookup requires current visibility even for operators/members; provid
 failure is not an absent environment. It returns `items` (zero or one), `repository`
 (`id`, `owner_id`, `owner`, `name`) and `can_create` (absent and current human owner).
 Missing/duplicate/malformed/unknown query fields or queries over 8 KiB return 400.
-Creation takes only `{"repository_id":"ID"}`. Numeric/noncanonical IDs and the old
+Creation takes `repository_id` and optional bounded `profile_id`. Numeric/noncanonical IDs and the old
 owner/name body are rejected. The advisory read is never authorization: create
 rechecks fresh subject, actual user/repository consent and current ownership through
 `RepositoryByID` before reserving or calling the helper. Rename/transfer does not
@@ -369,7 +450,7 @@ no runtime failure matrix or whole-product acceptance is inferred.
   Unknown/removed API paths return JSON 404; `/app/` no longer serves a SPA.
 - Native creation/account or result-persistence failure retains honest incomplete
   state. Do not recreate, prune, replace or claim a failed join succeeded.
-- New public keys are installed at explicit join; no automatic later propagation,
+- Selected saved public keys are installed at explicit SSH-enabled join; no automatic later propagation,
   Linux offboarding, Git authorization or client-routing proof is promised.
 
 ## Native-page and stale-tab boundary

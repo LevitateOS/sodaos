@@ -1,40 +1,94 @@
 #!/usr/bin/python3
-"""Bounded, stateless native account setup; called only by the host project helper."""
-import json, os, pwd, re, subprocess, sys
+"""Bounded account setup. Empty keys create browser-only, password-locked accounts."""
+import json
+import os
 from pathlib import Path
+import pwd
+import re
+import stat
+import subprocess
+import sys
 
-if os.geteuid() != 0:
-    sys.exit('project-local root required')
-data = json.loads(sys.stdin.buffer.read(65537))
-if set(data) != {'login', 'identity', 'admin', 'keys'}:
-    sys.exit('unsupported account request')
-login, identity = data['login'], data['identity']
-if not isinstance(login, str) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', login):
-    sys.exit('unsupported Linux username')
-if type(identity) is not int or identity <= 0 or type(data['admin']) is not bool:
-    sys.exit('invalid identity or privilege')
-keys = data['keys']
-if not isinstance(keys, list) or not keys or any(not isinstance(k, str) or '\n' in k.strip() or not re.fullmatch(r'(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+) [A-Za-z0-9+/=]+\s*', k) for k in keys):
-    sys.exit('invalid canonical public keys')
-marker = Path('/var/lib/soda/accounts') / login
-try:
-    account = pwd.getpwnam(login)
-except KeyError:
-    subprocess.run(['useradd', '--create-home', '--shell', '/bin/bash', '--groups', 'soda-project', login], check=True)
-    account = pwd.getpwnam(login)
-    marker.write_text(str(identity))
-    marker.chmod(0o600)
-else:
-    if not marker.is_file() or marker.read_text() != str(identity):
-        sys.exit('existing native account is not associated with this identity')
-# Keys are root-owned, independent of user-controlled home symlinks.
-keyfile = Path('/etc/ssh/authorized_keys') / login
-with keyfile.open('w') as f:
-    f.write('\n'.join(k.strip() for k in keys) + '\n')
-keyfile.chmod(0o644)
-shared = Path(account.pw_dir) / 'shared'
-if not shared.exists() and not shared.is_symlink():
-    shared.symlink_to('/srv/project/shared', target_is_directory=True)
-if data['admin']:
-    subprocess.run(['usermod', '--append', '--groups', 'wheel', login], check=True)
-print(json.dumps({'login': login, 'identity': identity}))
+ACCOUNTS = Path('/var/lib/soda/accounts')
+KEYS = Path('/etc/ssh/authorized_keys')
+
+
+def owned_contents(path, limit):
+    """Never follow a native administrator's unexpected link or truncate drift."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1 or info.st_mode & 0o022:
+            raise ValueError('unsafe account metadata')
+        contents = stream.read(limit + 1)
+        if len(contents) > limit:
+            raise ValueError('oversized account metadata')
+        return contents
+
+
+def create_file(path, contents, mode):
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'wb') as stream:
+        stream.write(contents)
+        stream.flush()
+        os.fchmod(stream.fileno(), mode)
+
+
+def provision(data):
+    if os.geteuid() != 0:
+        raise ValueError('project-local root required')
+    if not isinstance(data, dict) or set(data) != {'login', 'identity', 'admin', 'keys'}:
+        raise ValueError('unsupported account request')
+    login, identity = data['login'], data['identity']
+    if not isinstance(login, str) or login == 'root' or not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', login):
+        raise ValueError('unsupported Linux username')
+    if type(identity) is not int or not 0 < identity <= 9223372036854775807 or type(data['admin']) is not bool:
+        raise ValueError('invalid identity or privilege')
+    keys = data['keys']
+    if not isinstance(keys, list) or len(keys) > 32 or any(not isinstance(k, str) or len(k) > 16384 or '\n' in k.strip() or not re.fullmatch(r'(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+) [A-Za-z0-9+/=]+\s*', k) for k in keys):
+        raise ValueError('invalid canonical public keys')
+    for directory in (ACCOUNTS, KEYS):
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('unsafe managed account directory')
+    marker = ACCOUNTS / login
+    expected_identity = str(identity).encode()
+    try:
+        account = pwd.getpwnam(login)
+    except KeyError:
+        # Refuse occupied inputs before useradd; a dangling link is occupied too.
+        if os.path.lexists(marker) or os.path.lexists(KEYS / login):
+            raise ValueError('unassociated account files already exist')
+        subprocess.run(['useradd', '--create-home', '--shell', '/bin/bash', '--password', '!', '--groups', 'soda-project', login], check=True)
+        account = pwd.getpwnam(login)
+        create_file(marker, expected_identity, 0o600)
+    else:
+        if owned_contents(marker, 64) != expected_identity:
+            raise ValueError('existing native account is not associated with this identity')
+    keyfile = KEYS / login
+    desired = ''.join(k.strip() + '\n' for k in keys).encode()
+    try:
+        existing = owned_contents(keyfile, 65536)
+    except FileNotFoundError:
+        create_file(keyfile, desired, 0o644)
+    else:
+        # Join is not a key update/revocation operation. Preserve a partial or
+        # previously associated account when saved keys or native state changed.
+        if existing != desired:
+            raise ValueError('existing key file differs; explicit key maintenance required')
+    shared = Path(account.pw_dir) / 'shared'
+    if not shared.exists() and not shared.is_symlink():
+        shared.symlink_to('/srv/project/shared', target_is_directory=True)
+    if data['admin']:
+        subprocess.run(['usermod', '--append', '--groups', 'wheel', login], check=True)
+    return {'login': login, 'identity': identity}
+
+
+if __name__ == '__main__':
+    try:
+        body = sys.stdin.buffer.read(65537)
+        if len(body) > 65536:
+            raise ValueError('oversized request')
+        print(json.dumps(provision(json.loads(body))))
+    except (ValueError, OSError, subprocess.SubprocessError):
+        sys.exit('account provisioning unconfirmed; inspect native account and managed files')

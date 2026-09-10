@@ -19,7 +19,7 @@ type OAuthAttempt struct {
 }
 
 func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, session, previous string) error {
-	if login.SpacesReturn && login.RepositoryID != 0 {
+	if (login.RepositorySettingsReturn && (login.RepositoryID <= 0 || login.SpacesReturn || login.SettingsReturn != "")) || (login.SpacesReturn && login.RepositoryID != 0) || (login.SettingsReturn != "" && (login.SettingsReturn != "runners" || login.SpacesReturn || login.RepositoryID != 0)) {
 		return ErrLoginContext
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -55,7 +55,7 @@ func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, 
 	if _, err = tx.ExecContext(ctx, `UPDATE login_contexts SET pending=? WHERE id=?`, hash(state), id); err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,repository_id,expected_user_id,context_id,spaces_return) VALUES(?,?,?,?,?,?,?)`, hash(state), login.Verifier, expires, login.RepositoryID, login.ExpectedUserID, id, login.SpacesReturn)
+	_, err = tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return) VALUES(?,?,?,?,?,?,?,?,?)`, hash(state), login.Verifier, expires, login.RepositoryID, login.ExpectedUserID, id, login.SpacesReturn, login.SettingsReturn, login.RepositorySettingsReturn)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (s *Store) ConsumeOAuth(ctx context.Context, state, session string) (OAuthA
 	var a OAuthAttempt
 	// Legacy, unbound pending logins require a fresh start. Do not upgrade them to
 	// anonymous authority. DELETE remains the single-use claim before provider I/O.
-	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? AND context_id IN (SELECT id FROM login_contexts WHERE pending=? AND expires>?) RETURNING verifier,repository_id,expected_user_id,context_id,expires,spaces_return`, hash(state), time.Now().Unix(), hash(state), time.Now().Unix()).Scan(&a.Verifier, &a.RepositoryID, &a.ExpectedUserID, &a.contextID, &a.expires, &a.SpacesReturn)
+	err := s.db.QueryRowContext(ctx, `DELETE FROM oauth WHERE state=? AND expires>? AND context_id IN (SELECT id FROM login_contexts WHERE pending=? AND expires>?) RETURNING verifier,repository_id,expected_user_id,context_id,expires,spaces_return,settings_return,repository_settings_return`, hash(state), time.Now().Unix(), hash(state), time.Now().Unix()).Scan(&a.Verifier, &a.RepositoryID, &a.ExpectedUserID, &a.contextID, &a.expires, &a.SpacesReturn, &a.SettingsReturn, &a.RepositorySettingsReturn)
 	if err != nil {
 		return a, err
 	}

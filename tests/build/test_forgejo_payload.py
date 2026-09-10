@@ -53,6 +53,17 @@ class ForgejoPayload(unittest.TestCase):
         self.assertNotIn('htmx', page)
         self.assertNotIn('type="application/json"', page)
 
+    def test_operator_settings_page_and_shared_runner_decoder_are_staged(self):
+        files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
+        page = (ROOT / 'internal/web/templates/runners.html').read_text()
+        for reference in re.findall(r'(?:href|src)="(/assets/[^" ]+)"', page):
+            self.assertIn('public' + reference, files)
+        self.assertEqual(files['public/assets/soda-runner-response.js'], '@build/forgejo-js/soda-runner-response.js')
+        self.assertEqual(files['public/assets/soda/forgejo/soda-settings-link.js'], '@build/forgejo-js/soda-settings-link.js')
+        self.assertNotIn('window.config', page)
+        self.assertNotIn('registration_token', page)
+        self.assertNotIn('iframe', page)
+
     def test_locale_fetch_is_locked_and_preserves_native_catalog(self):
         native = b'[common]\nname = Native\n[settings]\ntitle = Settings\n'
         with tempfile.TemporaryDirectory() as directory:

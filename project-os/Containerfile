@@ -3,6 +3,8 @@ FROM ${BASE_IMAGE}
 ARG ARTIFACT_DIR
 ARG MISE_VERSION=2026.9.1
 ARG GH_VERSION=2.97.0
+# Creation identity; the native build supplies the exact Soda recipe revision.
+LABEL org.soda.profile="rocky-headless" org.soda.distribution="rocky" org.soda.distribution.version="10.2" org.soda.interface="headless"
 # Native GitHub CLI repository; signature verification remains enabled.
 COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
 RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git tmux ncurses vim-minimal less ca-certificates curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns && dnf clean all
@@ -26,7 +28,9 @@ COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/license
 COPY project-os/rootfs/ /
 # Same fixed program as the helper embeds; never downloaded or installed on Open.
 COPY internal/host/project_terminal.py /usr/libexec/soda/project-terminal
-RUN chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
+# Check the final userspace after all package operations, not just the base tag.
+RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
+    chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
     chmod 0440 /etc/sudoers.d/soda-project && \
     systemctl enable sshd.service soda-project-init.service soda-podman.socket && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id

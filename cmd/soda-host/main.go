@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/runners"
 	"net"
 	"net/http"
 	"os"
@@ -38,7 +39,8 @@ func run() error {
 		return err
 	}
 	defer listener.Close()
-	daemon := &host.Daemon{Config: c, Exec: host.Native{}}
+	runnerNative := runners.NewNative()
+	daemon := &host.Daemon{Config: c, Exec: host.Native{}, Runners: &runners.Operations{Local: runnerNative, Lifecycle: runnerNative}}
 	server := &http.Server{Handler: daemon, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()

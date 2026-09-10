@@ -1,0 +1,22 @@
+:root { color-scheme: light dark; }
+body.soda-settings { margin: 0; font: var(--soda-font-body); }
+.soda-settings header, .soda-settings nav, .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--soda-space-4); }
+.soda-settings header { padding: var(--soda-space-4); border-bottom: 1px solid var(--soda-page-edge); }
+.soda-settings main { max-width: 1000px; margin: auto; padding: var(--soda-space-6); }
+.soda-settings h1 { font: var(--soda-font-title); }
+.soda-settings h2 { font: var(--soda-font-heading); }
+.soda-settings a { color: var(--soda-page-link); }
+.soda-settings section { margin-block: var(--soda-space-6); }
+.soda-settings article, .soda-settings fieldset { border: 1px solid var(--soda-page-edge); border-radius: var(--soda-panel-radius); padding: var(--soda-panel-inset); margin-block: var(--soda-space-4); }
+.soda-settings label { display: grid; gap: var(--soda-space-2); margin-block: var(--soda-space-4); font: var(--soda-font-label); }
+.soda-settings input, .soda-settings select, .soda-settings button { box-sizing: border-box; min-height: var(--soda-control-height); padding: var(--soda-space-2) var(--soda-space-3); border: 1px solid var(--soda-page-edge); border-radius: var(--soda-control-radius); color: var(--soda-page-text); background: var(--soda-page-surface); font: inherit; }
+.soda-settings input, .soda-settings select { width: 100%; }
+.soda-settings button { cursor: pointer; font: var(--soda-font-button); }
+.soda-settings button:disabled { cursor: not-allowed; color: var(--soda-page-muted); }
+.soda-settings :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: var(--soda-space-half); }
+.soda-settings [role=status] { padding: var(--soda-space-3); background: var(--soda-page-selected); }
+.soda-settings article p { overflow-wrap: anywhere; }
+#soda-repository-spaces soda-project-controls { display: block; }
+#soda-repository-spaces .soda-spaces-tabs { width: 100%; }
+#soda-repository-spaces .soda-spaces-view, #soda-repository-spaces .soda-spaces-controls { height: auto; }
+#soda-repository-spaces input[type=checkbox] { width: auto; min-height: auto; justify-self: start; }
