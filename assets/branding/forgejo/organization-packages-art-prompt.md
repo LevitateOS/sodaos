@@ -1,5 +1,10 @@
 # Organization package registry
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 The robot sorts packages into a shared shelf, distinguishing the team's collection from the personal registry's wrapping scene. Use the existing compact introduction; preserve native organization navigation and package rendering.
 
 ## Exact generation prompt

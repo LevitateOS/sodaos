@@ -1,5 +1,10 @@
 # Issues artwork
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 `issues-papercraft.png` was newly generated with the built-in image tool on
 2026-09-08. Original PNG alpha is retained. It was not extracted from the mockup.
 

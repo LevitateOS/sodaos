@@ -1,5 +1,32 @@
 # Current handoff
 
+## Illustration audit and narrative redesign
+
+Reviewed all 78 tracked image assets, including all 34 papercraft scenes.
+[The story review](illustration-story-review.md) now owns art direction and records
+every scene decision; older page screenshots/prompts retain their historical scope.
+Sixteen active scenes have new page-specific actions and three retain their concepts
+with corrected bot identity/interaction. All use the Dashboard character reference.
+Five existing scenes, canonical branding and every other image remain byte-identical.
+Ten unused illustrations are omitted from new canonical payloads (18.97 MiB), with
+source files preserved. Existing image filenames, templates and CSS are unchanged.
+
+Local checks passed: required TypeScript/analyzer/fixtures, three canonical-payload
+tests, isolated preview build with exactly 24 illustrations, all 19 served image
+hashes, 19 RGBA/alpha checks and preservation of the other 59 images. Visually reviewed
+light/dark and 160px/88px asset galleries, the complete active series and 25 fresh
+native screenshots across 14 pages (desktop, seven mobile and four dark captures).
+The strict screenshot verifier rejected pre-existing preview CSS drift; these are
+observations of currently served native styles, not full current-source validation.
+The fixture HTTP cache was refreshed after old images appeared; login was preserved.
+
+Evidence/originals remain in `.artifacts/image-audit-20260910/`. The existing local
+preview received only the 19 new PNGs, with its earlier bytes retained. No service
+restart, mount change, fixture mutation, provider call or appliance rollout occurred.
+Five unavailable conditional/native views retain the explicit rendering gaps listed
+in the review; their asset and source-placement review is complete. The existing
+broader frontend/native work and its limitations below remain unchanged.
+
 ## Frontend improvement — follow-up guards and combined local checks
 
 Hardened the scoped visual guard for named/fallback colors, TypeScript terminal

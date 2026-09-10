@@ -1,5 +1,10 @@
 # Watched repositories illustration
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 The existing header is suitable for a compact repository-watching scene. Binoculars and repository folders distinguish this page from inbox mail and discussion bookmarks. Native repository search, filters, list, pagination and subscription branch remain unchanged.
 
 Built-in generator, 2026-09-08. Ordered style references: Dashboard, Notifications, New repository. Selected source `exec-024bb494-fcf8-4914-a2ac-196e5083a2c8.png` copied unchanged to [watching-papercraft.png](watching-papercraft.png). Visually inspected and verified as 1536×1024 RGBA with transparent corners; no repair needed.

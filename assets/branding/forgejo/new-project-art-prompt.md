@@ -1,5 +1,10 @@
 # New project board
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 Creation artwork for the personal/organization project setup workflow; edit forms stay undecorated.
 
 ## Generation prompt

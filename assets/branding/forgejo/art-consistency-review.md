@@ -1,5 +1,10 @@
 # Illustration consistency review — 2026-09-08
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 Reviewed all nine Forgejo page illustrations together on a cream contact sheet. Home and dashboard served as material/robot references. Kept login, home, dashboard, organizations, pull requests and milestones: their scene complexity and poses differ deliberately but retain the cream/cobalt/mint paper-workbench family. Replaced users (angular armored anatomy), explore (different face/proportions) and issues (oversized robot/drink balance). Canonical logos/icons unchanged. Built-in image tool, new compositions using home/dashboard as reference images; retained alpha output. Previous versions remain in Git history.
 
 ## users

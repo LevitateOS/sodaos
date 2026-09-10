@@ -1,5 +1,10 @@
 # Notification subscriptions illustration
 
+Historical provenance: the 2026-09-10 replacements/corrections are recorded in
+[story-art-prompts.md](story-art-prompts.md). Earlier prompts and acceptance below
+refer to earlier image bytes; the [story review](../../../docs/illustration-story-review.md)
+owns current art direction.
+
 A robot bookmarking conversation cards distinguishes following issue/PR discussions from receiving inbox messages. The existing page intro provides suitable space above the native filters. Selection uses the template's existing `.Status == 1` subscriptions branch; Watching retains its prior artwork until separately reviewed.
 
 Built-in generator, 2026-09-08. Ordered references: Dashboard (robot/material/light), Notifications (compactness), New repository (proportions). First output `exec-68429285-90c7-4735-97c5-c50de5513244.png` was RGB with a painted checkerboard and was rejected. Selected cutout `exec-ba537aff-d48d-494d-87a7-efef846181d4.png` was copied unchanged to [subscriptions-papercraft.png](subscriptions-papercraft.png), visually inspected and verified as 1536×1024 RGBA with transparent corners.
