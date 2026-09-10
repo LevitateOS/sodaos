@@ -27,7 +27,16 @@ CDP/page/context doubles, not installed authentication or native/provider effect
 They cover phase exclusivity, distinct-cookie/role failures, unconsumed permits,
 operation failures, duplicate/mismatched/late writes and cancellation constraints.
 Logs are retained under `.artifacts/runner-driver-handoff/`. Native build/check/
-export validation of a fresh exact worktree is next, not yet claimed. No installed
+export validation is in progress, not yet claimed. First native build `9956e63`
+compiled the Go/frontend/Tea outputs but failed in the Project OS package transaction:
+`ninja-build` is absent from the default enabled Rocky repositories. The attempt and
+log are retained at `.artifacts/worktrees/runner-driver-9956e63/` and
+`.artifacts/runner-driver-handoff/build-native.log`. Public Rocky 10 CRB metadata
+lists `ninja-build-1.11.1-9.el10.x86_64.rpm` (retained `rocky-crb-n.html`). Corrected
+only the image transaction to select official CRB, preserving the already-declared
+tools and normal RPM signatures; updated its packaging regression. No host repo,
+retained root, distro/version pin or runtime capability changed. A fresh candidate
+worktree will own the retry; the failed attempt is not reused or erased. No installed
 journey, service action, registration, provider job or deployment has run.
 
 

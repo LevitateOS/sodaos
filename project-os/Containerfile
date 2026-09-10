@@ -9,7 +9,9 @@ LABEL org.soda.profile="rocky-headless" org.soda.distribution="rocky" org.soda.d
 COPY project-os/rootfs/etc/yum.repos.d/gh-cli.repo /etc/yum.repos.d/gh-cli.repo
 # Non-preference headless foundation. Repository runtimes still belong to mise;
 # native compilers, headers and diagnostics must not need post-Create repairs.
-RUN dnf -y install systemd openssh-server openssh-clients shadow-utils sudo git tmux ncurses vim-minimal less ca-certificates curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns \
+# The declared Ninja build prerequisite is shipped in Rocky's official CRB.
+# Enable it for this image transaction only; retain normal RPM signature checks.
+RUN dnf -y --enablerepo=crb install systemd openssh-server openssh-clients shadow-utils sudo git tmux ncurses vim-minimal less ca-certificates curl-minimal tar gzip python3 python3-pip procps-ng findutils which podman fuse-overlayfs slirp4netns \
     gcc gcc-c++ glibc-devel libstdc++-devel make cmake ninja-build pkgconf-pkg-config binutils gdb strace \
     openssl-devel zlib-devel patch diffutils file unzip zip xz bzip2 rsync iproute iputils bind-utils lsof jq bash-completion && dnf clean all
 # The rolling repository no longer indexes this pinned version. Its signed

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class FoundationContracts(unittest.TestCase):
     def test_recipe_declares_native_development_foundation(self):
         recipe = (ROOT / 'project-os/Containerfile').read_text().replace('\\\n', ' ')
-        match = re.search(r'RUN dnf -y install (.*?) && dnf clean all', recipe)
+        match = re.search(r'RUN dnf -y --enablerepo=crb install (.*?) && dnf clean all', recipe)
         self.assertIsNotNone(match)
         packages = set(match.group(1).split())
         self.assertLessEqual({'gcc', 'gcc-c++', 'glibc-devel', 'libstdc++-devel', 'make', 'cmake', 'ninja-build', 'pkgconf-pkg-config', 'binutils', 'gdb', 'strace', 'openssl-devel', 'zlib-devel', 'rsync', 'iproute', 'iputils', 'bind-utils', 'lsof', 'jq'}, packages)
