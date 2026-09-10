@@ -30,8 +30,35 @@ settings-link journeys executed. Logs show one full asset preparation; a separat
 warm preparation took 0.08 seconds, not evidence of a large speedup. All five focused
 commands (`test:pages`, `test:layout`, `test:frontend`, `test:forgejo`, `test:lit`),
 `bun run typecheck` including Lit diagnostics/negative fixtures and the three terminal
-asset contract tests passed. No dependency installation was needed. Source-command
-sharing and its documentation follow in the final slice of this step.
+asset contract tests passed. No workspace dependency installation was needed.
+
+`bun run check:source` now owns the shared Go/module, TypeScript/Lit, browser/Cockpit
+and local Python commands without requiring a clean checkout or native stage.
+`check-native.sh` reuses it, retaining matching architecture/pinned tools, clean exact
+revision, artifact verification before/after and staged packaging tests. Three new
+command tests cover source-only operation, each suite's fail-fast behavior and the
+preserved native boundaries. The [development guide](typescript.md#local-source-checks)
+records prerequisites/effects, focused commands and remaining optional gates.
+
+The first full source attempt failed in two existing Unix-socket tests because the
+system Go wrapper sets a long SSD-backed temporary path; an attempted `TMPDIR=/tmp`
+rerun did not change its selected path and failed identically. Only the terminal test
+fixture now uses a short private random directory prefix instead of a full test name,
+with exact fixture-owned cleanup registered before server cleanup. The real socket,
+lock/identity/failure assertions and host cache policy are unchanged.
+
+The final `bun run check:source` passed in 100.01 seconds with the unchanged local
+Go 1.27.0/Bun 1.4.2 tools: module verification/all Go packages (many cached from the
+first attempts; page producers explicitly uncached), complete typecheck/Lit fixtures,
+302 browser/Cockpit passes and 24 separately gated skips, and 115 Python tests with
+one optional Caddy integration skip. The added missing-Go/Bun command-refusal test
+also passed. The final page fixtures are retained under `.artifacts/pages-MXNNo6/`;
+successful and failed logs/timings remain under
+`.artifacts/refactor-step1/`. Step 1 is locally implemented and checked, not native
+stage/installed/provider acceptance. No `check-native.sh` execution, native build,
+VM/retained-project access, deployment, capability/network-policy change or provider
+mutation occurred. All unfinished product features and later refactoring slices
+remain in scope.
 
 ## Upstream-first refactoring review — documentation only
 

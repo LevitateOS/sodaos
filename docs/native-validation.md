@@ -147,12 +147,18 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 ## Local workspace checks and installed-journey source ports
 
 The step-5 workspace and current journey controls have local coverage, not current
-installed acceptance. `bun run test:spaces-page` exports real authorized Go handler
-HTML/CSP into a retained isolated artifact directory, then loads the production page
-module/assets against synthetic GET-only API replies. `bun run test:layout` exercises
+installed acceptance. `bun run test:pages` (`test:spaces-page` remains an alias)
+exports real authorized Go handler HTML/CSP for Spaces, operator runners and repository
+settings into a fresh retained artifact directory, then loads their production
+modules/assets against synthetic API replies. Spaces uses GET-only replies; runner
+and repository controls exercise synthetic mutations, not actual native/provider
+operations. Missing fixture output fails this command rather than becoming a skip. `bun run test:layout` exercises
 20 width/theme/running-state combinations with real emitted Lit/xterm, a native-form
-fixture and synthetic peers. Both are in `bun run test`; neither contacts a retained
-appliance. Pointer/keyboard panes, sidebar/tab overflow, compact visibility, form
+fixture and synthetic peers. Both are in `bun run test`, which prepares browser assets
+once and also enables local Lit runtime/settings-link checks; neither contacts a
+retained appliance. The [source-check aggregate](typescript.md#local-source-checks)
+shares these suites with `check-native.sh` without requiring its sealed stage for
+ordinary iteration. Native artifact/revision and packaging gates remain separate. Pointer/keyboard panes, sidebar/tab overflow, compact visibility, form
 selection, beforeunload cancellation and stable owners have focused browser coverage.
 Physical keyboards, actual Forgejo menus/forms/diff/comment/clipboard behavior and
 native process/CLI continuity still need the applicable installed scope.

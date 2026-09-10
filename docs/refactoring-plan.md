@@ -107,6 +107,11 @@ product-owned tests; it does not create a second acceptance gate.
 
 ### A. Reliable, single-preparation source checks — first
 
+**Implemented with local source/browser checks.** See the
+[commands and prerequisites](typescript.md#local-source-checks) and
+[revision-specific results and failures](implementation-status.md#refactoring-step-1--local-source-check-wiring).
+This does not complete native-stage or installed acceptance, or the later slices.
+
 **Owners:** [root scripts](../package.json), [Spaces fixture orchestrator](../scripts/test-spaces-page.ts),
 [frontend tests](../tests/frontend/), [Forgejo tests](../tests/forgejo/),
 [native check](../scripts/check-native.sh).

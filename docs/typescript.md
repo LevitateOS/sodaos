@@ -8,6 +8,7 @@ installation to load a dependency. Cockpit keeps React, PatternFly and Vite+.
 
 ```sh
 bun install --frozen-lockfile
+bun run check:source # Go + TypeScript/Lit + local browser/Cockpit + Python
 bun run typecheck
 bun run test
 bun run build
@@ -17,10 +18,52 @@ bun run screenshot --help
 
 `build` compiles and minifies the Forgejo browser assets and the two Cockpit
 pages. It does not install an appliance or build a standalone dashboard. `test`
-runs the root frontend/Forgejo tests under Bun and Cockpit's `bun:test` suite.
-Cockpit builds through Vite+'s programmatic API under Bun; it retains React and
-PatternFly. Browser/installed checks keep their explicit opt-in flags and
-target/action permissions; installing dependencies does not run those journeys.
+prepares locked terminal assets and emitted Forgejo modules once, then runs the
+frontend, actual Go HTML/page fixtures, drawer layout, Forgejo and Cockpit suites.
+The local Lit runtime and operator settings-link browser checks are enabled in the
+Forgejo group. Cockpit builds through Vite+'s programmatic API under Bun; it retains
+React and PatternFly. Installed/provider checks keep their explicit opt-in flags
+and target/action permissions; installing dependencies does not run those journeys.
+
+## Local source checks
+
+`bun run check:source` shares the existing Go module verification/tests, complete
+TypeScript/Lit checks, `bun run test` and Python `tests/build` suite. It works in a
+dirty source checkout without native images or a sealed deployment stage. Native
+`check-native.sh` calls this same command **between** its exact-revision/artifact
+checks, then runs packaging checks against the selected stage. Its matching-native
+Linux, pinned-tool and clean-checkout requirements remain unchanged.
+
+Prerequisites: an installed Go toolchain satisfying `go.mod`, pinned Bun and the
+resolved frozen-lock workspace dependencies, Python 3, Bash, OpenSSL and Playwright's
+compatible Chromium plus its sandbox/runtime libraries. Source checks use
+`GOTOOLCHAIN=local`, `GOWORK=off`, read-only module metadata and `CGO_ENABLED=0`; they
+may download modules into Go caches and fetch missing locked terminal distributions,
+but do not install workspace dependencies, download Go toolchains, load images or
+install an appliance. They write emitted assets,
+retained synthetic HTML fixtures and ordinary test-local temporary files. Existing
+optional Python checks still report skips: xorriso enables the synthetic ISO test;
+`SODA_CADDY_BINARY` selects the separate real loopback Caddy integration. Do not set
+installed/provider/native-origin flags for ordinary source checks: those remain
+independently gated and are not enabled by the aggregate.
+
+Focused commands prepare their own assets:
+
+- `bun run test:frontend` — frontend unit/browser tests; conditional page/layout
+  journeys are executed by the commands below, not silently counted as covered here.
+- `bun run test:pages` — uncached Go producers followed by all three real HTML/CSP
+  browser consumers (Spaces, operator runners and repository settings). Missing or
+  empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
+  alias for this expanded group. Run directories are printed and retained on failure.
+- `bun run test:layout` — the integrated drawer layout fixture.
+- `bun run test:forgejo` — Forgejo source tests plus local Lit runtime/settings-link.
+- `bun run test:lit` — focused emitted Lit runtime, settings-link and workspace tests.
+
+The `:prepared` scripts are the same suite bodies used by these wrappers and the
+aggregate; direct use requires a preceding `bun run build:forgejo`. Test-specific
+module builds remain where they exercise compiler/payload contracts; only repeated
+full asset preparation was removed. Local success is not installed/provider or
+native-architecture acceptance.
 
 Soda's frontend/build/test tooling requires Bun, without a separate Node runtime.
 `bunfig.toml` also selects Bun for dependency executables with Node shebangs.

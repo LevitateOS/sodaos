@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -73,7 +74,18 @@ func terminalFixture(t *testing.T) (*Daemon, *Client, *terminalFake) {
 	p := &terminalFakeProcess{closed: make(chan struct{}), input: make(chan TerminalFrame, 4), output: make(chan TerminalFrame, 4)}
 	f := &terminalFake{inspect: []byte(`{"id":"` + strings.Repeat("a", 64) + `","project":"p0123456789abcdef01234567","owner":"2","running":true,"privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`), process: p}
 	d := &Daemon{Exec: f}
-	socket := t.TempDir() + "/host.sock"
+	// t.TempDir includes the full test/subtest name, which can overflow
+	// sockaddr_un on builders with longer SSD-backed temporary paths.
+	dir, err := os.MkdirTemp("", "soda-term-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+	})
+	socket := dir + "/host.sock"
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)

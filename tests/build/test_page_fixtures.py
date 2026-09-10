@@ -84,6 +84,20 @@ sys.exit(int(os.environ.get('BROWSER_STATUS', '0')))
         self.assertEqual(result.returncode, 7)
         self.assertEqual([command['name'] for command in self.commands()], ['go'])
 
+    def test_missing_required_command_fails(self):
+        for name in ('go', 'bun'):
+            with self.subTest(command=name):
+                tool = self.tools / name
+                hidden = self.tools / (name + '.disabled')
+                tool.rename(hidden)
+                try:
+                    result = self.run_pages(PATH=str(self.tools))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('Go/browser fixtures retained at', result.stdout)
+                finally:
+                    hidden.rename(tool)
+        self.assertEqual([command['name'] for command in self.commands()], ['go'])
+
     def test_browser_failure_is_not_hidden(self):
         result = self.run_pages(BROWSER_STATUS='9')
         self.assertEqual(result.returncode, 9)
