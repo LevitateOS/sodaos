@@ -143,6 +143,16 @@ and upstream xterm assets retain their exact locked bytes and licenses. The shar
 resolve to its staged relative URL, and existing imports remain external. Generated
 JavaScript must not be tracked beside TypeScript.
 
+Changed Soda module graphs use the presentation epoch from
+`custom/header.tmpl` (`soda-presentation-revision`). The compiler appends that
+`?v=` value to every relative external import, including dynamic page imports and
+Lit. Bump the epoch and the three Soda entry URLs plus changed workspace/settings
+styles together; `lit-build.test.ts` checks the emitted closure and entry registry.
+Do not version only the top-level script: Forgejo caches assets privately for six
+hours. New documents receive the new graph; already-open documents keep their
+loaded code until navigation/reload. This is not live code replacement or an
+atomic mixed-version rollout guarantee.
+
 Run `bun run build:forgejo` before serving a local preview, and resolve payload
 entries beginning `@build/forgejo-js/` from that output directory. Never serve a
 renamed `.ts` file directly to a browser. `bun run build:preview` projects the same payload into the local preview branding

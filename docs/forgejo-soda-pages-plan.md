@@ -496,6 +496,13 @@ No runner/provider/root state changes occur as a consequence of opening or redir
 
 ### Step 5 — validate the complete source and packaged candidate
 
+**In progress:** whole-graph cache versioning, real cached URL hits, native BFCache
+runner secret clearing, duplicate-entry protection and additional repository denial/
+actor cases now have local evidence. The leading handoff records the passing focused
+checks and remaining supported-Linux aggregate, complete visual and combined-history
+acceptance gaps. This is not a completed step-5 exit or delivery/source-ownership
+handoff.
+
 **Delivery cache check:** the local stock asset response currently uses a six-hour
 private cache. Version changed entry modules and their transitive Soda imports as
 part of this packaging step; a fresh-browser source check alone is not evidence

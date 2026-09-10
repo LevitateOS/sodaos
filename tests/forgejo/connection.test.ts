@@ -11,9 +11,9 @@ const shell = `<!doctype html><nav id="navbar"><span id="soda-settings-link" dat
 
 test('entry connection is bounded, actor checked, and never restarts on focus or failure', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
-  for (const mode of ['valid', 'restored', 'retired', 'missing', 'mismatch', 'unavailable', 'failed-return', 'failed-valid', 'suppressed']) {
+  for (const mode of ['valid', 'restored', 'retired', 'detached', 'missing', 'mismatch', 'unavailable', 'failed-return', 'failed-valid', 'suppressed']) {
     const page = await browser.newPage(); let logins = 0, release: (() => void) | undefined;
-    const pause = ['restored', 'retired'].includes(mode) ? new Promise<void>(resolve => {release = resolve;}) : Promise.resolve();
+    const pause = ['restored', 'retired', 'detached'].includes(mode) ? new Promise<void>(resolve => {release = resolve;}) : Promise.resolve();
     await page.route(origin + '/**', async route => {
       const pathname = new URL(route.request().url()).pathname;
       if (pathname === '/') return route.fulfill({contentType: 'text/html', body: shell + '<script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>'});
@@ -26,7 +26,19 @@ test('entry connection is bounded, actor checked, and never restarts on focus or
       await route.fulfill({contentType: 'text/javascript', body: await Bun.file(path.resolve('.artifacts/forgejo-js', path.basename(source))).text()});
     });
     if (mode === 'suppressed') await page.addInitScript(() => localStorage.setItem('soda-signout', 'fixture'));
+    const importing = mode === 'detached' ? page.waitForRequest(request => new URL(request.url()).pathname === '/assets/sodaspaces-page.js') : null;
     await page.goto(origin + '/?soda-view=spaces' + (mode.startsWith('failed-') ? '&soda-connect=failed' : ''));
+    if (mode === 'detached') {
+      await importing;
+      await page.evaluate(() => document.getElementById('soda-native-content')?.remove());
+      release?.();
+      await page.waitForLoadState('networkidle');
+      assert.equal(await page.locator('soda-spaces').count(), 0);
+      assert.equal(logins, 0);
+      assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
+      await page.close();
+      continue;
+    }
     if (mode === 'restored' || mode === 'retired') {
       await page.getByRole('status').filter({hasText: 'Connecting to Soda'}).waitFor();
       await page.evaluate(retired => {

@@ -29,8 +29,8 @@ test('Lit production runtime is staged as a self-contained browser module', asyn
   assert(source.length > 0, 'emitted Lit runtime must not be empty');
   assert.doesNotMatch(source, /\b(?:from\s*|import\s*\()\s*["'](?:lit|@lit\/)/, 'runtime must bundle its package imports');
   const fixtures = await buildFixtureModules();
-  assert.match(fixtures.branding, /from["']\.\/lit\.js["']/);
-  assert.match(fixtures.publicRoot, /from["']\.\/soda\/forgejo\/lit\.js["']/);
+  assert.match(fixtures.branding, /from["']\.\/lit\.js\?v=[a-zA-Z0-9.-]+["']/);
+  assert.match(fixtures.publicRoot, /from["']\.\/soda\/forgejo\/lit\.js\?v=[a-zA-Z0-9.-]+["']/);
   assert.doesNotMatch(fixtures.branding + fixtures.publicRoot, /from["']lit["']/);
 });
 

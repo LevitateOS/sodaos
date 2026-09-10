@@ -67,10 +67,11 @@ test('native Forgejo hosts all three bounded Soda views', {
       assert((await page.title()).startsWith(view.title + ' - '));
       assert.equal(await mount.getAttribute('data-actor'), nativeActor);
       assert.equal(await mount.getAttribute('data-repository-id'), view.repository);
-      assert.equal(await mount.getAttribute('data-destination'), view.destination);
+      assert.equal(await mount.getAttribute('data-view'), new URLSearchParams(view.query).get('soda-view'));
+      assert.equal(await mount.getAttribute('data-destination'), null, 'retired Go-shell destination must not return');
       assert.equal(await page.locator('main,[role=main]').count(), 1);
       assert.equal(await page.locator('#sodaspaces-root,.soda-dashboard,.soda-workspace,soda-runners').count(), 0);
-      assert.equal(await page.locator('.soda-native-page form').count(), 0, 'Step 1 mounts no privileged controls');
+      assert.equal(await page.locator('.soda-native-page form').count(), 0, 'Disconnected native host mounts no privileged controls');
       assert(await page.locator('#navbar').isVisible());
       assert.equal(await page.locator('#navbar a[href="/admin"]').count(), 0, 'fixture remains a non-admin');
       const bounds = await page.locator('.soda-native-page').boundingBox();
