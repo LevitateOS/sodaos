@@ -1,5 +1,46 @@
 # Current handoff
 
+## Isolated readiness correction delivered; full native terminal boundary passed
+
+Candidate `b8af68c1a6977e2a8a29e31e4f072ee979ef5cf9` passed fresh native x86_64
+build/check/export under `.artifacts/step6c-ready-5qAW9C/` (full Python discovery now
+75 tests including the three readiness regressions; source/stage check exited 0).
+Its verified bundle was transferred to the already approved isolated VM. A **new**
+paired live-v6/config/helper/guard backup and networkless v6 copied-state rehearsal
+preceded matching dashboard/helper delivery and atomic replacement of only each
+original project's admitted Soda-owned `project-terminal` file. Both Rocky 9 roots,
+CIDs, post-boot sshd PIDs, accounts and other project files were retained. The helper's
+future-create image now matches the built Rocky 10.2 candidate; no project was created
+or root migrated. Backup: `/var/lib/soda-step6c-ready-b8af68c/backup` on that guest.
+
+The exact candidate's product-owned **`TestInstalledTerminalBoundary` passed** in
+`native-e` (65.70s): both original accounts, profile/UID/GID/groups/home/TTY, resize,
+interrupt, sudo boundaries, same PID/start/memory reattachment, End/missing-target
+refusal, and independent login/job/launcher disappearance after owner EOF, real
+60-second silent lease and test-owned helper SIGKILL. This resolves the reproduced
+premature-ready/input-loss failure for this scope; no assertion was removed, sleep
+added or probe output condition relaxed. Failed native-b/c/d and diagnostic diffs
+remain. Read-only observation after those failed runs found no managed units.
+This is not the browser matrix, real selected CLI, guard-kill/Stop/logout/rotation,
+physical-keyboard, unrelated-workload or aarch64 acceptance.
+
+The actual native read-only browser journey reached real Alice OAuth/connection and
+native-focus checks, then failed its 360px layout assertion. A diagnostic-only probe
+commit `d9562a4` recorded the concrete mismatch: requested outer width 360, native
+scrollbar leaves visual viewport **345**, and the drawer is correctly x=0/y=44,
+width=345/height=856 with Terminal selected. The probe incorrectly required its right
+edge at 360. The source guard now uses the real visual viewport (as the adapter does),
+retains public geometry measurements and still rejects overflow/misalignment; a
+focused positive/negative source-guard test and required typecheck passed. No browser
+flags, scrollbar hiding, UI CSS or viewport emulation were altered. New installed
+browser/matrix proof is still required. Failed browser profiles are retained at
+`.artifacts/s6c-browser-FeQRSU/` and `.artifacts/s6c-browser-fegw9x/`.
+
+Current delivery scope: isolated **b8af68c**, schema v6; `soda-test` only started/read,
+not updated. Both-target deployment remains approved, validation first. Preserve the
+new post-OAuth v6 backup and all later writes; the earlier v5 backup is no longer a
+lossless rollback. No CLI/provider credentials were installed/copied or used.
+
 ## Both guests started; isolated `5a21ad6` delivered; native input-loss correction
 
 The user approved starting **both existing VMs**. Their preserved disks were started

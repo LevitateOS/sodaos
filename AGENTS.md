@@ -78,10 +78,12 @@ preflight contacted only the existing isolated validation VM. The user then sele
 both targets, validation first, and approved starting the offline existing VMs.
 Both are now running their original disks/projects. Fresh backup/copied-state rehearsal
 and affected `5a21ad6`/schema-v6 delivery passed on the isolated validation VM, not
-native acceptance. A reproduced tmux startup flush loses input sent after premature
-ready; a bounded source correction has local regression coverage and needs matching
-build/paired helper-program delivery and native proof. `soda-test` remains on its
-prior application pending validation and reviewed same-root required additions.
+whole-product acceptance. The reproduced tmux startup flush/input-loss correction
+then passed fresh `b8af68c` build/check/export and backed-up paired helper/program
+same-root delivery there; the full native terminal boundary probe passed. Browser
+matrix/CLI acceptance remains pending; native browser preflight exposed a probe-only
+scrollbar/visual-viewport assertion being corrected. `soda-test` remains on its prior
+application pending validation and reviewed same-root required additions.
 No replacement fixture, old backup waiver/root replacement or borrowed CLI credentials
 are implied. See the leading handoff for actual results and scope.
 

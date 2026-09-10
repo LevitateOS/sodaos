@@ -370,10 +370,14 @@ try {
     await page.emulateMedia({colorScheme});
     await open();
     const box = await drawer.boundingBox();
-    result.native_layout = {width, colorScheme, box, terminal_pressed: await page.getByRole('button', {name: 'Terminal', exact: true, includeHidden: true}).getAttribute('aria-pressed'),
-      viewport: await page.evaluate(() => ({width: window.visualViewport?.width, height: window.visualViewport?.height, top: window.visualViewport?.offsetTop,
-        control_height: getComputedStyle(document.body).getPropertyValue('--soda-control-height')}))};
-    assert(box && box.x >= -1 && box.width <= width + 1 && Math.abs(box.x + box.width - width) < 2);
+    const viewport = await page.evaluate(() => ({width: window.visualViewport?.width || window.innerWidth, height: window.visualViewport?.height || window.innerHeight,
+      top: window.visualViewport?.offsetTop || 0, control_height: getComputedStyle(document.body).getPropertyValue('--soda-control-height')}));
+    result.native_layout = {width, colorScheme, box, viewport,
+      terminal_pressed: await page.getByRole('button', {name: 'Terminal', exact: true, includeHidden: true}).getAttribute('aria-pressed')};
+    // The stock browser reserves native scrollbar space; Playwright's requested
+    // width is not necessarily the actual visual viewport used by the adapter.
+    assert(viewport.width > 0 && viewport.width <= width);
+    assert(box && box.x >= -1 && box.width <= viewport.width + 1 && Math.abs(box.x + box.width - viewport.width) < 2);
     if (width === 360) {assert(box.height >= 854); assert.equal(await page.getByRole('button', {name: 'Terminal', exact: true}).getAttribute('aria-pressed'), 'true');}
     else {assert(box.height >= 898 && box.x >= 480);}
     backgrounds.push(await drawer.evaluate(node => getComputedStyle(node).backgroundColor));

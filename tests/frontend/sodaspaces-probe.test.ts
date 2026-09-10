@@ -19,6 +19,23 @@ const start = probe.indexOf('  async function guardedPage() {');
 const end = probe.indexOf('  await context.addInitScript(', start);
 assert(start > 0 && end > start);
 
+test('native layout guard measures the visual viewport without hiding scrollbars or permitting overflow', async () => {
+  const from = probe.indexOf('    const box = await drawer.boundingBox();');
+  const to = probe.indexOf('    if (width === 360)', from);
+  assert(from > 0 && to > from);
+  for (const [visualWidth, x, boxWidth, valid] of [[345, 0, 345, true], [360, 0, 360, true],
+    [345, 0, 360, false], [345, 0, 300, false], [345, -15, 360, false], [0, 0, 0, false], [375, 0, 375, false]] as const) {
+    const result: Record<string, unknown> = {};
+    const scope = {assert, result, width: 360, colorScheme: 'light',
+      drawer: {async boundingBox() { return {x, y: 44, width: boxWidth, height: 856}; }},
+      page: {async evaluate() { return {width: visualWidth, height: 900, top: 0, control_height: '44px'}; },
+        getByRole() { return {async getAttribute() { return 'true'; }}; }}};
+    const attempt = runInNewContext('(async () => {\n' + probe.slice(from, to) + '\n})()', scope);
+    if (valid) {await attempt; assert(result.native_layout);}
+    else await assert.rejects(async () => await attempt);
+  }
+});
+
 test('private repository declaration is read-only and cannot combine with access mode', () => {
   const from = probe.indexOf('  const [inputFile, home, permission, ...extra]');
   const to = probe.indexOf('  assert(inputFile && home);', from);
