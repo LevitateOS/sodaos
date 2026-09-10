@@ -99,9 +99,11 @@ class RunnerState(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             work = root / 'one' / 'state' / 'work'
-            work.mkdir(parents=True)
             person = SimpleNamespace(pw_uid=os.getuid(), pw_name='soda-runner-one')
             account = lambda _: person
+            self.assertIsNone(module.job_proof('one', 'unique', root, account))
+            self.assertFalse(work.exists())
+            work.mkdir(parents=True)
             self.assertIsNone(module.job_proof('one', 'unique', root, account))
             record = dict(observation='unique', account=person.pw_name, uid=person.pw_uid,
                           pid=999999999, start='1', steps=2)
@@ -109,10 +111,13 @@ class RunnerState(unittest.TestCase):
             proof.write_text(json.dumps(record))
             proof.chmod(0o600)
             self.assertEqual(module.job_proof('one', 'unique', root, account), {**record, 'alive': False})
-            for change in ({'observation': 'other'}, {'account': 'root'}, {'pid': 0}, {'steps': 3}, {'token': 'synthetic-secret'}):
+            for change in ({'observation': 'other'}, {'account': 'root'}, {'pid': 0}, {'steps': 3}, {'steps': True}, {'uid': False}, {'token': 'synthetic-secret'}):
                 proof.write_text(json.dumps({**record, **change}))
                 with self.assertRaises(RuntimeError):
                     module.job_proof('one', 'unique', root, account)
+            proof.write_text(json.dumps(record)[:-1] + ', "steps": 2}')
+            with self.assertRaises(RuntimeError):
+                module.job_proof('one', 'unique', root, account)
             proof.unlink()
             outside = root / 'outside'
             outside.write_text('must not read')

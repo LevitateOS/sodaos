@@ -1,5 +1,40 @@
 # Current handoff
 
+## Runner step 4 continuation — pinned builder and native postconditions
+
+Continued runner-owned preparation from `23bef53`; shared Soda-pages driver/UI/
+authentication files remain reserved and untouched. No installed caller is wired
+or implied by this work. Reviewed actual callable phases and observer contracts.
+Native lifecycle postconditions now live with their observer and check original
+registration state, account/credential identity, boot/listener outcomes and unchanged
+client version/architecture, while permitting legitimate job-work changes. Synthetic
+receipt tests exercise every lifecycle action, partial Remove, changed credentials,
+packages/target, unknown listener status and incorrect boot policy. They do not
+prove actual concurrency, process-tree termination or native/provider parity.
+
+Provider attempts now collect native post-attempt receipts in `finally`, including
+lost/error dispatch responses; failed browser mutation attempts also compare the
+preservation baseline before reporting failure. Neither path retries or rolls back.
+The Python proof reader now treats a not-yet-created job-work directory as absent
+proof without creating it, and rejects duplicate JSON fields and boolean numeric
+identity/step values. Local filesystem tests cover those cases.
+
+Prepared isolated official Go 1.26.7 linux/amd64 under
+`.artifacts/runners-step4-continued/toolchain/go/`. The downloaded archive matches
+published SHA-256 `ffb5f8de10c62550dfddab66b36b57030721e0a44a3218e9e1181d7b59f121ca`;
+public metadata/archive are retained beside it. Its version command reports
+`go1.26.7 linux/amd64`. Host Go 1.27.0 and all source dependency/toolchain pins remain
+unchanged. Toolchain availability is no longer a blocker; a final Soda candidate
+build/check/sealed export has not occurred.
+
+Executed strict tooling TypeScript checking, eight focused Bun cases and six Python
+reader cases successfully; logs are in `.artifacts/runners-step4-continued/`.
+Combined source checks with the prepared toolchain are next, not yet claimed.
+Shared driver handoff/integration, remaining installed scenario preparation, final
+candidate export/compatibility review and exact target/provider approvals remain
+open. No services, provider jobs/resources, retained roots or credentials changed.
+
+
 ## Runner plan revision after pulling native page integration
 
 Revised `docs/runners-port.md` steps 4–7 against the pulled source at `4cfeea1`.

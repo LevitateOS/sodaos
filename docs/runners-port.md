@@ -486,8 +486,11 @@ into a hold on independent local implementation:
    do not leave it as an unspecified manual checklist or a new support-tool gate.
 4. **Validate the combined source and prepare the builder.** Run applicable focused
    checks and the ordinary source gate on the final combined source. Prepare the
-   pinned native Go 1.26.7/Bun 1.4.2 toolchain locally; the observed Go 1.27.0 shell
-   mismatch is a resolvable prerequisite, not a reason to change the shared pin.
+   pinned native Go 1.26.7/Bun 1.4.2 toolchain locally. Go 1.26.7 is now downloaded
+   and checksum-verified under `.artifacts/runners-step4-continued/toolchain/go/`;
+   select it through command-local PATH, leaving the host default/pins unchanged.
+   Toolchain availability is no longer a blocker; candidate build/export is still
+   outstanding.
    Reuse applicable exact-candidate receipts; do not transfer historical PASS
    records across changed source merely because commits were pulled/rebased.
 5. **Prepare the candidate and execution proposal.** Produce/inspect the matching

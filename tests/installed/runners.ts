@@ -7,8 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {restrictedText} from './sodaspaces-matrix-native.ts';
 import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response.ts';
 import {runnerInput, type RunnerInput} from './runners-input.ts';
-import {object} from './sodaspaces-input.ts';
-import {readRunnerState, preserveRunnerBaseline} from './runners-native.ts';
+import {readRunnerState, preserveRunnerBaseline, verifyRunnerOperation} from './runners-native.ts';
 import {exerciseRunnerProvider} from './runners-provider.ts';
 
 export async function loadRunnerInput(file: string, permission: string) {
@@ -49,12 +48,17 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
         assert(before.inventory.runners.some(row => row.id === input.runner_id && row.service.active === 'active' && row.service.sub === 'running'), 'Declared fixture listener not running');
       }
       evidence.stage='provider ' + input.phase;
-      evidence.provider=await exerciseRunnerProvider(input);
+      try {
+        evidence.provider=await exerciseRunnerProvider(input);
+      } finally {
+        // Dispatch can succeed upstream even if its response is lost. Preserve
+        // post-attempt observations on both paths; never replay or roll back.
+        evidence.after=await readRunnerState(input);
+        preserveRunnerBaseline(input,before,evidence.after);
+      }
       if (input.phase === 'job') {
-        const after=await readRunnerState(input); evidence.after=after;
-        preserveRunnerBaseline(input,before,after);
-        assert(after.proof, 'No exact native job identity observed on the declared runner');
-        if ('status' in evidence.provider && evidence.provider.status === 'success') assert(after.proof.steps === 2, 'Successful provider run lacks two-step native proof');
+        assert(evidence.after.proof, 'No exact native job identity observed on the declared runner');
+        if ('status' in evidence.provider && evidence.provider.status === 'success') assert(evidence.after.proof.steps === 2, 'Successful provider run lacks two-step native proof');
       }
       // A dispatch receipt confirms only dispatch; a job read reports its actual
       // status, never promotes waiting/running or a local listener to job success.
@@ -126,21 +130,11 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
       // Inspection only, including failed/partial operations. No rollback or retry.
       await view.locator('input[type=password]').fill('').catch(()=>{});
       evidence.after=await readRunnerState(input);
+      preserveRunnerBaseline(input,before,evidence.after);
     }
     evidence.stage='native result and preserved baseline';
     const after=evidence.after; assert(after);
-    preserveRunnerBaseline(input,before,after);
-    const current=after.inventory.runners.find(row => row.id === input.runner_id);
-    if(input.phase === 'remove') assert(!current && object(after.states[input.runner_id]).present === false, 'Local account/state removal not confirmed');
-    else {
-      assert(current && current.capacity === 1 && current.account === 'soda-runner-'+input.runner_id);
-      if (input.phase !== 'register') {
-        const original=object(before.states[input.runner_id]), retained=object(after.states[input.runner_id]);
-        for (const key of ['uid','gid','home','shell','registration']) assert.deepEqual(retained[key],original[key], 'Fixture account or registration changed during lifecycle');
-      }
-      assert(current.service.enabled === (input.phase === 'stop' ? 'disabled' : 'enabled'), 'Wrong host-boot policy');
-      assert(input.phase === 'stop' ? current.service.active === 'inactive' : current.service.active === 'active' && current.service.sub === 'running', 'Listener state unconfirmed');
-    }
+    verifyRunnerOperation(input,before,after);
     assert.deepEqual(await refresh(),after.inventory,'Post-operation web/native observations differ');
     evidence.outcome='confirmed';
   } catch {

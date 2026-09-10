@@ -126,7 +126,12 @@ def job_proof(identifier, observation, root=ROOT, account=pwd.getpwnam):
         raise ValueError('invalid job observation')
     person = account('soda-runner-' + identifier)
     proof = root / identifier / 'state' / 'work' / ('soda-native-proof-' + observation + '.json')
-    parent = os.open(proof.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        parent = os.open(proof.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        # A newly registered listener may not have run any job yet. The caller
+        # independently checks complete account/registration state first.
+        return None
     try:
         try:
             fd = os.open(proof.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
@@ -141,12 +146,18 @@ def job_proof(identifier, observation, root=ROOT, account=pwd.getpwnam):
                 raise RuntimeError('job proof exceeds bound')
     finally:
         os.close(parent)
-    record = json.loads(text)
-    if (set(record) != {'observation', 'account', 'uid', 'pid', 'start', 'steps'}
+    def unique_fields(pairs):
+        fields = dict(pairs)
+        if len(fields) != len(pairs):
+            raise RuntimeError('ambiguous job proof')
+        return fields
+    record = json.loads(text, object_pairs_hook=unique_fields)
+    if (not isinstance(record, dict) or set(record) != {'observation', 'account', 'uid', 'pid', 'start', 'steps'}
             or record['observation'] != observation or record['account'] != person.pw_name
-            or record['uid'] != person.pw_uid or type(record['pid']) is not int or record['pid'] <= 0
+            or type(record['uid']) is not int or record['uid'] != person.pw_uid
+            or type(record['pid']) is not int or record['pid'] <= 0
             or not isinstance(record['start'], str) or not re.fullmatch(r'[0-9]+', record['start'])
-            or record['steps'] not in (1, 2)):
+            or type(record['steps']) is not int or record['steps'] not in (1, 2)):
         raise RuntimeError('job proof does not match fixture')
     process = Path('/proc') / str(record['pid'])
     try:

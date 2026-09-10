@@ -207,10 +207,12 @@ scripts/check-native.sh x86_64
 The export parent must already exist; outputs must be fresh. Use the independent
 matching-native aarch64 recipe on that architecture, not emulation or a sibling
 barrier. No script here creates a fixture, installs the appliance or publishes
-artifacts. At preparation time this shell has Go 1.27.0; the native scripts require
-Go 1.26.7. That is a recorded prerequisite mismatch, not permission to bypass or
-incidentally upgrade the shared build contract. The page integration's exact
-source/schema handoff is also still missing, so no final candidate was built.
+artifacts. The host default remains Go 1.27.0, but the required Go 1.26.7 is now
+available at `.artifacts/runners-step4-continued/toolchain/go/bin/go`, downloaded
+from go.dev and verified against its published SHA-256. Select its `bin` directory
+with command-local PATH and `GOTOOLCHAIN=local`; no shared pin or host installation
+changed. The final page/driver source/schema handoff remains missing, so this is
+builder preparation, not a final native candidate build/export receipt.
 
 Review this affected set against the **real sealed inventory and target state**:
 
@@ -240,7 +242,7 @@ old evidence is not lossless rollback.
 
 **Remaining step-4 exit:** wire these callable scenarios at the Soda-pages source
 handoff, validate that real driver/guard integration, select approved target/provider
-inputs, resolve the pinned builder and produce/check/inspect the matching native
+inputs, use the prepared pinned builder and produce/check/inspect the matching native
 export and target-specific compatibility recipe. The local parser/transport-double/
 filesystem tests below are preparation evidence, not substitutes for those exits.
 

@@ -47,7 +47,35 @@ export async function readRunnerState(input: RunnerInput) {
 }
 export type RunnerState = Awaited<ReturnType<typeof readRunnerState>>;
 
+// Native postconditions belong with the observer, independent of the browser
+// driver. Local fixtures exercise these comparisons, not installed execution.
+export function verifyRunnerOperation(input: RunnerInput, before: RunnerState, after: RunnerState) {
+  preserveRunnerBaseline(input,before,after);
+  assert(['register','start','stop','restart','remove'].includes(input.phase), 'Expected a lifecycle phase');
+  const originalRow=before.inventory.runners.find(row => row.id === input.runner_id);
+  assert(input.phase === 'register' ? !originalRow : Boolean(originalRow), 'Wrong fixture registration state');
+  const current=after.inventory.runners.find(row => row.id === input.runner_id);
+  if(input.phase === 'remove') {
+    assert(!current && object(after.states[input.runner_id]).present === false, 'Local account/state removal not confirmed');
+    return;
+  }
+  assert(current && current.capacity === 1 && current.account === 'soda-runner-'+input.runner_id);
+  const retained=object(after.states[input.runner_id]);
+  assert(retained.present === true, 'Native account/state unavailable');
+  if (input.phase !== 'register') {
+    const original=object(before.states[input.runner_id]);
+    for (const key of ['uid','gid','home','shell','registration']) {
+      assert(original[key] !== undefined, 'Incomplete lifecycle baseline');
+      assert.deepEqual(retained[key],original[key], 'Fixture account or registration changed during lifecycle');
+    }
+    assert(current.version === originalRow?.version && current.architecture === originalRow.architecture, 'Fixture client changed during lifecycle');
+  }
+  assert(current.service.enabled === (input.phase === 'stop' ? 'disabled' : 'enabled'), 'Wrong host-boot policy');
+  assert(input.phase === 'stop' ? current.service.active === 'inactive' : current.service.active === 'active' && current.service.sub === 'running', 'Listener state unconfirmed');
+}
+
 export function preserveRunnerBaseline(input: RunnerInput, before: RunnerState, after: RunnerState) {
+  assert(after.target === before.target && after.target === input.target && after.architecture === before.architecture && after.architecture === input.architecture, 'Preservation target changed');
   assert.deepEqual(after.packages,before.packages, 'Installed runner/systemd versions changed');
   assert.deepEqual(before.inventory.runners.filter(row => row.id !== input.runner_id).map(row => row.id).sort(), [...input.preserved_ids].sort(), 'Undeclared retained runner; expand the approved preservation scope before effects');
   for (const id of input.preserved_ids) {
