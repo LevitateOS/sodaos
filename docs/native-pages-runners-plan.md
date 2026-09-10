@@ -136,6 +136,16 @@ execution belongs to step 4 below; it is not a prerequisite to author these case
 
 ## 3. Produce and verify one combined native candidate
 
+**In progress; not verified for export.** `894b9e8` built/sealed natively on x86_64.
+Its mandatory check reached the page gate and failed on absent fixture credentials;
+the local Forgejo service and required Chrome distribution are also unavailable.
+An independent staging run exposed stale Caddy indentation assertions; those were
+corrected without changing routing, and all 11 staging cases passed against the
+built tree. Retain the failed aggregate and mixed-source staging receipts; use the
+resulting exact revision for subsequent candidate validation. Restoring fixture
+prerequisites is necessary, not permission to skip the page gate or claim step 1's
+remaining acceptance gaps closed. See the leading handoff for exact artifacts.
+
 Freeze a clean committed source after the applicable changes above. Use a fresh
 worktree/output; retain previous failed attempts and later writes.
 

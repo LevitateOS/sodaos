@@ -1,5 +1,37 @@
 # Current handoff
 
+## Combined step 3 — native candidate build, verification held by fixture prerequisites
+
+Froze `894b9e8` in `.artifacts/worktrees/combined-candidate-894b9e8/`. The existing
+native x86_64 producer passed build/seal in 31.63 seconds with isolated Go 1.26.7
+and Bun 1.4.2. `check-native.sh` ran and failed after 138.99 seconds: Go/module and
+TypeScript checks and 218 frontend tests passed (16 initially gated skips), then
+the mandatory native page fixture failed at its missing credential file. Later
+page/layout/Forgejo/Cockpit/Python/staging phases of that aggregate did not run;
+there is no passing native-check receipt or export/readiness claim.
+
+Independently ran the existing staging suite against the real sealed tree. It found
+one stale assertion requiring space indentation in Caddy's tab-formatted config.
+Corrected only those assertions to tolerate formatter whitespace while still
+requiring exact namespace/ports and complete non-stripping handler blocks. All 11
+staging cases then passed against that actual tree with the corrected test; this
+mixed-source check is labelled as such, not transferred to a new revision silently.
+No production proxy behavior changed. Artifact integrity verified again; paired
+host/CLI/launcher/dashboard-image and manifest hashes are retained.
+
+Evidence: `.artifacts/combined-candidate-894b9e8/` (`build.log`, `check.log`,
+`packaging.log`, `packaging-corrected-test.log`, `integrity.log`, `paired-sha256.txt`).
+The read-only localhost preflight still finds no Forgejo at port 3300; the documented
+ignored credential file is absent. A separate local browser launch preflight also
+confirmed the required Chrome distribution is unavailable (`browser-prerequisite.log`).
+Restore/provide the approved fixture and restricted inputs plus its required browser
+before rerunning the full gate; no test skipping, fabricated native HTML, silent
+new provider fixture or browser-security bypass follows. Fresh worktree runs also
+need explicit private fixture inputs; Git does not copy ignored credential files.
+A fresh exact revision will retain the corrected staging test. No installation,
+provider/runner actions, publication or export occurred.
+
+
 ## Combined step 2 — installed process observations and concrete scenario procedures
 
 Extended the existing product-owned runner observer/caller rather than adding a

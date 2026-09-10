@@ -73,8 +73,10 @@ class NativeStage(unittest.TestCase):
         proxy = (self.root / 'etc/soda/proxy.Caddyfile').read_text()
         self.assertNotIn('SODA_ORIGIN', proxy)
         self.assertEqual(proxy.count('{$FORGEJO_ORIGIN} {'), 1)
-        self.assertIn('handle /-/soda/* {\n    reverse_proxy 127.0.0.1:8080\n  }', proxy)
-        self.assertIn('handle {\n    reverse_proxy 127.0.0.1:3000\n  }', proxy)
+        # Caddy's canonical formatter uses tabs; indentation is not routing.
+        # Keep exact paths/ports and complete non-stripping handler blocks.
+        self.assertRegex(proxy, r'(?m)^\s*handle\s+/-/soda/\*\s*\{\s+reverse_proxy\s+127\.0\.0\.1:8080\s+\}')
+        self.assertRegex(proxy, r'(?m)^\s*handle\s*\{\s+reverse_proxy\s+127\.0\.0\.1:3000\s+\}')
         self.assertNotIn('handle_path', proxy)
 
     def test_forgejo_native_asset_paths(self):
