@@ -1,5 +1,22 @@
 # Current handoff
 
+## Three-pass overengineering review — documentation only
+
+At the user's request, [the review record](overengineering-review.md) preserves the
+initial deletion findings, adversarial self-review, dependant investigation and the
+assistant's changes of mind. All three passes examined unchanged `7594458` source;
+they were by the same assistant, not independent reviewers. The record is linked
+from the historical ownership audit without rewriting its findings or creating a
+second implementation queue. No proposed deletion has been implemented, and this
+documentation request does not resume the next implementation phase.
+
+Source inspection included read-only caller searches and file comparisons/counts.
+For this documentation change, 117 local links/anchors in the new record and audit,
+and the tracked diff's whitespace, checked successfully. No product builds, type
+checks, tests, dependency changes, native/provider actions, deployment or retained
+state mutation occurred. Earlier implementation and execution evidence below is
+unchanged; the new review is not validation of any proposed removal.
+
 ## Phase 3 — cooperative managed-key writers
 
 The user accepted the shared native-writer lock rule and requested the bounded fix.
