@@ -100,6 +100,10 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
     }});
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}), context = await browser.newContext({ignoreHTTPSErrors: true}), page = await context.newPage();
   page.setDefaultTimeout(7000); page.on('pageerror', error => errors.push(error.message));
+  const cdp = await context.newCDPSession(page); await cdp.send('Emulation.setFocusEmulationEnabled', {enabled: false});
+  // Keep a real extra tab like the installed authentication journey. Closing
+  // the contender must not rely on Chromium choosing the intended page.
+  const spare = await context.newPage(); await spare.goto(new URL('/', server.url).href);
   const evidence: MatrixEvidence = {sessions: []};
   try {
     // Like the installed caller, begin outside the full-page workspace. The
@@ -109,6 +113,8 @@ for (const actorIndex of [0, 1]) test(`installed matrix actor ${actorIndex} uses
       async shell(_page, session) {return {pid: parseInt(session.id, 16), start: '100', login, marker: session.name, tty: true, term: 'screen-256color'};},
       async inspect(project, observedActor, _session, facts, ended) {assert.equal(observedActor, actorIndex); const terminal = spaces.find(space => space.environment.id === project.environment)?.terminals.find(terminal => parseInt(terminal.id, 16) === facts.pid); assert(terminal); assert.equal(terminal.state === 'ended', ended);},
     }, evidence, async () => {const other = await context.newPage(); other.setDefaultTimeout(7000); return other;});
+    assert.equal(await page.evaluate(() => document.visibilityState), 'visible');
+    assert.equal(evidence.stage, 'complete');
     assert.equal(evidence.sessions.length, 6); assert.equal(evidence.same_document, true); assert.equal(evidence.exact_reload, true);
     assert.deepEqual(evidence.cli, {outcome: 'not-run', reason: 'No declared CLI/provider scope'});
     assert.equal(frames.filter(action => action === 'create').length, 6); assert.equal(frames.filter(action => action === 'attach').length, 6);

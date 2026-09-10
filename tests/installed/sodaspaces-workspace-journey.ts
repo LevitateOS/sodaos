@@ -73,6 +73,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
   };
   try {
     evidence.stage = 'full-page workspace';
+    await page.bringToFront();
     await page.goto(new URL('/-/soda/spaces', page.url()).href);
     await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
     assert.equal(await page.locator('#spaces-page').getAttribute('data-soda-actor'), actor);
@@ -103,12 +104,19 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
       await contender.getByText('An existing writer is attached.', {exact: false}).waitFor();
       assert.equal(await contender.locator('.is-connected').count(), 0); assert(!protocolFailure);
     } finally {contender.off('websocket', receive); await contender.close();}
+    // Closing the contender can select the read-only journey's other native tab,
+    // not this page. Use a real foreground transition, never focus emulation.
+    await page.bringToFront();
     evidence.stage = 'same-document layout';
     const hosts = await page.locator('.soda-workspace-terminal').elementHandles(), screens = await page.locator('.xterm').elementHandles();
     assert.equal(hosts.length, 6); assert.equal(screens.length, 6);
+    evidence.stage = 'split right';
     await page.getByLabel('Pane actions', {exact: true}).click(); await page.getByRole('button', {name: 'Split right', exact: true}).click();
+    evidence.stage = 'move to pane';
     await page.getByLabel('Move terminal to pane', {exact: true}).click(); await page.getByRole('button', {name: 'Pane 2', exact: true}).click();
+    evidence.stage = 'compact then wide';
     await page.setViewportSize({width: 390, height: 800}); await page.setViewportSize({width: 1920, height: 1200});
+    evidence.stage = 'consolidate panes';
     await page.getByLabel('Pane actions', {exact: true}).first().click(); await page.getByRole('button', {name: 'Consolidate panes', exact: true}).click();
     for (const handle of [...hosts, ...screens]) assert(await handle.evaluate(node => node.isConnected));
     evidence.same_document = true;
