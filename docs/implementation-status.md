@@ -13,9 +13,8 @@ failure, matching what the Go caller already exposes. No locking, revision, flus
 exclusive-temp ownership or uncertain-publication behavior changed. The 16 key and
 12 account tests passed locally; logs are retained in
 `.artifacts/overengineering-fixes-mviJ3h/`. No native/project/account/provider operation,
-deployment, retained-state mutation or dependency change occurred. Remaining review
-slices and the aggregate source check follow separately; paired native delivery and
-SSH proof remain unrun.
+deployment, retained-state mutation or dependency change occurred. Paired native
+delivery and SSH proof remain unrun.
 
 Tailnet now runs its fixed `status --json` read directly with `exec.CommandContext`.
 Removed the test-only `Client.Identity`/enrollment enum chain and unused generic
@@ -61,6 +60,23 @@ events, not a duplicate storage writer. Initial typecheck and 45 ported terminal
 passed; after adding focus/ended-owner checks and production workspace CSS, the full
 focused Lit command passed 142 tests (`lit.log`). This is a documented source-interface
 retirement, not external-consumer compatibility or fresh native/tmux/CLI proof.
+
+**Integrated check:** `bun run check:source` passed for clean `c3063ac` in 145.68
+seconds using Go 1.27.0/Bun 1.4.2: module/all-Go checks, strict TypeScript/Lit,
+316 frontend/Forgejo/Cockpit passes with 33 gated skips, and 135 Python tests with two
+optional Caddy skips. Required page/layout consumers ran separately within that
+same aggregate; Go HTML fixtures are `.artifacts/pages-e6Im2Z/`. Logs and timing
+remain in the directory above. All 184 local links/anchors in changed guides,
+review, plan and this entry, plus diff whitespace, checked successfully. Native
+build/stage/installed/provider checks and external terminal-caller compatibility
+remain unrun, not waived.
+
+All supported review fixes are committed in five bounded source/test commits.
+Support-label decoupling and broad inventory/hash deletion were not established
+as necessary fixes and remain unselected; missing-evidence reporting and meaningful
+parity assertions survive. No unfinished feature was removed. This completes the
+requested review follow-through, not the separate capture/Tailnet framing work,
+retained credential/key delivery, broader native acceptance or product roadmap.
 
 ## Three-pass overengineering review — documentation only
 
