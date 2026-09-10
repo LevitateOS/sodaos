@@ -7,6 +7,11 @@ and an upstream-reuse review before turning the findings into an implementation 
 This document records that review and **narrows the initial audit** where it was
 premature or overlooked an existing mechanism.
 
+The [remaining audit implementation plan](#7-audit-remediation-implementation-plan)
+is based on the rebased `1f1a9d3` tree. It is the current maintenance order and
+accounts for already implemented schema checks, source-check wiring and shared
+session/page mechanics. The earlier sections retain their design/evidence context.
+
 ## Requested full upstream-ownership audit — source review complete
 
 The subsequent [full ownership audit](upstream-ownership-audit.md) is complete
@@ -378,9 +383,10 @@ validated every prospective desktop/app/provider integration.
 
 ## 5. Order, checks and stop conditions
 
-Recommended maintenance order: **A and B first; G in parallel; C next; D one small
-slice at a time.** E is conditional, split by boundary. F proceeds with the selected
-feature work, not after a repository-wide cleanup barrier.
+Use the [remaining audit sequence](#7-audit-remediation-implementation-plan) for
+current maintenance. A, B and the bounded C extraction now have local evidence;
+do not repeat them as unfinished work. D and optional E extractions follow the
+remaining correctness fixes. F proceeds through its selected feature owner.
 
 - Source changes use focused existing tests first, then the affected combined checks
   and strict TypeScript/Lit. Security/concurrency changes include Go race checks.
@@ -445,3 +451,238 @@ Primary references:
   and [foreign-key checking](https://www.sqlite.org/pragma.html#pragma_foreign_key_check).
 - Bun [script execution](https://bun.com/docs/cli/run), Go [context cancellation](https://pkg.go.dev/context),
   and existing [local tooling boundaries](typescript.md).
+
+## 7. Audit remediation implementation plan
+
+**Planning baseline: `1f1a9d3`, 10 September 2026.** This section implements the
+follow-up to the [ownership audit](upstream-ownership-audit.md), not a second product
+roadmap. It specifies future source changes and checks; writing the plan does not
+execute those changes or authorize deployment. Keep each behavior change in a
+separate reviewable commit. Complete one implementation slice and its checks before
+starting another; a focused independent review may run alongside it.
+
+### Current status and order
+
+| Phase | Work | Current state / dependency |
+| --- | --- | --- |
+| 0 | Correct stale audit status and macOS test fixture | Audit status corrected with this plan; the reproduced fixture failure still needs its small code fix. |
+| 1 | Remove unused bootstrap-token retention/access | Open; can proceed independently. |
+| 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
+| 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
+| 4 | Use GitHub's native service entrypoint | Open; inspect the exact selected package and generated layout first. |
+| 5 | Cancellable host admission and bounded capture | Open; separate commits for admission and each capture owner. |
+| 6 | Combined regression checks and scoped native delivery | After the relevant fixes; native target/effect authorization remains separate. |
+| 7 | Optional upstream reuse/dead-path cleanup | Later; only candidates with demonstrated benefit and equivalent behavior. |
+
+Database completeness is already source-fixed in `bd74b5f`. Aggregate preparation,
+fresh Go HTML fixtures and local browser invocation were addressed in `4e5c4ff`,
+`e249c10` and `6e3b6e0`. Preserve those implementations and their regression tests.
+The session/page extraction in `4b7fc3b` is complete, but did not add missing checks
+to Join, Start/Stop or key Apply. These source facts do not establish appliance
+delivery or native acceptance. The x86 ISO build and full install remain deferred.
+
+### Phase 0 — reliable baseline
+
+**Owner:** [source-command tests](../tests/build/test_source_checks.py).
+Normalize the temporary fixture root with `Path(...).resolve()` before comparing it
+with the child process's physical working directory. Do not weaken the cwd assertion
+or alter the real source-check command to accommodate the fixture.
+
+**Check/exit:** all three command-double tests pass on macOS and Linux, including
+each suite's fail-fast behavior and the preserved native gates. The preceding review
+reproduced one macOS failure because `/var/...` resolves to `/private/var/...`;
+this is a test portability defect, not a failed database or installer operation.
+
+### Phase 1 — retire the unused bootstrap token
+
+**Owners:** [setup command](../cmd/soda-setup/main.go),
+[configuration](../internal/config/config.go), [activation](../appliance/bin/soda-activate),
+[operator guide](operator-setup.md) and their config/setup/activation/installed checks.
+
+1. Keep reading the operator-supplied token through its private input file for the
+   existing native setup calls. Stop copying it into the installed `admin-token` file.
+   Retain OAuth client secret and grant-key generation, operator eligibility and
+   exclusive publication/refusal after uncertain provider setup.
+2. Omit `admin_token_file` from new output. Accept the legacy field for parsing
+   compatibility without requiring, reading or using its path. Do not use a legacy
+   configuration value as authority to chmod, delete or revoke a credential.
+3. Remove that file from activation's service-readable credential list and update
+   all checks that currently require it. Narrow bootstrap token-scope guidance only
+   after inspecting the selected Forgejo endpoints and exercising synthetic API
+   fixtures. Do not change the configured Soda-operator authority.
+4. Author a separate existing-install maintenance recipe: identify the exact old
+   canonical file and current permissions, preserve it, and remove unnecessary
+   service-group access under an authorized target action. Token revocation/deletion
+   remains an explicit operator/provider action, not an automatic migration.
+
+**Check/exit:** new setup emits no copy/reference; old configs still load when the
+retired file is missing/unreadable; activation touches only required files. Tests
+assert that token bytes never appear in generated configuration, argv, errors or
+logs. Existing setup failures retain their uncertain external outcome. Source-ready
+does not mean already installed tokens have been remediated.
+
+### Phase 2 — finish session checks at mutation admission
+
+**Owners:** [Join](../internal/web/environments_api.go),
+[lifecycle/key handlers](../internal/web/management.go), existing
+[session helper](../internal/web/api.go) and real-handler web tests.
+
+Use `requireCurrentSession` after request decoding, provider authorization and
+relevant state reads, immediately before the first effect: account provisioning for
+Join, terminal cancellation/Stop admission for Stop, native Start, and native key
+Apply. Preserve exact cookie disambiguation, stable user/context/CSRF comparison,
+original membership/login and current saved-key confirmation. Failure must not
+provision, cancel terminals, dispatch the helper or record a successful membership.
+
+The contract is a fresh admission decision: logout/rotation completed before this
+final check denies the action. It does not undo an admitted native operation or
+promise atomic cancellation of a remote command after dispatch. Keep the stronger
+terminal admission/logout synchronization intact; no global lock over provider I/O,
+session cache or new operation scheduler.
+
+**Check/exit:** pause the actual provider path, complete real Soda logout or rotate
+the context, then release the request. Join, Start, Stop and Apply each deny with
+zero first-effect calls. Include changed actor/CSRF, store failure/cancellation,
+provider denial, unchanged-session success and Stop preserving live terminals on
+denial. Run the affected handler suite and Go race checks. The helper extraction
+alone is not completion of this phase.
+
+### Phase 3 — managed-key concurrency contract
+
+**Owners:** [key program](../internal/host/project_keys.py),
+[native caller](../internal/host/management.go),
+[filesystem tests](../tests/build/test_project_keys.py),
+[account provisioning](../project-os/rootfs/usr/libexec/soda/project-account) and
+[Project OS access guidance](project-os.md#access-credentials-and-connectivity).
+
+**Decision before implementation:** adopt one cooperative writer contract for Soda's
+root-owned managed key directory. All Soda writers and native administrators editing
+these managed files must hold the same directory `flock`, acquired before opening
+the file and held through the complete update. The directory itself remains stable.
+This uses the existing native lock and OpenSSH file format; it introduces no key
+database, SSH broker or `AuthorizedKeysCommand` service.
+
+This is the recommended bounded design, but accepting that native-writer requirement
+is a product decision. Standard check-then-rename does not provide expected-inode or
+content compare-and-swap against arbitrary root editors. A post-write reread or an
+extra hash cannot close that gap. If unrestricted simultaneous edits remain required,
+stop this approach and revisit ownership with the user; do not mark the finding fixed
+by merely changing the wording or preserving a backup after an overwritten revocation.
+
+After the contract is accepted, retain whole-set replacement and empty-set revocation:
+under the shared lock, validate the original account/directory/file, compare the
+preview revision, write, explicitly flush and then sync the exclusive temporary
+file, atomically publish,
+sync the directory and verify the result. Every managed-key writer must follow the
+same contract. Keep content, inode/path safety and no automatic replay/restoration
+checks; distinguish stale preview, busy writer and uncertain completion without
+exposing keys in diagnostics. Normal SSH reads do not need to participate in the lock.
+
+The current buffered stream calls `fsync` before an explicit flush; correct that
+durability ordering before publication. Account provisioning currently lacks the
+directory lock: acquire it before account/key observations and effects so contention
+cannot leave a newly provisioned account. Preserve exclusive missing-file creation
+and repeat-Join refusal on drift. Update the [API contract](dashboard-api.md) as well
+as code comments: the revision is a content hash, not a history/generation counter
+that detects every same-bytes replacement.
+
+**Check/exit:** deterministic separate-process fixtures cover competing Soda/native
+cooperating writers, stale preview, lock contention, append/edit/replacement before
+admission, empty-set revocation, mode/symlink/hardlink refusal, write/rename/fsync
+failure and post-publication uncertainty. Preserve later cooperating writes and
+clean only the exact unpublished temporary file. Include an explicit demonstration
+that a noncooperating root writer bypasses the advisory contract; do not turn it into
+a passing universal-safety claim. Existing-root delivery must preserve accounts,
+key bytes and unrelated SSH sessions under the same-root maintenance rules.
+Extend [account tests](../tests/build/test_project_account.py) for lock refusal
+before account commands. Use event barriers instead of timing sleeps, and preserve
+native nanosecond stat fields when constructing metadata-sensitive test fixtures.
+
+### Phase 4 — GitHub runner service compatibility
+
+**Owners:** [launcher](../internal/runners/launch.go),
+[registration/copy](../internal/runners/native_create.go),
+[exec wrapper](../cmd/soda-runner-launch/), [unit](../appliance/services/soda-runner@.service),
+[source lock](../appliance/locks/github-runner-source.toml) and runner tests/guide.
+
+Inspect the verified 2.337.0 package, configuration-created files and service
+template. GitHub's [custom-service contract](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application)
+requires `runsvc.sh`. Select its actual packaged/generated location and supply any
+required companion files through the existing producer. Do not guess that changing
+one filename alone is sufficient; exact-tag online retrieval previously failed.
+
+Preserve direct exec, original runner account/home/state, disabled self-update and
+existing hardening unless a specific upstream requirement justifies a reviewed
+change. Keep Forgejo's daemon path unchanged. Do not run `svc.sh install` alongside
+the existing Soda service or register a new provider runner as a repair shortcut.
+
+**Check/exit:** command/layout fixtures verify correct provider entrypoints, required
+files and ordinary signal forwarding. Later authorized native tests cover startup,
+stop during a trusted job, restart and original registration/state preservation.
+Test the supported CPU architectures separately; a mocked launcher or idle active
+unit is not proof of provider job/stop behavior.
+
+### Phase 5 — cancellation and capture bounds
+
+**5a, host admission:** replace the buffered-handler mutex wait in
+[daemon dispatch](../internal/host/daemon.go) with context-selectable single-operation
+admission. Preserve global serialization and separate terminal/runner locks. Check
+cancellation both after acquiring admission and before effects; initialize safely
+under concurrent/zero-value test use. Tests block one executor, cancel a second
+waiter, verify its prompt return with zero executor calls, then verify a subsequent
+request succeeds. Include already-cancelled contexts, deadline expiry, owner failure
+and no leaked admission. No per-project scheduler or unmeasured parallelism change.
+
+**5b, native capture:** inspect the actual output needs of host/native runner/pkexec
+and [Tailnet process](../internal/process/process.go) callers. Reuse native filtered
+output where available; cap bytes while collecting, not after allocating an entire
+response. Specify per-command stdout/stderr limits from the current protocol and
+fixtures before implementation. Keep status JSON complete-or-error and errors
+sanitized; never parse a truncated buffer as success.
+
+Define overflow behavior with each command's effects. Status readers can cancel
+their owned read command. Mutating commands should retain at most the bound, drain
+excess under a finite command deadline and report an unconfirmed result without
+replay or rollback. Preserve existing owned-child cleanup; timeout/pipe closure is
+not proof that arbitrary descendants or remote mutations stopped. Test oversized
+stdout/stderr, exact boundary sizes, nonzero exit, cancellation, cleanup and secret
+redaction using synthetic children. Avoid a general command framework.
+
+**5c, Tailnet stream:** bound the partial-object accumulator in the existing
+[authentication framer](../cockpit/src/tailscale/stream.ts). Keep native `JSON.parse`,
+split-object/string-escape behavior and native preference preservation. Test one
+oversized unterminated object, many valid objects, malformed/truncated input,
+multibyte accounting and cancellation. Error/cancel must not reset native preferences
+or start a second sign-in attempt.
+
+### Phase 6 — integration, evidence and delivery
+
+After each behavioral commit, run its focused existing tests; use race checks for
+changed concurrency/security paths. After the required fixes are integrated, run
+the existing combined source command with the documented tool prerequisites and
+record failures/skips honestly. Preserve schema-v8 and three-page browser regression
+coverage; no new all-purpose test framework or duplicate acceptance gate.
+
+Keep **source-ready**, **native-validated** and **delivered** separate. New-install
+token behavior, key permissions/locking and runner signal behavior require native
+proof on an authorized fixture. Existing appliances need a fresh backup and a
+reviewed affected-component/same-root recipe. Do not replay activation/first-install,
+delete old credentials, replace project roots or mutate provider registrations.
+Current target/action grants must be checked at that time. The x86 ISO build and
+complete first-install journey remain deferred until the machine is available;
+this plan does not reactivate them or authorize publication.
+
+### Phase 7 — optional cleanup after correctness
+
+Consider one candidate per commit: uncalled standalone terminal mode (port useful
+tests and retain legacy locators), native GCM nonce packing (prove old/new ciphertext
+compatibility), unused generic process methods, narrower OCI parsing through a
+verified upstream reader, or Tailnet native UI reuse. Adopt only when the existing
+authority, persistence, file-size/provenance and complete-user-journey contracts
+remain intact. Preserve Cockpit until its replacement is validated. These candidates
+do not block the required fixes, installer native proof or ordinary product work.
+
+**Completion:** phases 0–5 have focused regression evidence and the accepted
+key-writer contract; phase 6 records the actual native/delivery outcome separately.
+No open high-priority item is relabelled complete because a helper exists, docs
+changed, optional cleanup was skipped or a source test passed.

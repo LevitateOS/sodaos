@@ -7,6 +7,14 @@ whether Soda needs each responsibility and whether a mature upstream mechanism
 can own more of it. It is separate from installer acceptance, a penetration test,
 or permission for a broad rewrite/deployment.
 
+**Current-source reconciliation at `1f1a9d3`:** incoming commits have fixed the v8
+startup completeness checks and the aggregate/page-fixture wiring. The shared
+session/page helper is implemented, but Join/Start/Stop/key Apply still lack the
+required final session check. The macOS source-command fixture has one reproduced
+path-normalization failure. Follow the [implementation plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
+for remaining work. The historical review below does not establish that these fixes
+are delivered to an appliance.
+
 The [architecture](architecture.md) and [upstream-first instructions](../AGENTS.md#human-maintainable-engineering)
 remain the product boundary. A small adapter is justified when it binds native
 operations to Soda's operator, project, actor or artifact contract. Reimplementing
@@ -76,10 +84,10 @@ It is a maintenance recommendation, not a new feature roadmap or deployment gran
 | First | Unused bootstrap token retained and service-readable | Stop future copy/access; preserve existing operator files and compatibility. |
 | First | Join/Start/Stop/key Apply can use a session captured before delayed provider I/O | Add original-session checks and precise admission tests. |
 | First | Project-key replacement can overwrite a later native edit | Define and implement an honest conflict/update contract with race fixtures. |
-| Next | Current schema validation omits v8 columns/trigger | Extend native SQLite startup checks and malformed-schema fixtures. |
+| Source fixed | Original schema validation omitted v8 columns/trigger | `bd74b5f` adds the checks and malformed-schema fixtures; retain regression coverage. |
 | Next | GitHub service uses interactive launcher | Use the upstream service entrypoint after validating the selected runner layout and shutdown behavior. |
 | Next | Queued host cancellation and unbounded command/stream capture | Fix at the existing admission/capture boundaries; no scheduler or process framework. |
-| Next | Aggregate preparation and browser fixture invocation gaps | Wire existing test owners and fresh outputs once. |
+| Source fixed; portability follow-up | Aggregate preparation and browser fixture invocation gaps | Incoming commits wire the existing owners/fresh outputs; fix the macOS temporary-path fixture. |
 | Conditional | Tailnet LocalAPI/native UI, OCI reader, nonce packing, uncalled terminal mode | Compare actual contracts before replacing/removing; preserve state and user journeys. |
 
 ### Remove unused bootstrap credential retention
@@ -122,13 +130,14 @@ terminal registry locks across provider/native I/O or add a provider-role cache.
 ### Complete current database validation
 
 [Migration v8](../internal/store/migrations.go) introduces `creation_profile`,
-`repository_settings_return` and the `immutable_creation_profile` trigger. The
-startup completeness queries omit all three. An incomplete database that reports
-the current version can therefore pass the intended startup gate. No damage to a
-retained database was observed or alleged.
+`repository_settings_return` and the `immutable_creation_profile` trigger. At the
+original audit revision the startup checks omitted all three. Incoming commit
+`bd74b5f` now checks both columns and the named trigger on the expected table,
+with independent malformed/current-schema fixtures. No damage to a retained
+database was observed or alleged.
 
-Extend the existing zero-row queries and inspect SQLite's catalog for the expected
-trigger, with malformed-current-version fixtures. [SQLite's integrity and foreign-key
+Retain the zero-row queries and SQLite catalog check, with malformed-current-version
+fixtures. [SQLite's integrity and foreign-key
 checks](https://www.sqlite.org/pragma.html) validate storage and declared constraints;
 they cannot infer Soda's intended schema. Keep transactional append-only migrations,
 pre-migration grant-key checks and native SQL. No ORM, schema-repair engine or
@@ -152,6 +161,12 @@ native edits and report uncertainty instead of restoring a snapshot. Add determi
 replacement/in-place-edit and partial-write cases. Do not substitute a live
 `AuthorizedKeysCommand` database or claim general atomic filesystem compare-and-swap.
 The installer enrollment append correction does not fix this separate project path.
+
+The subsequent planning review found a related durability issue: the staged key
+file uses buffered writes and calls `fsync` before an explicit flush. The plan
+requires flush-before-sync and coordinates account provisioning with the same stable
+directory lock. This remains source work. The proposed cooperative native-writer
+contract needs acceptance; it is not protection against arbitrary ignored-lock edits.
 
 ### Make helper admission cancellable and bound command capture
 
@@ -296,23 +311,22 @@ subset rather than presenting its refusals as universal OCI requirements.
 
 ### Keep the existing test runners; remove repeated preparation
 
-The [root test scripts](../package.json) invoke `build:forgejo` separately through
-multiple branches of the aggregate test command. The [native checker](../scripts/check-native.sh)
+At the original audit revision the [root test scripts](../package.json) invoked
+`build:forgejo` through multiple aggregate branches. Incoming commits now prepare
+once and retain independently usable feature commands. The [native checker](../scripts/check-native.sh)
 uses those existing Go/Bun/Python owners, and the
 [remote support executor](../internal/acceptance/remote_executor.py) invokes the
-same build/check scripts. The repeated preparation is a confirmed consolidation
-opportunity already covered by the [maintenance plan](refactoring-plan.md).
-Prepare browser outputs once for an aggregate run while retaining independently
-usable feature commands. Do not introduce a second test scheduler or duplicate
+same build/check scripts. Retain that consolidation and the existing native-stage
+gates. Do not introduce a second test scheduler or duplicate
 product scenarios in support tools.
 
-The [page fixture orchestrator](../scripts/test-spaces-page.ts) produces only Spaces
-HTML; runner/repository-settings browser consumers need their separate producers
-and output paths. The [settings-link browser test](../tests/forgejo/settings-link.test.ts)
-is gated and absent from the explicit Lit browser list. A Go producer writes a fresh
-artifact directory without disabling result caching. Wire existing owners, require
-fresh fixture outputs and preserve independent entrypoints. These are source
-invocation findings, not newly executed failures or measured timing improvements.
+The [page fixture orchestrator](../scripts/test-spaces-page.ts) now invokes all three
+Go HTML producers uncached, requires their nonempty outputs and runs their browser
+consumers. Settings-link is now included in local Lit checks. Those original wiring
+findings are source-fixed. The new [source-command fixture](../tests/build/test_source_checks.py)
+still compares the unresolved macOS temporary path with the child's physical cwd;
+one of its three tests failed during the follow-up review. Normalize the fixture
+path without weakening its assertion. Native/installed checks remain separate.
 
 ### Preserve native web authority and narrow frontend cleanup
 

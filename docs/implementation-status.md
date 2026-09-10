@@ -1,5 +1,33 @@
 # Current handoff
 
+## Audit remediation plan — current source reconciled, implementation not started
+
+Added the [ordered remediation plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
+against `1f1a9d3`. It separates already implemented schema-v8/source-check/page-helper
+work from the remaining token, mutation-session, key-writer, runner-entrypoint and
+admission/output-bound changes. Updated the audit's current status accordingly;
+earlier revision-specific findings and evidence retain their scope.
+
+The prior follow-up review passed `internal/store` and `internal/web` tests with
+pinned Go 1.26.7 in the network-disabled Linux/aarch64 checker. It reproduced one
+macOS failure among the three source-command fixture tests: unresolved `/var` versus
+physical `/private/var` cwd. The plan includes the fixture normalization; no test or
+production code was changed in this planning step.
+
+A focused read-only key review confirmed that arbitrary native root editors cannot
+be protected by the existing check/rename sequence. The proposed shared directory
+lock contract requires native-writer coordination and must be accepted before that
+phase is implemented. Account creation must join the same contract. The review also
+identified buffered write/flush/fsync ordering to correct before key publication.
+The plan includes deterministic conflict, durability, revocation and uncertainty
+checks rather than claiming general filesystem compare-and-swap.
+
+This step changes documentation only. Local documentation links/anchors and Git
+whitespace were checked; no product tests/builds, dependency installation, provider
+mutation, native service/credential/project change or deployment occurred. Optional
+cleanup follows correctness. The x86 ISO build and full installation remain deferred;
+the plan does not resume them or grant additional target/actions.
+
 ## Full upstream-ownership audit — source review complete
 
 Completed the [source-linked audit](upstream-ownership-audit.md) against installer
