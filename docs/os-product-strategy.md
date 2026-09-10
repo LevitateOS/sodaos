@@ -18,6 +18,75 @@ selection does not select a VM platform, host device broker, new OS updater or a
 of this strategy's still-proposed capacity/recovery features. The leading plan owns
 their integration order alongside existing onboarding and credential work.
 
+## Three OS roles and container ownership
+
+The 10 September 2026 design discussion selects three OS roles. These describe
+different responsibilities and lifetimes, not three machines booted for every job.
+
+| Role | Selected foundation | Responsibility and current status |
+| --- | --- | --- |
+| Host OS | Fedora CoreOS | Boots the appliance, supplies the Linux kernel, and runs native services and container engines. Current implementation, with the remaining product acceptance gaps recorded in the handoff. |
+| Project OS | Rocky headless, Rocky KDE, Fedora Server/headless, Fedora KDE | Persistent developer accounts, homes, tools, project services and optional desktop. Rocky headless exists; the additional profiles remain work. Every profile must include mise. |
+| Runner OS | Dedicated Rocky headless job image with mise | Fresh CI job environment, separate from persistent developer projects. Selected design; current runners still execute jobs directly under host accounts. Containerized job execution is not implemented. |
+
+The [Project OS guide](project-os.md#selected-environment-profiles) owns the profile
+contracts. The [runner guide](runners-port.md) owns the selected job image, proposed
+tool inventory and cache questions. Arch and Ubuntu are not selected Soda runner
+images. Shared Rocky package/tooling recipes do not imply shared writable roots,
+developer homes, credentials or caches between development and CI.
+
+There are three top-level workload purposes, with supporting containers belonging
+to their workload. All Linux containers ultimately use the host kernel; separate
+engines and authorities determine who may manage them:
+
+```mermaid
+flowchart TB
+  subgraph Host["CoreOS host"]
+    Services["Appliance service containers · marketplace planned"]
+    subgraph Project["Persistent Project OS container"]
+      Tools["Developer accounts, tools and mise"]
+      Engine["Project-local Podman"]
+      Engine --> ProjectDB["Project database / app containers"]
+    end
+    subgraph CI["Isolated CI execution · planned"]
+      Runner["Native runner agent + separate execution engine"]
+      Runner --> Job["Temporary Rocky job container + mise"]
+      Runner --> TestDB["Temporary supporting service containers"]
+      Job <-->|Job network| TestDB
+    end
+  end
+```
+
+Marketplace services are appliance-operator managed. Project administrators manage
+their [nested workloads](project-services.md); they do not receive the appliance
+engine socket. A CI database can be launched alongside a job by the runner using
+the provider's native service-container mechanism. This is distinct from permitting
+arbitrary nested container builds inside a CI job, which needs its own supported
+execution capability. Forgejo documents [job service containers](https://forgejo.org/docs/v15.0/user/actions/advanced-features/#services);
+their Soda integration and provider-specific native proof remain work.
+
+### Vocabulary for this design
+
+| Term | Meaning |
+| --- | --- |
+| Container image | Packaged filesystem and execution defaults used to create containers; an image is not a running environment. |
+| Container | A runnable process environment created from an image, with configured filesystem, network and resource boundaries; it shares the Linux host kernel. |
+| Container engine | Software such as Podman or Docker that builds images and manages containers, networks and storage. Podman does not require every container to belong to a pod. |
+| Pod | A group of containers sharing selected resources, commonly a network namespace. Containers retain separate filesystem views; shared storage is explicit. |
+| Container network | Connectivity between containers. Communication alone does not require a shared pod. A Compose application is not automatically equivalent to a pod. |
+| Volume / bind mount | Storage made available to a container separately from its own writable layer. Named volumes and host directories can outlive a job container; retention is an explicit lifecycle choice. |
+| Registry | A service for publishing and downloading container images. OCI describes interoperable image/runtime/distribution standards, not a requirement for a custom Soda host image. |
+| systemd / Quadlet | systemd supervises native services. Quadlet translates Podman resource definitions into systemd units, allowing containers and pods to participate in service startup. |
+
+These terms follow the [Podman overview](https://docs.podman.io/en/latest/),
+[pod contract](https://docs.podman.io/en/latest/markdown/podman-pod-create.1.html),
+[volume lifecycle](https://docs.podman.io/en/latest/markdown/podman-run.1.html#volume-mounts),
+[Quadlet documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+and [Docker Compose model](https://docs.docker.com/compose/intro/compose-application-model/).
+For host deployment vocabulary, [update ownership](#update-ownership) explains
+rpm-ostree, Zincati, bootc and host OCI; the [installer guide](coreos-installer.md)
+and [installation guide](installation.md) cover provisioning and ISO/QCOW2 delivery.
+
 ## The three recommendations
 
 - **Most valuable proposed host capability:** enforced resource protection for shared

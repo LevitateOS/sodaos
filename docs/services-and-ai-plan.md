@@ -46,6 +46,8 @@ its companions actually benefit from sharing networking.
 | --- | --- | --- |
 | Marketplace service | Persistent app and data; appliance operator | Host Podman, native Quadlet/systemd |
 | Development project | Existing shared accounts, files and tools; project administrators | Preserve the current Rocky project and nested Podman |
+| Project database/app container | Persistent project workload and data; project administrators | Project-local nested Podman, separate from the appliance marketplace |
+| CI job and supporting service containers | Job-scoped workspace/services; native provider workflow and runner | Selected Rocky job image with mise; isolated execution remains unimplemented |
 | AI run | Linked issue/PR attempt with bounded review/fix rounds; repository policy and Forgejo Actions | Isolated checkout and agent process, with a live terminal projected into Spaces/drawer |
 | Desktop session | Graphical session of a project-local account; persistent app data in that account’s home | KDE within the Project OS foundation; desktop transport is not implemented |
 
@@ -54,6 +56,10 @@ home or personal credentials. Sharing the Spaces UI does not require sharing tho
 resources or tying execution to one viewer's browser session.
 Project service catalogs would instead need project authorization and the existing
 nested engine; they are not interchangeable with an operator's host catalog.
+The [OS-role overview](os-product-strategy.md#three-os-roles-and-container-ownership)
+maps these owners. The [runner guide](runners-port.md) records the selected Rocky/mise
+job image, proposed tool baseline and unresolved native cache integration; these
+decisions do not resolve the AI credential boundary documented below.
 
 ## 1. Services marketplace
 

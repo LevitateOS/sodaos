@@ -1,5 +1,33 @@
 # Current handoff
 
+## OS roles, runner image and mise — documentation decisions
+
+Recorded the subsequent voice design discussion in the
+[OS-role overview](os-product-strategy.md#three-os-roles-and-container-ownership),
+[Project OS profiles](project-os.md#selected-environment-profiles),
+[project-service ownership](project-services.md#project-databases-and-pods),
+[runner guide](runners-port.md) and [Services/AI plan](services-and-ai-plan.md).
+Selected Fedora CoreOS for the host, the four existing selected Rocky/Fedora
+headless/KDE project profiles, and a dedicated Rocky headless Runner OS. Mise is
+required in all project profiles and the CI image, sharing repository declarations
+while keeping writable installations, caches and credentials separate. Arch and
+Ubuntu are not selected runner images. Projects retain their nested engine; planned
+CI service containers are managed alongside the job by the runner. A pod is optional
+and is not required merely for containers to communicate.
+
+The job-image tool inventory and use of native Forgejo cache archives are recorded
+as recommendations, with exact storage, isolation, retention and compatibility
+still to verify. Source inspection found Forgejo runner caching explicitly disabled
+since its initial port; no rationale was found in the inspected code/history/docs.
+There is no selected automatic cache volume per repository. Current runners remain
+host-executed, and selecting Rocky/mise does not implement isolated jobs or resolve
+the previously recorded AI credential boundary.
+
+This slice changes documentation only. It inspected source/history and primary
+upstream references. Git whitespace checks and all 17 added local documentation
+links/heading anchors passed. No product tests, builds, dependency changes, cache enablement,
+runner/provider actions, deployment or retained-state cleanup were performed.
+
 ## Merge of installer decisions and headless foundation work
 
 Merged remote `74ea442` installer/media/Services documentation with local `9f86344`

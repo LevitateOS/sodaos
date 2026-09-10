@@ -130,6 +130,16 @@ The user selected Linux for desktops and these creation choices on 2026-09-10:
 | Fedora KDE | Fedora Linux | Terminal and KDE Plasma desktop | Selected; recommended first desktop implementation |
 | Fedora GNOME | Fedora Linux | Terminal and GNOME desktop | Deferred |
 
+**Mise is selected for every supported Project OS profile and the separate Rocky
+CI job image.** Development and CI use the repository's same tool declarations and
+lockfile when provided, with explicit native trust/install steps. Project tool
+installations remain in the persistent project; CI uses its own installations and
+cache lifecycle. Reusing configuration does not mount developer homes, credentials
+or shared project tool stores into jobs. Native compilers, headers and system
+libraries remain image responsibilities. The [runner guide](runners-port.md) owns
+the CI image and cache design; only the current Rocky project image already ships
+mise. This decision does not imply that the additional profiles or CI image exist.
+
 The creation UI uses one **Project OS** dropdown with the four selected combinations,
 as specified in [repository settings](sodaspaces-plan.md#settings-pages-and-os-selection).
 Distribution/interface remain profile properties rather than independently saved

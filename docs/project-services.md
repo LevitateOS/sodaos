@@ -25,6 +25,17 @@ do not implement both candidates now. Neither surface grants ordinary members th
 rootful project engine or host Podman socket. AI job isolation remains the runner's
 separately verified boundary, not borrowed project credentials.
 
+## Project databases and pods
+
+A PostgreSQL container started for a development project belongs to the project's
+nested Podman engine and persistent workload storage. It is not automatically a
+host-managed sibling of the outer Project OS container. The existing project-local
+networking and published service endpoints provide access; communication does not
+require putting the project and database in one pod. Related inner workload
+containers may use native networks, Compose or a pod as appropriate, preserving
+the existing project authority and data boundary. The [three OS roles](os-product-strategy.md#three-os-roles-and-container-ownership)
+show how this differs from appliance marketplace apps and planned CI job services.
+
 ## Service and permission corrections
 
 Installed testing found two concrete defects: `CONTAINER_HOST=` selected remote

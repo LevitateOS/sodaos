@@ -29,6 +29,81 @@ Keep the Cockpit Runners page, its current protocol, backing logic, packaging,
 dependencies, and focused tests until the new surface has passed the completion
 gate below and its removal is coordinated. Tailnet stays in Cockpit.
 
+## Selected Runner OS direction
+
+Soda selects a dedicated **Rocky headless Runner OS** for future isolated jobs.
+It shares the reviewed Rocky-family foundation and conventions with Project OS,
+but it is a separate job artifact: it does not reuse a Project OS image, inherit
+its persistent account/home/SSH/tmux contracts, or turn a development environment
+into CI capacity. Ubuntu and Arch are not selected. This choice does not claim
+package-for-package or behavior parity with GitHub-hosted Ubuntu runners.
+
+`mise` is required in the Runner OS. A repository may use the same ordinary
+`mise.toml` that developers use, after the workflow makes the applicable trust
+decision, but CI has its own installation and cache locations. It never borrows a
+developer's `/opt/mise`, home, dotfiles, provider login, package-manager state or
+credentials. Repository-selected language versions belong to mise; mise does not
+replace the native compiler, headers, libraries and utilities the image must supply.
+
+The intended execution model creates a fresh disposable job environment for each
+job. Steps in that job share its checkout and workspace. Provider results and an
+explicit cache/artifact mechanism may outlive the environment; arbitrary job
+filesystem state does not. Planned cleanup is limited to the exact job-owned
+disposable resources. This design is not authority to erase retained fixtures,
+evidence, runner registration/state or unrelated caches. Production lifecycle work
+must prove cleanup after success, failure and cancellation, including interrupted
+or partially created environments.
+
+The native runner agent remains a long-lived, dedicated service account and
+listener. It launches provider-assigned job containers; it does not itself become the
+job image. A workflow may request explicitly supported service containers alongside
+the job on a job-owned network. That does not automatically make them a Podman pod,
+permit a nested container engine, or expose the host/rootless engine socket inside
+the command job. Exact network, volume, cancellation and cleanup behavior requires
+native proof for the selected Forgejo runner and Podman versions. The current source
+still executes Forgejo and GitHub jobs directly on host runner accounts. The
+dedicated rootless OCI candidate and its unresolved credential/publication boundary
+remain owned by the [services and AI plan](services-and-ai-plan.md#trust-credentials-and-the-concrete-runtime-gap).
+
+The recommended first image baseline, still subject to an accepted package inventory
+and native validation, has five groups:
+
+1. Shell and workflow utilities: Bash/coreutils, Git, OpenSSH client, CA trust,
+   curl, find/process tools, `file`, patch/diff tools and `jq`.
+2. Action runtimes: Node.js versions required by the supported JavaScript
+   actions, plus OS Python for compatible workflow tooling. Repository language
+   versions remain mise-owned.
+3. Archive, artifact and cache tools: `tar`, gzip, zip/unzip, xz, bzip2 and zstd.
+4. Native build prerequisites: GCC/G++, libc/C++ headers, Make, CMake, Ninja,
+   pkg-config, binutils and the selected common development libraries.
+5. The pinned, architecture-matched mise binary and its explicit CI directories.
+
+That baseline is a recommendation, not an accepted exhaustive inventory or runtime
+proof. Browser, mobile, container-build and cloud-provider workflows each need a
+selected, tested capability and may use a different image or label. Do not grow one
+generic image until it resembles an undocumented GitHub runner image.
+The comparison uses GitHub's [Ubuntu tool inventory](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md),
+Forgejo's [action runtime requirements](https://forgejo.org/docs/latest/admin/actions/configuration/)
+and the [mise CI guide](https://mise.jdx.dev/continuous-integration.html). Build and
+validate the selected image separately on x86_64 and aarch64; image selection alone
+does not establish architecture or CPU compatibility.
+
+The current [Forgejo runner configuration](../internal/runners/native_create.go)
+has disabled its cache since the initial port. Inspection of the configuration,
+its introducing commit and documentation found no recorded rationale. Disabling
+the cache is not a CoreOS requirement. Investigate the selected Forgejo runner's
+[native cache mechanism](https://forgejo.org/docs/latest/admin/actions/configuration/#cache-configuration)
+before enabling it, starting with archives
+stored in runner-owned storage rather than caller-selected host paths. Verify exact
+upstream behavior for repository/trust isolation, cache keys, version and native
+architecture scoping; do not claim those boundaries are automatic or secure without
+that evidence. No physical volume per repository is selected. Cache use should be
+workflow opt-in and allocated on use. Retention, quotas, eviction, networking,
+storage placement and cleanup remain unresolved product decisions. Providers retain
+workflow semantics, scheduling and results. Caching follows the selected native
+provider/runner contract; GitHub behavior is comparison evidence, not proof of
+Forgejo behavior.
+
 ## Current source and observed evidence
 
 The local source now includes the protected Go/Lit page and fixed root:soda runner
