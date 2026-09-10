@@ -9,7 +9,7 @@ installer or product gate. The [CoreOS installer implementation](coreos-installe
 now has source and focused local tests for upstream ISO customization, a Go console
 and installed-host continuation instead of Anaconda. The console ships on media,
 not through a required hosting URL; see the handoff for generation evidence.
-Boot and fresh-disk validation remain unrun. QCOW2 wrappers remain unselected/unimplemented. See
+Bounded diskless BIOS/UEFI boot checks passed; fresh-disk validation remains unrun. QCOW2 wrappers remain unselected/unimplemented. See
 [handoff](implementation-status.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning. The separately built installer
 ISO does not contain a populated Soda appliance; no Soda host OCI or preinstalled

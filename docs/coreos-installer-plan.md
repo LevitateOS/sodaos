@@ -5,7 +5,8 @@
 The user subsequently requested implementation. Steps 1–4 now have a source
 candidate and focused local coverage; see [the implementation/usage guide](coreos-installer.md).
 Step 5 now includes on-media packaging/readback checks; see the handoff for actual
-media-generation evidence. Boot/disk writes and the installed journey remain unrun. The candidate has a tty1 console,
+media-generation and bounded diskless BIOS/UEFI boot evidence. Disk writes and the
+installed journey remain unrun. The candidate has a tty1 console,
 not a graphical or serial-only interface. An invalid/cancelled form exits; native
 effects are never automatically retried.
 

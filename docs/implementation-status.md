@@ -1,5 +1,37 @@
 # Current handoff
 
+## Final branded installer media: bounded BIOS/UEFI boot evidence
+
+Clean **`17a8846431097650ca4630786baa359286c4157c`** built successfully into
+`.artifacts/coreos-installer-17a8846/`. The final ISO is **1,079,246,848 bytes**,
+SHA-256 **`c41c316db6c3cf843c966dca5cbc805c850e1a02e47e6249ea8a0a571190ddf0`**.
+Signed upstream verification, bounded branded-menu inspection, preserved boot/OS
+content checks and native Ignition/kargs readback passed; generated checksums were
+rechecked. Full Go 1.26.7 tests passed, as did focused installer/nativebuild race
+checks and the 15 installer Python tests. The unrelated full Python Forgejo inventory
+failure recorded below remains unresolved.
+
+The exact final ISO booted through the enforcing-SELinux console guard under both
+BIOS and OVMF UEFI in the run-owned `soda-installer-boot-test` QEMU fixture, with no
+NIC or destination disk. GRUB displays **SodaOS Installer**. Real BIOS keyboard
+interaction opened/exited `nmtui` and verified the corrected clean SodaOS network
+review page. Both modes reached empty disk selection and cancelled without installing.
+Only this fixture was stopped/restarted; it is now stopped. Its logs, screenshots,
+QMP inventories and fresh per-attempt UEFI variable files remain under
+`.artifacts/installer-vm-FbqpKn/`; previous attempts are preserved.
+
+Delivered an exclusive new copy to
+**`/home/libvirt/images/soda-installer-17a8846.iso`**, verified against the exact hash,
+mode **0644**, SELinux **`virt_image_t`**. The older image and existing domain
+configuration were not overwritten. No destination installation, retained VM/project
+mutation, host network-policy change or publication occurred. Secure Boot, aarch64,
+static networking and the installed continuation remain untested.
+
+**Full branding is not complete:** ISO menus and live console are branded, and shared
+provisioning supplies SodaOS display identity/icon. Installed-disk GRUB/BLS titles
+still require the native release-identity packaging decision described below; an
+`/etc/os-release` override alone cannot satisfy that owner.
+
 ## Branded BIOS/UEFI live boots passed; network-editor return corrected
 
 Clean **`0c1496c`** built and passed signed-input, content-preservation and native

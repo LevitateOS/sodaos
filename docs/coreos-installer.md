@@ -2,7 +2,8 @@
 
 Implementation of the [installer plan](coreos-installer-plan.md); see the
 [handoff](implementation-status.md) for actual media-generation evidence.
-A native x86_64 ISO is built with the console on media.
+A native x86_64 ISO is built and has bounded diskless BIOS/UEFI boot proof, with
+the console on media.
 **ISO generation/inspection is not boot or fresh-appliance acceptance.** Anaconda
 and Kickstart are not used. No upstream installer patches or OS filesystem
 replacements are introduced. Legacy source and canonical artwork remain unchanged.
@@ -204,8 +205,9 @@ real copy/hash/exec and failure handling on synthetic files. A deliberately nonb
 synthetic EFI ISO tests real xorriso preservation, primary names and tamper rejection;
 synthetic BIOS bytes test relocated boot-info/PVD checks. These are not native proof.
 
-Actual tty1 boot and enforcing-SELinux launch, static networking, confirmed disk
-writes, first boot/reboot/continuation and complete operator setup still require
-explicit fresh-target/disk approval and native proof. Native aarch64
+Native x86_64 diskless BIOS/UEFI boots reached tty1 through the enforcing-SELinux
+guard. Network-editor open/return and cancellation also have bounded native proof.
+Static networking, confirmed disk writes, first boot/reboot/continuation and complete
+operator setup still require explicit fresh-target/disk approval and native proof. Native aarch64
 is independent; cross-compilation or metadata are not installed evidence. See the
 [handoff](implementation-status.md) for actual checks and unrelated packaging failures.
