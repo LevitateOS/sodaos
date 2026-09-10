@@ -1,11 +1,13 @@
 # Upstream-first refactoring review and implementation plan
 
-Reviewed on 10 September 2026 against `c20abc3ec35bf416c4f55154373da7f29a3f2e28`.
-**Status: reviewed recommendations, not implemented refactors or new runtime proof.**
-The user requested a maintainability audit, preservation of unfinished features,
-and an upstream-reuse review before turning the findings into an implementation plan.
-This document records that review and **narrows the initial audit** where it was
-premature or overlooked an existing mechanism.
+**This is the single maintenance implementation plan:** actions, order, decisions,
+exit criteria and current source status live here. The
+[upstream ownership audit](upstream-ownership-audit.md) owns findings and research;
+[the handoff](implementation-status.md) owns actual execution/delivery evidence.
+Do not create a second backlog in the audit or repeat completed work under a new label.
+
+The original planning review used `c20abc3` on 10 September 2026. A–D and the selected
+E admission slice now have local source checks; native delivery remains separate.
 
 The [remaining audit implementation plan](#7-audit-remediation-implementation-plan)
 is based on the rebased `1f1a9d3` tree. It is the current maintenance order and
@@ -14,26 +16,11 @@ session/page mechanics. The earlier sections retain their design/evidence contex
 
 ## Requested full upstream-ownership audit — source review complete
 
-The subsequent [full ownership audit](upstream-ownership-audit.md) is complete
-against installer candidate `8320f9c`. It inventories all 16 internal packages and
-follows their command, native, frontend and build callers. It is a source ownership
-review, not exhaustive security/native acceptance or implemented refactors.
-
-The report distinguishes confirmed defects, unnecessary retained authority, justified
-adapters and conditional reuse candidates. Its priority order adds unused bootstrap
-credential retention, missing post-provider session checks, project-key concurrency
-and GitHub's service entrypoint to the earlier maintenance recommendations below.
-The targeted installer reviews alone were not counted as completing this audit.
-
-Preserve working user journeys, authorization, persistence and unfinished features.
-Findings are recommendations, not blanket permission for a rewrite, removal of
-retained state or broad deployment. The deferred x86 installer validation retains
-its own scope. Detailed evidence and limits live in the report; actual execution
-remains in the handoff.
-
-The strengthened [repository instructions](../AGENTS.md#human-maintainable-engineering)
-apply throughout implementation and review. This audit remains separate from the
-[installer interface contract](coreos-installer-plan.md#selected-text-interface-and-completion-contract).
+The [audit](upstream-ownership-audit.md) is the evidence source for the remediation
+phases below. Its coverage, selected upstream versions and review limitations live
+there, not in a second inventory here. The [repository instructions](../AGENTS.md#human-maintainable-engineering)
+and feature-owner contracts continue to govern implementation; neither document
+grants native execution or deployment permission.
 
 ## Decision
 
@@ -41,9 +28,9 @@ Keep the selected architecture. Improve Soda's integration and development feedb
 do not build smaller replacements for Forgejo, Lit, tmux, systemd, OpenSSH, Podman,
 CoreOS Installer or the existing test runners.
 
-**Do first:** reliable invocation of existing integration tests, one browser build
-per aggregate test run, complete schema-v8 startup checks, and readable current
-instructions. Then make small, feature-aligned changes to existing owners. Broad
+Use the [current status and order](#current-status-and-order), not the historical
+A–G labels, to select remaining work. Test wiring, v8 completeness, bounded frontend
+cleanup and cancellation-aware admission must not be scheduled again. Broad
 frontend decomposition, a generic terminal manager, per-project scheduling and a
 new installation engine are **not** prerequisites or selected rewrites.
 
@@ -79,48 +66,29 @@ remain Soda obligations.
 
 ### Responsibility and reuse findings
 
-| Area | Established mechanism and source reviewed | Soda's legitimate remainder / decision |
-| --- | --- | --- |
-| Forgejo pages, identity, permissions, Git and Actions | Selected 15.0.7 template lookup, native navbar/settings templates and own-user key handlers; official customization | Preserve native workflows, including administrator views. Use hooks/necessary reviewed overrides and supported acting-user APIs. Soda pages authorize only Soda features; no copied forge backend, borrowed sessions or downstream executable patch. |
-| UI lifecycle and rendering | Installed Lit 3.3.3 / reactive-element 2.1.2 controller interfaces and implementation; official controller documentation | Lit already supplies controller registration, lifecycle callbacks and reactive updates. Use those if a subcomponent lifecycle really needs extraction; do not invent a parallel controller/event framework. Existing typed views and pure layout functions remain useful. |
-| Async request state | Browser fetch/AbortController and official `@lit/task` documentation | Task already offers pending/result/error, latest-result handling and cancellation signalling, including manual mode. Do not author a generic Task clone. Keep current direct requests unless a concrete read-only slice benefits; Task is not currently a dependency, and no dependency addition is selected here. |
-| Browser terminal | Locked xterm renderer; retained upstream tmux 3.2a attach/no-start source; Soda's current terminal program | Xterm owns terminal rendering; tmux owns live shell/screen/history. Soda binds exact IDs, actor/account, access deadlines and cleanup receipts. Do not implement an emulator, multiplexer or new public terminal server. |
-| Native service lifetime | systemd service/kill documentation; existing `project_terminal.py` uses transient services, `KillMode=control-group`, watchdog, runtime cap and `Restart=no` | The native supervision delegation is already implemented. Refactoring the web registry must not duplicate process supervision or remove the Soda access lease. Host, project, terminal and workload scopes remain distinct. |
-| Host installation | CoreOS Installer 0.26.0 CLI source, ISO/install documentation, existing `executeDisk`, Ignition/Butane and NetworkManager `nmtui` caller | Improve Soda's input/review/continuation flow, not the disk writer, partitioner, network editor or provisioning language. The irreversible execution boundary already exists. |
-| Accounts and remote access | Python `pwd`/OS APIs and existing account/key scripts; OpenSSH 10.2p1 configuration documentation | Native accounts, authentication and SSH protocol stay native. Soda retains original-account association and bounded enrollment policy. No custom SSH server, password verifier, identity remapper or credential broker. |
-| Database | Existing SQLite driver/transactions/migrations; official integrity and foreign-key pragmas | SQLite validates its own storage and existing constraints, not which application columns/triggers Soda intended to ship. A small required-schema check is warranted; a new ORM, migration platform or schema-repair engine is not. |
-| Tests and builds | Existing Go tests, Bun package scripts/test runner, Playwright fixtures and production payload inventory; official Bun run documentation | Fix invocation and producer/consumer ordering. Do not create another test runner, scenario DSL, readiness service, build DAG/cache engine or parallel payload registry. |
-| Runners, services and profiles | Existing runner/native code and feature guides; Podman/Quadlet/systemd and distro package mechanisms | Finish the selected integrations over their native owners. Do not become a CI scheduler, package manager, container runtime, app-authentication backend or whole-host update platform. New capabilities still require exact-version investigation in their feature slice. |
-
-**Important limitations:** a Lit task can run manually; rejecting it on the claim that
-it must auto-run would be wrong. However, cancelling a request does not undo a native
-mutation, and latest-result handling does not resolve uncertain Create/End outcomes.
-Do not put terminal creation, key changes, lifecycle or credential operations into an
-automatically rerun task. Task documentation itself distinguishes request/response
-work from open-ended streams. Existing generation and exact-target checks are not
-all redundant promise boilerplate.
-
-Similarly, systemd's watchdog supervises the guard's health. It does not know whether
-a Soda actor still has access. Tmux attachment does not supply web authorization.
-Keep the small integration that connects these independent native mechanisms.
+Use the audit's [package ownership inventory](upstream-ownership-audit.md#coverage-and-selected-baselines)
+and [findings](upstream-ownership-audit.md#findings). This plan does not maintain a
+second upstream responsibility matrix. The original review's detailed comparison
+remains in Git at `22f5c20:docs/refactoring-plan.md`; research provenance is linked
+[below](#6-research-provenance-and-references). Implementation constraints remain
+with the concrete slices and feature owners.
 
 ## 2. Disposition of the original findings
 
 Numbers refer to the original audit, not new product milestones.
 
-| Finding | Review outcome | Recommended disposition |
-| --- | --- | --- |
-| 1. Conditional integration tests | Confirmed invocation gap; tests already exist and have historical explicit runs | Fix ordinary suite wiring, not rewrite scenarios. |
-| 2. Repeated browser builds | Confirmed: root `test` reaches `build:forgejo` four times | Prepare once and invoke existing suites. Timing benefit is unmeasured. |
-| 3. Schema completeness | Confirmed: v8 columns are absent from startup completeness queries | Small startup-validation fix and focused fixtures; no evidence of damaged retained databases. |
-| 4. Current versus historical docs | Confirmed overlapping/stale next-step instructions | Repair the current index and label history, preserving evidence and links. |
-| 5. Frontend decomposition | Dense coordination is real, but the initial prescription to split several resource owners was too broad | Format first; use existing Lit composition/lifecycle. Extract only one demonstrated independent responsibility at a time. No forced relocation of xterm/command authority. |
-| 6. Session/page plumbing | Repeated mechanics exist; `apiProtected`, `visibleRepository`, `userGrant`, `authorizeOperator` and specialized terminal checks already exist | Reuse those owners; extract only repeated current-context/page mechanics. OAuth destination redesign waits for an actual new destination. |
-| 7. Backend terminal registry | State and lock responsibilities span callers; existing registry already implements the feature | Conditional encapsulation within `internal/web`, not a replacement session service. Preserve admission/logout/Stop atomicity. |
-| 8. Python identity dependency | Keys preload the entire terminal program to use `account_for` | Small shared-source extraction only if delivery remains simpler and equally confined; not a new deployed Python framework. |
-| 9. Global helper mutex | Cross-project blocking and uncancellable mutex waiting follow from source; production latency has not been measured | Characterize and fix cancellation first. Do not prescribe per-project parallelism or a queue yet. |
-| 10. Installer split | Input/validation correction is needed, but `executeDisk` already separates native execution | Reuse it and implement the selected input/review flow. Withdraw the implication that an installation engine is missing. |
-| 11. Profile expansion | Real one-image/base coupling, already documented by the Project OS owner | Complete it with the next profile, not a speculative runtime selector or second profile plan. |
+This is a routing index, not a second findings/status table. Each slice below owns
+its implementation record; the audit owns the source rationale.
+
+| Original finding | Single implementation owner |
+| --- | --- |
+| 1–2. Test invocation and repeated preparation | A |
+| 3. Schema completeness | B |
+| 4. Current versus historical guidance | G |
+| 5. Frontend readability | D |
+| 6. Session/page plumbing | C; missing mutation checks are separate phase 2 work |
+| 7–9. Registry, validator and helper admission | E; phase 5a points to the same admission fix |
+| 10–11. Installer and profiles | F and its feature-owner plans |
 
 Canonical tokens, enforced Lit diagnostics, typed views, shared runner response
 contracts and one authored Spaces source directory are **already implemented**.
@@ -427,45 +395,10 @@ different claims.
 
 ## 6. Research provenance and references
 
-This review inspected source/configuration and existing tests; it did **not** run
-product builds/tests, install dependencies, execute downloaded code, access retained
-VMs or change provider/project state. Public research responses, source hashes and
-failed retrievals are retained under `.artifacts/refactoring-upstream-review-GVDpXf/`.
-That ignored directory is optional evidence, not a build prerequisite.
-
-Fresh Forgejo 15.0.7 `modules/templates/base.go` and CoreOS Installer 0.26.0
-`src/cmdline/install.rs` downloads matched the retained source bytes. Other Forgejo
-navbar/key and tmux findings used the already retained selected-version source;
-Lit controller findings used the installed locked package source. Current web docs
-are guidance, not exact-version/native proof. The reviewed systemd v259 documentation
-and OpenSSH 10.2p1 source align with the selected CoreOS metadata's 259.8/10.2p1 bases;
-this is not a survey of retained project RPMs or proof of downstream PAM/configuration.
-An initial Bun `.mdx` URL returned 404; the official run page succeeded. No capability
-was declared missing on the basis of that failed URL.
-
-Primary references:
-
-- Forgejo [official customization](https://forgejo.org/docs/v15.0/admin/advanced/customization/),
-  [15.0.7 template lookup](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/templates/base.go),
-  [repository settings navigation](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/templates/repo/settings/navbar.tmpl),
-  [own-user keys](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/user/key.go).
-- Lit [reactive controllers](https://lit.dev/docs/composition/controllers/),
-  [tasks/manual execution/cancellation](https://lit.dev/docs/data/task/),
-  and repository [runtime/build rules](lit.md). Installed declarations and host
-  implementation are in locked `@lit/reactive-element` 2.1.2, not a new dependency.
-- Tmux [3.2a manual](https://github.com/tmux/tmux/blob/3.2a/tmux.1) and
-  [client no-start behavior](https://github.com/tmux/tmux/blob/3.2a/client.c);
-  Soda's [terminal contract](terminal-integration.md).
-- Systemd v259 [service watchdog/runtime behavior](https://github.com/systemd/systemd/blob/v259/man/systemd.service.xml)
-  and [control-group cleanup](https://github.com/systemd/systemd/blob/v259/man/systemd.kill.xml).
-- CoreOS Installer [0.26.0 CLI](https://github.com/coreos/coreos-installer/blob/v0.26.0/src/cmdline/install.rs),
-  [install interface](https://coreos.github.io/coreos-installer/cmd/install/),
-  [ISO customization](https://coreos.github.io/coreos-installer/cmd/iso/).
-- OpenSSH [10.2p1 server configuration](https://github.com/openssh/openssh-portable/blob/V_10_2_P1/sshd_config.5).
-- SQLite [integrity checking](https://www.sqlite.org/pragma.html#pragma_integrity_check)
-  and [foreign-key checking](https://www.sqlite.org/pragma.html#pragma_foreign_key_check).
-- Bun [script execution](https://bun.com/docs/cli/run), Go [context cancellation](https://pkg.go.dev/context),
-  and existing [local tooling boundaries](typescript.md).
+The audit owns [research evidence and limits](upstream-ownership-audit.md#evidence-and-limits),
+including [the earlier review's provenance](upstream-ownership-audit.md#earlier-upstream-review-provenance).
+The handoff owns [actual implementation checks](implementation-status.md).
+Research artifacts are optional evidence, never build prerequisites or acceptance.
 
 ## 7. Audit remediation implementation plan
 
@@ -485,7 +418,7 @@ starting another; a focused independent review may run alongside it.
 | 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
 | 4 | Use GitHub's native service entrypoint | Open; inspect the exact selected package and generated layout first. |
-| 5 | Cancellable host admission and bounded capture | Open; separate commits for admission and each capture owner. |
+| 5 | Cancellable host admission and bounded capture | Admission completed locally in `22f5c20` (same work as E); capture and Tailnet stream bounds remain open. |
 | 6 | Combined regression checks and scoped native delivery | After the relevant fixes; native target/effect authorization remains separate. |
 | 7 | Optional upstream reuse/dead-path cleanup | Later; only candidates with demonstrated benefit and equivalent behavior. |
 
@@ -509,6 +442,8 @@ reproduced one macOS failure because `/var/...` resolves to `/private/var/...`;
 this is a test portability defect, not a failed database or installer operation.
 
 ### Phase 1 — retire the unused bootstrap token
+
+**Finding:** [unused credential retention](upstream-ownership-audit.md#remove-unused-bootstrap-credential-retention).
 
 **Owners:** [setup command](../cmd/soda-setup/main.go),
 [configuration](../internal/config/config.go), [activation](../appliance/bin/soda-activate),
@@ -538,6 +473,8 @@ does not mean already installed tokens have been remediated.
 
 ### Phase 2 — finish session checks at mutation admission
 
+**Finding:** [stale-session mutation admission](upstream-ownership-audit.md#recheck-the-original-session-before-native-mutation).
+
 **Owners:** [Join](../internal/web/environments_api.go),
 [lifecycle/key handlers](../internal/web/management.go), existing
 [session helper](../internal/web/api.go) and real-handler web tests.
@@ -563,6 +500,8 @@ denial. Run the affected handler suite and Go race checks. The helper extraction
 alone is not completion of this phase.
 
 ### Phase 3 — managed-key concurrency contract
+
+**Finding:** [key concurrency and durability](upstream-ownership-audit.md#correct-project-key-concurrency-before-claiming-compare-and-swap).
 
 **Owners:** [key program](../internal/host/project_keys.py),
 [native caller](../internal/host/management.go),
@@ -615,6 +554,8 @@ native nanosecond stat fields when constructing metadata-sensitive test fixtures
 
 ### Phase 4 — GitHub runner service compatibility
 
+**Finding:** [provider service-entrypoint contract](upstream-ownership-audit.md#delegate-runner-execution-through-the-providers-service-contract).
+
 **Owners:** [launcher](../internal/runners/launch.go),
 [registration/copy](../internal/runners/native_create.go),
 [exec wrapper](../cmd/soda-runner-launch/), [unit](../appliance/services/soda-runner@.service),
@@ -639,14 +580,13 @@ unit is not proof of provider job/stop behavior.
 
 ### Phase 5 — cancellation and capture bounds
 
-**5a, host admission:** replace the buffered-handler mutex wait in
-[daemon dispatch](../internal/host/daemon.go) with context-selectable single-operation
-admission. Preserve global serialization and separate terminal/runner locks. Check
-cancellation both after acquiring admission and before effects; initialize safely
-under concurrent/zero-value test use. Tests block one executor, cancel a second
-waiter, verify its prompt return with zero executor calls, then verify a subsequent
-request succeeds. Include already-cancelled contexts, deadline expiry, owner failure
-and no leaked admission. No per-project scheduler or unmeasured parallelism change.
+**Findings:** [host admission/capture](upstream-ownership-audit.md#make-helper-admission-cancellable-and-bound-command-capture)
+and [Tailnet framing](upstream-ownership-audit.md#review-tailnets-unstable-api-seam-and-native-ui-overlap).
+
+**5a, host admission — completed locally:** this is the same work as
+[slice E](#e-native-and-terminal-coupling--separate-conditional-slices), not another
+implementation phase. `22f5c20` supplies cancellation-aware serial admission and
+its regression/race checks; preserve those tests. Native delivery is not implied.
 
 **5b, native capture:** inspect the actual output needs of host/native runner/pkexec
 and [Tailnet process](../internal/process/process.go) callers. Reuse native filtered

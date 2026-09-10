@@ -1,5 +1,24 @@
 # Current handoff
 
+## Separate audit evidence from the maintenance plan — documentation only
+
+`upstream-ownership-audit.md` now owns revision-bound findings, upstream contracts
+and research provenance, not priorities, live completion flags or implementation
+checklists. `refactoring-plan.md` exclusively owns actions, order, decisions, exit
+criteria and source status; this handoff continues to own execution/delivery evidence.
+Removed the audit's parallel work/status table and procedural duplicates, replacing
+them with links to the specific implementation slices. Removed the plan's duplicate
+upstream inventory; its original detailed review/reference list remains preserved
+at `22f5c20:docs/refactoring-plan.md` and in retained research artifacts.
+
+The plan's phase 5a now points to E's completed `22f5c20` admission fix rather than
+scheduling it again. Capture/stream bounds and missing mutation-admission checks
+remain open; completed session-helper extraction is not those mutation fixes.
+Audit findings, security boundaries, historical evidence and unfinished product work
+are preserved. Only documentation changed; no product checks, builds, deployments
+or retained-state actions were performed. Local Markdown link/anchor and Git
+whitespace checks were used for this slice.
+
 ## Refactoring E — cancellation-aware helper admission only
 
 Following the conditional review, replaced only the buffered-operation mutex in

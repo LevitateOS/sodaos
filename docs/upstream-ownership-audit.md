@@ -1,19 +1,19 @@
 # Upstream ownership audit
 
 Reviewed on 10 September 2026 against installer candidate `8320f9c`.
-**Source ownership review complete; findings are not implemented fixes.** This audit covers every current `internal/` package
+**Source ownership review complete; findings are not implemented fixes.** This audit covers every `internal/` package present at that revision
 and follows the actual application, native, frontend and build callers. It asks
 whether Soda needs each responsibility and whether a mature upstream mechanism
 can own more of it. It is separate from installer acceptance, a penetration test,
 or permission for a broad rewrite/deployment.
 
-**Current-source reconciliation at `1f1a9d3`:** incoming commits have fixed the v8
-startup completeness checks and the aggregate/page-fixture wiring. The shared
-session/page helper is implemented, but Join/Start/Stop/key Apply still lack the
-required final session check. The macOS source-command fixture has one reproduced
-path-normalization failure. Follow the [implementation plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
-for remaining work. The historical review below does not establish that these fixes
-are delivered to an appliance.
+**Document ownership:** this is a revision-bound record of findings, upstream
+contracts and research evidence—not a backlog or current progress report. Statements
+about code below describe the reviewed revisions, not necessarily today's source.
+The [refactoring plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
+exclusively owns remediation steps, decisions, priorities and current source status;
+the [handoff](implementation-status.md) owns execution and delivery evidence.
+Do not maintain parallel completion flags or implementation checklists here.
 
 The [architecture](architecture.md) and [upstream-first instructions](../AGENTS.md#human-maintainable-engineering)
 remain the product boundary. A small adapter is justified when it binds native
@@ -62,33 +62,24 @@ Production source versions are selected by the existing manifests and recipes:
 | `config` | [Dashboard](../cmd/soda-dashboard/main.go), [setup](../cmd/soda-setup/main.go), runners; Go URL/JSON/filesystem APIs | Soda origins, socket/credential paths and operator binding. Keep validation; audit unused bootstrap-token retention below. |
 | `filelock` | [Runner state admission](../internal/runners/native.go); kernel flock | Keep cancellable waiting around advisory locking. The kernel owns the lock; a Go-context wait is Soda's small addition. |
 | `forgejo` | Web/setup/Tailnet commands; native Forgejo HTTP/configuration | Keep bounded acting-user APIs, actual consent inspection and sanitized transport. Forgejo owns passwords, repository permissions and Git; Soda owns its OAuth return/context binding. |
-| `host` | [Host daemon](../cmd/soda-host/main.go), project image and web helper client; Podman, OpenSSH, Linux accounts, tmux/systemd | Keep fixed privileged operations and exact actor/project/account binding. Correct key-file concurrency, queued cancellation and output bounds below. |
+| `host` | [Host daemon](../cmd/soda-host/main.go), project image and web helper client; Podman, OpenSSH, Linux accounts, tmux/systemd | Keep fixed privileged operations and exact actor/project/account binding. Key-file concurrency, queued cancellation and capture bounds are findings below. |
 | `installer` | [Media command](../appliance/installer/main.go), [builder](../scripts/build-installer.py); CoreOS Installer, NetworkManager, OpenSSL, Ignition, systemd/OpenSSH, Caddy | Text choices, irreversible-effect boundary, verified Soda payload and explicit first-use integration. Keep the adapter; native validation remains deferred. Custom TCP connection supervision was removed in this candidate. |
 | `linuxhost` | Runner CLI/helper; NSS and pkexec | Keep the independently enforced root-only operator policy. Moving this small single-feature adapter into runners is optional cleanup, not an upstream replacement. |
 | `nativebuild` | [Artifact command](../tools/soda-artifacts/main.go), build/stage/installer; Go archive/ELF/hash/filesystem, gpgv/xz, Podman | Bind source/platform and fixed public payload without runtime secrets. Keep these policies; compare the narrow OCI parser with upstream image readers before extending it. |
-| `process` | [Tailnet status reader](../internal/tailnet/tailnet.go); Go os/exec | Only production consumer uses Output. Reduce unused generic command/trace surface during Tailnet work; retain a small test seam and add capture bounds. |
+| `process` | [Tailnet status reader](../internal/tailnet/tailnet.go); Go os/exec | Only production consumer uses Output; unused command/trace surface and capture bounds are review findings. |
 | `projectos` | Store/web/helper image inspection; Podman/OCI image identity | Keep immutable creation-profile binding. OCI owns image identity; Soda owns the selected profile/interface and its association with the created project. |
-| `runners` | Native CLI/helper, Cockpit and global operator settings; provider runners and systemd | Keep local account/capacity/service integration, fixed operations and private registration input. Correct GitHub's service entrypoint; provider scheduling, workflow execution and cache remain upstream-owned. |
-| `store` | Web/setup; SQLite and Go AEAD | Keep Soda-only associations, original account memberships, cancellation transactions and encrypted grants. Complete v8 startup validation; consider native random-nonce packing with persisted-format proof. |
+| `runners` | Native CLI/helper, Cockpit and global operator settings; provider runners and systemd | Keep local account/capacity/service integration, fixed operations and private registration input. GitHub's service entrypoint is a contract finding; provider scheduling, workflow execution and cache remain upstream-owned. |
+| `store` | Web/setup; SQLite and Go AEAD | Keep Soda-only associations, original account memberships, cancellation transactions and encrypted grants. Required schema verification is Soda-owned; random-nonce packing is a reuse candidate. |
 | `strictjson` | Web/helper/runner requests and profiles; Go encoding/json | Bounded body, valid UTF-8, one object, top-level duplicate-name rejection and destination-struct unknown-field rejection. Keep on the selected Go baseline; not a general recursive schema engine. |
 | `tailnet` | [Tailnet CLI](../cmd/soda-tailnet/command.go), [Forgejo advertisement](../cmd/soda-forgejo-tailnet/main.go), Cockpit; native tailscale CLI/LocalAPI | Keep native identity/address projection and separate Git advertisement. Review unstable LocalAPI dependence and native device UI overlap; preserve operator access and current preferences. |
-| `web` | Dashboard command, native Forgejo hooks and Spaces frontend; Go HTTP/templates, Forgejo OAuth/API, coder/websocket | Keep Soda actor/context/access admission and exact terminal leases/receipts. Complete post-provider session checks; retain native Forgejo and Lit/xterm owners. |
+| `web` | Dashboard command, native Forgejo hooks and Spaces frontend; Go HTTP/templates, Forgejo OAuth/API, coder/websocket | Keep Soda actor/context/access admission and exact terminal leases/receipts. Post-provider session admission is Soda-owned, distinct from native Forgejo and Lit/xterm responsibilities. |
 
 ## Findings
 
-This order prioritizes authority and data correctness over optional code reduction.
-It is a maintenance recommendation, not a new feature roadmap or deployment grant.
-
-| Order | Finding | Disposition |
-| --- | --- | --- |
-| First | Unused bootstrap token retained and service-readable | Stop future copy/access; preserve existing operator files and compatibility. |
-| First | Join/Start/Stop/key Apply can use a session captured before delayed provider I/O | Add original-session checks and precise admission tests. |
-| First | Project-key replacement can overwrite a later native edit | Define and implement an honest conflict/update contract with race fixtures. |
-| Source fixed | Original schema validation omitted v8 columns/trigger | `bd74b5f` adds the checks and malformed-schema fixtures; retain regression coverage. |
-| Next | GitHub service uses interactive launcher | Use the upstream service entrypoint after validating the selected runner layout and shutdown behavior. |
-| Next | Queued host cancellation and unbounded command/stream capture | Fix at the existing admission/capture boundaries; no scheduler or process framework. |
-| Source fixed; portability follow-up | Aggregate preparation and browser fixture invocation gaps | Incoming commits wire the existing owners/fresh outputs; fix the macOS temporary-path fixture. |
-| Conditional | Tailnet LocalAPI/native UI, OCI reader, nonce packing, uncalled terminal mode | Compare actual contracts before replacing/removing; preserve state and user journeys. |
+These sections establish what was observed and why the ownership boundary matters.
+Their heading order is not an execution order. The plan's
+[current status and order](refactoring-plan.md#current-status-and-order) is the only
+remediation queue; it distinguishes completed work from outstanding findings.
 
 ### Remove unused bootstrap credential retention
 
@@ -100,15 +91,12 @@ credential reader: provider operations use acting-user encrypted grants. Activat
 adjusts the unused file's permissions. This is **confirmed unnecessary retained
 authority**, not evidence that the dashboard is making privileged provider calls.
 
-Stop creating the copy for new setup and stop granting future service readability.
-Keep old configuration parse compatibility without requiring the retired path.
-Preserve existing operator-owned files; revocation and cleanup require separate
-scope. The [setup guide](operator-setup.md) also requests admin/repository token
-scopes although the client calls only `/user` and `/user/applications/oauth2`.
+The [setup guide](operator-setup.md) also requested admin/repository token
+scopes although the inspected client calls only `/user` and `/user/applications/oauth2`.
 The selected [Forgejo API routes](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/api.go)
-place those operations under user scope. Narrow token guidance with focused
-verification of the actual bootstrap operations; the selected operator's eligibility
-check is separate from a need to call an administrator API.
+place those operations under user scope. Operator eligibility is separate from a
+need to call an administrator API. New-setup changes, compatibility and existing-file
+handling belong to [phase 1](refactoring-plan.md#phase-1--retire-the-unused-bootstrap-token).
 
 ### Recheck the original session before native mutation
 
@@ -119,29 +107,22 @@ exists. Logout can complete during the provider wait. An ordinary HTTP context i
 not cancelled by deleting its session. This is a **source-confirmed admission gap**;
 the interleaving was not executed in this audit.
 
-Use the original-session comparison already present in Create and
-[runner authorization](../internal/web/runners.go), with delayed-provider/logout
-fixtures at the actual mutation handlers. Preserve stable actor ID, login context
-and CSRF comparison. A recheck closes the stale-provider-result window; it is not
-atomic cancellation of a native operation or rollback after dispatch. Define the
-exact admission boundary before promising stronger logout semantics. Do not hold
-terminal registry locks across provider/native I/O or add a provider-role cache.
+Create and [runner authorization](../internal/web/runners.go) already supplied a
+comparison pattern. A fresh session check is an admission boundary, not atomic
+cancellation or rollback of a dispatched native operation. The concrete handlers,
+ordering and regression cases belong to
+[phase 2](refactoring-plan.md#phase-2--finish-session-checks-at-mutation-admission).
 
 ### Complete current database validation
 
 [Migration v8](../internal/store/migrations.go) introduces `creation_profile`,
 `repository_settings_return` and the `immutable_creation_profile` trigger. At the
-original audit revision the startup checks omitted all three. Incoming commit
-`bd74b5f` now checks both columns and the named trigger on the expected table,
-with independent malformed/current-schema fixtures. No damage to a retained
-database was observed or alleged.
-
-Retain the zero-row queries and SQLite catalog check, with malformed-current-version
-fixtures. [SQLite's integrity and foreign-key
+original audit revision the startup checks omitted all three. No damage to a
+retained database was observed or alleged. [SQLite's integrity and foreign-key
 checks](https://www.sqlite.org/pragma.html) validate storage and declared constraints;
-they cannot infer Soda's intended schema. Keep transactional append-only migrations,
-pre-migration grant-key checks and native SQL. No ORM, schema-repair engine or
-version bump is needed merely to validate what the current version requires.
+they cannot infer Soda's intended schema. This warrants a required-schema check,
+not an ORM or repair engine. Implementation and source status belong to
+[slice B](refactoring-plan.md#b-complete-schema-v8-validation--independent-small-fix).
 
 ### Correct project-key concurrency before claiming compare-and-swap
 
@@ -154,33 +135,28 @@ editors. The [kernel contract](https://man7.org/linux/man-pages/man2/flock.2.htm
 is advisory locking. This is a **source-confirmed correctness defect**, not a
 runtime reproduction in this audit.
 
-Keep native OpenSSH key files. Define the precise update/conflict contract before
-changing the write: existing-inode append is suitable for enrollment but does not
-by itself implement revocation or replacement of a managed key set. Preserve later
-native edits and report uncertainty instead of restoring a snapshot. Add deterministic
-replacement/in-place-edit and partial-write cases. Do not substitute a live
-`AuthorizedKeysCommand` database or claim general atomic filesystem compare-and-swap.
-The installer enrollment append correction does not fix this separate project path.
+Native OpenSSH files remain the selected boundary. Existing-inode append can support
+enrollment but does not implement whole-set revocation/replacement. An advisory lock
+cannot provide compare-and-swap against noncooperating root editors. The installer
+enrollment append correction does not fix this separate project path.
 
 The subsequent planning review found a related durability issue: the staged key
-file uses buffered writes and calls `fsync` before an explicit flush. The plan
-requires flush-before-sync and coordinates account provisioning with the same stable
-directory lock. This remains source work. The proposed cooperative native-writer
-contract needs acceptance; it is not protection against arbitrary ignored-lock edits.
+file uses buffered writes and calls `fsync` before an explicit flush. The writer
+contract decision, durability correction and concurrency tests belong exclusively to
+[phase 3](refactoring-plan.md#phase-3--managed-key-concurrency-contract).
 
 ### Make helper admission cancellable and bound command capture
 
-[Buffered host dispatch](../internal/host/daemon.go) holds one mutex across native
-operations, including creation's readiness wait. A cancelled waiter cannot leave
-that mutex wait. Preserve serialization, but use a local context-selectable admission
-primitive and recheck cancellation before effects. Verify with a delayed executor;
-do not introduce per-project scheduling or a general queue.
+At the audit revision, [buffered host dispatch](../internal/host/daemon.go) held one
+mutex across native operations, including creation's readiness wait. A cancelled
+waiter could not leave that mutex wait. This is distinct from a need for parallel
+project operations.
 
-The same executor uses unbounded output buffers before callers enforce response
-limits. Add limits while capturing native output, preserving redacted diagnostics
-and injected tests. [Go os/exec](https://pkg.go.dev/os/exec) remains the process
-owner. This correction is more useful than replacing small wrappers with a general
-process framework.
+The executor also collected unbounded output before callers enforced response limits.
+A post-capture limit does not bound allocation. [Go os/exec](https://pkg.go.dev/os/exec)
+remains the process owner; bounded capture is an adapter responsibility, not a reason
+for a process framework. Separate admission/capture status and implementation belong
+to [phase 5](refactoring-plan.md#phase-5--cancellation-and-capture-bounds).
 
 ### Preserve native project and terminal ownership
 
@@ -214,11 +190,11 @@ packages from a distro label.
 [Soda systemd service](../appliance/services/soda-runner@.service). GitHub's
 [custom-service documentation](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application)
 requires `runsvc.sh`. This is a confirmed **documented contract mismatch**, not an
-executed job failure. Use the provider's service entrypoint and verify its selected
-2.337.0 packaged location, registration-created files, signal/stop handling and
-update-disabled behavior before paired delivery. Fresh exact-tag source retrieval
-failed during this slice; the source pin plus official service contract supports
-the finding, not a claim of inspecting that script or proving runtime behavior.
+executed job failure. Fresh exact-tag source retrieval failed during this slice;
+the source pin plus official service contract supports the finding, not a claim of
+inspecting that script or proving runtime behavior. Package-layout verification,
+entrypoint changes and signal/native checks belong to
+[phase 4](refactoring-plan.md#phase-4--github-runner-service-compatibility).
 
 The remainder of [runners](../internal/runners/) delegates local accounts to native
 Linux, locking to flock, services to systemd, and jobs/registration to the provider.
@@ -263,9 +239,9 @@ works. Never reset unrelated preferences merely to simplify reauthentication.
 
 The [authentication stream](../cockpit/src/tailscale/stream.ts) frames successive
 JSON objects and delegates parsing to `JSON.parse`; it is not another JSON engine.
-Its accumulated partial object currently has no size bound. Add a bound at that
-seam and to native runner/process output capture, with malformed/oversized fixtures.
-No new stream framework is necessary.
+At the review revision its accumulated partial object had no size bound. This is
+an adapter resource-bound gap, not a need for a stream framework. The correction
+and test cases belong to [phase 5c](refactoring-plan.md#phase-5--cancellation-and-capture-bounds).
 
 The [Tailnet page observer](../cockpit/src/tailscale/store.ts) can call
 [Forgejo address refresh](../cmd/soda-forgejo-tailnet/main.go), which edits the native
@@ -277,14 +253,15 @@ does not prove approved subnet routing or client reachability.
 ### Simplify local boundaries only where it removes real machinery
 
 [Key maintenance](../internal/host/management.go) preloads the whole terminal module
-to reuse `account_for`. A small shared identity source could reduce that coupling,
-but it must work in both immutable installed and embedded paths. Keep the current
-reuse if extraction adds more deployment/import machinery than it removes.
+to reuse `account_for`. This is already one validator, not duplicate identity policy.
+An extraction affects both immutable installed and embedded paths; loading fewer
+function definitions alone does not establish a net benefit. The decision belongs
+to [slice E](refactoring-plan.md#e-native-and-terminal-coupling--separate-conditional-slices).
 
 `internal/process` has one production consumer and unused Run/trace machinery.
 A Tailnet-local output seam can remove that surface. `internal/linuxhost` is already
 a small legitimate root/NSS adapter; co-locating it with its runner owner is optional.
-Retain tested cancellation/root checks. These are low-priority local simplifications,
+Retain tested cancellation/root checks. These are conditional local simplifications,
 not evidence of copied upstream subsystems or prerequisites for finishing features.
 
 ### Keep artifact policy; review general OCI parsing before expanding it
@@ -312,21 +289,17 @@ subset rather than presenting its refusals as universal OCI requirements.
 ### Keep the existing test runners; remove repeated preparation
 
 At the original audit revision the [root test scripts](../package.json) invoked
-`build:forgejo` through multiple aggregate branches. Incoming commits now prepare
-once and retain independently usable feature commands. The [native checker](../scripts/check-native.sh)
-uses those existing Go/Bun/Python owners, and the
-[remote support executor](../internal/acceptance/remote_executor.py) invokes the
-same build/check scripts. Retain that consolidation and the existing native-stage
-gates. Do not introduce a second test scheduler or duplicate
-product scenarios in support tools.
+`build:forgejo` through multiple aggregate branches, and existing Go HTML/browser
+consumers were not all wired into ordinary test commands. These were invocation
+and preparation gaps, not missing test engines. The [native checker](../scripts/check-native.sh)
+and [remote support executor](../internal/acceptance/remote_executor.py) already
+shared the production build/check owners. The source work and status belong to
+[slice A](refactoring-plan.md#a-reliable-single-preparation-source-checks--first).
 
-The [page fixture orchestrator](../scripts/test-spaces-page.ts) now invokes all three
-Go HTML producers uncached, requires their nonempty outputs and runs their browser
-consumers. Settings-link is now included in local Lit checks. Those original wiring
-findings are source-fixed. The new [source-command fixture](../tests/build/test_source_checks.py)
-still compares the unresolved macOS temporary path with the child's physical cwd;
-one of its three tests failed during the follow-up review. Normalize the fixture
-path without weakening its assertion. Native/installed checks remain separate.
+A subsequent review reproduced a macOS path-comparison failure in
+[the source-command fixture](../tests/build/test_source_checks.py): the unresolved
+fixture path differed from the child's physical cwd. Its bounded correction belongs
+to [phase 0](refactoring-plan.md#phase-0--reliable-baseline), not a change to native gates.
 
 ### Preserve native web authority and narrow frontend cleanup
 
@@ -355,11 +328,11 @@ IDs or cleanup receipts. Preserve the existing bounded transport and flat termin
 host identity; no new terminal manager or frontend state framework is warranted.
 
 One concrete removal candidate is [terminal standalone mode](../frontend/spaces/sodaspaces-terminal.ts).
-Every production caller supplies a workspace locator; the no-locator caller is an
-older fixture. Make the production contract explicit and port its useful adversarial
-tests before removing the alternate storage/action/rendering branches. Preserve
-[workspace legacy locator import](../frontend/spaces/sodaspaces-workspace.ts) and
-unknown/pending evidence. Removing the uncalled mode must not erase legacy sessions.
+Every inspected production caller supplied a workspace locator; the no-locator
+caller was an older fixture. That makes the alternate mode a reuse/removal candidate,
+not permission to erase [legacy locator import](../frontend/spaces/sodaspaces-workspace.ts)
+or unknown/pending sessions. Evaluation and test preservation belong to
+[phase 7](refactoring-plan.md#phase-7--optional-cleanup-after-correctness).
 
 All **253 Forgejo template overrides** were inventoried and compared for identical
 copies against the retained native export; none was byte-identical. Representative
@@ -429,3 +402,24 @@ is not claimed complete. Root directly corroborated the credential consumers,
 mutation paths and schema checks. Coverage includes all internal packages and
 caller families, not exhaustive security proof or line-by-line parity of every
 template, native dependency and UI branch.
+
+### Earlier upstream-review provenance
+
+The initial maintainability review used `c20abc3` and retained public responses,
+source hashes and failed retrievals in `.artifacts/refactoring-upstream-review-GVDpXf/`.
+It ran no product builds/tests, dependency installation, downloaded code or native
+operations. Fresh Forgejo 15.0.7 template lookup and CoreOS Installer 0.26.0 CLI
+source matched retained bytes; native navbar/key and tmux 3.2a findings used retained
+selected source. Lit findings used locked reactive-element 2.1.2. The reviewed
+systemd v259/OpenSSH 10.2p1 documentation aligned with selected CoreOS metadata,
+not a survey of retained project packages or proof of downstream configuration.
+An initial Bun documentation URL returned 404; the official run page succeeded.
+
+Its corrections still matter: Lit Task supports manual execution, but cancellation
+cannot undo mutations or resolve uncertain outcomes; systemd's watchdog does not
+supply Soda access authority; tmux attachment is not web authorization. The installer
+already had `executeDisk` and used CoreOS Installer/NetworkManager rather than needing
+a new execution engine. These are ownership findings, not new implementation tasks.
+The original comparison and full upstream reference list remain in Git at
+`22f5c20:docs/refactoring-plan.md` (sections 1 and 6). This preserves historical
+research without maintaining a second live responsibility matrix or task list.
