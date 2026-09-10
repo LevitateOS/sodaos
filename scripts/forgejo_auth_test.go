@@ -27,7 +27,7 @@ func TestForgejoSecondaryAuthPagesOnlyAddPresentationRoot(t *testing.T) {
 
 	for name, upstreamHash := range upstreamHashes {
 		t.Run(name, func(t *testing.T) {
-			page := readForgejoTemplate(t, "user", "auth", name)
+			page := readForgejoTemplateForUpstreamParity(t, "user", "auth", name)
 			if strings.Count(page, presentationClasses) != 1 {
 				t.Fatalf("%s must have exactly one Soda auth root", name)
 			}

@@ -36,7 +36,7 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 			if !strings.HasPrefix(contents, provenance) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
-			restored := strings.TrimPrefix(contents, provenance)
+			restored := strings.TrimPrefix(readForgejoTemplateForUpstreamParity(t, "admin", tt.name), provenance)
 			if tt.name == "user/new.tmpl" {
 				restored = strings.Replace(restored, ` "artwork" "admin-new-account-papercraft.png"`, "", 1)
 			}

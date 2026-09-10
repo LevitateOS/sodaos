@@ -58,7 +58,7 @@ func TestForgejoCargoComposesNativeIndexBranches(t *testing.T) {
 			output := rendered.String()
 			for _, want := range []string{
 				`class="ui form soda-form"`,
-				`<fieldset class="soda-form-section">`,
+				`<fieldset class="soda-form-section soda-p-section">`,
 				`method="post"`,
 				`class="ui info message soda-notice"`, `class="ui warning message soda-notice"`,
 				`action="/forge/alice&amp;tools` + test.wantPath + `"`,

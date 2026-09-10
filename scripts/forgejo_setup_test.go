@@ -54,7 +54,7 @@ func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contents := readForgejoTemplate(t, tt.name)
+			contents := readForgejoTemplateForUpstreamParity(t, tt.name)
 			if !strings.HasPrefix(contents, tt.provenance) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
@@ -159,7 +159,7 @@ func TestForgejoSetupKeepsNativeFieldAndHookContract(t *testing.T) {
 	if !strings.Contains(contents, `class="page-content install soda-page soda-forgejo-setup" data-signed="false"`) {
 		t.Error("install.tmpl is not an explicit anonymous full-page Soda shell")
 	}
-	if !strings.Contains(contents, `class="ui form soda-form"`) {
+	if !strings.Contains(contents, `class="ui form soda-form soda-p-form"`) {
 		t.Error("install.tmpl does not opt the native installer into shared form presentation")
 	}
 	if !templateCalls(contents)["custom/soda/page_intro"] {

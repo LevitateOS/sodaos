@@ -157,7 +157,7 @@ func TestForgejoPackagesNativeActionsAndProtocolPartialsRemain(t *testing.T) {
 			t.Errorf("package settings lost native form/modal contract %q", want)
 		}
 	}
-	if strings.Count(settings, `class="ui form soda-form"`) != 1 || strings.Count(settings, `class="ui form"`) != 1 {
+	if strings.Count(settings, `class="ui form soda-form soda-p-form"`) != 1 || strings.Count(settings, `class="ui form"`) != 1 {
 		t.Errorf("package settings must adapt only the link form and keep the delete modal form native")
 	}
 }
@@ -224,7 +224,7 @@ func TestForgejoPackagesCleanupRulesKeepNativeActionsAndData(t *testing.T) {
 			t.Errorf("cleanup-rule editor lost native form contract %q", want)
 		}
 	}
-	if strings.Count(edit, `class="ui form soda-form"`) != 1 {
+	if strings.Count(edit, `class="soda-form-panel ui form soda-form soda-p-form"`) != 1 {
 		t.Error("cleanup-rule editor must adapt its single native form exactly once")
 	}
 

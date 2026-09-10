@@ -10,7 +10,7 @@ import (
 )
 
 func TestForgejoOrganizationHomeSourceParity(t *testing.T) {
-	src := readForgejoTemplate(t, "org", "home.tmpl")
+	src := readForgejoTemplateForUpstreamParity(t, "org", "home.tmpl")
 	provenance := "{{/* Soda presentation of Forgejo 15.0.7 templates/org/home.tmpl; GPL-3.0-or-later. Upstream SHA-256: a8b8f935f72758355efa25bdb53d376f77c39a0984f2d1a0b875c9bbb8fea32f. */}}\n"
 	if !strings.HasPrefix(src, provenance) {
 		t.Fatal("missing source attribution")

@@ -66,7 +66,7 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contents := readForgejoTemplate(t, tt.path...)
+			contents := readForgejoTemplateForUpstreamParity(t, tt.path...)
 			normalized := tt.normalize(contents)
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 			if got != tt.upstreamHash {

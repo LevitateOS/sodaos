@@ -31,7 +31,7 @@ func TestForgejoOrgDetailsSourceParityAndParse(t *testing.T) {
 			if !strings.HasPrefix(src, tt.provenance) {
 				t.Fatal("missing exact attribution")
 			}
-			restored := strings.TrimPrefix(src, tt.provenance)
+			restored := strings.TrimPrefix(readForgejoTemplateForUpstreamParity(t, "org", tt.name), tt.provenance)
 			for _, edit := range tt.edits {
 				if strings.Count(restored, edit[0]) != 1 {
 					t.Fatalf("unexpected presentation edit %q", edit[0])

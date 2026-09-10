@@ -14,7 +14,7 @@ Implemented the existing repository concept and all 40 additional mockup familie
 
 Mockup text is a visual reference, not an authority for fields or permissions. Native translated permission descriptions, required fields, defaults, ownership, error conditions, widget IDs/classes, form methods/actions and capability gates are preserved. No fake board data, successful transfer state, invitation field, role selector or provider authentication was added.
 
-`form-native-contracts.json` records submission-control hashes and capability gates from `794f86a` and the embedded 15.0.7 export before this pass. The source test checks the actual redesigned files. Older tests still recover their exact upstream source by undoing only reviewed presentation fragments in `form-presentation-deltas.json`; that normalization is test-only. Native browser checks use the actual served templates and styles.
+`form-native-contracts.json` records submission-control hashes and capability gates from `794f86a` and the embedded 15.0.7 export before this pass. The source test checks the actual redesigned files. Only explicit `readForgejoTemplateForUpstreamParity` calls reconstruct upstream source using the still-required reviewed fragments in `form-presentation-deltas.json`. Behavior and branch tests read current authored templates without normalization; obsolete reconstruction entries with no parity callers are removed. Native browser checks use the actual served templates and styles.
 
 ## Coverage
 

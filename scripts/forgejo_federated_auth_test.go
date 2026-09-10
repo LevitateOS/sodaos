@@ -97,7 +97,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 func TestForgejoFederatedAuthOverridesMatchStock1507ApartFromPresentation(t *testing.T) {
 	for name, wantHash := range forgejo1507FederatedTemplateHashes {
 		t.Run(name, func(t *testing.T) {
-			contents := readForgejoFederatedTemplate(t, name)
+			contents := readForgejoTemplateForUpstreamParity(t, "user", "auth", name)
 			for _, edit := range forgejoFederatedPresentationEdits[name] {
 				if count := strings.Count(contents, edit[0]); count != 1 {
 					t.Fatalf("presentation marker occurs %d times, want 1", count)
@@ -155,7 +155,8 @@ func TestForgejoFederatedAuthOverridesParseWithNativeSeams(t *testing.T) {
 		{{define "repo/header"}}{{end}}{{define "custom/soda/theme_toggle"}}{{end}}
 		{{define "user/auth/signup_inner"}}{{end}}{{define "user/auth/signin_inner"}}{{end}}
 		{{define "user/auth/webauthn_error"}}{{end}}
-		{{define "user/auth/signup_openid_navbar"}}{{end}}{{define "user/auth/captcha"}}{{end}}`
+		{{define "user/auth/signup_openid_navbar"}}{{end}}{{define "user/auth/captcha"}}{{end}}
+		{{define "custom/soda/page_intro"}}{{end}}`
 	for name := range forgejo1507FederatedTemplateHashes {
 		t.Run(name, func(t *testing.T) {
 			definition := nativeSeams + `{{define "page"}}` + readForgejoFederatedTemplate(t, name) + `{{end}}`
@@ -181,7 +182,7 @@ func TestForgejoFederatedAuthGuestToggleFollowsNativeRouteFlags(t *testing.T) {
 		{{define "custom/soda/theme_toggle"}}guest-toggle{{end}}
 		{{define "user/auth/signup_inner"}}{{end}}{{define "user/auth/signin_inner"}}{{end}}
 		{{define "user/auth/webauthn_error"}}{{end}}{{define "user/auth/signup_openid_navbar"}}{{end}}
-		{{define "user/auth/captcha"}}{{end}}`
+		{{define "user/auth/captcha"}}{{end}}{{define "custom/soda/page_intro"}}{{end}}`
 	for _, test := range []struct {
 		name      string
 		file      string
@@ -308,10 +309,5 @@ func TestForgejoFederatedAuthCSSIsScopedAndAttributed(t *testing.T) {
 
 func readForgejoFederatedTemplate(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "appliance", "forgejo", "templates", "user", "auth", name)
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return withoutForgejoPresentationRoles(withoutForgejoFormLayout(t, "user/auth/"+name, string(contents)))
+	return readForgejoTemplate(t, "user", "auth", name)
 }

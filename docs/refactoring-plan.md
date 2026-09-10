@@ -643,7 +643,8 @@ checks followed by the aggregate source check; no deployment or retained-state w
   the helper source and packaging together, not installed files. Source complete;
   focused runner/CLI/identity/host race checks passed. Native-stage proof is unrun.
 - Templates: read authored source in behavior tests; make historical normalization
-  explicit in parity checks. Preserve meaningful hashes, permissions and fixtures.
+  explicit in parity checks. Source complete with local Go checks; preserved hashes
+  and permission fixtures, removed reconstruction entries with no parity caller.
 - Terminal: explicitly retire no-locator mounting and port useful tests to managed
   locators. Retain legacy storage import and live pending events; this is a source
   interface change, not proof of compatibility with unknown external consumers.

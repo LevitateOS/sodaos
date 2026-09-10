@@ -3,16 +3,18 @@ package scripts
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-// The older exact-upstream tests undo their historical presentation changes.
-// Undo only the reviewed form-layout delta first, with ordered exact matches.
-// form-source.test.ts checks the real (un-normalized) submission controls and
-// gates, while the native browser checks exercise the actual redesigned pages.
-func withoutForgejoFormLayout(t *testing.T, path, source string) string {
+// Only exact-upstream parity tests reconstruct historical presentation markup.
+// Behavior/branch tests use readForgejoTemplate, which returns authored bytes.
+func readForgejoTemplateForUpstreamParity(t *testing.T, parts ...string) string {
 	t.Helper()
+	source := readForgejoTemplate(t, parts...)
+	path := filepath.ToSlash(filepath.Join(parts...))
 	data, err := os.ReadFile("../tests/forgejo/presentation/form-presentation-deltas.json")
 	if err != nil {
 		t.Fatal(err)
@@ -27,5 +29,5 @@ func withoutForgejoFormLayout(t *testing.T, path, source string) string {
 		}
 		source = strings.Replace(source, delta[0], delta[1], 1)
 	}
-	return source
+	return regexp.MustCompile(` soda-p-(editor-container|form-host|form|title|heading|section|gap|toolbar|control|compact)\b`).ReplaceAllString(source, "")
 }

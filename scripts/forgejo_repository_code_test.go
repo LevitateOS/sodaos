@@ -75,7 +75,7 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
-			contents := readForgejoTemplate(t, tc.path)
+			contents := readForgejoTemplateForUpstreamParity(t, tc.path)
 			_, native, ok := strings.Cut(contents, "\n")
 			if !ok || !strings.HasPrefix(contents, "{{/* Adapted from Forgejo 15.0.7 templates/") {
 				t.Fatal("missing pinned upstream attribution")

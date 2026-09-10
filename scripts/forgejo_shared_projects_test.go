@@ -42,8 +42,8 @@ func TestForgejoSharedProjectsPreserveNativeOwnershipAndForms(t *testing.T) {
 
 	form := readForgejoTemplate(t, "projects", "new.tmpl")
 	for _, marker := range []string{
-		`class="ui form soda-form" action="{{.Link}}" method="post"`,
-		`class="soda-form-section"`,
+		`class="ui form soda-form soda-p-form" action="{{.Link}}" method="post"`,
+		`class="soda-form-body"`,
 		`if .PageIsEditProjects`,
 		`if not .PageIsEditProjects`,
 		`name="template_type"`,
@@ -116,7 +116,7 @@ func TestForgejoSharedProjectsFormExecutesNewAndEditBranches(t *testing.T) {
 				t.Fatalf("render %s project form: %v", test.name, err)
 			}
 			output := rendered.String()
-			for _, want := range []string{`action="/forge/alice&amp;projects/new" method="post"`, `class="soda-form-section"`, test.wantAction} {
+			for _, want := range []string{`action="/forge/alice&amp;projects/new" method="post"`, `class="soda-form-body"`, test.wantAction} {
 				if !strings.Contains(output, want) {
 					t.Errorf("%s project form lost %q:\n%s", test.name, want, output)
 				}

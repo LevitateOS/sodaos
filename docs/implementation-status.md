@@ -40,6 +40,17 @@ require its absence in fresh stages; those native-stage checks were not run. The
 runner guide identifies paired CLI/daemon delivery and explicit retirement of an
 old installed helper during separately authorized maintenance, not automatic cleanup.
 
+Template behavior/branch readers now return authored bytes, including federated auth
+and account settings. Historical role/form reconstruction is explicit and parity-only;
+mixed parity/parse tests parse current source. Ported stale markup assertions and
+missing native template-function/partial doubles rather than reverting presentation.
+An instrumented test-only overlay observed all 106 parity paths: 23 delta entries
+(48 pairs) had no parity caller and were removed; the remaining 34 pairs, upstream
+hashes and presentation/control inventories are unchanged. All Go script tests passed
+afterward (`templates-final.log`); the initial missing-seam/obsolete-markup failures
+and path observations are retained alongside it. No served template, upstream asset,
+provider permission or native browser state changed in this slice.
+
 ## Three-pass overengineering review — documentation only
 
 At the user's request, [the review record](overengineering-review.md) preserves the

@@ -245,10 +245,5 @@ func TestForgejoAccountDetailsCSSIsScoped(t *testing.T) {
 
 func readForgejoAccountDetailTemplate(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "appliance", "forgejo", "templates", "user", "settings", filepath.FromSlash(name))
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	return withoutForgejoPresentationRoles(string(contents))
+	return readForgejoTemplate(t, "user", "settings", filepath.FromSlash(name))
 }

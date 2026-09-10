@@ -473,7 +473,8 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 
 func TestForgejoRepositoryCreationKeepsNativePermissionBranches(t *testing.T) {
 	functions := template.FuncMap{
-		"dict": forgejoTemplateDict,
+		"AppSubUrl": func() string { return "/forge" },
+		"dict":      forgejoTemplateDict,
 		"ctx": func() forgejoTemplateContext {
 			return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{
 				"repo.form.reach_limit_of_creation_n": "creation limit reached",
@@ -505,20 +506,20 @@ func TestForgejoRepositoryCreationKeepsNativePermissionBranches(t *testing.T) {
 		{
 			name:      "personal creation allowed",
 			data:      map[string]any{"CanCreateRepo": true, "Link": "/repo/create"},
-			want:      []string{"native-alert", "native-helper", "native-basic", "native-template", "native-init", "native-advanced", "create repository"},
+			want:      []string{"native-alert", "native-helper", "native-basic", "native-template", "native-init", "native-advanced", "create repository", `class="soda-form-options"`},
 			forbidden: []string{"cannot create", "creation limit reached"},
 		},
 		{
 			name:      "organization target available at personal limit",
 			data:      map[string]any{"Orgs": []int{1}, "MaxCreationLimit": 3, "Link": "/repo/create"},
-			want:      []string{"native-basic", "native-template", "native-init", "native-advanced", "creation limit reached", "create repository"},
+			want:      []string{"native-basic", "native-template", "native-init", "native-advanced", "creation limit reached", "create repository", `class="soda-form-options"`},
 			forbidden: []string{"cannot create"},
 		},
 		{
 			name:      "creation denied",
 			data:      map[string]any{"Link": "/repo/create"},
 			want:      []string{"cannot create"},
-			forbidden: []string{"native-alert", "native-helper", "native-basic", "native-template", "native-init", "native-advanced", "create repository"},
+			forbidden: []string{"native-alert", "native-helper", "native-basic", "native-template", "native-init", "native-advanced", "create repository", `class="soda-form-options"`},
 		},
 	}
 	for _, tt := range tests {
@@ -666,9 +667,7 @@ func readForgejoTemplate(t *testing.T, parts ...string) string {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	// Presentation roles are checked independently against the pre-migration bytes.
-	// These legacy tests continue to recover their exact pinned upstream source.
-	return withoutForgejoPresentationRoles(withoutForgejoFormLayout(t, filepath.ToSlash(filepath.Join(parts...)), string(contents)))
+	return string(contents)
 }
 
 var forgejoTemplateCallPattern = regexp.MustCompile(`\{\{\s*template\s+"([^"]+)"`)
@@ -690,8 +689,4 @@ func requireForgejoTemplateCalls(t *testing.T, name string, required ...string) 
 			t.Errorf("%s no longer composes native template %q", name, requiredName)
 		}
 	}
-}
-
-func withoutForgejoPresentationRoles(source string) string {
-	return regexp.MustCompile(` soda-p-(editor-container|form-host|form|title|heading|section|gap|toolbar|control|compact)\b`).ReplaceAllString(source, "")
 }

@@ -31,7 +31,7 @@ func TestForgejoRepositoryContentOverridesRetain1507Source(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contents := readForgejoTemplate(t, tt.path...)
+			contents := readForgejoTemplateForUpstreamParity(t, tt.path...)
 			normalized := strings.Replace(contents, `class="`+tt.sodaClass+`"`, `class="`+tt.stockClass+`"`, 1)
 			if tt.name == "wiki start" {
 				normalized = strings.Replace(normalized, `<img class="soda-wiki-welcome-art" src="{{AssetUrlPrefix}}/soda/forgejo/wiki-welcome-papercraft.png" width="1536" height="1024" alt="">`, `{{svg "octicon-book" 48}}`, 1)
@@ -75,7 +75,7 @@ func TestForgejoRepositoryContentKeepsNativeGatesAndPartials(t *testing.T) {
 
 func TestForgejoWikiSearchFragmentRetains1507Structure(t *testing.T) {
 	contents := readForgejoTemplate(t, "repo", "wiki", "search.tmpl")
-	normalized := strings.Replace(contents, "item soda-wiki-search-result tw-max-w", "item tw-max-w", 1)
+	normalized := strings.Replace(readForgejoTemplateForUpstreamParity(t, "repo", "wiki", "search.tmpl"), "item soda-wiki-search-result tw-max-w", "item tw-max-w", 1)
 	normalized = strings.Replace(normalized, "item muted soda-wiki-search-empty", "item muted", 1)
 	got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 	const upstreamHash = "a1bc2b8774b415885f65ae031f74daddc1b003c48b8226528d8ad2d5044c4007"
@@ -89,7 +89,7 @@ func TestForgejoWikiSearchFragmentRetains1507Structure(t *testing.T) {
 
 func TestForgejoReleaseTagHeaderRetainsNativePolicy(t *testing.T) {
 	contents := readForgejoTemplate(t, "repo", "release_tag_header.tmpl")
-	normalized := strings.Replace(contents, `class="list-header soda-toolbar tw-justify-between"`, `class="list-header tw-justify-between"`, 1)
+	normalized := strings.Replace(readForgejoTemplateForUpstreamParity(t, "repo", "release_tag_header.tmpl"), `class="list-header soda-toolbar tw-justify-between"`, `class="list-header tw-justify-between"`, 1)
 	normalized = strings.Replace(normalized, `class="switch soda-tabs"`, `class="switch"`, 1)
 	got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 	const upstreamHash = "a3ab4d2a9892bad246b88e9f05f1d90835cd2958104e77cadcaeb3a0933067cc"

@@ -47,7 +47,7 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			contents := readForgejoTemplate(t, "repo", tt.name)
+			contents := readForgejoTemplateForUpstreamParity(t, "repo", tt.name)
 			if !strings.HasPrefix(contents, tt.provenance) {
 				t.Fatalf("%s lost exact Forgejo version, license, or pristine-source attribution", tt.name)
 			}

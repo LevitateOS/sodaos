@@ -32,7 +32,7 @@ func TestForgejoAdminMonitoringStockParityAndParse(t *testing.T) {
 			if !strings.HasPrefix(src, tt.provenance) {
 				t.Fatal("missing version/license/source attribution")
 			}
-			restored := strings.TrimPrefix(src, tt.provenance)
+			restored := strings.TrimPrefix(readForgejoTemplateForUpstreamParity(t, "admin", tt.name), tt.provenance)
 			for _, r := range tt.replacements {
 				if strings.Count(restored, r[0]) != 1 {
 					t.Fatalf("unexpected presentation delta %q", r[0])

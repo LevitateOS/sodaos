@@ -31,7 +31,7 @@ func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
 		{"history.tmpl", "ebb007fd23ec9cd8e8ffbe057f78bb516674d245d7c8672b27d29558ef2a3432"},
 	}
 	for _, tt := range partials {
-		page := readForgejoTemplate(t, "repo", "settings", "webhook", tt.name)
+		page := readForgejoTemplateForUpstreamParity(t, "repo", "settings", "webhook", tt.name)
 		page = strings.ReplaceAll(page, " soda-webhook-list-header", "")
 		page = strings.ReplaceAll(page, " soda-webhook-list", "")
 		page = strings.ReplaceAll(page, " soda-webhook-history-header", "")
@@ -104,7 +104,7 @@ func TestForgejoSharedRunnerDetailsRetain1507Source(t *testing.T) {
 	}
 	for name, upstreamHash := range hashes {
 		t.Run(name, func(t *testing.T) {
-			page := readForgejoTemplate(t, "shared", "actions", name)
+			page := readForgejoTemplateForUpstreamParity(t, "shared", "actions", name)
 			slug := strings.ReplaceAll(strings.TrimSuffix(name, ".tmpl"), "_", "-")
 			branded := `class="runner-container soda-shared-runner soda-shared-` + slug + `"`
 			if strings.Count(page, branded) != 1 {
