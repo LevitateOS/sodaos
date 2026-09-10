@@ -363,6 +363,11 @@ Organization settings routes discovered in the native navbar (each still needs i
 
 ### Repository migration chooser
 
+The subsequent [full page redesign](migration-page-redesign.md) uses the same
+accepted illustration in a larger story column beside a new source chooser.
+That record owns the 2026-09-10 layout and native navigation evidence; the artwork
+generation notes below remain historical.
+
 - Decision: appropriate in the existing intro; replace reused new-repository art with a distinct import/history scene.
 - Prompt and rationale: [migrate-art-prompt.md](../assets/branding/forgejo/migrate-art-prompt.md). Built-in image generator; fixed Dashboard/Notifications/New-repository references.
 - Integration: only the existing `Artwork` filename changed; native provider controls/routes were preserved. PNG verified as 1536×1024 RGBA with transparent corners.

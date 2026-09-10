@@ -848,12 +848,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d0ed5eaa72b1a0da9bdbccb7335a4a462215398bd47f2766bc0a93f912c6b099",
+      "beforeRoleHash": "dd2d5956369c091ddc60dd5332bcb35903af6c4c6eb2ba2dcd5044d15ed3d8b8",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal/shared-workspace styles; native privacy and handler contracts retained; combined native proof pending."
+      "presentationReview": "Merged profile/settings presentation asset versions and mounted Sodaspaces drawer/terminal/shared-workspace styles; native privacy and handler contracts retained; combined native proof pending. Migration chooser redesign bumps onboarding.css and the presentation revision; no other assets or native hooks changed."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -1042,7 +1042,6 @@
         "org/team/repositories.tmpl",
         "org/team/teams.tmpl",
         "repo/create.tmpl",
-        "repo/migrate/migrate.tmpl",
         "repo/migrate/migrating.tmpl",
         "repo/pulls/fork.tmpl",
         "user/code.tmpl",
@@ -3975,7 +3974,7 @@
     },
     {
       "template": "repo/migrate/migrate.tmpl",
-      "composition": "editor",
+      "composition": "source-selection",
       "owner": "repo",
       "callers": [],
       "nativeCalls": [
@@ -3989,7 +3988,11 @@
         "soda-migrate-title",
         "soda-onboarding",
         "soda-page",
-        "soda-page-container"
+        "soda-page-container",
+        "soda-migrate-layout",
+        "soda-migrate-story",
+        "soda-migrate-selection",
+        "soda-migrate-provider"
       ],
       "states": [
         "light",
@@ -4000,13 +4003,14 @@
         "populated"
       ],
       "verification": {
-        "source": "passed role-preservation and focused source checks",
-        "native": "not individually captured",
-        "requiredStates": "not all verified"
+        "source": "passed actual-template rendering for source availability, escaping and native route context; full scripts suite and presentation inventory passed",
+        "native": "read-only local 15.0.7: all ten native provider forms; seven chooser widths in light/dark with logo, containment, focus and hover checks",
+        "requiredStates": "configured ten-source fixture observed; absent/Git-only/provider-only states tested through actual Go template rendering, not fixture mutation"
       },
-      "beforeRoleHash": "cf978fdc3523333c78a78f2c2e68314b632eb195d99d5591ea2efca736bc605a",
+      "beforeRoleHash": "d15dcb1a5d72a21006b91a0a81b4c024210a1ba0f283e68504289cd6c28eb852",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Migration chooser redesigned from an inspected desktop/mobile/dark prototype. Separate story and source chooser, Git URL option and compact provider cards; available Services, native helper, translated descriptions, route context and provider forms retained."
     },
     {
       "template": "repo/migrate/migrating.tmpl",

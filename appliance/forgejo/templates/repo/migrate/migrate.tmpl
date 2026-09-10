@@ -1,23 +1,52 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new migrate soda-page soda-onboarding soda-migrate-chooser" data-signed="true">
-	<div class="ui container soda-page-container">
-		{{template "custom/soda/page_intro" dict "TitleID" "soda-migrate-title" "Eyebrow" "Bring your work with you" "Title" "Migrate repository" "Description" "Choose a source to import its code and available history." "Artwork" "migrate-papercraft.png"}}
-		{{template "repo/migrate/helper" .}}
-		<div class="migrate-entries soda-migrate-entries" aria-labelledby="soda-migrate-title">
-			{{range .Services}}
-				<a class="migrate-entry tw-items-center" href="{{AppSubUrl}}/repo/migrate?service_type={{.}}&org={{$.Org}}&mirror={{$.Mirror}}">
-					{{if eq .Name "github"}}
-						{{svg "octicon-mark-github" 184}}
-					{{else}}
-						{{svg (printf "gitea-%s" .Name) 184}}
-					{{end}}
-					<div class="content">
-						<h3>{{.Title}}</h3>
-						<div class="description">{{ctx.Locale.Tr (printf "migrate.%s.description" .Name)}}</div>
+	<div class="ui container soda-page-container soda-migrate-layout">
+		<header class="soda-migrate-story">
+			<div>
+				<p class="soda-page-eyebrow">Bring your work with you</p>
+				<h1 id="soda-migrate-title" class="soda-page-title">Migrate repository.</h1>
+				<p class="soda-page-description">A new home for your code and its history. Start with where it lives today.</p>
+			</div>
+			<img class="soda-migrate-art" src="{{AssetUrlPrefix}}/soda/forgejo/migrate-papercraft.png" width="1536" height="1024" alt="">
+			<p class="soda-migrate-next"><strong>Next: the import details</strong>Review the source, destination and available options before starting your import.</p>
+		</header>
+		<section class="soda-migrate-selection" aria-labelledby="soda-migrate-source-title">
+			<h2 id="soda-migrate-source-title" class="soda-migrate-heading">Choose a source</h2>
+			{{template "repo/migrate/helper" .}}
+			{{if .Services}}
+				<p class="soda-migrate-guidance">Use a repository URL or choose its hosting service.</p>
+				{{$hasProviders := false}}
+				{{range .Services}}
+					{{if eq .Name "git"}}
+						<a class="soda-migrate-provider soda-migrate-provider--git" href="{{AppSubUrl}}/repo/migrate?service_type={{.}}&org={{$.Org}}&mirror={{$.Mirror}}">
+							<span class="soda-migrate-logo">{{svg "gitea-git" 36}}</span>
+							<div><h3>From a Git URL</h3><p>{{ctx.Locale.Tr (printf "migrate.%s.description" .Name)}}</p></div>
+							{{svg "octicon-arrow-right" 16 "soda-migrate-arrow"}}
+						</a>
+					{{else}}{{$hasProviders = true}}{{end}}
+				{{end}}
+				{{if $hasProviders}}
+					<div class="soda-migrate-divider">Hosting services</div>
+					<div class="soda-migrate-entries">
+						{{range .Services}}
+							{{if ne .Name "git"}}
+								<a class="soda-migrate-provider" href="{{AppSubUrl}}/repo/migrate?service_type={{.}}&org={{$.Org}}&mirror={{$.Mirror}}">
+									<span class="soda-migrate-provider-top">
+										<span class="soda-migrate-logo">
+											{{if eq .Name "github"}}{{svg "octicon-mark-github" 32}}{{else}}{{svg (printf "gitea-%s" .Name) 32}}{{end}}
+										</span>
+										{{svg "octicon-arrow-right" 16 "soda-migrate-arrow"}}
+									</span>
+									<div><h3>{{.Title}}</h3><p>{{ctx.Locale.Tr (printf "migrate.%s.description" .Name)}}</p></div>
+								</a>
+							{{end}}
+						{{end}}
 					</div>
-				</a>
+				{{end}}
+			{{else}}
+				<p class="soda-migrate-guidance">No migration sources are available.</p>
 			{{end}}
-		</div>
+		</section>
 	</div>
 </div>
 {{template "base/footer" .}}

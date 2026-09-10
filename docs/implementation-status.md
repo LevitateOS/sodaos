@@ -1,5 +1,28 @@
 # Current handoff
 
+## Migration source chooser — design then implementation
+
+Completed and inspected a separate desktop/mobile/dark design before changing the
+native source chooser. The page now pairs its title and larger existing illustration
+with a distinct Git URL option and compact provider cards. All configured `.Services`,
+native descriptions, organization/mirror context and provider forms are preserved.
+Page-owned CSS fixes the tiny padded provider marks and provides responsive columns,
+keyboard focus and hover feedback. See [design and evidence](migration-page-redesign.md).
+
+Passed: full scripts Go suite, required typecheck/analyzer/fixtures, two presentation
+inventory tests, isolated preview build and the opt-in browser test (seven widths in
+both themes, ten native provider forms, current chooser CSS/template revision).
+Final native desktop/mobile/dark screenshots were inspected. The initial full Go
+suite attempt encountered a cache permission error; its retry passed. Prior general
+preview CSS drift is not resolved or reclassified as current-source verification.
+
+The local preview received only changed onboarding CSS and the supported native
+template reload; previous bytes/evidence remain under `.artifacts/migrate-redesign-20260910/`.
+Reload also exposed earlier mounted Spaces navigation; no Spaces source changed.
+No service restart, mount/configuration change, provider operation, migration submit,
+repository mutation or appliance rollout occurred. Alternate source-availability
+states have template tests; migration execution is outside this presentation pass.
+
 ## Illustration audit and narrative redesign
 
 Reviewed all 78 tracked image assets, including all 34 papercraft scenes.
