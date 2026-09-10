@@ -258,7 +258,19 @@ class LocalTerminalProcess(unittest.TestCase):
             for f in (p.stdin, p.stdout, p.stderr):
                 if f: f.close()
 
-    def start(self, lease=3, failed=False, ignored_signals=False):
+    def start(self, lease=3, failed=False, ignored_signals=False, raw_start=False):
+        # Deterministically model tmux's flush-before-first-screen transition.
+        raw_client = '''import os,tty,time
+from pathlib import Path
+Path('raw-waiting').touch()
+while not Path('raw-release').exists(): time.sleep(.01)
+tty.setraw(0)
+os.write(1,b'CLIENT_READY')
+while True:
+ data=os.read(0,4096)
+ if not data: break
+ os.write(1,b'__RAW__'+data)
+''' if raw_start else ''
         harness = '''import importlib.util,os,signal,sys,types
 from pathlib import Path
 s=importlib.util.spec_from_file_location('terminal',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
@@ -274,13 +286,19 @@ def shell(account,path):
  Path(account.pw_dir,'pid').write_text(str(os.getpid()))
  if sys.argv[4]=='fail':raise ValueError('SYNTHETIC_PRIVATE_ERROR')
  os.chdir(account.pw_dir)
+ if sys.argv[6]:os.execve(sys.executable,[sys.executable,'-I','-c',sys.argv[6]],{'HOME':account.pw_dir,'PATH':'/usr/bin:/bin'})
  os.execve('/bin/bash',['bash','--noprofile','--norc','-i'],{'HOME':account.pw_dir,'PATH':'/usr/bin:/bin','TERM':'xterm-256color','PS1':'TEST> '})
 m.launch_attach=shell
 sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synthetic-socket'))
 '''
-        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok', 'ignored' if ignored_signals else 'normal'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen([sys.executable, '-I', '-c', harness, str(SOURCE), str(self.root), str(lease), 'fail' if failed else 'ok', 'ignored' if ignored_signals else 'normal', raw_client], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.processes.append(p)
-        if not failed:
+        if raw_start:
+            until = time.monotonic()+2
+            while not (self.root/'raw-waiting').exists():
+                self.assertLess(time.monotonic(), until, 'raw client did not reach gate')
+                time.sleep(.01)
+        elif not failed:
             self.assertEqual(self.receive(p), {'type': 'ready'})
         return p
 
@@ -312,15 +330,38 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
             if expected in text:return text
         self.fail('expected output absent')
 
-    def closed(self, p, reason):
+    def closed(self, p, reason, timeout=5):
         while True:
-            v = self.receive(p)
+            v = self.receive(p, timeout)
             if v['type'] == 'closed':
                 self.assertEqual(v['reason'], reason);break
         p.wait(timeout=5)
         self.assertEqual(p.stderr.read(), b'')
         pid = int((self.root/'pid').read_text())
         with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
+
+    def test_ready_waits_for_raw_client_and_preserves_first_input_and_screen(self):
+        p = self.start(raw_start=True)
+        # Even pre-ready protocol input stays bounded and unwritten until the
+        # native client's flush has finished. No replay or readiness from echo.
+        self.input(p, b'first\n')
+        self.assertFalse(select.select([p.stdout], [], [], .1)[0], 'ready/output before raw-client gate')
+        (self.root/'raw-release').touch()
+        self.assertEqual(self.receive(p), {'type': 'ready'})
+        first = self.receive(p)
+        self.assertEqual(first['type'], 'output')
+        self.assertEqual(base64.b64decode(first['data']), b'CLIENT_READY')
+        self.output_until(p, b'__RAW__first')
+        p.stdin.close()
+        self.closed(p, 'disconnected')
+
+    def test_unready_client_still_obeys_lease(self):
+        p = self.start(raw_start=True, lease=.4)
+        self.closed(p, 'expired')
+
+    def test_unready_client_has_bounded_startup(self):
+        p = self.start(raw_start=True, lease=8)
+        self.closed(p, 'launch_failed', timeout=7)
 
     def test_real_pty_resize_interrupt_and_eof(self):
         self.exercise_pty_resize_interrupt_and_eof(False)

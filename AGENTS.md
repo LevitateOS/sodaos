@@ -75,11 +75,15 @@ The user subsequently requested the remainder of Lit step 6, including deploymen
 Fresh native x86_64 build/check/export passed for `5a21ad6`; artifacts and three
 failed preceding attempts are retained under `.artifacts/step6c-*/`. Read-only
 preflight contacted only the existing isolated validation VM. The user then selected
-both targets, validation first. Fresh SSH preflight found both VMs offline following
-a recent builder restart; existing disk files remain present. Starting those existing
-VMs and their boot-enabled services/projects was requested before proceeding and
-has not run. No replacement fixture, old backup waiver/root replacement or borrowed
-CLI credentials are implied. See the leading handoff for actual results and scope.
+both targets, validation first, and approved starting the offline existing VMs.
+Both are now running their original disks/projects. Fresh backup/copied-state rehearsal
+and affected `5a21ad6`/schema-v6 delivery passed on the isolated validation VM, not
+native acceptance. A reproduced tmux startup flush loses input sent after premature
+ready; a bounded source correction has local regression coverage and needs matching
+build/paired helper-program delivery and native proof. `soda-test` remains on its
+prior application pending validation and reviewed same-root required additions.
+No replacement fixture, old backup waiver/root replacement or borrowed CLI credentials
+are implied. See the leading handoff for actual results and scope.
 
 This is not blanket authorization for other targets, host-network changes, provider resources or destructive lifecycle checks. Outside the recorded local execution scope, until explicit authorization:
 

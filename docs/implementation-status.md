@@ -1,5 +1,58 @@
 # Current handoff
 
+## Both guests started; isolated `5a21ad6` delivered; native input-loss correction
+
+The user approved starting **both existing VMs**. Their preserved disks were started
+with the original QEMU/KVM CPU/RAM/network parameters, new private console/PID records,
+and no provisioning replay/new disks. Both pinned SSH identities matched; all six
+original project CIDs are running. Evidence and exact recipes are retained under
+`.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`, including `start-hBP8UW/`.
+
+On `soda-native-spaces-658f2af`, custom-file admission matched prior `22d8591` bytes
+(no unknown occupants). A new paired application backup, then networkless/helperless
+copied-state rehearsal passed: missing/wrong key refusal, populated v5→v6 preservation,
+prior-image v6 refusal and a healthy paired prior-v5 copy. Actual `5a21ad6` dashboard
+image/binary and admitted custom files were then delivered, restarting only Forgejo
+and Soda. Live schema v6 integrity/FKs, **every original table column/ciphertext before
+browser login**, all custom bytes/modes, image/running binary and original project CIDs/
+post-boot sshd PIDs matched. Config/credentials, proxy, native helper and project roots
+remained unchanged. This is affected delivery, not native acceptance or full-bundle
+installation. The original application backup is at
+`/var/lib/soda-step6c-5a21ad6-lEB0Ji/backup` on that guest; no automatic rollback.
+
+The current native boundary probe reproduced the historical failure. Redacted
+in-memory diagnostics showed exactly one facts marker **before the first terminal
+escape**, no numeric UID output and no Python error. Flattening line breaks did not
+recover a record. Exact upstream tmux 3.2a `tty.c::tty_start_tty` establishes the cause:
+raw-mode setup calls `tcflush(TCIOFLUSH)` **before** emitting its initial screen.
+Soda announced ready at exec success and wrote immediate input before that flush;
+the command was echoed and discarded, not merely wrapped. No transcripts were saved.
+
+The source correction gates attachment ready/input on the first native output,
+retains that first screen, keeps early input in the existing bounded queue and bounds
+startup at five seconds without renewing deadlines. No sleeps, input replay, new
+backend or personal tmux adoption. Three local regression cases cover a controlled
+flush gate/first input, lease expiry while unready and bounded startup; the first
+case fails the old source deterministically. Local Python terminal and Go host tests
+passed. Corrected helper/program bytes still require a matching native build and
+paired, backed-up same-root delivery before rerunning the installed proof. The
+historical native failure is diagnosed, **not yet passed**. The native Go diagnostic
+changes were retained as artifact diffs and removed from production test source.
+
+`soda-test` has only been started/read: its four roots lack tmux/project-terminal;
+its current source-owned custom files match the prior bundle and would require 376
+new admitted paths. It remains at its prior application, pending the validation gate
+and reviewed same-root tmux/program/runtime-directory additions, never replacement
+roots or a blanket package upgrade. No provider/agent setup or credential borrowing.
+
+Failed preparation iterations are also retained: preflight initially used the service
+name `forgejo` instead of the actual `soda-forgejo` container; initial transfer lacked
+its required private parent; native-input preparation initially used incorrect IDs
+and refused before creating shells. Corrected input uses the recorded fixture Alice
+1/Bob 2 identities and independently verified project account markers/groups. Native
+runs `native-b` through `native-d` failed the first facts assertion and did not reach
+later interrupt/reattach/failure cases. No failed probe is an installed pass.
+
 ## Both deployment targets selected — currently offline
 
 The user answered **“Both”** to validation VM / `soda-test` / validation-first both.

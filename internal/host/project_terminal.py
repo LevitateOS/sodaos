@@ -182,7 +182,8 @@ def run_terminal(account, cols, rows, seconds, path):
             for fd in (0, 1, master):
                 os.set_blocking(fd, False)
             incoming, to_pty = bytearray(), bytearray()
-            outgoing = bytearray(line({'type': 'ready'}))
+            attaching = True
+            attach_deadline = time.monotonic() + 5
             deadline = time.monotonic() + seconds
             lease = time.monotonic() + LEASE_SECONDS
             while not stopped:
@@ -190,6 +191,9 @@ def run_terminal(account, cols, rows, seconds, path):
                 if now >= min(deadline, lease):
                     if reason != 'exited':
                         reason = 'expired'
+                    break
+                if attaching and now >= attach_deadline:
+                    reason = 'launch_failed'
                     break
                 if reason != 'exited' and child_exited(pid):
                     reason = 'exited'
@@ -200,7 +204,7 @@ def run_terminal(account, cols, rows, seconds, path):
                 reads = [0] if len(to_pty) <= QUEUE_LIMIT - 16384 else []
                 if len(outgoing) <= QUEUE_LIMIT - 8192:
                     reads.append(master)
-                writes = ([1] if outgoing else []) + ([master] if to_pty else [])
+                writes = ([1] if outgoing else []) + ([master] if to_pty and not attaching else [])
                 readable, writable, _ = select.select(reads, writes, [], min(0.1, deadline-now, lease-now))
                 if 0 in readable:
                     data = os.read(0, 4096)
@@ -238,6 +242,13 @@ def run_terminal(account, cols, rows, seconds, path):
                     if not data:
                         reason = 'exited'
                         break
+                    if attaching:
+                        # exec success is not tmux input readiness. Its tty_start_tty
+                        # enters raw mode and flushes queued input BEFORE emitting
+                        # the initial screen. Wait for that output, retaining it;
+                        # otherwise immediate input can be echoed then discarded.
+                        outgoing.extend(line({'type': 'ready'}))
+                        attaching = False
                     outgoing.extend(line({'type': 'output', 'data': base64.b64encode(data).decode('ascii')}))
                 if master in writable:
                     del to_pty[:os.write(master, to_pty)]
