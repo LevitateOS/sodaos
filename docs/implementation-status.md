@@ -1,5 +1,24 @@
 # Current handoff
 
+## Refactoring step 1 — local source-check wiring
+
+Extended `scripts/test-spaces-page.ts` to produce fresh Spaces, runner-settings and
+repository-settings HTML/CSP in one uncached Go invocation, then require all three
+nonempty files before running their emitted-browser consumers. Existing Go authority
+and browser failure/mutation assertions remain; fixture paths override inherited
+values and are reported before execution, including failures. No provider/native
+state is involved.
+
+Local checks: four command-double orchestration tests passed (fresh paths, all
+producers/consumers, missing/empty files and producer/browser failure propagation).
+`bun run test:spaces-page` passed all five browser/unit cases, with all three Go
+HTML journeys executed and no skips, in 3.69 seconds including asset preparation.
+Evidence is retained under `.artifacts/refactor-step1/` and `.artifacts/pages-PDop91/`.
+The local tools were Go 1.27.0 and pinned Bun 1.4.2; this is source/browser evidence,
+not a check with the native gate's pinned Go 1.26.7 or a sealed native-stage check.
+No dependency baselines, retained fixtures/projects, services or deployment changed.
+Aggregate preparation/source-command work follows in this same bounded step.
+
 ## Upstream-first refactoring review — documentation only
 
 Added [the reviewed maintenance plan](refactoring-plan.md) after the user's audit
