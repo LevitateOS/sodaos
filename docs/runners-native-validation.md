@@ -16,9 +16,14 @@ source. The explicit `97a2d5e` handoff is incorporated. The existing installed d
 now calls the runner phases through a distinct branch with isolated actor contexts
 and a one-shot page/actor/path/body guard. Its local source-backed tests use doubles;
 no installed runner phase has been executed. Follow the revised step 4 sequence for independent local work, cross-lane
-dependencies and execution approvals rather than treating all three as one hold. No target/provider inputs have been selected, and no matching
-native candidate build/check/export has run for this work. Do not call step 4's
-verified-candidate exit complete or these scenarios provider-validated.
+dependencies and execution approvals rather than treating all three as one hold.
+Native x86_64 candidate `0d0071d` now built/sealed successfully, but the native check
+failed on stale epoch-URL assertions in Soda-pages-owned Go template fixtures
+(`scripts/forgejo_native_pages_test.go`, `scripts/sodaspaces_templates_test.go`).
+Those require the owner's correction or explicit file handoff; no checks were
+bypassed and no export was produced. Exact target/provider inputs remain unselected.
+Do not call step 4's verified-candidate exit complete or these scenarios
+provider-validated.
 
 ## Owners and entrypoints
 

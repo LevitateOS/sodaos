@@ -39,6 +39,27 @@ retained root, distro/version pin or runtime capability changed. A fresh candida
 worktree will own the retry; the failed attempt is not reused or erased. No installed
 journey, service action, registration, provider job or deployment has run.
 
+Fresh retry `0d0071d` passed the matching-native x86_64 build/seal in 62.26 seconds
+at `.artifacts/worktrees/runner-driver-0d0071d/`. The standard native check then
+failed in its source gate after 93.32 seconds: Go template fixtures in
+`scripts/forgejo_native_pages_test.go` still require `soda-native-page.js?v=1`, and
+`scripts/sodaspaces_templates_test.go` requires unversioned JS/CSS URLs. Incoming
+production templates intentionally emit `?v=2026-09-10.native-pages-5`. These are
+Soda-pages-owned fixtures outside the explicit two-file handoff; no assertion was
+skipped/weakened and no cache epoch was reverted. Request that owner's correction
+or an explicit handoff for those two files. Native staging tests and the remainder
+of the aggregate did not run after this failure; no export bundle or ready-candidate
+claim follows. Logs are `build-native-0d0071d.log` / `check-native-0d0071d.log`.
+
+The sealed native tree independently verified again after the failed check; exact
+`soda-host`, `soda-runners`, Forgejo-only launcher and dashboard-image hashes are
+retained in `paired-artifact-sha256.txt`. Focused changed-driver checking has 10
+passes/one optional private-browser smoke skip; strict tooling TypeScript and the
+two Project OS foundation tests passed. These are local source/double/packaging
+checks, not actual runner authentication, process or provider proof. The editor
+handoff and callable-driver wiring are no longer outstanding; remaining step-4
+scenario/input preparation and native check/export readiness are still open.
+
 
 ## Bounded runner installed-driver handoff after `9629c8e`
 

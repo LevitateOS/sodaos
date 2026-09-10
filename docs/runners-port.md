@@ -457,8 +457,13 @@ The earlier `9476858` source-check receipt is historical. The continued combined
 candidate `8e0028c` now passed the ordinary source gate with the isolated pinned
 Go 1.26.7 toolchain. Lifecycle receipt comparisons and proof-reader regressions
 have local tests; the new operation orchestration still needs shared-driver checks.
-No final native build/check/export or installed/provider proof follows from this
-source pass. The
+That pre-handoff source pass does not cover subsequent incoming cache-epoch changes.
+After the `97a2d5e` handoff, runner driver wiring and focused tests landed; native
+candidate `0d0071d` built/sealed, but its native check failed on stale epoch-URL
+assertions in `scripts/forgejo_native_pages_test.go` and
+`scripts/sodaspaces_templates_test.go`. These Soda-pages-owned files need that
+owner's correction or explicit expanded handoff. No export or installed/provider
+proof is claimed; see the leading handoff for preserved attempts and exact results. The
 [native runner preparation guide](runners-native-validation.md) owns exact source
 entrypoints, private input/effect gates, candidate artifact checklist and blockers.
 `tests/installed/runners.ts` supplies callable list/denial, registration and exact
@@ -497,8 +502,9 @@ into a hold on independent local implementation:
    pinned native Go 1.26.7/Bun 1.4.2 toolchain locally. Go 1.26.7 is now downloaded
    and checksum-verified under `.artifacts/runners-step4-continued/toolchain/go/`;
    select it through command-local PATH, leaving the host default/pins unchanged.
-   Toolchain availability is no longer a blocker; candidate build/export is still
-   outstanding.
+   Toolchain availability and candidate build are no longer blockers. Correct the
+   recorded template-fixture failure, then obtain passing native check and export
+   receipts for the resulting exact candidate; do not skip tests to seal readiness.
    Reuse applicable exact-candidate receipts; do not transfer historical PASS
    records across changed source merely because commits were pulled/rebased.
 5. **Prepare the candidate and execution proposal.** Produce/inspect the matching
