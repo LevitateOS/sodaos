@@ -74,9 +74,9 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
   try {
     evidence.stage = 'full-page workspace';
     await page.bringToFront();
-    await page.goto(new URL('/-/soda/spaces', page.url()).href);
+    await page.goto(new URL('/?soda-view=spaces', page.url()).href);
     await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-    assert.equal(await page.locator('#spaces-page').getAttribute('data-soda-actor'), actor);
+    assert.equal(await page.locator('#soda-native-content').getAttribute('data-actor'), actor);
     await page.setViewportSize({width: 1920, height: 1200});
     for (const project of request.projects) for (let number = 0; number < 3; number++) {
       const name = `matrix-${actorIndex}-${sessions.length}-${crypto.randomUUID().slice(0, 8)}`;
@@ -96,7 +96,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
     const contender = await otherPage();
     try {
       contender.on('websocket', receive);
-      await contender.goto(new URL('/-/soda/spaces', page.url()).href);
+      await contender.goto(new URL('/?soda-view=spaces', page.url()).href);
       await contender.locator('#sodaspaces-data[aria-busy=false]').waitFor();
       await contender.getByRole('button', {name: 'Sessions', exact: true}).click();
       const first = sessions[0]; assert(first);

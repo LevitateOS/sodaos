@@ -30,7 +30,7 @@ func TestSodaOperatorNavigationDoesNotDependOnNativeSiteAdmin(t *testing.T) {
 		if strings.Contains(source, "/settings/runners") {
 			t.Fatal("unconditional operator navigation")
 		}
-		if !strings.Contains(source, `/native/-/soda/spaces`) {
+		if !strings.Contains(source, map[bool]string{true: `/native/?soda-view=spaces`, false: `/native/-/soda/spaces`}[signed]) {
 			t.Fatal("lost Spaces")
 		}
 	}

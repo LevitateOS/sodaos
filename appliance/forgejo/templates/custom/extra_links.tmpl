@@ -1,4 +1,4 @@
-<a class="item" href="{{AppSubUrl}}/-/soda/spaces">Spaces</a>
+<a class="item" href="{{AppSubUrl}}{{if .IsSigned}}/?soda-view=spaces{{else}}/-/soda/spaces{{end}}">Spaces</a>
 {{if .IsSigned}}<span id="soda-settings-link" hidden data-actor="{{.SignedUserID}}" data-sub-url="{{AppSubUrl}}"></span>{{end}}
 {{template "custom/soda/guest_theme" (dict "Page" . "Placement" "navbar")}}
 

@@ -28,26 +28,22 @@ x86_64 OAuth, Create/Join, lifecycle, key-revocation and SSH/PTY/transfer proof 
 isolated fixture; retained delivery and broader product acceptance remain separate.
 See the [handoff](implementation-status.md) for source versus installed evidence.
 
-The current source has a global **Spaces** link and authenticated Soda-owned
-Go/template page at `/-/soda/spaces`, sharing the existing workspace drawer/sessions.
-This is a bounded extension of the API backend, not restoration of Forgejo workflow
-adapters or either removed frontend. The HTML shell, fixed OAuth return, shared
-multi-session workspace, bounded `/api/spaces` collection and ID-keyed contracts
-now have local source/test coverage, not concurrent native proof; [the leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
-owns this scope. The [Lit implementation sequence](lit-migration-plan.md) now covers
-both surfaces; steps 1–5 and 6a/6b, including layouts, observed attention and extended
-journey source ports, have local coverage. The [frontend improvement guide](frontend-improvement-plan.md)
-preserves that baseline while defining mandatory token consolidation, template
-checking and typed composition before further UI expansion.
-The subsequent [native page integration plan](forgejo-soda-pages-plan.md) replaces
-the separate Spaces, Runners and repository Spaces HTML shells with selected views
-of Forgejo's existing dashboard. Forgejo renders the actual header/profile menus;
-Soda retains protected content/APIs and its OAuth context. Automatic native-page entry connection and coordinated profile-menu logout now
-have local implementation and real Forgejo browser proof. This is coordinated
-browser behavior, not atomic shared authentication. This supersedes the separate-shell recommendation without changing
-the existing management pages or their recorded evidence. Step 1 now provides
-minimal native page hosts with local Forgejo browser proof; their links still open
-the current protected pages. The full page-body migration remains later work.
+The current source hosts Spaces, Runners and repository Spaces settings inside
+Forgejo's native dashboard through supported template overrides. Native links reach
+`/?soda-view=spaces`, `/?soda-view=runners` and the repository-ID-bound settings
+view. The old `/-/soda/` page URLs are fixed native-login bookmark bridges; their
+Go HTML shells are removed. Existing Lit components retain the workspace,
+management and terminal owners, with protected Soda APIs and coordinated OAuth/
+logout. Forgejo supplies its actual header, profile menu and native authentication.
+See the [native integration plan](forgejo-soda-pages-plan.md) and handoff for local
+source/browser evidence versus separately authorized appliance delivery.
+
+The [Lit implementation sequence](lit-migration-plan.md) retains the shared page/
+drawer workspace and native terminal acceptance obligations. The
+[frontend improvement guide](frontend-improvement-plan.md) owns token consolidation,
+template checking and typed composition. This port changes presentation and entry,
+not project or runner backend responsibilities or atomic authentication semantics.
+
 The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
 is stock Rocky tmux under each original project account, with a private supervised
 server per managed browser terminal. Soda retains access/lifetime authority; tmux
@@ -159,17 +155,12 @@ Soda's expected-user header guards page/session consistency, not native browser
 session authenticity. Native-page wiring passed the isolated local browser journey; native
 WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
 
-The Spaces HTML handler uses Soda's own session/acting grant to authorize its shell;
-listing and actions remain protected APIs. Its fixed OAuth return is transaction-bound
-through an append-only schema-v6 flag. The selected shell uses
-canonical Soda assets, configured-origin native links and an explicitly labelled
-Soda account—not a fabricated Forgejo navbar/account/notification context. Loading
-assets cannot supply native CSRF or authentication, and template overrides cannot
-install Go handlers upstream. Lit renders only the Soda workspace. Page-only CSP,
-styles/clipboard and fixed return have local checks; installed integration remains pending;
-no copied native authentication logic, HTML relay or borrowed cookies/tokens. Existing JSON actor/CSRF protection and independent logout boundaries
-remain intact. The selected global settings entry/page for Sodarunners must enforce the configured Soda
-operator boundary server-side; Forgejo site administration is not a substitute.
+The bookmark handlers redirect only to fixed native views. Private collection and
+operation authority stays in the existing protected APIs, including original-actor,
+CSRF, scope and current-session checks. Native UI visibility does not confer Soda
+operator or project authority. Page loads and redirects never register a runner,
+create a terminal or change project lifecycle state. No fabricated native context,
+HTML relay, borrowed cookie or replacement password authority is used.
 
 ## Projects and explicit joining
 

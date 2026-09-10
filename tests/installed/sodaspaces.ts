@@ -459,9 +459,9 @@ try {
   await page.setViewportSize({width: 1280, height: 900});
   stage = 'authenticated Go Spaces page and native links';
   await open(); await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
-  await page.waitForURL(url => url.pathname === '/-/soda/spaces');
+  await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('soda-view') === 'spaces');
   await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-  assert.equal(await page.locator('#spaces-page').getAttribute('data-soda-actor'), input.users[1].id);
+  assert.equal(await page.locator('#soda-native-content').getAttribute('data-actor'), input.users[1].id);
   assert.equal(await page.locator('soda-spaces').count(), 1);
   assert.equal(await page.getByRole('navigation', {name: 'Native Forgejo', exact: true}).getByRole('link', {name: 'Issues', exact: true}).getAttribute('href'), origin.origin + '/issues');
   await page.goto(repoURL); await open();
@@ -604,7 +604,7 @@ try {
     for (let index = 0; index < input.users.length; index++) {
       await authenticateExisting(index); stage = `workspace matrix actor ${index}`;
       const user = input.users[index]; assert(user);
-      await page.goto(origin.origin + '/-/soda/spaces'); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
+      await page.goto(origin.origin + '/?soda-view=spaces'); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
       const outcome: import('./sodaspaces-workspace-journey').MatrixEvidence = {sessions: []}; matrix.push(outcome);
       const observer = observeMatrixShell(page);
       const active = () => {assert(!interrupted && !refusedRequest);};

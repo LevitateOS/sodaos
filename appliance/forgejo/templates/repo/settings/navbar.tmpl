@@ -42,7 +42,7 @@
 {{if and .IsSigned (gt .Repository.ID 0)}}
 <section class="soda-settings-nav-group"><div class="soda-settings-menu">
 <span class="soda-settings-group-label">Soda</span>
-<a href="{{AppSubUrl}}/-/soda/repositories/{{.Repository.ID}}/settings/spaces">Sodaspaces</a>
+<a href="{{AppSubUrl}}/?soda-view=repository-spaces&amp;repository_id={{.Repository.ID}}">Sodaspaces</a>
 </div></section>
 {{end}}
 </div></nav>

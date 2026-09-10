@@ -19,15 +19,15 @@ and test coverage; concurrent native/CLI acceptance and delivery remain separate
 
 ## Native page connection and coordinated logout
 
-The [native integration plan](forgejo-soda-pages-plan.md) steps 1–2 now provide
-fixed native hosts and entry-only automatic OAuth. Matching sessions are reused;
+The [native integration plan](forgejo-soda-pages-plan.md) steps 1–4 provide
+native page bodies, fixed bookmark entries and entry-only automatic OAuth. Matching sessions are reused;
 callbacks for Spaces, Runners and repository settings return to the corresponding
 `/?soda-view=...` host. Required `read:user`, `read:repository` and
 `read:organization` consent is verified after exchange. Failed named transactions
 return with a bounded `soda-connect=failed` UI marker, not an arbitrary return URL
 or a replayed mutation. Invalid browser callbacks use a fixed native login/error
-entry. Unsigned/expired legacy page URLs first redirect to native login; authenticated
-legacy bodies remain pending their source port.
+entry. All legacy page URLs redirect through native login to their fixed view;
+no Go management HTML shell remains.
 
 `GET /api/login/cancel` supplies a no-store cookie-bound CSRF value only with
 `X-Soda-Logout: 1`, one expected actor and same-origin fetch metadata. Missing OAuth
@@ -49,24 +49,22 @@ events and a first login cookie not yet received remain non-atomic limits.
 
 ## Spaces page and fixed OAuth return
 
-`/-/soda/spaces` is selected as a Soda-owned Go/template HTML page linked from native
-Forgejo's global navigation. The [leading plan](sodaspaces-plan.md#spaces-page--selected-not-implemented)
-defines the workspace and Soda-owned shell (canonical assets, fixed native links
-and labelled Soda identity, not fabricated native context). `GET /spaces` now serves
-that escaped HTML shell with a server-authorized actor. Anonymous/expired sessions
-receive the fixed native login entry; unavailable grant/provider authority produces 503, not a
-complete empty workspace. Queries are refused. Existing repository-scoped collection
-guards remain unchanged.
+`GET /spaces` is a no-store bookmark bridge under `/-/soda/`. It refuses query
+parameters and ambiguous cookies, validates the configured HTTPS origin, then
+redirects through native `/user/login` with the fixed `/?soda-view=spaces` return.
+Runners and repository settings use the corresponding fixed views; repository IDs
+must be canonical positive integers. No session, provider or helper lookup is needed
+to redirect, and no content or authority is embedded in the bridge.
 
-HTML derives the actor from the protected Soda session and acting grant; JSON still
-requires its expected-user header, and mutations still require CSRF/origin checks.
-Only this HTML route allows local modules and xterm's inline styles through its CSP;
-API/avatar restrictions, framing denial, private no-store and no-referrer remain.
-No project data, credentials or executable inline bootstrap are embedded.
+Forgejo's actual document supplies the native actor and chrome. The existing Lit
+components use protected APIs for inventory and operations, with expected-actor,
+CSRF/origin, scope and fresh-session checks. Spaces retains its per-row degraded
+observation rules and logout-winning publication; the redirect is not authorization.
+Native page CSP and assets belong to Forgejo's supported template integration.
 
 `GET /login?destination=spaces` accepts exactly one fixed destination and no
 `repository_id`. An append-only schema-v6 boolean binds that intent to the existing
-OAuth transaction. Callback returns only to configured-origin `/-/soda/spaces`;
+OAuth transaction. Callback now returns to configured-origin `/?soda-view=spaces`;
 omission retains repository/home behavior. Unknown, empty, duplicate and mixed
 intents fail. No caller URL, historical `return_path`, additional consent or OAuth
 client change is used. See [credential preservation](dashboard-credentials.md#schema-v6-spaces-return).
@@ -147,7 +145,7 @@ Git registration or private-key handling is introduced.
 
 ## Operator runner settings
 
-`GET /settings/runners` serves Soda-owned Go HTML; `GET /login?destination=runners`
+`GET /settings/runners` is a fixed native-login bookmark bridge; `GET /login?destination=runners`
 binds its fixed return through schema v7. No repository ID or arbitrary URL is
 accepted. The protected JSON routes are:
 

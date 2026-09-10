@@ -3,19 +3,34 @@ import {mountSodaspaces} from '../../../frontend/spaces/sodaspaces-workspace.js'
 import {object} from '../../../frontend/spaces/sodaspaces-api.js';
 import type {Space, TerminalMetadata} from '../../../frontend/spaces/sodaspaces-api.js';
 export const projectA = 'p' + '1'.repeat(24), projectB = 'p' + '2'.repeat(24);
-function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
-  const root = document.querySelector<HTMLElement>('main'); if (!root) throw Error('Missing workspace mount');
+export function installWorkspaceModel(actor = '1', repository?: {id: string; owner: string; name: string}) {
+  const root = document.querySelector<HTMLElement>('main, .page-content'); if (!root) throw Error('Missing workspace mount');
   const now = Math.floor(Date.now() / 1000);
-  const metadata = (id: string, environment: string, repository: string, name: string): TerminalMetadata => ({id, request_id: id, environment_id: environment, repository_id: repository, user_id: '1', login: 'alice', name,
+  const metadata = (id: string, environment: string, repository: string, name: string): TerminalMetadata => ({id, request_id: id, environment_id: environment, repository_id: repository, user_id: actor, login: 'alice', name,
     created_at: now, hard_until: now + 43200, retain_until: 0, effective_until: now + 43200, ready: true, attached: false, state: 'ready'});
   const spaces: Space[] = [{id: projectA, repository: '7', name: 'Alpha'}, {id: projectB, repository: '8', name: 'Beta'}].map(p => ({environment: {id: p.id, repository_id: p.repository, owner_id: '1', name: p.name, repository: 'alice/' + p.name, provisioned: true}, login: 'alice', environment_administrator: true, authority_unavailable: false, native_unavailable: false, observed: {id: p.id, running: true}, terminals: []}));
   const alpha = spaces[0], beta = spaces[1]; if (!alpha || !beta) throw Error('Missing fixture projects');
   alpha.terminals.push(metadata('a'.repeat(32), projectA, '7', 'Build'), metadata('b'.repeat(32), projectA, '7', 'Edit'));
   beta.terminals.push(metadata('c'.repeat(32), projectB, '8', 'Other project'));
+  if (repository) {
+    alpha.environment.repository_id = repository.id;
+    alpha.environment.repository = repository.owner + '/' + repository.name;
+    for (const terminal of alpha.terminals) terminal.repository_id = repository.id;
+    for (const space of spaces) for (const terminal of space.terminals) {
+      const saved = sessionStorage.getItem('fixture-terminal:' + terminal.id)?.split(':');
+      if (saved && saved.length === 2 && /^\d+$/.test(saved[0] || '')) {
+        terminal.retain_until = Number(saved[0]); terminal.effective_until = terminal.retain_until || terminal.hard_until;
+        if (saved[1] === 'ended') terminal.state = 'ended';
+        if (saved[1] === 'ending') terminal.state = 'ending';
+      }
+    }
+  }
   const calls: {path: string; method: string; body: Record<string, unknown> | null}[] = [], sockets: Socket[] = [];
-  let user = '1', complete = true, status = 200, unknownEnd = false;
+  let user = actor, complete = true, status = 200, unknownEnd = false;
   let pause: Promise<void> | undefined;
+  const nativeFetch = window.fetch.bind(window);
   Object.defineProperty(window, 'fetch', {configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (!String(input).includes('/-/soda/api/')) return nativeFetch(input, init);
     const path = String(input), method = init?.method || 'GET', body = typeof init?.body === 'string' ? object(JSON.parse(init.body)) : null;
     calls.push({path, method, body}); await pause;
     if (status !== 200) return new Response(null, {status});
@@ -29,14 +44,15 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
       const id = path.split('/').at(-1), terminal = space.terminals.find(t => t.id === id || t.request_id === id);
       if (terminal && body) {
         if (body.action === 'rename' && typeof body.name === 'string') terminal.name = body.name;
-        if (body.action === 'end') {terminal.state = unknownEnd ? 'ending' : 'ended'; terminal.ready = terminal.attached = false; return Response.json({ending: true});}
+        if (body.action === 'end') {terminal.state = unknownEnd ? 'ending' : 'ended'; terminal.ready = terminal.attached = false; if (repository) sessionStorage.setItem('fixture-terminal:' + terminal.id, terminal.retain_until + ':' + terminal.state); return Response.json({ending: true});}
         if (body.action === 'retain' || body.action === 'hide') terminal.retain_until = now + (body.seconds === 7200 ? 7200 : 1800);
         if (body.action === 'return') terminal.retain_until = 0;
         terminal.effective_until = terminal.retain_until || terminal.hard_until;
+        if (repository) sessionStorage.setItem('fixture-terminal:' + terminal.id, terminal.retain_until + ':' + terminal.state);
       }
       return Response.json({terminal: terminal || null});
     }
-    if (path.includes('/api/environments?')) return Response.json({items: [space.environment], repository: {id: space.environment.repository_id, owner: 'alice', name: space.environment.name}, can_create: false});
+    if (path.includes('/api/environments?')) return Response.json({items: [space.environment], repository: {id: space.environment.repository_id, owner: repository?.owner || 'alice', name: repository?.name || space.environment.name}, can_create: false});
     if (path.endsWith('/lifecycle')) return Response.json({environment: space.observed, boot_enabled: true});
     if (path.endsWith('/connection')) return Response.json({login: 'alice', connection: {environment: {...space.observed, ip: '10.89.0.2'}, fingerprint: 'SHA256:' + 'A'.repeat(43)}});
     return Response.json(space);
@@ -59,8 +75,12 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
     close() {this.closed++; this.readyState = 3; this.onclose?.();}
   }
   Object.defineProperty(window, 'WebSocket', {configurable: true, value: Socket});
-  const api = mountSodaspaces(root, mode === 'page' ? {kind: 'page', expectedUserId: '1'} : {kind: 'native', expectedUserId: '1', repositoryId: '7', pageRepositoryId: '7'});
-  return {api, root, spaces, calls, sockets, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};
+  return {root, spaces, calls, sockets, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};
+}
+function createWorkspaceFixture(mode: 'native' | 'page' = 'page') {
+  const model = installWorkspaceModel();
+  const api = mountSodaspaces(model.root, mode === 'page' ? {kind: 'page', expectedUserId: '1'} : {kind: 'native', expectedUserId: '1', repositoryId: '7', pageRepositoryId: '7'});
+  return {api, ...model};
 }
 declare global {interface Window {createWorkspaceFixture: typeof createWorkspaceFixture; workspaceFixture: ReturnType<typeof createWorkspaceFixture>}}
 window.createWorkspaceFixture = createWorkspaceFixture;

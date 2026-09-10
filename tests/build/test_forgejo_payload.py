@@ -40,11 +40,9 @@ class ForgejoPayload(unittest.TestCase):
 
     def test_spaces_page_assets_use_the_canonical_public_payload(self):
         files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
-        page = (ROOT / 'internal/web/templates/spaces.html').read_text()
-        references = re.findall(r'(?:href|src|srcset)="(/assets/[^" ]+)"', page)
-        self.assertGreaterEqual(len(references), 10)
-        for reference in references:
-            self.assertIn('public' + reference, files, reference)
+        page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
+        self.assertIn('soda-native-page.js', page)
+        self.assertFalse((ROOT / 'internal/web/templates/spaces.html').exists())
         self.assertIn('public/assets/sodaspaces-page.js', files)
         self.assertIn('public/assets/sodaspaces-project.js', files)
         self.assertIn('public/assets/sodaspaces-drawer.js', files)
@@ -55,9 +53,11 @@ class ForgejoPayload(unittest.TestCase):
 
     def test_operator_settings_page_and_shared_runner_decoder_are_staged(self):
         files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
-        page = (ROOT / 'internal/web/templates/runners.html').read_text()
-        for reference in re.findall(r'(?:href|src)="(/assets/[^" ]+)"', page):
-            self.assertIn('public' + reference, files)
+        page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
+        self.assertIn('public/assets/soda-settings.css', files)
+        self.assertIn('public/assets/soda-runners-page.js', files)
+        self.assertFalse((ROOT / 'internal/web/templates/runners.html').exists())
+        self.assertFalse((ROOT / 'internal/web/templates/repository-spaces.html').exists())
         self.assertEqual(files['public/assets/soda-runner-response.js'], '@build/forgejo-js/soda-runner-response.js')
         self.assertEqual(files['public/assets/soda/forgejo/soda-settings-link.js'], '@build/forgejo-js/soda-settings-link.js')
         self.assertNotIn('window.config', page)

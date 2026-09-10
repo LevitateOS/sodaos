@@ -855,7 +855,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c2ae89d190ad79eb6d6bedbda97573127a78ce5e97788a716d5d265d322345e8",
+      "beforeRoleHash": "1bc22b054fe9d44044ceeb4634e9f583fb5fc7d4398d83e28d741075c8aeb3a3",
       "presentationReview": "Fixed Spaces link plus signed-actor marker for the Soda operator settings link. No native IsAdmin gate: the bounded session caller reveals navigation, while Go reauthorizes every page/API. Appearance and upstream navbar remain native. Local hook/emitted-browser checks, not installed capture.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
@@ -5700,7 +5700,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "70afeba4126b24a9a13eefd03f438dfc8ba03f2b8cb4b77b8c1e7cd09b155d8c",
+      "beforeRoleHash": "2d4ad0fe91ff7ac5908df22781f32bc0c39fd01bf770faabf43afad490f93a3c",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",
@@ -7815,7 +7815,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "a4a5efc8a63a35511a2b82550e1eca76799f3e0f6c77492bda58a0cc85065c77",
+      "beforeRoleHash": "ba536abb6a8834981ea43d398f6ace9346fd36e524879702670ddd24863cd72e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one connected Lit content mount. Scoped settings CSS supports the existing controls; full Spaces measures the native chrome. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."

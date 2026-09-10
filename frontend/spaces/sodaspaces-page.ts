@@ -27,9 +27,3 @@ export function mountSpacesPage(root: HTMLElement, actor: string) {
     workspace.dispose();
   }};
 }
-
-const root = document.getElementById('spaces-page'), status = document.getElementById('spaces-page-status');
-if (root && id(root.dataset.sodaActor)) {
-  mountSpacesPage(root, root.dataset.sodaActor);
-  if (status) status.hidden = true;
-}

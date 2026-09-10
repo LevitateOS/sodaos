@@ -13,6 +13,13 @@ existing-account access observations passed; see the [cutover handoff](implement
 This is a bounded service upgrade, not bootstrap, an updater or appliance recovery.
 Require explicit target/deployment permission before executing any step.
 
+## Native page entry source update
+
+The native integration's step 4 removes the Go management shells and changes their
+URLs to fixed native-login bookmark bridges. It adds no schema/key migration,
+credential format or session authority. Schema-v9 connection/cancellation behavior
+from step 2 remains; no retained-target upgrade follows from local page checks.
+
 ## New installations
 
 `soda-setup` now creates an exclusive `grant-key` file alongside OAuth credentials,

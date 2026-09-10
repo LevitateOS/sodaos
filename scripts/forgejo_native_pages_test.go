@@ -79,7 +79,6 @@ func TestNativeSodaPageHost(t *testing.T) {
 					`<header>NATIVE_HEAD</header>`, `<footer>NATIVE_FOOTER</footer>`,
 					`id="soda-native-content"`, `data-view="` + tc.view + `"`,
 					`data-actor="9007199254740993"`, `data-repository-id="` + tc.repository + `"`,
-					`data-destination="` + prefix + `/-/soda` + tc.destination + `"`,
 					`src="` + prefix + `/assets/soda/forgejo/soda-native-page.js?v=1"`,
 					`id="soda-notification-preview"`, `soda-settings-link.js`,
 				} {

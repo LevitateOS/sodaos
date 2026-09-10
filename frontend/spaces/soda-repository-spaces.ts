@@ -10,5 +10,3 @@ export function mountRepositorySpaces(mount: HTMLElement, actor: string, reposit
   void controls.refresh();
   return controls;
 }
-const mount = document.getElementById('soda-repository-spaces');
-if (mount && id(mount.dataset.actor) && id(mount.dataset.repositoryId)) mountRepositorySpaces(mount, mount.dataset.actor, mount.dataset.repositoryId);

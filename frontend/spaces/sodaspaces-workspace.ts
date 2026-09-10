@@ -302,7 +302,7 @@ export class SodaSpaces extends LitElement {
           ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>` : ''}
           ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
         `)}
-        ${this.binding?.kind === 'native' ? html`<a href="/-/soda/spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
+        ${this.binding?.kind === 'native' ? html`<a href="/?soda-view=spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
         ${this.binding?.kind === 'page' ? html`<button class="ui button" aria-label="Open in drawer" title=${this.openingDrawer ? 'Opening repository…' : 'Open in drawer'} ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>${this.workspaceWidth < 800 ? '↘' : this.openingDrawer ? 'Opening repository…' : 'Open in drawer'}</button>` : ''}
         <a ?hidden=${this.available && !this.stale} href=${'/-/soda/login?' + connect + (this.binding?.expectedUserId ? '&expected_user_id=' + this.binding.expectedUserId : '')}>Connect to Soda</a>
       </header>

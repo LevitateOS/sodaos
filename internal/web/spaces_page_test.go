@@ -1,17 +1,14 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
+func TestSpacesBookmarkEntry(t *testing.T) {
 	for _, mode := range []string{"anonymous", "authorized", "mismatch", "unavailable"} {
 		t.Run(mode, func(t *testing.T) {
 			calls := 0
@@ -34,28 +31,8 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, r)
 			body := w.Body.String()
-			expected := 200
-			if mode == "anonymous" {
-				expected = 303
-			}
-			if mode == "mismatch" || mode == "unavailable" {
-				expected = 503
-			}
-			if w.Code != expected || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") || w.Header().Get("Referrer-Policy") != "no-referrer" || w.Header().Get("Cache-Control") != "private, no-store" {
-				t.Fatal(w.Code, w.Header())
-			}
-			if strings.Contains(body, `src="/assets/sodaspaces-page.js"`) != (mode == "authorized") {
-				t.Fatal("unauthorized workspace bootstrap")
-			}
-			if mode == "anonymous" && calls != 0 {
-				t.Fatal("anonymous page contacted provider")
-			}
-			if mode == "anonymous" && !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Dspaces") {
-				t.Fatal("missing native entry")
-			}
-
-			if mode == "authorized" && !strings.Contains(body, s.Config.ForgejoURL+"/-/soda/settings/runners") {
-				t.Fatal("configured operator has no settings destination")
+			if w.Code != 303 || calls != 0 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Dspaces") {
+				t.Fatal(w.Code, w.Header(), calls)
 			}
 			for _, forbidden := range []string{"csrf-alice", "session-alice", "callback-access", "window.config", "/app/", "<iframe"} {
 				if strings.Contains(body, forbidden) {
@@ -65,22 +42,7 @@ func TestSpacesHTMLSessionAuthorityAndBoundedException(t *testing.T) {
 			if strings.Contains(w.Header().Get("Content-Security-Policy"), "script-src 'self' 'unsafe-inline'") {
 				t.Fatal("inline script permission")
 			}
-			// The browser test consumes the real authorized handler output, not a
-			// handwritten shell or copied template. Only synthetic HTML/CSP/origin
-			// leave this fixture; never cookies, grants or request headers.
-			if output := os.Getenv("SODA_SPACES_PAGE_HTML"); mode == "authorized" && output != "" {
-				if !filepath.IsAbs(output) {
-					t.Fatal("absolute fixture output required")
-				}
-				file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer file.Close()
-				if err := json.NewEncoder(file).Encode(map[string]string{"html": body, "csp": w.Header().Get("Content-Security-Policy"), "origin": s.Config.ForgejoURL}); err != nil {
-					t.Fatal(err)
-				}
-			}
+
 		})
 	}
 	s := apiTestServer(t)

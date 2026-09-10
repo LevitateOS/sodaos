@@ -96,8 +96,8 @@ for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor $
           .replace(/{{if \.IsSigned}}true{{else}}false{{end}}/g, 'true').replace(/{{if \.IsSigned}}{{\.SignedUserID}}{{end}}/g, actor).replace(/{{[\s\S]*?}}/g, '');
         return new Response(`<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css">${project ? '<div class="repo-header"><div class="repo-buttons"></div></div>' : ''}<a href="/issues">Browse issues</a><a href="/current/Beta-renamed">Other repository</a><input id="native-draft" value="unsaved">${markup}`, {headers: {'Content-Type': 'text/html'}});
       }
-      if (route !== '/-/soda/spaces') return new Response(null, {status: 404});
-      return new Response(`<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><main id="spaces-page" data-soda-actor="${actor}"></main><script type="module" src="/assets/sodaspaces-page.js"></script>`, {headers: {'Content-Type': 'text/html'}});
+      if (route !== '/' || url.searchParams.get('soda-view') !== 'spaces') return new Response(null, {status: 404});
+      return new Response(`<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><main><div id="soda-native-content" data-view="spaces" data-actor="${actor}" data-document-title="Spaces fixture"></div></main><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`, {headers: {'Content-Type': 'text/html'}});
     }, websocket: {
       message(ws, raw) {
         const frame = object(JSON.parse(String(raw))); if (frame.action !== 'create' && frame.action !== 'attach') return;
@@ -145,7 +145,7 @@ for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor $
     await page.evaluate(() => {window.onbeforeunload = event => {event.preventDefault(); event.returnValue = 'Unsaved fixture draft'; return event.returnValue;};});
     const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
     await page.getByRole('button', {name: 'Open in drawer', exact: true}).click(); await cancelled;
-    assert.equal(new URL(page.url()).pathname, '/-/soda/spaces'); assert(await screen?.evaluate(node => node.isConnected));
+    assert.equal(new URL(page.url()).search, '?soda-view=spaces'); assert(await screen?.evaluate(node => node.isConnected));
     assert.deepEqual(connections.at(-1), {action: 'create', id: fromSpaces.id});
     await page.evaluate(() => {window.onbeforeunload = null;});
 
@@ -168,7 +168,7 @@ for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor $
     await newManagedTerminal(page, first.environment.repository, 'From drawer', first.environment.id);
     const fromDrawer = first.terminals.at(-1); assert(fromDrawer && fromDrawer.id !== fromSpaces.id);
     await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
-    await page.waitForURL('**/-/soda/spaces'); await page.locator('.is-connected').waitFor();
+    await page.waitForURL('**/?soda-view=spaces'); await page.locator('.is-connected').waitFor();
     assert.deepEqual(connections.at(-1), {action: 'attach', id: fromDrawer.id});
     await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
     await page.waitForURL('**/current/Alpha-renamed#sodaspaces'); await page.locator('#sodaspaces-drawer .is-connected').waitFor();

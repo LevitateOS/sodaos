@@ -1,18 +1,16 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
 )
 
-func TestRepositorySettingsUsesFreshStableIdentityAndSharedControls(t *testing.T) {
+func TestRepositorySettingsProtectedContext(t *testing.T) {
 	denied := false
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -47,25 +45,14 @@ func TestRepositorySettingsUsesFreshStableIdentityAndSharedControls(t *testing.T
 		}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/repositories/7/settings/spaces", "", "alice"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments?repository_id=7", "", "alice"))
 	body := w.Body.String()
-	if w.Code != 200 || !strings.Contains(body, `data-actor="1" data-repository-id="7"`) || !strings.Contains(body, "/current/renamed%3F%23/settings") || strings.Contains(body, "stale/ignored") || strings.Contains(body, "evil.test") || !strings.Contains(body, "soda-repository-spaces.js") || w.Header().Get("Cache-Control") != "private, no-store" {
+	if w.Code != 200 || !strings.Contains(body, `"owner":"current"`) || !strings.Contains(body, `"name":"renamed?#"`) || strings.Contains(body, "stale/ignored") || strings.Contains(body, "evil.test") {
 		t.Fatal(w.Code, body)
-	}
-	if output := os.Getenv("SODA_REPOSITORY_SETTINGS_HTML"); output != "" {
-		f, err := os.OpenFile(output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = json.NewEncoder(f).Encode(map[string]string{"html": body, "csp": w.Header().Get("Content-Security-Policy")})
-		f.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 	denied = true
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/repositories/7/settings/spaces", "", "alice"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments?repository_id=7", "", "alice"))
 	if w.Code < 400 || strings.Contains(w.Body.String(), "data-actor") || strings.Contains(w.Body.String(), "current/") {
 		t.Fatal("denied repository metadata leaked", w.Code)
 	}

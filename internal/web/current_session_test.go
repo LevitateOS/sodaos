@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestRequireCurrentSessionComparesIdentityContextAndCSRF(t *testing.T) {
@@ -59,17 +61,24 @@ func TestPagesRecheckOriginalSessionAfterProviderIO(t *testing.T) {
 		path   string
 		status int
 	}{
-		{"/spaces", 503},
-		{"/settings/runners", 401},
+		{"/api/spaces", 401},
+		{"/api/settings/runners", 401},
 		{"/api/environments?repository_id=7", 401},
-		{"/repositories/7/settings/spaces", 401},
 	} {
 		for _, change := range []string{"logout", "user", "csrf", "denied", "unavailable", "provider identity"} {
 			t.Run(page.path+"/"+change, func(t *testing.T) {
 				s := grantedTestServer(t, func(http.ResponseWriter, *http.Request) { t.Error("unexpected upstream connection") })
+				if page.path == "/api/spaces" {
+					s.Config.OperatorID = 999
+					if err := s.Store.CreateProject(t.Context(), store.Project{ID: webTerminalProject, Name: "private-repository", RepositoryID: 7, OwnerID: 1, Repository: "alice/private-repository"}); err != nil {
+						t.Fatal(err)
+					}
+				}
 				calls := 0
 				s.Host.HTTP = &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
-					t.Error("page contacted native helper")
+					if page.path != "/api/spaces" {
+						t.Error("page contacted native helper")
+					}
 					return nil, errors.New("unexpected native call")
 				})}
 				s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
@@ -114,7 +123,10 @@ func TestPagesRecheckOriginalSessionAfterProviderIO(t *testing.T) {
 				w := httptest.NewRecorder()
 				s.ServeHTTP(w, apiTestRequest("GET", page.path, "", "alice"))
 				status := page.status
-				if page.path != "/spaces" {
+				if page.path == "/api/spaces" && (change == "denied" || change == "unavailable" || change == "provider identity") {
+					status = 200
+				}
+				if page.path != "/api/spaces" {
 					if change == "denied" {
 						status = 403
 					}

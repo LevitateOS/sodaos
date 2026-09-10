@@ -112,16 +112,13 @@ This does not complete native-stage or installed acceptance, or the later slices
 [frontend tests](../tests/frontend/), [Forgejo tests](../tests/forgejo/),
 [native check](../scripts/check-native.sh).
 
-1. Extend/rename the existing small page-fixture orchestrator, updating its callers,
-   rather than writing separate runner/settings harnesses. Run the existing Go
-   producers with `-count=1` into a fresh retained artifact directory:
-   - `TestSpacesHTMLSessionAuthorityAndBoundedException` → `SODA_SPACES_PAGE_HTML`.
-   - `TestRunnerOperatorGatesBeforeNativeAndDecode` → `SODA_RUNNERS_PAGE_HTML`.
-   - `TestRepositorySettingsUsesFreshStableIdentityAndSharedControls` →
-     `SODA_REPOSITORY_SETTINGS_HTML`.
-2. Check that all requested fixture files were produced before running their browser
-   consumers. Missing production HTML/CSP must fail this integration command rather
-   than become a skip or handwritten replacement fixture.
+1. The native integration step 4 supersedes the original Go HTML producers:
+   `scripts/test-spaces-page.ts` invokes the existing `TestNativeConnectionFixture`
+   in a fresh retained directory. It prepares canonical assets, authenticates with
+   the authorized native account and runs all three existing browser consumers.
+2. Missing native host, credentials, assets or failing consumers fail the page gate.
+   Consumers retain synthetic operation responses while using actual native HTML;
+   no duplicate shell/host/auth harness replaces the retired Go templates.
 3. Include `tests/forgejo/settings-link.test.ts` in the explicitly enabled local
    browser group. Currently it requires `SODA_LIT_BROWSER=1` but is absent from the
    `test:lit` file list. Set local fixture flags only on the relevant commands;

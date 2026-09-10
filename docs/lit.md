@@ -2,7 +2,10 @@
 
 The management drawer and terminal controls now use Lit for Soda-owned interactive
 UI, loaded only on workspace opening/restoration. Xterm and its transport remain
-imperative resources of the terminal component.
+imperative resources of the terminal component. Native dashboard views now mount
+Spaces, Runners and repository controls directly; the old Go shells and their
+auto-boot callers are removed. The native page/drawer journey shares these same
+component owners.
 Forgejo owns its pages, forms, permissions, authentication and native scripts;
 Cockpit keeps React/PatternFly. See the handoff for actual local checks; no new
 installed browser/CLI compatibility proof follows from the port.

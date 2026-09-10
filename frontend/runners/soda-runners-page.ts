@@ -364,5 +364,3 @@ export function mountRunnersPage(root: HTMLElement, actor: string) {
   root.replaceChildren(view);
   return {dispose() {view.remove();}};
 }
-const root = document.getElementById('soda-runners-page');
-if (root && id(root.dataset.actor)) mountRunnersPage(root, root.dataset.actor);

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -41,54 +40,21 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `[]`) })
-	var deniedHTML string
-	for _, path := range []string{"/settings/runners", "/api/settings/runners", "/api/settings/runners/one/remove"} {
+	for _, path := range []string{"/api/settings/runners", "/api/settings/runners/one/remove"} {
 		method := "GET"
 		if strings.HasSuffix(path, "remove") {
 			method = "POST"
 		}
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, apiTestRequest(method, path, `{"bad":`, "bob"))
-		if w.Code != 403 || calls != 0 {
+		if w.Code != 403 || calls != 0 || !strings.Contains(w.Body.String(), "operator_required") {
 			t.Fatal(path, w.Code, w.Body.String(), calls)
-		}
-		if path == "/settings/runners" {
-			deniedHTML = w.Body.String()
-			if !strings.Contains(deniedHTML, "<!doctype html>") || !strings.Contains(deniedHTML, "configured Soda operator") || strings.Contains(deniedHTML, "soda-runners-page.js") || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
-				t.Fatal("page denial must be bounded HTML without controls", deniedHTML)
-			}
-		} else if !strings.Contains(w.Body.String(), "operator_required") {
-			t.Fatal("API denial must retain its JSON contract", w.Body.String())
 		}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/settings/runners", "", "alice"))
-	if w.Code != 200 || calls != 0 || !strings.Contains(w.Body.String(), `data-actor="1"`) {
-		t.Fatal(w.Code, w.Body.String())
-	}
-	for _, secret := range []string{"csrf-alice", "session-alice", "acting-alice"} {
-		if strings.Contains(w.Body.String(), secret) {
-			t.Fatal("secret in HTML")
-		}
-	}
-	html, csp := w.Body.String(), w.Header().Get("Content-Security-Policy")
-	// Native-only/admin users do not become operators. Anonymous page contains no inventory.
-	r := apiTestRequest("GET", "/settings/runners", "", "alice")
-	r.Header.Del("Cookie")
-	w = httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Drunners") || strings.Contains(w.Body.String(), "soda-runners-page.js") {
-		t.Fatal(w.Code, w.Body.String())
-	}
-	if output := os.Getenv("SODA_RUNNERS_PAGE_HTML"); output != "" {
-		f, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer f.Close()
-		if err = json.NewEncoder(f).Encode(map[string]string{"html": html, "csp": csp, "anonymous": w.Body.String(), "denied": deniedHTML}); err != nil {
-			t.Fatal(err)
-		}
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	if w.Code != 200 || calls != 1 {
+		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 }
 

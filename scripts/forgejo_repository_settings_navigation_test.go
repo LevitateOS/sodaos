@@ -56,7 +56,7 @@ func TestForgejoRepositorySettingsNavigationMatchesNativeGates(t *testing.T) {
 		if err := tpl.Execute(&out, data); err != nil {
 			t.Fatal(err)
 		}
-		const sodaLink = "/-/soda/repositories/9223372036854775807/settings/spaces"
+		const sodaLink = "/?soda-view=repository-spaces&amp;repository_id=9223372036854775807"
 		if tpl.Name() == "current" && strings.Count(out.String(), `href="`+sodaLink+`"`) != 1 {
 			t.Fatal("missing/duplicate bounded Soda settings link")
 		}

@@ -3,8 +3,8 @@ import {connectPage} from '../../../frontend/spaces/soda-connection.js';
 
 const mount = document.getElementById('soda-native-content');
 if (mount) {
-  const {title, documentTitle, destination, actor, view, repositoryId} = mount.dataset;
-  if (title && documentTitle && destination && actor && view) {
+  const {documentTitle, actor, view, repositoryId} = mount.dataset;
+  if (documentTitle && actor && view) {
     document.title = documentTitle;
     let busy = false, mounted = false, generation = 0;
     window.addEventListener('pagehide', () => {generation++;});

@@ -65,7 +65,7 @@ screenshots of installed Soda.
 
 | Keep | Change from the previous proposal |
 | --- | --- |
-| Spaces immediately after Explore, at `/-/soda/spaces` | Deliver inside the existing application origin; do not send users to another port |
+| Spaces in native navigation, at `/?soda-view=spaces` | Deliver inside the existing application origin; do not send users to another port |
 | Shared project roots and personal native sessions | Name sessions for the work; do not create a new environment/worktree for every agent |
 | Searchable project/session sidebar | One stable list with attention filtering, not separate active/kept catalogs or dashboard cards |
 | Real terminal tabs and cross-project panes | Direct **Split right / Split below**, drag-resize and maximize; remove the layout-preset dropdown |
@@ -338,18 +338,12 @@ global shortcut is available. Use xterm accessibility support, not a second rend
 
 ## 8. Page, data and implementation boundary
 
-The Spaces handler is Soda-owned Go/template HTML at `/-/soda/spaces` behind the existing
-proxy—on the isolated deployment's **33443** origin, not a new listener or tunnel.
-The official Forgejo 15.0.7 `custom/extra_links` hook places the link after Explore;
-preserve its existing appearance controls and native hidden-navbar behavior.
-
-The page shell uses canonical branding, fixed configured-origin native navigation
-links and an explicitly labelled **Soda account** derived server-side. It does not
-render fake Forgejo notification/admin/account context or load native scripts against
-invented CSRF data. Native workflows remain upstream links and pages. Use existing
-Soda/system appearance inputs honestly; do not silently promise synchronization with
-another Forgejo sign-in's preferences. This is a bounded page, not a second frontend
-framework or copied Forgejo password/permission authority.
+Forgejo renders the native Spaces document at `/?soda-view=spaces`, including its
+real navigation/profile menus and theme. The existing `/-/soda/spaces` URL remains
+a fixed native-login bookmark bridge. The separate Go shell is removed. Native
+entry connects once through normal OAuth when needed, then mounts the existing Lit
+workspace using the original native actor. First consent and coordinated logout's
+partial outcomes remain explicit; this is not atomic SSO.
 
 Preserve the implemented transaction-bound **fixed Spaces OAuth return**, actor/CSRF/Origin,
 PKCE, encrypted grants, context rotation/logout and fresh repository authorization.

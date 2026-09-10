@@ -54,7 +54,16 @@ func TestNativeConnectionFixture(t *testing.T) {
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
 	proxy.ErrorLog = log.New(io.Discard, "", 0)
 	var soda *Server
-	public := filepath.Join(root, ".artifacts/step2-preview/public")
+	public := filepath.Join(dir, "public")
+	preview := exec.Command("bun", "scripts/build-forgejo-preview.ts", "--out", filepath.Join(dir, "branding"))
+	preview.Dir = root
+	prepared, prepareErr := preview.CombinedOutput()
+	if err := os.WriteFile(filepath.Join(dir, "preview.log"), prepared, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if prepareErr != nil {
+		t.Fatal("candidate asset preparation failed; see preview.log")
+	}
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, config.SodaPath+"/") {
 			soda.ServeHTTP(w, r)
@@ -135,10 +144,15 @@ func TestNativeConnectionFixture(t *testing.T) {
 	}
 	cmd := exec.Command("bun", "test", "--timeout", "120000", "tests/forgejo/native-connection.test.ts")
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "SODA_CONNECTION_ORIGIN="+server.URL)
-	output, err := cmd.CombinedOutput()
-	if writeErr := os.WriteFile(filepath.Join(dir, "browser.log"), output, 0600); writeErr != nil {
-		t.Fatal(writeErr)
+	cmd.Env = append(os.Environ(), "SODA_CONNECTION_ORIGIN="+server.URL, "SODA_PAGE_STATE="+filepath.Join(dir, "browser-state.json"))
+	logFile, err := os.OpenFile(filepath.Join(dir, "browser.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd.Stdout, cmd.Stderr = logFile, logFile
+	err = cmd.Run()
+	if closeErr := logFile.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 	if err != nil {
 		t.Fatal("native connection browser failed; see retained browser.log")

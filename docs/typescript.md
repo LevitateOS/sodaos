@@ -19,7 +19,13 @@ bun run screenshot --help
 `build` compiles and minifies the Forgejo browser assets and the two Cockpit
 pages. It does not install an appliance or build a standalone dashboard. `test`
 prepares locked terminal assets and emitted Forgejo modules once, then runs the
-frontend, actual Go HTML/page fixtures, drawer layout, Forgejo and Cockpit suites.
+frontend, native Forgejo page fixtures, drawer layout, Forgejo and Cockpit suites.
+The page group requires the authorized local Forgejo fixture at `localhost:3300`
+and its saved screenshot-account credential. It reuses `TestNativeConnectionFixture`,
+prepares a fresh canonical public payload and isolated Soda OAuth/DB state, then
+runs the existing page consumers with that fixture's own native login. Missing native
+host/assets fail this group; no handwritten HTML fallback or implicit installation
+is used. Synthetic operation APIs remain separate from native/provider proof.
 The local Lit runtime and operator settings-link browser checks are enabled in the
 Forgejo group. Cockpit builds through Vite+'s programmatic API under Bun; it retains
 React and PatternFly. Installed/provider checks keep their explicit opt-in flags

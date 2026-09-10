@@ -7,7 +7,7 @@ const marker = document.getElementById('soda-settings-link');
 if (marker && id(marker.dataset.actor)) {
   const actor = marker.dataset.actor, sub = marker.dataset.subUrl || '';
   const link = document.createElement('a'); link.className = 'item'; link.textContent = 'SodaOS settings';
-  link.href = sub + '/-/soda/settings/runners';
+  link.href = sub + '/?soda-view=runners';
   let generation = 0;
   const hide = () => {generation++; link.remove();};
   const check = async () => {

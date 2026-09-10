@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import type {APIResponse} from 'playwright';
 
 test('real Forgejo consent, reuse, repeat connection and both partial logout outcomes', {
-  skip: !process.env.SODA_CONNECTION_ORIGIN, timeout: 120000,
+  skip: !process.env.SODA_CONNECTION_ORIGIN, timeout: 240000,
 }, async t => {
   const origin = process.env.SODA_CONNECTION_ORIGIN; assert(origin);
   const address = new URL(origin);
@@ -45,9 +45,23 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
   await page.locator('#authorize-app').click();
   await page.locator('#soda-native-content > soda-spaces').waitFor();
   assert.equal(page.url(), origin + '/?soda-view=spaces');
+  if (process.env.SODA_PAGE_CONSUMERS === '1') {
+    const state = process.env.SODA_PAGE_STATE; assert(state);
+    await context.storageState({path: state});
+    const actor = await page.locator('#soda-native-content').getAttribute('data-actor'); assert(actor);
+    const repositoryResponse: APIResponse = await page.request.get(origin + '/-/soda/api/environments?repository_id=1', {headers: {'X-Soda-Expected-User-ID': actor}});
+    assert.equal(repositoryResponse.status(), 200);
+    const repositoryData: unknown = await repositoryResponse.json();
+    assert(repositoryData && typeof repositoryData === 'object' && 'repository' in repositoryData);
+    const child = Bun.spawn(['bun', 'test', '--timeout', '90000', 'tests/frontend/spaces-page.test.ts', 'tests/frontend/runners.test.ts', 'tests/frontend/repository-settings.test.ts'], {
+      env: {...process.env, SODA_PAGE_ORIGIN: origin, SODA_PAGE_ACTOR: actor, SODA_PAGE_REPOSITORY: JSON.stringify(repositoryData.repository)}, stdout: 'inherit', stderr: 'inherit',
+    });
+    assert.equal(await child.exited, 0, 'Native page consumers failed');
+  }
   const cookie = (await context.cookies()).find(c => c.name === '__Secure-sodaspaces-session'); assert(cookie);
   for (const view of ['runners', 'repository-spaces&repository_id=1', 'spaces']) {
-    await page.goto(origin + '/?soda-view=' + view);
+    const legacy = view === 'runners' ? '/settings/runners' : view.startsWith('repository-spaces') ? '/repositories/1/settings/spaces' : '/spaces';
+    await page.goto(origin + '/-/soda' + legacy);
     await page.locator('#soda-native-content > ' + (view === 'runners' ? 'soda-runners' : view.startsWith('repository-spaces') ? 'soda-project-controls' : 'soda-spaces')).waitFor();
     if (view === 'runners') {
       await page.waitForFunction(() => {const field = document.querySelector<HTMLInputElement>('soda-runners input[name=id]'); return field && !field.matches(':disabled');});
@@ -70,6 +84,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
       assert.equal(await page.locator('#navbar').count(), 1);
     }
     await page.setViewportSize({width: 1440, height: 900});
+    assert.equal(page.url(), origin + '/?soda-view=' + view, 'bookmark did not reach fixed native host');
     assert((await context.cookies()).find(c => c.name === cookie.name)?.value === cookie.value, 'valid session rotated on entry');
   }
   // Full-page workspace remains a single mount below the actual native header.

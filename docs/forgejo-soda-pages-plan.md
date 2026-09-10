@@ -1,9 +1,10 @@
 # Integrate Soda pages into native Forgejo
 
-**Status, 10 September 2026: steps 1–3 are implemented with local stock-Forgejo
-browser proof. Steps 4–6 remain.** The original plan used source baseline `f3efebc`;
+**Status, 10 September 2026: steps 1–4 are implemented with local stock-Forgejo
+browser proof. Steps 5–6 remain.** The original plan used source baseline `f3efebc`;
 step 1 follows planning commit `a995f9e`. The three native hosts now mount the existing management components.
-Normal navigation and legacy-shell retirement are the next step. No appliance delivery is claimed.
+Normal navigation reaches those hosts; old Go URLs are fixed bookmark bridges
+and the duplicate shells are removed. No appliance delivery is claimed.
 
 The user wants Spaces and Runners to feel like parts of SodaOS's Forgejo interface:
 the same real header, navigation, profile menu, login and account settings. This
@@ -21,7 +22,7 @@ new environment profiles and additional runner functionality are not added here.
 
 **This is the single ownership boundary for this plan and
 [runners-port](runners-port.md#implementation-lane-boundary).** They are separate
-implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented steps 2–3 with local authentication/page-body
+implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented steps 2–4 with local authentication/page-body
 browser proof. Shared files remain reserved through the source handoff below; runner work
 must not independently edit that implementation.
 
@@ -399,8 +400,8 @@ logout and 1440px/390px layouts. Runner list observations are synthetic and read
 no runner registration or lifecycle action occurred. Existing synthetic workspace
 journeys retain exact sessions, finite retain/Return and independently named End.
 This is not new native terminal process or runner/provider proof. The complete
-navigation switch, including Open in Spaces, is intentionally step 4; browser
-caller retirement accompanies step 4; cached-payload acceptance remains step 5.
+navigation switch and browser-caller retirement were subsequently completed in
+step 4; cached-payload acceptance remains step 5.
 
 
 | Surface | Work and preservation |
@@ -423,6 +424,24 @@ remain functional. Full Spaces ↔ repository drawer preserves the exact selecte
 terminal, finite retention and independently named End behavior.
 
 ### Step 4 — switch navigation and retire the duplicate shells
+
+**Implemented with local checks.** Native navigation and drawer links now use the
+fixed native views. Old GET URLs are no-store native-login bridges with query,
+origin, cookie-ambiguity and canonical-ID guards. Their Go templates, renderer and
+standalone bootstrap callers are removed; protected APIs remain the authority.
+No-JavaScript feedback returns to the native dashboard instead of looping through
+the old entry. The native OAuth return contract is unchanged.
+
+The existing page orchestrator now uses `TestNativeConnectionFixture`, a fresh
+canonical public payload and its own native login for all three browser consumers.
+Operation responses remain synthetic; native documents/assets and authentication
+are real. The complete page/drawer/page journey preserves exact session selection,
+finite retention and Continue working, followed by two independently named Ends.
+Migrated runner tests preserve confirmations, secret clearing, retirement, late
+responses, uncertain outcomes and non-operator refusal. Go checks retain protected
+repository context and populated Spaces/session publication races.
+
+The contract followed for this step was:
 
 **Sequencing revision after step 3:** migrate affected callers, tests and served
 assets in the same change as their production owners. Step 4 must leave a working,

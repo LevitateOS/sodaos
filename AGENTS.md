@@ -19,9 +19,10 @@ Forgejo's real header/profile/navigation. Read
 It supersedes earlier separate Go-shell and routine manual-connection guidance for
 Spaces, Runners and repository Spaces settings. It is a proposal using the existing
 native dashboard/template host, with bounded automatic OAuth and coordinated normal
-logout. Steps 1–3 now have native hosts with the existing page bodies, shared
-connection/logout and local Forgejo browser proof. Step 4 switches navigation and
-retires old shells alongside their test callers/assets; steps 5–6 cover remaining
+logout. Steps 1–4 now have native hosts with the existing page bodies, shared
+connection/logout, switched navigation and fixed bookmark entries. Old Go shells
+and their boot callers are removed; local Forgejo browser proof includes the
+page/drawer handoff and migrated tests. Steps 5–6 cover remaining
 integrated acceptance and separately authorized delivery. The Soda-pages
 lane retains shared-file ownership until the explicit handoff in that plan. This is
 not atomic SSO or a new deployment grant.
@@ -138,10 +139,10 @@ Use the actual files in `appliance/services/` and `project-os/` as implementatio
   superseded. See `docs/sodaspaces-plan.md`.
   Use Forgejo's native frontend throughout, with the selected Sodaspaces repository
   button/right-drawer addition, not a new repository tab. Drawer view/session tabs
-  are selected. A global Spaces link and bounded Soda-owned Go/template listing page
-  now have a local source implementation; the shell uses Soda-owned Go HTML, canonical
-  assets, fixed native links and a labelled Soda account, not fabricated native
-  authentication/notification context. [Lit](docs/lit.md) now owns management and
+  are selected. A global Spaces link and native Forgejo dashboard view
+  have a local source implementation, sharing the existing Lit workspace. Forgejo
+  renders the actual header, profile and notification context; old Soda Go page
+  URLs are fixed native-login bookmark bridges. [Lit](docs/lit.md) now owns management and
   terminal-control rendering and the shared multi-session page/drawer. Bounded v2
   layout, measured stable panes, shared chrome/compact projections and current journey
   source ports, observed attention and extended six-session driver fixtures have local
@@ -319,7 +320,7 @@ Investigate a project-scoped host workload fallback only after a concrete nested
 ## Source conventions
 
 - Go for the dashboard/backend, setup commands and privileged integration. Do not introduce Rust without a concrete need and an agreed responsibility.
-- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. The bounded Spaces Go/template page now serves Soda-owned HTML at `/-/soda/spaces`, not a replacement Forgejo frontend or SPA. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports, observed attention and extended driver fixtures have local coverage and bounded native matrix proof; broader native/CLI acceptance remains pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses matching `b8af68c` affected artifacts and schema-v6 grants after approved preserved-state maintenance; four original Rocky 9 roots are retained with bounded tmux/program/init additions, while only future creation uses the candidate Rocky 10.2 image. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
+- Native Forgejo frontend plus Sodaspaces is selected. Root `dashboard/`, its React/PatternFly/Vite+/Zustand support and duplicate forge adapters are removed. The original Go/HTMX frontend is also removed, including its form routes/assets/clients. The Go command retains legitimate Soda APIs, OAuth/encrypted grants and native integration. Root and ordinary OAuth return to configured native Forgejo. Spaces, Runners and repository Spaces settings now render inside native Forgejo dashboard views; old `/-/soda/` page URLs are fixed bookmark bridges and their Go HTML shells are removed. Its fixed transaction-bound OAuth return uses schema v6; the shared page/drawer multi-session workspace has local source/browser coverage. Follow the leading plan and [Lit sequence](docs/lit-migration-plan.md). Management and terminal controls use Lit; xterm/transport remain imperative. Bounded v2 layout, measured panes, compact projections and journey source ports, observed attention and extended driver fixtures have local coverage and bounded native matrix proof; broader native/CLI acceptance remains pending. No rollout follows from local source checks. Preserve native boundaries and follow [the authoring guide](docs/lit.md). Keep Cockpit's separate React/PatternFly frontend, dependencies and native boundaries. Installed `soda-test` now uses matching `b8af68c` affected artifacts and schema-v6 grants after approved preserved-state maintenance; four original Rocky 9 roots are retained with bounded tmux/program/init additions, while only future creation uses the candidate Rocky 10.2 image. Bounded native browser/access checks passed, not whole-product acceptance. See the leading plan and handoff; only bounded U08 is accepted.
 - Prefer native configuration and small bounded helpers over new orchestration frameworks.
 - Author focused tests with behavior changes, including failure/authorization paths; execution remains subject to the phase boundary.
 - Keep build and staging paths consistent with their actual callers. Generated outputs belong in ignored `.artifacts/`; private local inputs belong outside tracked source.

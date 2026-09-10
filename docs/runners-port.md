@@ -15,7 +15,8 @@ reuse the existing controls, API and native bridge.
 now owns moving this page body into Forgejo's real header/profile shell, naming its
 operator navigation link Runners, automatic connection on initial entry and
 coordinated normal logout. Native page hosts and shared connection/logout now have local implementation
-and browser proof; the full runner controls still use their current page.
+and browser proof; the existing runner controls now mount in that native host.
+Normal navigation reaches it, and the old Go URL is a fixed bookmark bridge.
 The plan supersedes
 the separate HTML placement and explicit-only connection guidance below; the
 completed presentation/lifetime slice remains historical evidence. Native/provider

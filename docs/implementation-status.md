@@ -1,5 +1,54 @@
 # Current handoff
 
+## Native Soda navigation and shell retirement — integration step 4
+
+Normal Spaces, operator Runners, repository settings and Open in Spaces links now
+reach the existing native Forgejo dashboard views. The old `/-/soda/` page URLs
+are no-store fixed native-login bookmark bridges; they reject query aliases,
+ambiguous cookies, invalid origins and noncanonical repository IDs. They disclose
+no content and perform no provider/helper operation. Protected APIs retain the
+inventory/operation authority, repository context and original-session guards.
+The three Go templates, their renderer, standalone boot callers and obsolete shell
+styles/metadata are removed. No-JavaScript feedback returns to the native dashboard
+instead of linking through the same bookmark bridge again.
+
+The existing page orchestrator now invokes `TestNativeConnectionFixture` and its
+fresh canonical public payload. All three browser consumers use that fixture's own
+native login and actual Forgejo documents/assets. They intercept only synthetic
+operation responses. The additional navigation instrumentation reuses the existing
+workspace HTTP/socket model; it adds no production owner or native helper action.
+The source-installed matrix callers now target the native view/actor mount; they
+were exercised against their synthetic peer, not an installed appliance.
+
+Passing local checks: strict TypeScript/Lit; frontend regressions (214 cases, with
+15 separately gated skips, combining the initial run and corrected five-case
+workspace journey rerun); all 15 native-host page consumers and their real OAuth/
+logout parent journey; 36 Forgejo checks with 21 gated skips; measured drawer layout;
+Go web/template packages; focused session/publication race checks; four canonical
+payload checks and three page-orchestrator checks. The page/drawer/page journey
+preserved the exact selected terminal and finite retention, used Continue working,
+and confirmed two independently named Ends. Runner cases retained original-target
+confirmations, token clearing, actor refusal, late-reply retirement and uncertainty.
+Signed-in legacy bookmarks reached their fixed native hosts without session rotation;
+initial unsigned entry, consent/retry and native logout remained covered.
+
+Final real-page evidence is retained at `.artifacts/pages-8N5apG/native/`, including
+private browser state, fresh payload and logs. Earlier fixtures (`pages-EmtBrQ`,
+`pages-orX26Q`, `pages-Ekre9x`, `pages-6XQhfo`, `pages-5ovaiY`, `pages-EsGTJL`) and
+failed probes remain: they exposed retired button/link assumptions, missing test
+module closure, the native repository's different content element and a mistaken
+Return button label. Corrected matrix callers passed in
+`.artifacts/step4-workspace-journey.log`; other checks are `.artifacts/step4-*.log`.
+Only the authorized development Forgejo templates were reloaded; data and prior
+evidence were preserved. No appliance rollout, real terminal/lifecycle/provider
+operation or runner registration was performed.
+
+**Next: integration step 5** closes remaining cached-client, real-history/authority
+combinations and visual/package acceptance using the migrated suites. Shared-file
+ownership remains with the Soda-pages lane until its explicit source handoff.
+Step 6 remains separately authorized delivery. The runner lane's native/provider
+parity and Cockpit retirement gates remain independent and unfinished.
+
 ## Runner step 4 — source preparation, not the final native candidate exit
 
 On source base `de1a746`, added the runner-owned callable installed phases and

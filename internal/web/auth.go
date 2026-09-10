@@ -264,9 +264,22 @@ func (s *Server) loginFailure(w http.ResponseWriter, r *http.Request, login stor
 	http.Error(w, message, status)
 }
 
-// Legacy unsigned entry first establishes the native actor before auto-connection.
-// The full authenticated page-body/bridge retirement remains the next source port.
+// Fixed bookmark entry establishes the native actor before automatic connection.
 func (s *Server) nativePageEntry(w http.ResponseWriter, r *http.Request, login store.OAuthLogin) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		http.Error(w, "Page entries do not accept navigation parameters.", 400)
+		return
+	}
+	if config.BaseURL(s.Config.ForgejoURL) != nil || !strings.HasPrefix(s.Config.ForgejoURL, "https://") {
+		http.Error(w, "Native origin unavailable.", 503)
+		return
+	}
+	if _, err := requestCookie(r, sessionCookie); err != nil && !errors.Is(err, http.ErrNoCookie) {
+		http.Error(w, "Ambiguous Soda cookies.", 400)
+		return
+	}
 	destination := strings.TrimPrefix(s.nativeOAuthReturn(login), s.Config.ForgejoURL)
 	http.Redirect(w, r, s.Config.ForgejoURL+"/user/login?redirect_to="+url.QueryEscape(destination), http.StatusSeeOther)
 }
