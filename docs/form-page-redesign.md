@@ -66,6 +66,33 @@ Shared implementation also touches `repo/create_basic.tmpl`, `shared/actions/run
 
 ## Validation and limits
 
+### Consistency follow-up
+
+The follow-up review removes repeated form titles from projects, forks, milestones,
+releases, team creation, administrator creation, reports and OpenID registration.
+Project/milestone/release intros now use the native create/edit title and help text;
+the project and fork fieldsets reference their page heading. Runner, webhook and
+cleanup variants use the same existing presentation path across owner scopes.
+
+One explicit action-row role now controls spacing, separators, alignment and mobile
+button widths across full forms and inline creation panels. Native action order,
+submit attributes and destructive-action distinctions remain intact. Dialogs keep
+their native footer and receive consistent content padding and heading typography.
+The tag deletion row no longer opts into creation-panel styling. Section headings
+share one font token, project/milestone page widths agree with other creation pages,
+and form settings clear the older body inset so headings and fields align.
+
+Follow-up evidence is in `.artifacts/form-consistency-20260910/`. The existing
+72-case native browser check also asserts no repeated title, consistent action-row
+geometry and webhook heading/field alignment. Go template contracts, required
+typecheck/analyzer/fixtures, the Forgejo suite (32 passed, 19 opt-in skips) and the
+isolated preview build passed. Desktop and mobile/dark captures were inspected.
+The fixture's secret/variable routes returned 404, so their dialog refinements have
+source review only; the prior administrator/owner/runner limits still apply.
+No forms were submitted, images generated, services restarted or appliances deployed.
+
+### Initial implementation evidence
+
 Evidence is retained in `.artifacts/form-redesign-20260910/`. Local fixture validation is separate from appliance deployment.
 
 - Passed `go test ./scripts`, `bun run typecheck` (including analyzer/fixtures), `bun run test:forgejo` (31 passed, 19 opt-in skips), and an isolated `bun run build:preview`. Logs retain the earlier failures and the passing retries.

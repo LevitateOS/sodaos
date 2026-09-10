@@ -61,6 +61,24 @@ test('native form workspaces fit desktop/mobile and preserve interactive control
             await document.fonts.ready;
           }, theme);
           assert.equal(await page.locator('h1').count(), 1, route);
+          const title = (await page.locator('h1').innerText()).trim();
+          for (const heading of await page.locator('.soda-form-content h2, .soda-form-content h3, .soda-form-content h4, .soda-form-content legend').all()) {
+            assert.notEqual((await heading.innerText()).trim(), title, `${route}: duplicate page title`);
+          }
+          const actionRow = page.locator('.soda-form-actions, .soda-form-editor .ui.form .text.right:has(> .primary.button)').last();
+          assert(await actionRow.isVisible(), `${route}: missing final action row`);
+          const actionStyle = await actionRow.evaluate(el => {
+            const css = getComputedStyle(el);
+            return [css.display, css.justifyContent, css.gap, css.paddingTop, css.borderTopWidth];
+          });
+          assert.deepEqual(actionStyle, ['flex', 'flex-end', '12px', '24px', '1px'], `${route}: inconsistent action row`);
+          if (route.includes('/hooks/')) {
+            const heading = await page.locator('.soda-webhook-heading').boundingBox();
+            const input = await page.locator('#payload_url').boundingBox();
+            assert(heading && input && Math.abs(heading.x - input.x) <= 1, 'webhook heading and fields must align');
+          }
+
+
           const layout = page.locator('.soda-form-layout, .soda-form-editor').first();
           assert(await layout.isVisible());
           const geometry = await layout.evaluate(el => ({

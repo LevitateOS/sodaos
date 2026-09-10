@@ -6,10 +6,10 @@
 		<div class="soda-form-content">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
-				<h3 class="ui top attached header">
+				<h2 class="ui top attached header soda-form-section-title">
 					Source
 					<input id="service_type" type="hidden" name="service" value="{{.service}}">
-				</h3>
+				</h2>
 				<div class="ui attached segment">
 					{{template "base/alert" .}}
 					<div class="inline required field {{if .Err_CloneAddr}}error{{end}}">
@@ -121,7 +121,7 @@
 {{template "repo/migrate/options" .}}
 </details>
 
-					<div class="inline field">
+					<div class="inline field soda-form-actions">
 						<label></label>
 						<button class="ui primary button">
 							{{ctx.Locale.Tr "repo.migrate_repo"}}

@@ -32,12 +32,14 @@
 				</div>
 			{{end}}
 			<input name="type" type="hidden" value="gpg">
-			<button class="ui primary button soda-p-control">
+			<div class="soda-form-actions">
+				<button class="ui primary button soda-p-control">
 				{{ctx.Locale.Tr "settings.add_key"}}
 			</button>
 			<button class="ui hide-panel button soda-p-control" data-panel="#add-gpg-key-panel">
 				{{ctx.Locale.Tr "cancel"}}
 			</button>
+			</div>
 		</form>
 	</div>
 	<div class="flex-list">
@@ -102,12 +104,14 @@
 							<textarea id="gpg-key-signature" name="signature" placeholder="{{ctx.Locale.Tr "settings.key_signature_gpg_placeholder"}}" required>{{$.signature}}</textarea>
 						</div>
 						<input name="type" type="hidden" value="verify_gpg">
-						<button class="ui primary button soda-p-control">
+						<div class="soda-form-actions">
+							<button class="ui primary button soda-p-control">
 							{{ctx.Locale.Tr "settings.gpg_key_verify"}}
 						</button>
 						<a class="ui red button soda-p-control" href="{{$.Link}}">
 							{{ctx.Locale.Tr "settings.cancel"}}
 						</a>
+						</div>
 					</form>
 				</div>
 			{{end}}

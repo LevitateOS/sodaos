@@ -30,12 +30,14 @@
 						</div>
 						<p class="ui warning message soda-notice">{{ctx.Locale.Tr "repo.settings.is_writable_info"}}</p>
 					</div>
-					<button class="ui primary button">
+					<div class="soda-form-actions">
+						<button class="ui primary button">
 						{{ctx.Locale.Tr "repo.settings.add_deploy_key"}}
 					</button>
 					<button class="ui hide-panel button" data-panel="#add-deploy-key-panel">
 						{{ctx.Locale.Tr "cancel"}}
 					</button>
+					</div>
 				</form>
 			</div>
 			{{if .Deploykeys}}

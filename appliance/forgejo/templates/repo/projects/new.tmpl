@@ -2,7 +2,9 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository projects edit-project new milestone soda-repository-content soda-projects-new">
 	{{template "repo/header" .}}
 	<div class="ui container soda-p-editor-container soda-form-layout">
-	{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Bring related work into one clear plan." "Eyebrow" "Shape the work" "Artwork" "new-project-papercraft.png" "Class" "soda-form-story"}}
+	{{$formTitle := ctx.Locale.Tr "repo.projects.new"}}{{$formDescription := ctx.Locale.Tr "repo.projects.new_subheader"}}
+{{if .PageIsEditProjects}}{{$formTitle = ctx.Locale.Tr "repo.projects.edit"}}{{$formDescription = ctx.Locale.Tr "repo.projects.edit_subheader"}}{{end}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $formTitle "Description" $formDescription "Eyebrow" "Shape the work" "Artwork" "new-project-papercraft.png" "Class" "soda-form-story"}}
 <div class="soda-form-content">{{template "projects/new" .}}</div>
 	</div>
 </div>

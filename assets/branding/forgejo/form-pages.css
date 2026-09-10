@@ -50,7 +50,8 @@
 .soda-form-panel {
   min-width: 0;
   --soda-form-control-bg: var(--soda-page-surface);
-  --soda-font-heading: 600 22px/1.4 Barlow, Arial, sans-serif;
+  --soda-form-section-font: 600 22px/1.4 Barlow, Arial, sans-serif;
+  --soda-font-heading: var(--soda-form-section-font);
   --soda-button-primary-bg: var(--soda-page-action);
   --soda-button-primary-text: var(--soda-page-on-action);
   --soda-button-primary-border: var(--soda-page-action);
@@ -62,6 +63,8 @@
   min-width: 0;
   max-width: 100% !important;
 }
+/* Native settings wrappers reserve space for their former side layout. */
+.soda-form-content :is(.user-setting-content, .repo-setting-content, .org-setting-content, .admin-setting-content) { --soda-settings-body-inset: 0px; padding-inline: 0; }
 /* Flatten old stacked cards inside the new open form column. */
 .soda-form-content :is(.ui.attached.segment, .ui.top.attached.header, .soda-package-section-body),
 .soda-form-editor > .ui.dividing.header {
@@ -77,7 +80,7 @@
 .soda-form-section-title {
   margin: 0 0 20px;
   color: var(--soda-page-text);
-  font: 600 22px/1.4 Barlow, Arial, sans-serif;
+  font: var(--soda-form-section-font, 600 22px/1.4 Barlow, Arial, sans-serif);
 }
 .soda-form-content.ui.form,
 .soda-form-content .ui.form,
@@ -104,12 +107,10 @@
   }
   & :is(.field.error input, .field.error textarea, .field.error select, input.error, textarea.error) { border-color: var(--color-error-border); }
   & fieldset { min-width: 0; margin: 0 0 24px; padding: 0; border: 0; }
-  & fieldset > legend { float: none; width: 100%; margin-bottom: 16px; font: 600 20px/1.4 Barlow, Arial, sans-serif; }
+  & fieldset > legend { float: none; width: 100%; margin-bottom: 16px; font: var(--soda-form-section-font); }
   & fieldset > label { display: block; margin-bottom: 16px; }
   & fieldset > label > .help { display: block; margin: 4px 0 0; }
   & :is(.divider, .soda-form-choice-section) { border: 0; border-top: 1px solid var(--soda-page-edge); margin-block: 28px; }
-  & :is(.tw-text-right, .text.right.actions, .button-sequence) { margin-top: 24px; }
-  & .field:last-child:has(> .primary.button) { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; margin-top: 28px; }
   & .soda-form-section + .soda-form-section { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; }
   & details:not(.dropdown) { margin-block: 20px; border: 1px solid var(--soda-page-edge); border-radius: 6px; padding: 16px; }
   & details:not(.dropdown) > summary { color: var(--soda-page-text); font: var(--soda-font-label); cursor: pointer; }
@@ -141,29 +142,27 @@
 .soda-form-content .optionmatrix { table-layout: fixed; width: 100%; }
 .soda-form-content .optionmatrix td { overflow-wrap: anywhere; }
 .soda-form-content .optionmatrix th:first-child { width: 46%; }
-.soda-form-content .soda-form-native-heading { font: var(--soda-font-label); margin-bottom: 24px; }
-.soda-form-content .soda-form-native-heading .sub.header { font: var(--soda-font-meta); }
 
 /* Give native editors room; metadata remains in Forgejo's own sidebar. */
 .soda-form-editor { padding-block: 24px 48px; }
 .soda-form-editor .soda-form-editor-intro { margin: 0 0 32px; padding: 0; min-height: 0; }
 .soda-form-editor-intro .soda-page-title { font-size: 44px; line-height: 1.1; }
 .soda-form-editor-intro .soda-page-art { width: 144px; max-width: 20%; }
-.soda-form-editor .soda-form-native-heading { font: var(--soda-font-label); margin: 0 0 24px; }
-.soda-form-editor .soda-form-native-heading .sub.header { font: var(--soda-font-meta); }
 .soda-form-editor .combo-markdown-editor { border-color: var(--soda-page-edge); border-radius: 6px; }
 .soda-form-editor .dropzone { border: 1px dashed var(--soda-page-edge); border-radius: 6px; background: var(--soda-page-surface); padding: 32px 16px; }
 .soda-form-editor .commit-form-wrapper { margin-top: 32px; }
 .soda-form-editor .commit-form { border-top: 1px solid var(--soda-page-edge); padding-top: 24px; }
 .soda-form-editor .ui.form .text.right .button { margin-inline: 0; }
-.soda-org-projects-new > .ui.container:has(> .head) { width: min(1120px, calc(100% - 32px)) !important; margin-inline: auto !important; }
+.soda-org-projects-new > .ui.container,
+.ui.container.soda-milestone-editor-container { width: min(1240px, calc(100% - 64px)) !important; max-width: none !important; margin-inline: auto !important; }
 .soda-org-projects-new > .ui.container > .ui.grid.head { margin-inline: 0; }
 .soda-org-projects-new > .ui.container > .ui.grid.head > .column { padding-inline: 0; }
 
 /* Panels keep their original open/closed state, dialog roles and form actions. */
 .ui.form.soda-form-panel { padding: 24px; border: 1px solid var(--soda-page-edge); border-radius: 8px; background: var(--soda-page-canvas); }
 .modal > .ui.form.soda-form-panel { padding: 0; border: 0; border-radius: 0; }
-.modal:has(> .soda-form-panel) > .header { font: var(--soda-font-heading); }
+.modal:has(> .soda-form-panel) > .header { font: 600 22px/1.4 Barlow, Arial, sans-serif; }
+.modal > .ui.form.soda-form-panel > fieldset.content { padding: 24px; margin: 0; }
 .soda-form-layout .ui.form.soda-form-panel { padding: 0; border: 0; background: transparent; }
 .soda-migrate-form #migrate_items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
 .soda-migrate-form #migrate_items > .help { grid-column: 1 / -1; }
@@ -172,7 +171,26 @@
 .soda-fork .soda-form-content.soda-form { max-width: none !important; }
 .soda-form-story-wrap { min-width: 0; }
 .soda-form-story-note { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); }
-.soda-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--soda-page-edge); padding-top: 24px; margin-top: 28px; }
+/* All terminal action rows share one rhythm; native action order is retained. */
+.ui.form .soda-form-actions,
+.ui.form .field.soda-form-actions,
+.soda-form-editor .ui.form .text.right:has(> .primary.button) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+  border-top: 1px solid var(--soda-page-edge);
+  padding: 24px 0 0;
+  margin: 28px 0 0;
+}
+.ui.form .soda-form-actions > .button,
+.soda-form-editor .ui.form .text.right:has(> .primary.button) > .button { margin: 0; }
+.ui.form .divider:has(+ .soda-form-actions) { display: none; }
+.ui.form .soda-form-actions > label:empty { display: none; }
+/* The native signup partial is also used outside this redesigned page. */
+.soda-auth:not(.icon) .soda-form-content > .ui.container.fluid > h4:first-child { display: none; }
 .soda-migrate-form .ui.form > .ui.header { text-align: left; }
 .soda-migrate-form #migrate_items > .help { margin-left: 0 !important; }
 
@@ -185,6 +203,7 @@
 @media (max-width: 760px) {
   .soda-form-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-block: 24px 40px; }
   .ui.container.soda-form-layout, .ui.container.soda-form-editor,
+  .soda-org-projects-new > .ui.container, .ui.container.soda-milestone-editor-container,
   :is(.soda-auth, .soda-federated-auth) > .ui.container.soda-form-layout { width: calc(100% - 32px) !important; }
   .soda-form-layout .soda-form-story { flex-direction: row; align-items: center; gap: 16px; }
   .soda-form-story .soda-page-art { width: 96px; flex: 0 0 96px; }
@@ -195,7 +214,12 @@
   .soda-form-editor-intro .soda-page-title { font-size: 36px; }
   .soda-form-editor-intro .soda-page-art { width: 80px; }
   .ui.form.soda-form-panel { padding: 16px; }
+  .modal > .ui.form.soda-form-panel > fieldset.content { padding: 16px; }
   .soda-form-content .optionmatrix { table-layout: auto; }
+  .ui.form .soda-form-actions > .button,
+  .soda-form-editor .ui.form .text.right:has(> .primary.button) > .button { width: 100%; }
+  .ui.form .soda-form-actions > .button-sequence { width: 100%; flex-wrap: wrap; gap: 12px; }
+  .ui.form .soda-form-actions > .button-sequence > .button { width: 100%; margin: 0; }
 }
 @media (max-width: 380px) {
   .soda-form-story .soda-page-art { display: none; }

@@ -1,5 +1,23 @@
 # Current handoff
 
+## Form consistency follow-up
+
+Reviewed the form redesign across its native template variants. Removed duplicate
+titles, retained native create/edit help in the intro, unified section typography,
+action-row spacing/alignment/mobile widths and project/milestone page widths.
+Organization/admin runner, webhook and cleanup variants now share the existing
+personal/repository presentation paths. Settings forms clear the former body inset;
+dialog content padding is preserved. Native controls, gates and action order remain
+unchanged. See [coverage and evidence](form-page-redesign.md#consistency-follow-up).
+
+Passed local Go template contracts, required typecheck/analyzer/fixtures, Forgejo
+tests (32 passed, 19 opt-in skips), preview build and 72 native browser cases with
+new title/action/alignment assertions. Verified desktop/mobile/dark captures were
+inspected. Restricted native routes retain their documented visual gaps. Evidence
+is under `.artifacts/form-consistency-20260910/`; only the existing preview's form
+CSS and supported template reload changed. No submissions, generated art, restart
+or deployment occurred. Native delivery records below retain their original scope.
+
 ## Native two-actor matrix passed; retained delivery in preparation
 
 Probe `1891849` against installed **b8af68c/schema v6** passed the real matrix in

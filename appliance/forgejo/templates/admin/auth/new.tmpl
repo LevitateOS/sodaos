@@ -6,9 +6,6 @@ Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c2902842609606
 {{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "admin.auths.new") "Description" "Connect an external sign-in provider." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
 <div class="soda-form-content">
 	<div class="admin-setting-content soda-admin-details soda-admin-details--auth-new">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "admin.auths.new"}}
-		</h4>
 		<div class="ui attached segment soda-p-section">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
@@ -74,7 +71,7 @@ Embedded source SHA-256: f4120ea177d7dc6569ebd47380cb7b2394606f008c2902842609606
 					</div>
 				</div>
 
-				<div class="field">
+				<div class="field soda-form-actions">
 					<button class="ui primary button">{{ctx.Locale.Tr "admin.auths.new"}}</button>
 				</div>
 			</form>

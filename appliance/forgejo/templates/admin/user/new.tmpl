@@ -6,9 +6,6 @@ Embedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29
 {{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "admin.users.new_account") "Description" "Make room for another contributor." "Eyebrow" "" "Artwork" "admin-new-account-papercraft.png" "Class" "soda-form-story"}}
 <div class="soda-form-content">
 	<div class="admin-setting-content soda-admin-details soda-admin-details--user-new">
-		<h4 class="ui top attached header soda-p-heading">
-			{{ctx.Locale.Tr "admin.users.new_account"}}
-		</h4>
 		<div class="ui attached segment soda-p-section">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				{{template "base/disable_form_autofill"}}
@@ -86,7 +83,7 @@ Embedded source SHA-256: 802c5ac53575e9a36989be4564d94c2f65d0b693cfddfc829f70a29
 					</div>
 				{{end}}
 
-				<div class="field">
+				<div class="field soda-form-actions">
 					<button class="ui primary button">{{ctx.Locale.Tr "admin.users.new_account"}}</button>
 				</div>
 			</form>

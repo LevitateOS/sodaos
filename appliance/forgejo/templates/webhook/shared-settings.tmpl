@@ -205,12 +205,14 @@
 		{{ctx.Locale.Tr "repo.settings.active"}}
 		<span class="help">{{ctx.Locale.Tr "repo.settings.active_helper"}}</span>
 	</label>
+	<div class="soda-form-actions">
 	{{if $isNew}}
 		<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.add_webhook"}}</button>
 	{{else}}
 		<button class="ui primary button">{{ctx.Locale.Tr "repo.settings.update_webhook"}}</button>
 		<a class="ui red delete-button button" data-url="{{.BaseLink}}/delete" data-id="{{.Webhook.ID}}" data-modal-id="delete-webhook">{{ctx.Locale.Tr "repo.settings.delete_webhook"}}</a>
 	{{end}}
+	</div>
 </fieldset>
 
 {{template "repo/settings/webhook/delete_modal" .}}

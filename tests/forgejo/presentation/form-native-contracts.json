@@ -677,6 +677,74 @@
     "user/settings/runner_create.tmpl": {
       "controls": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "gates": []
+    },
+    "projects/new.tmpl": {
+      "controls": "011fece332f01d34fb56f1ac2a066533aeb4ac67b41f16ea7a4c132fc45983c9",
+      "gates": [
+        "{{if .Err_Title}}",
+        "{{if .PageIsEditProjects}}",
+        "{{if not .PageIsEditProjects}}",
+        "{{if or (eq $.card_type $element.CardType) (and (not $.PageIsEditProjects) (eq $element.CardType 1))}}",
+        "{{range $element := .CardTypes}}",
+        "{{range $element := .TemplateConfigs}}"
+      ]
+    },
+    "repo/editor/commit_form.tmpl": {
+      "controls": "ae57d9c27c2cb0176d63f4fbb823c838ff55f301c1c46ab8a9aeea9cb8574792",
+      "gates": [
+        "{{else if .IsNewFile}}",
+        "{{else if .PageIsPatch}}",
+        "{{else if .PageIsUpload}}",
+        "{{if .CanCreatePullRequest}}",
+        "{{if .Err_CommitMailID}}",
+        "{{if .Err_NewBranchName}}",
+        "{{if .PageIsDelete}}",
+        "{{if and .CanCommitToBranch.RequireSigned (not .CanCommitToBranch.WillSign)}}",
+        "{{if eq $.DefaultCommitMail .Email}}",
+        "{{if eq .commit_choice \"commit-to-new-branch\"}}",
+        "{{if eq .commit_choice \"direct\"}}",
+        "{{if not (eq .commit_choice \"commit-to-new-branch\")}}",
+        "{{if not .CanCommitToBranch.CanCommitToBranch}}",
+        "{{if not .CanCommitToBranch.UserCanPush}}",
+        "{{if not .Repository.IsEmpty}}",
+        "{{range .CommitMails}}"
+      ]
+    },
+    "webhook/shared-settings.tmpl": {
+      "controls": "f780a4d30a304700893804497439d81b96c4de995db59b3bbb593a045340eb3c",
+      "gates": [
+        "{{if $isNew}}",
+        "{{if .Err_AuthorizationHeader}}",
+        "{{if .Webhook.ActionRunFailure}}",
+        "{{if .Webhook.ActionRunRecover}}",
+        "{{if .Webhook.ActionRunSuccess}}",
+        "{{if .Webhook.ChooseEvents}}",
+        "{{if .Webhook.Create}}",
+        "{{if .Webhook.Delete}}",
+        "{{if .Webhook.Fork}}",
+        "{{if .Webhook.IssueAssign}}",
+        "{{if .Webhook.IssueComment}}",
+        "{{if .Webhook.IssueLabel}}",
+        "{{if .Webhook.IssueMilestone}}",
+        "{{if .Webhook.Issues}}",
+        "{{if .Webhook.Package}}",
+        "{{if .Webhook.PullRequestAssign}}",
+        "{{if .Webhook.PullRequestComment}}",
+        "{{if .Webhook.PullRequestLabel}}",
+        "{{if .Webhook.PullRequestMilestone}}",
+        "{{if .Webhook.PullRequestReviewRequest}}",
+        "{{if .Webhook.PullRequestReview}}",
+        "{{if .Webhook.PullRequestSync}}",
+        "{{if .Webhook.PullRequest}}",
+        "{{if .Webhook.Push}}",
+        "{{if .Webhook.Release}}",
+        "{{if .Webhook.Repository}}",
+        "{{if .Webhook.SendEverything}}",
+        "{{if .Webhook.Wiki}}",
+        "{{if not $skipAuthorizationHeader}}",
+        "{{if or $isNew .Webhook.IsActive}}",
+        "{{if or $isNew .Webhook.PushOnly}}"
+      ]
     }
   }
 }

@@ -1,10 +1,6 @@
 {{/* Soda presentation of Forgejo 15.0.7 templates/admin/hook_new.tmpl; GPL-3.0-or-later. Upstream SHA-256: df6e99264a7a184db816ef06658d9d6034f181b681c8a7bcfd20c060bd10a674. */}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin settings new webhook" "formPage" true)}}
-<div class="soda-form-layout">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Send selected events to an external integration." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
-<div class="soda-form-content">
-	<div class="admin-setting-content">
-		{{$CustomHeaderTitle := ctx.Locale.Tr "admin.defaulthooks.update_webhook"}}
+{{$CustomHeaderTitle := ctx.Locale.Tr "admin.defaulthooks.update_webhook"}}
 		{{if .PageIsAdminDefaultHooksNew}}
 			{{$CustomHeaderTitle = ctx.Locale.Tr "admin.defaulthooks.add_webhook"}}
 		{{else if .PageIsAdminSystemHooksNew}}
@@ -12,7 +8,12 @@
 		{{else if .Webhook.IsSystemWebhook}}
 			{{$CustomHeaderTitle = ctx.Locale.Tr "admin.systemhooks.update_webhook"}}
 		{{end}}
-		{{template "webhook/new" (dict "ctxData" . "CustomHeaderTitle" $CustomHeaderTitle)}}
+<div class="soda-form-layout">
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $CustomHeaderTitle "Description" "Send selected events to an external integration." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+<div class="soda-form-content">
+	<div class="admin-setting-content">
+
+		{{template "webhook/new" (dict "ctxData" . "CustomHeaderTitle" $CustomHeaderTitle "SettingsPresentation" true)}}
 	</div>
 </div>
 </div>
