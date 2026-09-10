@@ -50,6 +50,53 @@ work. Keep their evidence and priority; profile expansion must neither reset com
 work nor describe those gaps as solved. Read this guide and the relevant owner above
 before extending images, runtime, desktop sessions or automation environments.
 
+## Batteries included by default
+
+Every supported profile must arrive as a complete working Project OS. Soda owns
+installation and integration of the non-preference foundation; users must not
+assemble missing accounts, tools, desktop plumbing or workload support themselves.
+This supersedes the earlier minimal-tool interpretation. A small image is not a
+goal when it leaves an ordinary supported workflow incomplete.
+
+| Supplied and wired by Soda | Remains a user or repository choice |
+| --- | --- |
+| Native account/home/group setup, locale, shell startup, permissions, CA trust and persistent directories | Personal dotfiles, preferred shell, locale and appearance overrides |
+| Working terminal, tmux, basic editor/pager, file search, archives, transfer and process/network diagnostics | Preferred editor/IDE, extensions, keybindings and terminal theme |
+| Git, packaged forge CLIs, shared mise, standard native build/debug tools and development prerequisites | Repository language/runtime versions, dependency graph, build/test commands and trust decisions |
+| Native workload engine, Compose support, service supervision, storage and usable access integration | Which databases/services to run, their versions, configuration and data |
+| On KDE: functioning user desktop/session, display/input transport, fonts, clipboard integration, file manager, basic graphical editor, browser and credential-storage integration | Preferred applications, browser profile, extensions, desktop customization and personal accounts |
+| Required dependencies and integration for every offered optional tool/app | Whether to install/use that tool, AI provider/model, subscription, credentials and prompts |
+
+Ship useful defaults even where users may later choose alternatives. A working
+basic editor/browser is part of a usable environment; choosing a different one
+must not require undoing Soda's account or tool integration. Clipboard access is
+explicit and directional, not automatic copying of the user's local clipboard.
+Private identity, credentials and repository trust are never preconfigured with
+someone else's account to create the appearance of readiness.
+
+Missing standard build prerequisites are a product packaging gap, not a task for
+each project administrator. The image recipes must enumerate the selected native
+build/debug/development packages for each distro and verify representative build,
+link and diagnostic operations as the ordinary project user. Keep version pins and
+resolved package inventories in their existing source/build owners. A tool-manager
+binary alone is not proof that the development foundation is complete.
+
+Repository-specific runtimes and dependencies still follow native mise/package
+workflows and authorized trust/install decisions. When a user selects a supported
+optional app, Soda must supply its declared dependencies and working launch path;
+"install these prerequisite packages yourself" is not the completed integration.
+Personal provider sign-in and consent remain explicit. An unsupported app must be
+reported honestly rather than offered as a working preset.
+
+Fresh-image acceptance starts with an ordinary new member and no operator repair:
+join/open a terminal, manipulate files, use Git, build/debug a representative native
+sample, use shared tools and a native service; KDE also opens, edits and browses
+the same project through the real desktop. Cover required setup/error paths and
+persistence. Manual package fixes invalidate that candidate's batteries-included
+claim until incorporated into packaging and rechecked. This is a requirement for
+the existing product tests, not another provisioning framework or readiness daemon.
+The current image is not declared complete merely by adding this policy.
+
 ## Selected environment profiles
 
 The user selected Linux for desktops and these creation choices on 2026-09-10:
@@ -154,11 +201,12 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
   rolling RPM repositories: retain the resolved digest and actual package inventory.
   System helpers use the OS interpreter/absolute paths; project-selected language
   versions must not replace it.
-- The small interactive baseline includes a UTF-8 login environment, file/text/process
+- The currently packaged interactive subset includes a UTF-8 login environment, file/text/process
   tools, a terminal editor (`vi`/`vim-minimal`), pager (`less`), CA certificates and
   working terminal descriptions. The saved `dad2945` x86_64 build RPM inventory lists
   those editor/pager/CA packages, but not tmux. That is a past image inventory, not a
-  current survey of retained roots. Make required tools explicit in recipe/check
+  current survey of retained roots or fulfillment of the batteries-included contract.
+  Make required tools explicit in recipe/check
   ownership rather than relying indefinitely on transitive base-image contents.
 - Keep the implemented **tmux** package and bounded native supervision for browser
   terminals; do not swap in a new web IDE or multiplexer backend. Bash remains the
@@ -175,8 +223,10 @@ Source owners: [`internal/host/daemon.go`](../internal/host/daemon.go),
   language package managers/virtual environments and native Compose/systemd files.
   Users may install personal tools in their homes within ordinary permissions;
   separate personal mise storage requires explicit native environment configuration,
-  not a Soda selector. Shared OS packages/build prerequisites need project-admin
-  installation. Do not preinstall every compiler, editor, AI tool or database.
+  not a Soda selector. Soda supplies the standard OS/build prerequisites described
+  above. Project administrators install additional project-specific packages through
+  normal native permissions; toolchain versions, preferred editors/AI tools and
+  application services remain deliberate choices with complete dependency handling.
 
 GUI/GPU/device access, kernel-dependent workloads and every third-party tool are not
 implied compatibility promises. A concrete new need gets its own native compatibility

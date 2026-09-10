@@ -4,6 +4,13 @@ Adapted from the predecessor's developer handbook for project-local identities a
 
 ## Planned profiles and desktop access
 
+The planned profiles are [batteries included](project-os.md#batteries-included-by-default).
+Standard shell/file/network tools, native build/debug prerequisites, shared tool
+management and workload support are supplied by Soda. KDE includes a usable desktop
+and basic apps. Users choose personal tools, accounts and repository versions;
+ordinary development must not begin with a prerequisite-repair checklist. The current
+image still needs its package coverage audited against that requirement.
+
 The selected Rocky/Fedora headless/KDE profiles inherit this developer workflow.
 Desktop apps, shells and SSH use the same project-local account, real home and
 personal checkout, with shared tools/services under the existing permissions.

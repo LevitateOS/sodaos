@@ -125,8 +125,11 @@ two event types. Proposed fields:
 The agent-command presets must be checked against the selected tools' actual
 prompt input, unattended execution, PTY and native session-resume interfaces and
 credential support before claiming compatibility.
-Allow ordinary repository scripts rather than preinstalling every AI tool into
-every development project. Optional provider spending limits belong to the actual
+The Project OS provides the batteries-included development foundation. Agent choice
+and repository scripts remain configurable, but choosing a supported agent must
+provide its declared runtime dependencies and a working launch path; do not leave
+manual prerequisite assembly to the user. Personal or automation credentials remain
+explicitly owned and separate. Optional provider spending limits belong to the actual
 provider/CLI integration; a loop count alone is not an exact monetary budget.
 
 Keep the effective automation in ordinary `.forgejo/workflows/` files and native
@@ -328,6 +331,11 @@ not borrow the appliance host's desktop, grant arbitrary device access or weaken
 existing project boundaries. No GPU or nested-virtualization requirement is inferred
 from ordinary GUI use. A failed requirement is a runtime decision to review with
 its effects on the whole Project OS, not permission to add a speculative VM backend.
+
+KDE must satisfy the [batteries-included desktop contract](project-os.md#batteries-included-by-default):
+include functional defaults for browsing, file management and editing, with fonts,
+clipboard and credential-storage integration. Users can replace those applications
+or customize their settings; optional preferences do not justify an unusable default.
 
 One shared Lit Desktop view serves the page and drawer. Resolve exact project,
 account and graphical-session targets server-side; an authorized member cannot

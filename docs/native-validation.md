@@ -52,6 +52,15 @@ capabilities honestly. For AI runs, prove no-browser execution, dedicated creden
 exact viewer attachment and resolver continuation without modifying personal work.
 GNOME and unselected runtime alternatives do not become validation prerequisites.
 
+The [batteries-included contract](project-os.md#batteries-included-by-default) requires
+a fresh-profile journey without manual prerequisite repair. Verify ordinary file/
+archive/search/transfer operations, native build/link/debug tooling, shared runtime
+selection and a native service. KDE adds its default editor/file-manager/browser,
+fonts, explicit clipboard transfer and native credential storage. Separate intentional
+repository dependency installation or personal sign-in from missing platform packages.
+Record repairs as candidate defects, incorporate them into packaging and rerun the
+affected journey before claiming readiness. Do not treat a package list as runtime proof.
+
 ## Native source and build evidence
 
 Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.

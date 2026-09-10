@@ -1,5 +1,20 @@
 # Current handoff
 
+## Batteries-included Project OS requirement
+
+The user requires every Project OS to include the complete non-preference foundation.
+The [baseline](project-os.md#batteries-included-by-default) now distinguishes shipped
+tools/build prerequisites, native workload integration and usable KDE defaults from
+personal application preferences, repository versions and private accounts. A supported
+optional app must include dependency/launch integration when selected. Removed the
+earlier implication that users must assemble standard build prerequisites themselves.
+
+Aligned architecture, leading sequence, developer, desktop/AI and validation plans.
+Fresh-profile checks must work without manual platform-package repair; actual image
+package coverage and implementation remain outstanding. Documentation/whitespace and
+added local-link checks only; no packages, images, credentials, projects or runtime
+behavior changed. No product build/test or deployment ran for this clarification.
+
 ## Plans reconciled around the existing Project OS
 
 Revised the active architecture, Project OS, development/workload/CLI/terminal,

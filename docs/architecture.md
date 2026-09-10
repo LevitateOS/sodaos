@@ -61,6 +61,12 @@ accounts, shared tools/services, persistent roots, access and maintenance. KDE a
 a per-user graphical session to that environment. No VM backend is selected by the
 profile decision; first investigate the existing runtime and bring a concrete
 compatibility blocker back for a decision. CoreOS and existing projects keep their topology.
+
+Profiles are [batteries included](project-os.md#batteries-included-by-default):
+Soda supplies the complete non-preference development and interface foundation.
+Personal application choices, accounts and repository versions remain native user
+decisions. A minimal image plus manual prerequisite instructions is not a completed
+Project OS, and selecting an optional supported app must include its dependencies.
 See `appliance/services/`, `project-os/`, [installation](installation.md) and
 [development environment](development-environment.md) for implementation and usage.
 Dependency baselines belong in source recipes/locks, not repeated prose version rules.

@@ -51,6 +51,10 @@ graphical access to the same project account, home, tools and services; no separ
 desktop machine or VM backend is selected by the distro/interface choice.
 The [ownership map](project-os.md#one-foundation-for-every-profile) keeps the existing
 development, workload, CLI, terminal and maintenance plans authoritative.
+All profiles must meet the [batteries-included contract](project-os.md#batteries-included-by-default):
+Soda supplies and wires standard tools, build prerequisites, workload support and
+the chosen interface. Personal preferences and repository-specific versions remain
+choices; requiring users to assemble the ordinary foundation is an implementation gap.
 Its concrete gaps remain native tmux safety/required-tool coverage, real zero-key
 onboarding and agreed Git credentials; the existing session mechanism is preserved
 while the Lit workspace is implemented. Current Forgejo
@@ -390,9 +394,11 @@ checks rather than starting competing roadmaps.
    explicit credential and selected-CLI journeys under their existing contracts.
    Independent profile/package investigation can proceed alongside those gaps;
    claiming a complete new profile requires the applicable access journey to work.
-2. Extend the existing image/build/staging owners for bounded Rocky/Fedora creation
+2. Complete the batteries-included package/integration inventory and extend the
+   existing image/build/staging owners for bounded Rocky/Fedora creation
    profiles. Resolve exact native inputs and persist the original profile at Create;
-   reject unsupported/unavailable choices before reserving or provisioning. No live
+   reject unsupported/unavailable choices before reserving or provisioning. Check
+   ordinary development without post-create operator package repairs. No live
    distro switching, dependency upgrades of retained roots or arbitrary image input.
 3. Prove KDE startup as the project user, correct HOME/mise/groups, persistent app
    state, display isolation and display/input transport. Start with Fedora KDE and
