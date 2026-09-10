@@ -1,5 +1,39 @@
 # Current handoff
 
+## Runner dashboard migration — source audit and completion plan
+
+Reviewed `174edd9` for the user-requested focus on moving runners out of Cockpit.
+The migration is already implemented locally: `f60df0a` added the protected Go/Lit
+Sodarunners page, fixed OAuth return, operator-only APIs, root socket adapter and
+shared native serialization. Packaging and subsequent source-gate work are also
+present. The [runner source inventory and plan](runners-port.md#current-source-and-observed-evidence)
+now separate that baseline from remaining implementation, proof and delivery.
+Historical entries below describing the decision as documentation-only predate
+the MVP and do not describe current source.
+
+Remaining source work includes provider navigation, page restoration and retired
+request handling, credential clearing when changing providers/losing authority,
+HTML denial and both-provider browser parity. The existing GitHub service-contract
+fix remains open: Soda selects `run.sh`; official custom-service documentation and
+the exact 2.337.0 source select `runsvc.sh` with its service companions. The extracted
+architecture-specific archive/layout and actual native signal/job behavior still
+need verification. No dependency upgrade or Runner OS/AI/cache work is required
+to finish this migration.
+
+The [completion sequence](runners-port.md#implementation-and-completion-gate) covers
+focused source fixes/checks, product-owned installed journeys, paired native
+artifacts, real Forgejo/GitHub lifecycle/jobs, preserved-state rehearsal/delivery
+and coordinated removal of only Cockpit's runner presentation. Both `soda-host`
+and `soda-runner-helper` must contain matching native lock semantics during overlap.
+Tailnet, native CLI/lifecycle/tests, provider authority and all retained state remain.
+
+This pass changes documentation only. Source/history inspection and primary upstream
+documentation/exact-tag source research were performed; local Markdown link/anchor
+and Git whitespace checks were used. No product tests/builds, provider or credential
+use, native service/VM/project action, deployment or Cockpit removal ran. Existing
+local synthetic checks remain historical evidence; recorded native runner evidence
+is still empty-inventory observation, not real registration/jobs or native parity.
+
 ## Separate audit evidence from the maintenance plan — documentation only
 
 `upstream-ownership-audit.md` now owns revision-bound findings, upstream contracts
@@ -5811,12 +5845,12 @@ subsequent source pass and its local tests are recorded above.
   lifecycle/key-possession validation and template mounting remain, and deletion is
   still deferred. Planning these is not authorization for lifecycle or
   destructive execution.
-- Move Soda's local runner capacity/service configuration into operator-only settings
-  in the unified native SodaOS/Forgejo interface, as subsequently selected by the
-  user. Inspect official administrator extension points and reuse backing logic/tests;
-  retain the Cockpit Runners page until a working replacement and coordinated removal.
-  Tailnet stays in Cockpit; provider authority and the Soda operator boundary remain
-  unchanged. This decision is documentation-only so far, not implementation/deployment.
+- Finish Soda's local runner settings migration in the unified native interface.
+  The later MVP above supersedes this section's original documentation-only status:
+  page/API/root bridge and local checks exist. Follow the
+  [runner completion plan](runners-port.md#implementation-and-completion-gate) for
+  source parity, native/provider validation, delivery and coordinated Cockpit removal.
+  Tailnet, provider authority and the configured Soda operator boundary remain.
 - Finish full fresh/populated product and independent native aarch64 acceptance;
   scoped x86_64 delivery/browser/SSH results are not final-product acceptance.
 - Complete console delivery/interactive proof, Tailnet and both providers' real

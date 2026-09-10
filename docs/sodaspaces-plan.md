@@ -486,7 +486,9 @@ person is not a Forgejo site administrator; native site-admin status alone canno
 grant it. Server-side checks apply to every read and mutation, including deep links.
 Keep Cockpit Runners and all its backing logic/tests until the replacement works.
 Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with local
-coverage; native/provider acceptance and Cockpit removal remain pending. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
+coverage; the [runner completion plan](runners-port.md#implementation-and-completion-gate)
+owns remaining UI/lifetime parity, GitHub service compatibility, native/provider
+acceptance, preserved-state delivery and Cockpit removal. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
 creation metadata now also have local source coverage (schema v8). The shared
 explicit **Inspect current OS** control now reads the existing root’s bounded
 OS-release/image facts without profile backfill, Start or repair. The Rocky recipe
@@ -580,10 +582,12 @@ remain intact. Feature guides own detailed checks rather than competing roadmaps
    automatic repair/rebuild or claimed rollback. If selected, implement and test only
    that bounded contract with separately authorized disposable data; otherwise state
    clearly that destruction is operator-managed/outside the product for this version.
-4. **Move runner settings into unified native operator settings.** Reuse backing
-   logic/tests and supported upstream hooks; keep Cockpit Runners until its replacement
-   works. Tailnet stays in Cockpit. Preserve the separate Soda operator and provider
-   authorities; this is not a repository-drawer feature.
+4. **Finish runner parity and delivery in unified native operator settings.** The
+   page/API/root bridge already have source and local coverage. Follow the
+   [runner completion plan](runners-port.md#implementation-and-completion-gate) for
+   remaining source fixes, native/provider proof and coordinated Cockpit removal.
+   Tailnet stays in Cockpit; Soda operator and native provider authorities remain
+   separate. Runner OS isolation, AI and caching are independent work.
 5. **Complete operator/client delivery gaps.** Finish console welcome installation/
    interactive proof, intended laptop SSH/editor routes, actual Tailnet and both
    provider-runner journeys. Existing infra/fixture evidence is not laptop/provider
@@ -1338,13 +1342,16 @@ project-subnet/SSH routing proof. Runner settings and other remaining work stay 
 **Runner configuration placement:** the user selected moving Soda's local runner
 capacity/service configuration from Cockpit into the unified SodaOS/Forgejo native
 interface, as operator-only settings—not the repository Sodaspaces drawer or a
-revived standalone dashboard. Inspect supported native administrator extension points
-before implementation; no Forgejo fork or copied permission authority. Provider-owned
-registration authority, workflows, scheduling and results remain upstream-owned.
-Reuse the existing backing logic/tests and preserve the Cockpit Runners page until
-the replacement works and its removal is coordinated. Tailnet stays in Cockpit.
+revived standalone dashboard. The protected Go/Lit page, API, fixed OAuth return,
+supported navbar hook and shared root bridge are implemented with local coverage.
+The [runner guide](runners-port.md#implementation-and-completion-gate) owns the
+remaining completion plan; no Forgejo fork or copied permission authority.
+Provider-owned registration authority, workflows, scheduling and results remain
+upstream-owned. Preserve the Cockpit Runners page until delivered parity passes
+and its removal is coordinated. Tailnet stays in Cockpit.
 Repository ownership or arbitrary Forgejo site administration does not confer Soda
-operator authority. This is remaining work, not a delivered move or deployment grant.
+operator authority. Native/provider proof and cutover remain; the existing source
+is not a deployment grant.
 
 Basic Start/Stop and explicit own-key controls have source coverage and bounded
 recorded native proof; preserve their regressions and remaining operator/client scope.
