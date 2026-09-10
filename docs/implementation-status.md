@@ -1,5 +1,36 @@
 # Current handoff
 
+## Diskless installer boots; SodaOS branding source added
+
+Clean **`63a8456`** built and booted successfully through the enforcing-SELinux
+console guard in the new diskless/networkless KVM fixture. Real keyboard input
+completed Keep/Yes networking review, reached disk selection with no available
+destination, and cancelled without installation. `.artifacts/installer-vm-FbqpKn/`
+retains boot/no-destination/cancellation screenshots and serial/tool evidence. Only
+this run-owned diskless VM was stopped/restarted; no retained targets or disks were
+modified. This is bounded live BIOS/tty1 proof, not an installed-appliance journey.
+
+The user additionally requested full SodaOS branding, including GRUB. Source now
+brands both ISO boot menus with exact same-length substitutions that preserve stock
+embed offsets, clears the console into canonical Soda artwork, and uses a native
+`Type=idle` console service. Shared provisioning supplies a SodaOS `/etc/os-release`
+display override and canonical icon for live and future installed systems. Native
+compatibility IDs remain; base-version validation now reads immutable
+`/usr/lib/os-release`, not a stale copied version in the display override.
+
+Go 1.26.7 tests and all **15 focused Python tests passed** for this branding source.
+Full Python build suite: **90 tests, one failure, one skip**; the same unrelated
+Forgejo inventory closure remains unresolved. The previously fixed image-version
+change also passed installer/nativebuild race tests. Branded-media generation and
+native boot/menu inspection follow separately; do not call source tests boot proof.
+
+**Remaining full-branding gap:** selected OSTree **2026.3** reads BLS title identity
+from `/usr/lib/os-release` before `/etc/os-release`. The exact tagged source was
+inspected and retained under the fixture's `research/`. Thus the display override
+alone does not rebrand installed-disk GRUB entries. Native release-identity packaging
+needs an explicit supported choice; no upstream executable patch, boot-entry
+reconciliation loop, new OS-image pipeline or installed proof is silently implied.
+
 ## Installer boot debugging — second observed contract correction
 
 Clean `ab911cc` rebuilt successfully and passed image readback. Its native diskless

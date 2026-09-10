@@ -1,0 +1,8 @@
+# SodaOS display identity. Immutable base-version metadata remains in /usr/lib/os-release.
+NAME="SodaOS"
+PRETTY_NAME="SodaOS"
+ID=fedora
+VARIANT="SodaOS"
+VARIANT_ID=coreos
+LOGO=sodaos-icon
+ANSI_COLOR="0;38;2;21;94;239"

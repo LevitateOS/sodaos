@@ -41,7 +41,8 @@ func architecture() string {
 	return "unsupported"
 }
 
-// Run is interactive-only. It does not start automatically on login or boot.
+// Run requires a controlling terminal. The live service starts disk review;
+// installed-host continuation is explicitly operator-started.
 func Run(ctx context.Context, action string) error {
 	if os.Geteuid() != 0 || runtime.GOOS != "linux" {
 		return errors.New("native CoreOS root required")
@@ -76,7 +77,8 @@ func Run(ctx context.Context, action string) error {
 }
 
 func coreOSHost(live bool) error {
-	data, err := os.ReadFile("/etc/os-release")
+	// Display branding in /etc must not become a stale copy of base identity.
+	data, err := os.ReadFile("/usr/lib/os-release")
 	if err != nil {
 		return err
 	}
@@ -153,7 +155,12 @@ func installDisk(ctx context.Context, c console) error {
 	if _, err := os.Lstat("/run/soda-installer-disk-started"); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("disk installation was already attempted this boot; inspect the result, do not replay")
 	}
-	c.print("SodaOS installation — stock Fedora CoreOS, then Soda appliance setup")
+	welcome, err := readRegular("/etc/motd", 16384)
+	if err != nil {
+		return errors.New("cannot read installer welcome text")
+	}
+	c.print("\x1b[2J\x1b[H%s", string(welcome))
+	c.print("SodaOS installation")
 	c.print("This is a network-assisted fresh installation, not an upgrade. No disk writes occur before the final ERASE confirmation. Ctrl-C cancels input; interruption after writing starts can leave a partial installation.")
 	if err := c.network(ctx); err != nil {
 		return err

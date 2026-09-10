@@ -100,7 +100,8 @@ class MediaConfiguration(unittest.TestCase):
 
     def test_live_configuration_is_public_and_has_no_automatic_erase_target(self):
         config = self.module.live_config('a' * 64,
-            {'ignition': {'version': '3.5.0'}}, {'Architecture': 'x86_64'}, 'canonical-artwork')
+            {'ignition': {'version': '3.5.0'}}, {'Architecture': 'x86_64'}, 'canonical-artwork',
+            load('branding_fixture', 'scripts/render-provisioning.py').branding_files())
         raw = json.dumps(config)
         self.assertNotIn('passwd', config)
         self.assertNotIn('coreos/installer.d', raw)
@@ -113,12 +114,15 @@ class MediaConfiguration(unittest.TestCase):
         self.assertEqual(loader['mode'], 0o755)
         self.assertTrue(all(set(f['contents']) == {'inline'} for f in files.values()))
         self.assertEqual(files['/etc/motd']['contents']['inline'].splitlines()[0], 'canonical-artwork')
-        self.assertEqual([f['path'] for f in files.values() if f.get('overwrite')], ['/etc/motd'])
+        self.assertEqual({f['path'] for f in files.values() if f.get('overwrite')}, {'/etc/motd', '/etc/os-release'})
         self.assertIs(files['/etc/motd']['overwrite'], True)
         service = config['systemd']['units'][0]['contents']
         self.assertIn('ExecStart=/usr/local/libexec/soda/load-install-console ' + 'a' * 64, service)
         self.assertIn('RequiresMountsFor=/run/media/iso', service)
         self.assertIn('StandardError=tty', service)
+        self.assertIn('Type=idle', service)
+        self.assertIn('PRETTY_NAME="SodaOS"', files['/etc/os-release']['contents']['inline'])
+        self.assertNotIn('IMAGE_VERSION=', files['/etc/os-release']['contents']['inline'])
         self.assertIn('Restart=no', service)
         self.assertNotIn('coreos-installer install', service)
         self.assertIn({'name': 'getty@tty1.service', 'mask': True}, config['systemd']['units'])
@@ -204,7 +208,8 @@ class MediaConfiguration(unittest.TestCase):
             root = Path(directory)
             for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
                          'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
-                         'assets/branding/terminal/sodaos.txt', 'LICENSE', 'NOTICE'):
+                         'assets/branding/terminal/sodaos.txt', 'assets/branding/host/os-release',
+                         'assets/branding/source/soda-symbol.svg', 'LICENSE', 'NOTICE'):
                 dest = root / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, dest)
@@ -268,7 +273,7 @@ class MediaConfiguration(unittest.TestCase):
                 else:
                     self.fail(f'unexpected effect {argv}')
                 return subprocess.CompletedProcess(argv, 0)
-            with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch('sys.stdout', new_callable=io.StringIO):
+            with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch.object(self.module, 'brand_boot_files', return_value={}), patch('sys.stdout', new_callable=io.StringIO):
                 self.module.build(args)
                 inspect_iso.assert_called_once_with(root / 'xorriso', Path(args.out) / 'upstream/coreos.iso',
                                                    Path(args.out) / 'soda.iso', Path(args.out) / 'payload')
@@ -283,6 +288,19 @@ class MediaConfiguration(unittest.TestCase):
             self.assertNotIn('PayloadURL', record)
             self.assertTrue((Path(args.out) / 'SHA256SUMS').exists())
             self.assertFalse(any('install' in argv or 'reboot' in argv for argv in calls))
+
+    def test_boot_branding_preserves_offsets_and_native_commands(self):
+        for name, data in (
+                ('/EFI/fedora/grub.cfg', b"menuentry 'Fedora CoreOS (Live)' --class fedora {\nlinux /kernel coreos.liveiso=fixture\n}"),
+                ('/isolinux/isolinux.cfg', b'menu title Fedora CoreOS\nmenu label ^Fedora CoreOS (Live)\nappend coreos.liveiso=fixture\n')):
+            with self.subTest(name=name):
+                branded = self.module.branded_boot_config(name, data)
+                self.assertEqual(len(branded), len(data))
+                self.assertEqual(branded.index(b'coreos.liveiso'), data.index(b'coreos.liveiso'))
+                self.assertIn(b'SodaOS Installer', branded)
+                self.assertNotIn(b'Fedora CoreOS', branded)
+                with self.assertRaises(ValueError):
+                    self.module.branded_boot_config(name, data.replace(b'Fedora CoreOS (Live)', b'changed upstream'))
 
     def test_bios_table_relocation_and_mirrored_volume_descriptor(self):
         # Synthetic bytes only: validates the inspector, not BIOS execution.
@@ -328,6 +346,8 @@ class MediaConfiguration(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('synthetic ISO fixture: ' + name)
             (tree / 'images/efiboot.img').write_bytes(bytes(4096))
+            (tree / 'EFI/fedora').mkdir(parents=True)
+            (tree / 'EFI/fedora/grub.cfg').write_text("menuentry 'Fedora CoreOS (Live)' --class fedora {\nfixture\n}\n")
             upstream = root / 'upstream.iso'
             xorriso = Path(shutil.which('xorriso'))
             subprocess.run([str(xorriso), '-as', 'mkisofs', '-r', '-V', 'fixture',
@@ -347,7 +367,7 @@ class MediaConfiguration(unittest.TestCase):
             self.assertNotIn('/COREOS/KARGS.JSON', primary)
             original = final.read_bytes()
             inventory = self.module.iso_files(xorriso, final)
-            for name in ('/soda/soda-install', '/images/pxeboot/rootfs.img', '/images/efiboot.img'):
+            for name in ('/soda/soda-install', '/images/pxeboot/rootfs.img', '/images/efiboot.img', '/EFI/fedora/grub.cfg'):
                 changed = bytearray(original)
                 changed[inventory[name][0]] ^= 1
                 final.write_bytes(changed)
@@ -397,7 +417,14 @@ class ProductProvisioning(unittest.TestCase):
 
     def test_public_template_remains_single_identity_free_source(self):
         data = self.module.public_config()
-        self.assertEqual(data, json.loads((ROOT / 'appliance/provisioning/base.json').read_text()))
+        base = json.loads((ROOT / 'appliance/provisioning/base.json').read_text())
+        self.assertEqual(data['systemd'], base['systemd'])
+        self.assertEqual(data['storage']['files'][:-2], base['storage']['files'])
+        identity, icon = data['storage']['files'][-2:]
+        self.assertEqual(identity['path'], '/etc/os-release')
+        self.assertIs(identity['overwrite'], True)
+        self.assertEqual(identity['contents']['inline'], (ROOT / 'assets/branding/host/os-release').read_text())
+        self.assertEqual(icon['contents']['inline'], (ROOT / 'assets/branding/source/soda-symbol.svg').read_text())
         self.assertNotIn('passwd', data)
         data['passwd'] = {'fixture': True}
         self.assertNotIn('passwd', self.module.public_config())

@@ -21,9 +21,22 @@ def regular(path, private=False):
     return p.read_text()
 
 
+def branding_files():
+    """Shared live/installed display identity; never copy a stale base version."""
+    root = Path(__file__).resolve().parents[1]
+    return [
+        {'path': '/etc/os-release', 'mode': 0o644, 'overwrite': True,
+         'contents': {'inline': (root / 'assets/branding/host/os-release').read_text()}},
+        {'path': '/var/usrlocal/share/icons/hicolor/scalable/apps/sodaos-icon.svg', 'mode': 0o644,
+         'contents': {'inline': (root / 'assets/branding/source/soda-symbol.svg').read_text()}},
+    ]
+
+
 def public_config():
     """One public bootstrap for private provisioning and installer-media conversion."""
-    return json.loads((Path(__file__).resolve().parents[1] / 'appliance/provisioning/base.json').read_text())
+    config = json.loads((Path(__file__).resolve().parents[1] / 'appliance/provisioning/base.json').read_text())
+    config['storage']['files'].extend(branding_files())
+    return config
 
 
 def appliance_hostname(value):

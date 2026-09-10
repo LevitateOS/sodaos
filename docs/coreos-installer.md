@@ -25,10 +25,35 @@ replacements are introduced. Legacy source and canonical artwork remain unchange
   bootstrap executable. The live launcher loads it from the ISO; no media build
   becomes an application build prerequisite.
 - `scripts/render-provisioning.py::public_config()` remains the public bootstrap
-  owner. Butane strictly converts FCOS 1.6.0 to Ignition 3.5.0 at media-build time.
+  owner, including shared `branding_files()` for live and installed display identity.
+  Butane strictly converts FCOS 1.6.0 to Ignition 3.5.0 at media-build time.
   The live Go adapter adds only validated per-machine fields to that template;
   Python and Butane are **not required on the live OS**. The standalone renderer
   also accepts `--appliance-hostname`; fixture `--hostname soda-native-*` is unchanged.
+
+### SodaOS branding
+
+ISO GRUB/ISOLINUX entries display **SodaOS Installer**, and the BIOS menu title and
+GRUB theme class use SodaOS. Exact same-length text substitutions preserve native
+kernel-argument embed offsets; readback rejects changes beyond those substitutions.
+The signed EFI executable, kernel, initramfs and OS payload are not patched. Their
+machine-readable boot-volume identifier and upstream attribution remain intact.
+
+The console uses the canonical artwork and clears boot output on startup; its
+systemd unit uses `Type=idle` to reduce status-message interleaving. Public live and
+destination provisioning share `assets/branding/host/os-release` and the canonical
+SVG icon. `/etc/os-release` supplies SodaOS display identity while retaining the
+Fedora/CoreOS compatibility IDs. It does not copy a stale base version: the Go
+installer validates the immutable `/usr/lib/os-release` and exact `IMAGE_VERSION`.
+The existing vendor `/etc/os-release` entry and live `/etc/motd` are explicitly
+replaced; other existing-file protections remain.
+
+**Installed-disk GRUB titles are not yet rebranded.** Selected OSTree 2026.3 derives
+BLS titles from `/usr/lib/os-release`, preferentially over `/etc/os-release`.
+Completing that part requires an explicit native release-identity packaging choice,
+not an assumed effect of the display override or a hidden boot-entry rewrite loop.
+There is no installed-system branding acceptance yet. The ISO boot menus and
+installed-disk boot entries are distinct owners.
 
 ### The console ships on the ISO
 
@@ -44,6 +69,7 @@ making it executable. Failed copies remain non-executable for inspection.
 
 Xorriso replays the imported BIOS/EFI hybrid boot equipment. The volume label,
 live kernel arguments, EFI image, kernel, initramfs and OS image are preserved;
+only the bounded boot-menu display substitutions are allowed in GRUB/ISOLINUX configs;
 BIOS boot-info addresses/checksum and outer ISO partition/layout metadata are
 regenerated for the relocated files. ISO level 1 preserves primary names such as
 `COREOS/KARGS.JSO`, which stock Installer 0.26.0 reads rather than Rock Ridge names.

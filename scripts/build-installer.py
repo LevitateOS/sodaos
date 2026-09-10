@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALLER_VERSION = 'coreos-installer 0.26.0'
 LOADER_PATH = '/var/usrlocal/libexec/soda/load-install-console'
 DATA_PATH = '/var/usrlocal/share/soda-installer'
+BOOT_CONFIGS = ('/EFI/fedora/grub.cfg', '/isolinux/isolinux.cfg')
 
 
 def sha256(path):
@@ -29,7 +30,7 @@ def sha256(path):
         return hashlib.file_digest(source, 'sha256').hexdigest()
 
 
-def live_config(binary_hash, destination, media, artwork):
+def live_config(binary_hash, destination, media, artwork, branding):
     # The small Ignition configuration fits the embed area. The executable is an
     # ordinary ISO file, copied and verified from the native read-only live mount.
     if not re.fullmatch('[0-9a-f]{64}', binary_hash):
@@ -50,13 +51,13 @@ esac
             'contents': '[Unit]\nDescription=SodaOS installation console\n'
                         'After=systemd-user-sessions.service NetworkManager.service\nConflicts=getty@tty1.service\n'
                         'RequiresMountsFor=/run/media/iso\n'
-                        '[Service]\nType=simple\n'
+                        '[Service]\nType=idle\n'
                         f'ExecStart=/usr/local/libexec/soda/load-install-console {binary_hash}\n'
                         'StandardInput=tty-force\nStandardOutput=tty\nStandardError=tty\n'
                         'TTYPath=/dev/tty1\nTTYReset=yes\nTTYVHangup=yes\n'
                         'Restart=no\n[Install]\nWantedBy=multi-user.target\n'},
             {'name': 'getty@tty1.service', 'mask': True}]},
-        'storage': {'files': [
+        'storage': {'files': branding + [
             {'path': LOADER_PATH, 'mode': 0o755,
              'contents': {'inline': (ROOT / 'appliance/installer/load-console.sh').read_text()}},
             {'path': DATA_PATH + '/destination.ign', 'mode': 0o644,
@@ -68,8 +69,7 @@ esac
             # Stock CoreOS already supplies this file. Replace only the live
             # welcome text, not arbitrary existing provisioning destinations.
             {'path': '/etc/motd', 'mode': 0o644, 'overwrite': True,
-             'contents': {'inline': artwork + '\nSodaOS — CoreOS installation media\n'
-                          'Run: sudo /usr/local/libexec/soda/soda-install disk\n'
+             'contents': {'inline': artwork + '\nSodaOS Installer\n'
                           'No disk is selected or erased automatically.\n'}},
         ]},
     }
@@ -163,7 +163,7 @@ def build(args):
         (payload / name).chmod(0o644)
     (payload / filename).chmod(0o755)
     payload.chmod(0o755)
-    config = live_config(sha256(payload / filename), destination, media, artwork)
+    config = live_config(sha256(payload / filename), destination, media, artwork, provisioning.branding_files())
     convert(butane, config, out / 'live.ign')
     remaster(xorriso, out / 'upstream/coreos.iso', payload, out / 'with-console.iso', out / 'remaster.log')
     customize = [str(installer), 'iso', 'customize', '--live-ignition', str(out / 'live.ign')]
@@ -217,13 +217,68 @@ def build(args):
     print('No hosting, publication, certificate changes, disk writes or validation VM were performed.')
 
 
+def branded_boot_config(name, data):
+    # Keep each replacement byte-for-byte the same length so the stock kargs
+    # embed offsets stay valid. Do not edit commands, paths or attribution.
+    old = b'Fedora CoreOS (Live)'
+    if data.count(old) != 1:
+        raise ValueError('unexpected upstream boot menu label')
+    branded = data.replace(old, b'SodaOS Installer'.ljust(len(old)))
+    if name == '/EFI/fedora/grub.cfg':
+        if branded.count(b'--class fedora') != 1:
+            raise ValueError('unexpected upstream GRUB menu class')
+        branded = branded.replace(b'--class fedora', b'--class sodaos')
+    elif name == '/isolinux/isolinux.cfg':
+        old = b'menu title Fedora CoreOS'
+        if branded.count(old) != 1:
+            raise ValueError('unexpected upstream BIOS menu title')
+        branded = branded.replace(old, b'menu title SodaOS'.ljust(len(old)))
+    else:
+        raise ValueError('unsupported boot branding path')
+    if len(branded) != len(data):
+        raise ValueError('boot branding shifted native embed offsets')
+    return branded
+
+
+def read_boot_config(iso, entry):
+    offset, size = entry
+    if size > 65536:
+        raise ValueError('boot config exceeds bound')
+    with iso.open('rb') as source:
+        source.seek(offset)
+        data = source.read(size)
+    if len(data) != size:
+        raise ValueError('truncated boot config')
+    return data
+
+
+def brand_boot_files(xorriso, upstream, directory):
+    files = iso_files(xorriso, upstream)
+    if BOOT_CONFIGS[0] not in files:
+        raise ValueError('selected EFI menu config missing')
+    directory.mkdir()
+    result = {}
+    for name in BOOT_CONFIGS:
+        if name not in files:
+            continue  # aarch64 has no ISOLINUX BIOS menu
+        target = directory / name.lstrip('/')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(branded_boot_config(name, read_boot_config(upstream, files[name])))
+        result[name] = target
+    return result
+
+
 def remaster(xorriso, upstream, payload, destination, log):
     if destination.exists() or destination.is_symlink():
         raise FileExistsError('refusing occupied ISO output')
+    branded = brand_boot_files(xorriso, upstream, destination.parent / 'boot-branding')
+    menu_args = []
+    for name, path in branded.items():
+        menu_args.extend(['-map', str(path), name, '-chown', '0', name, '--', '-chgrp', '0', name, '--'])
     with log.open('xb') as capture:
         # Replay the imported BIOS/EFI hybrid boot equipment, not a guessed
-        # mkisofs command. Only the new /soda files and stale miniso metadata
-        # change in the filesystem; the upstream OS images remain untouched.
+        # mkisofs command. Add /soda, replace bounded display labels and remove
+        # stale miniso metadata; upstream OS images remain untouched.
         subprocess.run([str(xorriso), '-abort_on', 'FAILURE', '-indev', str(upstream),
                         '-outdev', str(destination), '-boot_image', 'any', 'replay',
                         # v0.26.0 reads primary ISO names such as KARGS.JSO;
@@ -231,7 +286,7 @@ def remaster(xorriso, upstream, payload, destination, log):
                         '-compliance', 'iso_9660_level=1',
                         '-map', str(payload), '/soda', '-chown_r', '0', '/soda', '--',
                         '-chgrp_r', '0', '/soda', '--', '-rm', '/coreos/miniso.dat', '--',
-                        '-commit', '-end'], check=True, stdout=capture, stderr=capture)
+                        *menu_args, '-commit', '-end'], check=True, stdout=capture, stderr=capture)
 
 
 def iso_files(xorriso, iso, filesystem='any'):
@@ -341,8 +396,15 @@ def verify_remaster(xorriso, upstream, final, payload):
         raise ValueError('upstream volume identity or boot equipment changed')
     preserved = {}
     bios = {}
+    branded = {}
     for name, entry in original.items():
         if name in removed or name == '/images/ignition.img':
+            continue
+        if name in BOOT_CONFIGS:
+            expected = hashlib.sha256(branded_boot_config(name, read_boot_config(upstream, entry))).hexdigest()
+            if iso_digest(final, current[name]) != expected:
+                raise ValueError('boot configuration differs beyond selected branding: ' + name)
+            branded[name] = expected
             continue
         boot_info = name == '/isolinux/isolinux.bin'
         expected = iso_digest(upstream, entry, boot_info)
@@ -352,7 +414,7 @@ def verify_remaster(xorriso, upstream, final, payload):
     for name, path in added.items():
         if iso_digest(final, current[name]) != sha256(path):
             raise ValueError('on-media console payload differs from built source')
-    return {'BootMetadata': after, 'PreservedFileSHA256': preserved,
+    return {'BootMetadata': after, 'PreservedFileSHA256': preserved, 'BrandedBootFileSHA256': branded,
             'BIOSBootInfoNormalizedSHA256': bios, 'RemovedMetadata': sorted(removed),
             'AddedFileSHA256': {name: sha256(path) for name, path in added.items()}}
 

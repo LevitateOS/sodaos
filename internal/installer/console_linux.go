@@ -168,7 +168,7 @@ func (c console) secret(prompt string) (string, error) {
 }
 
 func (c console) network(ctx context.Context) error {
-	c.print("Networking uses CoreOS NetworkManager. DHCP is the default. Static address/prefix, gateway and DNS can be edited in nmtui. This changes only the live system until disk installation copies it.")
+	c.print("Networking uses NetworkManager. DHCP is the default. Static address/prefix, gateway and DNS can be edited in nmtui. This changes only the live system until disk installation copies it.")
 	choice, err := c.ask("Enter edit to open nmtui, or keep to keep current networking")
 	if err != nil {
 		return err
