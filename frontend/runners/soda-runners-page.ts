@@ -357,9 +357,12 @@ class SodaRunners extends LitElement {
   }
 }
 customElements.define('soda-runners', SodaRunners);
-const root = document.getElementById('soda-runners-page');
-if (root && id(root.dataset.actor)) {
+export function mountRunnersPage(root: HTMLElement, actor: string) {
+  if (!id(actor)) throw Error('Invalid runner actor');
   const view = document.createElement('soda-runners');
-  view.dataset.actor = root.dataset.actor;
-  root.append(view);
+  view.dataset.actor = actor;
+  root.replaceChildren(view);
+  return {dispose() {view.remove();}};
 }
+const root = document.getElementById('soda-runners-page');
+if (root && id(root.dataset.actor)) mountRunnersPage(root, root.dataset.actor);

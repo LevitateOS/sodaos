@@ -1,9 +1,9 @@
 # Integrate Soda pages into native Forgejo
 
-**Status, 10 September 2026: steps 1–2 are implemented and have local stock-Forgejo
-browser proof. Steps 3–6 remain.** The original plan used source baseline `f3efebc`;
-step 1 follows planning commit `a995f9e`. Its three bodies are read-only entry
-scaffolds, not the migrated management pages. No appliance delivery is claimed.
+**Status, 10 September 2026: steps 1–3 are implemented with local stock-Forgejo
+browser proof. Steps 4–6 remain.** The original plan used source baseline `f3efebc`;
+step 1 follows planning commit `a995f9e`. The three native hosts now mount the existing management components.
+Normal navigation and legacy-shell retirement are the next step. No appliance delivery is claimed.
 
 The user wants Spaces and Runners to feel like parts of SodaOS's Forgejo interface:
 the same real header, navigation, profile menu, login and account settings. This
@@ -21,8 +21,8 @@ new environment profiles and additional runner functionality are not added here.
 
 **This is the single ownership boundary for this plan and
 [runners-port](runners-port.md#implementation-lane-boundary).** They are separate
-implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented step 2 with local authentication/browser
-proof. Shared files remain reserved through the source handoff below; runner work
+implementation lanes, not two agents completing the same runner page. The Soda-pages lane has implemented steps 2–3 with local authentication/page-body
+browser proof. Shared files remain reserved through the source handoff below; runner work
 must not independently edit that implementation.
 
 | Work | Sole implementation owner | Other lane's responsibility |
@@ -380,6 +380,28 @@ pass real-handler tests and a real Forgejo browser journey. Native drafts and
 valid live Soda sessions are not discarded by automatic connection.
 
 ### Step 3 — port the three existing page bodies
+
+**Implemented with local source/browser proof.** Native entry connects once and
+mounts the existing Spaces, runner or repository-controls component with the
+original native actor. Spaces measures the real navbar/footer and viewport; no
+second drawer workspace mounts on its native full page. Settings styles are scoped
+to the content mount and inherit the native theme. Existing Go entries remain
+available until step 4; only their content wrapper needed a layout class here.
+
+Repository headings/links use the existing protected collection's owner/name,
+with canonical path-component validation. That API now rechecks the original
+session after provider I/O, matching the retiring page's freshness boundary.
+Runner operation semantics and the workspace/session/terminal owners are unchanged.
+
+The real local Forgejo fixture reaches all three components, enabled operator
+controls, token clearing on pagehide, current repository links, native keyboard
+logout and 1440px/390px layouts. Runner list observations are synthetic and read-only;
+no runner registration or lifecycle action occurred. Existing synthetic workspace
+journeys retain exact sessions, finite retain/Return and independently named End.
+This is not new native terminal process or runner/provider proof. The complete
+navigation switch, including Open in Spaces, is intentionally step 4; browser
+caller retirement and cached-payload acceptance remain step 5.
+
 
 | Surface | Work and preservation |
 | --- | --- |

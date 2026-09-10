@@ -7815,10 +7815,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "2a196270408ecf67dca4c29293a6e41d63c83197378e389ea83c50e5552c0805",
+      "beforeRoleHash": "a4a5efc8a63a35511a2b82550e1eca76799f3e0f6c77492bda58a0cc85065c77",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one inert Lit content mount. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."
+      "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one connected Lit content mount. Scoped settings CSS supports the existing controls; full Spaces measures the native chrome. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."
     },
     {
       "template": "user/dashboard/issues.tmpl",

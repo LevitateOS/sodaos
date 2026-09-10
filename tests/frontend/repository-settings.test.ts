@@ -17,7 +17,7 @@ test('Go repository settings mounts shared creation/access controls and preserve
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
   const page = await browser.newPage(), errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   const origin = 'https://forgejo.example.test', files: Record<string, string> = payload, id = 'p0123456789abcdef01234567';
-  let exists = false, legacy = false, available = true;
+  let exists = false, legacy = false, available = true, unsafeName = false;
   const writes: unknown[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), pathname = new URL(request.url()).pathname;
@@ -36,7 +36,7 @@ test('Go repository settings mounts shared creation/access controls and preserve
       const body = pathname.endsWith('/session') ? {user: {id: '1', login: 'alice'}, csrf_token: 'csrf-alice', forgejo_url: origin}
         : pathname.endsWith('/forgejo/me') ? {id: '1'}
           : pathname.endsWith('/profiles') ? {items: [profile]}
-            : pathname.endsWith('/environments') ? {repository: {id: '7', owner: 'current', name: 'renamed'}, can_create: !exists, items: exists ? [env] : []}
+            : pathname.endsWith('/environments') ? {repository: {id: '7', owner: 'current', name: unsafeName ? '../foreign' : 'renamed'}, can_create: !exists, items: exists ? [env] : []}
               : pathname.endsWith('/development-keys') ? {items: []}
                 : {environment: env, observed: {id, running: true}, login: '', environment_administrator: false, native_unavailable: false, authority_unavailable: false};
       await route.fulfill({json: body}); return;
@@ -51,6 +51,7 @@ test('Go repository settings mounts shared creation/access controls and preserve
   await page.goto(origin + '/-/soda/repositories/7/settings/spaces');
   await page.getByRole('combobox', {name: 'Project OS'}).waitFor();
   assert.equal(await page.getByRole('combobox').locator('option').count(), 1);
+  assert.equal(await page.locator('soda-project-controls').getByRole('link', {name: 'Native repository settings', exact: true}).getAttribute('href'), origin + '/current/renamed/settings');
   await page.getByRole('combobox').selectOption('rocky-headless'); assert.equal(writes.length, 0);
   await page.getByRole('button', {name: 'Create environment', exact: true}).click();
   await page.getByRole('button', {name: 'Join environment', exact: true}).waitFor();
@@ -62,5 +63,8 @@ test('Go repository settings mounts shared creation/access controls and preserve
   exists = false; available = false; await page.getByRole('button', {name: 'Refresh status'}).click();
   await page.getByText(/Installed Project OS unavailable or incompatible/).waitFor();
   assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).isVisible(), false);
+  unsafeName = true; await page.getByRole('button', {name: 'Refresh status'}).click();
+  await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
+  assert.equal(await page.locator('soda-project-controls').getByRole('link', {name: 'Native repository settings', exact: true}).count(), 0);
   assert.equal(writes.length, 1); assert.deepEqual(errors, []);
 });

@@ -19,12 +19,14 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 // Opt-in local authentication proof. Uses the authorized development fixture
 // account through native login/API, with a fresh retained Soda DB and OAuth app.
-// No mocked provider responses, borrowed cookies, native helper or VM operation.
+// No mocked provider responses or borrowed cookies. Runner observations below are
+// synthetic; no native helper, provider registration or VM operation is performed.
 func TestNativeConnectionFixture(t *testing.T) {
 	dir := os.Getenv("SODA_NATIVE_CONNECTION_FIXTURE")
 	if dir == "" {
@@ -102,7 +104,31 @@ func TestNativeConnectionFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	soda = New(config.Config{ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile}, db)
+	userRequest, _ := http.NewRequest("GET", upstream.String()+"/api/v1/user", nil)
+	userRequest.SetBasicAuth("soda-screenshot", string(match[1]))
+	userResponse, err := (&http.Client{Timeout: 10 * time.Second}).Do(userRequest)
+	if err != nil {
+		t.Fatal("fixture identity request failed")
+	}
+	defer userResponse.Body.Close()
+	var actor struct {
+		ID int64 `json:"id"`
+	}
+	if userResponse.StatusCode != 200 || json.NewDecoder(userResponse.Body).Decode(&actor) != nil || actor.ID <= 0 {
+		t.Fatal("fixture identity unavailable")
+	}
+	soda = New(config.Config{OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile}, db)
+	soda.Host = &host.Client{HTTP: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		w := httptest.NewRecorder()
+		if r.Method != "POST" || r.URL.Path != "/runners/list" {
+			t.Error("unexpected fixture helper operation", r.Method, r.URL.Path)
+			w.WriteHeader(503)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte("[]"))
+		}
+		return w.Result(), nil
+	})}}
 	receipt, _ := json.Marshal(map[string]any{"origin": server.URL, "native_origin": upstream.String(), "oauth_application_id": app.ID, "client_id": app.ClientID})
 	if err := os.WriteFile(filepath.Join(dir, "fixture.json"), receipt, 0600); err != nil {
 		t.Fatal(err)

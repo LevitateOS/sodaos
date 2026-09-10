@@ -1,5 +1,52 @@
 # Current handoff
 
+## Native Soda page bodies — step 3
+
+All three native dashboard hosts now mount the existing Lit body after the shared
+connection check: full Spaces, operator Runners and repository Spaces settings.
+The native actor binds each component. Late entry completions cannot mount after
+pagehide/retirement. Interrupted entry restored from browser history, or retired
+while still connecting, exposes explicit Retry without replay; both have emitted
+browser regression coverage. Spaces measures available height from the actual document
+chrome and viewport; settings CSS is scoped to its mount and inherits native
+color-scheme selection. Forgejo retains the real header, menus and authentication.
+
+Repository headings and native links use owner/name already returned by the
+protected environments collection. Path components are checked before constructing
+links. The collection rechecks the original session after provider I/O, with tests
+for logout, actor/CSRF rotation, denial, unavailable identity and provider mismatch.
+No new endpoint, runner operation or workspace/session/terminal owner was added.
+
+Local checks passed: strict TypeScript/Lit; frontend, page, measured-layout,
+Forgejo and Cockpit suites (319 passes, 35 separately gated skips); Go web/template
+packages; focused session-race checks; and all four canonical payload checks.
+Existing synthetic runner cases cover original targets, authorization, token
+clearing and uncertain outcomes. Existing workspace journeys cover exact-session
+ownership, finite retention/Return, disposal and independently named End.
+
+Real stock Forgejo 15.0.7 plus the isolated actual Go/OAuth backend passed all three
+native mounts, enabled operator controls, runner token clearing on pagehide,
+protected repository links, single full-page workspace, desktop/mobile width and
+Spaces height, session reuse and native keyboard logout/partial outcomes. The
+fixture uses the authorized screenshot account and fresh retained OAuth apps/DBs.
+Only runner-list helper observations are synthetic (`[]`); every other helper
+operation is refused. No provider registration, native terminal or lifecycle action
+was exercised. This is local integration proof, not appliance delivery.
+
+Evidence: `.artifacts/step3-native-connection-01/` and final
+`.artifacts/step3-native-connection-03/`; the failed `02` probe omitted the required
+expected-actor API header and is retained. Test logs are `.artifacts/step3-*.log`.
+The initial suite's inventory mismatch was corrected after reviewing the template;
+the repository-link probe was scoped to the new component because the old shell
+still has its server-rendered link. Candidate assets use the existing isolated
+preview projection; the authorized local Forgejo template reload preserved its data.
+
+**Next: step 4** switches normal links and legacy GET bridges together and removes
+the old Go shells. They remain in this commit, so ordinary links can still reach
+the old presentation. Step 5 owns final browser-caller/cache/package acceptance;
+step 6 owns separately authorized delivery. Runner backend/provider parity and
+Cockpit retirement remain the separate runners lane. No deployment occurred.
+
 
 ## Native Soda page connection and logout — step 2
 

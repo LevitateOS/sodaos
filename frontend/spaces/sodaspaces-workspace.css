@@ -7,21 +7,14 @@
   background: var(--soda-page-canvas);
   color: var(--soda-page-text);
 }
-.soda-spaces-page > header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--soda-space-6);
-  padding: var(--soda-space-2) var(--soda-space-4);
-  border-bottom: 1px solid var(--soda-page-edge);
-}
-.soda-spaces-page header img { width: 120px; height: 36px; }
-.soda-spaces-page nav { display: flex; flex-wrap: wrap; gap: var(--soda-space-4); }
-.soda-spaces-page a { color: var(--soda-page-link); }
-.soda-spaces-page > main { height: calc(100dvh - 58px); display: flex; flex-direction: column; padding: 0; box-sizing: border-box; }
-.soda-spaces-page h1, .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
+/* Both native and retained legacy entry mounts measure their actual document
+   chrome. These rules never style Forgejo's body, header, nav or footer. */
+.soda-spaces-page-mount { min-height: 0; min-width: 0; }
+.soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
+.soda-native-page:has([data-view="spaces"]) { padding: 0; margin: 0; min-height: 0; }
+.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100%; padding: 0; margin: 0; }
+.soda-native-page:has([data-view="spaces"]) .soda-page-intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); }
 #spaces-page-status:empty { display: none; }
-#spaces-page { flex: 1; min-height: 0; }
 .soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }
 .soda-workspace p { margin: var(--soda-space-1) var(--soda-space-2); overflow-wrap: anywhere; }

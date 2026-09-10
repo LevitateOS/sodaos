@@ -92,6 +92,11 @@ func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store
 	if !absent {
 		items = append(items, environmentDTO(p))
 	}
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+		return
+	}
 	jsonResponse(w, 200, struct {
 		Items      []environmentView     `json:"items"`
 		Repository repositoryContextView `json:"repository"`

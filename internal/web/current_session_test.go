@@ -61,6 +61,7 @@ func TestPagesRecheckOriginalSessionAfterProviderIO(t *testing.T) {
 	}{
 		{"/spaces", 503},
 		{"/settings/runners", 401},
+		{"/api/environments?repository_id=7", 401},
 		{"/repositories/7/settings/spaces", 401},
 	} {
 		for _, change := range []string{"logout", "user", "csrf", "denied", "unavailable", "provider identity"} {

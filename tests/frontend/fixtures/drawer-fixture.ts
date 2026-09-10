@@ -31,7 +31,7 @@ function createFixture(extra: Partial<State> = {}) {
     else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
     else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
     else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
-    else if (url.includes('/api/environments?')) body = {repository: {id: '7'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};
+    else if (url.includes('/api/environments?')) body = {repository: {id: '7', owner: 'alice', name: 'demo'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};
     else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((fingerprint, i) => ({id: String(i + 1), fingerprint}))};
     else if (url.endsWith('/os')) body = {environment: {id: environmentID, running: state.running, image: 'sha256:' + 'a'.repeat(64)}, os_release: state.running ? {id: 'rocky', version: '9.7', name: 'Rocky Linux 9.7'} : null, os_release_unavailable: !state.running};
     else if (url.endsWith('/lifecycle')) body = {environment: {id: environmentID, running: state.running}, boot_enabled: state.running};

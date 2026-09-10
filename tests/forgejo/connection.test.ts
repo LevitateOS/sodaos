@@ -11,20 +11,37 @@ const shell = `<!doctype html><nav id="navbar"><span id="soda-settings-link" dat
 
 test('entry connection is bounded, actor checked, and never restarts on focus or failure', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
-  for (const mode of ['valid', 'missing', 'mismatch', 'unavailable', 'failed-return', 'failed-valid', 'suppressed']) {
-    const page = await browser.newPage(); let logins = 0;
+  for (const mode of ['valid', 'restored', 'retired', 'missing', 'mismatch', 'unavailable', 'failed-return', 'failed-valid', 'suppressed']) {
+    const page = await browser.newPage(); let logins = 0, release: (() => void) | undefined;
+    const pause = ['restored', 'retired'].includes(mode) ? new Promise<void>(resolve => {release = resolve;}) : Promise.resolve();
     await page.route(origin + '/**', async route => {
       const pathname = new URL(route.request().url()).pathname;
       if (pathname === '/') return route.fulfill({contentType: 'text/html', body: shell + '<script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>'});
       if (pathname === '/-/soda/api/session') return route.fulfill({status: mode === 'unavailable' ? 503 : ['missing','failed-return'].includes(mode) ? 401 : 200, contentType: 'application/json', body: JSON.stringify({...session, user: {...session.user, id: mode === 'mismatch' ? '2' : '1'}})});
+      if (pathname === '/-/soda/api/spaces') return route.fulfill({json: {items: [], complete: true}});
+      if (pathname === '/-/soda/api/forgejo/me') return route.fulfill({json: {id: '1'}});
       if (pathname === '/-/soda/login') {logins++; return route.fulfill({contentType: 'text/html', body: 'Consent fixture'});}
+      if (pathname === '/assets/sodaspaces-page.js') await pause;
       const source = files['public' + pathname]; assert(source && source.startsWith('@build/forgejo-js/'), pathname);
       await route.fulfill({contentType: 'text/javascript', body: await Bun.file(path.resolve('.artifacts/forgejo-js', path.basename(source))).text()});
     });
     if (mode === 'suppressed') await page.addInitScript(() => localStorage.setItem('soda-signout', 'fixture'));
     await page.goto(origin + '/?soda-view=spaces' + (mode.startsWith('failed-') ? '&soda-connect=failed' : ''));
+    if (mode === 'restored' || mode === 'retired') {
+      await page.getByRole('status').filter({hasText: 'Connecting to Soda'}).waitFor();
+      await page.evaluate(retired => {
+        if (retired) window.dispatchEvent(new Event('soda-session-retired'));
+        else {window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true})); window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));}
+      }, mode === 'retired');
+      await page.getByRole('button', {name: 'Retry connection'}).waitFor();
+      release?.();
+      await page.waitForLoadState('networkidle');
+      assert.equal(await page.locator('soda-spaces').count(), 0, 'late completion mounted after restoration');
+      await page.getByRole('button', {name: 'Retry connection'}).click();
+      await page.locator('soda-spaces').waitFor();
+    }
     await page.waitForLoadState('networkidle');
-    if (mode === 'valid') assert.equal(await page.getByRole('link', {name: 'Open Spaces'}).count(), 1);
+    if (mode === 'valid' || mode === 'restored' || mode === 'retired') assert.equal(await page.locator('#soda-native-content > soda-spaces').count(), 1);
     else if (mode !== 'missing') assert.equal(await page.getByRole('button', {name: 'Retry connection'}).count(), 1);
     assert.equal(logins, mode === 'missing' ? 1 : 0);
     await page.evaluate(() => {window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange'));});

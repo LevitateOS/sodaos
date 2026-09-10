@@ -59,6 +59,8 @@ export class SodaProjectControls extends LitElement {
       state: true
     }, repository: {
       state: true
+    }, repositoryURL: {
+      state: true
     }, session: {
       state: true
     },
@@ -108,6 +110,7 @@ export class SodaProjectControls extends LitElement {
   declare private status: string;
   declare private outcome: string;
   declare private repository: string;
+  declare private repositoryURL: string;
   declare private session: Session | undefined;
   declare private environment: Environment | undefined;
   declare private detail: Detail | undefined;
@@ -141,7 +144,7 @@ export class SodaProjectControls extends LitElement {
     this.observedOS = undefined;
     this.osStatus = '';
     this.status = 'Refresh to inspect your shared environment.';
-    this.outcome = this.repository = this.draft = '';
+    this.outcome = this.repository = this.repositoryURL = this.draft = '';
     this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.busy = this.stale = this.uncertain = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
     this.connectVisible = true;
@@ -214,6 +217,11 @@ export class SodaProjectControls extends LitElement {
     if (this.binding?.expectedUserId)
       intent.set('expected_user_id', this.binding.expectedUserId);
     return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls" aria-busy=${this.busy && !this.stale ? 'true' : 'false'}>
+      ${this.binding?.settings && this.repositoryURL ? html`<div class="soda-repository-context">
+        <h2>${this.repository}</h2>
+        <nav aria-label="Repository destinations"><a href=${this.repositoryURL + '/settings'}>Native repository settings</a> · <a href=${this.repositoryURL + '#sodaspaces'}>Open repository and workspace drawer</a></nav>
+        <p>Project OS selection affects only creation. Existing roots cannot change distribution or interface here. Create, Join and Start remain separate explicit actions.</p>
+      </div>` : ''}
       <div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">${views.map(view => html`
         <button type="button" class="ui basic button" data-view=${view} role="tab" aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
           aria-selected=${this.selected === view ? 'true' : 'false'} tabindex=${this.selected === view ? 0 : -1}
@@ -300,6 +308,7 @@ export class SodaProjectControls extends LitElement {
     }
   }
   private reset() {
+    this.repositoryURL = '';
     this.environment = this.detail = this.keyPreview = this.saved = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.profiles = [];
     this.observedOS = undefined;
@@ -379,7 +388,10 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n))
         return;
       check(repository.id === repositoryId && Array.isArray(collection.items) && collection.items.length <= 1 && typeof collection.can_create === 'boolean');
-      this.repository = `Repository ${repository.owner || ''}/${repository.name || ''} · ID ${repositoryId}`;
+      check(typeof repository.owner === 'string' && typeof repository.name === 'string');
+      for (const part of [repository.owner, repository.name]) check(part !== '' && part !== '.' && part !== '..' && part.length <= 255 && !/[\/\\\x00\r\n]/.test(part));
+      this.repository = `Repository ${repository.owner}/${repository.name} · ID ${repositoryId}`;
+      this.repositoryURL = location.origin + '/' + encodeURIComponent(repository.owner) + '/' + encodeURIComponent(repository.name);
       if (!collection.items.length) {
         if (collection.can_create) {
           const available = object(await this.api('/api/repositories/' + repositoryId + '/profiles', 'GET', undefined, control.signal));

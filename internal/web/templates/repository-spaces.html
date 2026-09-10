@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sodaspaces · Repository settings</title>
 <link rel="icon" href="/assets/soda/forgejo/favicon.png"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><link rel="stylesheet" href="/assets/sodaspaces.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css">
 </head><body class="soda-settings"><header><a href="{{.Origin}}/">SodaOS</a><nav aria-label="Soda navigation"><a href="{{.Origin}}/-/soda/spaces">Spaces</a><a href="{{.Origin}}/explore/repos">Explore</a></nav>{{if .Actor}}<span>Soda account: {{.Login}} (ID {{.Actor}})</span>{{end}}</header>
-<main class="soda-page"><h1>Sodaspaces settings</h1>
+<main class="soda-page soda-settings-content"><h1>Sodaspaces settings</h1>
 {{if .Authorized}}<p>{{.Repository}} · Repository ID {{.RepositoryID}}</p>
 <nav aria-label="Repository destinations"><a href="{{.RepositoryURL}}/settings">Native repository settings</a> · <a href="{{.RepositoryURL}}#sodaspaces">Open repository and workspace drawer</a></nav>
 <p>Project OS selection affects only creation. Existing roots cannot change distribution or interface here. Create, Join and Start remain separate explicit actions with their existing permissions.</p>
