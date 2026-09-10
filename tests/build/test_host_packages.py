@@ -13,7 +13,7 @@ class HostPackages(unittest.TestCase):
         for source in ['scripts/install-native.sh', 'tests/installed/host.sh']:
             lines = [line for line in (ROOT / source).read_text().splitlines() if line.startswith('rpm -q ')]
             self.assertEqual(len(lines), 2)
-            for missing in ['', 'nodejs', 'zlib', 'cockpit-ws']:
+            for missing, expected in [('', 0), ('nodejs', 1), ('cockpit-ws', 1), ('libicu', 0), ('openssl-libs', 0), ('krb5-libs', 0), ('zlib', 0)]:
                 with self.subTest(source=source, missing=missing), tempfile.TemporaryDirectory() as name:
                     fake = Path(name) / 'rpm'
                     fake.write_text('''#!/bin/sh
@@ -24,7 +24,7 @@ if [ "$1" = --whatprovides ]; then provides=yes; shift; fi
 for package do
     [ "$package" != "$MISSING" ] || exit 1
     case "$package" in
-        nodejs|zlib) [ "$provides" = yes ] || exit 1 ;;
+        nodejs) [ "$provides" = yes ] || exit 1 ;;
     esac
 done
 ''')
@@ -32,7 +32,7 @@ done
                     result = subprocess.run(['/bin/sh', '-ec', '\n'.join(lines)],
                                             env={**os.environ, 'PATH':name, 'MISSING':missing},
                                             capture_output=True, timeout=5)
-                    self.assertEqual(result.returncode, 1 if missing else 0, result.stderr)
+                    self.assertEqual(result.returncode, expected, result.stderr)
 
 
 if __name__ == '__main__':

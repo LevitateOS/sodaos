@@ -1,6 +1,6 @@
 # Forgejo and GitHub CLIs in projects
 
-The predecessor supplied Tea and GitHub CLI as developer tools. Here they belong in the **Rocky project image**, not the immutable host or a new Soda credential service. They are separate from the host's GitHub Actions runner client.
+The predecessor supplied Tea and GitHub CLI as developer tools. Here they belong in the **Rocky project image**, not the immutable host or a new Soda credential service. These project tools are independent of Soda’s Forgejo-only CI runner support.
 
 The planned Fedora/KDE variants inherit these Project OS tooling and personal-auth
 contracts. Reuse the existing source/license/build owners and verify distro-specific

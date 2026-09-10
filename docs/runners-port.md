@@ -1,6 +1,11 @@
 # Local CI runners
 
-**Migration status, reviewed at `174edd9` on 10 September 2026:** the dashboard
+**Current source:** local CI runners support only Forgejo. The user selected
+removal of GitHub runner registration, execution and packaging. Unsupported saved
+descriptors are rejected without changing their accounts, files or credentials;
+this source change performs no installed cleanup.
+
+**Migration status:** the dashboard
 replacement is implemented in source and has recorded local test coverage. It is
 not yet a delivered, provider-validated replacement for Cockpit. Finish the
 [implementation and completion plan](#implementation-and-completion-gate) below;
@@ -24,8 +29,7 @@ and control existing local services. Provider registration can still require a
 separate authorized provider administrator and credential.
 
 Keep native repository/user/organization/administrator **Actions → Runners**,
-secrets, variables, workflows, jobs, and results with Forgejo. GitHub likewise
-owns its registrations and Actions state. Soda owns only this appliance's runner
+secrets, variables, workflows, jobs, and results with Forgejo. Soda owns only this appliance's runner
 accounts, installed clients, one-slot listeners, local state, and local service
 lifecycle. Repository AI settings may select supported labels and report known
 local availability, but they do not create host accounts, register capacity, or
@@ -41,8 +45,7 @@ Soda selects a dedicated **Rocky headless Runner OS** for future isolated jobs.
 It shares the reviewed Rocky-family foundation and conventions with Project OS,
 but it is a separate job artifact: it does not reuse a Project OS image, inherit
 its persistent account/home/SSH/tmux contracts, or turn a development environment
-into CI capacity. Ubuntu and Arch are not selected. This choice does not claim
-package-for-package or behavior parity with GitHub-hosted Ubuntu runners.
+into CI capacity. Ubuntu and Arch are not selected.
 
 `mise` is required in the Runner OS. A repository may use the same ordinary
 `mise.toml` that developers use, after the workflow makes the applicable trust
@@ -67,7 +70,7 @@ the job on a job-owned network. That does not automatically make them a Podman p
 permit a nested container engine, or expose the host/rootless engine socket inside
 the command job. Exact network, volume, cancellation and cleanup behavior requires
 native proof for the selected Forgejo runner and Podman versions. The current source
-still executes Forgejo and GitHub jobs directly on host runner accounts. The
+still executes Forgejo jobs directly on host runner accounts. The
 dedicated rootless OCI candidate and its unresolved credential/publication boundary
 remain owned by the [services and AI plan](services-and-ai-plan.md#trust-credentials-and-the-concrete-runtime-gap).
 
@@ -87,8 +90,7 @@ and native validation, has five groups:
 That baseline is a recommendation, not an accepted exhaustive inventory or runtime
 proof. Browser, mobile, container-build and cloud-provider workflows each need a
 selected, tested capability and may use a different image or label. Do not grow one
-generic image until it resembles an undocumented GitHub runner image.
-The comparison uses GitHub's [Ubuntu tool inventory](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md),
+generic image to cover every possible workload. Use
 Forgejo's [action runtime requirements](https://forgejo.org/docs/latest/admin/actions/configuration/)
 and the [mise CI guide](https://mise.jdx.dev/continuous-integration.html). Build and
 validate the selected image separately on x86_64 and aarch64; image selection alone
@@ -107,8 +109,7 @@ that evidence. No physical volume per repository is selected. Cache use should b
 workflow opt-in and allocated on use. Retention, quotas, eviction, networking,
 storage placement and cleanup remain unresolved product decisions. Providers retain
 workflow semantics, scheduling and results. Caching follows the selected native
-provider/runner contract; GitHub behavior is comparison evidence, not proof of
-Forgejo behavior.
+Forgejo runner contract and its actual behavior.
 
 ## Current source and observed evidence
 
@@ -121,10 +122,10 @@ Forgejo behavior.
 | Web authority and API | [`internal/web/runners.go`](../internal/web/runners.go): fresh provider subject, configured `operator_id`, original Soda session, guarded list/create/lifecycle routes; existing API middleware supplies actor/origin/CSRF checks. | Preserve denial-before-decode/native-read behavior and exercise the actual proxy/OAuth/helper chain. |
 | OAuth and persistence | Fixed `destination=runners` return was added in schema v7; current source is schema v8 and preserves that return. | Rehearse the actual target schema to the chosen candidate schema; no new runner inventory database or migration is required merely to finish the UI. |
 | Root bridge | [`internal/host/runners.go`](../internal/host/runners.go), wired by [`cmd/soda-host`](../cmd/soda-host/main.go), dispatches six fixed operations to the existing runner implementation. | Deliver compatible binaries together and prove socket/group/service confinement natively. |
-| Native runner owner | [`internal/runners/`](../internal/runners/): provider configuration, dedicated accounts/state, one-slot listeners, lifecycle and cross-process file locking for reads and all mutations. | Real provider lifecycle/jobs and retained-state preservation remain unproved. GitHub service compatibility is a separate, unselected maintenance recommendation. |
+| Native runner owner | [`internal/runners/`](../internal/runners/): provider configuration, dedicated accounts/state, one-slot listeners, lifecycle and cross-process file locking for reads and all mutations. | Real provider lifecycle/jobs and retained-state preservation remain unproved. Only Forgejo is supported; unsupported saved providers are refused before native effects. |
 | Shared frontend protocol | [`soda-runner-types.d.ts`](../frontend/runners/soda-runner-types.d.ts) and [`soda-runner-response.ts`](../frontend/runners/soda-runner-response.ts) serve Lit and Cockpit. | Keep one response contract while both surfaces coexist; preserve backend/CLI tests after Cockpit removal. |
 | Packaging | [`forgejo-payload.json`](../internal/nativebuild/forgejo-payload.json), [`build-forgejo.ts`](../scripts/build-forgejo.ts), [`stage.py`](../scripts/stage.py) include settings assets, native hooks and both Cockpit pages. | Produce and inspect a fresh matching-native export; local emitted assets are not installed proof. |
-| Local checks | [`runners_test.go`](../internal/web/runners_test.go), [host bridge tests](../internal/host/runners_test.go), native runner tests, [actual Go HTML/Lit browser tests](../tests/frontend/runners.test.ts), [navigation tests](../tests/forgejo/settings-link.test.ts), and retained Cockpit tests. The ordinary page gate covers both existing provider forms and restored/retired pages using real Go HTML and synthetic peers. | Native/provider effects remain unproved. See the handoff for passing affected checks and broader platform/test-environment failures. |
+| Local checks | [`runners_test.go`](../internal/web/runners_test.go), [host bridge tests](../internal/host/runners_test.go), native runner tests, [actual Go HTML/Lit browser tests](../tests/frontend/runners.test.ts), [navigation tests](../tests/forgejo/settings-link.test.ts), and retained Cockpit tests. The ordinary page gate covers the Forgejo form and restored/retired pages using real Go HTML and synthetic peers. | Native/provider effects remain unproved. See the handoff for passing affected checks and broader platform/test-environment failures. |
 
 ### Evidence limits
 
@@ -144,8 +145,7 @@ Each runner has a stable, validated local ID, a dedicated noninteractive
 sudo or Linux capabilities, has a read-only host view apart from its own state,
 and can access the network. Jobs execute repository code and can change the
 runner's persistent work files, so only trusted repositories and contributors
-belong on this capacity. Current Forgejo labels are host-execution labels; the
-GitHub runner also executes directly on the host account. OCI AI-job isolation is
+belong on this capacity. Current Forgejo labels select host execution. OCI AI-job isolation is
 separate unimplemented work and must not appear because a label was entered.
 
 Current local listing reads the descriptors, systemd `LoadState`, `ActiveState`,
@@ -161,7 +161,7 @@ x86_64 build/check, including the Go and 60-test Cockpit suites. The retained U0
 operator journey observed the installed Cockpit page with zero runners, listeners,
 and capacity. A later retained cutover delivered a strict-config `soda-runners`
 binary and its native empty `list` succeeded; the helper and runner services were
-unchanged from `8b823db`. No recorded evidence creates a Forgejo or GitHub runner,
+unchanged from `8b823db`. No recorded evidence creates a Forgejo runner,
 runs a provider-scheduled job, or exercises native runner start, stop, restart, or
 removal. The new source supplies the Global SodaOS settings page and web-to-root bridge;
 neither has been deployed or exercised with real provider registrations.
@@ -191,8 +191,9 @@ Keep the current strict JSON models, ID/URL/label validation, request size limit
 operation timeout, shared native lock, configured Forgejo origins, and sanitized
 errors. For Forgejo creation, overwrite any browser value with the configured
 internal Forgejo origin before the root call; expose only the configured browser
-origin in links. GitHub remains limited by current source to HTTPS `github.com`
-repository, organization, or enterprise-account paths, not arbitrary servers.
+origin in links. Only `provider=forgejo` is accepted. Reject every other provider
+before native dispatch; a saved unsupported provider makes inventory unavailable
+rather than being omitted or interpreted as Forgejo.
 
 During the overlap, Cockpit, the CLI, and the web page reach the same state. Native
 serialization must cover **all** runner mutations before enabling the second
@@ -208,7 +209,6 @@ specific uncertain outcome, not a fabricated previous state.
 | --- | --- | --- |
 | List / Refresh | Reads local descriptors, client versions, and exact systemd state; performs no provider query. | Show configured slots and listener state as local observations. Do not call a running listener online, idle, or provider-available. Preserve the previous view only as visibly stale if refresh fails. |
 | Register Forgejo | Writes the provider-issued UUID/token and host labels into the runner's private state, records a local descriptor, enables and starts the listener. The provider record must already exist. | Explain that an authorized Forgejo administrator creates the **system** runner record and supplies its UUID/token. Do not grant site-admin rights, use Soda's setup token, or silently create/reset provider registration. Re-read local state after the operation. |
-| Register GitHub | Copies the pinned client, runs its native `config.sh` under the runner account with the short-lived token, records the descriptor, then enables/starts the listener. This can create provider state before a later local step fails. | Accept only an explicitly supplied authorized registration token. On timeout/failure, report that provider registration may remain and direct the operator to inspect it before retrying. Never claim compensation or retry automatically. |
 | Start | `systemctl enable --now` for the validated existing unit. | State that the listener starts now **and at host boot**. Do not create, repair, upgrade, or re-register it. Re-read actual state. |
 | Stop | `systemctl disable --now` for the validated existing unit. | State that the listener is disabled for host boot and any active local job may be interrupted. Provider job outcome is not locally known. Re-read actual state. |
 | Restart | Enables the unit, then restarts it. | Warn that it can interrupt a job and that it leaves boot start enabled, even if the listener was previously stopped. Do not call it a provider reconnect guarantee. |
@@ -232,18 +232,15 @@ soon as the request is serialized, and never return the token.
 
 The current Forgejo runner intentionally retains its connection token in a
 mode-0600 file owned by the runner account and references it by file path. The
-GitHub client retains its own reconnect credential state after `config.sh`; its
-short-lived registration input is sent through the existing no-echo PTY and not
-argv or environment. Do not expose, download, inspect wholesale, or migrate these
-files through the settings page. Logs and evidence may contain runner IDs,
+token file is the only retained registration credential channel. Do not expose,
+download, inspect wholesale or migrate it through the settings page. Logs and evidence may contain runner IDs,
 non-secret versions, and summarized results, never request bodies, provider
 responses, tokens, or complete state directories.
 
 ## Compatibility and migration
 
 Preserve existing IDs, descriptors, Linux accounts and UIDs, state directories,
-working files, credentials, units, enabled/running state, installed per-runner
-GitHub client versions, and provider registrations. Opening the new page performs
+working files, credentials, units, enabled/running state and Forgejo registrations. Opening the new page performs
 no migration, service action, registration, repair, client update, or descriptor
 rewrite. The `soda-dashboard` and `/var/lib/soda/dashboard` names remain backend and
 persistent-data names; UI placement does not rename them.
@@ -269,14 +266,13 @@ This is the detailed plan for **finishing the Cockpit-to-dashboard move**, based
 the source inventory above. The [settings contract](sodaspaces-plan.md#settings-pages-and-os-selection)
 owns placement; this guide owns runner parity and cutover; the
 [handoff](implementation-status.md) owns executed evidence. Only step 1 was selected
-for this implementation turn. The existing
-[GitHub service compatibility task](refactoring-plan.md#phase-4--github-runner-service-compatibility)
-was folded into this migration plan by the assistant; that inclusion was not user
-approval. It remains an unselected maintenance recommendation. Later implementation,
-validation and delivery proposals below are not execution authorization.
+for the prior presentation/lifetime turn. The user subsequently selected removing
+GitHub runner support. The old service-compatibility recommendation is retired;
+there is no GitHub client or compatibility phase to finish. Later validation and
+delivery proposals below are not execution authorization.
 
 The end state is a discoverable, configured-operator-only page that controls real
-local Forgejo and GitHub capacity, with working native provider links and preserved
+local Forgejo capacity, with working native provider links and preserved
 runner state. Cockpit retains Tailnet and ordinary host administration. The removed
 Cockpit runner presentation leaves the native runner owner, CLI and provider
 mechanisms in place.
@@ -304,14 +300,12 @@ no new Forgejo handler or whole-navbar override is required.
   and each runner's validated provider destination. The provider may deny a
   nonadmin Soda operator; the convenience link grants no additional authority.
   Lit rows now render validated provider links from
-  `registration_url`. A local ID is not a provider
+  the configured public Forgejo origin. A local ID is not a provider
   runner ID; do not invent a deep link from it. Never expose the internal Forgejo
-  origin, use a guessed port or attach credentials to a link. Raw descriptor
-  reads remain unchanged; the API projection and rendering now reuse the native
-  provider URL rules at the read/render boundary: Forgejo uses only the configured
-  public origin; GitHub requires credential-free HTTPS `github.com`, no port/query/
-  fragment and a non-root provider path. An invalid legacy value yields unavailable
-  status or no link, never a clickable fallback or an automatic descriptor rewrite.
+  origin, use a guessed port or attach credentials to a link. The API projection
+  and both UIs use only the configured public Forgejo origin; stored registration
+  URLs never become link destinations. Unsupported providers are refused at the
+  descriptor, API and shared response-decoder boundaries without rewriting data.
 - Complete first-use navigation. The native settings link currently requires an
   already connected, matching Soda operator session. Check the journey for an
   operator signed into Forgejo but not Soda: source guidance now exposes the existing
@@ -321,17 +315,16 @@ no new Forgejo handler or whole-navbar override is required.
 - Complete form feedback and keyboard/responsive behavior using existing tokens
   and Lit conventions. Preserve exact-ID lifecycle confirmation, boot-policy and
   destructive effects, local-state uncertainty and the distinction between listeners
-  and available job slots. Use field guidance for invalid URL/UUID/labels without
+  and available job slots. Use field guidance for invalid UUID/labels without
   echoing provider diagnostics or a token. Keep Refresh and provider inspection
   usable when they are the safe next action. The page now renders a bounded HTML denial
   for a nonoperator opening the page, replacing the API-shaped 403 while
   preserving the status code, fresh authority checks and zero native reads.
 - Preserve the browser-lifetime coverage and guarded request generation.
   The page now handles disconnect cleanup, `beforeunload` and explicit
-  `pagehide`/`pageshow` restoration. On page departure, successful logout,
-  authorization loss or provider switch, clear unsent credential inputs; switching
-  provider also clears provider-specific registration drafts. On BFCache
-  return, discard pending confirmation, revalidate the original actor/session and
+  `pagehide`/`pageshow` restoration. On page departure, successful logout or
+  authorization loss, clear unsent credential inputs. There is no provider selector.
+  On BFCache return, discard pending confirmation, revalidate the original actor/session and
   refresh before enabling mutation. A departed page must not continue from a pending
   session fetch into a new mutation or apply late responses. Retire the original
   request generation on departure/disconnect so reconnecting the same element
@@ -340,7 +333,7 @@ no new Forgejo handler or whole-navbar override is required.
   never replay it. Tests deliberately release old responses after reconnection,
   including responses that ignore abort. No real credential leak was observed.
 
-**Exit:** the actual Go HTML with emitted Lit assets covers both provider forms,
+**Exit:** the actual Go HTML with emitted Lit assets covers the Forgejo form,
 validated links, disconnected/denied/expired states, confirmation, empty/populated/
 stale inventory, navigation and restoration. Keyboard, focus, narrow viewports and
 canonical light/dark styling receive browser inspection. Merely matching Cockpit's
@@ -348,43 +341,13 @@ layout is not the acceptance criterion. Assert that unsent tokens disappear at
 `pagehide` and remain absent after `pageshow`; already dispatched mutations are
 never replayed and remain unconfirmed until their outcome is established.
 
-### 2. Correct GitHub's native service contract
+### 2. Retired GitHub runner work
 
-**Status: unselected maintenance recommendation; no implementation or native proof.**
-This was not part of the user's step-1 request. The following is retained proposal
-context, not an approved prerequisite for the presentation/lifetime work.
-Complete the existing [refactoring task](refactoring-plan.md#phase-4--github-runner-service-compatibility)
-in `internal/runners/launch.go`, the registration/copy producer, launcher tests and
-only the necessary unit/packaging inputs. Keep Forgejo's daemon path unchanged.
-
-The launcher currently selects `actions-runner/run.sh`. GitHub's
-[custom-service contract](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application)
-requires `runsvc.sh`. The selected [2.337.0 release](https://github.com/actions/runner/releases/tag/v2.337.0)
-is still the baseline. Its [service script](https://github.com/actions/runner/blob/v2.337.0/src/Misc/layoutbin/runsvc.sh)
-starts `RunnerService.js`, and its
-[service installer template](https://github.com/actions/runner/blob/v2.337.0/src/Misc/layoutbin/systemd.svc.sh.template)
-copies `bin/runsvc.sh` into the runner root. A filename substitution alone is not
-sufficient evidence that the required root script exists in Soda's copied client.
-
-Inspect the verified architecture-specific archive and configuration-created layout,
-then materialize the supported entrypoint and required companions through the
-existing producer. Preserve disabled self-update, direct exec, account/home/state
-and reviewed hardening. Compare signal/timeout requirements against Soda's unit;
-change a setting only for a concrete upstream requirement or reproduced native
-failure. Do not run `svc.sh install` alongside Soda's unit. Before replacing the
-launcher or restarting/rebooting any retained runner, inspect its own installed
-client version/layout. Derive any missing service script/companions only from that
-same verified client tree/version, preserving owner, mode, SELinux labels and state.
-Never copy a new global 2.337.0 script into an older private client. Install and
-verify the compatible addition first, then the launcher, and restart only scoped
-units. Do not re-register, replace a whole client tree or upgrade implicitly. If
-compatibility cannot be established, retain the old launcher/Cockpit and stop that
-target's cutover for a concrete compatibility decision.
-
-**Exit:** fixtures validate both provider launch commands, executable layout,
-missing-file refusal and signal forwarding. Later native checks must prove a real
-GitHub job, cancellation/stop/restart and unchanged registration. This needs its own
-selected scope before implementation.
+The user selected removing GitHub runner support. The previous launcher repair
+proposal is retired. Registration, launch, provider switching, archive fetching,
+source locks and packaging support have been removed. Historical source and
+research remain in Git at `216db47`; no provider or retained-state cleanup follows
+from this source change.
 
 ### 3. Complete local parity and regression coverage
 
@@ -396,11 +359,11 @@ new behavior.
 | Boundary | Required coverage and outcome |
 | --- | --- |
 | Page/API authority | Configured operator without site-admin rights succeeds; unrelated site/org/repository admins and ordinary users cannot read metadata or mutate. Exercise page/deep links and every API, missing/ambiguous cookies, wrong actor, missing scope, changed provider subject, expired grant/session and logout while authorization is pending. Denial precedes body decoding/native dispatch. |
-| Request and secret boundary | CSRF/origin/method/query/strict-body failures; fixed Forgejo internal destination and validated GitHub URL; no browser-selected unit/account/path/command. Link tests reject malformed legacy values, `javascript:`, credentials, lookalike hosts, ports, queries and fragments. Token cleared on serialization, provider switch, departure/logout and authorization loss, absent from reactive state/storage/HTML/errors; synthetic secret probes never use real credentials. |
-| Provider and UI parity | The Go-HTML/Lit journey now exercises both existing provider forms, provider switching, field/actor refusals, exact target confirmation, both logout outcomes and no automatic retry after an unconfirmed operation. These use synthetic peers, not real provider registration. |
+| Request and secret boundary | CSRF/origin/method/query/strict-body failures; fixed Forgejo internal destination and refusal of all other providers; no browser-selected unit/account/path/command. Link tests prove that saved URLs never override the configured Forgejo public origin. Token cleared on serialization, departure/logout and authorization loss, absent from reactive state/storage/HTML/errors; synthetic secret probes never use real credentials. |
+| Provider and UI parity | The Go-HTML/Lit journey now exercises the Forgejo form, field/actor refusals, exact target confirmation, both logout outcomes and no automatic retry after an unconfirmed operation. These use synthetic peers, not real provider registration. |
 | Native/overlap semantics | Keep reads/create/start/stop/restart/remove under the same cross-process lock. Extend separate-process `internal/runners.Native` fixtures with a shared temporary lock path and command doubles; Restart must hold admission across enable/restart. Test CLI and socket adapters through their existing seams; actual CLI → helper and web → soda-host overlap belongs to step 5, not production test flags or another helper. A cancelled waiter must not dispatch. Invalid/unreadable descriptors and unavailable unit/version observations must not become an empty list. |
 | Partial outcomes and preservation | Cover provider registration followed by descriptor/start failure, account-delete failure before local state removal, and state-removal failure after account deletion. Use owned temporary data and native-command doubles. Preserve legacy descriptors without adding label metadata or rewriting credentials. |
-| Payload and coexistence | Settings modules/styles/runtime, hooks and legal notices appear in the canonical stage. Preserve native Actions settings and all Cockpit/Tailnet entrypoints. Add GitHub service companion-file checks to the existing producer/verifier tests. |
+| Payload and coexistence | Settings modules/styles/runtime, hooks and legal notices appear in the canonical stage. Preserve native Actions settings and all Cockpit/Tailnet entrypoints. Verify staging and build inputs no longer fetch or contain a GitHub runner client. |
 
 Run focused Go/race and browser cases during edits, then `bun run check:source`
 with the existing toolchain/dependencies. That command owns Go/module, strict
@@ -433,18 +396,16 @@ opening the page or enabling a read-only test.
 For the chosen native architecture, build/check/export the exact clean candidate
 through `scripts/build-native.sh`, `scripts/check-native.sh` and the existing
 sealed-bundle producer. Inspect the real selected Forgejo runner package/version,
-GitHub client, host dependencies and service confinement; the package version on
+host dependencies and service confinement; the package version on
 the development machine is not proof of the retained target's version.
 
 Prepare one matching affected-artifact set. The running backend is the dashboard
 image containing `soda-dashboard`; its separately staged host binary is not that
 service. Pair **`soda-host` and `soda-runner-helper`**, since both embed the native
 state lock, and include the reviewed compatible `soda-runners` coordinator for
-current config/protocol behavior. Include `soda-runner-launch` for step 2's
-entrypoint change, settings assets/hooks and only necessary service/companion-file
-changes. The coordinator and launcher are not the lock owners. Leaving the old
-Cockpit helper behind can defeat the overlap-lock contract. Loading a new global
-GitHub archive does not update existing per-runner copies. Preserve the old Cockpit
+current config/protocol behavior. Include the Forgejo-only `soda-runner-launch`, settings assets/hooks and only
+necessary service changes. The coordinator and launcher are not the lock owners. Leaving the old
+Cockpit helper behind can defeat the overlap-lock contract. Preserve the old Cockpit
 payload during this phase. No whole-appliance installation recipe is an updater.
 
 **Exit:** reproducible product-owned test inputs, a verified candidate manifest,
@@ -457,21 +418,20 @@ does not grant new VM, provider, reboot or cleanup actions.
 **Status: not run.** Use an explicitly authorized fixture and trusted provider
 resources. Retain failed attempts and partial states.
 
-Before candidate activation, inventory the preservation baseline and complete
-step 2's same-client compatibility inspection/addition. Do this before replacing
-its launcher, restarting a legacy GitHub unit or rebooting. New disposable runners
-own the job-interruption, lifecycle and fault cases below; the preservation baseline
-is not the destructive test target.
+Before candidate activation, inventory the preservation baseline. Saved unsupported
+providers require an explicit operator decision before deployment; do not reinterpret
+or delete them. New disposable Forgejo runners own the job-interruption, lifecycle
+and fault cases below; the preservation baseline is not the destructive test target.
 
 1. Exercise native Forgejo navigation → explicit Soda OAuth → Sodarunners through
    the real proxy, backend, root socket and systemd. Prove both sides of operator/
    site-admin separation through UI and direct APIs, including the nonadmin
    operator, logout, expired session, restored page and untouched native Actions.
-2. Register one approved Forgejo runner and one approved GitHub runner from the
+2. Register one approved Forgejo runner from the
    page. Check exact account/UID, directory ownership/modes, descriptor, installed
    version, boot policy and one configured slot. Provider-native registration
    authority is exercised separately from Soda operator authority.
-3. Run one real trusted provider-scheduled job on each, recording native identity,
+3. Run one real trusted provider-scheduled job, recording native identity,
    successful steps and the provider's actual result. Exercise idle and active-job
    Stop/Start/Restart and inspect process termination and provider outcome; a green
    local listener is insufficient. Observe provider offline/online state in its
@@ -505,7 +465,7 @@ An unavailable provider leaves that part open and Cockpit retirement pending.
 previous `soda-test` or validation-VM permission is not a fresh deployment grant.
 
 Inventory current binaries/images/effective units, schema, private inputs, native
-customizations, runner accounts/state/work files, per-runner client versions,
+customizations, runner accounts/state/work files, the host Forgejo runner version,
 enabled/running state and active jobs. Include projects and current browser
 terminals in the preservation/interruption assessment: restarting `soda-host` is
 not an action confined to the new runner page. Prepare only affected changes and
@@ -522,15 +482,13 @@ registrations from step 5. Rehearsal snapshots are not current rollback data.
 After concrete delivery approval, stop admitting new Cockpit/CLI/web runner
 management calls for the declared maintenance window and verify that prior
 coordinator/helper management processes have finished. Replacing an executable
-does not change an already running helper. Prepare and verify each retained
-GitHub client's compatible service files before replacing the shared launcher.
+does not change an already running helper. Refuse an unreviewed rollout onto
+retained unsupported providers; source removal is not permission to delete them.
 Deliver compatible web and both native paths together, then verify exact running
 bytes and reopen access. Keep listener units running except for separately
 approved backup/compatibility interruptions. This prevents an old executing
 Cockpit helper from overlapping new lifecycle semantics. Do not re-run setup,
 regenerate credentials, replace project roots or rewrite runner descriptors.
-Any required retained GitHub entrypoint-file addition must preserve its client
-version/state and be explicitly included in this maintenance set.
 
 Verify real dashboard access, native Actions coexistence, Cockpit fallback and
 unchanged runner/project identities, work data, credentials and boot policy. Run

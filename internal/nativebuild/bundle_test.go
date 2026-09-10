@@ -160,9 +160,9 @@ func TestBundleRequiresAvatarDependencyNotices(t *testing.T) {
 		t.Fatal("accepted a bundle without avatar dependency notices")
 	}
 }
-func TestRunnerInstalledUtilityIsNotAnApplianceStateMarker(t *testing.T) {
-	if !allowedPayload("rootfs/usr/local/lib/soda/github-actions-runner/externals/node20/lib/node_modules/npm/lib/utils/installed-deep.js") {
-		t.Fatal("vendor npm utility mistaken for appliance runtime state")
+func TestInstalledUtilityIsNotAnApplianceStateMarker(t *testing.T) {
+	if !allowedPayload("rootfs/usr/local/lib/soda/installed-utility") {
+		t.Fatal("ordinary utility mistaken for appliance runtime state")
 	}
 	if allowedPayload("rootfs/etc/soda/installed") || allowedPayload("rootfs/etc/soda/install-started") {
 		t.Fatal("appliance installation state admitted to payload")
@@ -170,6 +170,9 @@ func TestRunnerInstalledUtilityIsNotAnApplianceStateMarker(t *testing.T) {
 }
 
 func TestLinkAndPathBoundaries(t *testing.T) {
+	if allowedPayload("inputs/github-runner-source.toml") || validLink("rootfs/usr/local/lib/soda/vendor/link", "target") {
+		t.Fatal("retired runner lock or vendor link exception admitted")
+	}
 	if !validLink("rootfs/usr/local/bin/soda-tailnet", "/usr/local/libexec/soda/soda-tailnet") {
 		t.Fatal("lost delivered CLI link")
 	}

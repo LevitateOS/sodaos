@@ -8,23 +8,17 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
-  Radio,
   TextInput,
 } from "@patternfly/react-core";
 import { DiagnosticAlert } from "../../molecules/DiagnosticAlert";
 import { ForgejoRegistrationFields } from "../../molecules/runners/ForgejoRegistrationFields";
-import { GitHubRegistrationFields } from "../../molecules/runners/GitHubRegistrationFields";
 export function RegisterRunnerDialog({
-  provider,
-  onProviderChange,
   busy,
   onClose,
   onSubmit,
   forgejoURL,
   error,
 }: {
-  provider: "forgejo" | "github";
-  onProviderChange: (provider: "forgejo" | "github") => void;
   busy: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -68,36 +62,11 @@ export function RegisterRunnerDialog({
             />
             <HelperText>
               <HelperTextItem id="runner-id-help">
-                A stable lowercase local name. It is also the provider runner name for GitHub.
+                A stable lowercase local name.
               </HelperTextItem>
             </HelperText>
           </FormGroup>
-          <FormGroup label="Provider" role="group" fieldId="provider">
-            <Radio
-              id="forgejo"
-              name="provider"
-              value="forgejo"
-              label="Bundled Forgejo"
-              isChecked={provider === "forgejo"}
-              isDisabled={busy}
-              onChange={() => onProviderChange("forgejo")}
-            />
-            <Radio
-              id="github"
-              name="provider"
-              value="github"
-              label="GitHub"
-              isChecked={provider === "github"}
-              isDisabled={busy}
-              onChange={() => onProviderChange("github")}
-            />
-          </FormGroup>
-          <ForgejoRegistrationFields
-            active={provider === "forgejo"}
-            busy={busy}
-            forgejoURL={forgejoURL}
-          />
-          <GitHubRegistrationFields active={provider === "github"} busy={busy} />
+          <ForgejoRegistrationFields busy={busy} forgejoURL={forgejoURL} />
           <FormGroup label="Provider registration token" fieldId="registration-token" isRequired>
             <TextInput
               ref={tokenRef}

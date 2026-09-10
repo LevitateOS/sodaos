@@ -350,7 +350,7 @@ This review does not itself rewrite those historical entries.
 
 | Selected unfinished work | Integration direction retained; what this plan must not invent |
 | --- | --- |
-| Sodarunners parity | Existing native runner lifecycle and shared protocol, Forgejo/GitHub registration and scheduling. Keep Cockpit Runners and backing tests until the separately required parity/cutover; Tailnet stays in Cockpit. No Soda CI scheduler or provider-role copy. |
+| Sodarunners parity | Existing native runner lifecycle and shared protocol, Forgejo registration and scheduling. Keep Cockpit Runners and backing tests until the separately required parity/cutover; Tailnet stays in Cockpit. No Soda CI scheduler or provider-role copy. |
 | Rocky/Fedora headless and KDE | Existing Project OS foundation, native package/session mechanisms and exact native investigation. No live distro conversion, separate desktop machine or speculative VM/host-runtime fallback. |
 | Desktop transport/Lock | Investigate the selected KDE/private native transport and established browser client under the desktop guide. No homegrown remote-desktop protocol/compositor, second reusable password authority or fake computer-use support. Native Lock/unlock integration and exact package/session compatibility remain open. |
 | Services marketplace | Reviewed app recipes over Podman/Quadlet/systemd, Caddy ingress and each app's native accounts/settings. Do not reproduce Vaultwarden, Adminer or Homepage, use SQLite as service-running truth, or build a generic registry/update platform/service supervisor. Preserve the selected catalog and per-app upgrade design work. |
@@ -417,7 +417,7 @@ starting another; a focused independent review may run alongside it.
 | 1 | Remove unused bootstrap-token retention/access | Open; can proceed independently. |
 | 2 | Reject stale-session project mutations | Open; reuse the helper from `4b7fc3b`, not another auth abstraction. |
 | 3 | Make the managed-key writer contract safe and explicit | Open; resolve the writer-coordination decision before claiming a fix. |
-| 4 | Use GitHub's native service entrypoint | Open; inspect the exact selected package and generated layout first. |
+| 4 | Retired GitHub runner recommendation | Superseded by the user-selected removal of GitHub runner support. |
 | 5 | Cancellable host admission and bounded capture | Admission completed locally in `22f5c20` (same work as E); capture and Tailnet stream bounds remain open. |
 | 6 | Combined regression checks and scoped native delivery | After the relevant fixes; native target/effect authorization remains separate. |
 | 7 | Optional upstream reuse/dead-path cleanup | Later; only candidates with demonstrated benefit and equivalent behavior. |
@@ -554,29 +554,10 @@ native nanosecond stat fields when constructing metadata-sensitive test fixtures
 
 ### Phase 4 — GitHub runner service compatibility
 
-**Finding:** [provider service-entrypoint contract](upstream-ownership-audit.md#delegate-runner-execution-through-the-providers-service-contract).
-
-**Owners:** [launcher](../internal/runners/launch.go),
-[registration/copy](../internal/runners/native_create.go),
-[exec wrapper](../cmd/soda-runner-launch/), [unit](../appliance/services/soda-runner@.service),
-[source lock](../appliance/locks/github-runner-source.toml) and runner tests/guide.
-
-Inspect the verified 2.337.0 package, configuration-created files and service
-template. GitHub's [custom-service contract](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application)
-requires `runsvc.sh`. Select its actual packaged/generated location and supply any
-required companion files through the existing producer. Do not guess that changing
-one filename alone is sufficient; exact-tag online retrieval previously failed.
-
-Preserve direct exec, original runner account/home/state, disabled self-update and
-existing hardening unless a specific upstream requirement justifies a reviewed
-change. Keep Forgejo's daemon path unchanged. Do not run `svc.sh install` alongside
-the existing Soda service or register a new provider runner as a repair shortcut.
-
-**Check/exit:** command/layout fixtures verify correct provider entrypoints, required
-files and ordinary signal forwarding. Later authorized native tests cover startup,
-stop during a trusted job, restart and original registration/state preservation.
-Test the supported CPU architectures separately; a mocked launcher or idle active
-unit is not proof of provider job/stop behavior.
+**Retired:** the user selected removal of GitHub runner support throughout Soda.
+The registration, launch, UI and packaged client paths have been removed; this
+recommendation is no longer implementation work. Forgejo's daemon and local
+lifecycle remain. Historical findings are preserved in Git at `216db47`.
 
 ### Phase 5 — cancellation and capture bounds
 

@@ -10,104 +10,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Registration and account commands are simulated; copying, client execution,
-// descriptor publication and state cleanup use the real local filesystem.
+// Account/service commands are simulated; configuration, descriptor publication
+// and cleanup use the real fixture filesystem.
 type lifecycleCommands struct {
-	t                 *testing.T
-	native            *Native
-	cleanupError      error
-	registrationError error
-	failDescriptor    bool
-	registered        bool
-	deletedAccounts   []string
+	t               *testing.T
+	cleanupError    error
+	startError      error
+	deletedAccounts []string
 }
 
-func (commands *lifecycleCommands) Run(ctx context.Context, command Command) (CommandResult, error) {
+func (commands *lifecycleCommands) Run(_ context.Context, command Command) (CommandResult, error) {
 	switch command.Name {
-	case "restorecon":
-		return CommandResult{}, nil
+	case "forgejo-runner":
+		require.Equal(commands.t, []string{"--version"}, command.Args)
+		return CommandResult{Stdout: "forgejo-runner fixture\n"}, nil
 	case "systemctl":
+		if command.Args[0] == "enable" {
+			return CommandResult{}, commands.startError
+		}
 		return CommandResult{Stdout: "LoadState=loaded\nActiveState=inactive\nSubState=dead\nUnitFileState=disabled\n"}, nil
 	case "userdel":
 		commands.deletedAccounts = append(commands.deletedAccounts, command.Args[0])
 		return CommandResult{}, commands.cleanupError
-	case "/usr/sbin/runuser":
-		require.Equal(commands.t, []string{"--user", "soda-runner-one", "--"}, command.Args[:3])
-		require.Equal(commands.t, []string{"--version"}, command.Args[4:])
-		command.Name, command.Args = command.Args[3], command.Args[4:]
+	default:
+		commands.t.Fatalf("unexpected native command: %s", command.Name)
+		return CommandResult{}, errors.New("unexpected command")
 	}
-	return (ExecCommandRunner{}).Run(ctx, command)
-}
-
-func (commands *lifecycleCommands) RunSecret(_ context.Context, command Command, _ string) error {
-	commands.registered = true
-	if commands.registrationError != nil {
-		return commands.registrationError
-	}
-	if err := os.WriteFile(filepath.Join(command.Directory, ".runner"), []byte("{}\n"), 0o600); err != nil {
-		return err
-	}
-	if commands.failDescriptor {
-		return os.Mkdir(commands.native.descriptorPath("one"), 0o700)
-	}
-	return nil
 }
 
 func runnerFixture(t *testing.T) (*Native, *lifecycleCommands, preparedRunner) {
 	t.Helper()
 	root := t.TempDir()
-	native := &Native{RootPath: filepath.Join(root, "runners"), LockPath: filepath.Join(root, "runners.lock"), GitHubSource: filepath.Join(root, "bundled")}
-	commands := &lifecycleCommands{t: t, native: native}
-	native.Runner = commands
+	commands := &lifecycleCommands{t: t}
+	native := &Native{RootPath: filepath.Join(root, "runners"), LockPath: filepath.Join(root, "runners.lock"), Runner: commands}
 	prepared := preparedRunner{account: "soda-runner-one", state: native.statePath("one"), owner: identity{uint32(os.Getuid()), uint32(os.Getgid())}}
 	require.NoError(t, createOwnedDirectory(prepared.state, prepared.owner))
-	writeClientVersion(t, native.githubSource(), "2.337.0")
 	return native, commands, prepared
 }
 
-func writeClientVersion(t *testing.T, app, version string) {
-	t.Helper()
-	require.NoError(t, os.MkdirAll(filepath.Join(app, "bin"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(app, "bin", "Runner.Listener"), []byte("#!/bin/sh\n[ \"$1\" = --version ] || exit 2\nprintf '%s\\n' '"+version+"'\n"), 0o755))
+func forgejoRequest() CreateRequest {
+	return CreateRequest{ID: "one", Provider: ProviderForgejo, RegistrationURL: BundledForgejoURL, RegistrationID: "33834eef-e758-48c4-a676-1745426747aa", Labels: "soda:host", RegistrationToken: "test-token"}
 }
 
-func githubRequest() CreateRequest {
-	return CreateRequest{ID: "one", Provider: ProviderGitHub, RegistrationURL: "https://github.com/example/repository", Labels: "soda", RegistrationToken: "test-token"}
-}
-
-func TestRunnerVersionFollowsInstalledClientAcrossImageAndRunnerReplacement(t *testing.T) {
-	native, _, prepared := runnerFixture(t)
-	ctx := context.Background()
-	require.NoError(t, native.registerPrepared(ctx, prepared, githubRequest()))
-	writeClientVersion(t, native.githubSource(), "2.338.0")
-	views, err := native.List(ctx)
+func TestForgejoRegistrationRetainsStateWhenListenerFailsToStart(t *testing.T) {
+	native, commands, prepared := runnerFixture(t)
+	commands.startError = errors.New("systemctl failed")
+	err := native.registerPrepared(t.Context(), prepared, forgejoRequest())
+	require.ErrorContains(t, err, "registered and retained")
+	require.Empty(t, commands.deletedAccounts)
+	require.FileExists(t, filepath.Join(prepared.state, "forgejo-token"))
+	views, err := native.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, views, 1)
-	require.Equal(t, "2.337.0", views[0].Version, "updating the bundled client must not change the installed runner's reported version")
-	require.NoError(t, native.Remove(ctx, "one"))
-	require.NoError(t, createOwnedDirectory(prepared.state, prepared.owner))
-	require.NoError(t, native.registerPrepared(ctx, prepared, githubRequest()))
-	views, err = native.List(ctx)
+	require.Equal(t, "forgejo-runner fixture", views[0].Version)
+	require.Equal(t, "inactive", views[0].Service.Active)
+	require.Equal(t, 1, views[0].Capacity)
+	launch, err := native.Launch("one")
 	require.NoError(t, err)
-	require.Equal(t, "2.338.0", views[0].Version)
+	require.Equal(t, LaunchCommand{Path: "/usr/bin/forgejo-runner", Arguments: []string{"forgejo-runner", "daemon", "--config", filepath.Join(prepared.state, "forgejo-runner.yml")}, Directory: prepared.state, Home: prepared.state}, launch)
 }
 
-func TestGitHubDescriptorFailureReportsProviderAndLocalCleanup(t *testing.T) {
+func TestForgejoDescriptorFailureReportsLocalCleanup(t *testing.T) {
 	for _, cleanupFails := range []bool{false, true} {
-		name := "removed"
-		if cleanupFails {
-			name = "retained"
-		}
-		t.Run(name, func(t *testing.T) {
+		t.Run(map[bool]string{false: "removed", true: "retained"}[cleanupFails], func(t *testing.T) {
 			native, commands, prepared := runnerFixture(t)
-			commands.failDescriptor = true
+			require.NoError(t, os.Mkdir(native.descriptorPath("one"), 0700))
 			if cleanupFails {
 				commands.cleanupError = errors.New("userdel failed")
 			}
-			err := native.registerPrepared(context.Background(), prepared, githubRequest())
-			require.True(t, commands.registered)
-			require.ErrorContains(t, err, "GitHub registration completed")
-			require.ErrorContains(t, err, "inspect/remove the GitHub runner record before retrying")
+			err := native.registerPrepared(t.Context(), prepared, forgejoRequest())
+			require.ErrorContains(t, err, "save local runner details")
 			require.Equal(t, []string{prepared.account}, commands.deletedAccounts)
 			if cleanupFails {
 				require.ErrorIs(t, err, commands.cleanupError)
@@ -121,14 +93,47 @@ func TestGitHubDescriptorFailureReportsProviderAndLocalCleanup(t *testing.T) {
 	}
 }
 
-func TestGitHubRegistrationErrorDoesNotClaimFailedCleanupSucceeded(t *testing.T) {
+func TestForgejoConfigurationFailureDoesNotClaimFailedCleanupSucceeded(t *testing.T) {
 	native, commands, prepared := runnerFixture(t)
-	commands.registrationError = errors.New("registration interrupted")
+	require.NoError(t, os.Mkdir(filepath.Join(prepared.state, "forgejo-token"), 0700))
 	commands.cleanupError = errors.New("userdel failed")
-	err := native.registerPrepared(context.Background(), prepared, githubRequest())
-	require.ErrorContains(t, err, "GitHub registration failed")
+	err := native.registerPrepared(t.Context(), prepared, forgejoRequest())
+	require.ErrorContains(t, err, "write provider-owned Forgejo connection token")
 	require.ErrorContains(t, err, "account removal is unconfirmed")
-	require.NotContains(t, err.Error(), "no local runner was retained")
 	require.NotContains(t, err.Error(), "were removed")
 	require.DirExists(t, prepared.state)
+}
+
+func TestUnsupportedProvidersNeverDispatchOrRewriteRetainedState(t *testing.T) {
+	for _, provider := range []Provider{"github", "unknown"} {
+		t.Run(string(provider), func(t *testing.T) {
+			root := t.TempDir()
+			commands := &recordingCommandRunner{}
+			native := &Native{RootPath: root, LockPath: filepath.Join(root, "runners.lock"), Runner: commands}
+			request := forgejoRequest()
+			request.Provider = provider
+			require.ErrorContains(t, native.Create(t.Context(), request), "provider must be forgejo")
+			require.NoDirExists(t, filepath.Join(root, "one"))
+			require.NoError(t, os.MkdirAll(native.statePath("one"), 0700))
+			require.NoError(t, native.writeDescriptor(Descriptor{ID: "one", Provider: provider, Account: "soda-runner-one"}))
+			before, err := os.ReadFile(native.descriptorPath("one"))
+			require.NoError(t, err)
+			state := filepath.Join(native.statePath("one"), "retained-input")
+			require.NoError(t, os.WriteFile(state, []byte("preserve fixture state"), 0600))
+			_, err = native.List(t.Context())
+			require.ErrorContains(t, err, "unsupported provider")
+			_, err = native.Launch("one")
+			require.ErrorContains(t, err, "unsupported provider")
+			for _, action := range []func(context.Context, string) error{native.Start, native.Stop, native.Restart, native.Remove} {
+				require.ErrorContains(t, action(t.Context(), "one"), "unsupported provider")
+			}
+			after, err := os.ReadFile(native.descriptorPath("one"))
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+			data, err := os.ReadFile(state)
+			require.NoError(t, err)
+			require.Equal(t, "preserve fixture state", string(data))
+			require.Empty(t, commands.commands)
+		})
+	}
 }

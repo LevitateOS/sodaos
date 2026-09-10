@@ -10,10 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
-
-const githubRegistrationTimeout = 2 * time.Minute
 
 type preparedRunner struct {
 	account string
@@ -24,6 +21,9 @@ type preparedRunner struct {
 type identity struct{ UID, GID uint32 }
 
 func (native *Native) Create(ctx context.Context, request CreateRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
 	lock, err := native.lock(ctx)
 	if err != nil {
 		return err
@@ -43,13 +43,10 @@ func (native *Native) registerPrepared(ctx context.Context, prepared preparedRun
 			returnErr = native.creationFailure(prepared, returnErr)
 		}
 	}()
-	if err := native.configureProvider(ctx, prepared, request); err != nil {
+	if err := native.configureForgejo(prepared.state, prepared.owner, request); err != nil {
 		return err
 	}
 	if err := native.recordRunner(prepared.account, request); err != nil {
-		if request.Provider == ProviderGitHub {
-			return fmt.Errorf("GitHub registration completed, but local runner details could not be saved; inspect/remove the GitHub runner record before retrying: %w", err)
-		}
 		return fmt.Errorf("save local runner details: %w", err)
 	}
 	retained = true
@@ -116,13 +113,6 @@ func (native *Native) creationFailure(prepared preparedRunner, cause error) erro
 	return fmt.Errorf("%w; local runner account %s and state at %s were removed", cause, prepared.account, prepared.state)
 }
 
-func (native *Native) configureProvider(ctx context.Context, prepared preparedRunner, request CreateRequest) error {
-	if request.Provider == ProviderForgejo {
-		return native.configureForgejo(prepared.state, prepared.owner, request)
-	}
-	return native.configureGitHub(ctx, prepared.state, prepared.owner, request)
-}
-
 func (native *Native) recordRunner(account string, request CreateRequest) error {
 	architecture, err := NativeArchitecture()
 	if err != nil {
@@ -183,52 +173,4 @@ func forgejoConfiguration(state, tokenPath string, request CreateRequest) ([]byt
 	}
 	contents, err := json.MarshalIndent(configuration, "", "  ")
 	return append(contents, '\n'), err
-}
-
-func (native *Native) configureGitHub(ctx context.Context, state string, owner identity, request CreateRequest) error {
-	app, err := native.copyGitHubRunner(ctx, state, owner)
-	if err != nil {
-		return err
-	}
-	command := githubRegistrationCommand(app, state, owner, request)
-	if err = native.runGitHubRegistration(ctx, command, request.RegistrationToken); err != nil {
-		return errors.New("GitHub registration failed; inspect/remove any GitHub runner record before retrying")
-	}
-	if _, err = os.Stat(filepath.Join(app, ".runner")); err != nil {
-		return errors.New("GitHub registration completed without native runner state; inspect/remove the GitHub runner record before retrying")
-	}
-	return nil
-}
-
-func (native *Native) runGitHubRegistration(ctx context.Context, command Command, token string) error {
-	registrationContext, cancel := context.WithTimeout(ctx, githubRegistrationTimeout)
-	defer cancel()
-	return native.runner().RunSecret(registrationContext, command, token)
-}
-
-func (native *Native) copyGitHubRunner(ctx context.Context, state string, owner identity) (string, error) {
-	app := filepath.Join(state, "actions-runner")
-	if err := os.Mkdir(app, 0o755); err != nil {
-		return "", err
-	}
-	if _, err := native.run(ctx, "cp", "--archive", "--reflink=auto", native.githubSource()+"/.", app); err != nil {
-		return "", errors.New("copy pinned GitHub runner")
-	}
-	if _, err := native.run(ctx, "restorecon", "-RF", app); err != nil {
-		return "", errors.New("label pinned GitHub runner")
-	}
-	if err := os.Chown(app, int(owner.UID), int(owner.GID)); err != nil {
-		return "", err
-	}
-	for _, name := range []string{"_diag", "_work"} {
-		if err := createOwnedDirectory(filepath.Join(app, name), owner); err != nil {
-			return "", err
-		}
-	}
-	return app, nil
-}
-
-func githubRegistrationCommand(app, state string, owner identity, request CreateRequest) Command {
-	args := []string{"--url", request.RegistrationURL, "--name", request.ID, "--runnergroup", "default", "--work", "_work", "--disableupdate", "--labels", request.Labels}
-	return Command{Name: filepath.Join(app, "config.sh"), Args: args, Directory: app, Environment: []string{"HOME=" + state, "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"}, UID: owner.UID, GID: owner.GID}
 }

@@ -1,5 +1,48 @@
 # Current handoff
 
+## Runner providers — GitHub support removed
+
+The user explicitly requested removing GitHub runner compatibility throughout the
+codebase. On source base `216db47`, local runners now support only Forgejo across
+the Go API/helper/coordinator, native creation/list/lifecycle/launch paths, shared
+response decoder, Lit page and retained Cockpit page. Both UIs have one Forgejo
+form and use the configured Forgejo public origin for links. Provider selection,
+GitHub URL/label handling, copied client/version handling and the registration-only
+PTY/secret-command path are removed. Forgejo still uses its native token file,
+one-slot host listener, systemd lifecycle and the existing authority/locking rules.
+
+The `provider` field remains in the request/descriptor protocol to reject obsolete
+or unknown values explicitly. Unsupported create requests fail before account/native
+effects. Unsupported saved descriptors fail list, launch and lifecycle operations;
+tests verify that their files are not rewritten or deleted and no native command
+runs. There is no adoption, fallback, hidden inventory filtering or installed cleanup.
+
+Removed the GitHub runner fetcher, source lock, build/stage/input collection and
+vendor-symlink export exception. Provisioning, installation preflight and installed
+host checks no longer explicitly require the removed client's library prerequisites
+(`libicu`, `openssl-libs`, `krb5-libs`, `zlib`); remaining packages retain their own
+RPM dependency resolution. Node.js, Git, Python and Forgejo runner requirements
+remain. Current operator/API/build guides and instructions now state Forgejo-only
+support, and the earlier GitHub service-compatibility proposal is retired. Historical
+evidence below is preserved. Project GitHub CLI tools, Forgejo repository import and
+unrelated GitHub-hosted upstream dependencies are outside this runner removal.
+
+Local checks passed with Go 1.27.1/Bun 1.4.2 on macOS arm64: strict TypeScript/Lit
+checking; all 60 Cockpit tests; all 11 runner browser cases against actual Go HTML
+and emitted assets; Forgejo frontend emission and the two Cockpit production builds;
+affected runner/web/host and three runner command packages, including their race
+suites; native bundle/path checks; seven staging tests, five build-input tests
+(two optional Caddy checks skipped), and the host package preflight test. The
+initial typecheck caught one leftover removed store action, which was corrected
+before the passing run. Shell recipes passed syntax checks; installed scripts were
+not executed. The whole source/native gate was not rerun; its earlier macOS limits
+remain recorded below. These are local/synthetic checks, not provider jobs or native
+installed acceptance. Evidence is retained under `.artifacts/runners-forgejo-only-PwJuKV/`.
+
+No deployment, provider operation, retained runner/project mutation or Cockpit removal
+was performed. A future rollout must account for any unsupported retained descriptors;
+this source change grants no permission to erase their state.
+
 ## Runner step 1 — existing page presentation and browser lifetime
 
 Implemented the original step-1 scope on source base `754e411`: the existing

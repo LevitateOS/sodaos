@@ -26,7 +26,6 @@ def collect(root, arch, revision):
     for source, name in (
         ('go.mod', 'go.mod'), ('go.sum', 'go.sum'),
         ('project-os/locks/tea-source.toml', 'tea-source.toml'),
-        ('appliance/locks/github-runner-source.toml', 'github-runner-source.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
         ('package.json', 'package.json'),
         ('cockpit/package.json', 'cockpit-package.json'),

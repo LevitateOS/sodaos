@@ -15,7 +15,7 @@
       {
         "name": "soda-extensions.service",
         "enabled": true,
-        "contents": "[Unit]\nDescription=Provision native Soda appliance extensions\nWants=network-online.target\nAfter=network-online.target\nConditionPathExists=!/var/lib/soda/extensions-requested\n[Service]\nType=oneshot\nStateDirectory=soda\nExecStart=/usr/bin/rpm-ostree install -y --allow-inactive cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git nodejs python3 libicu openssl-libs krb5-libs zlib tar gzip\nExecStartPost=/usr/bin/touch /var/lib/soda/extensions-requested\nRemainAfterExit=yes\n[Install]\nWantedBy=multi-user.target\n"
+        "contents": "[Unit]\nDescription=Provision native Soda appliance extensions\nWants=network-online.target\nAfter=network-online.target\nConditionPathExists=!/var/lib/soda/extensions-requested\n[Service]\nType=oneshot\nStateDirectory=soda\nExecStart=/usr/bin/rpm-ostree install -y --allow-inactive cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git nodejs python3 tar gzip\nExecStartPost=/usr/bin/touch /var/lib/soda/extensions-requested\nRemainAfterExit=yes\n[Install]\nWantedBy=multi-user.target\n"
       }
     ]
   }

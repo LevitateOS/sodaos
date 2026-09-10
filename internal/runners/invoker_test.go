@@ -19,7 +19,7 @@ func TestHelperListRequiresAdministratorAndStrictEmptyRequest(t *testing.T) {
 	helper.Authorizer = fakeAuthorizer{}
 	_, err = helper.Execute(context.Background(), testAdministrator, "list", strings.NewReader(`{"path":"/tmp/other-client"}`))
 	require.ErrorContains(t, err, "unknown field")
-	views := []RunnerView{{Descriptor: Descriptor{ID: "one"}, Version: "2.337.0"}}
+	views := []RunnerView{{Descriptor: Descriptor{ID: "one"}, Version: "fixture"}}
 	helper.Local = fakeLocal{views: views}
 	response, err := helper.Execute(context.Background(), testAdministrator, "list", strings.NewReader(`{}`))
 	require.NoError(t, err)
@@ -27,7 +27,7 @@ func TestHelperListRequiresAdministratorAndStrictEmptyRequest(t *testing.T) {
 }
 
 func TestInvokerDecodesPrivilegedRunnerList(t *testing.T) {
-	views := []RunnerView{{Descriptor: Descriptor{ID: "one"}, Version: "2.337.0"}}
+	views := []RunnerView{{Descriptor: Descriptor{ID: "one"}, Version: "fixture"}}
 	body, err := json.Marshal(views)
 	require.NoError(t, err)
 	path := filepath.Join(t.TempDir(), "pkexec")

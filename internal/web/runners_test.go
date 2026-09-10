@@ -92,31 +92,27 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	}
 }
 
-func TestRunnerListOmitsUnsafeStoredProviderLinks(t *testing.T) {
-	for _, address := range []string{
-		"javascript:alert(1)", "https://user:password@github.com/team/repo",
-		"https://github.com.attacker.test/team/repo", "http://github.com/team/repo",
-		"https://github.com:443/team/repo", "https://github.com/team/repo?token=secret",
-		"https://github.com/team/repo#secret", "https://github.com/team/repo?", "https://github.com/team/repo#",
-		"https://github.com/", "https://github.com\\@attacker.test/repo", "not a URL",
-		"https://github.com/team/repo", "https://github.com/enterprises/company",
-	} {
-		t.Run(address, func(t *testing.T) {
+func TestRunnerAPIRejectsUnsupportedProviders(t *testing.T) {
+	for _, provider := range []runners.Provider{"github", "unknown"} {
+		t.Run(string(provider), func(t *testing.T) {
+			calls := 0
 			s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
-				_ = json.NewEncoder(w).Encode([]runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: runners.ProviderGitHub, RegistrationURL: address, Account: "soda-runner-legacy"}, Capacity: 1}})
+				calls++
+				_ = json.NewEncoder(w).Encode([]runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: provider, Account: "soda-runner-legacy"}, Capacity: 1}})
 			})
+			input, err := json.Marshal(runners.CreateRequest{ID: "one", Provider: provider, RegistrationURL: "https://external.example.test/repo", RegistrationID: "33834eef-e758-48c4-a676-1745426747aa", Labels: "soda:host", RegistrationToken: "synthetic-input"})
+			if err != nil {
+				t.Fatal(err)
+			}
 			w := httptest.NewRecorder()
+			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners", string(input), "alice"))
+			if w.Code != 400 || calls != 0 {
+				t.Fatal("unsupported registration reached native code", w.Code, calls)
+			}
+			w = httptest.NewRecorder()
 			s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
-			var result runners.ListResponse
-			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || len(result.Runners) != 1 {
-				t.Fatal("unavailable link must not hide local service observations", w.Code, w.Body.String())
-			}
-			want := ""
-			if address == "https://github.com/team/repo" || address == "https://github.com/enterprises/company" {
-				want = address
-			}
-			if result.Runners[0].RegistrationURL != want {
-				t.Fatal("unsafe stored URL exposed", result.Runners[0].RegistrationURL)
+			if w.Code != 503 || strings.Contains(w.Body.String(), "soda-runner-legacy") {
+				t.Fatal("unsupported inventory was exposed", w.Code, w.Body.String())
 			}
 		})
 	}

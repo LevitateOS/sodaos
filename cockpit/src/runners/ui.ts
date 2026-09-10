@@ -2,19 +2,17 @@ import type { Service, Registration, LifecycleAction } from "./types";
 export function createPayload(data: {
   get(name: string): FormDataEntryValue | null | undefined;
 }): Registration {
-  const provider = String((data.get("provider") as string | null) ?? "");
+  const field = (name: string) => {
+    const value = data.get(name);
+    return typeof value === "string" ? value : "";
+  };
   return {
-    id: String((data.get("id") as string | null) ?? ""),
-    provider,
-    registration_url:
-      provider === "github" ? String((data.get("registration_url") as string | null) ?? "") : "",
-    registration_id:
-      provider === "forgejo" ? String((data.get("registration_id") as string | null) ?? "") : "",
-    labels: String(
-      (data.get(provider === "forgejo" ? "forgejo_labels" : "github_labels") as string | null) ??
-        "",
-    ),
-    registration_token: String((data.get("registration_token") as string | null) ?? ""),
+    id: field("id"),
+    provider: "forgejo",
+    registration_url: "",
+    registration_id: field("registration_id"),
+    labels: field("forgejo_labels"),
+    registration_token: field("registration_token"),
   };
 }
 
@@ -38,20 +36,12 @@ export function statusClass(service: Pick<Service, "active" | "sub">) {
   return service.active === "failed" ? "bad" : "neutral";
 }
 
-export function providerName(provider: string) {
-  return provider === "forgejo" ? "Forgejo" : "GitHub";
-}
-
 export function forgejoBrowserURL(origin: string) {
   try {
     const url = new URL(origin);
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return "";
     return url.origin;
   } catch { return ""; }
-}
-
-export function providerURL(provider: string, registrationURL: string, forgejoURL: string) {
-  return provider === "forgejo" ? forgejoBrowserURL(forgejoURL) : registrationURL;
 }
 
 export function successMessage(action: LifecycleAction | "create", id: string) {

@@ -21,13 +21,11 @@ const (
 	BundledForgejoURL = "http://127.0.0.1:3000"
 
 	ProviderForgejo Provider = "forgejo"
-	ProviderGitHub  Provider = "github"
 )
 
 var (
 	runnerIDPattern     = regexp.MustCompile(`^[a-z][a-z0-9-]{0,15}$`)
 	forgejoUUIDPattern  = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-	githubLabelPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 	forgejoLabelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:host$`)
 )
 
@@ -89,14 +87,10 @@ func (request CreateRequest) Validate() error {
 	if err := validateRegistrationToken(request.RegistrationToken); err != nil {
 		return err
 	}
-	switch request.Provider {
-	case ProviderForgejo:
-		return request.validateForgejo()
-	case ProviderGitHub:
-		return request.validateGitHub()
-	default:
-		return errors.New("provider must be forgejo or github")
+	if request.Provider != ProviderForgejo {
+		return errors.New("provider must be forgejo")
 	}
+	return request.validateForgejo()
 }
 
 func validateRegistrationToken(token string) error {
@@ -114,16 +108,6 @@ func (request CreateRequest) validateForgejo() error {
 		return errors.New("Forgejo runner ID must be a lowercase UUID")
 	}
 	return requireLabels(request.Labels, forgejoLabelPattern, "Forgejo labels must use name:host syntax")
-}
-
-func (request CreateRequest) validateGitHub() error {
-	if request.RegistrationID != "" {
-		return errors.New("GitHub registration does not accept a Forgejo runner ID")
-	}
-	if err := ValidateGitHubURL(request.RegistrationURL); err != nil {
-		return fmt.Errorf("GitHub URL: %w", err)
-	}
-	return requireLabels(request.Labels, githubLabelPattern, "GitHub labels must contain only letters, digits, dot, underscore, and hyphen")
 }
 
 func ValidateID(id string) error {
@@ -177,22 +161,6 @@ func validateForgejoURL(raw string) error {
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return errors.New("must use HTTP or HTTPS")
-	}
-	return nil
-}
-
-// ValidateGitHubURL also guards provider links projected from legacy descriptors.
-// Do not normalize or rewrite the retained descriptor to make a link usable.
-func ValidateGitHubURL(raw string) error {
-	parsed, err := validateProviderURL(raw)
-	if err != nil {
-		return err
-	}
-	if parsed.Scheme != "https" || !strings.EqualFold(parsed.Host, "github.com") || strings.ContainsAny(raw, "?#\\") {
-		return errors.New("must be an HTTPS github.com repository, organization, or enterprise URL")
-	}
-	if parsed.Path == "" || parsed.Path == "/" {
-		return errors.New("must include a repository, organization, or enterprise path")
 	}
 	return nil
 }

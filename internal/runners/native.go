@@ -12,21 +12,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 
 	"github.com/levitateos/sodaos/internal/filelock"
 	"golang.org/x/sys/unix"
 )
 
-const defaultGitHubSource = "/usr/local/lib/soda/github-actions-runner"
-
 type Command struct {
-	Name        string
-	Args        []string
-	Directory   string
-	Environment []string
-	UID         uint32
-	GID         uint32
+	Name string
+	Args []string
 }
 
 type CommandResult struct {
@@ -35,18 +28,12 @@ type CommandResult struct {
 
 type CommandRunner interface {
 	Run(context.Context, Command) (CommandResult, error)
-	RunSecret(context.Context, Command, string) error
 }
 
 type ExecCommandRunner struct{}
 
 func (ExecCommandRunner) Run(ctx context.Context, request Command) (CommandResult, error) {
 	command := exec.CommandContext(ctx, request.Name, request.Args...)
-	command.Dir = request.Directory
-	command.Env = request.Environment
-	if request.UID != 0 || request.GID != 0 {
-		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: request.UID, Gid: request.GID}}
-	}
 	var stdout bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = io.Discard
@@ -57,14 +44,13 @@ func (ExecCommandRunner) Run(ctx context.Context, request Command) (CommandResul
 }
 
 type Native struct {
-	RootPath     string
-	LockPath     string
-	GitHubSource string
-	Runner       CommandRunner
+	RootPath string
+	LockPath string
+	Runner   CommandRunner
 }
 
 func NewNative() *Native {
-	return &Native{RootPath: DefaultRootPath, LockPath: DefaultLockPath, GitHubSource: defaultGitHubSource, Runner: ExecCommandRunner{}}
+	return &Native{RootPath: DefaultRootPath, LockPath: DefaultLockPath, Runner: ExecCommandRunner{}}
 }
 
 func (native *Native) List(ctx context.Context) ([]RunnerView, error) {
@@ -104,7 +90,7 @@ func (native *Native) runnerView(ctx context.Context, id string) (RunnerView, er
 	if err != nil {
 		return RunnerView{}, err
 	}
-	version, err := native.providerVersion(ctx, descriptor)
+	version, err := native.forgejoVersion(ctx)
 	if err != nil {
 		return RunnerView{}, err
 	}
@@ -192,8 +178,11 @@ func (native *Native) readDescriptor(id string) (Descriptor, error) {
 		return Descriptor{}, fmt.Errorf("decode local runner %s: %w", id, err)
 	}
 	account, accountErr := AccountName(id)
-	if accountErr != nil || descriptor.ID != id || descriptor.Account != account || (descriptor.Provider != ProviderForgejo && descriptor.Provider != ProviderGitHub) {
+	if accountErr != nil || descriptor.ID != id || descriptor.Account != account {
 		return Descriptor{}, fmt.Errorf("local runner %s descriptor is invalid", id)
+	}
+	if descriptor.Provider != ProviderForgejo {
+		return Descriptor{}, fmt.Errorf("local runner %s has an unsupported provider; only Forgejo runners are supported", id)
 	}
 	return descriptor, nil
 }
@@ -236,18 +225,7 @@ func (native *Native) serviceState(ctx context.Context, id string) (ServiceState
 	return ServiceState{Load: values["LoadState"], Active: values["ActiveState"], Sub: values["SubState"], Enabled: values["UnitFileState"]}, nil
 }
 
-func (native *Native) providerVersion(ctx context.Context, descriptor Descriptor) (string, error) {
-	if descriptor.Provider == ProviderGitHub {
-		app := filepath.Join(native.statePath(descriptor.ID), "actions-runner")
-		result, err := native.runner().Run(ctx, Command{
-			Name: "/usr/sbin/runuser", Directory: app,
-			Args: []string{"--user", descriptor.Account, "--", filepath.Join(app, "bin", "Runner.Listener"), "--version"},
-		})
-		if err != nil {
-			return "", fmt.Errorf("read GitHub runner %s client version: %w", descriptor.ID, err)
-		}
-		return strings.TrimSpace(result.Stdout), nil
-	}
+func (native *Native) forgejoVersion(ctx context.Context) (string, error) {
 	result, err := native.run(ctx, "forgejo-runner", "--version")
 	if err != nil {
 		return "", errors.New("read Forgejo runner version")
@@ -289,12 +267,6 @@ func (native *Native) lockPath() string {
 		return native.LockPath
 	}
 	return DefaultLockPath
-}
-func (native *Native) githubSource() string {
-	if native.GitHubSource != "" {
-		return native.GitHubSource
-	}
-	return defaultGitHubSource
 }
 func (native *Native) statePath(id string) string {
 	return filepath.Join(native.rootPath(), id, "state")

@@ -104,7 +104,7 @@ class AvatarPackaging(unittest.TestCase):
             root = Path(directory)
             # Actual public inputs; only the build observations below are synthetic.
             for source in ('go.mod', 'go.sum', 'project-os/locks/tea-source.toml',
-                           'appliance/locks/github-runner-source.toml', 'appliance/locks/coreos-qemu.json',
+                           'appliance/locks/coreos-qemu.json',
                            'package.json', 'cockpit/package.json', 'tools/lit-check/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
                            'docs/native-support-notices.md', 'project-os/licenses/tea-LICENSE',
                            'appliance/licenses/avatar-dependencies.txt', 'LICENSE', 'NOTICE'):
@@ -127,6 +127,7 @@ class AvatarPackaging(unittest.TestCase):
                              (ROOT / 'appliance/licenses/avatar-dependencies.txt').read_bytes())
             self.assertEqual((stage / 'inputs/lit-check-package.json').read_bytes(),
                              (ROOT / 'tools/lit-check/package.json').read_bytes())
+            self.assertFalse((stage / 'inputs/github-runner-source.toml').exists())
             self.assertFalse((ROOT / 'cmd/soda-avatars').exists())
             self.assertNotIn('soda-avatars', (ROOT / 'scripts/build-native.sh').read_text())
 

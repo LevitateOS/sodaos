@@ -6,7 +6,7 @@ export interface Service {
 }
 export interface Runner {
   id: string;
-  provider: string;
+  provider: "forgejo";
   registration_url: string;
   account: string;
   architecture: string;
@@ -23,7 +23,7 @@ export interface ListResponse {
 }
 export interface Registration {
   id: string;
-  provider: string;
+  provider: "forgejo";
   registration_url: string;
   registration_id: string;
   labels: string;

@@ -16,16 +16,15 @@ async function ready() {
   await waitFor(() => expect(store.getState().operation).toBeNull());
   return { store, invoke, stop };
 }
-test("instances own independent dialogs and provider choices; close/reopen resets the task", async () => {
+test("instances own independent dialogs; close/reopen resets the task", async () => {
   const a = await ready(),
     b = await ready();
   a.store.getState().openCreate();
-  a.store.getState().changeProvider("github");
-  expect(a.store.getState().dialog).toEqual({ kind: "create", provider: "github" });
+  expect(a.store.getState().dialog).toEqual({ kind: "create" });
   expect(b.store.getState().dialog).toBeNull();
   a.store.getState().close();
   a.store.getState().openCreate();
-  expect(a.store.getState().dialog).toEqual({ kind: "create", provider: "forgejo" });
+  expect(a.store.getState().dialog).toEqual({ kind: "create" });
   a.stop();
   b.stop();
 });

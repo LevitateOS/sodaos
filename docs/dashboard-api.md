@@ -125,6 +125,7 @@ accepted. The protected JSON routes are:
   not provider online/busy/available capacity. Forgejo links use the configured
   public origin. Unavailable reads are errors, not empty inventory.
 - `POST /api/settings/runners`: existing strict runner registration fields;
+  `provider` must be `forgejo`; other values are rejected before native dispatch.
   Forgejo's internal URL is server-selected. Requires an explicitly supplied native
   registration token. No provider record is borrowed or silently reset.
 - `POST /api/settings/runners/{id}/{start|stop|restart|remove}`: body

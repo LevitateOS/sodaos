@@ -26,7 +26,7 @@ func TestEveryReadAndMutationUsesTheCrossProcessLock(t *testing.T) {
 			case "list":
 				_, err = other.List(ctx)
 			case "create":
-				err = other.Create(ctx, githubRequest())
+				err = other.Create(ctx, forgejoRequest())
 			case "start":
 				err = other.Start(ctx, "one")
 			case "stop":

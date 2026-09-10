@@ -13,11 +13,11 @@ const data: ListResponse = {
   runners: [
     {
       id: "one",
-      provider: "github",
-      registration_url: "https://github.com/example/repo",
+      provider: "forgejo",
+      registration_url: "",
       account: "soda-runner-one",
       architecture: "x86_64",
-      version: "2.337.0",
+      version: "fixture",
       capacity: 1,
       service: { load: "loaded", active: "active", sub: "running", enabled: "enabled" },
     },
@@ -35,20 +35,18 @@ function registration() {
   fireEvent.click(screen.getByRole("button", { name: "Create local runner" }));
   const dialog = within(screen.getByRole("dialog"));
   fireEvent.change(dialog.getByLabelText(/Runner ID/), { target: { value: "new" } });
-  fireEvent.click(dialog.getByLabelText("GitHub"));
-  fireEvent.change(dialog.getByLabelText(/GitHub registration URL/), {
-    target: { value: "https://github.com/example/repo" },
+  fireEvent.change(dialog.getByLabelText(/Forgejo runner UUID/), {
+    target: { value: "12345678-1234-1234-1234-123456789abc" },
   });
   fireEvent.change(dialog.getByLabelText(/Provider registration token/), {
     target: { value: "provider-secret" },
   });
   return dialog;
 }
-test("provider forms expose native requirements and clear token before an operation completes", async () => {
+test("Forgejo form exposes native requirements and clears the token before an operation completes", async () => {
   const invoke = await ready(),
     dialog = registration();
-  expect((dialog.getByLabelText(/Forgejo runner UUID/) as HTMLInputElement).required).toBe(false);
-  expect((dialog.getByLabelText(/Custom GitHub labels/) as HTMLInputElement).required).toBe(true);
+  expect((dialog.getByLabelText(/Forgejo runner UUID/) as HTMLInputElement).required).toBe(true);
   const operation = pendingProcess();
   let payload: unknown;
   invoke.mockImplementationOnce((_action, request) => {
@@ -84,10 +82,10 @@ test("real adapter writes token only to stdin before React clears form and paylo
   expect(registrationCall.process.input).toHaveBeenCalledWith(
     JSON.stringify({
       id: "new",
-      provider: "github",
-      registration_url: "https://github.com/example/repo",
-      registration_id: "",
-      labels: "soda-local",
+      provider: "forgejo",
+      registration_url: "",
+      registration_id: "12345678-1234-1234-1234-123456789abc",
+      labels: "soda-linux:host",
       registration_token: "provider-secret",
     }) + "\n",
   );
@@ -111,9 +109,7 @@ test("synchronous registration failure and dialog cancellation clear secrets", a
   fireEvent.click(dialog.getAllByRole("button", { name: "Close" }).at(-1)!);
   expect(input.value).toBe("");
   dialog = registration();
-  fireEvent.click(dialog.getByLabelText("Bundled Forgejo"));
   expect((dialog.getByLabelText(/Forgejo runner UUID/) as HTMLInputElement).required).toBe(true);
-  expect((dialog.getByLabelText(/Custom GitHub labels/) as HTMLInputElement).required).toBe(false);
   expect(
     dialog.getByRole("link", { name: "Forgejo runner administration" }).getAttribute("href"),
   ).toBe("https://forgejo.example.test/admin/actions/runners");
@@ -165,32 +161,19 @@ test("load failure reports unavailable status without inferring permissions and 
   expect(screen.queryByText(/access denied/)).toBeNull();
 });
 
-test("invalid inactive provider fields neither block registration nor enter FormData", async () => {
+test("registration offers only Forgejo fields and a fixed provider", async () => {
   const invoke = await ready();
   const dialog = registration();
-  fireEvent.change(dialog.getByLabelText(/GitHub registration URL/), {
-    target: { value: "not a URL" },
-  });
-  fireEvent.click(dialog.getByLabelText("Bundled Forgejo"));
-  fireEvent.change(dialog.getByLabelText(/Forgejo runner UUID/), {
-    target: { value: "12345678-1234-1234-1234-123456789abc" },
-  });
-  const url = dialog.getByLabelText(/GitHub registration URL/) as HTMLInputElement;
-  expect(url.disabled).toBe(true);
-  expect(new FormData(url.form!).has("registration_url")).toBe(false);
-  expect(url.form!.checkValidity()).toBe(true);
+  expect(dialog.queryByLabelText("GitHub")).toBeNull();
+  expect(dialog.queryByRole("radio")).toBeNull();
+  const uuid = dialog.getByLabelText(/Forgejo runner UUID/) as HTMLInputElement;
+  expect(new FormData(uuid.form!).has("registration_url")).toBe(false);
+  expect(uuid.form!.checkValidity()).toBe(true);
   invoke.mockResolvedValueOnce({ ok: true });
   fireEvent.click(dialog.getByRole("button", { name: "Register and start" }));
-  await waitFor(() =>
-    expect(invoke).toHaveBeenCalledWith(
-      "create",
-      expect.objectContaining({
-        provider: "forgejo",
-        registration_url: "",
-        labels: "soda-linux:host",
-      }),
-    ),
-  );
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("create", expect.objectContaining({
+    provider: "forgejo", registration_url: "", labels: "soda-linux:host",
+  })));
 });
 
 test("registration with a retained runner reconciles the list, closes creation, and keeps the failure", async () => {

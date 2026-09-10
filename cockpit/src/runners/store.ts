@@ -2,8 +2,7 @@ import { createStore } from "zustand/vanilla";
 import type { Invoke, LifecycleAction, ListResponse, Registration } from "./types";
 import { errorMessage, successMessage } from "./ui";
 
-type Provider = "forgejo" | "github";
-type Dialog = { kind: "create"; provider: Provider } | { kind: "remove"; id: string };
+type Dialog = { kind: "create" } | { kind: "remove"; id: string };
 type Operation = { action: LifecycleAction | "create" | "list"; id: string };
 interface State {
   data: ListResponse | null;
@@ -51,12 +50,7 @@ export function createRunnersStore(invoke: Invoke) {
     },
     openCreate: () => {
       if (!active || store.getState().operation) return;
-      store.setState({ formError: "", dialog: { kind: "create", provider: "forgejo" } });
-    },
-    changeProvider: (provider: Provider) => {
-      if (!active || store.getState().operation || store.getState().dialog?.kind !== "create")
-        return;
-      store.setState({ dialog: { kind: "create", provider } });
+      store.setState({ formError: "", dialog: { kind: "create" } });
     },
     openRemove: (id: string) => {
       if (!active || store.getState().operation) return;

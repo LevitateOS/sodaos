@@ -36,7 +36,7 @@ Do not open public administration ports as a connection shortcut.
 | Networking | Native interfaces and available firewall controls |
 | Terminal | Privileged host administration as the operator |
 | [Tailscale](40-tailscale.md) | Native Tailnet sign-in, device status and routing preferences |
-| [Runners](50-ci-runners.md) | Local Forgejo/GitHub runner registration and service capacity |
+| [Runners](50-ci-runners.md) | Local Forgejo runner registration and service capacity |
 
 The operator terminal is a host shell. It is not the developer's browser workspace
 terminal. Development accounts, repositories and environment joins belong in

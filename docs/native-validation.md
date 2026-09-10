@@ -551,7 +551,7 @@ existing installed operator probe still reads Cockpit inventory only; extend the
 product-owned installed journeys with separate opt-ins for the new page and actual
 provider effects. Local Go-HTML/Lit fixtures are not this native proof.
 
-Provider registration and jobs are **not read-only checks**. Supply explicitly approved Forgejo/GitHub resources and tokens. Verify create/list/start/stop/restart, actual native runner account/capacity and a genuine provider-scheduled job on trusted code. Verify configured Forgejo administration links and one local slot per runner. Provider workflows/results stay provider-owned.
+Provider registration and jobs are **not read-only checks**. Supply explicitly approved Forgejo resources and tokens. Verify create/list/start/stop/restart, actual native runner account/capacity and a genuine provider-scheduled job on trusted code. Verify configured Forgejo administration links and one local slot per runner. Provider workflows/results stay provider-owned.
 
 Removing a runner destroys its local state. Only exercise removal on an explicitly disposable runner with permission, and inspect provider-side cleanup separately. An unavailable provider/account is unverified, not a local-fake success.
 

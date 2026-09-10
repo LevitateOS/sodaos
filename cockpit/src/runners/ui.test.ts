@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 
-import { createPayload, forgejoBrowserURL, providerURL, statusText, successMessage } from "./ui";
+import { createPayload, forgejoBrowserURL, statusText, successMessage } from "./ui";
 
 function formData(values: Record<string, string>) {
   return { get: (name: string) => values[name] ?? "" };
 }
 
-test("provider forms retain only the provider-native registration fields", () => {
+test("registration uses only the fixed Forgejo fields", () => {
   const payload = createPayload(
     formData({
       id: "forgejo-one",
@@ -40,6 +40,4 @@ test("Forgejo links use the configured browser origin, never a guessed host port
   assert.equal(forgejoBrowserURL("https://forgejo.example.test"), "https://forgejo.example.test");
   assert.equal(forgejoBrowserURL("soda.lan"), "");
   assert.equal(forgejoBrowserURL("javascript:alert(1)"), "");
-  assert.equal(providerURL("forgejo", "http://127.0.0.1:3000", "https://forgejo.example.test"), "https://forgejo.example.test");
-  assert.equal(providerURL("github", "https://github.com/example/repo", "https://forgejo.example.test"), "https://github.com/example/repo");
 });

@@ -11,7 +11,7 @@ import { CodeValue } from "../../atoms/CodeValue";
 import { ExternalLink } from "../../atoms/ExternalLink";
 import { RunnerActions } from "../../molecules/runners/RunnerActions";
 import { RunnerServiceStatus } from "../../molecules/runners/RunnerServiceStatus";
-import { providerURL, providerName } from "../../runners/ui";
+import { forgejoBrowserURL } from "../../runners/ui";
 import type { LifecycleAction, ListResponse } from "../../runners/types";
 export function RunnerCapacity({
   data,
@@ -45,8 +45,7 @@ export function RunnerCapacity({
         {data && data.runners.length === 0 && (
           <EmptyState titleText="No local runners" headingLevel="h3">
             <EmptyStateBody>
-              Create generic Forgejo or GitHub capacity. Provider-hosted runners require no Soda
-              configuration.
+              Create local execution capacity for the bundled Forgejo instance.
             </EmptyStateBody>
           </EmptyState>
         )}
@@ -70,9 +69,9 @@ export function RunnerCapacity({
                   </Td>
                   <Td dataLabel="Provider">
                     <ExternalLink
-                      href={providerURL(runner.provider, runner.registration_url, forgejoURL)}
+                      href={forgejoBrowserURL(forgejoURL)}
                     >
-                      {providerName(runner.provider)}
+                      Forgejo
                     </ExternalLink>
                     <CodeValue>{runner.version}</CodeValue>
                   </Td>

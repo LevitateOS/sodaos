@@ -29,11 +29,11 @@ test("coordinator command contains only its executable and allow-listed action",
 
 test("registration input is serialized only into the stdin payload", () => {
   const payload = {
-    id: "github-one",
-    provider: "github",
-    registration_url: "https://github.com/example/repo",
-    registration_id: "",
-    labels: "soda",
+    id: "forgejo-one",
+    provider: "forgejo",
+    registration_url: "http://127.0.0.1:3000",
+    registration_id: "33834eef-e758-48c4-a676-1745426747aa",
+    labels: "soda:host",
     registration_token: "provider-input",
   };
   assert.equal(encodeRequest("create", payload), `${JSON.stringify(payload)}\n`);
@@ -45,11 +45,11 @@ test("list response requires exact count, listener, and one-slot capacity facts"
     runners: [
       {
         id: "one",
-        provider: "github",
-        registration_url: "https://github.com/example/repo",
+        provider: "forgejo",
+        registration_url: "http://127.0.0.1:3000",
         account: "soda-runner-one",
         architecture: "AArch64",
-        version: "2.337.0",
+        version: "fixture",
         capacity: 1,
         service: { load: "loaded", active: "active", sub: "running", enabled: "enabled" },
       },

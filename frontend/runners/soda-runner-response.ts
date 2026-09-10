@@ -1,16 +1,5 @@
 import type {Action, Response, Runner} from './soda-runner-types.js';
 
-// Defense at the href boundary as well as advisory registration validation.
-// Check the original authority before URL normalizes an explicit default port.
-export function githubRunnerURL(raw: string): string {
-  if (!/^https:\/\/github\.com\//i.test(raw) || /[\\\s?#\u0000-\u001f\u007f]/.test(raw)) return '';
-  try {
-    const url = new URL(raw);
-    if (url.origin !== 'https://github.com' || url.username || url.password || url.pathname === '/') return '';
-    return url.href;
-  } catch {return '';}
-}
-
 export function decodeRunnerResponse<A extends Action>(action: A, value: unknown): Response<A>;
 export function decodeRunnerResponse(action: Action, value: unknown): unknown {
   assertObject(value);
@@ -35,6 +24,7 @@ function assertRunner(value: unknown): asserts value is Runner {
   for (const field of ['id', 'provider', 'registration_url', 'account', 'architecture', 'version']) {
     if (typeof value[field] !== 'string') throw Error('Invalid runner observation');
   }
+  if (value.provider !== 'forgejo') throw Error('Unsupported runner provider');
   if (value.capacity !== 1) throw Error('Runner does not report its one native slot');
   assertObject(value.service);
   for (const field of ['load', 'active', 'sub', 'enabled']) {

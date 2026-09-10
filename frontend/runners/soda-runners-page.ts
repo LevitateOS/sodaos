@@ -1,6 +1,6 @@
 import {LitElement, html} from 'lit';
 import {id, object, readSodaJSON, sessionResponse} from '../spaces/sodaspaces-api.js';
-import {decodeRunnerResponse, githubRunnerURL} from './soda-runner-response.js';
+import {decodeRunnerResponse} from './soda-runner-response.js';
 import type {LifecycleAction, ListResponse, Runner} from './soda-runner-types.js';
 
 const effects: Record<LifecycleAction, string> = {
@@ -9,7 +9,7 @@ const effects: Record<LifecycleAction, string> = {
   restart: 'Interrupt and restart the listener. Boot start will be enabled, even if it was previously stopped.',
   remove: 'Permanently remove this local Linux account, provider credentials, dependencies, work files and uncommitted job changes. Provider registration and history remain. There is no rollback.',
 };
-const unconfirmed = 'Operation unconfirmed: local account, files or listener may have changed and provider registration may remain. Inspect local and provider state before retrying. Refresh does not confirm the operation; no automatic retry or rollback occurred.';
+const unconfirmed = 'Operation unconfirmed: local account, files or listener may have changed. Inspect local and Forgejo state before retrying. Refresh does not confirm the operation; no automatic retry or rollback occurred.';
 const logoutUnconfirmed = 'Soda sign-out unconfirmed. Refresh authorization or try signing out again. Native Forgejo sign-out is separate.';
 
 class RunnerRequestError extends Error {
@@ -19,14 +19,13 @@ class RunnerRequestError extends Error {
 class SodaRunners extends LitElement {
   static properties = {
     busy: {state: true}, rows: {state: true}, message: {state: true}, notice: {state: true},
-    stale: {state: true}, provider: {state: true}, pending: {state: true}, blocked: {state: true},
+    stale: {state: true}, pending: {state: true}, blocked: {state: true},
   };
   declare private busy: boolean;
   declare private rows: ListResponse | null;
   declare private message: string;
   declare private notice: string;
   declare private stale: boolean;
-  declare private provider: 'forgejo' | 'github';
   declare private blocked: boolean;
   declare private pending: {id: string; action: LifecycleAction} | null;
   private actor = '';
@@ -52,7 +51,6 @@ class SodaRunners extends LitElement {
     this.message = 'Checking local runners…';
     this.notice = '';
     this.stale = true;
-    this.provider = 'forgejo';
     this.pending = null;
     this.blocked = false;
   }
@@ -163,7 +161,7 @@ class SodaRunners extends LitElement {
   private async load(lifetime: AbortController) {
     const rows = decodeRunnerResponse('list', await this.request(lifetime, ''));
     this.requireCurrent(lifetime);
-    if (rows.runners.length > 64 || rows.forgejo_url !== location.origin || rows.runners.some(row => !/^[a-z][a-z0-9-]{0,15}$/.test(row.id) || !['forgejo', 'github'].includes(row.provider))) throw Error('Invalid inventory');
+    if (rows.runners.length > 64 || rows.forgejo_url !== location.origin || rows.runners.some(row => !/^[a-z][a-z0-9-]{0,15}$/.test(row.id))) throw Error('Invalid inventory');
     this.rows = rows;
     this.stale = false;
     this.blocked = false;
@@ -226,31 +224,19 @@ class SodaRunners extends LitElement {
     if (event.target instanceof HTMLInputElement) event.target.setCustomValidity('');
     this.dirty = true;
   }
-  private changeProvider(event: Event) {
-    if (!(event.target instanceof HTMLSelectElement) || this.busy || this.stale || this.blocked) return;
-    const provider = event.target.value;
-    if ((provider !== 'forgejo' && provider !== 'github') || provider === this.provider) return;
-    this.clearToken();
-    this.querySelectorAll<HTMLInputElement>('input[name=registration_id], input[name=registration_url]').forEach(input => {input.value = ''; input.setCustomValidity('');});
-    this.querySelector<HTMLInputElement>('input[name=labels]')?.setCustomValidity('');
-    this.provider = provider;
-    this.dirty = true;
-  }
   private register(event: SubmitEvent) {
     event.preventDefault();
     if (!(event.currentTarget instanceof HTMLFormElement) || this.busy || this.stale || this.blocked) return;
     const form = event.currentTarget;
-    const url = form.querySelector<HTMLInputElement>('input[name=registration_url]');
-    if (url) url.setCustomValidity(githubRunnerURL(url.value) ? '' : 'Use an HTTPS github.com repository, organization or enterprise URL, without credentials, a port, query or fragment.');
     const labels = form.querySelector<HTMLInputElement>('input[name=labels]');
     if (labels) {
-      const pattern = this.provider === 'forgejo' ? /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:host$/ : /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-      labels.setCustomValidity(labels.value.split(',').every(label => pattern.test(label)) ? '' : this.provider === 'forgejo' ? 'Separate name:host labels with commas and no spaces, for example soda-linux:host.' : 'Separate labels with commas and no spaces. Use letters, digits, dot, underscore or hyphen.');
+      const pattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:host$/;
+      labels.setCustomValidity(labels.value.split(',').every(label => pattern.test(label)) ? '' : 'Separate name:host labels with commas and no spaces, for example soda-linux:host.');
     }
     if (!form.reportValidity()) return;
     const data = new FormData(form);
     const field = (name: string) => {const value = data.get(name); return typeof value === 'string' ? value : '';};
-    let body = JSON.stringify({id: field('id'), provider: this.provider, registration_url: this.provider === 'github' ? field('registration_url') : '', registration_id: this.provider === 'forgejo' ? field('registration_id') : '', labels: field('labels'), registration_token: field('registration_token')});
+    let body = JSON.stringify({id: field('id'), provider: 'forgejo', registration_url: '', registration_id: field('registration_id'), labels: field('labels'), registration_token: field('registration_token')});
     data.delete('registration_token');
     this.clearToken();
     this.dirty = false;
@@ -319,14 +305,12 @@ class SodaRunners extends LitElement {
   }
 
   private runnerView(row: Runner, disabled: boolean) {
-    const provider = row.provider === 'forgejo' ? 'Forgejo' : 'GitHub';
-    const url = row.provider === 'forgejo' ? location.origin : githubRunnerURL(row.registration_url);
     return html`
       <article class="settings-runner">
-        <div class="settings-runner-heading"><h3>${row.id}</h3><span>${provider}</span></div>
+        <div class="settings-runner-heading"><h3>${row.id}</h3><span>Forgejo</span></div>
         <p class="settings-help">${row.account} · ${row.architecture} · ${row.version}</p>
         <p>Service: ${row.service.load} / ${row.service.active} / ${row.service.sub}. Boot policy: ${row.service.enabled}. ${row.capacity} configured slot.</p>
-        <p>${url ? html`<a href=${url} aria-label=${`Open ${row.id} in ${provider}`}>Open in ${provider}</a>` : 'Provider link unavailable. Inspect the registration in the provider.'}</p>
+        <p><a href=${location.origin} aria-label=${`Open ${row.id} in Forgejo`}>Open in Forgejo</a></p>
         <div class="settings-actions">
           ${(['start', 'stop', 'restart', 'remove'] as const).map(action => html`
             <button type="button" class=${action === 'remove' ? 'settings-danger' : ''} ?disabled=${disabled}
@@ -355,22 +339,15 @@ class SodaRunners extends LitElement {
         <p>Registration starts a one-slot host listener and enables it at boot.</p>
         <form @submit=${(event: SubmitEvent) => this.register(event)} @input=${(event: Event) => this.inputChanged(event)} autocomplete="off">
           <fieldset ?disabled=${disabled}><legend>Provider registration</legend>
-            <div class="settings-form-grid">
-              <div class="settings-form-field"><label for="runner-provider">Provider</label><select id="runner-provider" name="provider" .value=${this.provider} @change=${(event: Event) => this.changeProvider(event)}><option value="forgejo">Forgejo</option><option value="github">GitHub</option></select></div>
-              <label>Local runner ID<input name="id" pattern="[a-z][a-z0-9\\-]{0,15}" maxlength="16" aria-describedby="runner-id-help" required></label>
-            </div>
+            <label>Local runner ID<input name="id" pattern="[a-z][a-z0-9\\-]{0,15}" maxlength="16" aria-describedby="runner-id-help" required></label>
             <p id="runner-id-help" class="settings-help">Use 1–16 lowercase letters, digits or hyphens, starting with a letter.</p>
-            ${this.provider === 'forgejo' ? html`
               <p>An authorized Forgejo administrator must first create a system runner and supply its UUID/token. Soda does not create or reset that provider record.</p>
               <label>Forgejo runner UUID<input name="registration_id" required pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" aria-describedby="runner-uuid-help"></label>
-              <p id="runner-uuid-help" class="settings-help">Copy the lowercase UUID from the native Forgejo runner registration.</p>` : html`
-              <p>Use an authorized short-lived GitHub registration token. Failed registration can leave a provider record; inspect it before retrying.</p>
-              <label>GitHub registration URL<input type="url" name="registration_url" placeholder="https://github.com/owner/repository" aria-describedby="runner-url-help" required></label>
-              <p id="runner-url-help" class="settings-help">Use an HTTPS github.com repository, organization or enterprise URL. Do not include credentials, a port, query or fragment.</p>`}
+              <p id="runner-uuid-help" class="settings-help">Copy the lowercase UUID from the native Forgejo runner registration.</p>
             <label>Labels<input name="labels" maxlength="4096" aria-describedby="runner-labels-help" required></label>
-            <p id="runner-labels-help" class="settings-help">${this.provider === 'forgejo' ? 'Comma-separated name:host labels, for example soda-linux:host. OCI labels are not supported.' : 'Comma-separated custom labels, for example soda-linux. Use letters, digits, dot, underscore or hyphen.'}</p>
+            <p id="runner-labels-help" class="settings-help">Comma-separated name:host labels, for example soda-linux:host. OCI labels are not supported.</p>
             <label>Registration token<input type="password" name="registration_token" autocomplete="new-password" maxlength="8192" aria-describedby="runner-token-help" required></label>
-            <p id="runner-token-help" class="settings-help">The token is cleared after submission, when switching providers or leaving this page. Never include it in screenshots or shared logs.</p>
+            <p id="runner-token-help" class="settings-help">The token is cleared after submission, when signing out or leaving this page. Never include it in screenshots or shared logs.</p>
             <button class="settings-primary">Register and start listener</button>
           </fieldset>
         </form>
@@ -398,7 +375,7 @@ class SodaRunners extends LitElement {
       <section aria-labelledby="runner-provider-title">
         <h2 id="runner-provider-title">Provider access</h2>
         <p><a href=${location.origin + '/admin/actions/runners'}>Forgejo Actions administration</a> manages native runner registrations. It requires separate Forgejo administrator permission and may deny a Soda operator.</p>
-        <p>Forgejo and GitHub own registration authority, labels, workflows, scheduling and results. Soda manages local accounts, listeners and capacity.</p>
+        <p>Forgejo owns registration authority, labels, workflows, scheduling and results. Soda manages local accounts, listeners and capacity.</p>
         <p>Host execution only; isolated OCI jobs are not supported. Use only trusted repositories and contributors. Jobs can change this account’s persistent work files.</p>
       </section>
       ${this.registrationView(disabled)}`;

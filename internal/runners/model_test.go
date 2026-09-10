@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateRequestAcceptsOnlyTheTwoNativeProviderShapes(t *testing.T) {
+func TestCreateRequestAcceptsOnlyForgejo(t *testing.T) {
 	forgejo := CreateRequest{
 		ID: "forgejo-one", Provider: ProviderForgejo,
 		RegistrationURL: "http://soda.example.test:30000",
@@ -15,18 +15,11 @@ func TestCreateRequestAcceptsOnlyTheTwoNativeProviderShapes(t *testing.T) {
 	}
 	require.NoError(t, forgejo.Validate())
 
-	github := CreateRequest{
-		ID: "github-one", Provider: ProviderGitHub,
-		RegistrationURL: "https://github.com/levitateos/sodaos",
-		Labels:          "soda-local", RegistrationToken: "provider-input",
+	for _, provider := range []Provider{"github", "gitlab", ""} {
+		rejected := forgejo
+		rejected.Provider = provider
+		require.ErrorContains(t, rejected.Validate(), "provider must be forgejo")
 	}
-	require.NoError(t, github.Validate())
-	github.Labels = ""
-	require.ErrorContains(t, github.Validate(), "GitHub labels")
-	github.Labels = "soda-local"
-
-	github.RegistrationURL = "https://git.example.test/team/repository"
-	require.ErrorContains(t, github.Validate(), "github.com")
 	forgejo.Labels = "container:docker://example.test/image"
 	require.ErrorContains(t, forgejo.Validate(), "name:host")
 }

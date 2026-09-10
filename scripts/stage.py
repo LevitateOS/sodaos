@@ -30,7 +30,6 @@ for unit in (source / 'appliance/services').iterdir():
     copy(unit, f'{folder}/{unit.name}', 0o644)
 for page in ['tailscale', 'runners']:
     shutil.copytree(source / 'cockpit/dist' / f'soda-{page}', stage / 'usr/local/share/cockpit' / f'soda-{page}')
-shutil.copytree(build / 'github-actions-runner', stage / 'usr/local/lib/soda/github-actions-runner')
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',
     'runners.sysusers': '/etc/sysusers.d/soda-runners.conf',

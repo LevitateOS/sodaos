@@ -10,7 +10,7 @@ Support code was selectively adapted from [Soda OS](https://github.com/LevitateO
 
 The predecessor checkout remains unchanged. No new license is assigned to inherited code. Upstream source attribution and existing third-party licenses remain applicable. This file is not a substitute for those licenses or permission to relicense assets.
 
-Tea's upstream MIT license is delivered beside this notice and inside the project image. The GitHub runner payload retains its upstream license files. Other packages and container layers retain their upstream notices/licenses; the input record identifies resolved bytes. Canonical Soda branding is reused, not redrawn or relicensed. See the source repository's `docs/branding.md`, `docs/predecessor-reuse.md`, `docs/project-clis.md` and dependency locks.
+Tea's upstream MIT license is delivered beside this notice and inside the project image. Other packages and container layers retain their upstream notices/licenses; the input record identifies resolved bytes. Canonical Soda branding is reused, not redrawn or relicensed. See the source repository's `docs/branding.md`, `docs/predecessor-reuse.md`, `docs/project-clis.md` and dependency locks.
 
 The four files under `appliance/forgejo/templates/custom/` and
 `frontend/spaces/sodaspaces.*` are original SodaOS hook/asset code,

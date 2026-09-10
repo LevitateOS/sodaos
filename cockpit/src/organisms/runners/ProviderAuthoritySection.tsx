@@ -7,7 +7,7 @@ export function ProviderAuthoritySection() {
           Provider authority
         </Title>
         <p>
-          Forgejo and GitHub own runner registration, tokens, labels, workflows, scheduling,
+          Forgejo owns runner registration, tokens, labels, workflows, scheduling,
           results, and history. Soda owns only this machine's account, service, status, capacity,
           and local lifecycle.
         </p>

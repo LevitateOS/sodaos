@@ -5,25 +5,18 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 type recordingCommandRunner struct {
-	commands          []Command
-	secretHadDeadline bool
+	commands []Command
 }
 
 func (runner *recordingCommandRunner) Run(_ context.Context, command Command) (CommandResult, error) {
 	runner.commands = append(runner.commands, command)
 	return CommandResult{}, nil
-}
-
-func (runner *recordingCommandRunner) RunSecret(ctx context.Context, _ Command, _ string) error {
-	_, runner.secretHadDeadline = ctx.Deadline()
-	return nil
 }
 
 func TestForgejoConfigurationUsesNativeTokenFileAndOneHostSlot(t *testing.T) {
@@ -55,34 +48,13 @@ func TestForgejoConfigurationUsesNativeTokenFileAndOneHostSlot(t *testing.T) {
 	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
 
-func TestGitHubRegistrationUsesBoundedPromptWithoutReplacingProviderRecords(t *testing.T) {
-	request := CreateRequest{
-		ID: "github-one", Provider: ProviderGitHub, RegistrationURL: "https://github.com/example/repository",
-		Labels: "soda", RegistrationToken: "provider-input",
-	}
-	command := githubRegistrationCommand("/runner", "/state", identity{UID: 1200, GID: 1300}, request)
-	require.Equal(t, []string{
-		"--url", request.RegistrationURL, "--name", request.ID, "--runnergroup", "default",
-		"--work", "_work", "--disableupdate", "--labels", request.Labels,
-	}, command.Args)
-	require.NotContains(t, command.Args, "--unattended")
-	require.NotContains(t, command.Args, "--replace")
-	require.NotContains(t, strings.Join(command.Args, " "), request.RegistrationToken)
-	require.NotContains(t, strings.Join(command.Environment, " "), request.RegistrationToken)
-
-	runner := &recordingCommandRunner{}
-	native := &Native{Runner: runner}
-	require.NoError(t, native.runGitHubRegistration(context.Background(), command, request.RegistrationToken))
-	require.True(t, runner.secretHadDeadline)
-}
-
 func TestLifecycleActionsPersistListenerStateAcrossBoot(t *testing.T) {
 	root := t.TempDir()
 	runner := &recordingCommandRunner{}
 	native := &Native{RootPath: root, LockPath: filepath.Join(root, "runners.lock"), Runner: runner}
 	id := "one"
 	require.NoError(t, os.MkdirAll(filepath.Join(root, id), 0o755))
-	require.NoError(t, native.writeDescriptor(Descriptor{ID: id, Provider: ProviderGitHub, Account: "soda-runner-one"}))
+	require.NoError(t, native.writeDescriptor(Descriptor{ID: id, Provider: ProviderForgejo, Account: "soda-runner-one"}))
 
 	require.NoError(t, native.Start(context.Background(), id))
 	require.NoError(t, native.Stop(context.Background(), id))

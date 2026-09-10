@@ -12,8 +12,8 @@ const root = path.resolve(import.meta.dirname, '../..');
 const files: Record<string, string> = payload;
 const origin = 'https://forgejo.example.test';
 const browserCase = {skip: !process.env.SODA_RUNNERS_PAGE_HTML};
-const exampleRunner = (provider = 'forgejo'): Runner => ({
-  id: 'one', provider, registration_url: provider === 'forgejo' ? origin : 'https://github.com/team/repo',
+const exampleRunner = (): Runner => ({
+  id: 'one', provider: 'forgejo', registration_url: origin,
   account: 'soda-runner-one', architecture: 'x86-64', version: 'fixture', capacity: 1,
   service: {load: 'loaded', active: 'active', sub: 'running', enabled: 'enabled'},
 });
@@ -28,7 +28,7 @@ async function runnersPage(t: TestContext, mode = 'html') {
   const page = await browser.newPage();
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  const state = {runners: [] as Runner[], failList: false, mutationStatus: 200, sessionStatus: 200, actor: '1', operator: true, logoutStatus: 204, logoutRequests: 0, sessionReads: 0, page: mode};
+  const state = {runners: [] as unknown[], failList: false, mutationStatus: 200, sessionStatus: 200, actor: '1', operator: true, logoutStatus: 204, logoutRequests: 0, sessionReads: 0, page: mode};
   const mutations: {path: string; body: Record<string, unknown>}[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), pathname = new URL(request.url()).pathname;
@@ -58,7 +58,7 @@ async function runnersPage(t: TestContext, mode = 'html') {
         const body: unknown = request.postDataJSON();
         assert(body && typeof body === 'object' && !Array.isArray(body));
         mutations.push({path: pathname, body: {...body}});
-        if (state.mutationStatus === 200) state.runners = pathname.endsWith('/remove') ? [] : [exampleRunner('provider' in body && typeof body.provider === 'string' ? body.provider : 'forgejo')];
+        if (state.mutationStatus === 200) state.runners = pathname.endsWith('/remove') ? [] : [exampleRunner()];
         await route.fulfill({status: state.mutationStatus, json: state.mutationStatus === 200 ? {ok: true} : {error: {message: 'must-not-render-native-secret'}}});
         return;
       }
@@ -130,7 +130,7 @@ test('runner response shares Cockpit one-slot validation', () => {
   assert.equal(decodeRunnerResponse('start', {ok: true}).ok, true);
 });
 
-test('Go HTML and emitted Lit register both providers and confirm exact lifecycle targets', browserCase, async t => {
+test('Go HTML and emitted Lit register Forgejo and confirm exact lifecycle targets', browserCase, async t => {
   const {page, state, mutations} = await runnersPage(t);
   assert.equal(mutations.length, 0);
   await registerDraft(page);
@@ -150,58 +150,40 @@ test('Go HTML and emitted Lit register both providers and confirm exact lifecycl
     await settled(page);
   }
   assert.equal(mutations.length, 5);
-  await page.getByLabel('Provider', {exact: true}).selectOption('github');
-  await page.getByLabel('GitHub registration URL').fill('https://github.com/team/repo');
-  await page.getByLabel('Labels', {exact: true}).fill('soda-linux');
-  await page.getByLabel('Registration token', {exact: true}).fill('github-synthetic-token');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  await settled(page);
-  assert.equal(mutations[5]?.body.provider, 'github');
-  assert.equal(mutations[5]?.body.registration_id, '');
-  assert.equal(mutations[5]?.body.registration_token, 'github-synthetic-token');
-  assert(state.sessionReads >= 12);
+  assert.equal(await page.getByRole('combobox').count(), 0);
+  assert.equal(await page.locator('input[name=registration_url]').count(), 0);
+  assert(state.sessionReads >= 10);
 });
 
-test('provider switch scrubs credentials and provider drafts, with safe native links', browserCase, async t => {
+test('Forgejo links use only the configured public origin and unsupported observations fail closed', browserCase, async t => {
   const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page);
-  await page.getByLabel('Provider', {exact: true}).selectOption('github');
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  await page.getByLabel('GitHub registration URL').fill('https://github.com/team/repo');
-  await page.getByLabel('Registration token', {exact: true}).fill('github-only');
-  await page.getByLabel('Provider', {exact: true}).selectOption('forgejo');
-  assert.equal(await page.getByLabel('Forgejo runner UUID').inputValue(), '');
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  await page.getByLabel('Provider', {exact: true}).selectOption('github');
-  assert.equal(await page.getByLabel('GitHub registration URL').inputValue(), '');
-  assert.equal(await page.getByLabel('Local runner ID', {exact: true}).inputValue(), 'one');
   assert.equal(await page.getByRole('link', {name: 'Forgejo Actions administration', exact: true}).getAttribute('href'), origin + '/admin/actions/runners');
-  for (const address of ['https://github.com/team/repo', 'javascript:alert(1)', 'https://github.com.attacker.test/repo', 'https://user:pass@github.com/repo', 'https://github.com:443/repo', 'https://github.com/repo?', 'https://github.com/repo#', 'https://github.com/']) {
-    state.runners = [{...exampleRunner('github'), registration_url: address}];
+  for (const address of ['http://internal-only:3000', 'javascript:alert(1)', 'https://external.example.test/repo']) {
+    state.runners = [{...exampleRunner(), registration_url: address}];
     await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-    const link = page.getByRole('link', {name: 'Open one in GitHub', exact: true});
-    assert.equal(await link.count(), address === 'https://github.com/team/repo' ? 1 : 0);
+    assert.equal(await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).getAttribute('href'), origin);
+    assert(!(await page.locator('body').innerText()).includes(address));
   }
-  state.runners = [{...exampleRunner(), registration_url: 'http://internal-only:3000'}];
+  state.runners = [{...exampleRunner(), provider: 'github'}];
   await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  assert.equal(await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).getAttribute('href'), origin);
-  assert(!await page.locator('body').innerText().then(text => text.includes('internal-only')));
+  await page.getByRole('heading', {name: 'Stale observations'}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
+  assert.equal(await page.getByRole('link', {name: /GitHub/}).count(), 0);
   assert.equal(mutations.length, 0);
 });
 
-test('registration guidance rejects unsafe fields and changed actors before any mutation', browserCase, async t => {
+test('Forgejo field guidance and changed actors prevent invalid registration', browserCase, async t => {
   const {page, state, mutations} = await runnersPage(t);
   await registerDraft(page);
   await page.getByLabel('Labels', {exact: true}).fill('soda-linux');
   await page.getByRole('button', {name: 'Register and start listener'}).click();
   assert.match(await page.getByLabel('Labels', {exact: true}).evaluate(node => node instanceof HTMLInputElement ? node.validationMessage : ''), /name:host/);
-  await page.getByLabel('Provider', {exact: true}).selectOption('github');
-  await page.getByLabel('GitHub registration URL').fill('https://github.com.attacker.test/repo');
-  await page.getByLabel('Registration token', {exact: true}).fill('github-synthetic-token');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  assert.match(await page.getByLabel('GitHub registration URL').evaluate(node => node instanceof HTMLInputElement ? node.validationMessage : ''), /HTTPS github.com/);
   assert.equal(mutations.length, 0);
-  await page.getByLabel('GitHub registration URL').fill('https://github.com/team/repo');
+  await page.getByLabel('Labels', {exact: true}).fill('soda-linux:host');
+  await page.getByLabel('Forgejo runner UUID').fill('invalid');
+  await page.getByRole('button', {name: 'Register and start listener'}).click();
+  assert.equal(mutations.length, 0);
+  await page.getByLabel('Forgejo runner UUID').fill('33834eef-e758-48c4-a676-1745426747aa');
   state.actor = '2';
   await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
   await page.getByText('Reconnect explicitly').waitFor();
@@ -258,9 +240,9 @@ test('late inventory and mutation replies cannot replace a restored page or repl
   await pauseNextFetch(page, 'list');
   await page.getByRole('button', {name: 'Refresh status'}).click();
   await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'list');
-  await hide(page); state.runners = [exampleRunner('github')]; await restore(page);
+  await hide(page); state.runners = [exampleRunner()]; await restore(page);
   await releaseFetch(page);
-  await page.getByRole('link', {name: 'Open one in GitHub', exact: true}).waitFor();
+  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
   await pauseNextFetch(page, 'mutation');
   await page.getByRole('button', {name: 'stop one', exact: true}).click();
   await page.getByLabel('Exact runner ID').fill('one');
@@ -321,7 +303,7 @@ test('first-use and denied Go shells expose explicit connection without runner m
 
 test('keyboard confirmation, native Back navigation and both-theme responsive presentation', browserCase, async t => {
   const {page, state, mutations} = await runnersPage(t);
-  state.runners = [exampleRunner('github')];
+  state.runners = [exampleRunner()];
   await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
   const remove = page.getByRole('button', {name: 'remove one', exact: true});
   await remove.focus(); await page.keyboard.press('Enter');

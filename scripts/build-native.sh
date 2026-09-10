@@ -85,7 +85,6 @@ for image in forgejo caddy; do
   printf '%s\n' "$id" > "$out/$image.iid"
   podman save --format oci-archive -o "$out/images/$image.oci" "$id"
 done
-python3 scripts/fetch-runner.py --arch "$arch" --out "$out/github-actions-runner"
 python3 scripts/fetch-terminal.py --out "$out/terminal-assets"
 python3 scripts/forgejo-locales.py --lock appliance/forgejo/locale.lock.json --out "$out/forgejo-locales/locale_en-US.ini"
 python3 scripts/stage.py --arch "$arch"

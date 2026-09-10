@@ -121,7 +121,6 @@ class SodaspacesPackaging(unittest.TestCase):
             build = checkout / '.artifacts/native/x86_64'
             (build / 'bin').mkdir(parents=True)
             (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
-            (build / 'github-actions-runner').mkdir()
             (build / 'forgejo-locales').mkdir()
             (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             (build / 'forgejo-js').mkdir()
@@ -147,6 +146,7 @@ class SodaspacesPackaging(unittest.TestCase):
             finally:
                 os.umask(previous)
             stage = build / 'rootfs'
+            self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
             for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:

@@ -489,8 +489,8 @@ Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with loc
 coverage; the [runner completion plan](runners-port.md#implementation-and-completion-gate)
 records the locally completed presentation/lifetime slice and proposed later
 native/provider acceptance, preserved-state delivery and Cockpit removal. The page
-still has a separate Soda-rendered shell. GitHub service compatibility was an
-assistant-added maintenance recommendation and is not selected work. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
+still has a separate Soda-rendered shell. The user subsequently removed GitHub runner support; the local runner controls
+and native client now support only Forgejo. Repository Sodaspaces settings and the shared Rocky-only selector/immutable
 creation metadata now also have local source coverage (schema v8). The shared
 explicit **Inspect current OS** control now reads the existing root’s bounded
 OS-release/image facts without profile backfill, Start or repair. The Rocky recipe

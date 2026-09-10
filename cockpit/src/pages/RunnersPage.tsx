@@ -27,7 +27,6 @@ export function RunnersPage({
     dialog,
     refresh,
     register,
-    changeProvider,
     changeListener,
     remove,
     close,
@@ -101,8 +100,6 @@ export function RunnersPage({
         <>
           {dialog?.kind === "create" && (
             <RegisterRunnerDialog
-              provider={dialog.provider}
-              onProviderChange={changeProvider}
               busy={busy}
               onClose={close}
               onSubmit={create}

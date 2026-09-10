@@ -36,9 +36,6 @@ body.soda-settings { margin: 0; font: var(--soda-font-body); }
 .soda-runner-settings .settings-capacity dd { margin: var(--soda-space-2) 0 0; font: var(--soda-font-title); }
 .soda-runner-settings .settings-runner { background: var(--soda-page-surface); }
 .soda-runner-settings .settings-runner-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--soda-space-3); }
-.soda-runner-settings .settings-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--soda-space-4); }
-.soda-runner-settings .settings-form-field { display: grid; align-content: start; gap: var(--soda-space-2); margin-block: var(--soda-space-4); }
-.soda-runner-settings .settings-form-field label { margin: 0; }
 .soda-runner-settings fieldset { min-inline-size: 0; }
 .soda-runner-settings input, .soda-runner-settings select { min-width: 0; }
 .soda-runner-settings legend { font: var(--soda-font-label); padding-inline: var(--soda-space-2); }
@@ -52,6 +49,5 @@ body.soda-settings { margin: 0; font: var(--soda-font-body); }
 .soda-runner-settings button:disabled { background: var(--soda-page-surface); color: var(--soda-page-muted); }
 @media (max-width: 600px) {
   .soda-runner-settings .settings-account { flex-basis: 100%; margin-inline-start: 0; }
-  .soda-runner-settings .settings-form-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .soda-runner-settings .settings-capacity { grid-template-columns: minmax(0, 1fr); }
 }

@@ -50,7 +50,7 @@ Production source versions are selected by the existing manifests and recipes:
   0.26.0; selected FCOS metadata identifies systemd 259.8 and
   OpenSSH 10.2p1. Those base versions are not proof of downstream configuration,
   SELinux behavior or any retained appliance's installed package state.
-- [GitHub runner](../appliance/locks/github-runner-source.toml): 2.337.0.
+- Historical GitHub runner baseline: 2.337.0, since removed at the user’s request.
   Forgejo Runner/Tailscale/Podman are native package inputs, not newly pinned by
   this report. Relevant upstream APIs and observed package metadata are discussed
   with their callers below.
@@ -68,7 +68,7 @@ Production source versions are selected by the existing manifests and recipes:
 | `nativebuild` | [Artifact command](../tools/soda-artifacts/main.go), build/stage/installer; Go archive/ELF/hash/filesystem, gpgv/xz, Podman | Bind source/platform and fixed public payload without runtime secrets. Keep these policies; compare the narrow OCI parser with upstream image readers before extending it. |
 | `process` | [Tailnet status reader](../internal/tailnet/tailnet.go); Go os/exec | Only production consumer uses Output; unused command/trace surface and capture bounds are review findings. |
 | `projectos` | Store/web/helper image inspection; Podman/OCI image identity | Keep immutable creation-profile binding. OCI owns image identity; Soda owns the selected profile/interface and its association with the created project. |
-| `runners` | Native CLI/helper, Cockpit and global operator settings; provider runners and systemd | Keep local account/capacity/service integration, fixed operations and private registration input. GitHub's service entrypoint is a contract finding; provider scheduling, workflow execution and cache remain upstream-owned. |
+| `runners` | Native CLI/helper, Cockpit and global operator settings; provider runners and systemd | Keep local account/capacity/service integration, fixed operations and private registration input. Forgejo owns scheduling, workflow execution and cache; GitHub runner support has been removed. |
 | `store` | Web/setup; SQLite and Go AEAD | Keep Soda-only associations, original account memberships, cancellation transactions and encrypted grants. Required schema verification is Soda-owned; random-nonce packing is a reuse candidate. |
 | `strictjson` | Web/helper/runner requests and profiles; Go encoding/json | Bounded body, valid UTF-8, one object, top-level duplicate-name rejection and destination-struct unknown-field rejection. Keep on the selected Go baseline; not a general recursive schema engine. |
 | `tailnet` | [Tailnet CLI](../cmd/soda-tailnet/command.go), [Forgejo advertisement](../cmd/soda-forgejo-tailnet/main.go), Cockpit; native tailscale CLI/LocalAPI | Keep native identity/address projection and separate Git advertisement. Review unstable LocalAPI dependence and native device UI overlap; preserve operator access and current preferences. |
@@ -186,24 +186,15 @@ packages from a distro label.
 
 ### Delegate runner execution through the provider's service contract
 
-[GitHub launch selection](../internal/runners/launch.go) invokes `run.sh` from the
-[Soda systemd service](../appliance/services/soda-runner@.service). GitHub's
-[custom-service documentation](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/configure-the-application)
-requires `runsvc.sh`. This is a confirmed **documented contract mismatch**, not an
-executed job failure. Fresh exact-tag source retrieval failed during this slice;
-the source pin plus official service contract supports the finding, not a claim of
-inspecting that script or proving runtime behavior. Package-layout verification,
-entrypoint changes and signal/native checks belong to
-[phase 4](refactoring-plan.md#phase-4--github-runner-service-compatibility).
+The earlier GitHub service-entrypoint finding is historical: the user subsequently
+selected removing GitHub runner support. Its original evidence is preserved in Git
+at `216db47`; the correction is retired in [phase 4](refactoring-plan.md#phase-4--github-runner-service-compatibility).
 
-The remainder of [runners](../internal/runners/) delegates local accounts to native
-Linux, locking to flock, services to systemd, and jobs/registration to the provider.
-The root CLI gate and web configured-operator gate protect distinct transports;
-neither replaces provider authority. The no-echo native PTY passes registration
-input to the upstream command without putting it in argv. Keep bounded private input
-and sanitization; replacing it needs proof of an equally restricted native channel.
-Local removal is distinct from provider deregistration; uncertain registration and
-local cleanup outcomes must remain explicit.
+The remaining [Forgejo runner](../internal/runners/) delegates accounts to Linux,
+locking to flock, services to systemd and jobs/registration authority to Forgejo.
+The root CLI and configured web operator gates remain distinct. Forgejo connection
+tokens use a private file; no registration PTY is needed. Local removal does not
+remove Forgejo's registration or history, and partial local outcomes remain explicit.
 
 Current [Forgejo configuration](../internal/runners/native_create.go) selects host
 labels, disables container-engine access and disables cache. The selected Rocky

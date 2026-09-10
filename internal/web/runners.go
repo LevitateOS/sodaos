@@ -103,17 +103,11 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 			jsonError(w, 503, "runners_unavailable", "Invalid local runner observation.")
 			return
 		}
-		switch row.Provider {
-		case runners.ProviderForgejo:
-			row.RegistrationURL = s.Config.ForgejoURL
-		case runners.ProviderGitHub:
-			if runners.ValidateGitHubURL(row.RegistrationURL) != nil {
-				row.RegistrationURL = "" // Unavailable link; preserve local observations and native state.
-			}
-		default:
+		if row.Provider != runners.ProviderForgejo {
 			jsonError(w, 503, "runners_unavailable", "Invalid local runner provider.")
 			return
 		}
+		row.RegistrationURL = s.Config.ForgejoURL
 		if row.Service.Active == "active" && row.Service.Sub == "running" {
 			result.ActiveListeners++
 		}
