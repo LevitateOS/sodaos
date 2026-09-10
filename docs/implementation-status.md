@@ -1,5 +1,55 @@
 # Current handoff
 
+## Both targets delivered b8af68c; retained post-delivery checks underway
+
+`soda-test` now also serves **b8af68c/schema v6**, after the successful validation-VM
+matrix below. The exact dashboard image/executable and live helper executable were
+verified; admitted Forgejo custom assets match the bundle. Schema migration preserved
+all original columns/ciphertext before new browser activity. Fresh private backups
+and copied-state missing/wrong-key, migration, old-image-refusal and paired-v5-rollback
+rehearsals passed at `/var/lib/soda-step6c-retained-b8af68c/` on `soda-test`.
+
+All four original Rocky 9.6 roots received only the signed **tmux 3.2a-5.el9** RPM
+(including its two `/etc/shells` lines), exact b8af68c program, runtime directory and
+one terminal-directory line in each Git-proven original init. Each original's other
+init behavior and creation capabilities were preserved. Copied-root package/file
+rehearsals passed before originals; transactions compared accounts, keys, homes and
+shared files plus exact legacy agent-socket inode/metadata. Original CIDs and sshd
+PIDs survived; no project stop/start/replacement, OS upgrade or capability change.
+Only dashboard/helper/Forgejo were interrupted. The default image for **future**
+creation is the candidate Rocky 10.2 image, not a replacement of existing roots.
+
+Preserved failures and backup limitations:
+
+- Podman **5.8.4** exports raw host-mapped ownership (confirmed in exact upstream
+  `Container.export`: `chrootarchive.Tar(..., nil, ...)`). Direct import failed the
+  copied-root ownership gate before changes. Keep those raw archives and failed copy.
+  New backups use native GNU tar **inside each original namespace**, with no numeric
+  translation. An initial attempt observed changing virtual `/sys`; the successful
+  separate archives exclude `/proc`, `/sys`, `/dev` and stay on the root filesystem.
+  RPM DB hashes/inventory remained stable. These are persistent-state copies, not
+  atomic workload/process snapshots or authority to replace roots/erase later writes.
+- Six original personal-Git agent **socket entries** caused the first original-root
+  preflight to refuse before staging/install. The revised recipe preserves those
+  exact nodes/inodes without connecting, borrowing credentials or inferring live
+  agents. Fresh copied-root rehearsals included inert synthetic socket entries;
+  then all four original transactions passed. All earlier failures/copies remain.
+- The first retained browser attempt lacked its former localhost:24444 SSH tunnel
+  after the builder restart. The original loopback-only forwarding was restored over
+  pinned management SSH; no guest listener, host route or public exposure changed.
+- The next raw HTTPS preflight reproduced Bun 1.4.2's **unsupported name constraint
+  type** refusal for the existing constrained fixture CA. Curl verifies that same CA
+  and endpoint. The probe now uses bounded, config/proxy-free curl HTTPS reads with
+  `--path-as-is`, verified CA/hostname, no redirects, and public validators only.
+  No CA, certificate, browser trust policy or production TLS setting was weakened.
+  Constrained-CA, hostname/missing-CA refusal, exact raw-path and response-bound tests
+  were added. Retained native browser rerun is still required.
+
+Evidence/scripts are under `.artifacts/deploy-spaces-5a21ad6-lEB0Ji/`; failed browser
+profiles `s6c-retained-browser-E3mInu` and `s6c-retained-browser-qTOEjL` remain.
+CLI/provider, physical-keyboard and aarch64 acceptance remain unrun; no whole-product
+acceptance or push is implied.
+
 ## Native two-actor matrix passed; retained delivery in preparation
 
 Probe `1891849` against installed **b8af68c/schema v6** passed the real matrix in

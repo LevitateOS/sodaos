@@ -89,7 +89,11 @@ Use a fresh restricted browser home with the selected CA already trusted by
 Chromium. Keep `HOME/sodaspaces-run/cdp.sock` within 103 bytes. All input/password/CA files are absolute regular mode-0600 files; the
 home is mode 0700. No TLS bypass or sandbox disabling is selected. Reuse prepared
 pinned Playwright/Chromium and the root workspace's pinned WebSocket dependency; the
-probe does not download browsers. `native-browser.ts` launches stock sandboxed
+probe does not download browsers. Anonymous raw-path/cache checks require existing
+`curl`: they disable curl configuration/proxies, verify the supplied CA and hostname,
+retain raw paths, refuse redirects and bound headers/body/time. This avoids Bun's
+observed constrained-CA verifier limitation without bypassing TLS or changing trust.
+`native-browser.ts` launches stock sandboxed
 Chromium and attaches through a private Unix socket/pipe with `noDefaults`, not a
 TCP debugger port. This avoids Playwright's always-focused/visible override and
 BFCache-disabling launch flag; it does not synthesize visibility or restore events. Private request:

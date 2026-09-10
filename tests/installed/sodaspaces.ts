@@ -17,8 +17,7 @@ import type {launchNativeBrowser} from './native-browser.ts';
 // create/key/join requests. No response fakes, cookie seeding or private-key upload.
 import assert from 'node:assert/strict';
 import {lstat, mkdir, writeFile} from 'node:fs/promises';
-import https from 'node:https';
-import type {IncomingHttpHeaders} from 'node:http';
+import {readProbeHTTPS} from './sodaspaces-http';
 import path from 'node:path';
 
 let stage = 'private input validation';
@@ -78,7 +77,7 @@ try {
   assert(path.isAbsolute(home));
   const homeInfo = await lstat(home);
   assert(homeInfo.isDirectory() && !(homeInfo.mode & 0o077));
-  const ca = await privateFile(input.ca_file, 65536);
+  await privateFile(input.ca_file, 65536);
   const passwords = await Promise.all(input.users.map(async user => {
     const password = (await privateFile(user.password_file, 4096)).replace(/\r?\n$/, '');
     assert(password && !/[\r\n]/.test(password));
@@ -104,23 +103,7 @@ try {
   // Raw paths must not be normalized by URL/browser clients before reaching Caddy.
   async function rawRead(rawPath: string, headers: Record<string, string> = {}) {
     assert(!interrupted);
-    return new Promise<{status: number | undefined; headers: IncomingHttpHeaders; body: Buffer}>((resolve, reject) => {
-      const request = https.request({hostname: origin.hostname, port: origin.port || 443,
-        path: rawPath, method: 'GET', headers, ca, timeout: 15000, signal: AbortSignal.timeout(15000)}, response => {
-        let size = 0;
-        const chunks: Buffer[] = [];
-        response.on('data', chunk => {
-          size += chunk.length;
-          if (size > 65536) response.destroy(new Error('response limit'));
-          else chunks.push(chunk);
-        });
-        response.on('error', reject);
-        response.on('end', () => resolve({status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks)}));
-      });
-      request.on('timeout', () => request.destroy(new Error('request timeout')));
-      request.on('error', reject);
-      request.end();
-    });
+    return readProbeHTTPS(origin, input.ca_file, rawPath, headers);
   }
   stage = 'trusted proxy and asset paths';
   assert.equal((await rawRead('/-/soda/api/session')).status, 401);
