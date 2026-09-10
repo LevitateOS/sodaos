@@ -20,7 +20,7 @@ export function mountSpacesPage(root: HTMLElement, actor: string) {
   void document.fonts.ready.then(measure);
   measure();
   void workspace.refresh();
-  return {dispose() {
+  return {get canRestore() { return workspace.canRestore; }, dispose() {
     disposed = true; observer.disconnect();
     window.removeEventListener('resize', measure);
     window.visualViewport?.removeEventListener('resize', measure);

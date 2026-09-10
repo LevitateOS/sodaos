@@ -52,10 +52,10 @@ deployment, changes to the other agent's files, or provider/lifecycle effects.
 
 Move Soda's local runner capacity and service controls to the operator-only
 **Runners** destination selected by the Soda-pages lane (previously named
-**Global SodaOS settings → Sodarunners**). Current source uses a Soda-owned Go page
-and Lit component under the existing `/-/soda/` namespace. The subsequent integration plan
-hosts that component within Forgejo's native dashboard through its documented
-template customization, while keeping Soda's protected API. It is not a Forgejo administrator page, a
+**Global SodaOS settings → Sodarunners**). Current source mounts the Lit component
+at `/?soda-view=runners` within Forgejo's native dashboard through its documented
+template customization, while keeping Soda's protected `/-/soda/api/` endpoints.
+The old Go URL is a fixed bookmark bridge, not a separate page owner. It is not a Forgejo administrator page, a
 repository drawer, or a revival of the removed standalone dashboard. The
 [settings plan](sodaspaces-plan.md#settings-pages-and-os-selection) owns its
 placement.

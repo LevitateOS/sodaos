@@ -891,7 +891,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f2bfd151a23a2e504eef5acfcb46a275facea86ce748e31aeaff2daf9d535f2f",
+      "beforeRoleHash": "da363ffcdeef598b5271defb789fe2dd1331c2276c65050b0cbaccd54b6c2606",
       "presentationReview": "Suppress the drawer only for the signed root dashboard with one recognized Soda view; preserve notifications, settings discovery and all other drawer callers. Native page-host browser evidence is recorded in the handoff.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -920,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6d2a210a396ef5d4139208ed0c9553a8dd46807e642ee52a0ac5790d79461d8b",
+      "beforeRoleHash": "4e480e458ae43591840d632383eacd0fabc554ab25a3b030fd6a25ae20ee69e5",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -7815,7 +7815,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "117e21385a21ee285d684e80e9c7fa603200ef5b1e732520f4b2f702ebebbec3",
+      "beforeRoleHash": "bac52e04958e5c39047e974ee0b1bf33ad1e4cb7dfa4f40b1e5df1ddd7a1371e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one connected Lit content mount. Scoped settings CSS supports the existing controls; full Spaces measures the native chrome. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."

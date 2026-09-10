@@ -54,7 +54,7 @@ func TestSodaspacesTemplates(t *testing.T) {
 				t.Fatal("repository disclosure script escaped its native repository boundary")
 			}
 			if tc.want {
-				for _, value := range []string{`type="button"`, `aria-label="Sodaspaces"`, `<span>Sodaspaces</span>`, `aria-labelledby="sodaspaces-title"`, `src="/assets/sodaspaces.js"`, `data-sub-url=""`} {
+				for _, value := range []string{`type="button"`, `aria-label="Sodaspaces"`, `<span>Sodaspaces</span>`, `aria-labelledby="sodaspaces-title"`, `src="/assets/sodaspaces.js?v=` + sodaPresentationVersion(t) + `"`, `data-sub-url=""`} {
 					if !strings.Contains(html, value) {
 						t.Fatalf("missing %s", value)
 					}
@@ -70,7 +70,7 @@ func TestSodaspacesTemplates(t *testing.T) {
 			if err := tmpl.ExecuteTemplate(&out, "header.tmpl", ctx); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(out.String(), `href="/assets/sodaspaces.css"`) {
+			if !strings.Contains(out.String(), `href="/assets/sodaspaces.css?v=`+sodaPresentationVersion(t)+`"`) {
 				t.Fatal("missing local stylesheet")
 			}
 		})
@@ -122,7 +122,7 @@ func TestSodaspacesTemplateEscapesContext(t *testing.T) {
 	if strings.Contains(out.String(), `<script>evil`) || strings.Contains(out.String(), `data-repository-id="42" onmouseover`) {
 		t.Fatal("unescaped context")
 	}
-	if !strings.Contains(out.String(), `src="/native/assets/sodaspaces.js"`) {
+	if !strings.Contains(out.String(), `src="/native/assets/sodaspaces.js?v=`+sodaPresentationVersion(t)+`"`) {
 		t.Fatal("lost native asset subpath")
 	}
 }

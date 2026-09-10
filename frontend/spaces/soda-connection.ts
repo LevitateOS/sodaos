@@ -126,9 +126,10 @@ document.addEventListener('click', event => {
 
 // Entry-only bootstrap: callers invoke this before exposing editable content.
 // No focus/polling/error handler is permitted to restart OAuth.
-export async function connectPage(actor: string, destination: string, repository: string, retry = false): Promise<boolean> {
+export async function connectPage(actor: string, destination: string, repository: string, isCurrent: () => boolean, retry = false, restoring = false): Promise<boolean> {
   if (!id(actor) || !['spaces', 'runners', 'repository-spaces'].includes(destination) || (destination === 'repository-spaces' ? !id(repository) : repository !== '')) throw Error('Invalid page context');
   const key = 'soda-entry:' + destination + ':' + repository + ':' + actor;
+  if (!isCurrent()) return false;
   if (retry) {
     allowExplicitConnection();
     try {sessionStorage.removeItem(key);} catch { /* explicit navigation still works */ }
@@ -136,15 +137,17 @@ export async function connectPage(actor: string, destination: string, repository
   if (connectionSuppressed()) throw Error('Sign-out requested. Retry connection explicitly.');
   if (!retry && new URL(location.href).searchParams.has('soda-connect')) throw Error('Forgejo connection did not complete.');
   const response = await request('/api/session', {'X-Soda-Expected-User-ID': actor});
-  if (connectionSuppressed()) {await response.body?.cancel(); throw Error('Sign-out requested.');}
+  if (!isCurrent() || connectionSuppressed()) {await response.body?.cancel(); throw Error('Entry retired.');}
   if (response.ok) {
     const session = sessionResponse(await readSodaJSON(response), location.origin);
-    if (session.user.id !== actor) throw Error('Forgejo account changed.');
+    if (!isCurrent() || connectionSuppressed() || session.user.id !== actor) throw Error('Entry or Forgejo account changed.');
     try {sessionStorage.removeItem(key);} catch { /* No authority stored here. */ }
     return true;
   }
   const missing = response.status === 401; await response.body?.cancel();
-  if (!missing) throw Error('Soda connection is unavailable or belongs to a different account.');
+  if (!isCurrent() || connectionSuppressed()) return false;
+  // History restoration may validate a session, never bootstrap a new login.
+  if (!missing || restoring) throw Error('Soda connection is unavailable or belongs to a different account.');
   try {
     if (sessionStorage.getItem(key)) throw Error('Forgejo connection did not complete.');
     sessionStorage.setItem(key, 'attempt');

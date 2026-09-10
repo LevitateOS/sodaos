@@ -137,6 +137,8 @@ export class SodaProjectControls extends LitElement {
   private lifetime = new AbortController();
   private epoch = 0;
   private disposed = false;
+  private mutationPending = false;
+  get canRestore() { return !this.mutationPending && !this.uncertain; }
   constructor() {
     super();
     this.profiles = [];
@@ -324,7 +326,7 @@ export class SodaProjectControls extends LitElement {
     this.session = undefined;
     this.repository = '';
     this.connectVisible = false;
-    this.status = 'Page context changed. Reload the full repository page; no action was replayed or undone.';
+    this.status = this.canRestore ? 'Page context changed. Reload the full repository page; no action was replayed or undone.' : 'Outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. No action was replayed.';
   }
   private async api(path: string, method = 'GET', body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const headers: Record<string, string> = {};
@@ -482,6 +484,7 @@ export class SodaProjectControls extends LitElement {
         return;
       check(provider.id === this.binding?.expectedUserId);
       dispatched = true;
+      this.mutationPending = true;
       this.outcome = 'Request dispatched. Closing does not cancel or undo native work.';
       const raw = await this.api(path, method, body, controller.signal), result = raw === null ? null : object(raw);
       if (!this.active(n))
@@ -502,6 +505,7 @@ export class SodaProjectControls extends LitElement {
         const publicKey = body.public_key;
         check(keys.some(k => k.public_key?.trim().split(/\s+/).slice(0, 2).join(' ') === publicKey.trim().split(/\s+/).slice(0, 2).join(' ')));
       }
+      this.mutationPending = false;
       this.outcome = message;
       this.dispatchEvent(new CustomEvent('soda-project-changed', {
         bubbles: true, detail: {
@@ -516,6 +520,7 @@ export class SodaProjectControls extends LitElement {
         return;
       const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
       this.uncertain = dispatched && !rejected.has(e.status);
+      this.mutationPending = false;
       const reasons: Record<string, string> = {
         profile_unavailable: 'Installed Project OS unavailable. No reservation was created; refresh before another explicit action.', unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'
       };
@@ -658,6 +663,7 @@ export function mountProjectControls(root: HTMLElement, context: ProjectContext)
   box.configure(context);
   root.append(box);
   return {
+    get canRestore() { return box.canRestore; },
     refresh: () => box.refresh(), invalidate: () => box.invalidate(),
     get ready() {
       return box.updateComplete;

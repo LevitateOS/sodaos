@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -66,6 +67,16 @@ func renderNativePageHost(t *testing.T, prefix, query, link string, signed, news
 	return result.String()
 }
 
+// Match the build's epoch source, rather than duplicating a version constant.
+func sodaPresentationVersion(t *testing.T) string {
+	t.Helper()
+	match := regexp.MustCompile(`name="soda-presentation-revision" content="([a-zA-Z0-9.-]+)"`).FindStringSubmatch(readForgejoTemplate(t, "custom/header.tmpl"))
+	if len(match) != 2 {
+		t.Fatal("missing presentation epoch")
+	}
+	return match[1]
+}
+
 func TestNativeSodaPageHost(t *testing.T) {
 	for _, prefix := range []string{"", "/forge"} {
 		for _, tc := range []struct{ query, view, destination, repository string }{
@@ -79,7 +90,7 @@ func TestNativeSodaPageHost(t *testing.T) {
 					`<header>NATIVE_HEAD</header>`, `<footer>NATIVE_FOOTER</footer>`,
 					`id="soda-native-content"`, `data-view="` + tc.view + `"`,
 					`data-actor="9007199254740993"`, `data-repository-id="` + tc.repository + `"`,
-					`src="` + prefix + `/assets/soda/forgejo/soda-native-page.js?v=1"`,
+					`src="` + prefix + `/assets/soda/forgejo/soda-native-page.js?v=` + sodaPresentationVersion(t) + `"`,
 					`id="soda-notification-preview"`, `soda-settings-link.js`,
 				} {
 					if !strings.Contains(body, want) {

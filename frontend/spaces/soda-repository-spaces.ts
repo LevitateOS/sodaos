@@ -6,7 +6,9 @@ export function mountRepositorySpaces(mount: HTMLElement, actor: string, reposit
   mount.classList.add('soda-repository-spaces');
   const controls = new SodaProjectControls();
   controls.configure({expectedUserId: actor, repositoryId: repository, page: true, settings: true});
-  mount.replaceChildren(controls);
+  // The entry already cleared its content. Preserve its Lit render boundary so
+  // a later history restoration can render connection feedback in the same host.
+  mount.append(controls);
   void controls.refresh();
   return controls;
 }

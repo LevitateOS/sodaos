@@ -1382,8 +1382,9 @@ export class SodaSpaces extends LitElement {
       project.api.invalidate();
     this.spaces = [];
     this.display();
-    this.status = 'Page or Soda identity changed. Reload; no action was replayed.';
+    this.status = this.canRestore ? 'Page or Soda identity changed. Reload; no action was replayed.' : 'Project outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. No action was replayed.';
   }
+  get canRestore() { return [...this.projects.values()].every(project => project.api.canRestore); }
   dispose() {
     if (this.disposed)
       return;
@@ -1404,6 +1405,7 @@ export function mountSodaspaces(root: HTMLElement, context: WorkspaceContext, fa
   box.configure(context, factory);
   root.append(box);
   return {
+    get canRestore() { return box.canRestore; },
     markViewed: () => box.markViewed(), setVisible: (visible: boolean) => box.setVisible(visible), refresh: () => box.refresh(), invalidate: () => box.invalidate(), retain: () => box.retain(), returnToWork: () => box.returnToWork(), get ready() {
       return box.updateComplete;
     }, dispose: () => box.dispose()

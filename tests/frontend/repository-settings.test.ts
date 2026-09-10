@@ -14,6 +14,7 @@ test('native repository settings mounts shared creation/access controls and pres
   const origin = process.env.SODA_PAGE_ORIGIN || '', actor = process.env.SODA_PAGE_ACTOR || '', id = 'p0123456789abcdef01234567';
   let exists = false, legacy = false, available = true, unsafeName = false, canCreate = true;
   let repositoryStatus = 200, currentActor = actor;
+  let failWrite = false, writePause: Promise<void> = Promise.resolve();
   const writes: unknown[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), pathname = new URL(request.url()).pathname;
@@ -24,7 +25,9 @@ test('native repository settings mounts shared creation/access controls and pres
         assert.equal(request.headers()['x-csrf-token'], 'csrf-alice');
         assert.equal(pathname, '/-/soda/api/environments');
         const body: unknown = request.postDataJSON(); writes.push(body);
-        assert.deepEqual(body, {repository_id: '7', profile_id: 'rocky-headless'}); exists = true;
+        assert.deepEqual(body, {repository_id: '7', profile_id: 'rocky-headless'});
+        if (failWrite) {await writePause; await route.fulfill({status: 503, json: {error: {code: 'native_unavailable'}}}); return;}
+        exists = true;
         await route.fulfill({status: 201, json: env}); return;
       }
       if (pathname.endsWith('/environments') && repositoryStatus !== 200) {
@@ -76,5 +79,30 @@ test('native repository settings mounts shared creation/access controls and pres
   await page.getByRole('button', {name: 'Refresh status'}).click();
   await page.waitForFunction(() => !document.querySelector('[data-project-controls][aria-busy=true]'));
   assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
-  assert.equal(writes.length, 1); assert.deepEqual(errors, []);
+  assert.equal(writes.length, 1);
+  // History may not discard an uncertain or still-dispatched native mutation.
+  currentActor = actor; canCreate = true; failWrite = true;
+  for (const pending of [false, true]) {
+    let release: (() => void) | undefined;
+    writePause = pending ? new Promise<void>(resolve => {release = resolve;}) : Promise.resolve();
+    await page.goto(origin + '/?soda-view=repository-spaces&repository_id=7');
+    const dispatched = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/environments'));
+    const completed = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/environments'));
+    await page.getByRole('button', {name: 'Create environment', exact: true}).click();
+    await dispatched;
+    await page.getByText(pending ? 'Request dispatched. Closing does not cancel or undo native work.' : /Outcome unconfirmed/).waitFor();
+    const before: number = writes.length;
+    await page.evaluate(() => {
+      document.querySelector('soda-project-controls')?.setAttribute('data-history-owner', 'original');
+      window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true}));
+      window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+    });
+    release?.(); await completed;
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+    assert.equal(await page.locator('soda-project-controls').getAttribute('data-history-owner'), 'original');
+    assert.match(await page.locator('soda-project-controls').innerText(), /Outcome unconfirmed/);
+    assert.equal(writes.length, before, 'history replayed an uncertain operation');
+    assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
+  }
+  assert.deepEqual(errors, []);
 });

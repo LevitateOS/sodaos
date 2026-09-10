@@ -58,6 +58,17 @@ test('native Spaces to drawer and back preserves exact sessions, retain and name
  await terminalMenu(page, 'Keep for two hours');
  await page.waitForFunction(() => (window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.retain_until || 0) > 0);
  const retained = await page.evaluate(() => window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.retain_until);
+ // Routed fixture: synthetic lifecycle; the connection parent separately proves
+ // real BFCache. Restoration must recover this exact locator, never create.
+ await page.evaluate(() => {
+   window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true}));
+   window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
+ });
+ try {await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();}
+ catch (error) {t.diagnostic(JSON.stringify({text: await page.locator('#soda-native-content').innerText(), errors})); throw error;}
+ assert.equal(await page.locator('soda-spaces').count(), 1);
+ assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.sockets.flatMap(s => s.sent).filter(f => f.action === 'attach').at(-1)?.id), 'a'.repeat(32));
+ assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.retain_until), retained);
  await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
  await page.waitForURL('**/' + repository.owner + '/' + repository.name + '#sodaspaces');
  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();

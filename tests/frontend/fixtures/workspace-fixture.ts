@@ -59,6 +59,7 @@ export function installWorkspaceModel(actor = '1', repository?: {id: string; own
   }});
   class Socket {
     readyState = 0; bufferedAmount = 0; closed = 0; sent: Record<string, unknown>[] = [];
+    private attachment: TerminalMetadata | undefined;
     onopen?: () => void; onclose?: () => void; onerror?: () => void; onmessage?: (event: {data: string}) => void;
     constructor(readonly url: string | URL) {sockets.push(this); window.setTimeout(() => {if (!this.closed) {this.readyState = 1; this.onopen?.();}}, 0);}
     send(text: string) {
@@ -69,10 +70,17 @@ export function installWorkspaceModel(actor = '1', repository?: {id: string; own
       if (frame.action === 'create') {terminal = metadata(sockets.length.toString(16).padStart(32, '0'), space.environment.id, space.environment.repository_id, typeof frame.name === 'string' ? frame.name : ''); terminal.request_id = String(frame.request_id); space.terminals.push(terminal);}
       if (!terminal) throw Error('Fixture has no exact terminal');
       terminal.attached = true;
+      this.attachment = terminal;
       this.onmessage?.({data: JSON.stringify({type: 'session', id: terminal.id, request_id: terminal.request_id, attachment_id: sockets.length.toString(16).padStart(32, '0')})});
       this.onmessage?.({data: JSON.stringify({type: 'ready'})});
     }
-    close() {this.closed++; this.readyState = 3; this.onclose?.();}
+    close() {
+      this.closed++; this.readyState = 3;
+      // Closing detaches this writer; it neither Ends nor changes retention.
+      if (this.attachment) this.attachment.attached = false;
+      this.attachment = undefined;
+      this.onclose?.();
+    }
   }
   Object.defineProperty(window, 'WebSocket', {configurable: true, value: Socket});
   return {root, spaces, calls, sockets, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};

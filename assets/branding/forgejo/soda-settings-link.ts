@@ -6,7 +6,7 @@ import {id, object, readSodaJSON, sessionResponse} from '../../../frontend/space
 const marker = document.getElementById('soda-settings-link');
 if (marker && id(marker.dataset.actor)) {
   const actor = marker.dataset.actor, sub = marker.dataset.subUrl || '';
-  const link = document.createElement('a'); link.className = 'item'; link.textContent = 'SodaOS settings';
+  const link = document.createElement('a'); link.className = 'item'; link.textContent = 'Runners';
   link.href = sub + '/?soda-view=runners';
   let generation = 0;
   const hide = () => {generation++; link.remove();};

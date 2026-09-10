@@ -24,7 +24,7 @@ test('emitted native settings link requires matching Soda operator, not site-adm
       await route.fulfill({contentType: 'text/javascript', body: await Bun.file(path.join(root, '.artifacts/forgejo-js', path.basename(source))).text()});
     });
     await page.goto(origin); await page.waitForLoadState('networkidle');
-    const link = page.getByRole('link', {name: 'SodaOS settings'});
+    const link = page.getByRole('link', {name: 'Runners', exact: true});
     assert.equal(await link.count(), mode === 'operator' ? 1 : 0);
     assert.equal(await page.locator('#draft').inputValue(), 'unsaved'); assert(queries >= 1);
     if (mode === 'operator') {

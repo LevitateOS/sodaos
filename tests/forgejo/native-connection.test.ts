@@ -16,6 +16,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
   // Trust is scoped to this test browser's loopback TLS server, not the host.
   const context = await browser.newContext({ignoreHTTPSErrors: true});
   const page = await context.newPage();
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   const saved = await Bun.file('.local/screenshot-fixture/create-output.txt').text();
   const password = saved.match(/generated random password is '([^']+)'/)?.[1]; assert(password);
   let grants = 0; let logouts = 0;
@@ -162,6 +163,30 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
   assert.equal(history.persisted, 'true', 'A real persisted pageshow is required');
   assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
   assert.equal(await page.locator('soda-runners').count(), 1);
+  for (const view of ['spaces', 'repository-spaces&repository_id=1']) {
+    await page.goto(origin + '/?soda-view=' + view);
+    const refresh = page.getByRole('button', {name: view === 'spaces' ? 'Refresh Spaces' : 'Refresh status', exact: true});
+    const ready = page.locator(view === 'spaces' ? '#sodaspaces-data[aria-busy=false]' : '[data-project-controls][aria-busy=false]');
+    await ready.waitFor();
+    await page.evaluate(view => {
+      document.documentElement.dataset.historyDocument = view;
+      window.addEventListener('pageshow', event => {document.documentElement.dataset.historyPersisted = String(event.persisted);});
+    }, view);
+    await page.locator('#navbar a[href="/issues"]').click(); await page.waitForURL('**/issues');
+    await page.goBack({waitUntil: 'commit'});
+    await page.waitForFunction(() => document.documentElement.dataset.historyPersisted === 'true');
+    await ready.waitFor();
+    if (view === 'spaces') await page.getByLabel('Workspace options', {exact: true}).click();
+    await refresh.waitFor();
+    assert.equal(await page.locator('html').getAttribute('data-history-document'), view);
+    assert.equal(await page.locator('html').getAttribute('data-history-persisted'), 'true');
+    assert(await refresh.isEnabled(), view + ' restored permanently stale');
+    await refresh.click();
+    await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
+    assert.equal(await page.locator('#soda-native-content > soda-spaces, #soda-native-content > soda-project-controls').count(), 1);
+    assert.equal(await page.getByRole('button', {name: 'Retry connection'}).count(), 0);
+  }
+  assert.deepEqual(errors, [], 'Native entry/history raised a browser error');
   await peer.close();
   await page.goto(origin + '/?soda-view=spaces');
   await page.locator('#soda-native-content > soda-spaces').waitFor();
