@@ -17,19 +17,20 @@ now landed (`6097564`, `a77dea1`), followed by navigation retirement and cache/h
 source. The explicit `97a2d5e` handoff is incorporated. The existing installed driver
 now calls the runner phases through a distinct branch with isolated actor contexts
 and a one-shot page/actor/path/body guard. Its local source-backed tests use doubles;
-no installed runner phase has been executed. Follow the revised step 4 sequence for independent local work, cross-lane
-dependencies and execution approvals rather than treating all three as one hold.
-Native x86_64 candidate `2cdc238` passed fresh build/seal, the full native check
-including the mandatory page gate, all 11 staging tests, export and independent
-export verification. The explicitly authorized local fixture/browser setup is now
-retained on the builder. An existing-fixture helper correction supports fresh
-repository owners with synthetic profile metadata, not real native creation.
-Verified export: `.artifacts/combined-candidate-2cdc238/export/x86_64/`; see the
-leading handoff for exact revision, checksum, failures and skips. Editor reservations
-are superseded. Exact installed target/provider inputs remain unselected; this
-build/check/export does not prove or authorize installed runner/provider execution.
-Do not call step 4's verified-candidate exit complete or these scenarios
-provider-validated.
+bounded installed phases have now run on the explicitly approved new
+`soda-native-runners-2cdc238` fixture. The active combined plan and leading handoff
+own its current results and remaining work; the older lane reservations are superseded.
+Latest installed native x86_64 candidate `4f9e616` passed fresh build/seal, the full
+native check, export and verified paired maintenance on that fixture. Its exact
+inputs/evidence are retained under `.artifacts/runners-vm-2cdc238/`; its export is
+`.artifacts/runner-trigger-4f9e616/export/x86_64/`. The original `2cdc238` and subsequent
+`556038c` attempts remain retained, including the reproduced native umask failure.
+Native registration, successful exact job, idle lifecycle, preservation and active
+Stop aftermath have bounded results; unconfirmed outer browser/guard receipts stay
+failed. Latest waiter/coordinated-logout driver ports need fresh installed checks.
+Active Restart, contention/interruption, the unused single reboot, exact Remove/
+provider aftermath and integrated-page completion remain open. Do not call step 4
+complete or generalize these fixture results to retained/native/aarch64 acceptance.
 
 ## Owners and entrypoints
 

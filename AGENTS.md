@@ -32,6 +32,18 @@ runner parity/Cockpit retirement and native acceptance obligations remain in for
 
 ## Current execution boundary
 
+The user then approved step 4 on a new isolated CoreOS/KVM fixture only:
+`soda-native-runners-2cdc238`, retained under `.artifacts/runners-vm-2cdc238/`.
+This covers its setup/activation, fixture-only users/credentials/repository/trusted
+manual workflow and native runner registration/jobs/lifecycle/contention, one VM
+reboot and exact removal of disposable `probe-one` capacity while preserving
+`baseline`. Both records/accounts and every failed attempt are retained. The
+existing VM tool owns a bounded 24-hour hold; inspect its recorded owner/deadline
+before continuing. The latest installed candidate and actual proof/remaining driver
+ports are in the leading handoff. The one reboot is still unused at that checkpoint.
+This does not extend to retained VMs/projects, external providers, global trust,
+host-network policy, additional reboots or destructive/automatic cleanup.
+
 The user subsequently authorized bounded Linux-builder setup for the mandatory
 step-3 page gate: Chrome/Playwright dependencies, a new isolated stock Forgejo at
 localhost:3300, its non-admin fixture account/repository, restricted fixture inputs

@@ -200,6 +200,21 @@ build/staging evidence, not installation or provider parity.
 
 ## 4. Execute approved isolated native and provider proof
 
+**Approved and in progress on new `soda-native-runners-2cdc238` only.** State,
+restricted inputs and evidence live under `.artifacts/runners-vm-2cdc238/`; the
+leading handoff owns current exact resources and the bounded VM-owner deadline.
+Native installation exposed and corrected host-helper umask traversal; actual API
+dispatch exposed and corrected webhook-versus-workflow-trigger correlation.
+`4f9e616` passed full build/check/export and backed-up paired fixture delivery,
+including unchanged idle runner process/state snapshots. Native registration, idle
+Stop/Start/Restart, exact successful job execution/observation and active-Stop
+process/provider aftermath now have bounded evidence, with the unconfirmed browser
+and request-guard outcomes preserved explicitly. The latest mutation-wait and
+coordinated-logout driver ports have local checks, not fresh installed PASS records.
+Active Restart, concurrency/interruption, the single approved reboot, exact local
+Remove/provider aftermath and the remaining integrated page journey are still open.
+No retained-target rollout, new target, additional reboot or cleanup is implied.
+
 **Approval checkpoint:** obtain the exact fixture, activation, provider, lifecycle,
 fault, reboot and cleanup grants needed for the selected cases. Approvals can be
 bounded separately; omitted cases remain open, not silently waived.

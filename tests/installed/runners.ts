@@ -120,7 +120,9 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
     evidence.stage='dispatch ' + input.phase;
     try {
       const [response]=await Promise.all([
-        operator.waitForResponse(r => new URL(r.url()).origin === input.origin && new URL(r.url()).pathname === '/-/soda'+route && r.request().method() === 'POST'),
+        // The native runner drains for 30s and systemd may wait up to 2min.
+        // Cover the page's 190s mutation request, not the context's 30s read timeout.
+        operator.waitForResponse(r => new URL(r.url()).origin === input.origin && new URL(r.url()).pathname === '/-/soda'+route && r.request().method() === 'POST', {timeout: 200000}),
         view.getByRole('button',{name:input.phase === 'register' ? 'Register and start listener' : 'Confirm '+input.phase,exact:true}).click(),
       ]);
       assert(response.status() === 200,'Runner mutation unconfirmed; do not replay');

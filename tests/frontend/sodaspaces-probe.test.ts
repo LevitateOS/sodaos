@@ -19,18 +19,33 @@ const start = probe.indexOf('  async function guardedPage(pageContext: BrowserCo
 const end = probe.indexOf('  await context.addInitScript(', start);
 assert(start > 0 && end > start);
 
-test('native logout guard requires the API no-content contract', async () => {
-  const from = probe.indexOf('  const logoutStatus =');
-  const to = probe.indexOf('  await page.bringToFront();', from);
+test('native coordinated logout requires both Soda and Forgejo response contracts', async () => {
+  const from = probe.indexOf('  assert.equal((await sodaEnded).status(), 204);');
+  const to = probe.indexOf('  for (const p of [other, page])', from);
   assert(from > 0 && to > from);
-  for (const status of [200, 204, 401, 403, 500]) {
-    const result: Record<string, unknown> = {};
+  for (const [sodaStatus, forgejoStatus] of [[204,200],[200,200],[401,200],[403,200],[500,200],[204,204],[204,401],[204,500]]) {
     const attempt = runInNewContext('(async () => {\n' + probe.slice(from, to) + '\n})()',
-      {assert, result, loggedOut: Promise.resolve({status() { return status; }})});
-    if (status === 204) await attempt;
+      {assert, sodaEnded: Promise.resolve({status() { return sodaStatus; }}),
+        forgejoEnded: Promise.resolve({status() { return forgejoStatus; }})});
+    if (sodaStatus === 204 && forgejoStatus === 200) await attempt;
     else await assert.rejects(async () => await attempt);
-    assert.equal(result.soda_logout_status, status);
   }
+});
+
+test('runner mutation waiter is bounded beyond native drain and retains exact response matching', async () => {
+  const source = await Bun.file(new URL('../installed/runners.ts', import.meta.url)).text();
+  const from = source.indexOf('operator.waitForResponse(', source.indexOf("evidence.stage='dispatch ' + input.phase;"));
+  const to = source.indexOf(',\n        view.getByRole', from);
+  assert(from > 0 && to > from);
+  const origin = 'https://fixture.invalid', route = '/api/settings/runners/probe-one/stop';
+  const operator = {waitForResponse(predicate: (r: {url(): string; request(): {method(): string}}) => boolean, options?: {timeout: number}) {
+    assert.equal(options?.timeout, 200000);
+    for (const [url, method, expected] of [[origin+'/-/soda'+route,'POST',true], [origin+'/-/soda'+route,'GET',false], ['https://other.invalid/-/soda'+route,'POST',false], [origin+'/-/soda'+route+'-other','POST',false]] as const) {
+      assert.equal(predicate({url: () => url, request: () => ({method: () => method})}), expected);
+    }
+    return Promise.resolve();
+  }};
+  await runInNewContext(source.slice(from, to), {operator, URL, input: {origin}, route});
 });
 
 test('native layout guard measures the visual viewport without hiding scrollbars or permitting overflow', async () => {

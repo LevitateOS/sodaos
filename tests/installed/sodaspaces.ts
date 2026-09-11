@@ -200,8 +200,11 @@ try {
         if (url.pathname === '/login/oauth/authorize') authorizations++;
         if (url.pathname.startsWith('/-/soda/api/environments')) environmentReads++;
         await cdp.send('Fetch.continueRequest', {requestId}); // No response substitution.
-      } catch {
+      } catch (error) {
         accessWrite=null;
+        // Fixed categories only: protocol errors can embed private request data.
+        result.interception_failure = error instanceof Error && error.message.includes('Invalid InterceptionId')
+          ? 'request-no-longer-intercepted' : 'continuation-failed';
         if (!interrupted) refusedRequest = true;
       }
     });
@@ -480,20 +483,30 @@ try {
   stage = 'second real OAuth repository return';
   await oauth(1);
 
-  stage = 'Soda-only logout in another tab';
+  stage = 'coordinated native logout in another tab';
   await other.bringToFront();
   await other.goto(repoURL);
   await open(other);
   await projectView(other, input.repository_id);
-  const loggedOut = other.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/session/logout' && r.request().method() === 'POST');
-  await control('sign-out', other).click();
-  const logoutStatus = (await loggedOut).status(); result.soda_logout_status = logoutStatus;
-  assert.equal(logoutStatus, 204);
-  await page.bringToFront();
-  await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).click();
-  await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor({state: 'visible'});
-  assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
-  assert.equal(await page.locator('#sodaspaces-root').getAttribute('data-user-id'), input.users[1].id);
+  // The selected drawer Sign out delegates to the native coordinator, not the
+  // historical Soda-only logout endpoint. Verify both real authority boundaries.
+  const sodaEnded = other.waitForResponse(r => new URL(r.url()).pathname === '/-/soda/api/login/cancel' && r.request().method() === 'POST');
+  const forgejoEnded = other.waitForResponse(r => new URL(r.url()).pathname === '/user/logout' && r.request().method() === 'POST');
+  await control('sign-out', other).click({noWaitAfter: true});
+  assert.equal((await sodaEnded).status(), 204);
+  assert.equal((await forgejoEnded).status(), 200);
+  for (const p of [other, page]) {
+    await p.bringToFront();
+    // Revalidate the peer through stock HTML; do not assume upstream promises
+    // an immediate navbar replacement in every background document.
+    if (p === page) await p.goto(repoURL);
+    await p.waitForFunction(() => document.readyState === 'complete' && !!document.querySelector('#navbar a[href^="/user/login"]'));
+    assert.equal(await p.evaluate(async () => (await fetch('/-/soda/api/session', {cache: 'no-store'})).status), 401);
+    assert.equal(await p.locator('.soda-workspace-terminal:visible').count(), 0);
+  }
+  result.coordinated_peer_logout = true;
+  await nativeLogin(page, 1);
+  await open();
   await oauth(1);
 
   stage = 'native unsaved form coexistence';

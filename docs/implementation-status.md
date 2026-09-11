@@ -1,6 +1,70 @@
 # Current handoff
 
-## Step 4 latest continuation — `556038c` installed; exact job 1 succeeded, observation adapter corrected
+## Step 4 latest checkpoint — `4f9e616` installed; idle lifecycle and active Stop observations
+
+Caller correction `4f9e616` passed fresh native build, the full native check and
+export (`.artifacts/runner-trigger-4f9e616/`), then verified transfer and paired
+maintenance on the same isolated VM. Backed up application/runner/config/program
+state to `/root/runner-fixture/pre-4f9e616/`; both listeners were idle, with no new
+dispatch during maintenance. Dashboard/helper admission was stopped and the native
+management lock held; neither runner was restarted. Exact before/after native
+snapshots, including both process identities and work/credential hashes, matched
+(`before-4f9e616.json`, `after-4f9e616.json`, `preservation-4f9e616.log`). This is
+bounded idle preservation, not a snapshot guarantee for concurrent job writes.
+Retained the prior install binding, bound the actual new delivery, and passed the
+installed verifier. Only the changed commands/dashboard/future-project images
+were delivered; configuration, roots, accounts, credentials and provider state
+were preserved. No project or retained VM action occurred.
+
+The corrected full job reader passed for exact successful run 1 (executed under
+`556038c`, observed under `4f9e616`, not relabelled as a new execution). Idle native
+Stop, Start and Restart of probe-one all passed through real UI/socket/systemd,
+with baseline preservation and no surviving prior process incarnations. Evidence
+homes are `.artifacts/r4-job-corrected/`, `r4-stop-idle/`, `r4-start-idle/`, and
+`r4-restart-idle/`.
+
+A new, separately named held job `active-stop-4f9e616-01` (hold 180s) was dispatched
+once, returning run ID 2/number 2. A caller receipt assertion initially used the
+wrong success spelling; it did not repeat dispatch. A read attempt refused a newly
+written mode-0644 input before browser work; corrected that file to 0600 and used
+a fresh evidence home. The successful pre-Stop observation saw provider `running`,
+a live exact probe PID/start/UID and step 1. Native Stop then completed with probe
+inactive/disabled, an empty current cgroup and **no surviving prior incarnations**;
+baseline's process/state stayed unchanged. Its browser journey remained unconfirmed.
+Source inspection found that the default 30s response waiter is shorter than the
+stock runner's 30s graceful drain plus dispatch overhead; the old sanitized receipt
+does not retain the exact exception, so do not reconstruct a captured timeout from
+that inference. No Stop replay was performed. The exact subsequent
+job observer recorded provider `failure`, one completed proof step and a dead job
+identity, with unchanged baseline. Its module result was confirmed but the outer
+request-guard assertion failed without a recorded denied hop; keep that overall
+receipt failed, not an accepted full journey. Evidence homes:
+`.artifacts/r4-dispatch-active-stop/`, `r4-job-active-before/` (input refusal),
+`r4-job-active-before-2/`, `r4-stop-active/`, `r4-job-active-after/`.
+
+The full installed page/auth/cache journey also ran and failed at its historical
+“Soda-only logout” wait (`.artifacts/r4-native-pages/`). Actual requests show the
+selected coordinated `/api/login/cancel` → native `/user/logout` → anonymous landing,
+not `/api/session/logout`. Ported that existing stage to require both current
+response contracts and stock anonymous HTML/session revalidation, then use the
+existing native login/OAuth helpers. This is normal coordinated logout; separate
+partial-logout/fault coverage is not inferred. Added fixed interception-failure
+categories without relaxing the fail-closed request guard, so a recurrence can be
+diagnosed without logging protocol errors/headers/bodies. Extended the mutation
+response waiter alone to 200s, covering the UI's 190s request while leaving normal
+read/navigation bounds unchanged. Ported the status regression and added an exact
+response-matching/timeout contract regression. Focused suites and typechecking
+passed after two retained source-test extraction failures. These latest driver
+ports still require fresh frozen candidate/native execution; do not transfer old
+failed receipts to them.
+
+**Current native state:** baseline running/enabled; probe-one stopped/disabled.
+Both accounts, registrations, credentials, work/proofs, provider records and runs
+are retained. The single approved VM reboot, active Restart, caller contention/
+cancellation, exact Remove/provider-aftermath and remaining integrated page cases
+are still unrun. Approval remains scoped to this new fixture; step 4 is not complete.
+
+## Step 4 earlier continuation — `556038c` installed; exact job 1 succeeded, observation adapter corrected
 
 The parent-mode correction `556038c` passed fresh native x86_64 build/seal, full
 `check-native.sh` (including the mandatory localhost page fixture) and export under
