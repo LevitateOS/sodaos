@@ -137,14 +137,24 @@ execution belongs to step 4 below; it is not a prerequisite to author these case
 
 ## 3. Produce and verify one combined native candidate
 
-**In progress; not verified for export.** The Mac browser handback now identifies
-**`0f1d2b1402b1cb594d159c4b1c8a1008acb31ea3`** after a reproduced native navbar fix.
-Its local page/host/layout/TypeScript/browser checks pass, not `check-native.sh`.
-Freeze this revision and obtain fresh matching-native build/check/export evidence;
-none of the earlier candidate's PASS records transfers to its changed bytes.
-The [mandatory page-gate setup](native-validation.md#mandatory-page-gate-on-a-final-native-builder)
-documents the actual supported fixture, private-input and two-browser requirements
-for the final builder. No bypass, borrowed credential or silent fixture replacement.
+**Bounded native x86_64 build/check/export complete for
+`2cdc23861de5829bb0010e292475b9e7c35add6f`.** Under explicit builder-fixture setup
+authorization, created the isolated localhost fixture and restricted inputs and
+installed/prepared the required browsers. The fresh repository-owner case exposed
+an unsupported read in the existing Go fixture double; it now supplies the existing
+synthetic creation profile without allowing native mutations. This supersedes
+Mac candidate `0f1d2b1` with a newly frozen, freshly checked revision.
+
+The focused page gate and full `scripts/check-native.sh x86_64` passed, including
+all 16 consumers and the real native profile-draft history parent. Fresh build/seal,
+11 staging tests, bundle export and independent export verification passed.
+Verified export: `.artifacts/combined-candidate-2cdc238/export/x86_64/`.
+See the leading handoff for manifest checksum, tools, failures, skips and exact
+receipts. No prior candidate's PASS was transferred. The
+[mandatory page-gate setup](native-validation.md#mandatory-page-gate-on-a-final-native-builder)
+remains required for later candidates. Step 1's wider acceptance gaps, step 2's
+exact proposal and all installed/provider/delivery acceptance remain separate;
+this completion is not permission to advance into unapproved native actions.
 
 **Earlier builder evidence:** `894b9e8` built/sealed natively on x86_64.
 Its mandatory check reached the page gate and failed on absent fixture credentials;

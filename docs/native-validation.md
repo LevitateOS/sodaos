@@ -175,7 +175,11 @@ running the final gate in its **clean frozen candidate worktree**, provide:
 - The documented authorized stock Forgejo fixture at **localhost:3300**, with the
   candidate's template overrides loaded and the existing non-admin
   **soda-screenshot** account. Use the supported template/public mounts; no
-  fabricated HTML or alternative authentication harness.
+  fabricated HTML or alternative authentication harness. The existing consumers
+  also require an accessible public fixture repository with **ID 1**; inspect first,
+  never repurpose an unrelated repository to meet that assumption. Fresh fixture
+  initialization must explicitly cover that repository. Repository owners read the
+  existing fixture's synthetic creation profile; this is not native helper proof.
 - That fixture's own restricted `.local/screenshot-fixture/create-output.txt` in
   the worktree. Both Go and browser consumers use it through their existing
   private-input code. Ignored files do not arrive with Git. A different fixture's

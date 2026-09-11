@@ -6,6 +6,17 @@ Adapted from `soda-os`'s handbook capture rules, not its old page list or releas
 
 ### Existing development fixture login
 
+**Linux builder distinction:** the authorized step-3 fixture now also exists on
+this computer at localhost:3300, in `sodaos-local-forgejo` with named volume
+`soda-pages-0f1d2b1-data`. It is separate from the Mac fixture. Its own restricted
+credential input is retained under
+`.artifacts/worktrees/combined-candidate-2cdc238/.local/screenshot-fixture/create-output.txt`.
+The same fixture's original input remains in the `0f1d2b1` worktree. No manual
+screenshot profile was created on this builder; the page harness's private browser
+state is not a replacement manual-login profile. Use the leading handoff for exact
+mounts/setup and preserve all state. Do not borrow the Mac's credential or assume
+ignored profiles arrived with Git.
+
 The local development container `sodaos-local-forgejo` at
 `http://localhost:3300` has the user-authorized, non-admin `soda-screenshot`
 fixture account. Its authenticated Chrome profile is already saved in ignored

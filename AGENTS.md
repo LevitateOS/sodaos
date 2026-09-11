@@ -32,6 +32,18 @@ runner parity/Cockpit retirement and native acceptance obligations remain in for
 
 ## Current execution boundary
 
+The user subsequently authorized bounded Linux-builder setup for the mandatory
+step-3 page gate: Chrome/Playwright dependencies, a new isolated stock Forgejo at
+localhost:3300, its non-admin fixture account/repository, restricted fixture inputs
+and existing OAuth/browser initialization. Native x86_64 build/check/export passed
+for `2cdc238`; see the leading handoff for the verified export and exact receipts.
+Retain `sodaos-local-forgejo`, volume `soda-pages-0f1d2b1-data`, both frozen worktrees,
+private inputs and every failed/successful fixture. The Linux private input lives
+in the frozen worktree, not the root checkout; no manual screenshot profile was
+created here. Do not confuse it with the separate Mac fixture described below.
+This does not authorize appliance delivery, real runner/provider jobs/registration,
+reboot, cleanup, retained-project mutation or unrelated network/global trust changes.
+
 For local Forgejo page screenshots, use `scripts/screenshot.ts` and read
 [docs/screenshot-capture.md](docs/screenshot-capture.md) for usage and login
 instructions. The development instance at `http://localhost:3300`
