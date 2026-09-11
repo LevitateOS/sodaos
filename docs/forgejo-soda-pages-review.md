@@ -1,5 +1,11 @@
 # Native Soda pages — review of the complete integration plan
 
+**Current delivery:** the combined plan's bounded step 5 is now complete on both
+retained targets with paired `19824ec`/schema v9. Native pages/BFCache, authority,
+Cockpit Runners, SSH/PTY and preservation receipts are in the leading handoff.
+This does not relabel the historical review below, waive its broader coverage
+limits or authorize step-6 Cockpit retirement.
+
 ## Resolution of R1–R4 — `18c6b07`
 
 All four findings below have been corrected and locally verified. Entry lifetime

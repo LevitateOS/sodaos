@@ -1,5 +1,79 @@
 # Current handoff
 
+## Step 5 — bounded retained delivery completed on both targets
+
+The user explicitly requested completion under the existing checkpoint-C approval.
+**Both selected targets now run the paired sealed `19824ec` candidate and schema v9**,
+in the required order. This closes the bounded delivery/preservation work, not
+whole-product/release acceptance or automatic Cockpit retirement.
+
+| Target | Original roots | Membership SSH/PTY checks | Maintenance control interval |
+| --- | ---: | ---: | ---: |
+| `soda-test` | 4 retained | 7 passed | 431.1 seconds |
+| `soda-native-spaces-658f2af` | 2 retained | 4 passed | 251.4 seconds |
+
+Intervals include the declared admission/drain and affected-service maintenance;
+they are not measured browser outages. Neither VM/project was rebooted, restarted,
+recreated or replaced. Only the approved application/helper services were interrupted.
+The first target's completed work was not replayed.
+
+### Validation completion
+
+The narrowed private recipe preserves the **two exact confirmed stopped exec IDs**,
+bound to their inspected container, unchanged boot and SHA-256-bound diagnostic
+receipt. Every other/new exec ID still refuses. It neither reopens the diagnostic
+API nor removes records. Fresh v6/config/key/count/people/public-key/system-process
+observations passed. Static backup and six copied-file publication/refusal cases
+passed. Web/legacy-runner executable admission closed; after the old three-minute
+request bound, the real `/inspect` lock barrier and independent native writer/runtime
+checks passed. Only then were dashboard/helper/socket stopped for a fresh SQLite
+backup. All five isolated database migration/key/refusal/paired-prior cases passed;
+the fresh private archive was copied/hash-verified on the builder before publication.
+
+Delivery passed without another observer failure. Actual host delta is **114 files**:
+105 canonical Forgejo files, three retained Cockpit Runners files, four native commands,
+the dashboard image pin and exact old-helper retirement. Two existing roots received
+only the candidate `project-account`, with locked atomic publication/fsync and
+preserved attributes/ancestor identities. Original database columns/ciphertext were
+verified before reopening/login; running dashboard/helper bytes match the export.
+Actual Forgejo/Caddy images, target customizations, Tailnet/Cockpit configuration,
+project images/defaults, credentials and prior hashed assets remain unchanged.
+
+Source-driver **b5af330** checks passed on validation:
+
+- Real native public-repository/auth/logout/draft journey and actual BFCache restore,
+  current-asset conditional revalidation, both actors' own connections.
+- Real native Runners list: operator 1/native-admin true allowed; nonoperator 2/
+  native-admin false denied. No runner mutations or provider jobs.
+- Native root Cockpit login, retained candidate Runners package, CLI list/zero capacity
+  and sign-out with same-context return. Tailnet was not opened.
+- All four existing memberships' SSH, PTY and tmux 3.2a through pinned management
+  forwarding, using their existing fixture keys. No direct/laptop-routing claim.
+- Final original-root people/public-key and sampled system PID/start comparisons,
+  empty managed runtime directories/units, live service/image checks and both retained
+  stopped exec IDs. The temporary diagnostic listener remains absent.
+
+Evidence: `.artifacts/step5-validation-b5af330/` (including `completion.json`, fresh
+`pre-publish.tar`, exact recipes and publication receipts); browser homes
+`.artifacts/c5-vpages-a/`, `c5-vrunners-a/`, `c5-vcockpit-a/`; guest
+`/var/lib/soda-native-pages-19824ec-cutover/`. The earlier `soda-test` evidence remains
+in `.artifacts/step5-cutover-19824ec/` and its recorded browser homes. Preserve all
+backups, later auth writes, copied-state containers, staged bytes, stopped records
+and failed attempts. No blind rollback, pruning or fixture cleanup is authorized.
+
+**Limits remain explicit:** retained runner inventories are empty, so these target
+runs prove their read paths, not retained-runner migration. Applicable unchanged
+mutation/provider mechanisms retain their separately recorded isolated step-4 proof.
+Managed sessions were quiescent, not ended or recreated; this maintenance does not
+claim active-session continuity. Broader physical-keyboard, CLI/provider, aarch64
+and whole-product acceptance are not inferred. First-target observer/direct-routing/
+logout failures and the earlier validation refusal remain historical failures below.
+
+**Next:** no more step-5 deployment is needed. Keep Cockpit Runners until acceptance
+of the delivered parity/coverage map and a separately approved step-6 removal candidate
+and delivery. Future changes receive proportional affected-contract validation; do
+not turn this specific cutover into a mandatory full-plan replay after each edit.
+
 ## Approved two-GET Podman inspection — both retained exec records stopped
 
 The user explicitly approved the temporary root-only Unix-socket API inspection.

@@ -251,16 +251,21 @@ source rendering and local listener health cannot substitute for it.
 
 ## 5. Rehearse and deliver to the approved retained target
 
-**Status: targets inspected; approved checkpoint-B backups and isolated rehearsals passed.** The user selected
-step 5 only, `soda-test` first and retained `soda-native-spaces-658f2af` second, and
-approved starting powered-off targets. Both were already running on their original
-disks; neither was started/rebooted. Checkpoint A observations are retained under
-`.artifacts/retained-step5-c71e5ba/`. The user subsequently approved B; both dashboards
-were briefly stopped/backed up and resumed on unchanged v6 installations. Actual
-copied v6→v9, missing/wrong-key, prior-v9 refusal and matching-prior-v6 cases passed;
-private archives were retained on guests and hash-verified on the builder. The
-live cutover recipe/window (C), remaining delivery checks and target acceptance
-remain pending; step 6 is excluded.
+**Status: bounded step-5 delivery and preservation checks complete on both targets.**
+Approved checkpoint C delivered `19824ec`/schema v9 to `soda-test` first, then
+`soda-native-spaces-658f2af`, with fresh matched backups/rehearsals and closed-admission
+quiescence. Native pages/BFCache, operator/nonoperator Runners reads, retained Cockpit
+Runners and all eleven memberships' management-forwarded SSH/PTY checks passed.
+All six original roots, keys and sampled system processes were preserved; two
+confirmed stopped exec records remain untouched. Neither VM was rebooted. Empty
+runner inventories prove read-path parity only. Failures and limitations remain in
+the leading handoff; step 6 is not automatically authorized.
+
+This is the specific retained-state cutover, not a permanent requirement to repeat
+steps 1–5 after every edit. Future changes need checks proportional to their affected
+contracts and a separately scoped delivery where applicable. Reuse valid unchanged-
+mechanism evidence; repeat migration/lifecycle work only when the change invalidates
+that evidence or its explicitly approved scope requires it.
 `19824ec` is the current verified x86_64 candidate, exported at
 `.artifacts/runner-projection-19824ec/export/x86_64/`, not an instruction to install
 it everywhere. Step 4 supplies bounded isolated evidence and explicit continuity
@@ -415,18 +420,14 @@ preservation observations still belong in the checkpoint-C recipe.
 
 ### 5c. Separately approved live cutover and verification
 
-Checkpoint C is now approved for the two named targets in order, with a 15-minute
-maintenance allowance per target. `soda-test` has received paired `19824ec`/v9 and
-passed bounded native private-page/BFCache, operator/nonoperator Runners reads,
-retained Cockpit Runners and all seven memberships' management-forwarded SSH/PTY
-checks. Its four roots and sampled system processes were preserved. The first
-observer and direct-routing failures remain recorded. Validation VM delivery is
-not yet performed. A separately approved root-only upstream API inspection now
-confirms both retained Podman exec records are stopped (Running=false, Pid=0,
-ExitCode=0). Its diagnostic listener was stopped; neither record was removed.
-Correct the overly strict empty-ExecIDs recipe to preserve those exact stopped
-records before fresh admission/drain checks; do not waive checks on new executions.
-Step 6 remains excluded. See the leading handoff for the actual diagnostic receipt.
+Checkpoint C completed in the selected order with control intervals of 431.1 seconds
+on `soda-test` and 251.4 seconds on validation, within the approved 15-minute allowance
+per target. These are not measured browser outages. Both received paired `19824ec`/v9
+and passed their bounded native page/access/preservation checks. Validation's corrected
+recipe binds the separately inspected stopped records to their exact IDs, container,
+boot and diagnostic receipt, preserves them and refuses new/unclassified exec IDs.
+The diagnostic listener remains stopped. No cleanup, extra lifecycle or step-6
+retirement occurred. See the leading handoff for actual receipts and failed attempts.
 
 **Approval checkpoint C:** present the candidate/delta, rehearsal evidence, target,
 window, exact interruptions and retained-target checks for explicit cutover approval.
