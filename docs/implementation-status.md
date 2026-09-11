@@ -1,5 +1,21 @@
 # Current handoff
 
+## Planning update — steps 5–7 revised; no retained-target execution
+
+Revised `docs/native-pages-runners-plan.md` in place after bounded step-4 completion.
+Step 5 now separates local proposal/page acceptance, approved target inspection,
+backup/copied-state rehearsal and separately approved live cutover. It identifies
+pre-delivery cache/authority/UI/shared-terminal obligations versus broader acceptance,
+and requires a target-derived delta, fresh paired backups, writer admission/drain,
+non-destructive verification and later-write-aware failure handling. Target, window
+and new execution grants remain unselected. Step 6 requires accepted delivered parity,
+coverage transfer and a newly checked, separately approved removal candidate; step 7
+records source, build, isolated proof, retained delivery, retirement and broader gaps
+separately. No second plan/updater/gate was added. Reviewed the existing installation,
+credential/schema, page-review and runner-retirement contracts; no build/test, target
+contact, deployment, reboot, provider action or cleanup ran for this documentation
+revision. The exact completed step-4 evidence below remains unchanged.
+
 ## Step 4 bounded x86_64 completion — `19824ec` installed; overlap, departure and exact Remove passed
 
 **The approved isolated step-4 sequence is complete at its bounded scope.** Latest

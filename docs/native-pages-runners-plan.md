@@ -251,62 +251,202 @@ source rendering and local listener health cannot substitute for it.
 
 ## 5. Rehearse and deliver to the approved retained target
 
-**Separate approval checkpoint:** select the actual retained target and affected
-maintenance window. Existing `soda-test`/validation-VM permissions are not a fresh
-rollout grant. Require applicable step-4 parity evidence first.
+**Status: planning only; target, window and execution grants are unselected.**
+`19824ec` is the current verified x86_64 candidate, exported at
+`.artifacts/runner-projection-19824ec/export/x86_64/`, not an instruction to install
+it everywhere. Step 4 supplies bounded isolated evidence and explicit continuity
+for unchanged production mechanisms, not a retained-state rehearsal. Earlier
+`soda-test`/validation-VM grants and the isolated fixture's used reboot/removal do
+not transfer here. Do not contact or start a target merely to fill this plan.
 
-- Perform fresh read-only inventory of exact running bytes/schema/configuration,
-  customizations, runner/project identities, work/credentials, units/policy, jobs
-  and browser terminals. Review all interruptions and private inputs.
-- Take fresh application/config/key/artifact backups and consistent runner backups
-  under explicitly approved quiescence. Otherwise label hashes as observations,
-  not recoverable backups. Rehearse actual migrations and artifact pairing on copied
-  state, without cloned live provider listeners.
-- After concrete cutover approval, stop new management admission, wait for old
-  Cockpit/CLI/helper writers, deliver the compatible affected set and retire the
-  obsolete helper. Do not rerun setup, regenerate credentials, replace roots or
-  restart listeners implicitly. Preserve already-delivered compatible components.
-- Verify running bytes, native page/Actions coexistence, both authorities, Cockpit
-  fallback and preserved project/runner state. Execute only approved retained-target
-  checks, never the destructive disposable-fixture suite.
-- On failure preserve new writes and partial state; assess compatible restoration.
-  An earlier snapshot is not automatically lossless rollback.
+Use one owner, the existing producer/verifier, installed journeys and private
+exact-target recipes. Do not build another updater, orchestration layer, manifest
+format or readiness database. Follow the current
+[installation constraints](installation.md#existing-state-dashboard-migration) and
+[credential/schema rehearsal](dashboard-credentials.md#controlled-existing-state-rehearsal-before-live-deployment),
+not the historical v3→v5 target recipe as a command sequence to replay.
 
-Follow [installation](installation.md#existing-state-dashboard-migration) and
-[credential/schema rehearsal](dashboard-credentials.md#controlled-existing-state-rehearsal-before-live-deployment).
+### 5a. Finish the delivery proposal and relevant page acceptance
 
-**Exit:** the approved target serves the verified combined candidate with bounded
-preservation evidence. Cockpit Runners still exists until the next coordinated step.
+Prepare source-backed work locally now. Fill target facts only after separately
+approved inspection; keep unknowns visibly unselected.
+
+| Proposal field | Required concrete decision/evidence |
+| --- | --- |
+| Target and client | Exact hostname/architecture, running versus powered-off state, browser and Cockpit origins, management/client path, trusted CA and SSH pin. Power-on/reboot and routing are separate effects, not implicit prerequisites. |
+| Candidate and delta | Full source revision, verified export/manifest chain, actual installed identities and exact added/replaced/removed paths, images, effective units and configuration fields. Recheck compatibility with installed upstream versions/customizations. |
+| Authorities and private inputs | Configured Soda operator, nonoperator site administrator and applicable repository actors; separate host-root/Cockpit authority. Select their own approved input files, not isolated-fixture or borrowed CLI credentials. |
+| Preserved state | All projects/roots, original Linux accounts/memberships, keys, runner accounts/registrations/work, boot policies, active jobs and exact managed terminal IDs/process scopes. Identify every writer and required backup consistency. |
+| Effects and window | Explicit service interruptions and admission closure, client/tab handling, root/project/terminal implications of shared `soda-host`, and any individually necessary package/configuration changes. No blanket upgrade or project/runner lifecycle permission. |
+| Checks and failure handling | Named pre/post observations, candidate-specific copied-state results, permitted authentication/refresh effects, failure stop points, matching prior artifacts and a decision owner for restoration with later writes. |
+
+Classify step 1's remaining work by the actual delivery boundary. Do not equate a
+missing broader matrix with a reproduced defect, or use bounded acceptance to
+waive a known authorization, persistence or data-loss failure.
+
+| Coverage | Before live cutover | Remaining broader acceptance |
+| --- | --- | --- |
+| Old/new clients and module graph | Exercise genuine predecessor bytes for the selected target through first new navigation, transitive imports and Back/Forward. Verify actual installed revalidation/CSP/epoch behavior, not candidate bytes warmed under old URLs or the preview's six-hour cache. Establish safe retirement/no replay for old entries and document the explicit reload/reconnect policy. If the predecessor cannot be obtained, this transition remains open; do not fabricate an upgrade PASS. | Wider predecessor releases, browser/platform combinations and long-lived client matrices beyond the selected transition. |
+| Authority and authentication | Preserve applicable real two-actor results and cover the selected target's actual private/public repository and owner/member boundaries, consent/cancellation, logout, unavailable responses and stale actors. Verify server denials without destructive writes or live provider permission changes. Missing actors/resources require an explicit approved test arrangement, not role equivalence or credential substitution. | Broader provider outages, permission-change and repository combinations not exercised on this delivery. |
+| Native UI and drafts | Review populated Spaces, Runners and repository settings in both themes and representative narrow/tablet/wide layouts using the existing fixture/capture tools. Cover usable confirmation/error controls, scrolling/focus, native profile menu and unsaved native/Soda drafts; fix reproduced delivery-relevant defects. | Exhaustive visual/browser and physical-keyboard acceptance. Geometry alone is not screenshot review. |
+| Terminals and shared helper | Review the actual restart/detach boundary and test it on approved rehearsal resources where affected. Define preservation/reattachment of existing exact sessions and no implicit End/create. A fixture with no projects does not prove this boundary for a populated target. | Broader terminal/CLI suitability and native concurrency matrices outside the affected maintenance boundary. |
+
+Record applicable existing receipts and the remaining bounded checks in the
+handoff. Changed production bytes require a fresh frozen candidate and applicable
+build/browser/native regression evidence; retain the original step-4 receipts
+rather than relabelling them. No aarch64 sibling barrier is added to an approved
+x86_64 delivery; neither cross-build nor x86_64 proof establishes aarch64 acceptance.
+
+### 5b. Approved inspection, backup and copied-state rehearsal
+
+**Approval checkpoint A:** select the exact target and read-only inspection scope.
+Inventory running artifacts/image digests and effective unit pins, actual schema,
+config consumers, Forgejo version/CustomPath/template/cache overrides, native
+clients/units and the preservation set above. Do not dump full container inspection,
+secrets or Forgejo's database. Unexpected custom files, unsupported saved providers,
+unknown identities or an upstream mismatch stop delta preparation for a decision;
+do not reinterpret, overwrite or delete them.
+
+Produce the smallest coordinated delta from those facts: dashboard/API image and
+canonical template/module graph/cache epoch, schema/config compatibility, paired
+`soda-host`/`soda-runners`, launcher and only required unit/package changes. List
+unchanged components explicitly. Exported Forgejo/Caddy/Project OS images are not
+an instruction to load every image, replace roots or change future-creation defaults.
+Identify any obsolete `soda-runner-helper` caller/process before planning its exact
+retirement; removing a file does not drain an already running writer.
+
+**Approval checkpoint B:** approve the backup/rehearsal location, private-copy
+custody and exact quiescence/interruption effects. Use new exclusive private
+outputs. Back up Soda SQLite with its supported backup API, including committed
+WAL data, and verify integrity. Retain matching key/config/credentials, prior
+artifacts, image pins, units and custom files with ownership/modes/SELinux labels.
+Never regenerate an existing grant key. Any Forgejo backup uses supported upstream
+mechanisms, not direct database access. Consistent runner/project backups require
+their own approved quiescence; otherwise record bounded observations, not a
+recoverable live snapshot or permission to stop jobs/projects.
+
+Rehearse the actual source-schema→candidate-v9 migration/config consumers on the
+controlled copy. Verify preserved IDs/columns/ciphertext and failure on missing or
+wrong keys, plus paired artifact/route compatibility. Do not assume the target is
+still v6 or that all intermediate migrations are already proven for its state.
+Keep copied grants/provider credentials from authenticating or refreshing against
+live services; never start cloned listeners with copied registration tokens.
+Use the existing synthetic/isolated tools for effects, not live resources merely
+because their state was copied. Retain successful and failed copies privately.
+
+**Rehearsal exit:** reviewed exact delta, successful applicable page/compatibility
+checks, a preservation/interruption record and a runnable bounded cutover recipe.
+Rehearsal success is not live-cutover permission, and its backup is not current
+rollback data for a later maintenance window.
+
+### 5c. Separately approved live cutover and verification
+
+**Approval checkpoint C:** present the candidate/delta, rehearsal evidence, target,
+window, exact interruptions and retained-target checks for explicit cutover approval.
+If target bytes/state or the proposed effects changed, reassess before writing.
+
+1. Reconfirm the preservation baseline and take fresh consistent paired backups
+   under the approved window. Close the declared web/socket/CLI/Cockpit management
+   admission paths and establish that old writers have finished. Do not introduce
+   a product drain service or assume stopping the socket closes existing handlers.
+2. Apply only the reviewed paired delta; preserve explicit image pins, modes,
+   labels, credentials and native origins/callbacks. Do not run first-install,
+   `soda-setup` or `soda-activate` as an upgrade, recreate roots, rewrite runner
+   descriptors, regenerate OAuth applications or implicitly restart listeners.
+   If an actual callback change is necessary, use its supported owner workflow
+   under a separately named effect; no database edit or secret regeneration.
+3. Restart only the approved affected services after their compatible inputs are
+   ready. Record the real terminal/access interruption, schema migration and
+   running-byte verifier results before reopening management admission.
+4. Verify native Forgejo pages/protocols and Actions coexistence, native Spaces/
+   Runners/settings, scoped OAuth/cookies, both authority boundaries and cache/
+   history behavior using approved actors. Compare preserved project/root/account/
+   key/runner/work/boot state and exact terminal identities under the declared
+   client/reconnect policy. Use existing approved access, not new keys, joins,
+   project starts or routing changes to hide failures.
+5. Keep Cockpit Runners as fallback and verify its compatible read path plus native
+   root access. Run only named retained-target checks: no fixture registration,
+   job dispatch, contention hold, lifecycle, Remove or reboot is inherited from
+   step 4. Opening Tailnet may refresh Forgejo advertisement; that existing effect
+   needs explicit scope rather than being hidden in a harmless-looking UI check.
+
+**Failure stop:** preserve failed DB/WAL, partial files, jobs, credentials and all
+later writes; stop further automatic actions and report what completed versus
+what is unconfirmed. Reopening access or restoring files requires a reviewed
+compatible state. Never run a pre-v9 binary on v9, lower a schema marker, replay a
+mutation or restore an old DB/root snapshot blindly. A prior image alone is not
+rollback; authorize any restoration using the matching prior set and an explicit
+later-write preservation decision. This is not a new general recovery mechanism.
+
+**Step-5 exit:** target-specific acceptance of the recorded affected delivery and
+preservation checks, with all failures/limitations disclosed. An empty runner
+inventory proves only the read path, not retained-runner migration parity. If the
+actual target cannot establish relevant parity, keep that limitation and Cockpit
+fallback explicit. No automatic progression into retirement or release acceptance.
 
 ## 6. Retire only the Cockpit runner presentation
 
-After applicable delivered parity, make one coordinated source/removal change:
+**Entry is delivered parity, not step-4 success alone.** Require accepted step-5
+results on each target proposed for retirement, no unresolved delivery-relevant
+runner/authentication/preservation defect, and a reviewed coverage map from the
+Cockpit responsibilities to the native Runners owner. This includes local capacity,
+registration/token handling, lifecycle/confirmation, uncertain outcomes, refresh
+and diagnostics/provider guidance. Applicable isolated mutation evidence can cover
+unchanged mechanisms; do not create or destroy retained capacity merely to fill a
+matrix. Missing applicable evidence keeps the fallback in place.
 
-- Remove `cockpit/soda-runners/` and exclusively used UI/store/transport/dependencies
-  only after their behavioral coverage exists at the new owner. Audit imports.
-- Update Vite/package inventory/staging/payload tests and port the installed operator
-  check's runner section. Keep its Tailnet and root-authority checks.
-- Preserve runner backend/CLI/native tests, launch/client/service/sysusers/tmpfiles,
-  upstream Actions templates and all runner accounts/state/provider records.
-- Preserve Cockpit Tailnet, React/PatternFly dependencies it uses, Services/Logs and
-  ordinary operator/root administration. No whole-Cockpit removal.
-- Build/check the changed removal candidate and deliver only its approved delta.
-  Remove obsolete page/assets on accepted targets; keep fallback elsewhere.
+Then make one coordinated source-removal candidate:
 
-**Exit:** source and accepted installed targets no longer ship/link the old runner
-page, native Runners remains functional and Tailnet/ordinary Cockpit still work.
+- Remove `cockpit/soda-runners/` and runner-only React presentation/store/transport
+  only after their applicable behavioral tests exist at the retained/new owner.
+  Audit actual imports; no removal of shared helpers/dependencies by directory name.
+- Update Vite/package inventories, staging/payload checks, links and installed
+  operator journeys. The overlap scenario remains historical pre-retirement proof;
+  port ongoing CLI/native coverage without invoking a removed package or copying
+  the authentication harness. Keep the ordinary root/Tailnet checks and their gates.
+- Preserve `internal/runners`, host/API/CLI/launch/service/client contracts,
+  sysusers/tmpfiles and focused native/security tests. Do not remove provider-owned
+  Forgejo Actions templates, accounts, units, credentials, work or provider records.
+- Preserve Tailnet, its backing logic/tests and React/PatternFly dependencies,
+  Cockpit Services/Logs and ordinary administration. No whole-Cockpit removal.
+
+Build/check/export and verify this **new removal candidate**, with focused evidence
+that native Runners still works and remaining operator pages are intact. Rehearse
+its packaging/removal delta. Obtain explicit per-target removal-delivery approval;
+step-5 approval does not authorize this later source/payload change. Delete only
+inventoried obsolete package/assets/links after checking actual occupants. Preserve
+customized/unexpected files for a decision. Unaccepted targets retain their installed
+fallback and are not silently upgraded by publication of a new source tree.
+
+**Exit per approved target:** no obsolete runner navigation/package remains, native
+management and ordinary Cockpit/Tailnet still work, and unchanged runner/provider
+state is verified. Record source removal and each installed removal separately.
 
 ## 7. Close documentation and the bounded completion record
 
-Keep documentation current throughout, then finish the cross-guide audit:
-architecture, API/credentials, installation/staging, CI/operator guidance, Project OS,
-Lit/design, native validation and AGENTS. Use the actual native **Runners** destination;
-remove interim fallback wording only where retirement really occurred.
+This is documentation/evidence closure, **not a further deployment, cleanup or
+release grant**. Update guides alongside each actual phase, then audit architecture,
+API/credentials, installation/staging, CI/operator usage, Project OS, Lit/design,
+native validation and AGENTS. Name native **Runners** at `/?soda-view=runners`.
+Remove interim fallback wording only for actually retired targets; distinguish
+historical receipts from current-source contracts without erasing failures.
 
-Report separately: combined source/browser acceptance, exact native build/export,
-isolated page/provider/process proof per architecture, retained-target delivery,
-Cockpit retirement and any missing acceptance. Preserve historical failures and
-restricted evidence locations. Do not claim whole-product/release acceptance.
+Keep the existing handoff as the completion record, with these separate outcomes:
+
+| Boundary | Record independently |
+| --- | --- |
+| Source/page acceptance | Exact revisions/checks and remaining step-1 predecessor, authority, visual and browser/keyboard gaps; no generic “UI complete” claim. |
+| Build/export | Candidate, architecture, verified manifest/artifacts and actual checks/skips; no claim of reproducibility or installed proof from a build. |
+| Isolated native proof | Original per-case revisions/results and explicit unchanged-mechanism continuity; `19824ec` bounded x86_64 completion does not relabel earlier jobs/reboot. |
+| Retained delivery | Selected target, exact installed delta, schema, backups, interruption/preservation receipts, acceptance and residual risks. Unselected/unexecuted targets stay explicit. |
+| Cockpit retirement | New source candidate and separately approved target removals, including remaining fallback installations and preserved operator functionality. |
+| Broader acceptance | Outstanding aarch64, whole-product/release, intended-client routing, CLI/terminal and wider matrix work with its existing feature owner. No sibling-build barrier or silent waiver. |
+
+Retain all private evidence, credentials, archives, fixtures and later writes under
+their existing custody rules. A tool-owned VM hold/deadline is not an extension or
+new power-cycle grant. Do not clean up provider records, fixtures or old worktrees
+as part of closeout. If checks remain open, finish a bounded handoff with explicit
+next work—not a percentage, whole-product acceptance claim or another parallel plan.
 
 ## Explicit exclusions and decisions still needed
 
