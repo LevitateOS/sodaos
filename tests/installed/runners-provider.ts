@@ -17,7 +17,9 @@ export function runnerJobObservation(input: RunnerInput, value: unknown) {
   const p = input.provider; assert(p?.run_id);
   const run = object(value), repository = object(run.repository);
   assert(run.id === p.run_id && Number.isSafeInteger(repository.id) && String(repository.id) === p.repository_id, 'Wrong provider run/repository');
-  assert(run.commit_sha === p.commit && run.workflow_id === p.workflow && run.event === 'workflow_dispatch', 'Wrong workflow or commit');
+  // Forgejo separates the workflow's `on` trigger from a causing webhook.
+  // API dispatch can have an empty webhook event; trigger_event owns this check.
+  assert(run.commit_sha === p.commit && run.workflow_id === p.workflow && run.trigger_event === 'workflow_dispatch', 'Wrong workflow, commit or trigger');
   assert(typeof run.event_payload === 'string');
   const payload = object(JSON.parse(run.event_payload)), inputs = object(payload.inputs);
   assert(inputs.observation === p.observation && inputs.hold_seconds === String(p.hold_seconds), 'Wrong job observation');

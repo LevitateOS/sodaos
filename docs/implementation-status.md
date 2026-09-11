@@ -1,6 +1,51 @@
 # Current handoff
 
-## Step 4 in progress — new isolated runner VM and reproduced native permission failure
+## Step 4 latest continuation — `556038c` installed; exact job 1 succeeded, observation adapter corrected
+
+The parent-mode correction `556038c` passed fresh native x86_64 build/seal, full
+`check-native.sh` (including the mandatory localhost page fixture) and export under
+`.artifacts/runner-mode-556038c/`. It was transferred with the existing verifier to
+`/var/tmp/soda-runner-556038c/x86_64` on the same isolated VM. Closed management
+admission/stopped dashboard+helper, acquired the existing management lock, and
+retained a quiesced application/runner/config/program backup at
+`/root/runner-fixture/pre-556038c/application-runner-state.tar`. Delivered the seven
+changed Go commands together, loaded the changed dashboard/future-project images,
+and changed only baseline's root-owned parent from 0700 to its intended 0755.
+State/token ownership/modes and original account/provider identity were retained.
+Forgejo/Caddy image configs and all template bytes were unchanged; neither provider
+nor proxy needed a restart. No first-install replay or project replacement.
+
+Initial installed verification correctly refused the old `install-started` binding.
+Retained its original bytes separately and in the backup, then updated that existing
+binding to the actual delivered maintenance revision (did not erase the marker or
+claim a new first-install PASS). The full installed artifact/substrate verifier then
+passed. A real native browser **Start** of retained baseline passed; registration
+was not replayed. Fresh native browser registration of `probe-one` passed while
+preserving baseline. Both listener/account records are retained; baseline UID 992,
+probe UID 987, shared native runner group 976. Evidence homes:
+`.artifacts/r4-startbase-01/` and `.artifacts/r4-register-01/`.
+
+Dispatched exactly one trusted workflow, observation `success-556038c-01`, hold 0,
+through the existing provider adapter/installed driver. It returned exact run ID 1,
+number 1 (`.artifacts/r4-dispatch-01/`). Native proof records both completed steps,
+probe account/UID and a no-longer-live exact PID/start identity. The subsequent job
+journey (`.artifacts/r4-job-01/`) was unconfirmed because the adapter incorrectly
+checked the webhook `event` field. A pinned-CA read of exact run 1 shows status
+`success`, the matching repository/workflow/commit/inputs, empty `event`, and
+`trigger_event: workflow_dispatch`. The selected server's actual Swagger defines
+these separately: webhook cause versus workflow `on` trigger. Corrected the
+product-owned observer to require `trigger_event`, with missing/wrong-trigger
+regressions; no fallback to webhook event. Focused Bun cases and full typechecking
+passed, and the corrected pure validator accepts the retained exact response as
+success (`run-1-corrected-correlation.log`). The old failed driver receipt remains
+failed; no dispatch replay occurred. This caller-only correction still needs its
+fresh clean driver/candidate validation before a passing full job-journey receipt.
+
+The original VM approval remains active. No reboot, active-job lifecycle, contention/
+interruption or Remove case has yet run. Do not infer those from the successful
+job. See the retained state and 24-hour owner deadline below; step 4 is not complete.
+
+## Step 4 initial execution — new isolated runner VM and reproduced native permission failure
 
 The user approved a new isolated CoreOS/KVM fixture, candidate installation,
 fixture-only Forgejo users/OAuth/registration credentials/trusted workflow, native

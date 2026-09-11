@@ -44,13 +44,13 @@ test('provider results use the returned exact run and never expose payloads or i
   assert.deepEqual(dispatchedRunnerJob({id:12,run_number:3,jobs:['native'],private:'not retained'}),{run_id:12,run_number:3});
   for (const bad of [{id:0,run_number:3,jobs:['native']},{id:12,run_number:3,jobs:['native','other']},{}]) assert.throws(()=>dispatchedRunnerJob(bad));
   const input=runnerInput({...base(),phase:'job',provider:{...provider,run_id:12}},'--allow-runner-job','runner-fixture');
-  const run={id:12,repository:{id:7,private:'never retained'},workflow_id:provider.workflow,commit_sha:provider.commit,event:'workflow_dispatch',event_payload:JSON.stringify({inputs:{observation:provider.observation,hold_seconds:'0'},private:'synthetic-secret'}),status:'running'};
+  const run={id:12,repository:{id:7,private:'never retained'},workflow_id:provider.workflow,commit_sha:provider.commit,event:'',trigger_event:'workflow_dispatch',event_payload:JSON.stringify({inputs:{observation:provider.observation,hold_seconds:'0'},private:'synthetic-secret'}),status:'running'};
   for(const status of ['waiting','running','success','failure','cancelled']) {
     const observed=runnerJobObservation(input,{...run,status});
     assert.equal(observed.status,status);
     assert(!JSON.stringify(observed).includes('synthetic-secret'));
   }
-  for (const extra of [{id:13},{repository:{id:8}},{workflow_id:'other.yml'},{commit_sha:'c'.repeat(40)},{event_payload:'{}'},{status:'online'}]) assert.throws(()=>runnerJobObservation(input,{...run,...extra}));
+  for (const extra of [{id:13},{repository:{id:8}},{workflow_id:'other.yml'},{commit_sha:'c'.repeat(40)},{event:'workflow_dispatch',trigger_event:'push'},{trigger_event:undefined},{event_payload:'{}'},{status:'online'}]) assert.throws(()=>runnerJobObservation(input,{...run,...extra}));
 });
 
 test('provider transport uses private stdin, fixed preflight and one non-replayed dispatch', async () => {
