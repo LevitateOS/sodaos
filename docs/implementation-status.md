@@ -1,5 +1,20 @@
 # Current handoff
 
+## Read-only process double-check — no prune candidate found
+
+At the user's request, a fresh validation-VM check found only **six normal system
+processes per project**: systemd, journald, logind, dbus-broker-launch, dbus-broker
+and sshd. Native `podman top` and independent host `/proc` PID-namespace enumeration
+agree; the latter records exact host PIDs/start ticks. No extra shell, tmux,
+terminal or account-writer process was present. Both managed runtime directories
+remain empty, no managed terminal units are listed, and no host process command
+line references either exact exec ID (arguments were not emitted). The two stored
+IDs persist without bundles/PID/exit files; **their presence is not evidence of
+running processes to prune**. Their stored created/stopped classification remains
+unread. No listener was started and nothing was killed, pruned or deployed.
+Evidence: `.artifacts/step5-exec-double-check-e4944e4/`. This double-check does not
+itself reopen the held cutover or authorize cleanup.
+
 ## Validation cutover held on unclassified retained exec records
 
 After `soda-test` passed, validation preflight preserved v6, original boot/config/key/
