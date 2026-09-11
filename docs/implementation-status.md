@@ -8,8 +8,11 @@ record gate or fragmented approval handoffs. Those were process mistakes. Future
 work must use proportional checks, reuse applicable evidence and carry approved
 work through without unnecessary prompts. Retain the evidence and real preservation/
 authorization requirements; do not replay the historical sequence as a default.
-`AGENTS.md` now makes this distinction explicit. This is a guidance-only correction;
-no runtime actions or tests were performed for it.
+`AGENTS.md` is now a short operational guide with essential commands, durable
+boundaries and task-specific links instead of deployment timelines and repeated
+status/approval summaries. The execution evidence below is unchanged. The rewrite
+passed `git diff --check` and local link/path checks; no builds, application tests
+or native actions ran.
 
 ## Step 5 — bounded retained delivery completed on both targets
 
