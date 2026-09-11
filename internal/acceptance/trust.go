@@ -1,9 +1,12 @@
 package acceptance
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/url"
 	"strconv"
@@ -13,7 +16,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-func inlineData(source string) ([]byte, error) {
+func inlineData(source, compression string) ([]byte, error) {
 	parts := strings.SplitN(source, ",", 2)
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "data:") {
 		return nil, errors.New("inline data URI required")
@@ -27,9 +30,24 @@ func inlineData(source string) ([]byte, error) {
 		if err != nil {
 			return nil, errors.New("invalid inline base64")
 		}
-		return b, nil
+		data = string(b)
 	}
-	return []byte(data), nil
+	if compression == "" {
+		return []byte(data), nil
+	}
+	if compression != "gzip" {
+		return nil, errors.New("unsupported inline compression")
+	}
+	reader, err := gzip.NewReader(bytes.NewReader([]byte(data)))
+	if err != nil {
+		return nil, errors.New("invalid compressed inline data")
+	}
+	defer reader.Close()
+	decoded, err := io.ReadAll(io.LimitReader(reader, 1024*1024+1))
+	if err != nil || len(decoded) > 1024*1024 {
+		return nil, errors.New("invalid or oversized compressed inline data")
+	}
+	return decoded, nil
 }
 
 // Verify the supplied trust root against the selected private bootstrap before
@@ -43,7 +61,7 @@ func VerifyFixtureTrust(path, name string, r Remote) error {
 		Storage struct {
 			Files []struct {
 				Path     string
-				Contents struct{ Source string }
+				Contents struct{ Source, Compression string }
 			}
 		}
 	}
@@ -61,7 +79,7 @@ func VerifyFixtureTrust(path, name string, r Remote) error {
 		if f.Path != "/etc/hostname" && f.Path != "/etc/ssh/ssh_host_ed25519_key" {
 			continue
 		}
-		body, err := inlineData(f.Contents.Source)
+		body, err := inlineData(f.Contents.Source, f.Contents.Compression)
 		if err != nil {
 			return err
 		}

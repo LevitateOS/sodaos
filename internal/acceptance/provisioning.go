@@ -28,7 +28,7 @@ func ProvisioningSecrets(path string) ([][]byte, error) {
 		Storage struct {
 			Files []struct {
 				Path     string
-				Contents struct{ Source string }
+				Contents struct{ Source, Compression string }
 			}
 		}
 	}
@@ -46,7 +46,7 @@ func ProvisioningSecrets(path string) ([][]byte, error) {
 			continue
 		}
 		source := file.Contents.Source
-		decoded, err := inlineData(source)
+		decoded, err := inlineData(source, file.Contents.Compression)
 		if err != nil {
 			return nil, err
 		}

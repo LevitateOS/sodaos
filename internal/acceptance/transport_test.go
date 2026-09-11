@@ -1,6 +1,8 @@
 package acceptance
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -91,9 +93,10 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	input := filepath.Join(dir, "instance.ign")
+	contents := map[string]any{"source": "data:;base64," + base64.StdEncoding.EncodeToString(encoded)}
 	config := map[string]any{"ignition": map[string]any{"version": "3.5.0"}, "storage": map[string]any{"files": []any{
 		map[string]any{"path": "/etc/hostname", "contents": map[string]any{"source": "data:,soda-native-fixture%0A"}},
-		map[string]any{"path": "/etc/ssh/ssh_host_ed25519_key", "contents": map[string]any{"source": "data:;base64," + base64.StdEncoding.EncodeToString(encoded)}},
+		map[string]any{"path": "/etc/ssh/ssh_host_ed25519_key", "contents": contents},
 	}}}
 	body, _ := json.Marshal(config)
 	if err = os.WriteFile(input, body, 0600); err != nil {
@@ -113,6 +116,56 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 	secrets, err := ProvisioningSecrets(input)
 	if err != nil || len(secrets) == 0 {
 		t.Fatalf("private bootstrap redaction: %v", err)
+	}
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err = writer.Write(encoded); err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	contents["source"] = "data:;base64," + base64.StdEncoding.EncodeToString(compressed.Bytes())
+	contents["compression"] = "gzip"
+	body, _ = json.Marshal(config)
+	if err = os.WriteFile(input, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	r.Port = 22222
+	if err = VerifyFixtureTrust(input, "soda-native-fixture", r); err != nil {
+		t.Fatal(err)
+	}
+	secrets, err = ProvisioningSecrets(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, secret := range secrets {
+		found = found || bytes.Equal(secret, encoded)
+	}
+	if !found {
+		t.Fatal("compressed private key was not decoded for redaction")
+	}
+	r.Port = 22223
+	if VerifyFixtureTrust(input, "soda-native-fixture", r) == nil {
+		t.Fatal("compressed key accepted unpinned endpoint")
+	}
+	if _, err = inlineData("data:,not-gzip", "gzip"); err == nil {
+		t.Fatal("accepted corrupt gzip")
+	}
+	if _, err = inlineData("data:,plain", "unknown"); err == nil {
+		t.Fatal("accepted unknown compression")
+	}
+	compressed.Reset()
+	writer = gzip.NewWriter(&compressed)
+	if _, err = writer.Write(bytes.Repeat([]byte("x"), 1024*1024+1)); err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = inlineData("data:;base64,"+base64.StdEncoding.EncodeToString(compressed.Bytes()), "gzip"); err == nil {
+		t.Fatal("accepted decompression overflow")
 	}
 }
 func TestVMArgumentsRetainDiskAndNativeIsolation(t *testing.T) {
