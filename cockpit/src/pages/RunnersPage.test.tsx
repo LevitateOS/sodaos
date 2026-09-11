@@ -121,7 +121,11 @@ test("local status and provider guidance remain honest; lifecycle actions refres
   expect(screen.getByRole("heading", { name: "Provider authority" })).toBeTruthy();
   invoke.mockResolvedValueOnce({ ok: true });
   fireEvent.click(screen.getByRole("button", { name: "Stop" }));
-  await screen.findByText("one was stopped.");
+  const stopped = await screen.findByText("one was stopped.");
+  const alert = stopped.closest(".soda-diagnostic.pf-m-success");
+  expect(alert?.textContent).toContain("one was stopped.");
+  // Native browser text matching includes PatternFly's accessible severity prefix.
+  expect(stopped.textContent?.trim()).not.toBe("one was stopped.");
   expect(invoke).toHaveBeenCalledWith("stop", { id: "one" });
   invoke.mockResolvedValueOnce({ ok: true });
   fireEvent.click(screen.getByRole("button", { name: "Restart" }));

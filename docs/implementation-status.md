@@ -1,6 +1,34 @@
 # Current handoff
 
-## Step 4 continuation — `23504ee` delivered; Cockpit preparation corrected
+## Step 4 continuation — `634aa30` native overlap effects and departure evidence
+
+`634aa30` passed fresh native build/check/export/verification and backed-up paired
+fixture delivery (`.artifacts/runner-ready-634aa30/`, frozen worktree
+`.artifacts/worktrees/runner-ready-634aa30/`, guest backup
+`/root/runner-fixture/pre-634aa30/`). No listener restart accompanied maintenance.
+With exact Cockpit peer trust and the original rendered-heading wait, overlap 03
+reached the real operations. One native Restart, one Cockpit Stop and one CLI list
+remained pending inside the fixed 20s lock hold, then completed after release.
+Native postconditions passed: old probe incarnations gone, unchanged baseline and
+Restart the final state. Its overall receipt still failed at post-operation UI
+observation: PatternFly prefixes the success title's browser text with accessible
+severity text. A local test against the actual Cockpit component confirmed that
+contract; the corrected observer matches the success alert plus message, not a
+bare exact title. Added finer post-observation stages. Do not rewrite overlap 03's
+failed aggregate or replay its requests.
+
+The separate departure 01 phase **passed under `634aa30`**: exactly one Restart
+POST observed while admission was held, navigation to native Issues before release,
+then native snapshots showing cancellation before any observed effect. Return and
+reload produced no second mutation; fresh native/API inventory agreed and baseline
+was preserved. This is bounded cancellation/no-replay, not proof that aborting all
+web operations cancels native effects. Evidence homes `.artifacts/r4-overlap-03/`
+and `.artifacts/r4-departure-01/`; matching private logs under
+`.artifacts/runners-vm-2cdc238/`. Both listeners remain running; no new job, Remove
+or reboot occurred. The success-alert correction needs fresh candidate/native
+validation, then exact disposable Remove/provider aftermath remains.
+
+## Step 4 preceding — `23504ee` delivered; Cockpit preparation corrected
 
 `23504ee` first build failed with upstream HTTP 403 fetching Tea. A fresh second
 worktree reused the previous exact SHA-256-verified archive through the existing

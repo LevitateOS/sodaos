@@ -132,13 +132,18 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
     receipt.result=verifyRunnerContention(input,before,after);
     if(input.phase === 'overlap') {
       assert(frame);
-      await frame.getByText(input.runner_id+' was stopped.',{exact:true}).waitFor();
+      evidence.stage='Cockpit Stop success acknowledgement';
+      // PatternFly prefixes its alert title with an accessible severity label.
+      await frame.locator('.soda-diagnostic.pf-m-success').filter({hasText:input.runner_id+' was stopped.'}).waitFor();
+      evidence.stage='Cockpit post-operation CLI inventory';
       const raw=await frame.evaluate(()=>window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners','list'],{err:'message'}).input('{}\n'));
       assert.deepEqual(decodeRunnerResponse('list',JSON.parse(raw)),after.inventory);
+      evidence.stage='Cockpit refreshed native row';
       await frame.getByRole('button',{name:'Refresh',exact:true}).click();
       const current=after.inventory.runners.find(r=>r.id === input.runner_id); assert(current);
       await frame.getByRole('row').filter({has:frame.getByText(input.runner_id,{exact:true})}).getByText(`${current.service.active}/${current.service.sub}; ${current.service.enabled}`,{exact:true}).waitFor();
     }
+    evidence.stage='native return and reload without replay';
     await operator.goto(input.origin+'/?soda-view=runners');
     await operator.locator('#soda-native-content[data-actor="'+input.operator_id+'"]').waitFor();
     await operator.reload();
