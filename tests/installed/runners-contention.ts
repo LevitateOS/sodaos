@@ -139,7 +139,13 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
       // Cockpit returns its native thenable, not a browser Promise. Assimilate it
       // inside the page before Playwright serializes the result.
       const raw=await frame.evaluate(async()=>await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners','list'],{err:'message'}).input('{}\n'));
-      assert.deepEqual(decodeRunnerResponse('list',JSON.parse(raw)),after.inventory);
+      const cliInventory=decodeRunnerResponse('list',JSON.parse(raw));
+      // The native observer and web API deliberately expose only the configured
+      // public origin, not saved private registration endpoints. Compare the same
+      // projection; native state hashes independently retain the actual settings.
+      const publicOrigin=cliInventory.forgejo_url; assert(publicOrigin === input.origin);
+      for(const row of cliInventory.runners) row.registration_url=publicOrigin;
+      assert.deepEqual(cliInventory,after.inventory);
       evidence.stage='Cockpit refreshed native row';
       await frame.getByRole('button',{name:'Refresh',exact:true}).click();
       const current=after.inventory.runners.find(r=>r.id === input.runner_id); assert(current);

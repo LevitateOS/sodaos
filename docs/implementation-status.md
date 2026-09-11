@@ -1,6 +1,24 @@
 # Current handoff
 
-## Step 4 continuation — `51c0fcd` overlap acknowledgement passed; native thenable port
+## Step 4 continuation — `1bfa863` native CLI projection correction
+
+`1bfa863` passed fresh native build/check/export/verification and paired backed-up
+fixture delivery (`.artifacts/runner-thenable-1bfa863/`, matching frozen worktree,
+guest `/root/runner-fixture/pre-1bfa863/`). Overlap 05 again completed the held-lock
+native/Cockpit/CLI effects, old-process cleanup and preserved baseline; native
+Restart was last. It failed in the subsequent CLI-to-observer comparison, not the
+mutations: the existing Python observer and web API deliberately project saved
+registration URLs to the configured public origin, while the real CLI retains
+private registration endpoints. A bounded read-only diagnostic found **only**
+`registration_url` different for both rows. Apply that same explicit public-origin
+projection to this comparison; native state hashes still preserve the actual
+private settings. Added an actual-source regression rejecting other changed fields.
+Strict typing caught the optional public-origin field; require its exact input
+origin before projecting. Local tests/typechecks then passed. Retain overlap 05's
+failed aggregate and all earlier evidence; this correction needs fresh native
+completion before Remove. No provider job, reboot or removal occurred.
+
+## Step 4 preceding — `51c0fcd` overlap acknowledgement passed; native thenable port
 
 `51c0fcd` passed fresh full native build/check/export/verification and backed-up
 paired delivery (`.artifacts/runner-alert-51c0fcd/`, same-named frozen worktree,
