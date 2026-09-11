@@ -20,16 +20,17 @@ and a one-shot page/actor/path/body guard. Its local source-backed tests use dou
 bounded installed phases have now run on the explicitly approved new
 `soda-native-runners-2cdc238` fixture. The active combined plan and leading handoff
 own its current results and remaining work; the older lane reservations are superseded.
-Latest installed native x86_64 candidate `4f9e616` passed fresh build/seal, the full
+Latest installed native x86_64 candidate `ea759e2` passed fresh build/seal, the full
 native check, export and verified paired maintenance on that fixture. Its exact
 inputs/evidence are retained under `.artifacts/runners-vm-2cdc238/`; its export is
-`.artifacts/runner-trigger-4f9e616/export/x86_64/`. The original `2cdc238` and subsequent
+`.artifacts/runner-journey-ea759e2/export/x86_64/`. The original `2cdc238` and subsequent
 `556038c` attempts remain retained, including the reproduced native umask failure.
-Native registration, successful exact job, idle lifecycle, preservation and active
-Stop aftermath have bounded results; unconfirmed outer browser/guard receipts stay
-failed. Latest waiter/coordinated-logout driver ports need fresh installed checks.
-Active Restart, contention/interruption, the unused single reboot, exact Remove/
-provider aftermath and integrated-page completion remain open. Do not call step 4
+Native registration, successful exact job, idle/active lifecycle and aftermath have
+bounded results; older unconfirmed outer browser/guard receipts stay failed. The
+bounded waiter and coordinated logout ports passed natively. The **single approved
+reboot was used**, with preserved state/credentials/UIDs and enablement policy.
+Contention/interruption, exact Remove/provider aftermath and full integrated-page
+completion remain open; a native-navbar lookup port has local checks only. Do not call step 4
 complete or generalize these fixture results to retained/native/aarch64 acceptance.
 
 ## Owners and entrypoints

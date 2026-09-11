@@ -556,13 +556,15 @@ try {
     assert(await drawer.isHidden());
   }
   await page.setViewportSize({width: 1280, height: 900});
-  stage = 'authenticated Go Spaces page and native links';
+  stage = 'authenticated native Spaces host and native links';
   await open(); await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
   await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('soda-view') === 'spaces');
   await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();
   assert.equal(await page.locator('#soda-native-content').getAttribute('data-actor'), input.users[1].id);
   assert.equal(await page.locator('soda-spaces').count(), 1);
-  assert.equal(await page.getByRole('navigation', {name: 'Native Forgejo', exact: true}).getByRole('link', {name: 'Issues', exact: true}).getAttribute('href'), origin.origin + '/issues');
+  const issuesHref = await page.locator('#navbar').getByRole('link', {name: 'Issues', exact: true}).getAttribute('href');
+  assert(issuesHref);
+  assert.equal(new URL(issuesHref, origin).href, origin.origin + '/issues');
   await page.goto(repoURL); await open();
   if (accessMode) {
     assert(result.bfcache_restored, 'Access writes require the read-only journey to complete first');

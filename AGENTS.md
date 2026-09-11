@@ -40,7 +40,8 @@ reboot and exact removal of disposable `probe-one` capacity while preserving
 `baseline`. Both records/accounts and every failed attempt are retained. The
 existing VM tool owns a bounded 24-hour hold; inspect its recorded owner/deadline
 before continuing. The latest installed candidate and actual proof/remaining driver
-ports are in the leading handoff. The one reboot is still unused at that checkpoint.
+ports are in the leading handoff. The one approved reboot has now been used;
+no additional reboot is authorized.
 This does not extend to retained VMs/projects, external providers, global trust,
 host-network policy, additional reboots or destructive/automatic cleanup.
 

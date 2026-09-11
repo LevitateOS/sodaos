@@ -1,6 +1,55 @@
 # Current handoff
 
-## Step 4 latest checkpoint — `4f9e616` installed; idle lifecycle and active Stop observations
+## Step 4 current — `ea759e2` installed; active Restart and the one reboot passed
+
+`ea759e2`'s first frozen build failed fetching the locked upstream locale with
+HTTP 504. Kept that worktree/log; a later bounded public reachability check returned
+200, and a fresh second worktree passed full native build/check/export. Evidence:
+`.artifacts/runner-journey-ea759e2/`; passing worktree
+`.artifacts/worktrees/runner-journey-ea759e2-2/`. Verified transfer and backed-up
+paired maintenance on the same VM passed, with private backup
+`/root/runner-fixture/pre-ea759e2/`. No runner restart was part of that maintenance.
+The coordinated two-tab native logout port now passed on the installed target,
+along with later draft/BFCache stages, but the full page journey remained failed
+at a stale predecessor `Native Forgejo` navigation-label lookup. The selected
+upstream navbar is `#navbar` and may use relative links; the pending source port
+uses that real element and resolves its Issues href against the same origin,
+without recreating the removed Go shell (`.artifacts/r4-pages-ea/`).
+
+Probe Start passed. New exact workflow run **3**, observation
+`active-restart-ea759e2-01`, hold 120s, was dispatched once and observed `running`
+with one proof step and the exact job process alive. Real native browser Restart
+then **passed with the extended bounded waiter**, new listener incarnation, no
+prior surviving processes and unchanged baseline. Exact run 3 aftermath also
+passed: provider `failure`, one step, job dead. Evidence homes:
+`.artifacts/r4-start-ea/`, `r4-dispatch-restart/`, `r4-restart-before/`,
+`r4-restart-active/`, `r4-restart-after/`. The earlier run-2 outer-guard failure is
+not erased by this successful separate run.
+
+The **single approved reboot has now been used**. First stopped only probe-one
+through the native CLI, observed baseline running/enabled and probe stopped/
+disabled, and backed up private runner/config/drop-in state to
+`/root/runner-fixture/pre-reboot/`. Requested one guest `systemctl reboot`, then
+reconnected with the original pinned SSH key. Native before/after observations
+changed **only** boot UUID and baseline process incarnation: inventories, account
+UIDs, credentials/config/work hashes, package and isolation/service policy fields
+were byte-for-byte equal. Baseline restarted as UID 992; probe stayed disabled
+with no processes. A first summary expression used a nonexistent `policies` field;
+corrected the summary against the real top-level schema without recapturing or
+changing either snapshot. `reboot-preservation.log` and the installed artifact
+verifier passed. Services/SELinux and scoped native HTTPS returned normally.
+Reopened only the original loopback management forward after the SSH connection
+ended; current forward owner is `tunnel-after-reboot.pid`, not the old tunnel PID.
+All files are under `.artifacts/runners-vm-2cdc238/`. This is not client/laptop
+routing or another reboot/target grant.
+
+**Current state:** installed `ea759e2`; baseline running, probe-one stopped, both
+accounts/registrations/credentials/work/proofs and all three provider runs retained.
+The navbar source correction needs validation. Contention/cancellation/departure,
+exact Remove/provider aftermath and full integrated-page completion remain open.
+No further reboot, deletion, retained-target rollout or unrelated action is implied.
+
+## Step 4 earlier checkpoint — `4f9e616` installed; idle lifecycle and active Stop observations
 
 Caller correction `4f9e616` passed fresh native build, the full native check and
 export (`.artifacts/runner-trigger-4f9e616/`), then verified transfer and paired

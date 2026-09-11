@@ -205,14 +205,14 @@ restricted inputs and evidence live under `.artifacts/runners-vm-2cdc238/`; the
 leading handoff owns current exact resources and the bounded VM-owner deadline.
 Native installation exposed and corrected host-helper umask traversal; actual API
 dispatch exposed and corrected webhook-versus-workflow-trigger correlation.
-`4f9e616` passed full build/check/export and backed-up paired fixture delivery,
-including unchanged idle runner process/state snapshots. Native registration, idle
-Stop/Start/Restart, exact successful job execution/observation and active-Stop
-process/provider aftermath now have bounded evidence, with the unconfirmed browser
-and request-guard outcomes preserved explicitly. The latest mutation-wait and
-coordinated-logout driver ports have local checks, not fresh installed PASS records.
-Active Restart, concurrency/interruption, the single approved reboot, exact local
-Remove/provider aftermath and the remaining integrated page journey are still open.
+`ea759e2` passed full build/check/export and backed-up paired fixture delivery,
+following the retained `4f9e616` results. Native registration, idle lifecycle,
+exact successful job, active Stop aftermath, and active Restart/aftermath now have
+bounded evidence; older unconfirmed receipts remain failed. The coordinated logout
+port passed natively; a remaining native-navbar lookup port has local checks only.
+The **single approved reboot was used and preservation/artifact checks passed**.
+Current baseline is running; probe-one is stopped. Concurrency/interruption, exact
+local Remove/provider aftermath and full integrated-page completion are still open.
 No retained-target rollout, new target, additional reboot or cleanup is implied.
 
 **Approval checkpoint:** obtain the exact fixture, activation, provider, lifecycle,

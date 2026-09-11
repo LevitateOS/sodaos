@@ -48,6 +48,25 @@ test('runner mutation waiter is bounded beyond native drain and retains exact re
   await runInNewContext(source.slice(from, to), {operator, URL, input: {origin}, route});
 });
 
+test('Spaces host checks the real native navbar and same-origin Issues destination', async () => {
+  const from = probe.indexOf('  const issuesHref =');
+  const to = probe.indexOf('  await page.goto(repoURL);', from);
+  assert(from > 0 && to > from);
+  const origin = new URL('https://fixture.invalid');
+  for (const href of ['/issues', 'https://fixture.invalid/issues', null, '/pulls', '/issues?other=1', 'https://other.invalid/issues']) {
+    const page = {locator(selector: string) {
+      assert.equal(selector, '#navbar');
+      return {getByRole(role: string, options: {name: string; exact: boolean}) {
+        assert.equal(role, 'link'); assert.equal(options.name, 'Issues'); assert(options.exact);
+        return {async getAttribute(name: string) {assert.equal(name, 'href'); return href;}};
+      }};
+    }};
+    const attempt = runInNewContext('(async () => {\n'+probe.slice(from, to)+'\n})()', {assert, page, origin, URL});
+    if (href === '/issues' || href === origin.origin+'/issues') await attempt;
+    else await assert.rejects(async () => await attempt);
+  }
+});
+
 test('native layout guard measures the visual viewport without hiding scrollbars or permitting overflow', async () => {
   const from = probe.indexOf('    const box = await drawer.boundingBox();');
   const to = probe.indexOf('    if (width === 360)', from);
