@@ -1,6 +1,57 @@
 # Current handoff
 
-## Step 4 current — `ea759e2` installed; active Restart and the one reboot passed
+## Step 4 current — `cee160e` installed; full native page journey and CLI cancellation passed
+
+Frozen `cee160e` passed fresh native x86_64 build/check, bundle export, independent
+export verification, verified transfer, backed-up paired fixture maintenance and
+installed verification. Evidence/export: `.artifacts/runner-navbar-cee160e/`;
+frozen worktree: `.artifacts/worktrees/runner-navbar-cee160e/`. Private maintenance
+backup: `/root/runner-fixture/pre-cee160e/`. Neither existing listener was restarted
+by that maintenance; probe remained stopped until the later explicit Start below.
+The full installed two-actor page/auth/cache journey **passed**, including real
+coordinated peer logout, stock native navbar/Issues link, unsaved native form,
+BFCache (`true`) and the authenticated native Spaces host. Evidence:
+`.artifacts/r4-pages-cee/sodaspaces-run/result.json`, outcome
+`passed-scoped-journey`; private driver log `pages-cee-driver.log`. This does not
+fill the separate genuine-predecessor-cache/visual/authority matrix gaps from step 1.
+
+Case C's independent CLI cancellation also passed. A first 20s lock holder ran
+without its contender because the shell invocation waited immediately; kept its
+marker/log and did not call it contention proof. A second explicitly bounded 20s
+holder used a distinct marker; a separate SSH session ran stock timeout's 2s TERM
+with 5s KILL fallback around only its own exact-ID Restart waiter. The CLI returned
+**1 / context canceled**, while a nonblocking lock probe still returned busy; no
+KILL fallback was needed. Complete native snapshots before and after normal holder
+release matched exactly, including boot/process identities, credentials/work and
+policy. An ordinary native read then succeeded, and a separately approved real
+native-page **Start** passed with baseline preservation, proving admission remained
+usable. Evidence: `before-cli-cancel.json`, `after-cli-cancel.json`,
+`cli-cancel-{holder,holder-2,waiter,preservation}.log` under
+`.artifacts/runners-vm-2cdc238/`, plus `.artifacts/r4-start-after-cancel/`.
+This is the bounded cancelled CLI waiter, **not** the still-open three-caller
+mutation overlap or departed-browser request case.
+
+**Current native state:** `cee160e`; baseline and probe-one both running/enabled,
+UIDs 992/987. Last observed PID/start pairs are baseline 1531/2729 and probe
+2751/124005, meaningful only within the retained post-reboot boot UUID. Keep both
+accounts/provider registrations, all three runs, credentials, roots/work/proofs,
+backups and failed evidence. The one approved reboot is already used; no second
+reboot or power cycle follows. VM owner `vm-owner-3.pid` was live at this checkpoint,
+started **2026-09-11 09:23:28 UTC**, with a bounded 24h hold; inspect the actual owner
+and deadline before continuing. Current loopback HTTPS forward owner is
+`tunnel-after-reboot.pid`. Retained VM/project targets were not mutated. Mandatory
+local build checks reused the existing localhost page fixture/authentication gate
+and retained its OAuth test applications; it was not reinitialized or repurposed
+as the new appliance/provider fixture.
+
+**Step 4 remains open:** prepare the real native and Cockpit UIs before the bounded
+lock hold for case C's CLI/native/Cockpit mutation overlap; execute the separately
+bounded dispatched-POST departure/no-replay case; then exact disposable probe Remove
+with preserved evidence and provider-record aftermath. These remain within the
+recorded fixture grant, not a request to borrow credentials or add a new target.
+Keep Cockpit Runners; no retirement or retained-target rollout is authorized here.
+
+## Step 4 earlier — `ea759e2` installed; active Restart and the one reboot passed
 
 `ea759e2`'s first frozen build failed fetching the locked upstream locale with
 HTTP 504. Kept that worktree/log; a later bounded public reachability check returned
