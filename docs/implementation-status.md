@@ -1,5 +1,41 @@
 # Current handoff
 
+## Validation cutover held on unclassified retained exec records
+
+After `soda-test` passed, validation preflight preserved v6, original boot/config/key/
+counts, both roots, people, public keys and sampled system processes. Verified
+candidate transfer and both non-writing account-publication prerequisite checks
+passed. The static-backup recipe then **refused before creating its guest cutover
+or backup directory**, because project `p4a530c394bcd53e563d3076d` reports two retained
+Podman exec IDs: `178bfbbc…a2e04373` and `fa4d6b3b…ce2f74b5`. The other project's
+exec list is empty. No validation service interruption, live file replacement,
+image activation, account/key operation, migration or cleanup occurred. Dashboard
+and proxy remain active on the prior installation; only its private staged bundle
+was added. The approved validation window has **not begun**.
+
+Do not call those records active sessions or harmless leftovers. Exact upstream
+Podman **5.8.4** source shows `Inspect.ExecIDs` enumerates all stored sessions,
+including created/stopped states; only exec inspection distinguishes them. The
+read-only follow-up found no bundle/PID/exit files for either record under the
+source-backed static bundle path; `TransientStore` is false. Exact-ID native
+`exec_died` event queries returned no retained receipt. Protected managed-terminal
+runtime directories are empty and no managed units are listed, but that alone does
+not classify these records or prove writer quiescence. Neither record was removed,
+started, ended, adopted or ignored. The unconditional empty-ExecIDs check is therefore
+a conservative refusal, **not evidence that two processes are running**.
+
+Podman's normal API socket/service are both inactive and the socket is absent.
+No API service was started to bypass the scope. Next decision: permit a bounded,
+temporary **root-only private upstream Podman API listener**, with no TCP listener
+or service enablement, solely for the two official exec-inspection GETs and restricted
+PID/state/exit-code projection; then stop that exact owned diagnostic process. This
+extra diagnostic listener has not been approved or implemented. Do not inspect the
+runtime DB directly, clean records, relax admission checks or start the window on
+an assumption. Preserve the current `soda-test` v9 state and validation's v6 state.
+Checkpoint C remains approved for its original scope; step 5 is incomplete and
+step 6 is still excluded. Evidence, refusal logs and exact upstream extracts are
+under `.artifacts/step5-cutover-19824ec/validation-*` and `podman-5.8.4-*`.
+
 ## Checkpoint C approved — soda-test delivered; second target still pending
 
 The user accepted the explicit two-target checkpoint-C proposal (15 minutes per
