@@ -26,6 +26,21 @@ test('runner installed phases are separate opt-ins with no implicit mutation or 
   for (const phase of ['reboot','cleanup','provider-remove','all']) assert.throws(()=>runnerInput({...base(),phase},'--allow-runner-'+phase,'runner-fixture'));
 });
 
+test('actual native role expectations are explicit and read-only, never a weaker mutation fixture', () => {
+  const native_admins = {operator:true,denied:false};
+  const input = {...base(),native_admins};
+  assert.deepEqual(runnerInput(input,'--allow-runner-list','runner-fixture'),input);
+  assert.equal(runnerInput(base(),'--allow-runner-list','runner-fixture').native_admins,undefined);
+  for (const roles of [null,{},[true,false],{operator:true},{operator:1,denied:false},{operator:true,denied:'false'},{...native_admins,token:'not-allowed'}]) {
+    assert.throws(()=>runnerInput({...base(),native_admins:roles},'--allow-runner-list','runner-fixture'));
+  }
+  for (const phase of ['register','start','stop','restart','remove','dispatch','job','overlap','departure']) {
+    const other = {...input,phase,...(phase === 'register' ? {registration} : {}),...(['dispatch','job'].includes(phase) ? {provider:{...provider,...(phase === 'job' ? {run_id:12} : {})}} : {}),...(phase === 'overlap' ? {cockpit:{origin:'https://cockpit.invalid',password_file:'/private/password'}} : {})};
+    assert.throws(()=>runnerInput(other,'--allow-runner-'+phase,'runner-fixture'));
+  }
+  assert.throws(()=>runnerInput({...input,operator_id:input.denied_id},'--allow-runner-list','runner-fixture'));
+});
+
 test('contention cases have exact distinct grants and only overlap accepts Cockpit credentials', () => {
   const cockpit={origin:'https://127.0.0.1:39090',password_file:'/private/operator-password'};
   for(const phase of ['overlap','departure']) {

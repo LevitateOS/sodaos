@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -18,6 +20,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -70,11 +74,22 @@ func TestNativeConnectionFixture(t *testing.T) {
 	}
 	// Optional selected-delivery asset boundary. The older bundle must be verified
 	// with its own verifier by the caller; bind these exact bytes to that receipt.
-	// This does not run the predecessor's page/backend or prove its live retirement.
+	// Asset-only mode does not execute the predecessor. The optional bound binary
+	// adds a final genuine-document/backend phase after all normal consumers.
 	predecessor := os.Getenv("SODA_CONNECTION_PREDECESSOR")
 	phaseFile := filepath.Join(dir, "asset-phase")
 	oldPublic := ""
 	oldHashes := map[string]string{}
+	predecessorBinary := os.Getenv("SODA_CONNECTION_PREDECESSOR_BINARY")
+	backendPhase := filepath.Join(dir, "backend-phase")
+	var oldProxy *httputil.ReverseProxy
+	var transition func() (*Server, error)
+	var transitionOnce sync.Once
+	var migrated *Server
+	var transitionErr error
+	if predecessorBinary != "" && predecessor == "" {
+		t.Fatal("predecessor backend requires the verified bundle binding")
+	}
 	if predecessor != "" {
 		if !filepath.IsAbs(predecessor) {
 			t.Fatal("absolute verified predecessor bundle required")
@@ -86,6 +101,17 @@ func TestNativeConnectionFixture(t *testing.T) {
 		var inventory nativebuild.Inventory
 		if json.Unmarshal(data, &inventory) != nil || inventory.Revision == "" || inventory.Revision != os.Getenv("SODA_CONNECTION_PREDECESSOR_REVISION") {
 			t.Fatal("predecessor revision binding failed")
+		}
+		if predecessorBinary != "" {
+			info, err := os.Lstat(predecessorBinary)
+			if !filepath.IsAbs(predecessorBinary) || err != nil || !info.Mode().IsRegular() || info.Size() > 128<<20 {
+				t.Fatal("predecessor executable must be a bounded regular file")
+			}
+			body, err := os.ReadFile(predecessorBinary)
+			expected := inventory.Files["rootfs/usr/local/libexec/soda/soda-dashboard"].SHA256
+			if err != nil || expected == "" || fmt.Sprintf("%x", sha256.Sum256(body)) != expected {
+				t.Fatal("predecessor executable binding failed")
+			}
 		}
 		oldPublic = filepath.Join(predecessor, "rootfs/var/lib/soda/forgejo/gitea/public")
 		for _, name := range []string{"/assets/sodaspaces-page.js", "/assets/sodaspaces-api.js", "/assets/soda/forgejo/lit.js"} {
@@ -103,12 +129,29 @@ func TestNativeConnectionFixture(t *testing.T) {
 		}
 	}
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		backend, _ := os.ReadFile(backendPhase)
 		if strings.HasPrefix(r.URL.Path, config.SodaPath+"/") {
+			if predecessorBinary != "" && string(backend) == "predecessor" {
+				oldProxy.ServeHTTP(w, r)
+				return
+			}
+			if predecessorBinary != "" && string(backend) == "candidate" {
+				transitionOnce.Do(func() { migrated, transitionErr = transition() })
+				if transitionErr != nil {
+					http.Error(w, "fixture backend transition failed", 503)
+					return
+				}
+				migrated.ServeHTTP(w, r)
+				return
+			}
 			soda.ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			assets := public
+			if predecessorBinary != "" && string(backend) == "predecessor" {
+				assets = oldPublic
+			}
 			phase, _ := os.ReadFile(phaseFile)
 			if predecessor != "" && string(phase) == "predecessor" && oldHashes[r.URL.Path] != "" {
 				assets = oldPublic
@@ -197,6 +240,108 @@ func TestNativeConnectionFixture(t *testing.T) {
 		}
 		return w.Result(), nil
 	})}}
+	if predecessorBinary != "" {
+		// The normal consumers run first. The final browser phase then uses this
+		// real old executable and its own fresh v6 DB, followed by current handlers
+		// migrating that SAME DB. No retained appliance grants are copied here.
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		address := listener.Addr().String()
+		_ = listener.Close()
+		oldURL, _ := url.Parse("http://" + address)
+		oldProxy = httputil.NewSingleHostReverseProxy(oldURL)
+		oldProxy.ErrorLog = log.New(io.Discard, "", 0)
+		keyPath := filepath.Join(dir, "predecessor-grant-key")
+		if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(key)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		cfg := config.Config{Listen: address, OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile, GrantKeyFile: keyPath, Database: filepath.Join(dir, "predecessor.db"), HostSocket: filepath.Join(dir, "absent-native-helper.sock"), AdminTokenFile: filepath.Join(dir, "unused-admin-token")}
+		body, _ := json.Marshal(cfg)
+		configPath := filepath.Join(dir, "predecessor-config.json")
+		if err := os.WriteFile(configPath, body, 0600); err != nil {
+			t.Fatal(err)
+		}
+		output, err := os.OpenFile(filepath.Join(dir, "predecessor.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		child := exec.Command(predecessorBinary, "--config", configPath)
+		child.Stdout, child.Stderr = output, output
+		if err := child.Start(); err != nil {
+			_ = output.Close()
+			t.Fatal("predecessor process startup failed")
+		}
+		done := make(chan struct{})
+		var childErr error
+		go func() { childErr = child.Wait(); _ = output.Close(); close(done) }()
+		t.Cleanup(func() {
+			select {
+			case <-done:
+			default:
+				_ = child.Process.Signal(syscall.SIGTERM)
+				select {
+				case <-done:
+				case <-time.After(30 * time.Second):
+					_ = child.Process.Kill()
+					<-done
+				}
+			}
+		})
+		// b8af68c validates the obsolete admin-token PATH, but never reads it.
+		// No token is created or borrowed. Detect early config/process refusal
+		// before creating a browser context or exercising the normal consumers.
+		select {
+		case <-done:
+			t.Fatal("predecessor exited before browser startup; see predecessor.log")
+		case <-time.After(200 * time.Millisecond):
+		}
+		transition = func() (*Server, error) {
+			if err := child.Process.Signal(syscall.SIGTERM); err != nil {
+				return nil, fmt.Errorf("predecessor stop failed")
+			}
+			select {
+			case <-done:
+			case <-time.After(30 * time.Second):
+				return nil, fmt.Errorf("predecessor stop unconfirmed")
+			}
+			if childErr != nil {
+				return nil, fmt.Errorf("predecessor exited unsuccessfully")
+			}
+			readVersion := func() (int, error) {
+				u := url.URL{Scheme: "file", Path: cfg.Database, RawQuery: "mode=ro"}
+				observed, err := sql.Open("sqlite", u.String())
+				if err != nil {
+					return 0, err
+				}
+				defer observed.Close()
+				var version int
+				err = observed.QueryRow("SELECT version FROM schema_version").Scan(&version)
+				return version, err
+			}
+			before, err := readVersion()
+			if err != nil || before != 6 {
+				return nil, fmt.Errorf("predecessor did not leave schema v6")
+			}
+			upgraded, err := store.OpenEncrypted(cfg.Database, key)
+			if err != nil {
+				return nil, err
+			}
+			t.Cleanup(func() { _ = upgraded.Close() })
+			after, err := readVersion()
+			if err != nil || after != 9 {
+				return nil, fmt.Errorf("current backend did not migrate to schema v9")
+			}
+			receipt, _ := json.Marshal(map[string]any{"before": before, "after": after, "same_database": true, "prior_exit_confirmed": true, "scope": "fresh synthetic fixture grants, not retained appliance data"})
+			if err := os.WriteFile(filepath.Join(dir, "backend-transition.json"), receipt, 0600); err != nil {
+				return nil, err
+			}
+			current := New(cfg, upgraded)
+			current.Host = soda.Host
+			return current, nil
+		}
+	}
 	receipt, _ := json.Marshal(map[string]any{"origin": server.URL, "native_origin": upstream.String(), "oauth_application_id": app.ID, "client_id": app.ClientID})
 	if err := os.WriteFile(filepath.Join(dir, "fixture.json"), receipt, 0600); err != nil {
 		t.Fatal(err)
@@ -215,6 +360,9 @@ func TestNativeConnectionFixture(t *testing.T) {
 			t.Fatal(err)
 		}
 		cmd.Env = append(cmd.Env, "SODA_CONNECTION_ASSET_PHASE="+phaseFile, "SODA_CONNECTION_OLD_HASHES="+string(hashes))
+	}
+	if predecessorBinary != "" {
+		cmd.Env = append(cmd.Env, "SODA_CONNECTION_BACKEND_PHASE="+backendPhase)
 	}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	err = cmd.Run()

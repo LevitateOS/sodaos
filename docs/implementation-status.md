@@ -1,5 +1,121 @@
 # Current handoff
 
+## Step 5 completion request — predecessor execution and retained authority preflight
+
+The user requested all remaining step-5 work. Checkpoint C still requires presentation
+and approval of the concrete live delta/window; **no cutover has occurred**. The
+separately requested removal of all 17 linked worktrees completed. The main checkout
+and Git history remain; the active screenshot credential was moved out of its
+worktree-backed symlink into `.local/`. Both selected exports survived and passed
+fresh verification with their own bundled verifiers. Do not cite deleted worktree
+contents as retained evidence or infer a new native build.
+
+### Genuine predecessor document/backend — bounded local pass
+
+The existing `TestNativeConnectionFixture`/native browser parent now optionally
+accepts a manifest-bound predecessor executable. Podman loaded the verified b8af68c
+OCI into the builder's rootless store; one network-disabled/read-only inspection
+container `soda-predecessor-page-f3eb0f8` was created and **never started**. Its extracted
+`/usr/local/bin/soda-dashboard` matches the exported native executable hash. The
+fixture runs that binary as an ordinary local process with a fresh private v6 DB,
+existing fixture account/OAuth client and absent native-helper socket. No retained
+appliance grants or provider tokens are copied into it.
+
+All normal consumers and native authentication/logout/draft/history checks run
+first. A separate browser context then executes the real old Go page/module graph.
+The old document stays open while the old process exits normally and current Go
+handlers migrate that **same** DB/key/client from observed schema **6 to 9**. The
+old Refresh control works; the original actor's API session remains valid. A real
+pagehide observation sees the old owner's synchronous retirement. Back actually
+performs a **network reload into the current Spaces owner**, not predecessor
+BFCache restoration. Explicit current Runners entry has no old workspace owner.
+No Soda API mutation was replayed. Headers/HTML were not rewritten to force BFCache.
+This is an empty-project fixture: no active-terminal, provisioning or installed
+cache/CSP claim. Current handlers are compiled test code with unchanged production
+source, not a newly built/exported dashboard image.
+
+`native-04` passed; final `native-05-race` passed all **16 mandatory consumers**, the
+native parent and this additional phase under current-handler Go race instrumentation.
+`backend-transition.json` records confirmed old exit and v6→v9 on the same fixture DB.
+The ordinary capture-disabled/default native suite also passed. Strict TypeScript
+checking passed. An unbound executable was deliberately refused before OAuth-app or
+child-process startup. Preserve these earlier failed attempts:
+
+- Initial image copy used the host installation path, not the inspected image
+  entrypoint; it refused. Corrected the copy path after inspecting the Containerfile
+  and exact image metadata; no container was started.
+- `native-01`: legacy config requires an absolute `admin_token_file` even though
+  b8af68c never reads it. Added an unused path, **not a token**, plus early process
+  refusal detection. Fixed an outstanding response observer masking that failure.
+- `native-02`: Refresh is inside the real Workspace options menu, not initially
+  visible. Corrected the caller, not production UI.
+- `native-03`: old execution/migration passed, but the observer wrongly required
+  Back to preserve the old URL. Recorded actual network reload and separately
+  observed old pagehide retirement instead of manufacturing BFCache evidence.
+
+### Actual target metadata and read boundaries
+
+Pinned read-only inspection again ran **soda-test first, validation VM second**.
+Official Forgejo CLI user listing, not direct Forgejo DB access, established:
+
+- `soda-test`: operator ID 1 (`operator`) is also site admin; IDs 2/3 are nonadmins.
+- Validation VM: operator ID 1 (`alice`) is also site admin; ID 2 (`bob`) is nonadmin.
+
+Fixed official API **GETs** with each fixture actor's own existing password and CA
+confirmed those identities/roles, without cookies, borrowed tokens, role changes or
+provider-resource writes. Soda-test repository 1 is private, owned by ID 2; ID 3 has
+pull/push but not repository administration. Its native anonymous HTML returns 404.
+Validation repository 1 is public, owned by ID 1; ID 2 has pull but no push/admin.
+Its native anonymous HTML returns 200. All five actors receive 404 for the exact
+missing-repository probe. Anonymous repository-ID API calls return **401 on both**:
+that authentication gate must not be confused with repository visibility. The first
+metadata probe wrongly allowed only 200/404 and failed before reading credentials;
+its source/log and the corrected bounded observations remain retained.
+
+The existing installed runner driver now accepts explicit `native_admins` boolean
+expectations **only for list**, recording actual fresh native/Soda facts while still
+requiring distinct operator and denied identities. Effectful phases reject that
+field and retain the original cross-role fixture gate. Focused input/postcondition/
+probe checks passed: **26 passed, one optional private-browser-pipe test skipped**.
+This prepares retained operator-200/nonoperator-403 checks; those candidate Soda-page
+checks have not run on either retained v6 installation. Earlier step-4 cross-role
+proof remains separate and is not relabelled as a new retained-target run.
+
+### Refined paired delta and same-root compatibility
+
+Both targets have identical historical Cockpit packages: 76 files matching sealed
+inventories through bdbce8e (and earlier), **not** the b8af68c Cockpit export. The
+candidate's Forgejo-only Runners presentation/protocol needs its matching package
+entry: three added assets and one replaced `index.html`; retain the two prior hashed
+assets. This keeps Runners working, not step-6 retirement. Leave Tailnet's package,
+stock Cockpit configuration and service intact. Fresh cutover backups must include
+this Runners package; the earlier B inventory did not cover it.
+
+All inspected Forgejo custom files and six account-program/ancestor observations
+still match checkpoint A. Each original project CID was independently rechecked
+running; exact candidate account/key-writer source compiles **in memory** under all
+six roots' Python **3.9.25**. No candidate program was executed or installed in a root.
+This closes syntax compatibility, not live provisioning, writer exclusion or label
+publication. The account-program hash remains the already rehearsed `c170aaaa…01b283`.
+
+Evidence: `.artifacts/step5-completion-f3eb0f8/`, including verifier/binary binding,
+five native browser attempts, schema receipt, default/typecheck/guard logs, rejected
+binary, public delta review, Cockpit provenance, exact-target metadata/native GETs
+and same-CID syntax observations. The old image/inspection container and all new
+fixture state are retained. No retained service interruption, project/runner lifecycle,
+key/account mutation, image activation, deployment or cleanup occurred.
+
+**Next:** finalize the exact admission/drain and atomic same-root publication recipe,
+fresh matching backup locations and checkpoint-C window, then obtain explicit C
+approval. Proposed scope remains dashboard/schema, paired native commands/obsolete
+helper retirement, canonical Forgejo payload, the retained Runners package and six
+account-program files only. Preserve Caddy customizations, upstream/project images,
+roots, later writes, credentials, Tailnet and Cockpit. Existing native read/private
+repository and list-only drivers own post-delivery acceptance. Stop if pending writers,
+managed sessions/unconfirmed runtime state or unexpected identities remain; never
+force End/expiry, replay a mutation or blindly restore v6 over later v9 writes.
+Step 5 is still incomplete; step 6 remains excluded.
+
 ## Step 5 continuation — shared-helper shutdown boundary and fresh read-only sample
 
 Traced actual predecessor/candidate terminal ownership through dashboard shutdown,

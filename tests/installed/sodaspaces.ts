@@ -25,6 +25,7 @@ let stage = 'private input validation';
 interface ProbeEvidence extends Record<string, unknown> {
   states: string[]; bfcache_restored: boolean; http: Array<{route: string; status: number}>;
   own_connections?: Array<{user_id: string; repository_id: string; command: string; fingerprint: string}>;
+  runner_authorities?: Array<{id: string; provider_id: string; operator: boolean; admin: boolean}>;
 }
 interface AccessEvidence {reservation_id: string | null; users: unknown[]; copy_native_paste: string[]; nonowner_create?: string; native_join_confirmed?: boolean}
 interface ShellFacts {login: string; uid: number; gid: number; groups: number[]; home: string; cwd: string; tty: boolean; shell_pid: number; shell_start: string}
@@ -363,7 +364,11 @@ try {
           return {id:s.user.id,provider_id:m.id,operator:s.soda_operator,admin:m.is_admin};
         },user.id);
         assert(identity.id === user.id && identity.provider_id === user.id);
-        assert(identity.operator === (index === 0) && identity.admin === (index === 1), 'Required nonadmin operator/nonoperator administrator not established');
+        const expectedAdmin = runnerRequest.native_admins
+          ? (index === 0 ? runnerRequest.native_admins.operator : runnerRequest.native_admins.denied)
+          : index === 1;
+        assert(identity.operator === (index === 0) && identity.admin === expectedAdmin, 'Declared independent Soda/native authorities not established');
+        (result.runner_authorities ||= []).push(identity);
       }
       assert(context !== deniedContext && page.context() !== deniedPage.context());
       stage='runner phase '+runnerRequest.phase;

@@ -168,8 +168,13 @@ Forgejo Actions administration separate and keep Cockpit Runners.
   bare-URL bytes, first candidate entry/transitive graph and Back/Forward. This case,
   all 16 consumers and the full native parent passed locally; the default six-hour
   case remains explicitly labelled candidate-byte caching. This closes the missing
-  genuine **asset-byte** boundary, not predecessor document execution/retirement,
-  installed cache/CSP equivalence or native terminal continuity.
+  genuine **asset-byte** boundary. A subsequent bound-binary phase now executes
+  the actual b8af68c backend/page against the existing native fixture, preserves the
+  open document through its fresh database's v6→v9 transition, uses the old Refresh
+  control and observes genuine pagehide retirement without API mutation replay.
+  Current-handler race and all mandatory consumers passed. Actual Back reloaded
+  into the current owner; predecessor BFCache restoration is not claimed. This is
+  not installed cache/CSP equivalence or native terminal continuity.
 - **Distinguish stock preview from installed cache configuration.**
   `appliance/config/forgejo.env:12–13` selects native
   `FORGEJO__server__STATIC_CACHE_TIME=0`; it is not a Caddy cache override. The

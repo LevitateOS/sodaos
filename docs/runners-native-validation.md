@@ -60,8 +60,8 @@ SODA_NATIVE_VALIDATE=ACTUAL_HOST bun tests/installed/sodaspaces.ts \
 ```
 
 Replace the last flag only with the exact phase's approval. The existing auth input
-uses operator first, denied administrator second; its target, origin, revision and
-CA must match the runner input. Existing repository fields remain required by the
+uses operator first, denied actor second (an administrator in the default cross-role
+fixture); its target, origin, revision and CA must match the runner input. Existing repository fields remain required by the
 shared auth-input contract, but runner mode does not enter repository/environment/
 terminal journeys. It creates an isolated second cookie context, checks fresh Soda
 and Forgejo identity/role facts, and uses automatic native Runners entry/consent,
@@ -81,6 +81,13 @@ no standalone CLI. Preserve these driver contracts:
 2. Supply the two already connected native Runners pages, matching `operator_id`
    and `denied_id`. Its own actor fixture must establish an operator **without**
    site-admin rights and a site administrator **without** Soda operator authority.
+   That remains the default and is mandatory for effectful phases. A retained
+   `list`-only observation can instead supply `native_admins` with exact boolean
+   `operator`/`denied` expectations. The driver still reads and checks both native
+   and Soda identities/roles freshly, and records their actual facts; it never
+   treats site administration as Soda authority. Other phases reject this field.
+   This is an explicitly labelled retained read case, not a replacement for the
+   independent cross-role native proof.
    The module requires the native `/?soda-view=runners` mount and original actor;
    it refuses the old standalone page and cannot manufacture the missing page body.
    The current adapter is for the root-mounted origin used by the existing runner

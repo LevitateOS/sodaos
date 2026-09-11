@@ -77,8 +77,29 @@ and tests first candidate graph navigation/Back/Forward in a fresh browser conte
 Its phase file controls only the local public-file responder. No native HTML/API
 replacement, appliance cutover or old backend/page execution is involved. Without
 these inputs, the stock six-hour candidate-bytes/legacy-URL cache case remains.
-Neither case proves safe retirement of an already-open predecessor page or live
-terminal preservation; those remain separate delivery checks.
+Neither asset-only case proves old-document retirement or terminal preservation.
+
+For genuine predecessor-document execution, additionally provide
+`SODA_CONNECTION_PREDECESSOR_BINARY`: a regular bounded executable extracted with
+Podman from that verified dashboard OCI. Its bytes must match the same inventory's
+`rootfs/usr/local/libexec/soda/soda-dashboard` entry (the image's executable path is
+`/usr/local/bin/soda-dashboard`). A mismatch refuses before OAuth-app/process startup.
+No rebuild or hand-written old HTML is substituted. After all ordinary consumers and
+the native parent finish, a separate browser context uses the old process, complete
+old public-file tree and a fresh synthetic v6 database. The private `backend-phase`
+file switches to current handlers only after confirmed old-process exit; those
+handlers migrate that **same database** to v9 with the same fixture key/client.
+The old page remains open for its real Refresh control and subsequent departure.
+The browser observes actual pagehide retirement and the actual history outcome:
+retired BFCache owner or a network reload/current owner, labelled separately. Headers
+are not changed to force BFCache. The current passing run used a network reload.
+
+This phase uses the existing fixture account/login owner and leaves its new OAuth
+app, separate databases, logs and private browser evidence retained. The old process
+has an absent helper socket: no project provisioning or terminal process proof is
+implied. The legacy required `admin_token_file` is an unused absolute placeholder;
+no admin token is created/read/borrowed. This does not mutate retained appliances,
+load their credentials or establish their installed cache/CSP behavior.
 
 For optional populated visual review, set `SODA_PAGE_CAPTURES` to an existing
 absolute private directory. The same consumers reuse `scripts/screenshot.ts` on

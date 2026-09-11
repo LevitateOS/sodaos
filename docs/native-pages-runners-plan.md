@@ -305,9 +305,13 @@ The existing native fixture now has a passing, manifest-bound **b8af68c asset-by
 transition using zero-age revalidation, a fresh browser context, first candidate
 module graph and Back/Forward; all normal consumers and the native parent still run.
 See [the review](forgejo-soda-pages-review.md#coverage-gaps-that-are-not-additional-proven-production-defects)
-and [fixture inputs](typescript.md#local-source-checks). This does not execute or
-retire an already-open predecessor page/backend, replace installed cache/CSP proof,
-or close the shared-helper/terminal and actual-authority obligations. The existing
+and [fixture inputs](typescript.md#local-source-checks). The additional bound-binary
+phase now also executes the actual predecessor page/backend, keeps that page open
+across a same-fixture-DB v6→v9 transition, exercises its real Refresh control and
+observes pagehide retirement without API mutation replay. Actual Back performed a
+network reload/current owner, not predecessor BFCache restoration; keep that limit
+explicit. All consumers/native parent passed, including a current-handler race run.
+This does not replace installed cache/CSP proof or native terminal preservation. The existing
 consumers also passed their bounded populated visual slice using the shared screenshot
 tool: light/dark at 390/768/1440, runner inventory/confirmation/registration,
 repository metadata/Join and workspace navigation. Keep its synthetic-operation and
@@ -350,6 +354,22 @@ Finish those applicable maintenance checks before seeking C;
 leaving the old writer or replacing roots is not an acceptable shortcut. Directory
 inodes, accounts, key bytes, homes and live SSH/process identities must survive.
 Neither this observation nor an empty runner inventory establishes delivered parity.
+
+The later official Forgejo CLI observation found operator ID 1 on each target also
+has native site-admin authority; the other two/one native users are nonadmins.
+Do not promote users or borrow credentials to manufacture step 4's cross-role pair.
+The existing installed **list-only** driver now accepts explicit actual native role
+expectations, while still checking fresh native and Soda identities independently.
+All effectful phases retain the original cross-role gate. Keep the separate step-4
+proof and record actual retained-target outcomes after delivery.
+
+Both targets also retain the same 76-file historical Cockpit payload, matching
+multiple prior sealed inventories through `bdbce8e`, not the b8af68c Cockpit export.
+The candidate changes the Runners presentation/protocol to Forgejo-only. Pair that
+retained entry with its candidate assets (three additions and one index replacement),
+retain its prior hashed assets and back up the package freshly. This is **not removal
+of Cockpit Runners**. Leave the Tailnet package and ordinary Cockpit configuration
+unchanged; no whole-Cockpit upgrade is selected.
 
 Produce the smallest coordinated delta from those facts: dashboard/API image and
 canonical template/module graph/cache epoch, schema/config compatibility, paired

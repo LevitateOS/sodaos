@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import {writeFile} from 'node:fs/promises';
+import {rename, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 import {test} from 'node:test';
 import {chromium} from 'playwright';
-import type {APIResponse} from 'playwright';
+import type {APIResponse, Page} from 'playwright';
 import {presentationVersion} from '../../scripts/build-forgejo.ts';
 
 test('real Forgejo consent, reuse, repeat connection and both partial logout outcomes', {
@@ -27,13 +27,16 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     if (request.method() === 'POST' && pathname === '/login/oauth/grant') grants++;
     if (request.method() === 'POST' && pathname === '/user/logout') logouts++;
   });
+  const fillNativeLogin = async (loginPage: Page) => {
+    try {
+      await loginPage.locator('input[name=user_name]').fill('soda-screenshot');
+      await loginPage.locator('input[name=password]').fill(password);
+    } catch {throw Error('Could not fill fixture native login');}
+    await loginPage.locator('form[action="/user/login"] button.ui.primary').click();
+  };
   const login = async () => {
     await page.goto(origin + '/-/soda/spaces');
-    try {
-      await page.locator('input[name=user_name]').fill('soda-screenshot');
-      await page.locator('input[name=password]').fill(password);
-    } catch {throw Error('Could not fill fixture native login');}
-    await page.locator('form[action="/user/login"] button.ui.primary').click();
+    await fillNativeLogin(page);
   };
   const menuLogout = async () => {
     const menu = page.locator('#navbar details').filter({has: page.locator('a[data-url="/user/logout"]')});
@@ -325,4 +328,81 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
   await page.getByRole('button', {name: 'Sign out of Forgejo only'}).click();
   await page.waitForFunction(() => location.pathname === '/' && !document.getElementById('soda-settings-link'));
   assert.equal((await page.request.get(origin + '/-/soda/api/session')).status(), 200, 'native-only escape must not claim Soda revocation');
+
+  const backendPhase = process.env.SODA_CONNECTION_BACKEND_PHASE;
+  if (backendPhase) {
+    // Run after every mandatory consumer and the normal native parent. Only this
+    // new context uses the genuine old executable/document and fresh old DB.
+    await context.close();
+    const setBackendPhase = async (phase: 'predecessor' | 'candidate') => {
+      // The old owner's read-only timer can run concurrently with the switch.
+      await writeFile(backendPhase + '.next', phase, {mode: 0o600});
+      await rename(backendPhase + '.next', backendPhase);
+    };
+    await setBackendPhase('predecessor');
+    const oldContext = await browser.newContext({ignoreHTTPSErrors: true});
+    const oldPage = await oldContext.newPage();
+    const oldErrors: string[] = [];
+    oldPage.on('pageerror', error => oldErrors.push(error.message));
+    const entryResponse = oldPage.waitForResponse(response => new URL(response.url()).pathname === '/assets/sodaspaces-page.js').catch(() => null);
+    await oldPage.goto(origin + '/-/soda/spaces');
+    await oldPage.getByRole('link', {name: 'Connect to Soda'}).click();
+    await fillNativeLogin(oldPage);
+    await oldPage.waitForURL(url => url.pathname === '/login/oauth/authorize' || url.pathname === '/-/soda/spaces');
+    if (new URL(oldPage.url()).pathname === '/login/oauth/authorize') await oldPage.locator('#authorize-app').click();
+    await oldPage.locator('#spaces-page > soda-spaces').waitFor();
+    await oldPage.locator('summary[aria-label="Workspace options"]').click();
+    const refresh = oldPage.getByRole('button', {name: 'Refresh Spaces', exact: true});
+    await refresh.waitFor();
+    await oldPage.waitForFunction(() => document.querySelector('#sodaspaces-data')?.getAttribute('aria-busy') === 'false');
+    const hashes: unknown = JSON.parse(process.env.SODA_CONNECTION_OLD_HASHES || 'null');
+    assert(hashes && typeof hashes === 'object' && '/assets/sodaspaces-page.js' in hashes);
+    const entry = await entryResponse; assert(entry, 'Predecessor entry response unavailable');
+    const loadedHash = new Bun.CryptoHasher('sha256').update(await entry.body()).digest('hex');
+    assert.equal(loadedHash, hashes['/assets/sodaspaces-page.js']);
+    const actor = await oldPage.locator('#spaces-page').getAttribute('data-soda-actor'); assert(actor);
+    const mutations: string[] = [];
+    oldPage.on('request', request => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith('/-/soda/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method())) mutations.push(request.method() + ' ' + path);
+    });
+    // Keep the old document/JS realm open while its backend stops and the exact
+    // same fresh v6 DB is opened by current handlers. Refresh is the OLD control.
+    await setBackendPhase('candidate');
+    await refresh.click();
+    await oldPage.waitForFunction(() => document.querySelector('#sodaspaces-data')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await oldPage.locator('#spaces-page > soda-spaces').count(), 1);
+    assert.equal((await oldPage.request.get(origin + '/-/soda/api/session', {headers: {'X-Soda-Expected-User-ID': actor}})).status(), 200);
+    assert.deepEqual(mutations, [], 'Old document replayed a mutation during backend transition');
+    await oldPage.evaluate(() => {
+      const owner = document.querySelector('#spaces-page > soda-spaces');
+      window.addEventListener('pagehide', () => {
+        // Registered after the real old owner's listener; observe its synchronous
+        // retirement, rather than dispatching a synthetic history event.
+        sessionStorage.setItem('soda-fixture-predecessor-retired', owner && 'stale' in owner && owner.stale === true ? 'yes' : 'no');
+      }, {once: true});
+    });
+    await oldPage.goto(origin + '/robots.txt');
+    await oldPage.goBack();
+    assert.equal(await oldPage.evaluate(() => sessionStorage.getItem('soda-fixture-predecessor-retired')), 'yes');
+    if (await oldPage.locator('#spaces-page > soda-spaces').count()) {
+      await oldPage.getByText('Page or Soda identity changed. Reload; no action was replayed.', {exact: true}).waitFor();
+      assert.equal(await refresh.isDisabled(), true);
+      t.diagnostic('Predecessor Back restored a retired owner from BFCache');
+    } else {
+      // Preserve the genuine old response/cache policy. Do not force BFCache by
+      // rewriting headers or call a network reload a restored predecessor realm.
+      await oldPage.locator('#soda-native-content > soda-spaces').waitFor();
+      assert.equal(oldPage.url(), origin + '/?soda-view=spaces');
+      assert.equal(await oldPage.locator('soda-spaces').count(), 1);
+      t.diagnostic('Predecessor Back performed a network reload into the current owner; old pagehide retirement was observed separately, not BFCache restoration');
+    }
+    assert.deepEqual(mutations, [], 'History replayed an old mutation');
+    await oldPage.goto(origin + '/?soda-view=runners');
+    await oldPage.locator('#soda-native-content > soda-runners').waitFor();
+    assert.equal(await oldPage.locator('soda-spaces').count(), 0);
+    assert.deepEqual(oldErrors, [], 'Predecessor execution raised browser errors');
+    await oldContext.close();
+    t.diagnostic('Genuine predecessor executable/document, same-DB transition, observed old-owner retirement and explicit current-page entry passed; see actual history mode above; no native project operations');
+  }
 });
