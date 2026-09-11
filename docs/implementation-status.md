@@ -1,5 +1,78 @@
 # Current handoff
 
+## Step 5 checkpoint B passed — both private v6→v9 rehearsals; live installations remain v6
+
+The user approved the presented checkpoint-B effects. Executed on **soda-test first,
+then soda-native-spaces-658f2af**, using the selected pinned SSH connections and new
+exclusive `/var/lib/soda-native-pages-19824ec-rehearsal/` directories. Both original
+VMs stayed running; only each dashboard was briefly stopped for the consistent
+Soda SQLite backup and matching config/credential/native-file capture, then started
+with its unchanged prior image. Recorded stop/start control intervals were about
+0.66/0.64 seconds, not measured browser outage durations. Subsequent health checks
+returned 200 and both live databases remained **v6**.
+
+**Candidate and custody:** independently reverified the complete existing `19824ec`
+x86_64 export with its own verifier. Transferred only its dashboard OCI for isolated
+rehearsal, checked SHA-256 on each guest and loaded/selected its exact image config
+identity. No candidate service/unit/payload was installed. Each backup retains the
+prior dashboard OCI, SQLite backup-API copy including committed WAL, integrity and
+foreign-key checks, matching encrypted-grant key/OAuth inputs/config, native command
+and custom-file bytes with metadata, and a tar preserving native ownership/ACLs/
+xattrs/SELinux labels. No Forgejo database or project private SSH keys were copied.
+The guest `checkpoint-b.tar` archives also contain the rehearsal copies/results and
+account-file evidence. Both were copied into separate private builder target homes
+and independently matched by SHA-256/size. Keep all copies and later writes; these
+are not current rollback data for a future cutover or whole-root/workload snapshots.
+
+**Both controlled-copy matrices passed**, using the verified candidate image and
+actual populated target v6 copies:
+
+- Missing grant key: startup refused; original schema/columns/ciphertext preserved.
+- Wrong grant key: startup refused; original schema/columns/ciphertext preserved.
+- v6→v9: healthy candidate startup; integrity/foreign keys and every original table's
+  original-column values, IDs and ciphertext preserved.
+- Prior image against the migrated v9 copy: refused the newer schema.
+- Matching untouched prior v6 DB/config/key/image copy: healthy startup. This is
+  compatibility on a copy, not a live rollback or permission to discard later writes.
+
+Each guest retains five stopped rehearsal containers and their private directories;
+none was removed. Actual final inspection confirmed network `none`, read-only image
+roots, no effective capabilities, no published ports and only the case-specific
+private bind mount, never the live helper. No copied credential authenticated or
+refreshed against a provider; no runner listener or project workload was cloned.
+
+**Account-program preparation:** all six exact current programs/selected ancestors
+were read from their existing CIDs. On separate copied trees, the exact candidate
+program passed Python syntax compilation and atomic single-file replacement with
+file/directory fsync, expected file owner/mode and preserved copied directory inodes.
+Original program bytes and observed metadata were equal before/after. This is a
+bounded file/ancestor rehearsal, **not native account provisioning, writer-contention,
+SELinux delivery or terminal-maintenance acceptance**. No original project file,
+account, key or directory was replaced. The live helper/project-account pairing
+remains an explicit future checkpoint-C operation, not satisfied by these copies.
+
+**Final preservation checks passed:** both boot identities, configs/credential-file
+hashes, project account/public-key hashes, selected project system PID/start identities,
+Soda schema/table counts and empty runner inventories/enablement were unchanged.
+Original host-helper PIDs and all six original project CIDs were also unchanged.
+Both live dashboards still use the b8af68c image. Forgejo, proxy, helper, projects,
+runner services, Cockpit and Tailnet were not restarted/reconfigured by this work.
+
+Evidence: `.artifacts/retained-step5-c71e5ba/{soda-test,soda-native-spaces-658f2af}/`
+contains backup/rehearsal/account-file logs, post-details/preservation results,
+archive receipts and verified private `checkpoint-b.tar` copies. Parent recipes are
+bounded ports of the existing backup/rehearsal tools, not a new updater or gate.
+All native phase commands exited zero; the five expected positive/negative cases
+passed on each target. No build, dependency change, provider action, authentication,
+project lifecycle, cleanup, live schema migration or cutover occurred. Updated the
+combined plan/handoff; no production source changed.
+
+**Step 5 is not complete:** genuine predecessor/cache and applicable real authority/
+populated UI/shared-helper maintenance evidence, exact minimal delta and the live
+cutover recipe/window remain before checkpoint C. The backup/rehearsal grant does
+not authorize that cutover. Cockpit Runners and Tailnet remain installed; step 6
+remains excluded. Do not infer retained-runner migration parity from empty inventories.
+
 ## Step 5 targets selected — read-only inventory; no maintenance yet
 
 The user clarified **step 5 only**, `soda-test` first, then the retained validation

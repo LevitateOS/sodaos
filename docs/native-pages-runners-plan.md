@@ -251,12 +251,16 @@ source rendering and local listener health cannot substitute for it.
 
 ## 5. Rehearse and deliver to the approved retained target
 
-**Status: targets selected; bounded read-only inspection executed.** The user selected
+**Status: targets inspected; approved checkpoint-B backups and isolated rehearsals passed.** The user selected
 step 5 only, `soda-test` first and retained `soda-native-spaces-658f2af` second, and
 approved starting powered-off targets. Both were already running on their original
 disks; neither was started/rebooted. Checkpoint A observations are retained under
-`.artifacts/retained-step5-c71e5ba/`. Backup/rehearsal interruptions (B), the live
-cutover recipe/window (C) and target acceptance remain pending; step 6 is excluded.
+`.artifacts/retained-step5-c71e5ba/`. The user subsequently approved B; both dashboards
+were briefly stopped/backed up and resumed on unchanged v6 installations. Actual
+copied v6→v9, missing/wrong-key, prior-v9 refusal and matching-prior-v6 cases passed;
+private archives were retained on guests and hash-verified on the builder. The
+live cutover recipe/window (C), remaining delivery checks and target acceptance
+remain pending; step 6 is excluded.
 `19824ec` is the current verified x86_64 candidate, exported at
 `.artifacts/runner-projection-19824ec/export/x86_64/`, not an instruction to install
 it everywhere. Step 4 supplies bounded isolated evidence and explicit continuity
@@ -325,7 +329,10 @@ process was observed, but this is not a future writer-drain receipt.
 unlocked `project-account` program. The candidate host's embedded key updater must
 be paired with the current account program under the
 [project maintenance contract](project-os.md#managed-key-writer-contract).
-Review/rehearse the exact single-file update and writer exclusion before seeking C;
+The exact single-file update passed bounded copied-file/ancestor rehearsals on all
+six project-derived copies; originals stayed unchanged. This does not prove live
+writer exclusion, native provisioning, terminal preservation or label delivery.
+Finish those applicable maintenance checks before seeking C;
 leaving the old writer or replacing roots is not an acceptable shortcut. Directory
 inodes, accounts, key bytes, homes and live SSH/process identities must survive.
 Neither this observation nor an empty runner inventory establishes delivered parity.
