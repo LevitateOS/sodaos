@@ -142,8 +142,11 @@ the local Forgejo service and required Chrome distribution are also unavailable.
 An independent staging run exposed stale Caddy indentation assertions; those were
 corrected without changing routing, and all 11 staging cases passed against the
 built tree. Retain the failed aggregate and mixed-source staging receipts; use the
-resulting exact revision for subsequent candidate validation. Restoring fixture
-prerequisites is necessary, not permission to skip the page gate or claim step 1's
+resulting exact revision for subsequent candidate validation. Fresh `6d9a9d9` now
+built/sealed and passed all 11 staging tests and integrity verification from its own
+frozen worktree; paired Go metadata matches that clean revision. Its full native
+check/export remains held until fixture prerequisites are restored. Restoring them
+is necessary, not permission to skip the page gate or claim step 1's
 remaining acceptance gaps closed. See the leading handoff for exact artifacts.
 
 Freeze a clean committed source after the applicable changes above. Use a fresh

@@ -28,8 +28,20 @@ Restore/provide the approved fixture and restricted inputs plus its required bro
 before rerunning the full gate; no test skipping, fabricated native HTML, silent
 new provider fixture or browser-security bypass follows. Fresh worktree runs also
 need explicit private fixture inputs; Git does not copy ignored credential files.
-A fresh exact revision will retain the corrected staging test. No installation,
-provider/runner actions, publication or export occurred.
+The corrected exact candidate is now **`6d9a9d9884cf23c1b6be3ce0eb1ea2d1494f43ac`**,
+retained at `.artifacts/worktrees/combined-candidate-6d9a9d9/`. Its fresh native build/
+seal passed in 36.05 seconds; all 11 staging tests passed from that same worktree,
+and sealed integrity verified. Paired Go build metadata reports Go 1.26.7,
+linux/amd64, that same revision and `vcs.modified=false` for `soda-host`,
+`soda-runners` and the Forgejo-only launcher. Selected artifact/manifest hashes and
+logs are in `.artifacts/combined-candidate-6d9a9d9/` (`build.log`, `packaging.log`,
+`integrity.log`, `paired-sha256.txt`, `paired-build-info.txt`). These are build/
+staging/integrity results, not a full source/native-check PASS. Do not repeat the
+known-blocked aggregate until its fixture prerequisites are restored; resume the
+normal native check in the frozen worktree with explicit private fixture inputs,
+then export only after applicable gates pass. Step 1's remaining acceptance and
+step 2's unselected target/provider proposal are not closed by these artifacts.
+No installation, provider/runner actions, publication or export occurred.
 
 
 ## Combined step 2 — installed process observations and concrete scenario procedures
