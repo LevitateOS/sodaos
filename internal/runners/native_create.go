@@ -62,7 +62,13 @@ func (native *Native) prepareAccount(ctx context.Context, id string) (_ prepared
 	}
 	account, _ := AccountName(id)
 	state := native.statePath(id)
-	if err := os.MkdirAll(filepath.Dir(state), 0o755); err != nil {
+	parent := filepath.Dir(state)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return preparedRunner{}, err
+	}
+	// The host helper deliberately runs with UMask=0077. The root-owned
+	// parent must still be traversable by the runner; state/secrets stay 0700/0600.
+	if err := os.Chmod(parent, 0o755); err != nil {
 		return preparedRunner{}, err
 	}
 	args := []string{"--system", "--gid", RunnerGroup, "--home-dir", state, "--no-create-home", "--shell", RunnerShell, "--comment", "soda-runner=" + id, account}

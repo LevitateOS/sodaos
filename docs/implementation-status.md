@@ -1,5 +1,86 @@
 # Current handoff
 
+## Step 4 in progress — new isolated runner VM and reproduced native permission failure
+
+The user approved a new isolated CoreOS/KVM fixture, candidate installation,
+fixture-only Forgejo users/OAuth/registration credentials/trusted workflow, native
+runner jobs and lifecycle/contention/preservation checks, one VM reboot and exact
+local removal of disposable capacity. No retained target, external provider,
+global trust, unrelated network or destructive cleanup permission follows.
+
+New target: **`soda-native-runners-2cdc238`**, state/evidence/private inputs under
+`.artifacts/runners-vm-2cdc238/`. Stock signed CoreOS 44.20260817.3.2 was freshly
+fetched/verified using the retained public Fedora 44 keyring/fingerprint. Root and
+host SSH keys and a private root password/hash were freshly generated, never
+borrowed. SSH is pinned at `127.0.0.1:22226`; QEMU uses stock user networking only.
+No bridge/tap/host firewall changed. The service at port 33443 was left untouched;
+fixture HTTPS uses **`https://127.0.0.1:34443`**, with a retained owned SSH forward
+to that same loopback listener inside the VM. Project subnet 10.93.238.0/24 exists
+only in the new guest; no project has been created.
+
+The existing `soda-acceptance vm --hold --timeout 24h` owns this VM; its PID is in
+`vm-owner-3.pid`, evidence in `boot-evidence-2/`, disk/NVRAM under `vm/`. The bounded
+owner will shut down its own VM at expiry; preserve disk/NVRAM and check ownership
+before later actions. Failed provisioning/boot attempts remain: invalid fixture
+hostname prefix, missing Butane PATH, and compressed host-key verification. No VM
+booted in those failures. Stock Butane compresses private host keys; support fix
+`9e1e67b` adds bounded gzip decoding to both trust verification and secret redaction,
+with compressed-key/pin/corruption/overflow regressions. Go/race support tests passed.
+The rebuilt support client is separate from delivered appliance candidate `2cdc238`.
+
+The extension service staged 128 package additions. Applied them with the upstream
+additive-only `rpm-ostree apply-live`, keeping the one approved reboot **unused**.
+Disabled Zincati only in this fixture to prevent an unsolicited test-time update/
+reboot. Initial transfer failed because staged Python was not yet active; retained
+that destination and transferred successfully to fresh
+`/var/tmp/soda-runner-bundle-2/x86_64` after activation.
+
+First install of verified `2cdc238` stopped during relabeling: the installed Cockpit
+SELinux context was invalid in the still-running kernel policy after apply-live.
+Retained `install-started`, confirmed the mismatch, loaded the installed policy
+with `semodule -B` (no custom policy/permissive mode), then resumed only the reviewed
+installer suffix at restorecon, with its original network function and exact
+host/revision/marker guards. `resume-install.sh` and all logs are retained. No
+marker was erased and first-install was not replayed. Installation/activation then
+passed with SELinux enforcing; `tests/installed/host.sh`, including actual installed
+artifact/image verification against `2cdc238`, passed.
+
+Fresh stock Forgejo setup created `runner-operator` (ID 1) and `runner-admin` (ID 2).
+After native `soda-setup`, the first was demoted through the official API: it is the
+Soda operator without site administration; ID 2 is a site administrator without
+Soda operator authority. The fixture owns public repository ID 1,
+`runner-operator/runner-proof`, with the exact candidate's manual-only workflow;
+its actual commit/content digest are retained in `workflow-receipt.json`. Created
+system provider records ID 1 (baseline) and ID 2 (probe-one), retaining UUID/token
+responses privately. No workflow dispatch or provider cleanup has occurred yet.
+Fixture CA trust is limited to private browser NSS homes, explicit client CA files
+and `SSL_CERT_FILE` for the new guest's runner template; no system CA store changed.
+Native RPM observations are Forgejo runner 12.13.2 and systemd 259.8, not an inferred
+match to older package receipts.
+
+The existing installed driver passed the native two-actor **list** journey using
+`.artifacts/r4-list-01/`. Registration through the real UI created baseline's native
+account/state, but failed postconditions: systemd reported `200/CHDIR`. Evidence is
+`.artifacts/r4-regbase-01/sodaspaces-run/result.json`. Native path inspection proved
+root-owned `/var/lib/soda/runners/baseline` was 0700 while state was correctly 0700
+and runner-owned: host helper `UMask=0077` masks `MkdirAll(...,0755)`. Stopped this
+exact failed listener through the native CLI; retained its account, UID 992, group,
+credential/configuration, provider record and failed evidence. **Do not retry
+registration or remove/recreate it as repair.**
+
+Source correction explicitly restores the intended parent 0755 without changing
+the helper's umask or private state/token modes. A separate-process 0077 regression
+refuses real account creation and verifies the parent mode; runner/helper/API/CLI
+race suites passed (`runner-mode-regressions.log`). Fresh matching native build/
+check/export and backed-up, exact-target paired maintenance are required before
+using this correction on the fixture. Preserve baseline state, correct only its
+exact root-owned parent mode during reviewed maintenance, and use an explicit Start,
+not registration replay. Then exercise unused probe-one registration and the
+prepared job/lifecycle/reboot/fault cases. Step 4 is **not complete**; pre-existing
+upgrade/activation proof is not supplied by this fresh installation. All broader
+cases and the single reboot remain unrun, not waived.
+
+
 ## Combined step 3 — Linux x86_64 build/check/export complete for `2cdc238`
 
 The user explicitly authorized the missing builder-only Chrome/Playwright setup,

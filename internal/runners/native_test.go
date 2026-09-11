@@ -3,8 +3,11 @@ package runners
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -65,6 +68,32 @@ func TestLifecycleActionsPersistListenerStateAcrossBoot(t *testing.T) {
 		{Name: "systemctl", Args: []string{"enable", "soda-runner@one.service"}},
 		{Name: "systemctl", Args: []string{"restart", "soda-runner@one.service"}},
 	}, runner.commands)
+}
+
+func TestPrepareAccountParentSurvivesRestrictiveUmask(t *testing.T) {
+	if os.Getenv("SODA_RUNNER_UMASK_TEST") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestPrepareAccountParentSurvivesRestrictiveUmask$")
+		cmd.Env = append(os.Environ(), "SODA_RUNNER_UMASK_TEST=1")
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "%s", output)
+		return
+	}
+	// Only this isolated test process changes its umask. No real account command runs.
+	syscall.Umask(0o077)
+	root := t.TempDir()
+	called := false
+	native := &Native{RootPath: root, Runner: runnerCommandFunc(func(_ context.Context, command Command) (CommandResult, error) {
+		called = true
+		require.Equal(t, "useradd", command.Name)
+		info, err := os.Stat(filepath.Join(root, "umask-probe"))
+		require.NoError(t, err)
+		require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+		return CommandResult{}, errors.New("fixture refuses real account creation")
+	})}
+	_, err := native.prepareAccount(context.Background(), "umask-probe")
+	require.ErrorContains(t, err, "create runner Linux account")
+	require.True(t, called)
+	require.Equal(t, 0o077, syscall.Umask(0o077), "do not weaken the helper's process-wide umask")
 }
 
 func TestPrepareAccountRemovesLinuxAccountWhenIdentityLookupFails(t *testing.T) {
