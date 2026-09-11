@@ -1,5 +1,32 @@
 # Current handoff
 
+## Approved two-GET Podman inspection — both retained exec records stopped
+
+The user explicitly approved the temporary root-only Unix-socket API inspection.
+On validation, a new mode-0700 `/run/soda-exec-inspect-7e39229/` held the mode-0600
+socket. Exact upstream Podman 5.8.4 served **only two inspection GETs** to the two
+previously recorded IDs. Both returned HTTP 200 with **Running=false, CanRemove=true,
+Pid=0, ExitCode=0** and the expected original container ID. The selected implementation
+sets CanRemove from `ExecStateStopped`: these are stopped records, not pending or
+running processes. CanRemove is not authorization to delete them.
+
+The exact diagnostic process exited **0** after termination; its private listener
+is absent and normal `podman.socket`/`podman.service` remain inactive. No TCP listener,
+service enablement, exec start/stop/removal, project lifecycle, pruning or cutover
+occurred. Both records remain and their original container remains running. Raw
+ProcessConfig/argv/response bodies were kept out of evidence; only the restricted
+identity/state/PID/exit projection was saved. Evidence and syntax-checked recipe:
+`.artifacts/step5-exec-api-7e39229/`; guest restricted result remains in the private
+run directory. The initial upstream definition-file lookup returned 404; the exact
+router and actual definition/implementation were inspected before execution.
+
+This resolves the **unclassified-record** question below. Before resuming the
+already approved validation cutover, correct its overly strict empty-ExecIDs recipe
+to preserve these exact confirmed stopped records, rather than prune them or waive
+checks on any new/unclassified execution. Fresh admission/drain and preservation
+checks still apply. This request performed only the diagnostic; validation remains
+on v6, soda-test remains on its delivered v9, and step 6 remains excluded.
+
 ## Read-only process double-check — no prune candidate found
 
 At the user's request, a fresh validation-VM check found only **six normal system

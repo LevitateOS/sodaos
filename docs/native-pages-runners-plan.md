@@ -421,10 +421,12 @@ passed bounded native private-page/BFCache, operator/nonoperator Runners reads,
 retained Cockpit Runners and all seven memberships' management-forwarded SSH/PTY
 checks. Its four roots and sampled system processes were preserved. The first
 observer and direct-routing failures remain recorded. Validation VM delivery is
-held before its window: two retained Podman exec records remain unclassified; empty
-managed directories are not a substitute for that observation. Nothing was ended
-or cleaned, and no diagnostic API listener was started. Step 6 remains excluded.
-See the leading handoff for the bounded diagnostic decision.
+not yet performed. A separately approved root-only upstream API inspection now
+confirms both retained Podman exec records are stopped (Running=false, Pid=0,
+ExitCode=0). Its diagnostic listener was stopped; neither record was removed.
+Correct the overly strict empty-ExecIDs recipe to preserve those exact stopped
+records before fresh admission/drain checks; do not waive checks on new executions.
+Step 6 remains excluded. See the leading handoff for the actual diagnostic receipt.
 
 **Approval checkpoint C:** present the candidate/delta, rehearsal evidence, target,
 window, exact interruptions and retained-target checks for explicit cutover approval.
