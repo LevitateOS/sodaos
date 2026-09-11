@@ -24,8 +24,9 @@ logout. Steps 1–4 now have native hosts with the existing page bodies, shared
 connection/logout, switched navigation and fixed bookmark entries. Old Go shells
 and their boot callers are removed; local Forgejo browser proof includes the
 page/drawer handoff and migrated tests. Steps 5–6 cover remaining
-integrated acceptance and separately authorized delivery. The Soda-pages
-lane retains shared-file ownership until the explicit handoff in that plan. This is
+integrated acceptance and separately authorized delivery. The combined native-pages/
+Runners plan now owns this work under one owner; earlier lane reservations are
+superseded. This is
 not atomic SSO or a new deployment grant.
 Existing shell descriptions below remain current-source/historical facts, and the
 runner parity/Cockpit retirement and native acceptance obligations remain in force.
@@ -37,10 +38,13 @@ The user then approved step 4 on a new isolated CoreOS/KVM fixture only:
 This covers its setup/activation, fixture-only users/credentials/repository/trusted
 manual workflow and native runner registration/jobs/lifecycle/contention, one VM
 reboot and exact removal of disposable `probe-one` capacity while preserving
-`baseline`. Both records/accounts and every failed attempt are retained. The
-existing VM tool owns a bounded 24-hour hold; inspect its recorded owner/deadline
-before continuing. The latest installed candidate and actual proof/remaining driver
-ports are in the leading handoff. The one approved reboot has now been used;
+`baseline`. Bounded step-4 x86_64 proof is now complete with installed `19824ec`:
+overlap, departure/no-replay, exact Remove and final native pages passed. Probe's
+local account/state were removed only after preserving a verified private archive;
+baseline remains running, and both provider records/history, credential inputs and
+all failed attempts remain retained. The existing VM tool owns a bounded 24-hour
+hold; inspect its recorded owner/deadline before continuing. Exact candidate and
+evidence composition are in the leading handoff. The one approved reboot has now been used;
 no additional reboot is authorized.
 This does not extend to retained VMs/projects, external providers, global trust,
 host-network policy, additional reboots or destructive/automatic cleanup.

@@ -1,6 +1,76 @@
 # Current handoff
 
-## Step 4 continuation — `1bfa863` native CLI projection correction
+## Step 4 bounded x86_64 completion — `19824ec` installed; overlap, departure and exact Remove passed
+
+**The approved isolated step-4 sequence is complete at its bounded scope.** Latest
+candidate `19824ec` passed fresh native x86_64 build, full check, bundle export,
+independent export verification, pinned verified transfer, backed-up paired fixture
+maintenance and installed verification. Export/evidence:
+`.artifacts/runner-projection-19824ec/`; frozen worktree:
+`.artifacts/worktrees/runner-projection-19824ec/`; guest backup:
+`/root/runner-fixture/pre-19824ec/`. `export-manifest-sha256.txt` records the exported
+manifest hash, not a signature/reproducibility claim. Only affected commands/images
+and the retained delivery binding changed; no implicit listener restart or project
+creation occurred during maintenance. All prior candidates/failures remain retained.
+
+Final installed results, under `.artifacts/`:
+
+| Evidence home | Actual result |
+| --- | --- |
+| `r4-overlap-06/` | **Confirmed**: real native Restart, Cockpit Stop and root CLI List queued during one 20s lock hold; none completed through held admission. All completed afterward, prior probe incarnations were gone, baseline was unchanged and **Stop was last**. Both real UIs and CLI/native inventories agreed after refresh, followed by return/reload without a second POST. |
+| `r4-departure-02/` | **Failed precondition**, no new POST/hold: the preceding overlap had legitimately left probe stopped. Preserved this attempt rather than treating an arbitrary winner as guaranteed. |
+| `r4-post-overlap-start/` | Separately approved exact Start **confirmed**, preserving baseline. |
+| `r4-departure-03/` | **Confirmed**: one Restart POST inside the held interval, native Issues departure before release, no observed native effect, original native identities/state preserved, and no replay through return/reload. Earlier `r4-departure-01/` independently passed under `634aa30`; neither is a universal guarantee that browser abort cancels native work. |
+| `r4-remove-01/` | **Confirmed exact local Remove** of `probe-one`: absent account/state, empty scope and no surviving pre-operation incarnations. Baseline account/work/credentials/policy and PID/start 1531/2729 (UID 992, same post-reboot boot) were unchanged. No provider record was deleted. |
+| `r4-provider-history/` | Stock native Forgejo rendered exact runs 1, 2 and 3 after Remove, anonymously on this explicitly public synthetic repository; no non-read request was made/allowed. No HTML substitution, screenshot, rerun or borrowed login. |
+| `r4-final-pages/` | Final `19824ec` installed two-actor native page/auth/BFCache journey **passed** after Remove, including coordinated logout, draft/history and real native Spaces/navbar integration. |
+
+Before Remove, archived the exact idle probe state (including work/proofs and native
+credentials) to guest `/root/runner-fixture/pre-remove/probe-one-state.tar` and
+private builder `probe-one-pre-remove.tar`. Verified the archive listing and matching
+SHA-256 across pinned transfer. An initial checksum-summary assertion hit tar's
+leading-slash warning before any Remove invocation; parsed the exact checksum line
+instead, retaining the log. This is a bounded idle copy, not an arbitrary live-write
+snapshot or automatic rollback. The one real Remove was not replayed.
+
+After Remove, official API reads of **provider record IDs 1 and 2** succeeded;
+exact run IDs 1/2/3 retained `success`/`failure`/`failure` and the original full
+workflow commit. `provider-after-remove.json` and `provider-native-history.json`
+retain sanitized evidence. The provider API still reports record status `idle`;
+do not reinterpret that cached/provider field as a live native listener or claim
+that local Remove removed provider registration/history. Provider cleanup was not
+performed. All external credential inputs, provider tokens/registrations, historical
+runs, archives, source and failed evidence remain retained.
+
+**Evidence composition, not relabelled PASS:** registration/exact successful job
+ran under `556038c`, corrected observation and idle lifecycle under `4f9e616`, active
+Restart/reboot under `ea759e2`, CLI cancellation under `cee160e`, and final combined
+caller/Remove/page checks under `19824ec`. Full changed-path inspection
+(`production-continuity-paths.txt`) shows only docs/tests changed since `556038c`;
+`production-continuity-diff.txt` confirms unchanged production runner/page code,
+units and recipes. Earlier bounded native mechanism results apply on that explicit
+basis, with their original receipts and unconfirmed outcomes preserved. This does
+not assert that old jobs/reboots were executed again under the final revision.
+
+**Retained state and authority:** only `baseline` remains as local capacity, running
+and enabled. Probe's local account/state were removed only by the approved exact
+case; its archive, inputs and provider record/history remain. The single approved
+reboot was already used; no new reboot, VM power cycle, target or cleanup is implied.
+Original VM owner `vm-owner-3.pid` remained live at the checkpoint, started
+2026-09-11 09:23:28 UTC with a bounded 24h hold. Inspect it before further work.
+HTTPS/Cockpit forwards remain owned by `tunnel-after-reboot.pid` and
+`cockpit-tunnel.pid`, loopback client forwarding only, not laptop/project routing.
+Scoped NSS homes trust the fixture CA and Cockpit's exact server peer; global trust,
+host-network policy and retained VMs/projects were untouched. Mandatory local page
+gates reused the existing localhost fixture and retained their OAuth applications,
+without reinitializing or repurposing it.
+
+Step 1's wider predecessor-cache/visual/authority gaps, aarch64 and whole-product
+acceptance remain open. Retained-target rehearsal/delivery (step 5) needs its own
+selected target/window/grant. **Keep Cockpit Runners and Tailnet**; neither retirement
+nor another appliance rollout follows from this bounded completion.
+
+## Step 4 preceding — `1bfa863` native CLI projection correction
 
 `1bfa863` passed fresh native build/check/export/verification and paired backed-up
 fixture delivery (`.artifacts/runner-thenable-1bfa863/`, matching frozen worktree,

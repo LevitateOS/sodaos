@@ -61,8 +61,8 @@ That run corrected subpixel assertion rounding and a real tablet-width native
 navbar overflow. All 16 consumers and the native parent passed without skipping
 required cases. Runner operation responses remain synthetic; automated geometry
 is not complete populated visual acceptance. Wider gaps below remain open. The
-Linux builder still lacks its page-fixture/private-input/browser prerequisites;
-see the leading handoff for exact checks and the new-candidate handback.
+Linux builder prerequisites and mandatory page gate subsequently passed in step 3;
+the wider gaps below remain open. See the leading handoff for exact evidence.
 
 Review current production callers and existing tests
 against the remaining gaps, reusing applicable receipts for unchanged behavior.
@@ -99,8 +99,9 @@ No unsupported whole-product, physical-keyboard or installed-process claim.
 
 ## 2. Finish installed runner scenarios and execution inputs
 
-**Source/procedure preparation implemented; actual execution inputs remain
-unselected.** Use `tests/installed/sodaspaces.ts`, its existing guard tests and the
+**Source/procedure preparation and isolated execution-input selection complete.**
+The exact approved fixture/actors/resources and bounded step-4 results are in the
+leading handoff; these are not defaults or a grant for another target. Use `tests/installed/sodaspaces.ts`, its existing guard tests and the
 [runner native guide](runners-native-validation.md). The driver is wired. Its native
 observer now supplies recursive cgroup membership, boot identity and same-boot prior
 PID/start/UID survival checks; local fixture tests cover churn, bounds, PID reuse,
@@ -111,7 +112,7 @@ No native/provider scenario or real browser/driver proof follows from those test
 Fill and review the guide's exact execution proposal before claiming this step's
 approval-ready input exit; do not guess targets or credentials.
 
-| Scenario | Remaining preparation and required observation |
+| Scenario | Required preparation and observation |
 | --- | --- |
 | Entry/admission and operations | Validate real driver/consent integration locally where supported; cover argument/target/actor mismatches, both fresh cookie identities, exact permit consumption, token clearing and failure evidence. Existing doubles are not installed proof. |
 | Registration and successful job | Bind an explicitly selected provider registration, unique fixture label, trusted repository/workflow/full commit and observation to exact native runner identity and the returned provider run ID. No latest-run selection, borrowed credentials or automatic registration/publication. |
@@ -136,6 +137,11 @@ and the exact native/provider proposal is ready for approval. Actual installed
 execution belongs to step 4 below; it is not a prerequisite to author these cases.
 
 ## 3. Produce and verify one combined native candidate
+
+Subsequent step-4 driver corrections each received newly frozen applicable checks;
+latest installed/exported `19824ec` passed the full native x86_64 build/check/export
+and independent verification. The original step-3 exit below remains historical,
+not a substitute receipt for later bytes.
 
 **Bounded native x86_64 build/check/export complete for
 `2cdc23861de5829bb0010e292475b9e7c35add6f`.** Under explicit builder-fixture setup
@@ -200,22 +206,23 @@ build/staging evidence, not installation or provider parity.
 
 ## 4. Execute approved isolated native and provider proof
 
-**Approved and in progress on new `soda-native-runners-2cdc238` only.** State,
-restricted inputs and evidence live under `.artifacts/runners-vm-2cdc238/`; the
-leading handoff owns current exact resources and the bounded VM-owner deadline.
-Native installation exposed and corrected host-helper umask traversal; actual API
-dispatch exposed and corrected webhook-versus-workflow-trigger correlation.
-`cee160e` passed full build/check/export and backed-up paired fixture delivery,
-following retained earlier candidates. Native registration, idle lifecycle,
-exact successful job, active Stop aftermath, and active Restart/aftermath now have
-bounded evidence; older unconfirmed receipts remain failed. The full native
-page/auth/cache journey passed, including coordinated logout, unsaved draft,
-BFCache and native navbar/Spaces integration. The **single approved reboot was used
-and preservation/artifact checks passed**. Bounded CLI cancellation under held
-admission and subsequent native Start passed. Baseline and probe-one are running.
-Three-caller mutation overlap, departed-browser POST/no-replay, and exact local
-Remove/provider aftermath remain open; keep Cockpit Runners.
-No retained-target rollout, new target, additional reboot or cleanup is implied.
+**Complete for the explicitly approved isolated x86_64 fixture only.** Latest
+installed `19824ec` passed fresh full build/check/export, verification and backed-up
+paired delivery on `soda-native-runners-2cdc238`. Final native/Cockpit/CLI mutation
+overlap, dispatched departure/no-replay, exact probe Remove/provider aftermath and
+native page/auth/BFCache checks passed. Registration/exact successful job, idle and
+active lifecycle, bounded CLI cancellation and the **single already-used reboot**
+have original native receipts for explicitly unchanged production mechanisms;
+full changed-path inspection and the evidence composition are in the handoff.
+Earlier failed/unconfirmed receipts remain failed, not relabelled or erased.
+
+Only baseline remains running as local capacity. Probe's native account/state were
+removed after a verified private evidence archive; both provider records and all
+three exact job histories remain. State/inputs/archives/evidence remain under
+`.artifacts/runners-vm-2cdc238/`, with the original bounded VM-owner deadline.
+This is not whole-product/release or aarch64 acceptance; step 1's wider gaps remain.
+Keep Cockpit Runners. No retained-target rollout, new target, additional reboot,
+provider cleanup or retirement follows.
 
 **Approval checkpoint:** obtain the exact fixture, activation, provider, lifecycle,
 fault, reboot and cleanup grants needed for the selected cases. Approvals can be

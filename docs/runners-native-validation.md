@@ -5,8 +5,8 @@ This guide supplies the runner inputs/tools for steps 2–4 of the active
 [runner step 4](runners-port.md#4-prepare-product-owned-native-journeys-and-a-paired-candidate)
 remains a historical source/preparation record, not a separate execution sequence.
 It is not execution permission, an appliance updater or a second source/native gate.
-The [lane handoff](forgejo-soda-pages-plan.md#implementation-lanes-and-handoff)
-continues to own the shared browser driver, authentication and shell/schema delivery.
+The combined plan owns the shared browser driver, authentication and paired
+delivery; earlier lane reservations are superseded.
 
 **Current status:** runner inputs, callable scenarios, fixed read-only native
 observations and provider dispatch/exact-run observations have source implementations.
@@ -20,20 +20,24 @@ and a one-shot page/actor/path/body guard. Its local source-backed tests use dou
 bounded installed phases have now run on the explicitly approved new
 `soda-native-runners-2cdc238` fixture. The active combined plan and leading handoff
 own its current results and remaining work; the older lane reservations are superseded.
-Latest installed native x86_64 candidate `cee160e` passed fresh build/seal, the full
+Latest installed native x86_64 candidate `19824ec` passed fresh build/seal, the full
 native check, export and verified paired maintenance on that fixture. Its exact
 inputs/evidence are retained under `.artifacts/runners-vm-2cdc238/`; its export is
-`.artifacts/runner-navbar-cee160e/export/x86_64/`. The original `2cdc238` and subsequent
+`.artifacts/runner-projection-19824ec/export/x86_64/`. The original `2cdc238` and subsequent
 `556038c` attempts remain retained, including the reproduced native umask failure.
 Native registration, successful exact job, idle/active lifecycle and aftermath have
 bounded results; older unconfirmed outer browser/guard receipts stay failed. The
 bounded waiter and coordinated logout ports passed natively. The **single approved
 reboot was used**, with preserved state/credentials/UIDs and enablement policy.
-The full installed native page/auth/cache journey passed, as did the independent
-bounded cancelled CLI waiter and subsequent native Start. Both listeners are now
-running. Three-caller mutation overlap, browser departure/no-replay and exact
-Remove/provider aftermath remain open; Cockpit Runners is retained. Do not call step 4
-complete or generalize these fixture results to retained/native/aarch64 acceptance.
+The full installed native page/auth/cache journey, bounded cancelled CLI waiter,
+three-caller mutation overlap, dispatched departure/no-replay and exact probe Remove
+now passed. Probe work/credentials/evidence were archived first; baseline remains
+running and unchanged. Both provider registration records and all three exact run
+histories remain, verified by official API and native history pages. **Step 4 is
+complete only for this bounded isolated x86_64 scope**, with exact earlier-candidate
+mechanism continuity documented in the handoff—not relabelled old PASS records.
+Keep Cockpit Runners. Retained-target delivery, wider page/whole-product and aarch64
+acceptance remain separate.
 
 ## Owners and entrypoints
 
@@ -265,8 +269,17 @@ record, not in source or a new readiness database:
 | Allowed cases | List/registration/job/lifecycle, 20-second lock hold and cancelled waiter, reboot, local Remove and provider cleanup separately. Each grant names its actual effects, not an `all` flag. |
 | Failure handling | Retain evidence/partial state; stop automatic writes. Name the person who may approve further observation or corrective actions. No automatic retry, old-snapshot restore or cleanup. |
 
-Target/provider values are currently **unselected**. Source preparation can be
-reviewed now; actual authorization cannot be completed with invented values.
+The completed isolated proposal selected `soda-native-runners-2cdc238`, x86_64,
+Forgejo `https://127.0.0.1:34443`, root Cockpit `https://127.0.0.1:39090`, pinned SSH
+on port 22226, nonadmin Soda operator `runner-operator` (ID 1), nonoperator site
+administrator `runner-admin` (ID 2), and the fixture's own root login. Provider
+records 1/2 were baseline/probe, repository ID 1 was `runner-operator/runner-proof`,
+with the exact trusted manual workflow/commit and run IDs in the restricted inputs.
+Only probe was disposable; baseline stayed preserved. The one reboot is used;
+probe local Remove is complete but provider removal was not performed. Inputs,
+archives, failures and exact candidate bindings remain under
+`.artifacts/runners-vm-2cdc238/`. These selections are not defaults for another
+fixture or retained-target grant.
 
 ### A. Registration and successful trusted job
 
