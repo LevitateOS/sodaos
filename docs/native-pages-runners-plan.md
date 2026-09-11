@@ -307,7 +307,13 @@ module graph and Back/Forward; all normal consumers and the native parent still 
 See [the review](forgejo-soda-pages-review.md#coverage-gaps-that-are-not-additional-proven-production-defects)
 and [fixture inputs](typescript.md#local-source-checks). This does not execute or
 retire an already-open predecessor page/backend, replace installed cache/CSP proof,
-or close the shared-helper/terminal and populated visual/authority obligations.
+or close the shared-helper/terminal and actual-authority obligations. The existing
+consumers also passed their bounded populated visual slice using the shared screenshot
+tool: light/dark at 390/768/1440, runner inventory/confirmation/registration,
+repository metadata/Join and workspace navigation. Keep its synthetic-operation and
+empty-terminal limits explicit; broader visual/access/profile-menu and native
+maintenance evidence remain separate. See the leading handoff for reviewed captures
+and preserved failures, not a whole-product visual acceptance claim.
 
 Record applicable existing receipts and the remaining bounded checks in the
 handoff. Changed production bytes require a fresh frozen candidate and applicable

@@ -1,5 +1,71 @@
 # Current handoff
 
+## Step 5 visual continuation — bounded populated fixture review, not installed acceptance
+
+Reused the existing page consumers and `scripts/screenshot.ts` to capture their
+already-authenticated native-page fixtures, rather than creating another login or
+scenario harness. The screenshot tool is now import-safe, shares its browser-only
+theme selector with those consumers, and has an opt-in `SODA_PAGE_CAPTURES` path.
+Named outputs are exclusive/private and labelled synthetic-operation/terminal
+fixtures. Fixed page/loopback origin and native landmark guards apply; nonempty
+password fields refuse capture without exposing their values. That negative case
+passed and left no PNG/sidecar. No masking, credential-entry capture or publication.
+
+**Reviewed visual matrix:** 390/768/1440 × light/dark, comprising 24 settled views
+in `captures-02` (populated runner inventory, scrolled exact-Remove confirmation,
+repository creation metadata and populated workspace navigation), plus 12 additional
+registration/Join views in `captures-05`. The final fixture generated all **36**
+private PNG/sidecar pairs. Manual PNG inspection found readable wrapping, native
+header/tablet wrapping, visible focused confirmation/input/actions and appropriate
+vertical scrolling; no production layout correction was indicated by these views.
+Runner registration captures keep the token empty; mobile lower-form captures do
+not show the entire long form at once. Repository Join remains an explicit action
+in Environment, with the no-external-SSH-key explanation visible. The workspace
+has two synthetic projects/session navigation but an empty synthetic xterm screen:
+this is not terminal-text/editor usability or native process evidence.
+
+Capture/observer corrections and preserved attempts:
+
+- The first dark/mobile workspace shot caught a CSS theme transition and appeared
+  to have a low-contrast selected tab. The shared capture theme selector now waits
+  for bounded finite native CSS transitions to finish, without disabling animations
+  or changing production CSS. The settled shot/sidecar shows foreground
+  `rgb(133, 182, 255)` on `rgb(23, 37, 84)`, matching the other dark sizes. Initial
+  images remain retained, not relabelled as settled-theme evidence.
+- `native-03` failed its repository capture locator: it incorrectly sought Join
+  under Access. Source inspection confirmed Environment owns Join while Access owns
+  connection/key controls. Corrected only the capture caller; all other consumers
+  ran, and the failed aggregate remains failed. No Join was dispatched for capture.
+- `native-04` passed its assertions, but the new registration shots framed the
+  heading/provider explanation rather than the form. Visual review rejected that
+  framing; `native-05` scrolls the real submit control into view without clicking it.
+  Earlier files remain; passing capture automation is not visual approval.
+
+**Checks actually run:** final strict typechecking passed; screenshot CLI `--help`
+passed. `native-05` passed all **16 mandatory consumers** and the full native
+connection/logout/draft/BFCache parent with capture enabled. A separate
+`default-native` run passed the same consumers/parent with capture disabled, proving
+imports do not launch the CLI or require capture outputs. Earlier `native` and
+`native-02` passed their smaller capture matrices. Final output inventory confirmed
+36 PNG/JSON pairs, all mode 0600 under private directories, and no credential-refusal
+capture. Synthetic operation guards remained active; the runner capture sequence
+confirmed zero dispatched mutations. Existing scenario mutations remain synthetic.
+
+Evidence: `.artifacts/step5-visual-512a2ad/`, including all five attempts, ordinary
+regression logs, screenshots/sidecars and retained native-fixture OAuth state. No
+reinitialization of retained Forgejo, retained guest contact, provider job, native
+lifecycle, deployment or cleanup occurred. The workspace test retains its existing fixture
+script insertion into native HTML; this does not supply untouched-native CSP proof.
+Production frontend/CSS/templates remain unchanged from candidate `19824ec`.
+
+This closes the bounded **local populated visual** slice, not all visual/native
+acceptance. Broader Access/error/profile-menu and real terminal/physical-keyboard
+combinations remain separate; existing automated controls/draft/error tests retain
+their scopes. Full predecessor-page execution/retirement, applicable actual authority
+and shared-helper interruption evidence, exact cutover recipe/window and checkpoint-C
+approval still remain. Live installations stay v6; keep all checkpoint-B archives and
+Cockpit Runners/Tailnet. Step 5 is not complete and step 6 is excluded.
+
 ## Step 5 browser continuation — genuine predecessor assets; full old-page retirement still open
 
 Continued pre-cutover work locally, without contacting/changing retained guests.

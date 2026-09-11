@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import path from 'node:path';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
+import {capturePageFixture} from '../../scripts/screenshot';
 import {terminalMenu} from '../installed/sodaspaces-controls';
 import {object} from '../../frontend/spaces/sodaspaces-api';
 import type {} from './fixtures/native-workspace-fixture';
@@ -55,6 +56,13 @@ test('native Spaces to drawer and back preserves exact sessions, retain and name
  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
  await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
+ if (process.env.SODA_PAGE_CAPTURES) {
+   for (const theme of ['light', 'dark'] as const) for (const width of [390, 768, 1440]) {
+     await page.setViewportSize({width, height: 900});
+     await capturePageFixture(page, `spaces-${theme}-${width}`, '.soda-workspace-terminal:not([hidden]) .is-connected', theme);
+   }
+   await page.setViewportSize({width: 1440, height: 1000});
+ }
  await terminalMenu(page, 'Keep for two hours');
  await page.waitForFunction(() => (window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.retain_until || 0) > 0);
  const retained = await page.evaluate(() => window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.retain_until);

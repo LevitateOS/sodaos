@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // Local page captures with a dedicated, reusable manual-login profile.
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, stat } from 'node:fs/promises';
+import type {Page} from 'playwright';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,66 @@ Requires Bun 1.4.2, the existing Playwright dependency, and Google Chrome.
 Set CHROME to override the browser executable.
 Captures the viewport, in URL order, as 001.png, 002.png, etc.
 Keep the dedicated profile closed between runs. Fixtures are managed manually.`;
+
+// Shared by the CLI and already-authenticated native page fixture consumers.
+// This changes only this document, never a saved account preference.
+export async function setCaptureTheme(page: Page, theme: 'light' | 'dark') {
+  await page.evaluate(async theme => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = `/assets/css/theme-forgejo-${theme}.css`;
+    await new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; document.head.append(link); });
+    document.documentElement.dataset.theme = `forgejo-${theme}`;
+    document.documentElement.dataset.sodaLoginTheme = theme;
+    document.documentElement.style.colorScheme = theme;
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    // Capture the selected theme, not an intermediate CSS transition. Keep
+    // native animations enabled; infinite cursor/attention animations stay live.
+    const finite = document.getAnimations().filter(animation => {
+      if (!(animation instanceof CSSTransition)) return false;
+      const end = animation.effect?.getComputedTiming().endTime;
+      if (typeof end !== 'number' || !Number.isFinite(end)) return false;
+      if (end > 5000) throw Error('Theme animation exceeds capture settling bound');
+      return true;
+    });
+    await Promise.all(finite.map(animation => animation.finished.catch(() => undefined)));
+  }, theme);
+}
+
+// Reuse the consumer's native login and synthetic operation model. Never launch a
+// second browser, inject HTML, mask controls or manufacture installed evidence.
+export async function capturePageFixture(page: Page, name: string, landmark: string, theme: 'light' | 'dark') {
+  const directory = process.env.SODA_PAGE_CAPTURES;
+  if (!directory) return;
+  assert(path.isAbsolute(directory) && /^[a-z0-9-]+$/.test(name), 'Explicit fixture capture destination required');
+  const info = await stat(directory);
+  assert(info.isDirectory() && (info.mode & 0o077) === 0, 'Capture parent must be private');
+  const url = new URL(page.url());
+  assert(url.origin === process.env.SODA_PAGE_ORIGIN && url.protocol === 'https:' && url.hostname === '127.0.0.1', 'Only the selected local native fixture may be captured');
+  assert(url.pathname === '/' && [...url.searchParams.keys()].every(key => ['soda-view', 'repository_id'].includes(key)), 'Do not capture login, consent or credential URLs');
+  const out = path.join(directory, name);
+  await mkdir(out, {mode: 0o700}); // Exclusive; retain earlier captures/failures.
+  await page.locator(landmark).first().waitFor({state: 'visible'});
+  assert.equal(await page.locator('#navbar').count(), 1, 'Native header required');
+  assert.equal(await page.locator('.soda-status, .error-code').count(), 0, 'Unexpected native error page');
+  for (const field of await page.locator('input[type=password]').all()) {
+    assert((await field.inputValue()) === '', 'Credential-entry captures are not permitted');
+  }
+  await setCaptureTheme(page, theme);
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.screenshot({path: path.join(out, 'viewport.png')});
+  await Bun.write(path.join(out, 'capture.json'), JSON.stringify({
+    scope: 'Local native-page fixture; synthetic operation and terminal data, not installed proof',
+    view: url.searchParams.get('soda-view'), landmark, theme, viewport: page.viewportSize(),
+    presentationRevision: await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content'),
+    scroll: await page.evaluate(() => ({x: scrollX, y: scrollY})),
+    selectedTabStyles: await page.locator('[role=tab][aria-selected=true]').evaluateAll(tabs => tabs.map(tab => {
+      const style = getComputedStyle(tab);
+      return {foreground: style.color, background: style.backgroundColor, opacity: style.opacity};
+    })),
+    capturedAt: new Date().toISOString(),
+  }, null, 2));
+}
 
 async function main() {
   const { values, positionals } = parseArgs({
@@ -175,16 +236,7 @@ async function main() {
             if (!remote.ok() || !(await remote.body()).equals(local)) throw new Error(`Stale stylesheet bytes: ${name}`);
           }
         }
-        if (values.theme) {
-          await page.evaluate(async theme => {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet'; link.href = `/assets/css/theme-forgejo-${theme}.css`;
-            await new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; document.head.append(link); });
-            document.documentElement.dataset.theme = `forgejo-${theme}`;
-            document.documentElement.dataset.sodaLoginTheme = theme;
-            document.documentElement.style.colorScheme = theme;
-          }, values.theme);
-        }
+        if (values.theme === 'light' || values.theme === 'dark') await setCaptureTheme(page, values.theme);
         if (values['local-css']) {
           // Use the candidate registry/order too, including added or removed sheets.
           await page.evaluate(async names => {
@@ -220,4 +272,4 @@ async function main() {
   } finally { await context.close(); }
 }
 
-main().catch((error: unknown) => { console.error((error instanceof Error ? error.message : String(error))); process.exitCode = 1; });
+if (import.meta.main) main().catch((error: unknown) => { console.error((error instanceof Error ? error.message : String(error))); process.exitCode = 1; });

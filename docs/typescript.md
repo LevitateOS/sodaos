@@ -80,6 +80,13 @@ these inputs, the stock six-hour candidate-bytes/legacy-URL cache case remains.
 Neither case proves safe retirement of an already-open predecessor page or live
 terminal preservation; those remain separate delivery checks.
 
+For optional populated visual review, set `SODA_PAGE_CAPTURES` to an existing
+absolute private directory. The same consumers reuse `scripts/screenshot.ts` on
+their authenticated fixture pages; no second login or scenario runner is started.
+See [capture scope and guards](screenshot-capture.md#capturing-the-existing-native-page-consumers).
+The normal suite still runs with this flag absent; screenshots never replace its
+behavior/authorization assertions or installed evidence.
+
 The `:prepared` scripts are the same suite bodies used by these wrappers and the
 aggregate; direct use requires a preceding `bun run build:forgejo`. Test-specific
 module builds remain where they exercise compiler/payload contracts; only repeated

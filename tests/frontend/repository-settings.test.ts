@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {chromium} from 'playwright';
 import {creationProfile} from '../../frontend/spaces/sodaspaces-api';
+import {capturePageFixture} from '../../scripts/screenshot';
 
 const profile = {id: 'rocky-headless', distribution: 'rocky', version: '10.2', interface: 'headless', architecture: 'amd64', image: 'sha256:' + 'a'.repeat(64), revision: 'b'.repeat(40)};
 test('creation identity rejects unsupported and incomplete metadata', () => {
@@ -53,6 +54,17 @@ test('native repository settings mounts shared creation/access controls and pres
   await page.getByRole('button', {name: 'Join environment', exact: true}).waitFor();
   assert.equal(writes.length, 1); assert.equal(await page.getByRole('combobox').count(), 0);
   await page.getByText('Immutable creation identity').click(); await page.getByText(profile.image, {exact: true}).waitFor();
+  if (process.env.SODA_PAGE_CAPTURES) {
+    for (const theme of ['light', 'dark'] as const) for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({width, height: 900});
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await capturePageFixture(page, `repository-${theme}-${width}`, 'soda-project-controls', theme);
+      // Join belongs to Environment; Access owns SSH connection/key controls.
+      // Inspect the real control without invoking its synthetic/native mutation.
+      await page.getByRole('button', {name: 'Join environment', exact: true}).scrollIntoViewIfNeeded();
+      await capturePageFixture(page, `repository-join-${theme}-${width}`, 'soda-project-controls', theme);
+    }
+  }
   legacy = true; await page.getByRole('button', {name: 'Refresh status'}).click();
   await page.getByText(/Legacy \/ unknown creation profile/).waitFor();
   assert.equal(await page.getByRole('combobox').count(), 0);

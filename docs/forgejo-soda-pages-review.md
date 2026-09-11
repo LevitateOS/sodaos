@@ -187,6 +187,14 @@ Forgejo Actions administration separate and keep Cockpit Runners.
   populated runner forms, repository controls or active workspace scrolling/focus.
   Continue with the existing authenticated fixture and capture tool, not another
   login harness. No production backend installation is needed for local review.
+  **Step-5 follow-up:** existing consumers now use `scripts/screenshot.ts` for a
+  bounded reviewed light/dark 390/768/1440 matrix: populated runner rows, scrolled
+  confirmation/registration, repository metadata/Join and workspace navigation.
+  The final run produced 36 private fixture captures and passed all consumers and
+  the native parent. Initial transition/framing issues and the wrong-tab capture
+  failure remain recorded. Synthetic operations and the empty synthetic terminal
+  screen do not prove installed provisioning, terminal text/editor usability or
+  complete Access/error/profile-menu/physical-keyboard acceptance.
 - **Documentation remains inconsistent.** For example, the historical detailed
   Spaces section in `sodaspaces-plan.md` still describes the Go-shell owner;
   `AGENTS.md` retains source-vs-historical schema-v5/v6 phrasing even though this

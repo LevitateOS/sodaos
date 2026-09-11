@@ -5,6 +5,7 @@ import {chromium} from 'playwright';
 import type {Page} from 'playwright';
 import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response';
 import type {Runner} from '../../frontend/runners/soda-runner-types';
+import {capturePageFixture} from '../../scripts/screenshot';
 
 const origin = process.env.SODA_PAGE_ORIGIN || 'https://forgejo.example.test';
 const actor = process.env.SODA_PAGE_ACTOR || '1';
@@ -314,10 +315,27 @@ test('populated runner pages keep long inventory, drafts and keyboard controls u
       assert.equal(mutations.length,0,'Layout/refresh/confirmation cancellation dispatched a mutation');
     }
   }
+  if (process.env.SODA_PAGE_CAPTURES) {
+    await assert.rejects(capturePageFixture(page, 'runners-credential-refusal', 'soda-runners', 'light'), /Credential-entry captures are not permitted/);
+  }
   // History retirement still scrubs the secret even after scrolling/refreshing
   // a populated owner. This event is synthetic, not a real BFCache receipt.
   await hide(page); await restore(page);
   assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'');
+  if (process.env.SODA_PAGE_CAPTURES) {
+    for (const theme of ['light', 'dark'] as const) for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({width, height: 900});
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await capturePageFixture(page, `runners-${theme}-${width}`, 'soda-runners .settings-runner', theme);
+      const remove = page.getByRole('button', {name: 'remove runner-23', exact: true});
+      await remove.scrollIntoViewIfNeeded(); await remove.click();
+      await page.getByLabel('Exact runner ID', {exact: true}).scrollIntoViewIfNeeded();
+      await capturePageFixture(page, `runners-confirm-${theme}-${width}`, '.settings-confirmation', theme);
+      await page.getByLabel('Exact runner ID', {exact: true}).focus(); await page.keyboard.press('Escape');
+      await page.getByRole('button', {name: 'Register and start listener', exact: true}).scrollIntoViewIfNeeded();
+      await capturePageFixture(page, `runners-register-${theme}-${width}`, '[aria-labelledby=register-runner-title]', theme);
+    }
+  }
   assert.equal(mutations.length,0);
 });
 
