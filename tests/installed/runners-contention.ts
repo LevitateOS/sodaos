@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import type {Frame, Page, Request} from 'playwright';
 import type {} from '../../cockpit/src/cockpit/types.ts';
-import {loginOperator} from './operator.ts';
+import {loginOperator, openOperatorPackage} from './operator.ts';
 import {restrictedText} from './sodaspaces-matrix-native.ts';
 import type {RunnerInput} from './runners-input.ts';
 import type {RunnerEvidence} from './runners.ts';
@@ -40,23 +40,27 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
       page.setDefaultTimeout(30000);
       let password=(await restrictedText(config.password_file,65536)).replace(/\r?\n$/,'');
       assert(password && !/[\r\n]/.test(password));
+      evidence.stage='Cockpit root login';
       await loginOperator(page,config.origin,password); password='';
-      await page.getByRole('link',{name:'Runners',exact:true}).click();
-      await page.waitForFunction(()=>[...document.querySelectorAll('iframe')].some(f=>f.src && new URL(f.src).pathname.endsWith('/soda-runners/index.html')));
-      frame=page.frames().find(f=>f.url() && new URL(f.url()).pathname.endsWith('/soda-runners/index.html')); assert(frame);
+      evidence.stage='Cockpit Runners package';
+      frame=await openOperatorPackage(page,'Runners','soda-runners');
+      evidence.stage='Cockpit native root authority';
       const native=await frame.evaluate(async()=>({
         host:(await window.cockpit.spawn(['hostname'],{err:'message'})).trim(),
         uid:(await window.cockpit.spawn(['id','-u'],{err:'message'})).trim(),
         domain:(await window.cockpit.spawn(['id','-Z'],{err:'message'})).trim(),
       }));
       assert(native.host === input.target && native.uid === '0' && !native.domain.includes(':cockpit_session_t:'));
+      evidence.stage='Cockpit exact disposable Stop control';
       await frame.getByRole('row').filter({has:frame.getByText(input.runner_id,{exact:true})}).getByRole('button',{name:'Stop',exact:true}).waitFor();
     }
     assert(before.inventory.runners.find(r=>r.id === input.runner_id)?.service.active === 'active','Use an idle running disposable listener');
+    evidence.stage='native exact Restart confirmation';
     const view=operator.locator('soda-runners');
     await view.getByRole('button',{name:'restart '+input.runner_id,exact:true}).click();
     await view.getByLabel('Exact runner ID',{exact:true}).fill(input.runner_id);
     // Recheck both native records after login and before the deliberately held lock.
+    evidence.stage='native preservation before hold';
     const prepared=await readRunnerState(input); assert.deepEqual(prepared,before);
     const command=`test "$(hostname)" = ${input.target} && test -f /run/lock/soda/runners.lock && test ! -L /run/lock/soda/runners.lock && test "$(stat -c '%u:%a' /run/lock/soda/runners.lock)" = 0:600 && timeout 35s flock --exclusive /run/lock/soda/runners.lock sh -c 'printf "locked\\n"; sleep 20; printf "released\\n"'`;
     const holder=Bun.spawn([...runnerSSH(input),command],{stdin:'ignore',stdout:'pipe',stderr:'ignore'});

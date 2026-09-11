@@ -18,6 +18,15 @@ export async function loginOperator(page: Page, origin: string, password: string
   assert.equal(await page.getByRole('link', {name: 'Accounts', exact: true}).count(), 0);
 }
 
+export async function openOperatorPackage(page: Page, label: string, name: string) {
+  await page.getByRole('link', {name: label, exact: true}).click();
+  await page.waitForFunction(suffix => [...document.querySelectorAll('iframe')].some(frame => frame.src && new URL(frame.src).pathname.endsWith(suffix)), `/${name}/index.html`);
+  const frame = page.frames().find(candidate => candidate.url() && new URL(candidate.url()).pathname.endsWith(`/${name}/index.html`));
+  assert(frame, 'Native Cockpit package frame not found');
+  await frame.getByRole('heading', {name: label, exact: true}).waitFor();
+  return frame;
+}
+
 if (import.meta.main) {
 const args = Bun.argv.slice(2);
 assert.equal(args.length, 5, 'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh');
@@ -67,16 +76,8 @@ try {
   }, originProbe);
   assert.equal(before.host, hostname);
 
-  async function openPackage(label: string, name: string) {
-    await page.getByRole('link', { name: label, exact: true }).click();
-    await page.waitForFunction(suffix => [...document.querySelectorAll('iframe')].some(frame => frame.src && new URL(frame.src).pathname.endsWith(suffix)), `/${name}/index.html`);
-    const frame = page.frames().find(candidate => candidate.url() && new URL(candidate.url()).pathname.endsWith(`/${name}/index.html`));
-    assert(frame, 'native Cockpit package frame not found');
-    await frame.getByRole('heading', { name: label, exact: true }).waitFor();
-    return frame;
-  }
   stage = 'Tailnet native root session and SELinux/socket access';
-  const tailnet = await openPackage('Tailscale', 'soda-tailscale');
+  const tailnet = await openOperatorPackage(page, 'Tailscale', 'soda-tailscale');
   const native = await tailnet.evaluate(async () => {
     const c = window.cockpit;
     const uid = (await c.spawn(['id', '-u'], { err: 'message' })).trim();
@@ -101,7 +102,7 @@ try {
   console.log('Native root Cockpit session read Tailnet status/preferences with its native SELinux transition. No enrollment/exit-node/route action was requested.');
 
   stage = 'Runners native read path';
-  const runners = await openPackage('Runners', 'soda-runners');
+  const runners = await openOperatorPackage(page, 'Runners', 'soda-runners');
   const summary = await runners.evaluate(async () => {
     const raw = await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners', 'list'], { err: 'message' }).input('{}\n');
     const data: unknown = JSON.parse(raw);

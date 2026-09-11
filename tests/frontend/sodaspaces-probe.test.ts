@@ -19,6 +19,21 @@ const start = probe.indexOf('  async function guardedPage(pageContext: BrowserCo
 const end = probe.indexOf('  await context.addInitScript(', start);
 assert(start > 0 && end > start);
 
+test('operator package handoff waits for the real rendered heading before native bridge reads', async () => {
+  const source=await Bun.file(new URL('../installed/operator.ts',import.meta.url)).text();
+  const from=source.indexOf('export async function openOperatorPackage('), to=source.indexOf('if (import.meta.main)',from);
+  assert(from >= 0 && to > from);
+  let ready: (()=>void) | undefined;
+  const heading=new Promise<void>(resolve=>{ready=resolve;});
+  const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/soda-runners/index.html',
+    getByRole:(role: string, options: {name: string})=>{assert.equal(role,'heading'); assert.equal(options.name,'Runners'); return {waitFor:()=>heading};}};
+  const page={getByRole:()=>({click:async()=>{}}), waitForFunction:async()=>{}, frames:()=>[frame]};
+  const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Runners","soda-runners")',{assert,page,URL});
+  let returned=false; const completed=Promise.resolve(attempt).then(value=>{returned=true; return value;});
+  await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(ready); ready();
+  assert.equal(await completed,frame);
+});
+
 test('native coordinated logout requires both Soda and Forgejo response contracts', async () => {
   const from = probe.indexOf('  assert.equal((await sodaEnded).status(), 204);');
   const to = probe.indexOf('  for (const p of [other, page])', from);

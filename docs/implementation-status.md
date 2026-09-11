@@ -1,6 +1,35 @@
 # Current handoff
 
-## Step 4 continuation — remaining caller cases wired into the existing driver
+## Step 4 continuation — `23504ee` delivered; Cockpit preparation corrected
+
+`23504ee` first build failed with upstream HTTP 403 fetching Tea. A fresh second
+worktree reused the previous exact SHA-256-verified archive through the existing
+fetcher's cache contract, then passed full native build/check/export/independent
+verification. Evidence `.artifacts/runner-overlap-23504ee/`, passing worktree
+`.artifacts/worktrees/runner-overlap-23504ee-2/`. Verified transfer/backed-up paired
+maintenance and installed verification passed on the same VM. Complete idle
+snapshots before/after matched, including both listener incarnations; no runner
+restart occurred during maintenance. Backup: `/root/runner-fixture/pre-23504ee/`.
+
+Scoped Cockpit forwarding is `127.0.0.1:39090` to this guest's `127.0.0.1:9090`,
+owned by `cockpit-tunnel.pid`. Its generated server certificate was retrieved
+through pinned SSH; HTTPS verification passed. Overlap attempts 01/02 both failed
+**before any POST or lock hold**, and native observations changed only the expected
+prior-survivor comparison field. First setup incorrectly used CA trust for Cockpit's
+CA:FALSE self-signed certificate. Exact peer trust (`P,,`) in a fresh private NSS
+home passed real native root login, without a TLS bypass/global trust change. The
+second pre-hold failure exposed that the new caller omitted the existing operator
+package's rendered-heading readiness wait. Reused that complete helper rather than
+keeping a second frame-initialization sequence, and added stage granularity plus
+an actual-source delayed-heading regression. A read-only native diagnostic with
+the heading wait passed root UID 0, expected hostname, native unconfined SELinux
+transition and the exact probe Stop control; no mutation was clicked. Private
+homes/logs: `.artifacts/r4-overlap-{01,02}/`, `r4-cockpit-{read,peer,ready}/`, and the
+matching logs under `.artifacts/runners-vm-2cdc238/`. Local tests/types passed for the
+readiness port; fresh candidate/native execution follows. The one reboot remains
+used; both listeners and all evidence/provider data remain retained.
+
+## Step 4 preceding continuation — remaining caller cases wired into the existing driver
 
 At resumption the original VM/HTTPS owners were still live inside their bounded
 hold; no new target/reboot was needed. Added explicit `overlap` and `departure`
