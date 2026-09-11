@@ -148,11 +148,14 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 
 The step-5 workspace and current journey controls have local coverage, not current
 installed acceptance. `bun run test:pages` (`test:spaces-page` remains an alias)
-exports real authorized Go handler HTML/CSP for Spaces, operator runners and repository
-settings into a fresh retained artifact directory, then loads their production
-modules/assets against synthetic API replies. Spaces uses GET-only replies; runner
-and repository controls exercise synthetic mutations, not actual native/provider
-operations. Missing fixture output fails this command rather than becoming a skip. `bun run test:layout` exercises
+runs `scripts/test-spaces-page.ts` and `TestNativeConnectionFixture` against the
+authorized stock Forgejo at `http://localhost:3300`. Forgejo supplies native HTML
+and authentication; a fresh retained Go backend/OAuth fixture serves the canonical
+candidate assets. The parent exercises real consent, session reuse, native profile
+draft/history and logout. All Spaces, runner and repository consumers run inside
+that parent; their operation APIs/socket peers are synthetic, not installed
+project/runner/provider operations. Missing prerequisites or a failed consumer
+fail this command rather than becoming a skip. `bun run test:layout` exercises
 20 width/theme/running-state combinations with real emitted Lit/xterm, a native-form
 fixture and synthetic peers. Both are in `bun run test`, which prepares browser assets
 once and also enables local Lit runtime/settings-link checks; neither contacts a
@@ -162,6 +165,36 @@ ordinary iteration. Native artifact/revision and packaging gates remain separate
 selection, beforeunload cancellation and stable owners have focused browser coverage.
 Physical keyboards, actual Forgejo menus/forms/diff/comment/clipboard behavior and
 native process/CLI continuity still need the applicable installed scope.
+
+### Mandatory page gate on a final native builder
+
+The page gate is part of `bun run test` → `bun run check:source` →
+`scripts/check-native.sh ARCH`; Mac browser receipts do not replace it. Before
+running the final gate in its **clean frozen candidate worktree**, provide:
+
+- The documented authorized stock Forgejo fixture at **localhost:3300**, with the
+  candidate's template overrides loaded and the existing non-admin
+  **soda-screenshot** account. Use the supported template/public mounts; no
+  fabricated HTML or alternative authentication harness.
+- That fixture's own restricted `.local/screenshot-fixture/create-output.txt` in
+  the worktree. Both Go and browser consumers use it through their existing
+  private-input code. Ignored files do not arrive with Git. A different fixture's
+  password or borrowed CLI credential is not a substitute. The saved screenshot
+  browser profile is for capture; it is not the page harness's authentication input.
+- Root Bun dependencies, Playwright's Chromium and the **Google Chrome channel**
+  used by the actual BFCache parent. Its loopback TLS certificate pin is scoped to
+  its test browser; no global trust changes are needed.
+
+Inspect/preserve any existing fixture first. If none exists or its service/account/
+browser installation needs actions outside the recorded grant, obtain that precise
+fixture/setup authorization before proceeding. Do not silently reinitialize data.
+`bun run test:pages` is the supported focused prerequisite check and must run **all**
+consumers; it creates fresh retained fixture evidence and a fixture OAuth app.
+Once setup is ready, build/seal the exact candidate using pinned Go 1.26.7/Bun 1.4.2
+on matching-native Linux, then run `scripts/check-native.sh ARCH` in that same
+worktree. The full gate repeats its page phase normally. Export only after the
+applicable checks pass. Do not transplant an earlier revision's seal/check receipt
+or omit the page phase because another computer passed it.
 
 `tests/installed/sodaspaces-controls.ts` follows actual project views, New chooser
 and per-terminal menus; it does not authorize requests or substitute API writes.

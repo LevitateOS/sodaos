@@ -55,13 +55,14 @@ acceptance gaps are the tasks below, not reasons to pause independent local work
 
 ## 1. Close combined local page and browser acceptance
 
-**In progress.** Additional populated-runner scroll/focus/draft and real native
-profile-draft Back/Forward cases are authored in the existing consumers. Strict
-TypeScript/emitted build and the local synthetic connection suite pass. Their real
-native fixture run is currently blocked on missing local fixture/private inputs
-(`localhost:3300` unavailable and the documented credential file absent), not editor
-ownership. Neither new case nor populated visual acceptance is claimed passing;
-see the leading handoff for the failed attempt and remaining gaps.
+**In progress.** The additional populated-runner and real native profile-draft
+Back/BFCache/Forward cases now pass on the authorized Mac fixture at `0f1d2b1`.
+That run corrected subpixel assertion rounding and a real tablet-width native
+navbar overflow. All 16 consumers and the native parent passed without skipping
+required cases. Runner operation responses remain synthetic; automated geometry
+is not complete populated visual acceptance. Wider gaps below remain open. The
+Linux builder still lacks its page-fixture/private-input/browser prerequisites;
+see the leading handoff for exact checks and the new-candidate handback.
 
 Review current production callers and existing tests
 against the remaining gaps, reusing applicable receipts for unchanged behavior.
@@ -136,7 +137,16 @@ execution belongs to step 4 below; it is not a prerequisite to author these case
 
 ## 3. Produce and verify one combined native candidate
 
-**In progress; not verified for export.** `894b9e8` built/sealed natively on x86_64.
+**In progress; not verified for export.** The Mac browser handback now identifies
+**`0f1d2b1402b1cb594d159c4b1c8a1008acb31ea3`** after a reproduced native navbar fix.
+Its local page/host/layout/TypeScript/browser checks pass, not `check-native.sh`.
+Freeze this revision and obtain fresh matching-native build/check/export evidence;
+none of the earlier candidate's PASS records transfers to its changed bytes.
+The [mandatory page-gate setup](native-validation.md#mandatory-page-gate-on-a-final-native-builder)
+documents the actual supported fixture, private-input and two-browser requirements
+for the final builder. No bypass, borrowed credential or silent fixture replacement.
+
+**Earlier builder evidence:** `894b9e8` built/sealed natively on x86_64.
 Its mandatory check reached the page gate and failed on absent fixture credentials;
 the local Forgejo service and required Chrome distribution are also unavailable.
 An independent staging run exposed stale Caddy indentation assertions; those were

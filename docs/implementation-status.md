@@ -1,5 +1,94 @@
 # Current handoff
 
+## Combined step 3 — Mac browser handback; new candidate `0f1d2b1`
+
+**Step 3 remains incomplete.** On the authorized Mac (Darwin arm64), baseline HEAD
+`6b74f73` was clean and contained candidate `6d9a9d9` plus its documentation receipt.
+The existing `sodaos-local-forgejo` at `http://localhost:3300` responded HTTP 200;
+the documented private input existed, and the normal harness authenticated the
+existing non-admin `soda-screenshot` account. Nothing was reinitialized. This
+machine is not the matching-native Linux builder, so no `check-native.sh`, native
+build/seal/export or appliance/provider operation was performed here.
+
+The newly authored populated-runner case reproduced two failures:
+
+1. At width 360, Chromium placed the confirmation bottom at 720.09375 in a 720px
+   viewport after scrolling. The assertion now tolerates only one CSS pixel of
+   subpixel scroll rounding and reports geometry on failure.
+2. At width 768, document width was **873px**: the native navbar's right/profile
+   group was pushed out by its left links. Inspected the actual stock native CSS;
+   only the desktop left group now wraps with zero minimum inline size, while the
+   right group retains its width. Forgejo's <=767.98px mobile menu rules remain
+   untouched. No overflow clipping, hidden controls or weaker overflow assertion.
+
+Fix commit / exact clean locally tested source:
+**`0f1d2b1402b1cb594d159c4b1c8a1008acb31ea3`**. Components CSS is version 20;
+presentation/module epoch is `2026-09-10.native-pages-7`, with matching template
+inventory hashes. This changes production bytes and tests: the old `6d9a9d9`
+native build/staging/integrity PASS records are **not** this candidate's evidence.
+
+### Actual commands and results on the clean fix revision
+
+- `bun run test:pages`: emitted build plus **all 16 page consumers passed** and
+  the real native authentication/cache/history/logout parent passed. The new
+  24-runner, 360/768/1440 light/dark-media, scroll/focus/draft/no-write case passed.
+  Its inventory/operations and synthetic retirement remain synthetic, not native
+  runner proof. The new native profile-draft Back/BFCache/Forward case passed on
+  real Forgejo, preserving the original document/draft without a profile POST.
+- `bun run test:layout:prepared`: **1 pass**, including its existing layout matrix.
+- `bun run typecheck`: strict TypeScript and Lit checks passed.
+- `bun run test:frontend:prepared`: **218 pass / 16 gated skips**. The page and
+  layout gates above exercised their required consumers separately, not waived.
+- `bun run test:forgejo:prepared`: **37 pass / 21 gated skips** (optional native
+  presentation tests remain explicit, not an aggregate native-check PASS).
+- `SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts`:
+  **2 pass**, all three native hosts plus login/logout, using the existing fixture.
+- `go test -count=1 ./scripts -run 'Test(NativeSodaPage|SodaspacesTemplate|SodaOperatorNavigation)'`:
+  passed. `git diff --check` passed.
+
+Tools: **Bun 1.4.2, Go 1.27.1 darwin/arm64, Playwright 1.63.0,
+Playwright Chromium 153.0.8010.12, Google Chrome 152.0.7977.83**. This local Go
+version is not the pinned Go 1.26.7 native builder toolchain. Browser versions were
+queried by launching both actual browser distributions.
+
+Evidence: `.artifacts/combined-local-6d9a9d9/` (directory name denotes the starting
+candidate, not the final tested bytes). `pages.log`/`pages-2.log` reproduce rounding;
+`pages-3.log`/`pages-4.log` reproduce overflow, with safe tag/class/geometry-only
+diagnostics; `pages-5.log` passed before final versioning. `pages-final.log`,
+`layout.log`, `typecheck.log`, `frontend.log`, `forgejo.log`, `native-host.log`,
+`templates.log`, `revision-tools.txt`, `browsers.log` record the final checks.
+Successful final private OAuth/DB/browser fixture: `.artifacts/pages-FNwpoy/native/`.
+All failed fixture directories remain retained. No private input value was logged.
+
+Canonical local preview assets were backed up (`branding-before/`,
+`mounted-public-before/`), refreshed, and the existing preview container restarted
+once to reload the versioned templates under its prior local-fixture scope.
+Data/mounts were preserved. No new/replacement fixture account, global trust,
+network policy, runner/provider registration/job, retained-project mutation,
+reboot, cleanup or deployment occurred. Only the existing harness's fixture OAuth
+applications were created and retained. No screenshot/complete visual acceptance
+is claimed by these automated geometry checks.
+
+### Concrete handback to the Linux builder
+
+Pull the fix and freeze **`0f1d2b1`** as the newly identified combined candidate in
+a fresh worktree/output. Preserve old `6d9a9d9` artifacts and receipts. Provision or
+restore the **authorized** fixture prerequisites in that worktree before another
+full check: stock Forgejo localhost:3300 with candidate templates and its non-admin
+fixture account, that fixture's restricted ignored credential input, Playwright
+Chromium and Google Chrome. Git does not carry any of these private/runtime files.
+The [supported page-gate setup](native-validation.md#mandatory-page-gate-on-a-final-native-builder)
+now states the actual callers and required setup; it is not a new harness or grant
+to create an unrelated fixture. Obtain precise setup authorization if absent.
+
+Using the pinned Go 1.26.7/Bun 1.4.2 on matching-native x86_64, rerun the existing
+build/seal and **full** `scripts/check-native.sh x86_64` on that exact revision,
+including the mandatory page gate and staging/integrity phases, then export only
+after applicable checks pass. This Mac receipt is a focused source/browser handback,
+not completion of that gate. Step 1's wider old/new-cache and visual/authority gaps,
+step 2's exact target/provider inputs, and all installed/delivery acceptance remain
+separate and open.
+
 ## Combined step 3 — native candidate build, verification held by fixture prerequisites
 
 Froze `894b9e8` in `.artifacts/worktrees/combined-candidate-894b9e8/`. The existing
