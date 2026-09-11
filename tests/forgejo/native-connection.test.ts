@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {writeFile} from 'node:fs/promises';
+import {dirname, join} from 'node:path';
 import {test} from 'node:test';
 import {chromium} from 'playwright';
 import type {APIResponse} from 'playwright';
@@ -103,31 +105,95 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'native host overflows horizontally');
   }
   await page.setViewportSize({width: 1440, height: 900});
-  // Real HTTP cache remains enabled in this context (no route interception yet).
-  // Warm the predecessor's entry/import identities, then require the new native
-  // document to load only the current epoch throughout its executed Soda graph.
-  const cached = await page.evaluate(async () => {
-    const urls = ['/assets/soda/forgejo/soda-native-page.js?v=1', '/assets/soda-connection.js', '/assets/sodaspaces-api.js'];
-    for (const url of urls) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const response = await fetch(url); if (!response.ok) throw Error('Cache warm failed');
-        if (response.headers.get('cache-control') !== 'private, max-age=21600') throw Error('Fixture asset cache policy drifted');
-        await response.text();
+  // No interception: retain the browser's real cache and native history behavior.
+  const assetPhase = process.env.SODA_CONNECTION_ASSET_PHASE;
+  let graphPage = page;
+  if (assetPhase) {
+    const cacheContext = await browser.newContext({storageState: await context.storageState(), ignoreHTTPSErrors: true});
+    graphPage = await cacheContext.newPage();
+    graphPage.on('pageerror', error => errors.push(error.message));
+    const neutral = await graphPage.goto(origin + '/robots.txt'); assert(neutral);
+    assert.equal(neutral.status(), 200);
+    assert.match(neutral.headers()['content-type'] || '', /text\/plain/);
+    assert.equal(await graphPage.locator('script').count(), 0, 'Cache client must not execute candidate modules before the transition');
+    const hashes: unknown = JSON.parse(process.env.SODA_CONNECTION_OLD_HASHES || 'null');
+    assert(hashes && typeof hashes === 'object' && !Array.isArray(hashes));
+    const entries = Object.entries(hashes).map(([url, hash]) => {
+      assert(url.startsWith('/assets/') && typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash));
+      return [url, hash] as const;
+    });
+    assert.equal(entries.length, 3);
+    // Only this fixture's public file responder changes; no HTML/API substitution,
+    // service cutover or claim that an already-open predecessor owner is upgraded.
+    await writeFile(assetPhase, 'predecessor', {mode: 0o600});
+    const observed = await graphPage.evaluate(async entries => {
+      const rows = [];
+      for (const [url, expected] of entries) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const response = await fetch(url);
+          if (!response.ok || response.headers.get('cache-control') !== 'private, max-age=0, must-revalidate') throw Error('Predecessor asset response drifted');
+          const bytes = await response.arrayBuffer();
+          const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+          if (hash !== expected) throw Error('Browser did not receive the bound predecessor bytes');
+          if (!response.headers.get('last-modified')) throw Error('Predecessor cache validator missing');
+          await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          const timing = performance.getEntriesByName(new URL(url, location.href).href).at(-1);
+          if (!(timing instanceof PerformanceResourceTiming) || timing.transferSize <= 0) throw Error('Zero-age request did not contact the responder');
+          rows.push({url, hash, transferred: timing.transferSize});
+        }
       }
-    }
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    return urls.map(url => (performance.getEntriesByName(new URL(url, location.href).href).at(-1) as PerformanceResourceTiming).transferSize);
-  });
-  assert.deepEqual(cached, [0, 0, 0], 'Predecessor module URLs were not actually cached');
-  await page.goto(origin + '/?soda-view=runners');
-  await page.getByLabel('Registration token', {exact: true}).waitFor();
-  const modules = await page.evaluate(() => performance.getEntriesByType('resource')
+      return rows;
+    }, entries);
+    assert.equal(observed.length, 6);
+    await writeFile(assetPhase, 'candidate', {mode: 0o600});
+    const currentHash = await graphPage.evaluate(async () => {
+      const response = await fetch('/assets/sodaspaces-api.js');
+      if (!response.ok || response.headers.get('cache-control') !== 'private, max-age=0, must-revalidate') throw Error('Candidate revalidation failed');
+      return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await response.arrayBuffer())), byte => byte.toString(16).padStart(2, '0')).join('');
+    });
+    const priorAPI = entries.find(([url]) => url === '/assets/sodaspaces-api.js'); assert(priorAPI);
+    assert.notEqual(currentHash, priorAPI[1], 'Unversioned request retained predecessor bytes');
+    const candidateAPI = await Bun.file(join(dirname(assetPhase), 'public/assets/sodaspaces-api.js')).arrayBuffer();
+    assert.equal(currentHash, new Bun.CryptoHasher('sha256').update(candidateAPI).digest('hex'), 'Browser candidate bytes did not match the emitted payload');
+    t.diagnostic('Bound predecessor asset hashes and zero-age revalidation passed; predecessor document retirement is separate');
+  } else {
+    // Candidate bytes under legacy URL identities: useful cache-hit coverage,
+    // deliberately not called a predecessor/upgrade test.
+    const cached = await page.evaluate(async () => {
+      const urls = ['/assets/soda/forgejo/soda-native-page.js?v=1', '/assets/soda-connection.js', '/assets/sodaspaces-api.js'];
+      for (const url of urls) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const response = await fetch(url); if (!response.ok) throw Error('Cache warm failed');
+          if (response.headers.get('cache-control') !== 'private, max-age=21600') throw Error('Fixture asset cache policy drifted');
+          await response.text();
+        }
+      }
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      return urls.map(url => (performance.getEntriesByName(new URL(url, location.href).href).at(-1) as PerformanceResourceTiming).transferSize);
+    });
+    assert.deepEqual(cached, [0, 0, 0], 'Legacy module URLs were not actually cached');
+  }
+  await graphPage.goto(origin + '/?soda-view=runners');
+  await graphPage.getByLabel('Registration token', {exact: true}).waitFor();
+  const modules = await graphPage.evaluate(() => performance.getEntriesByType('resource')
     .filter(entry => entry.name.includes('/assets/') && new URL(entry.name).pathname.endsWith('.js'))
     .map(entry => ({url: entry.name, bytes: (entry as PerformanceResourceTiming).transferSize})));
   for (const name of ['soda-native-page.js', 'soda-settings-link.js', 'soda-connection.js', 'soda-runners-page.js', 'sodaspaces-api.js', 'lit.js']) {
     const loaded = modules.find(entry => new URL(entry.url).pathname.endsWith('/' + name));
     assert(loaded, `Missing real module ${name}`);
     assert.equal(new URL(loaded.url).search, `?v=${presentationVersion}`, name);
+  }
+  if (graphPage !== page) {
+    await graphPage.goBack({waitUntil: 'commit'});
+    // A restored plaintext document need not emit a new load event. Back has
+    // committed; check its exact URL rather than waiting for another load.
+    assert(graphPage.url() === origin + '/robots.txt', 'Back did not reach the original neutral document');
+    await graphPage.goForward({waitUntil: 'commit'});
+    await graphPage.getByLabel('Registration token', {exact: true}).waitFor();
+    assert.equal(await graphPage.locator('soda-runners').count(), 1);
+    await graphPage.context().close();
+    await page.goto(origin + '/?soda-view=runners');
+    await page.getByLabel('Registration token', {exact: true}).waitFor();
   }
   // No request routing here: Playwright interception disables BFCache in its
   // delegate. The synthetic-operation consumers separately cover late replies.

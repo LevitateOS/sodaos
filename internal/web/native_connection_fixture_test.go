@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/nativebuild"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -66,17 +68,59 @@ func TestNativeConnectionFixture(t *testing.T) {
 	if prepareErr != nil {
 		t.Fatal("candidate asset preparation failed; see preview.log")
 	}
+	// Optional selected-delivery asset boundary. The older bundle must be verified
+	// with its own verifier by the caller; bind these exact bytes to that receipt.
+	// This does not run the predecessor's page/backend or prove its live retirement.
+	predecessor := os.Getenv("SODA_CONNECTION_PREDECESSOR")
+	phaseFile := filepath.Join(dir, "asset-phase")
+	oldPublic := ""
+	oldHashes := map[string]string{}
+	if predecessor != "" {
+		if !filepath.IsAbs(predecessor) {
+			t.Fatal("absolute verified predecessor bundle required")
+		}
+		data, err := os.ReadFile(filepath.Join(predecessor, "build-info.json"))
+		if err != nil || fmt.Sprintf("%x", sha256.Sum256(data)) != os.Getenv("SODA_CONNECTION_PREDECESSOR_MANIFEST_SHA256") {
+			t.Fatal("predecessor manifest binding failed")
+		}
+		var inventory nativebuild.Inventory
+		if json.Unmarshal(data, &inventory) != nil || inventory.Revision == "" || inventory.Revision != os.Getenv("SODA_CONNECTION_PREDECESSOR_REVISION") {
+			t.Fatal("predecessor revision binding failed")
+		}
+		oldPublic = filepath.Join(predecessor, "rootfs/var/lib/soda/forgejo/gitea/public")
+		for _, name := range []string{"/assets/sodaspaces-page.js", "/assets/sodaspaces-api.js", "/assets/soda/forgejo/lit.js"} {
+			path := filepath.Join(oldPublic, name)
+			info, err := os.Lstat(path)
+			if err != nil || !info.Mode().IsRegular() || info.Size() > 4<<20 {
+				t.Fatal("predecessor module unavailable")
+			}
+			data, err := os.ReadFile(path)
+			expected := inventory.Files["rootfs/var/lib/soda/forgejo/gitea/public"+name].SHA256
+			if err != nil || expected == "" || fmt.Sprintf("%x", sha256.Sum256(data)) != expected {
+				t.Fatal("predecessor module binding failed")
+			}
+			oldHashes[name] = expected
+		}
+	}
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, config.SodaPath+"/") {
 			soda.ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
-			if _, err := os.Stat(filepath.Join(public, filepath.FromSlash(r.URL.Path))); err == nil {
-				// Match stock Forgejo's six-hour private asset cache for cached-client
-				// tests. Bytes still come from this candidate's canonical payload.
+			assets := public
+			phase, _ := os.ReadFile(phaseFile)
+			if predecessor != "" && string(phase) == "predecessor" && oldHashes[r.URL.Path] != "" {
+				assets = oldPublic
+			}
+			if _, err := os.Stat(filepath.Join(assets, filepath.FromSlash(r.URL.Path))); err == nil {
+				// Default: stock preview cache. Selected transition: the inspected
+				// installed revalidation policy, still a local file-server fixture.
 				w.Header().Set("Cache-Control", "private, max-age=21600")
-				http.FileServer(http.Dir(public)).ServeHTTP(w, r)
+				if predecessor != "" {
+					w.Header().Set("Cache-Control", "private, max-age=0, must-revalidate")
+				}
+				http.FileServer(http.Dir(assets)).ServeHTTP(w, r)
 				return
 			}
 		}
@@ -164,6 +208,13 @@ func TestNativeConnectionFixture(t *testing.T) {
 	logFile, err := os.OpenFile(filepath.Join(dir, "browser.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if predecessor != "" {
+		hashes, err := json.Marshal(oldHashes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd.Env = append(cmd.Env, "SODA_CONNECTION_ASSET_PHASE="+phaseFile, "SODA_CONNECTION_OLD_HASHES="+string(hashes))
 	}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	err = cmd.Run()

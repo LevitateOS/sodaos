@@ -301,6 +301,14 @@ waive a known authorization, persistence or data-loss failure.
 | Native UI and drafts | Review populated Spaces, Runners and repository settings in both themes and representative narrow/tablet/wide layouts using the existing fixture/capture tools. Cover usable confirmation/error controls, scrolling/focus, native profile menu and unsaved native/Soda drafts; fix reproduced delivery-relevant defects. | Exhaustive visual/browser and physical-keyboard acceptance. Geometry alone is not screenshot review. |
 | Terminals and shared helper | Review the actual restart/detach boundary and test it on approved rehearsal resources where affected. Define preservation/reattachment of existing exact sessions and no implicit End/create. A fixture with no projects does not prove this boundary for a populated target. | Broader terminal/CLI suitability and native concurrency matrices outside the affected maintenance boundary. |
 
+The existing native fixture now has a passing, manifest-bound **b8af68c asset-byte**
+transition using zero-age revalidation, a fresh browser context, first candidate
+module graph and Back/Forward; all normal consumers and the native parent still run.
+See [the review](forgejo-soda-pages-review.md#coverage-gaps-that-are-not-additional-proven-production-defects)
+and [fixture inputs](typescript.md#local-source-checks). This does not execute or
+retire an already-open predecessor page/backend, replace installed cache/CSP proof,
+or close the shared-helper/terminal and populated visual/authority obligations.
+
 Record applicable existing receipts and the remaining bounded checks in the
 handoff. Changed production bytes require a fresh frozen candidate and applicable
 build/browser/native regression evidence; retain the original step-4 receipts

@@ -1,5 +1,63 @@
 # Current handoff
 
+## Step 5 browser continuation — genuine predecessor assets; full old-page retirement still open
+
+Continued pre-cutover work locally, without contacting/changing retained guests.
+Extended the **existing** `TestNativeConnectionFixture` and native-connection browser
+case, not a second authentication/updater harness. Its optional predecessor inputs
+bind an absolute older export to its exact revision/manifest hash and three actual
+module hashes. Reverified the b8af68c export with its own verifier before using it.
+Bad manifest binding was exercised and refused before server/OAuth-app creation.
+
+A fresh isolated browser context, using only this synthetic fixture's own saved
+session state, starts on stock native `/robots.txt` without candidate scripts. It
+fetches the actual b8af68c page entry, API and Lit module bytes twice, verifies their
+SHA-256, Last-Modified and zero-age/must-revalidate policy, and requires real responder
+contact rather than a fresh-cache hit. Only the local public-file responder's phase
+then changes. The browser verifies the same bare API URL receives the exact emitted
+candidate bytes, loads the first native Runners document and its epoch-versioned
+transitive graph, and completes Back/Forward with one owner. No intercepted HTML,
+provider response, native-session fabrication or production asset update was used.
+The original six-hour cache case remains and is now accurately labelled **candidate
+bytes at legacy URL identities**, not a predecessor test.
+
+**Actual checks:** strict `bun run typecheck` passed, including the final test changes.
+The selected zero-age/genuine-byte fixture passed in `native-03` and again with
+explicit validator/responder-contact assertions in **`native-04`**, including all
+**16 mandatory page consumers** and the complete native auth/logout/draft/BFCache
+parent. The unchanged/default six-hour mode independently passed all consumers and
+its parent in `default-native`. The deliberate bad-binding invocation returned the
+expected nonzero result with `predecessor manifest binding failed`, before OAuth
+inputs were created; it is a negative test, not a passing fixture startup.
+
+Retained failures: `native-01` and `native-02` passed the 16 consumers and bound-byte
+checks but their parent failed waiting for another load event after Back to plaintext.
+The second probe's redacted navigation observation showed Back had already committed
+to `/robots.txt`. The corrected observer checks the exact URL after committed Back,
+then Forward and live controls; it does not waive a history assertion or claim a
+production navigation defect. Both failed aggregates remain failed and preserved.
+
+Evidence: `.artifacts/step5-browser-729d3c7/`, including full test logs, fixture DBs/
+browser state, native OAuth app receipts and failed attempts. The existing authorized
+localhost:3300 fixture was reused, not reinitialized. Its own retained credential was
+linked into the previously absent ignored `.local/screenshot-fixture/create-output.txt`;
+no credential value was emitted. Local fixture OAuth applications remain retained.
+The 138 public files emitted into the final preview projection, including all **23 JS
+files**, match the `19824ec` export. Eleven shared theme/branding paths are absent from
+that projection and delegated to the stock preview; the initial combined comparison
+and its missing-versus-different classification are both retained. No byte difference
+was found among emitted files. This is not a complete served-template/asset verifier.
+Production frontend/template/build sources remain unchanged from the selected export.
+
+**Scope limit:** genuine cached **asset bytes** and first candidate graph/history are
+now covered locally. The old Go page/backend was not executed by this case, so an
+already-open predecessor owner, its retirement/no-replay behavior, full installed
+cache/CSP behavior and shared-helper/terminal interruption are **not** established.
+Populated visual/actual-authority and applicable maintenance checks still remain
+before the exact checkpoint-C proposal. No fresh native build, live migration,
+cutover, project lifecycle, provider job or cleanup occurred. The deployed targets
+remain at v6, checkpoint-B archives stay retained, and Cockpit retirement is excluded.
+
 ## Step 5 checkpoint B passed — both private v6→v9 rehearsals; live installations remain v6
 
 The user approved the presented checkpoint-B effects. Executed on **soda-test first,

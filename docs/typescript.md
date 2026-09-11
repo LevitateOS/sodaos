@@ -65,6 +65,21 @@ Focused commands prepare their own assets:
 - `bun run test:forgejo` — Forgejo source tests plus local Lit runtime/settings-link.
 - `bun run test:lit` — focused emitted Lit runtime, settings-link and workspace tests.
 
+For the selected retained-page transition, the **existing** native fixture also
+accepts `SODA_CONNECTION_PREDECESSOR` (an absolute verified b8af68c export),
+`SODA_CONNECTION_PREDECESSOR_REVISION` (its full revision) and
+`SODA_CONNECTION_PREDECESSOR_MANIFEST_SHA256` (its independently established
+`build-info.json` hash). Verify an older export with its own trusted verifier first;
+the current inventory rules are not retroactive. Pass these variables to
+`bun run test:pages`; all normal consumers still run. The fixture binds three genuine
+old module files to that manifest, models the inspected zero-age revalidation policy,
+and tests first candidate graph navigation/Back/Forward in a fresh browser context.
+Its phase file controls only the local public-file responder. No native HTML/API
+replacement, appliance cutover or old backend/page execution is involved. Without
+these inputs, the stock six-hour candidate-bytes/legacy-URL cache case remains.
+Neither case proves safe retirement of an already-open predecessor page or live
+terminal preservation; those remain separate delivery checks.
+
 The `:prepared` scripts are the same suite bodies used by these wrappers and the
 aggregate; direct use requires a preceding `bun run build:forgejo`. Test-specific
 module builds remain where they exercise compiler/payload contracts; only repeated

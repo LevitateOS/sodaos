@@ -162,6 +162,14 @@ Forgejo Actions administration separate and keep Cockpit Runners.
   release through its first new navigation. Retain that useful test, then exercise
   a genuine old-payload/new-payload boundary with the same fixture. Already-open
   modules cannot be called upgraded merely because a new document succeeds.
+  **Step-5 follow-up:** the same fixture now has a manifest-bound b8af68c asset case.
+  A fresh context begins on native plaintext (no candidate scripts), verifies genuine
+  old page/API/Lit module hashes and zero-age responder contact, then checks changed
+  bare-URL bytes, first candidate entry/transitive graph and Back/Forward. This case,
+  all 16 consumers and the full native parent passed locally; the default six-hour
+  case remains explicitly labelled candidate-byte caching. This closes the missing
+  genuine **asset-byte** boundary, not predecessor document execution/retirement,
+  installed cache/CSP equivalence or native terminal continuity.
 - **Distinguish stock preview from installed cache configuration.**
   `appliance/config/forgejo.env:12–13` selects native
   `FORGEJO__server__STATIC_CACHE_TIME=0`; it is not a Caddy cache override. The
