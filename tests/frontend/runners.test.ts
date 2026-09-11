@@ -294,6 +294,7 @@ test('populated runner pages keep long inventory, drafts and keyboard controls u
       assert.equal(await page.getByLabel('Local runner ID',{exact:true}).inputValue(),'one');
       assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'synthetic-secret-never-store');
       const metrics=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,height:innerHeight,content:document.documentElement.scrollHeight}));
+      if (metrics.scroll !== metrics.width) t.diagnostic(JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('body *')].filter(node => node.getBoundingClientRect().right > innerWidth + 1).map(node => ({tag: node.tagName, class: node.className, right: node.getBoundingClientRect().right, width: node.getBoundingClientRect().width})).slice(0, 25))));
       assert.equal(metrics.scroll,metrics.width,'Long inventory caused document horizontal overflow');
       assert(metrics.content > metrics.height,'Fixture must exercise vertical scrolling');
       const remove=page.getByRole('button',{name:'remove runner-23',exact:true});
@@ -302,7 +303,10 @@ test('populated runner pages keep long inventory, drafts and keyboard controls u
       assert(await confirmation.evaluate(node=>node === document.activeElement));
       await confirmation.scrollIntoViewIfNeeded();
       const box=await confirmation.boundingBox();
-      assert(box && box.x >= 0 && box.x+box.width <= width && box.y >= 0 && box.y+box.height <= 720);
+      // Chromium scroll offsets are quantized; DOM rectangles retain subpixels.
+      // Permit only the same one-CSS-pixel rounding used by layout checks.
+      assert(box && box.x >= -1 && box.x+box.width <= width+1 && box.y >= -1 && box.y+box.height <= 721,
+        JSON.stringify({colorScheme, width, confirmation: box}));
       await page.keyboard.press('Escape');
       assert(await remove.evaluate(node=>node === document.activeElement));
       assert.equal(await confirmation.count(),0);

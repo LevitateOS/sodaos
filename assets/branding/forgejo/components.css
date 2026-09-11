@@ -123,6 +123,18 @@ body:has(.soda-page, .soda-page-marker) #navbar .navbar-right {
   gap: 8px;
 }
 
+/* Soda's added links must not push native profile controls offscreen just above
+   Forgejo's mobile breakpoint. Keep its mobile menu/visibility rules unchanged. */
+@media (min-width: 768px) {
+  body:has(.soda-page, .soda-page-marker) #navbar .navbar-left {
+    min-inline-size: 0;
+    flex-wrap: wrap;
+  }
+  body:has(.soda-page, .soda-page-marker) #navbar .navbar-right {
+    flex-shrink: 0;
+  }
+}
+
 body:has(.soda-page, .soda-page-marker) #navbar details > summary {
   color: var(--soda-page-muted);
   border-radius: 8px;
