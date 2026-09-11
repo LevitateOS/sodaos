@@ -1,5 +1,75 @@
 # Current handoff
 
+## Checkpoint C approved — soda-test delivered; second target still pending
+
+The user accepted the explicit two-target checkpoint-C proposal (15 minutes per
+target, soda-test first). Candidate remains sealed **19824ec**, not a new native
+build. `soda-test` now runs its paired dashboard/helper/runner commands and **schema
+v9**. Its first window's control interval was **431.1 seconds**; this is not a
+measured browser outage. Validation VM has not yet been touched in this execution.
+Step 6 remains excluded.
+
+Fresh pinned preflight preserved the boot, config/key/count observations, all four
+root/account/key baselines and empty managed runtime directories. Existing bundled
+transfer/verifier tools staged the candidate, without loading upstream/project
+images. Fresh static backups include the original OCI, native/config/custom files,
+Cockpit packages and all four exact account-program files with native metadata.
+Twelve copied-directory publication/refusal cases passed. Admission closure stopped
+the proxy and made both legacy runner executable entrypoints nonexecutable after
+saving their original modes. The old helper's three-minute request bound elapsed;
+old callers, project exec sessions and account-writer processes were absent. A real
+old `/inspect` request crossed its global lock. Protected runtime directories/units
+were empty before dashboard/helper/socket shutdown. No managed session was ended.
+
+A fresh SQLite backup passed the same five-case v6→v9/missing-key/wrong-key/old-v9-
+refusal/paired-old-v6 rehearsal, without network/helper access. The private
+`pre-publish.tar` was copied to the builder and independently hash-verified before
+publication. Original columns/ciphertext were preserved in the live migration
+before browser login. All four original Rocky 9 roots received **only** the exact
+`project-account` file via locked atomic publication/fsync, preserving its attributes
+and ancestor identities. No account/key provisioning, package transaction, root
+replacement, project lifecycle, project-image/default change or provider job ran.
+
+Actual host delta: **105 Forgejo files**, **three Cockpit Runners files** (two new
+hashed assets and its index, not three additions), four native commands, the dashboard
+image pin and exact legacy helper retirement. Prior hashed/predecessor-only assets
+remain. Tailnet, Cockpit configuration, Caddy customization, upstream images and
+credentials remain unchanged. Independently verified running dashboard/helper bytes,
+selected installed files and actual Forgejo/proxy image identities match scope.
+
+Bounded installed checks passed using source-driver revision **7fed2e3**:
+
+- Native private repository, auth/logout/drafts and actual BFCache journey, including
+  current bytes/conditional revalidation and both actors' own connections.
+- Native Runners list: real operator 1/site-admin true allowed; actor 2/site-admin
+  false denied. Inventory remains empty; no retained-runner migration proof inferred.
+- Native root Cockpit login, candidate Runners package and real CLI list/zero capacity,
+  followed by sign-out and fresh same-context navigation. Tailnet was not opened.
+- All **seven memberships** passed ordinary SSH, PTY and tmux 3.2a through pinned
+  management forwarding. This does **not** establish direct/laptop routing.
+- Final four-root people/key and sampled system PID/start observations remain
+  unchanged; managed runtime directories remain empty. Later auth writes are retained.
+
+Retain failures, without relabelling them: transfer first received the legacy SSH
+argv array rather than the existing Remote object and refused before transfer;
+preflight `/profile` returned 404 on b8af68c, corrected to its source-backed `/inspect`;
+the delivery's final observer used `forgejo` instead of `soda-forgejo` and attempted
+to inspect the stopped proxy container. **Publication was not replayed**: a separate
+read-only verification passed before reopening. A blanket post-state comparison
+incorrectly included the intentionally retired helper and was corrected explicitly.
+The direct SSH attempt failed with its observed route through the default gateway;
+no route was changed. Cockpit's first aggregate reached sign-out but timed out waiting
+for its landing; an explicit same-context return passed without cookie manipulation.
+
+Evidence/recipes: `.artifacts/step5-cutover-19824ec/`; guest
+`/var/lib/soda-native-pages-19824ec-cutover/`; browser homes
+`.artifacts/c5-pages-a/`, `c5-runners-a/`, `c5-cockpit-{a,b}/`. Private archives,
+copied-state containers, staged bytes, failed attempts and source are retained.
+Only exact newly owned Cockpit browser/tunnel processes were closed. Old backups
+are not later-write-safe rollback authority. **Next:** preserve the first target's
+new state, correct the observer for the second target, then perform the same bounded
+sequence on validation. No additional target or step-6 retirement is authorized.
+
 ## Step 5 completion request — predecessor execution and retained authority preflight
 
 The user requested all remaining step-5 work. Checkpoint C still requires presentation
@@ -86,7 +156,7 @@ proof remains separate and is not relabelled as a new retained-target run.
 Both targets have identical historical Cockpit packages: 76 files matching sealed
 inventories through bdbce8e (and earlier), **not** the b8af68c Cockpit export. The
 candidate's Forgejo-only Runners presentation/protocol needs its matching package
-entry: three added assets and one replaced `index.html`; retain the two prior hashed
+entry: two added asset files and one replaced `index.html`; retain the two prior hashed
 assets. This keeps Runners working, not step-6 retirement. Leave Tailnet's package,
 stock Cockpit configuration and service intact. Fresh cutover backups must include
 this Runners package; the earlier B inventory did not cover it.

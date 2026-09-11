@@ -366,7 +366,7 @@ proof and record actual retained-target outcomes after delivery.
 Both targets also retain the same 76-file historical Cockpit payload, matching
 multiple prior sealed inventories through `bdbce8e`, not the b8af68c Cockpit export.
 The candidate changes the Runners presentation/protocol to Forgejo-only. Pair that
-retained entry with its candidate assets (three additions and one index replacement),
+retained entry with its candidate assets (two added files and one index replacement),
 retain its prior hashed assets and back up the package freshly. This is **not removal
 of Cockpit Runners**. Leave the Tailnet package and ordinary Cockpit configuration
 unchanged; no whole-Cockpit upgrade is selected.
@@ -414,6 +414,14 @@ for a safe service-restart baseline. Exact admission/drain and ordinary SSH/work
 preservation observations still belong in the checkpoint-C recipe.
 
 ### 5c. Separately approved live cutover and verification
+
+Checkpoint C is now approved for the two named targets in order, with a 15-minute
+maintenance allowance per target. `soda-test` has received paired `19824ec`/v9 and
+passed bounded native private-page/BFCache, operator/nonoperator Runners reads,
+retained Cockpit Runners and all seven memberships' management-forwarded SSH/PTY
+checks. Its four roots and sampled system processes were preserved. The first
+observer and direct-routing failures remain recorded. Validation VM delivery is
+next, not yet performed; step 6 remains excluded. See the leading handoff.
 
 **Approval checkpoint C:** present the candidate/delta, rehearsal evidence, target,
 window, exact interruptions and retained-target checks for explicit cutover approval.
