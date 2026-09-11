@@ -138,12 +138,18 @@ func TestNativeConnectionFixture(t *testing.T) {
 	soda = New(config.Config{OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile}, db)
 	soda.Host = &host.Client{HTTP: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		w := httptest.NewRecorder()
-		if r.Method != "POST" || r.URL.Path != "/runners/list" {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "POST" && r.URL.Path == "/runners/list":
+			_, _ = w.Write([]byte("[]"))
+		case r.Method == "POST" && r.URL.Path == "/profile":
+			// A fresh fixture repository may belong to this actor. Its owner
+			// view reads creation metadata; this remains synthetic helper data,
+			// not an installed profile or permission to create a project.
+			_ = json.NewEncoder(w).Encode(testCreationProfile())
+		default:
 			t.Error("unexpected fixture helper operation", r.Method, r.URL.Path)
 			w.WriteHeader(503)
-		} else {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte("[]"))
 		}
 		return w.Result(), nil
 	})}}
