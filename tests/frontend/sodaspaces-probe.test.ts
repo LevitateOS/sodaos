@@ -34,6 +34,20 @@ test('operator package handoff waits for the real rendered heading before native
   assert.equal(await completed,frame);
 });
 
+test('Cockpit CLI observation assimilates the native thenable inside the browser', async () => {
+  const source=await Bun.file(new URL('../installed/runners-contention.ts',import.meta.url)).text();
+  const from=source.indexOf('      const raw=await frame.evaluate('), to=source.indexOf('\n',from);
+  assert(from > 0 && to > from);
+  const frame={async evaluate(callback: ()=>unknown) {
+    const value=callback();
+    assert.equal(Object.prototype.toString.call(value),'[object Promise]','Playwright requires a browser Promise, not the native Cockpit thenable');
+    return await value;
+  }};
+  const window={cockpit:{spawn:()=>({input:()=>({then:(resolve: (value: string)=>void)=>resolve('synthetic stdout')})})}};
+  const value=await runInNewContext('(async()=>{'+source.slice(from,to)+'\nreturn raw;})()',{frame,window});
+  assert.equal(value,'synthetic stdout');
+});
+
 test('native coordinated logout requires both Soda and Forgejo response contracts', async () => {
   const from = probe.indexOf('  assert.equal((await sodaEnded).status(), 204);');
   const to = probe.indexOf('  for (const p of [other, page])', from);

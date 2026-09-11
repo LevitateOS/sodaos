@@ -1,6 +1,24 @@
 # Current handoff
 
-## Step 4 continuation — `634aa30` native overlap effects and departure evidence
+## Step 4 continuation — `51c0fcd` overlap acknowledgement passed; native thenable port
+
+`51c0fcd` passed fresh full native build/check/export/verification and backed-up
+paired delivery (`.artifacts/runner-alert-51c0fcd/`, same-named frozen worktree,
+guest `/root/runner-fixture/pre-51c0fcd/`). Overlap 04 again observed the three real
+callers blocked under the 20s hold, then completion with old probe processes gone,
+unchanged baseline and Restart last. The corrected PatternFly success acknowledgement
+passed. The aggregate failed at the following Cockpit CLI inventory read: direct
+Playwright evaluation of Cockpit's native thenable serialized `undefined` rather
+than stdout. A separate read-only native diagnostic reproduced that exact difference;
+explicit async/await assimilation inside the page returned a string and runner
+count 2, as the existing operator check already does. Corrected that caller and
+added an actual-source thenable regression; local checks passed. Evidence:
+`.artifacts/r4-overlap-04/`, `.artifacts/r4-cockpit-thenable/`, matching private logs.
+No failed overlap was replayed or relabelled; fresh candidate/native completion
+still follows. Both listener accounts/state, provider records/runs and the baseline
+remain retained. No new reboot/job/removal occurred.
+
+## Step 4 preceding — `634aa30` native overlap effects and departure evidence
 
 `634aa30` passed fresh native build/check/export/verification and backed-up paired
 fixture delivery (`.artifacts/runner-ready-634aa30/`, frozen worktree

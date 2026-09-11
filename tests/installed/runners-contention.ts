@@ -136,7 +136,9 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
       // PatternFly prefixes its alert title with an accessible severity label.
       await frame.locator('.soda-diagnostic.pf-m-success').filter({hasText:input.runner_id+' was stopped.'}).waitFor();
       evidence.stage='Cockpit post-operation CLI inventory';
-      const raw=await frame.evaluate(()=>window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners','list'],{err:'message'}).input('{}\n'));
+      // Cockpit returns its native thenable, not a browser Promise. Assimilate it
+      // inside the page before Playwright serializes the result.
+      const raw=await frame.evaluate(async()=>await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners','list'],{err:'message'}).input('{}\n'));
       assert.deepEqual(decodeRunnerResponse('list',JSON.parse(raw)),after.inventory);
       evidence.stage='Cockpit refreshed native row';
       await frame.getByRole('button',{name:'Refresh',exact:true}).click();
