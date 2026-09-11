@@ -251,13 +251,19 @@ source rendering and local listener health cannot substitute for it.
 
 ## 5. Rehearse and deliver to the approved retained target
 
-**Status: planning only; target, window and execution grants are unselected.**
+**Status: targets selected; bounded read-only inspection executed.** The user selected
+step 5 only, `soda-test` first and retained `soda-native-spaces-658f2af` second, and
+approved starting powered-off targets. Both were already running on their original
+disks; neither was started/rebooted. Checkpoint A observations are retained under
+`.artifacts/retained-step5-c71e5ba/`. Backup/rehearsal interruptions (B), the live
+cutover recipe/window (C) and target acceptance remain pending; step 6 is excluded.
 `19824ec` is the current verified x86_64 candidate, exported at
 `.artifacts/runner-projection-19824ec/export/x86_64/`, not an instruction to install
 it everywhere. Step 4 supplies bounded isolated evidence and explicit continuity
 for unchanged production mechanisms, not a retained-state rehearsal. Earlier
 `soda-test`/validation-VM grants and the isolated fixture's used reboot/removal do
-not transfer here. Do not contact or start a target merely to fill this plan.
+not transfer here. The new target-specific inspection/start selection above is
+separate from those historical grants; it does not approve other targets.
 
 Use one owner, the existing producer/verifier, installed journeys and private
 exact-target recipes. Do not build another updater, orchestration layer, manifest
@@ -306,6 +312,23 @@ clients/units and the preservation set above. Do not dump full container inspect
 secrets or Forgejo's database. Unexpected custom files, unsupported saved providers,
 unknown identities or an upstream mismatch stop delta preparation for a decision;
 do not reinterpret, overwrite or delete them.
+
+The first inspection found schema v6 on both targets, four/two running projects,
+empty local runner inventories and no listed managed terminal units. All 391 current
+custom payload files match the prior b8af68c export; selected Forgejo version,
+CustomPath and zero static-cache setting match the candidate's upstream contract.
+Dashboard/helper bytes and runner-command bytes have different historical provenance;
+do not describe either target as a whole b8af68c installation. No old runner-helper
+process was observed, but this is not a future writer-drain receipt.
+
+**Concrete same-root prerequisite:** all six retained roots still contain the original
+unlocked `project-account` program. The candidate host's embedded key updater must
+be paired with the current account program under the
+[project maintenance contract](project-os.md#managed-key-writer-contract).
+Review/rehearse the exact single-file update and writer exclusion before seeking C;
+leaving the old writer or replacing roots is not an acceptable shortcut. Directory
+inodes, accounts, key bytes, homes and live SSH/process identities must survive.
+Neither this observation nor an empty runner inventory establishes delivered parity.
 
 Produce the smallest coordinated delta from those facts: dashboard/API image and
 canonical template/module graph/cache epoch, schema/config compatibility, paired

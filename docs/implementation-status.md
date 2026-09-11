@@ -1,5 +1,80 @@
 # Current handoff
 
+## Step 5 targets selected — read-only inventory; no maintenance yet
+
+The user clarified **step 5 only**, `soda-test` first, then the retained validation
+VM `soda-native-spaces-658f2af`, and explicitly permitted starting powered-off
+targets. Both were already running on their original disks (QEMU PIDs 61454/61422
+at inspection); no start/reboot was needed or performed. Missing legacy `qemu.pid`
+files did not mean the guests were offline: actual process names/disks, loopback
+listeners and pinned SSH established identity before guest inspection. The separate
+step-4 runner fixture was not contacted or changed.
+
+Read-only evidence is retained privately in `.artifacts/retained-step5-c71e5ba/`:
+`local-vm-processes.json`, each target's `inventory.json`, `details.json`,
+`payload.json` (target-prefixed), their stderr files and exact inspection inputs/
+recipes. Reused the existing deployment preflight and pinned management keys;
+bounded follow-up reads collected only selected configuration/provenance, Soda DB
+counts, public-key/account hashes and process/path metadata. No Forgejo database,
+credential values, full container environment or personal CLI credentials were
+read into evidence. SSH inspection exits were zero for both targets in the selected
+order. These are observations, not backups, mutation tests or delivery acceptance.
+
+Observed facts:
+
+- Both dashboards and installed host helpers match the prior **b8af68c** artifacts;
+  both Soda databases are **v6**. The four `soda-test` projects/seven memberships
+  and two validation projects/four memberships remain present, with all six roots
+  running. No managed terminal units were listed; ordinary SSH/tmux and other
+  processes are not thereby absent. Project account/key hashes and selected native
+  PID/start identities were recorded for later comparison, not interrupted.
+- Both local runner lists are empty, with no runner directories/instances observed.
+  This supplies no retained-runner migration parity. Both runner CLIs match
+  **bdbce8e**, as do the validation VM's legacy runner helper/launcher; `soda-test`'s
+  helper/launcher retain earlier provenance, not b8af68c. No legacy runner-helper
+  process was observed. Future maintenance still needs fresh writer admission/drain.
+- Stock Forgejo is **15.0.7**, with the prior image ID matching the selected export's
+  unchanged Forgejo image. Caddy's image also matches the unchanged candidate image.
+  `GITEA_CUSTOM=/data/gitea` and `STATIC_CACHE_TIME=0` were observed. All **391**
+  current custom files match the b8af68c export; no unknown file was found in the
+  inspected templates/public/options trees. Candidate custom payload: **403** files,
+  comprising 22 additions, 83 changed files and 10 predecessor-only image paths.
+  This comparison does not authorize deleting those old assets or establish a
+  genuine cached-client transition. Dashboard quadlet pins and the retained
+  `soda-test` Caddy customization need their target-specific treatment, not overwrite
+  with stock files. Cockpit sockets are inspected separately from inactive web
+  service processes; do not start the latter as a repair.
+- **Required same-root pairing discovered:** every retained `project-account` has
+  SHA-256 `a190265fc759dcdf8fe1d6ad1a21665af6b239a2e20a9a40d397a3d8358fc472`, matching
+  the old 8b823db/b8af68c program. The candidate's account program differs and shares
+  the managed-key directory lock with its host-embedded updater. Source inspection
+  of the real host caller and `docs/project-os.md` establishes that host-only delivery
+  would leave an incompatible unlocked writer and no browser-only Join support in
+  old roots. Rehearse and explicitly approve the exact one-file same-root update;
+  preserve directory inodes, accounts, keys, homes and SSH/process identities. No
+  existing root or future-creation image default was changed here.
+
+**Next approval checkpoint B proposal, not executed:** use new exclusive private
+`/var/lib/soda-native-pages-19824ec-rehearsal/` directories on each selected guest
+and separate target subdirectories under the builder evidence home above. Briefly
+stop only each dashboard for a SQLite backup-API copy/integrity check and matching
+config/key/credential capture, then resume its unchanged prior dashboard. Preserve
+prior artifact/image identities and custom files. Keep private copies on those same
+approved machines; do not authenticate copied grants, mount the live helper or start
+cloned listeners. Rehearse actual v6→v9 preservation/missing-key/wrong-key behavior
+on network-isolated copies and prepare the account-program file/ancestor rehearsal.
+A bounded program/metadata copy is not a recoverable whole-root/workload snapshot.
+No Forgejo, project, runner, Tailnet or Cockpit service stop is proposed for this
+DB-copy checkpoint. Live paired delivery and its additional shared-helper/root
+writer exclusion require the separately presented **checkpoint C** recipe/window.
+
+Remaining before C: applicable genuine predecessor/cache, actual authority,
+populated visual and shared-helper maintenance checks; exact minimal delta,
+controlled-copy results and preservation recipe. Candidate remains the previously
+verified **19824ec55245baaf5ff5a6ad9557a53aa7f3b0f4**; no new build/test/export, backend
+migration, backup, authentication, provider action, deployment or cleanup ran in
+this inspection turn. Cockpit Runners/Tailnet remain installed; step 6 is excluded.
+
 ## Planning update — steps 5–7 revised; no retained-target execution
 
 Revised `docs/native-pages-runners-plan.md` in place after bounded step-4 completion.
