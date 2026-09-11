@@ -1,5 +1,20 @@
 # Working on SodaOS
 
+## Respect the user's time and token budget
+
+- Use the smallest sufficient investigation and validation for the actual change.
+  Reuse applicable evidence; historical execution sequences are not standing gates.
+- Finish approved work without repeated “continue” or approval handoffs. Ask again
+  only when the required action exceeds the approval or a concrete safety issue
+  needs the user's decision.
+- Do not turn every uncertainty into another test, fixture or prerequisite. Establish
+  whether it affects correctness, authorization or data preservation first.
+- Keep reports concise. Record outcomes and necessary limitations, not a running
+  narrative that future agents must reread as instructions.
+- Step 5's excessive investigation and fragmented handoffs were a process failure,
+  not a recommended validation standard. Its successful delivery does not justify
+  repeating that process. Preserve necessary backups and authorization boundaries.
+
 ## Start here
 
 Read these before substantial changes:
@@ -35,12 +50,10 @@ runner parity/Cockpit retirement and native acceptance obligations remain in for
 
 The approved combined-plan step-5 cutover is complete: `soda-test` first, then
 `soda-native-spaces-658f2af`, now run paired `19824ec`/schema-v9 affected components.
-Bounded native page/Runners/Cockpit/access and preservation checks passed. All six
-original roots, later writes and credentials remain; two confirmed stopped Podman
-exec records were preserved, not pruned. Cockpit Runners remains installed and
-Tailnet unchanged. No additional target, lifecycle, cleanup or step-6 retirement is
-authorized. See the leading handoff for exact evidence and limitations. This specific
-cutover is not a requirement to repeat the whole plan after every source edit.
+All six original roots, later writes and credentials remain. Cockpit Runners remains
+installed and Tailnet unchanged. No additional target, lifecycle, cleanup or step-6
+retirement is authorized. The handoff records actual results and limitations; it is
+historical evidence, not a checklist to replay or an endorsement of the process.
 
 The user then approved step 4 on a new isolated CoreOS/KVM fixture only:
 `soda-native-runners-2cdc238`, retained under `.artifacts/runners-vm-2cdc238/`.

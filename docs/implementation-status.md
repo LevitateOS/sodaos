@@ -1,5 +1,16 @@
 # Current handoff
 
+## Process correction — do not turn execution history into mandatory work
+
+The user identified the excessive token/time cost of step 5. Its successful delivery
+receipts below do not endorse the repeated investigations, overly broad empty-exec-
+record gate or fragmented approval handoffs. Those were process mistakes. Future
+work must use proportional checks, reuse applicable evidence and carry approved
+work through without unnecessary prompts. Retain the evidence and real preservation/
+authorization requirements; do not replay the historical sequence as a default.
+`AGENTS.md` now makes this distinction explicit. This is a guidance-only correction;
+no runtime actions or tests were performed for it.
+
 ## Step 5 — bounded retained delivery completed on both targets
 
 The user explicitly requested completion under the existing checkpoint-C approval.
