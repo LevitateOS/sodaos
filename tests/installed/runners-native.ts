@@ -20,6 +20,15 @@ function processList(value: unknown): RunnerProcess[] {
   return rows;
 }
 
+// Shared pinned transport for the observer and fixed installed contention case.
+export function runnerSSH(input: RunnerInput) {
+  assert(process.env.SODA_NATIVE_VALIDATE === input.target);
+  return ['ssh','-F',input.ssh_config,'-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',
+    '-o','PermitLocalCommand=no','-o','ClearAllForwardings=yes','-o','ForwardAgent=no','-o','ForwardX11=no',
+    '-o','RemoteCommand=none','-o','ConnectTimeout=10','-o','ControlMaster=no','-o','ControlPath=none',
+    '-o','IdentityAgent=none','-o','IdentitiesOnly=yes',input.ssh_host];
+}
+
 export async function readRunnerState(input: RunnerInput, prior?: {boot_id: string; processes: Record<string, RunnerProcess[]>}) {
   assert(process.env.SODA_NATIVE_VALIDATE === input.target, 'Native target not selected');
   await restrictedText(input.ssh_config, 16384);
@@ -31,10 +40,7 @@ export async function readRunnerState(input: RunnerInput, prior?: {boot_id: stri
   // All remote words above are validated identifiers, never browser-selected shell text.
   // Stock timeout bounds only this run-owned observer/CLI-read process group;
   // killing the SSH client alone would not establish remote reader termination.
-  const child = Bun.spawnSync(['ssh','-F',input.ssh_config,'-T','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes',
-    '-o','PermitLocalCommand=no','-o','ClearAllForwardings=yes','-o','ForwardAgent=no','-o','ForwardX11=no',
-    '-o','RemoteCommand=none','-o','ConnectTimeout=10','-o','ControlMaster=no','-o','ControlPath=none',
-    '-o','IdentityAgent=none','-o','IdentitiesOnly=yes',input.ssh_host,command],
+  const child = Bun.spawnSync([...runnerSSH(input),command],
     {stdin:Buffer.from(program),stdout:'pipe',stderr:'ignore',timeout:90000,maxBuffer:65536});
   assert(child.exitCode === 0, 'Native runner observation unavailable');
   const value = object(JSON.parse(child.stdout.toString()));
@@ -113,6 +119,20 @@ export function verifyRunnerOperation(input: RunnerInput, before: RunnerState, a
   }
   assert(current.service.enabled === (input.phase === 'stop' ? 'disabled' : 'enabled'), 'Wrong host-boot policy');
   assert(input.phase === 'stop' ? current.service.active === 'inactive' : current.service.active === 'active' && current.service.sub === 'running', 'Listener state unconfirmed');
+}
+
+export function verifyRunnerContention(input: RunnerInput, before: RunnerState, after: RunnerState) {
+  assert(input.phase === 'overlap' || input.phase === 'departure');
+  preserveRunnerBaseline(input,before,after);
+  if(input.phase === 'departure') {
+    const unchanged=JSON.stringify(after.inventory) === JSON.stringify(before.inventory) && JSON.stringify(after.states) === JSON.stringify(before.states) && JSON.stringify(after.processes) === JSON.stringify(before.processes);
+    if(!unchanged) verifyRunnerOperation({...input,phase:'restart'},before,after);
+    return unchanged ? 'cancelled-before-observed-effect' : 'restart-observed-response-unconfirmed';
+  }
+  const row=after.inventory.runners.find(r=>r.id === input.runner_id); assert(row);
+  assert(row.service.active === 'active' || row.service.active === 'inactive');
+  verifyRunnerOperation({...input,phase:row.service.active === 'active' ? 'restart' : 'stop'},before,after);
+  return row.service.active === 'active' ? 'restart-last' : 'stop-last';
 }
 
 export function preserveRunnerBaseline(input: RunnerInput, before: RunnerState, after: RunnerState) {

@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {object, validID} from './sodaspaces-input.ts';
 
-export type RunnerPhase = 'list' | 'register' | 'start' | 'stop' | 'restart' | 'remove' | 'dispatch' | 'job';
+export type RunnerPhase = 'list' | 'register' | 'start' | 'stop' | 'restart' | 'remove' | 'dispatch' | 'job' | 'overlap' | 'departure';
 export interface RunnerInput {
   phase: RunnerPhase;
   target: string; architecture: 'x86_64' | 'aarch64'; revision: string;
   origin: string; ca_file: string; ssh_config: string; ssh_host: string;
   operator_id: string; denied_id: string; runner_id: string; preserved_ids: string[];
+  cockpit?: {origin: string; password_file: string};
   registration?: {uuid: string; token_file: string; labels: string; scope: 'system'};
   provider?: {token_file: string; repository_id: string; repository_path: string; workflow: string; commit: string; observation: string; hold_seconds: number; run_id?: number};
 }
@@ -19,10 +20,10 @@ function file(value: unknown): asserts value is string {
 export function runnerInput(value: unknown, permission: string, target: string | undefined): RunnerInput {
   const v = object(value);
   const {phase, architecture, revision, origin, ca_file, ssh_config, ssh_host, operator_id, denied_id, runner_id, preserved_ids} = v;
-  assert(phase === 'list' || phase === 'register' || phase === 'start' || phase === 'stop' || phase === 'restart' || phase === 'remove' || phase === 'dispatch' || phase === 'job', 'Unknown runner phase');
+  assert(phase === 'list' || phase === 'register' || phase === 'start' || phase === 'stop' || phase === 'restart' || phase === 'remove' || phase === 'dispatch' || phase === 'job' || phase === 'overlap' || phase === 'departure', 'Unknown runner phase');
   assert.equal(permission, '--allow-runner-' + phase, 'Select exactly this phase, not a blanket native opt-in');
   assert(typeof v.target === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(v.target) && target === v.target, 'Exact SODA_NATIVE_VALIDATE target required');
-  assert.deepEqual(Object.keys(v).sort(), ['phase','target','architecture','revision','origin','ca_file','ssh_config','ssh_host','operator_id','denied_id','runner_id','preserved_ids', ...(phase === 'register' ? ['registration'] : []), ...(['dispatch','job'].includes(phase) ? ['provider'] : [])].sort());
+  assert.deepEqual(Object.keys(v).sort(), ['phase','target','architecture','revision','origin','ca_file','ssh_config','ssh_host','operator_id','denied_id','runner_id','preserved_ids', ...(phase === 'register' ? ['registration'] : []), ...(['dispatch','job'].includes(phase) ? ['provider'] : []), ...(phase === 'overlap' ? ['cockpit'] : [])].sort());
   assert(architecture === 'x86_64' || architecture === 'aarch64');
   assert(typeof revision === 'string' && /^[0-9a-f]{40}$/.test(revision));
   assert(typeof origin === 'string');
@@ -35,6 +36,15 @@ export function runnerInput(value: unknown, permission: string, target: string |
   assert(Array.isArray(preserved_ids) && preserved_ids.length <= 64 && preserved_ids.every(runnerID));
   assert(new Set(preserved_ids).size === preserved_ids.length && !preserved_ids.includes(runner_id), 'Preservation baseline must not be the destructive fixture');
   const result: RunnerInput = {phase,target:v.target,architecture,revision,origin,ca_file,ssh_config,ssh_host,operator_id,denied_id,runner_id,preserved_ids};
+  if (phase === 'overlap') {
+    const c = object(v.cockpit);
+    assert.deepEqual(Object.keys(c).sort(), ['origin','password_file']);
+    assert(typeof c.origin === 'string');
+    const cockpitURL = new URL(c.origin);
+    assert(cockpitURL.protocol === 'https:' && cockpitURL.origin === c.origin && !cockpitURL.username && !cockpitURL.password && c.origin !== origin);
+    file(c.password_file);
+    result.cockpit = {origin:c.origin,password_file:c.password_file};
+  }
   if (phase === 'register') {
     const r = object(v.registration);
     assert.deepEqual(Object.keys(r).sort(), ['labels','scope','token_file','uuid']);

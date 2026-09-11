@@ -3,7 +3,7 @@ import {test} from 'bun:test';
 import assert from 'node:assert/strict';
 import {object} from '../installed/sodaspaces-input.ts';
 import {runnerInput} from '../installed/runners-input.ts';
-import {verifyRunnerOperation, type RunnerState} from '../installed/runners-native.ts';
+import {verifyRunnerContention, verifyRunnerOperation, type RunnerState} from '../installed/runners-native.ts';
 
 function input(phase: 'register' | 'start' | 'stop' | 'restart' | 'remove') {
   return runnerInput({phase,target:'fixture',architecture:'x86_64',revision:'a'.repeat(40),
@@ -21,6 +21,26 @@ function snapshot(present=true, stopped=false, start='42'): RunnerState {
       runners:present ? [{id:'one',provider:'forgejo',registration_url:'https://fixture.invalid',account:'soda-runner-one',architecture:'x86-64',version:'fixture',capacity:1,
         service:{load:'loaded',active:stopped ? 'inactive' : 'active',sub:stopped ? 'dead' : 'running',enabled:stopped ? 'disabled' : 'enabled'}}] : []}};
 }
+
+test('contention accepts either serialized winner, but departure never invents acknowledgement',()=>{
+  const before=snapshot(), restarted=snapshot(true,false,'43'), stopped=snapshot(true,true);
+  const overlap={...input('restart'),phase:'overlap' as const};
+  const departure={...input('restart'),phase:'departure' as const};
+  assert.equal(verifyRunnerContention(overlap,before,restarted),'restart-last');
+  assert.equal(verifyRunnerContention(overlap,before,stopped),'stop-last');
+  assert.throws(()=>verifyRunnerContention(overlap,before,before));
+  assert.equal(verifyRunnerContention(departure,before,before),'cancelled-before-observed-effect');
+  assert.equal(verifyRunnerContention(departure,before,restarted),'restart-observed-response-unconfirmed');
+  assert.throws(()=>verifyRunnerContention(departure,before,stopped));
+  const survivor=structuredClone(restarted); survivor.prior_survivors=[{pid:1234,uid:123,start:'42'}];
+  for(const request of [overlap,departure]) {
+    assert.throws(()=>verifyRunnerContention(request,before,survivor));
+    const changed=structuredClone(restarted); changed.states.one={...object(restarted.states.one),uid:999};
+    assert.throws(()=>verifyRunnerContention(request,before,changed));
+    const boot=structuredClone(before); boot.boot_id='22222222-2222-4222-8222-222222222222';
+    assert.throws(()=>verifyRunnerContention(request,before,boot));
+  }
+});
 
 test('all installed operation postconditions require the exact native lifecycle result',()=>{
   for(const phase of ['register','start','stop','restart','remove'] as const) {

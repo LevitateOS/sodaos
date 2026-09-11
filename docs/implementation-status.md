@@ -1,6 +1,20 @@
 # Current handoff
 
-## Step 4 current — `cee160e` installed; full native page journey and CLI cancellation passed
+## Step 4 continuation — remaining caller cases wired into the existing driver
+
+At resumption the original VM/HTTPS owners were still live inside their bounded
+hold; no new target/reboot was needed. Added explicit `overlap` and `departure`
+phases to the existing installed runner branch, retaining its actor authentication
+and one-shot admission. The new bounded case module prepares native/Cockpit UIs
+before a 20s native admission hold; it records one native Restart, one Cockpit Stop
+and a CLI read, or one dispatched Restart followed by departure/no replay. It
+reuses the existing operator password-login helper without opening Tailnet, and
+the pinned SSH/native observer and preservation/postcondition owners. Strict input
+and native result tests plus typechecking passed. These are source/local checks;
+fresh candidate and installed execution still follow. Public Cockpit certificate
+was read through pinned SSH on this same fixture; no global trust changed.
+
+## Step 4 preceding — `cee160e` installed; full native page journey and CLI cancellation passed
 
 Frozen `cee160e` passed fresh native x86_64 build/check, bundle export, independent
 export verification, verified transfer, backed-up paired fixture maintenance and

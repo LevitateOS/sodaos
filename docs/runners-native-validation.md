@@ -317,6 +317,22 @@ clean evidence. The observer does not freeze jobs or guarantee atomic backups.
 
 ### C. Installed caller overlap and a bounded cancellation failure
 
+The existing `sodaspaces.ts --runner-phase FILE` caller now authors two explicit
+phases for steps 1–2 and 4 below: `overlap` / `--allow-runner-overlap` and
+`departure` / `--allow-runner-departure`. Both require an idle running disposable
+listener and use one 20s lock hold plus one exact native-page Restart. Overlap also
+clicks one exact Cockpit Stop and runs one ordinary CLI list; departure navigates
+to native Issues only after the POST is observed, then returns/reloads without a
+new mutation permit. They never dispatch jobs, register, remove or reboot.
+`overlap` alone additionally requires `cockpit: {origin, password_file}` in the
+restricted input, with a distinct canonical HTTPS origin and that fixture's root
+password file. Trust its actual certificate in the new private browser home first;
+no TLS bypass/global trust or borrowed credentials. It reuses the operator login
+helper and opens only Runners, **not Tailnet or its advertisement effect**. The
+existing native-page actor/CSRF/one-shot guard remains in force. These new phase
+ports have local input/postcondition/type coverage; installed results belong in
+the leading handoff, not this procedure. The separate CLI waiter remains step 3.
+
 Use an idle disposable runner, with the native page and Cockpit already connected
 through their real operator logins. The full phase driver performs preflight reads,
 so do not start it behind an intentionally held lock and mistake preflight timeout

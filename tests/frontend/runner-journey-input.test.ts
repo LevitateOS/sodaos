@@ -26,6 +26,21 @@ test('runner installed phases are separate opt-ins with no implicit mutation or 
   for (const phase of ['reboot','cleanup','provider-remove','all']) assert.throws(()=>runnerInput({...base(),phase},'--allow-runner-'+phase,'runner-fixture'));
 });
 
+test('contention cases have exact distinct grants and only overlap accepts Cockpit credentials', () => {
+  const cockpit={origin:'https://127.0.0.1:39090',password_file:'/private/operator-password'};
+  for(const phase of ['overlap','departure']) {
+    const value={...base(),phase,...(phase === 'overlap' ? {cockpit} : {})};
+    assert.deepEqual(runnerInput(value,'--allow-runner-'+phase,'runner-fixture'),value);
+    for(const grant of ['restart','stop','list',phase === 'overlap' ? 'departure' : 'overlap']) assert.throws(()=>runnerInput(value,'--allow-runner-'+grant,'runner-fixture'));
+    assert.throws(()=>runnerInput(value,'--allow-runner-'+phase,'other'));
+    assert.throws(()=>runnerInput({...value,registration},'--allow-runner-'+phase,'runner-fixture'));
+  }
+  assert.throws(()=>runnerInput({...base(),phase:'departure',cockpit},'--allow-runner-departure','runner-fixture'));
+  for(const extra of [{origin:base().origin},{origin:'http://127.0.0.1:39090'},{origin:'https://user:password@host'},{origin:'https://host/path'},{password_file:'relative'},{password:'secret'}]) {
+    assert.throws(()=>runnerInput({...base(),phase:'overlap',cockpit:{...cockpit,...extra}},'--allow-runner-overlap','runner-fixture'));
+  }
+});
+
 test('runner scope refuses ambiguous identities, paths, retained targets and credential values', () => {
   for (const extra of [{operator_id:'2'},{denied_id:'01'},{runner_id:'../baseline'},{preserved_ids:['probe-one']},{preserved_ids:['baseline','baseline']},
     {origin:'http://fixture.invalid'},{origin:'https://user:secret@fixture.invalid'},{origin:'https://fixture.invalid/extra'},{ssh_host:'-Fother'},

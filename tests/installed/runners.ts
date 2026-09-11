@@ -9,6 +9,7 @@ import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response.
 import {runnerInput, type RunnerInput} from './runners-input.ts';
 import {readRunnerState, preserveRunnerBaseline, verifyRunnerOperation} from './runners-native.ts';
 import {exerciseRunnerProvider} from './runners-provider.ts';
+import {exerciseRunnerContention, type ContentionEvidence} from './runners-contention.ts';
 
 export async function loadRunnerInput(file: string, permission: string) {
   try {
@@ -25,6 +26,7 @@ export async function loadRunnerInput(file: string, permission: string) {
 
 export interface RunnerEvidence {
   phase?: string; target?: string; revision?: string; stage?: string;
+  contention?: ContentionEvidence;
   before?: Awaited<ReturnType<typeof readRunnerState>>;
   after?: Awaited<ReturnType<typeof readRunnerState>>;
   provider?: Awaited<ReturnType<typeof exerciseRunnerProvider>>;
@@ -96,6 +98,10 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
       evidence.after=await readRunnerState(input);
       assert.deepEqual(evidence.after,before,'Read-only page changed observed runner state');
       evidence.outcome='confirmed'; return;
+    }
+    if(input.phase === 'overlap' || input.phase === 'departure') {
+      await exerciseRunnerContention(operator,input,before,permit,evidence);
+      return;
     }
     const existing=before.inventory.runners.find(row => row.id === input.runner_id);
     assert(input.phase === 'register' ? !existing : Boolean(existing), 'Wrong fixture registration state');

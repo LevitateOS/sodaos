@@ -5,7 +5,20 @@ import assert from 'node:assert/strict';
 import type {} from '../../cockpit/src/cockpit/types.ts';
 import { lstat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import type {Page} from 'playwright';
 
+// Shared native login, also used by the bounded runner-overlap journey. Merely
+// seeing the Tailnet navigation link does not open its effectful package.
+export async function loginOperator(page: Page, origin: string, password: string) {
+  await page.goto(origin + '/');
+  await page.locator('#login-user-input').fill('root');
+  await page.locator('#login-password-input').fill(password);
+  await page.locator('#login-button').click();
+  await page.getByRole('link', {name: 'Tailscale', exact: true}).waitFor();
+  assert.equal(await page.getByRole('link', {name: 'Accounts', exact: true}).count(), 0);
+}
+
+if (import.meta.main) {
 const args = Bun.argv.slice(2);
 assert.equal(args.length, 5, 'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh');
 const [origin, passwordFile, browserHome, hostname, permission] = args;
@@ -22,7 +35,7 @@ const password = (await Bun.file(passwordFile).text()).replace(/\r?\n$/, '');
 assert(password && !/[\r\n]/.test(password));
 const profile = path.join(browserHome, 'cockpit-profile');
 await mkdir(profile, { mode: 0o700 }); // exclusive; no inherited login/cookie state
-import {chromium} from 'playwright';
+const {chromium} = await import('playwright');
 let context: import('playwright').BrowserContext | undefined;
 let stage = 'trusted browser startup';
 let interrupted = false;
@@ -41,12 +54,7 @@ try {
   context.setDefaultTimeout(30_000);
   const page = await context.newPage();
   stage = 'root Cockpit password login';
-  await page.goto(url.origin + '/');
-  await page.locator('#login-user-input').fill('root');
-  await page.locator('#login-password-input').fill(password);
-  await page.locator('#login-button').click();
-  await page.getByRole('link', { name: 'Tailscale', exact: true }).waitFor();
-  assert.equal(await page.getByRole('link', { name: 'Accounts', exact: true }).count(), 0, 'Accounts navigation is not hidden (PAM gate is checked separately)');
+  await loginOperator(page, url.origin, password);
 
   stage = 'native target and core origin snapshot before page effects';
   const originProbe = 'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
@@ -115,4 +123,5 @@ try {
   try { await context?.close(); } catch { console.error('Operator browser process cleanup failed.'); process.exitCode = 1; }
   process.removeListener('SIGTERM', interrupt);
   process.removeListener('SIGINT', interrupt);
+}
 }
