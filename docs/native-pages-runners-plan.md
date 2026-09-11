@@ -299,7 +299,7 @@ waive a known authorization, persistence or data-loss failure.
 | Old/new clients and module graph | Exercise genuine predecessor bytes for the selected target through first new navigation, transitive imports and Back/Forward. Verify actual installed revalidation/CSP/epoch behavior, not candidate bytes warmed under old URLs or the preview's six-hour cache. Establish safe retirement/no replay for old entries and document the explicit reload/reconnect policy. If the predecessor cannot be obtained, this transition remains open; do not fabricate an upgrade PASS. | Wider predecessor releases, browser/platform combinations and long-lived client matrices beyond the selected transition. |
 | Authority and authentication | Preserve applicable real two-actor results and cover the selected target's actual private/public repository and owner/member boundaries, consent/cancellation, logout, unavailable responses and stale actors. Verify server denials without destructive writes or live provider permission changes. Missing actors/resources require an explicit approved test arrangement, not role equivalence or credential substitution. | Broader provider outages, permission-change and repository combinations not exercised on this delivery. |
 | Native UI and drafts | Review populated Spaces, Runners and repository settings in both themes and representative narrow/tablet/wide layouts using the existing fixture/capture tools. Cover usable confirmation/error controls, scrolling/focus, native profile menu and unsaved native/Soda drafts; fix reproduced delivery-relevant defects. | Exhaustive visual/browser and physical-keyboard acceptance. Geometry alone is not screenshot review. |
-| Terminals and shared helper | Review the actual restart/detach boundary and test it on approved rehearsal resources where affected. Define preservation/reattachment of existing exact sessions and no implicit End/create. A fixture with no projects does not prove this boundary for a populated target. | Broader terminal/CLI suitability and native concurrency matrices outside the affected maintenance boundary. |
+| Terminals and shared helper | Dashboard/helper shutdown cancels managed terminal ownership, not merely attachment; the selected transition retains this existing behavior. Require a freshly established quiescent managed-terminal set after declared admission closure and writer drain. If any exact session, pending owner or unconfirmed runtime state remains, stop for an explicit decision; do not use restart/logout/expiry forcing to drain it or recreate it afterward. Preserve ordinary SSH/workloads separately and exercise affected maintenance on approved resources. | Broader terminal/CLI suitability and native concurrency matrices outside the affected maintenance boundary. |
 
 The existing native fixture now has a passing, manifest-bound **b8af68c asset-byte**
 transition using zero-age revalidation, a fresh browser context, first candidate
@@ -382,6 +382,16 @@ because their state was copied. Retain successful and failed copies privately.
 checks, a preservation/interruption record and a runnable bounded cutover recipe.
 Rehearsal success is not live-cutover permission, and its backup is not current
 rollback data for a later maintenance window.
+
+The follow-up read-only sample found all six `/run/soda-terminals` directories
+present and empty, with no listed managed units. The prior account/key observations
+and 18 sampled system PID/start pairs remain unchanged. This is stronger than a unit
+list alone, but **not closed-admission quiescence or future cutover permission**.
+The unchanged terminal/dashboard/unit source chain and focused Go/race shutdown
+checks are recorded in the handoff. In particular, Hide or document departure is
+not End; detached sessions still have owners. Do not mistake browser disconnects
+for a safe service-restart baseline. Exact admission/drain and ordinary SSH/workload
+preservation observations still belong in the checkpoint-C recipe.
 
 ### 5c. Separately approved live cutover and verification
 

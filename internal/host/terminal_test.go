@@ -213,6 +213,13 @@ func TestTerminalShutdownClosesHijackedStreams(t *testing.T) {
 	if _, err = stream.Receive(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Shutdown must close existing terminal ownership even while an unrelated
+	// management operation holds admission. This is not an attachment-only
+	// detach or a promise that managed sessions survive service maintenance.
+	if err := d.acquireAdmission(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { <-d.admission }()
 	done := make(chan struct{})
 	go func() { d.CloseTerminals(); close(done) }()
 	select {
@@ -227,6 +234,11 @@ func TestTerminalShutdownClosesHijackedStreams(t *testing.T) {
 	}
 	if _, err = c.OpenTerminal(ctx, terminalInput()); err == nil {
 		t.Fatal("shutdown allowed a new stream")
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.starts != 1 {
+		t.Fatal("shutdown dispatched another native start")
 	}
 }
 func TestTerminalCloseWaitsForNativeReceipt(t *testing.T) {

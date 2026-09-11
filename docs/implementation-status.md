@@ -1,5 +1,53 @@
 # Current handoff
 
+## Step 5 continuation — shared-helper shutdown boundary and fresh read-only sample
+
+Traced actual predecessor/candidate terminal ownership through dashboard shutdown,
+`Daemon.CloseTerminals`, native stream Close and the project-local owner loop.
+**Dashboard or helper restart ends managed ownership; it is not browser detach.**
+The native owner stops its exact managed unit on EOF/close; independent lease expiry
+bounds lost transport. Dashboard registry state is in-memory and not restored.
+This is the existing contract, not a newly found change in candidate `19824ec`.
+
+Recorded byte-identical source continuity from `b8af68c` to `19824ec` for eight
+terminal/dashboard/unit paths. The host entrypoint's only difference is construction
+of the runner dependency; its shutdown sequence is unchanged. The old workspace's
+real source invalidates on pagehide/persisted pageshow, aborts requests and clears
+drafts without replay. That last observation is **source inspection only**: it does
+not complete genuine already-open predecessor-page/backend browser execution.
+
+Strengthened the existing host shutdown regression: hold management admission while
+closing a live terminal, require shutdown to finish, and refuse a subsequent native
+start. Focused host/web terminal, correlation/retention, shutdown and admission
+regressions passed, both ordinary and `-race`, using isolated Go 1.26.7. These use
+existing doubles; no installed terminal journey or new native lifecycle ran.
+
+Reused the existing private inspection recipe, adding only bounded project-local
+managed-unit and runtime-directory observations. Pinned read-only SSH ran in order,
+**soda-test then soda-native-spaces-658f2af**. Both remain schema v6, on unchanged
+boots, with unchanged sampled config/key files and table counts. All six protected
+`/run/soda-terminals` directories exist and are empty; no managed units are listed.
+The six roots' account/public-key observations and all **18 sampled system PID/start
+pairs** match the checkpoint-B post-observation. This is not all-process/ordinary
+SSH workload proof, a root snapshot, writer exclusion or a future quiescence claim.
+No deployment, service interruption, project/runner lifecycle, terminal creation,
+provider mutation, credential borrowing or cleanup occurred.
+
+Evidence: `.artifacts/step5-boundaries-44bae69/`, containing exact predecessor source
+extracts, continuity hashes, ordinary/race logs, the reused bounded inspection recipe,
+private per-target observations and `read-only-comparison.json`.
+
+**Cutover constraint now explicit:** close the declared admission paths, drain pending
+writers and establish fresh managed-terminal quiescence before stopping dashboard
+or helper. Hide/browser closure alone is insufficient: detached owners remain live.
+Any active/pending session or unconfirmed runtime state stops the recipe for a
+separate decision; do not force expiry/logout/End or recreate sessions afterward.
+Keep ordinary SSH/workload preservation and exact same-root account-program pairing
+in the delivery recipe. No new persistence/drain subsystem or lifecycle permission
+is implied. Predecessor browser execution, applicable actual-authority checks, exact
+admission/drain/window and checkpoint-C approval remain open. Step 5 is incomplete;
+step 6/Cockpit retirement remains excluded.
+
 ## Step 5 visual continuation — bounded populated fixture review, not installed acceptance
 
 Reused the existing page consumers and `scripts/screenshot.ts` to capture their

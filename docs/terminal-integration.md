@@ -147,6 +147,18 @@ is 12 hours, never beyond the original Soda session expiry. Logout, rotation,
 confirmed denial, expiry, shutdown and Stop cancel browser access/ownership; none
 is a Linux-account deletion or shared-project idle stop.
 
+**Maintenance implication:** restarting the dashboard or shared helper is not a
+browser detach. Dashboard shutdown cancels the in-memory owners; helper shutdown
+closes their native streams. Native owner EOF stops the exact managed unit, with
+independent lease expiry as the failure bound. Neither component restores those
+owners after restart. A maintenance scope that must preserve existing work therefore
+needs closed new admission, drained pending writers and a freshly quiescent managed
+session/runtime set before stopping either service. If sessions or unconfirmed
+state remain, stop for an explicit decision—not forced logout/End, a shorter lease,
+automatic replacement or a promise of same-ID reattachment. Ordinary SSH/personal
+tmux and unrelated workloads are separate preservation observations. See the
+[retained delivery checkpoint](native-pages-runners-plan.md#5c-separately-approved-live-cutover-and-verification).
+
 The protected per-ID `terminal-sessions/{terminalID}` API reports lifecycle/effective
 and hard deadlines, accepts End/Return/Keep/Hide and bounded display-only Rename.
 The separate `terminal-attempts/{requestID}` read resolves an exact uncertain create,
