@@ -39,9 +39,10 @@ Recommended first-release decisions from the brainstorm:
 - Reusable + ephemeral auth keys are an **optional follow-up**, not a prerequisite
   for the OAuth path. They require the same credential-containment proof and an
   expiry/rotation UX; do not pass them to developer-controlled daemons.
-- “Stock Cockpit” means no Soda Runners/Tailnet extension pages. Preserve upstream
-  administration, root-only PAM/SELinux transition, private socket access, existing
-  branding and the Accounts navigation policy. Resetting those is separate scope.
+- “Stock Cockpit” means no Soda extension pages, with branding aligned to the current
+  Soda design under the [Cockpit owner's contract](cockpit-port.md#selected-tailnet-move-and-stock-administration).
+  Preserve upstream administration, root-only PAM/SELinux transition, private socket
+  access and the Accounts navigation policy. Resetting security/access is separate scope.
 
 Requirements remain with their owners:
 
@@ -729,6 +730,9 @@ Then prepare one coordinated **Tailnet source retirement** candidate:
   used test types outside the deleted workspace. Keep root/non-root PAM, SELinux,
   Services/Logs, private access and logout checks; native Tailnet uses its own shared
   scenario. Do not drop ordinary operator coverage because the custom page vanished.
+- Keep branding independent of the retired extension workspace and verify the
+  [current-design, stock-page contract](cockpit-port.md#selected-tailnet-move-and-stock-administration)
+  on the actual native login, shell and ordinary administration pages.
 - Preserve `internal/tailnet`, native CLI/advertisement logic, `tailscaled`, native
   services, host device/credential state and all unrelated Cockpit packages/config.
 

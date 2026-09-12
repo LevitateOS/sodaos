@@ -8,14 +8,23 @@ fallback removal is tracked separately in the [handoff](implementation-status.md
 
 The user selected the [Tailnet implementation plan](tailnet-integration-plan.md):
 native dashboard host controls and automatic project enrollment, followed by
-retirement of this last Soda Cockpit extension. It is planned, not implemented or
-installed. The plan owns parity, source/workspace removal and per-target delivery;
+retirement of this last Soda Cockpit extension. Dashboard host controls have source
+implementation; project automation, native acceptance and retirement remain unfinished.
+The plan owns parity, source/workspace removal and per-target delivery;
 this guide continues to own ordinary Cockpit configuration below. Existing source
 and installed fallbacks remain until their respective acceptance/removal stages.
 
-“Stock” here removes Soda extension pages, not root-only PAM/private access, native
-SELinux transitions, branding or the existing Accounts navigation policy. No native
-Cockpit package removal or security-policy reset is selected by the UI move.
+The selected end state is **Soda-branded Cockpit with stock pages only**. Branding
+must follow Soda's current design, not freeze the older identity-kit presentation.
+Use supported upstream branding/theme mechanisms for the login and shell; retain
+native administration pages, controls and behavior. Do not introduce replacement
+pages or keep a Soda extension merely to supply branding. Review the existing
+branding assets against the current design and validate the actual installed
+Cockpit version; shared palette imports alone do not prove visual alignment.
+
+“Stock” here removes all Soda extension pages, not root-only PAM/private access,
+native SELinux transitions, branding or the existing Accounts navigation policy.
+No native Cockpit package removal or security-policy reset is selected by the UI move.
 
 ## Native delivery candidate
 
@@ -29,4 +38,5 @@ Branding is installed under `/etc/cockpit/branding`, a native configuration bran
 
 The stock **Accounts** navigation entry is hidden with `/etc/cockpit/users.override.json`, using Cockpit's native [manifest override](https://docs.cockpit-project.org/cockpit-guide/latest/guide/packages.html#package-manifest-override) mechanism. It removes only `users.menu.index`: the upstream package, host accounts, native account tools and all other operator pages remain intact. This is navigation cleanup, not an authorization boundary. Soda people belong in the dashboard/Forgejo, and developer Linux accounts belong inside projects. Log out and back in if an existing Cockpit session still displays its cached Accounts entry.
 
-The retained Tailnet page still uses the actual Cockpit bridge/native API. It is not a replacement implemented in the Soda dashboard. On the installed target, verify root login, denial of non-operator host accounts, package discovery, command execution and branding separately from source completion.
+The retained Tailnet fallback still uses the actual Cockpit bridge/native API;
+its dashboard replacement has source checks, not installed acceptance. On the installed target, verify root login, denial of non-operator host accounts, package discovery, command execution and branding separately from source completion.
