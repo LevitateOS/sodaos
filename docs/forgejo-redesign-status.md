@@ -10,6 +10,27 @@ The deleted worktree is no longer used for development or local presentation mou
 The six approved subway backgrounds are now source assets and are installed on
 localhost:3300.
 
+## Dashboard repository browser refinement
+
+The native Vue sidebar now has inverse repository/organization tabs, square count
+labels, a framed search/filter control, inverse source tabs and 48px repository
+links. The adapter targets the actual native `li` rows rather than unused `.item`
+selectors. The discover callout uses uppercase condensed display and mono action
+text. The sidebar stays full-width below the feed through 1199px, then moves into
+a dedicated 344px desktop column. Native search, filter, overflow-menu and tab
+behavior remain unchanged; no Vue fork or additional template override was added.
+
+Only `dashboard.css` and its `v=21-sidebar` header link were delivered to the
+existing localhost:3300 mount. Previous files are retained in
+`.artifacts/forgejo-sidebar-refinement/before-delivery/`. The focused browser check
+covers 320, 640, 720, 800, 960, 1199 and 1440px in both themes, including search,
+fork filtering, empty results, organization tab switching, dropdown bounds, long
+names, inverse colors and 44px minimum targets. It uses the existing screenshot
+session with controlled repository GET responses; it changes no native data.
+Light/dark captures are in the same artifact directory. Branding, template
+inventory and changed-test TypeScript checks pass. This receipt covers the sidebar,
+not every authenticated dashboard workflow.
+
 ## Subway welcome background and canonical local delivery
 
 Six distinct WebPs replace the website's soda-bar photographs: mobile, tablet and
