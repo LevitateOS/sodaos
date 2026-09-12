@@ -42,8 +42,8 @@ Production source versions are selected by the existing manifests and recipes:
   x/crypto 0.55.0, x/sys 0.47.0, modernc SQLite 1.58.0,
   DiceBear Go 10.7.0 and schema 1.5.1.
 - [Frontend workspace](../package.json): Bun 1.4.2, TypeScript 7.0.2,
-  Lit 3.3.3 and xterm 6.0.0; [Cockpit](../cockpit/package.json) retains
-  React 18.3.1 and PatternFly 6.6.1. [Lit analysis](../tools/lit-check/package.json)
+  Lit 3.3.3 and xterm 6.0.0. The former Cockpit React/PatternFly workspace is
+  [retired in the stock-only source candidate](cockpit-port.md). [Lit analysis](../tools/lit-check/package.json)
   separately pins lit-analyzer 2.0.3 and its classic TypeScript 5.9.3 runtime.
 - [Forgejo service](../appliance/services/forgejo.container): stock Forgejo
   15.0.7. [Caddy service](../appliance/services/soda-proxy.container): 2.10.2.
@@ -217,7 +217,11 @@ CI schedulers. Keep provider registration, permissions, results and workflow UI 
 
 ### Review Tailnet's unstable API seam and native UI overlap
 
-[Cockpit's Tailnet adapter](../cockpit/src/tailscale/native.ts) uses native CLI
+The following findings describe the historical custom Cockpit caller; it is now
+retired in source. [The Tailnet plan](tailnet-integration-plan.md) owns the protected
+Go/Lit replacement and pending native acceptance.
+
+The former `cockpit/src/tailscale/native.ts` adapter used native CLI
 status/up/set and accesses LocalAPI preferences and interactive login through the
 privileged Unix socket. Upstream's [LocalAPI source](https://github.com/tailscale/tailscale/blob/main/ipn/localapi/localapi.go)
 explicitly treats the v0 routes as internal and not necessarily stable. Exact
@@ -232,13 +236,13 @@ drop-in replacement for root-operator Cockpit or a first-enrollment solution wit
 further validation. Preserve current controls/tests until an equivalent journey
 works. Never reset unrelated preferences merely to simplify reauthentication.
 
-The [authentication stream](../cockpit/src/tailscale/stream.ts) frames successive
+The former authentication stream (`cockpit/src/tailscale/stream.ts`) framed successive
 JSON objects and delegates parsing to `JSON.parse`; it is not another JSON engine.
 At the review revision its accumulated partial object had no size bound. This is
 an adapter resource-bound gap, not a need for a stream framework. The correction
 and test cases belong to [phase 5c](refactoring-plan.md#phase-5--cancellation-and-capture-bounds).
 
-The [Tailnet page observer](../cockpit/src/tailscale/store.ts) can call
+The former Tailnet page observer (`cockpit/src/tailscale/store.ts`) could call
 [Forgejo address refresh](../cmd/soda-forgejo-tailnet/main.go), which edits the native
 Git SSH advertisement and may restart Forgejo. Preserve and expose that effect when
 changing the UI; the complete caller chain is not read-only status. It keeps browser

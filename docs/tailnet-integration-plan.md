@@ -640,7 +640,7 @@ light/dark/narrow/wide presentation and the existing connection/logout contracts
 
 ### Stage 4 — automatic enrollment and project integration
 
-**In progress — enrollment core and incarnation/recipe primitives implemented.**
+**Device-independent runtime/UI source candidate implemented; native acceptance remains pending.**
 The first source slice adds the selected v2 SDK key call with fixed endpoint,
 operation-owned OAuth, bounded/validated responses and no POST replay. A durable
 project-run marker and sanitized attempt journal precede provider work; matching
@@ -650,12 +650,27 @@ Native process identity checks cover boot/PID start, shifted mappings and non-ho
 user/network namespaces; the fixed companion argument recipe is authored and tested,
 not an executed companion or installed compatibility claim.
 
-The native supervisor/activation, resolver ownership/recovery, key-file consumption
-and confirmed native exec observation remain to be wired, followed by explicit Create
-selection, Start/Stop/boot, project Network/SSH projections and the Lit controls.
-Shipping HTTP/CLI callers still report runtime unsupported; the new key operation is
-not exposed as a credential endpoint or enabled by configuration. This is not the
-Stage-4 exit. Source approval remains active; no ARM/device action was granted.
+The candidate now wires root-only `soda-host` run/stop phases, `soda-tailnet@`,
+nonblocking project start/boot activation, restricted per-run state/control/key input,
+exact companion CID/recipe/incarnation checks, bounded CLI consumption and native exec
+completion observations. Same-run daemon restart requires retained identity; uncertain
+attempts never mint again. Resolver checks bind the original project inode; the
+upstream daemon owns backup/restore, with conflicting/uncertain state refused rather
+than overwritten by a Soda repair path. Parent stop/restart and explicit Off request
+logout; daemon-only restart preserves identity. Native ordering/recovery is unproven.
+
+Explicit managed Create reserves the reviewed binding/revision before creation and
+binds the original CID before startup; legacy omission remains Off. Policy admission
+waits outside the unrelated project gate. Shared project Network controls, authorized
+own-account SSH metadata, compact saved-policy Spaces summaries and the reviewed
+operator default are wired. Reads never enqueue enrollment. Configured runtime is
+separate from verified enrollment; the latter is not inferred from a credential check.
+
+Fresh-install source enables the reviewed runtime with an immutable image ID from the
+new image lock/build inventory; old configuration remains opt-out. No key endpoint,
+installed configuration change, real enrollment or ARM contact was performed. See the
+[integration receipt](implementation-history.md#tailnet-stage-4--runtime-ui-and-stock-cockpit-source-candidate)
+for the actual source-check scope and remaining native requirements.
 
 Implement the accepted scoped runtime and root policy from stages 1–2. Wire existing
 Create/Start/Stop/native boot paths and the shared project Network panel; extend
@@ -715,10 +730,14 @@ may share an approved candidate/window, but do not deploy incidental image chang
 or claim source parity as installed acceptance. Retained fallback remains until
 that target's host replacement and ordinary administration checks pass.
 
-Then prepare one coordinated **Tailnet source retirement** candidate:
+The user subsequently requested completion of the device-independent source work.
+The coordinated **Tailnet source retirement candidate is now prepared** below;
+this moves source preparation ahead of native delivery, not installed fallback
+removal ahead of acceptance. No retained target has received it. Candidate scope:
 
-- Remove `cockpit/soda-tailscale/` and presentation/store/transport only after their
-  applicable tests are at the retained Go/native-page/installed owners.
+- Removed `cockpit/soda-tailscale/` and its presentation/store/transport. Host behavior
+  and guarded UI tests are owned by Go/native-page suites; the installed operator
+  journey now uses stock Overview. Native replacement parity remains unaccepted.
 - Audit every remaining import. If this is the last custom Cockpit consumer, remove
   the unused workspace, Vite/build tooling and React/PatternFly/Zustand dependencies
   from actual manifests/lock. Preserve any still-used root test dependency and

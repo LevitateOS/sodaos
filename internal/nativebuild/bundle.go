@@ -60,7 +60,7 @@ func allowedPayload(p string) bool {
 		}
 	}
 	// Retired presentation output is not a valid payload for new Soda bundles.
-	for _, retired := range []string{"rootfs/usr/local/share/soda/dashboard", "rootfs/usr/local/share/cockpit/soda-runners"} {
+	for _, retired := range []string{"rootfs/usr/local/share/soda/dashboard", "rootfs/usr/local/share/cockpit"} {
 		if p == retired || strings.HasPrefix(p, retired+"/") {
 			return false
 		}
@@ -83,7 +83,7 @@ func allowedPayload(p string) bool {
 		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
 	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/coreos-qemu.json", "inputs/package.json", "inputs/cockpit-package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
+	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "images/tailnet.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-source.toml", "inputs/coreos-qemu.json", "inputs/tailscale-image.json", "inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
 		return true
 	}
 	return false
@@ -93,12 +93,21 @@ func allowedPayload(p string) bool {
 // Runtime config/credentials and unexpected files are never admitted merely
 // because their filename has no private extension.
 func publicEtcPath(p string) bool {
+	const fontPrefix = "rootfs/var/lib/soda/forgejo/gitea/public/assets/soda/fonts/"
+	for _, source := range forgejoFiles {
+		if strings.HasPrefix(source, fontPrefix) {
+			full := "rootfs/etc/cockpit/branding/fonts/" + strings.TrimPrefix(source, fontPrefix)
+			if p == full || strings.HasPrefix(full, p+"/") {
+				return true
+			}
+		}
+	}
 	for _, name := range []string{
 		"containers/systemd/forgejo.container", "containers/systemd/soda-dashboard.container", "containers/systemd/soda-proxy.container",
-		"systemd/system/soda-host.service", "systemd/system/soda-host.socket", "systemd/system/soda-project@.service", "systemd/system/soda-runner@.service", "systemd/system/cockpit.socket.d/10-soda.conf",
+		"systemd/system/soda-host.service", "systemd/system/soda-host.socket", "systemd/system/soda-project@.service", "systemd/system/soda-tailnet@.service", "systemd/system/soda-runner@.service", "systemd/system/cockpit.socket.d/10-soda.conf",
 		"sysusers.d/soda.conf", "sysusers.d/soda-runners.conf", "tmpfiles.d/soda.conf", "tmpfiles.d/soda-runners.conf", "sysctl.d/90-soda-routing.conf",
 		"pam.d/cockpit", "cockpit/cockpit.conf", "cockpit/users.override.json", "cockpit/disallowed-users", "profile.d/soda-console-welcome.sh", "motd", "soda/forgejo.env", "soda/proxy.Caddyfile",
-		"cockpit/branding/branding.css", "cockpit/branding/theme.css", "cockpit/branding/palette.css", "cockpit/branding/login-background-light.svg", "cockpit/branding/login-background-dark.svg", "cockpit/branding/favicon.ico", "cockpit/branding/apple-touch-icon.png", "cockpit/branding/soda-logo-horizontal.svg", "cockpit/branding/soda-logo-horizontal-dark.svg", "cockpit/branding/soda-symbol.svg",
+		"cockpit/branding/branding.css", "cockpit/branding/theme.css", "cockpit/branding/palette.css", "cockpit/branding/favicon.ico", "cockpit/branding/apple-touch-icon.png", "cockpit/branding/soda-symbol-brutalist.svg", "cockpit/branding/soda-symbol-brutalist-dark.svg",
 	} {
 		full := "rootfs/etc/" + name
 		if p == full || strings.HasPrefix(full, p+"/") {
@@ -165,7 +174,7 @@ func tree(root string) (map[string]File, error) {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service", "inputs/tailscale-image.json", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
 		entry, ok := result[required]
 		if !ok || entry.SHA256 == "" {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)
@@ -232,7 +241,7 @@ func Seal(root, arch, revision string) error {
 		return err
 	}
 	images := map[string]Image{}
-	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy"} {
+	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy", "tailnet"} {
 		rev := ""
 		if name == "project-os" || name == "dashboard" {
 			rev = revision
@@ -273,7 +282,7 @@ func Verify(root, arch, revision string) (Inventory, error) {
 	if err != nil || string(checks) != sum+"  "+inventoryName+"\n" {
 		return inv, errors.New("missing or mismatched manifest checksum")
 	}
-	if inv.Architecture != arch || inv.Revision != revision || !Revision(revision) || len(inv.Images) != 4 {
+	if inv.Architecture != arch || inv.Revision != revision || !Revision(revision) || len(inv.Images) != 5 {
 		return inv, errors.New("bundle revision/platform mismatch")
 	}
 	files, err := tree(root)
@@ -291,7 +300,7 @@ func Verify(root, arch, revision string) (Inventory, error) {
 	if err = inspectBinaries(root, arch, files); err != nil {
 		return inv, err
 	}
-	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy"} {
+	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy", "tailnet"} {
 		rev := ""
 		if name == "project-os" || name == "dashboard" {
 			rev = revision

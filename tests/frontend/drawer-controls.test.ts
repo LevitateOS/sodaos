@@ -157,8 +157,52 @@ test('create never implicitly joins, saves keys or starts; rapid clicks dispatch
   await page.evaluate(async () => {const b = await window.drawerFixture.showButton('Create environment'); b.click(); b.click();});
   await page.locator('[data-project-controls][aria-busy=false]').waitFor();
   const sent = await writes(page); assert.equal(sent.length, 1);
-  assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7', profile_id: 'rocky-headless'});
+  assert.equal(sent[0]?.url, '/-/soda/api/environments'); assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {repository_id: '7', profile_id: 'rocky-headless', tailnet: {enabled: false}});
   assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1'); assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
+});
+test('managed Create submits the reviewed binding, while an explicit Off ignores the managed default', async t => {
+  for (const enabled of [true, false]) {
+    const page = await fixture(t, {absent: true, tailnetAvailable: true, tailnetDefault: true}); await refresh(page);
+    const selection = page.getByRole('checkbox', {name: /Use appliance-managed Tailnet/});
+    assert(await selection.isChecked());
+    if (!enabled) await selection.uncheck();
+    assert.deepEqual(await writes(page), []);
+    await click(page, 'Create environment');
+    const sent = await writes(page); assert.equal(sent.length, 1);
+    assert.deepEqual(JSON.parse(sent[0]?.body || '{}').tailnet, enabled ? {enabled: true, revision: 'b'.repeat(32), binding: 'a'.repeat(32)} : {enabled: false});
+  }
+});
+test('shared Network panel requires current administration and explicit target confirmation; double activation sends once', async t => {
+  const page = await fixture(t, {tailnetAvailable: true}); await refresh(page); await click(page, 'Network');
+  await click(page, 'Use managed network'); assert.deepEqual(await writes(page), []);
+  await page.getByRole('checkbox', {name: /I confirm changing network access/}).check();
+  await page.evaluate(async () => {const button = await window.drawerFixture.showButton('Use managed network'); button.click(); button.click();});
+  await page.locator('[data-project-controls][aria-busy=false]').waitFor();
+  const sent = await writes(page); assert.equal(sent.length, 1);
+  assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'enable', revision: '0', confirm_id: 'p0123456789abcdef01234567', binding: 'a'.repeat(32)});
+  assert.equal(sent[0]?.headers['x-soda-expected-user-id'], '1');
+  assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
+  assert.equal(await page.getByRole('checkbox', {name: /I confirm changing network access/}).isChecked(), false);
+  assert.equal((await writes(page)).length, 1);
+});
+test('members get only observed own-account network access, not mutation controls or automatic authentication', async t => {
+  const page = await fixture(t, {admin: false, tailnetAvailable: true, tailnetEnabled: true, tailnetRevision: 'b'.repeat(32), tailnetState: 'connected'});
+  await refresh(page); await click(page, 'Network');
+  assert.equal(await page.getByRole('button', {name: 'Turn Off', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('textbox', {name: 'Tailnet SSH command', exact: true}).inputValue(), 'ssh alice@100.64.0.2');
+  assert.deepEqual(await writes(page), []);
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  assert.equal(await page.getByRole('textbox', {name: 'Tailnet SSH command', exact: true}).count(), 0);
+  assert.equal(await page.getByText('100.64.0.2', {exact: true}).count(), 0);
+});
+test('network startup uncertainty is not shown as connected and never replays on refresh', async t => {
+  const page = await fixture(t, {tailnetAvailable: true}); await refresh(page); await click(page, 'Network');
+  await page.evaluate(() => window.drawerFixture.setReply(async call => call.url.endsWith('/tailnet') && call.method === 'POST' ? Response.json({error: {code: 'tailnet_unconfirmed', message: 'private diagnostic'}}, {status: 502}) : null));
+  await page.getByRole('checkbox', {name: /I confirm changing network access/}).check(); await click(page, 'Use managed network');
+  await page.getByText(/Outcome unconfirmed/).waitFor();
+  assert.equal(await page.getByText('private diagnostic', {exact: true}).count(), 0);
+  await refresh(page); assert.equal((await writes(page)).length, 1);
+  assert.equal(await page.getByRole('textbox', {name: 'Tailnet SSH command', exact: true}).count(), 0);
 });
 test('legacy OS observation is explicit, read-only and never becomes a creation profile', async t => {
   const page = await fixture(t); await refresh(page);

@@ -23,7 +23,7 @@ func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	action := strings.TrimPrefix(r.URL.Path, "/tailnet/")
 	switch action {
-	case "settings", "host", "enrollment", "options", "project":
+	case "settings", "host", "enrollment", "options", "project", "policy":
 	default:
 		http.NotFound(w, r)
 		return
@@ -71,18 +71,26 @@ func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
 			out, err = d.Tailnet.Enrollment(ctx, in)
 		}
 		in.ClientSecret = ""
-	case "project":
+	case "project", "policy":
 		var in tailnet.ProjectRequest
 		if err = decode(&in); err == nil {
 			err = in.Validate()
 		}
 		if err == nil && ctx.Err() == nil {
+			if action == "policy" && in.Action != "inspect" {
+				err = tailnet.ErrInvalid
+				break
+			}
 			// Reuse the original project/user-mapping validator. No request CID, UID,
 			// namespace, arbitrary socket or developer-controlled binary is admitted.
 			var cid string
 			cid, err = d.projectContainer(ctx, in.Project, false)
 			if err == nil {
-				out, err = d.Tailnet.Project(ctx, in, cid)
+				if action == "policy" {
+					out, err = d.Tailnet.Project(ctx, in, cid)
+				} else {
+					out, err = d.observeProjectTailnet(ctx, in, cid)
+				}
 				if err == nil {
 					after, e := d.projectContainer(ctx, in.Project, false)
 					if e != nil || after != cid {
@@ -191,6 +199,24 @@ func (c *Client) TailnetOptions(ctx context.Context) (tailnet.ProjectOptions, er
 	}
 	return out, err
 }
+
+// TailnetPolicy is the compact Spaces read: saved intent only, no daemon exec,
+// connection addresses or background enrollment. Full Network uses TailnetProject.
+func (c *Client) TailnetPolicy(ctx context.Context, project string) (tailnet.ProjectView, error) {
+	var out tailnet.ProjectView
+	in := tailnet.ProjectRequest{Project: project, Action: "inspect"}
+	if in.Validate() != nil {
+		return out, tailnet.ErrInvalid
+	}
+	e := c.tailnetCall(ctx, "policy", in, &out)
+	if e == nil {
+		e = out.Validate()
+		if out.Project != project || out.Saved {
+			e = tailnet.ErrUnavailable
+		}
+	}
+	return out, e
+}
 func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) (tailnet.ProjectView, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.ProjectView{}, err
@@ -199,7 +225,7 @@ func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) 
 	err := c.tailnetCall(ctx, "project", in, &out)
 	if err == nil {
 		err = out.Validate()
-		if out.Project != in.Project || out.Saved != (in.Action == "disable") || (out.Saved && out.Revision == in.Revision) {
+		if out.Project != in.Project || out.Saved != (in.Action != "inspect") || (out.Saved && (out.Revision == in.Revision || out.Enabled != (in.Action != "disable") || (in.Action != "disable" && out.Binding != in.Binding))) {
 			err = tailnet.ErrUnavailable
 		}
 	}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Stage existing native build outputs plus configuration; does not build or install."""
-import argparse, hashlib, json, os, platform, shutil
+import argparse, hashlib, json, os, platform, shutil, struct
 from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
@@ -28,8 +28,7 @@ for command in (source / 'cmd').iterdir():
 for unit in (source / 'appliance/services').iterdir():
     folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
     copy(unit, f'{folder}/{unit.name}', 0o644)
-for page in ['tailscale']:
-    shutil.copytree(source / 'cockpit/dist' / f'soda-{page}', stage / 'usr/local/share/cockpit' / f'soda-{page}')
+# Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',
     'runners.sysusers': '/etc/sysusers.d/soda-runners.conf',
@@ -49,13 +48,22 @@ for src, dest in configs.items():
 # Config-root branding avoids immutable /usr/share and native package conflicts.
 brand = stage / 'etc/cockpit/branding'
 brand.mkdir(parents=True)
-for name in ['branding.css', 'theme.css', 'login-background-light.svg', 'login-background-dark.svg', 'favicon.ico', 'apple-touch-icon.png']:
+for name in ['branding.css', 'theme.css']:
     shutil.copy2(source / 'assets/branding/cockpit' / name, brand / name)
 css = brand / 'branding.css'
 css.write_text(css.read_text().replace('../theme/palette.css', 'palette.css'))
 shutil.copy2(source / 'assets/branding/theme/palette.css', brand / 'palette.css')
-for name in ['soda-logo-horizontal.svg', 'soda-logo-horizontal-dark.svg', 'soda-symbol.svg']:
+for name in ['soda-symbol-brutalist.svg', 'soda-symbol-brutalist-dark.svg']:
     shutil.copy2(source / 'assets/branding/source' / name, brand / name)
+shutil.copy2(source / 'assets/branding/forgejo/apple-touch-icon.png', brand / 'apple-touch-icon.png')
+# ICO is just a container: reuse the canonical rendered PNGs without redrawing.
+frames = [(size, (source / 'assets/branding/forgejo' / name).read_bytes())
+          for size, name in [(16, 'favicon-16.png'), (32, 'favicon.png')]]
+entries, offset = [], 6 + 16 * len(frames)
+for size, data in frames:
+    entries.append(struct.pack('<BBBBHHII', size, size, 0, 0, 1, 32, len(data), offset))
+    offset += len(data)
+(brand / 'favicon.ico').write_bytes(struct.pack('<HHH', 0, 1, len(frames)) + b''.join(entries) + b''.join(data for _, data in frames))
 # Adapt the canonical asset tree to Forgejo's native /assets URL root.
 custom = stage / 'var/lib/soda/forgejo/gitea/public/assets'
 shutil.copytree(source / 'assets/branding/forgejo/css', custom / 'css')
@@ -75,6 +83,11 @@ for target in custom.rglob('*'):
 # Exact reviewed presentation payload: templates, local assets, fonts/notices and
 # generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
 payload = json.loads((source / 'internal/nativebuild/forgejo-payload.json').read_text())
+# Branding uses the same reviewed font files/notices, not a Cockpit extension.
+for dest, src in payload.items():
+    if dest.startswith('public/assets/soda/fonts/'):
+        relative = dest.removeprefix('public/assets/soda/fonts/')
+        copy(source / src, '/etc/cockpit/branding/fonts/' + relative, 0o644)
 locked = {asset['file']: asset['sha256'] for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text()) for asset in item['files']}
 for name, origin in payload.items():
     if Path(name).is_absolute() or '..' in Path(name).parts:

@@ -9,7 +9,7 @@ import (
 )
 
 func TestInstalledIdentityUsesExactBytesAndActivationPhase(t *testing.T) {
-	for _, mode := range []string{"before", "activated", "coreos-absolute", "coreos-relative", "revision", "bytes", "mode", "hook-bytes", "hook-mode", "image", "inspection-error"} {
+	for _, mode := range []string{"before", "activated", "coreos-absolute", "coreos-relative", "revision", "bytes", "mode", "hook-bytes", "hook-mode", "image", "inspection-error", "retired-tailnet", "retired-runners", "retired-native-tailnet"} {
 		t.Run(mode, func(t *testing.T) {
 			path := t.TempDir()
 			for _, dir := range []string{"etc/soda", "usr/local/libexec/soda"} {
@@ -86,6 +86,18 @@ func TestInstalledIdentityUsesExactBytesAndActivationPhase(t *testing.T) {
 				}
 				if err := os.Symlink(target, filepath.Join(path, "usr/local")); err != nil {
 					t.Fatal(err)
+				}
+			}
+			if strings.HasPrefix(mode, "retired-") {
+				retired := "usr/local/share/cockpit/soda-tailscale"
+				if mode == "retired-runners" {
+					retired = "usr/local/share/cockpit/soda-runners"
+				}
+				if mode == "retired-native-tailnet" {
+					retired = "usr/share/cockpit/soda-tailscale"
+				}
+				if e := os.MkdirAll(filepath.Join(path, retired), 0755); e != nil {
+					t.Fatal(e)
 				}
 			}
 			root, err := os.OpenRoot(path)

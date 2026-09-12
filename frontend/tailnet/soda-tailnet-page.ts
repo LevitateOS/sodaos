@@ -318,8 +318,8 @@ class SodaTailnet extends LitElement {
       </section>
       ${policy ? html`<section aria-labelledby="tailnet-enrollment"><h2 id="tailnet-enrollment">${this.dataset.enrollmentLabel || 'Automatic project access'}</h2>
         <p>${policy.configured ? 'Configured' : 'Not configured'} · Credential check ${policy.credential_checked ? 'previously passed' : 'not recorded'} · Enrollment not verified.</p>
-        <p>Managed network: ${policy.tailnet || 'None'}. Future admission: ${policy.admission ? 'configured open' : 'closed'}. New projects: Off.</p>
-        <p>Project runtime unsupported in this source slice. No project is enrolled by this page, and automatic defaults remain unavailable. Devices are intended to be ephemeral while projects run; existing projects remain Off until explicitly selected.</p>
+        <p>Managed network: ${policy.tailnet || 'None'}. Future admission: ${policy.admission ? 'configured open' : 'closed'}. New-project default: ${policy.default ? 'managed, explicitly reviewed in Create' : 'Off'}.</p>
+        <p>${policy.runtime_supported ? 'Native project supervision is configured. Each managed project gets a separate ephemeral identity when it runs; token acceptance alone is not enrollment or connectivity proof.' : 'Project runtime is not configured. Automatic defaults remain unavailable.'} Existing projects remain Off until explicitly selected. Host login never enrolls projects.</p>
         <p>Tailscale owns network access policy. A project tag alone does not isolate host/peers. Approval-required networks need explicitly permitted preauthorization; automatic Tailnet Lock signing is unsupported.</p>
         <p><a href="https://tailscale.com/kb/1215/oauth-clients" target="_blank" rel="noopener noreferrer">Create a restricted Tailscale OAuth client</a> with auth_keys and only the selected tags. Token acceptance does not prove target, scope, expiry or enrollment; no hidden test device is created.</p>
         <fieldset ?disabled=${disabled}><legend>Enrollment configuration</legend>
@@ -338,6 +338,7 @@ class SodaTailnet extends LitElement {
             <button type="button" @click=${() => this.resetEnrollment()}>Discard enrollment draft</button></div>
           </form>
           ${policy.configured ? html`<div class="settings-actions"><button type="button" @click=${(e: Event) => void this.choose(e, {scope: 'enrollment', body: {action: 'disable', revision: policy.revision}, label: 'close admission', warning: 'Close future enrollment and keep the new-project default Off. Existing device connections and project policies are not disconnected, revoked or deleted.'})}>Close future admission</button>
+          ${policy.runtime_supported && policy.admission ? html`<button type="button" @click=${(e: Event) => void this.choose(e, {scope: 'enrollment', body: {action: 'default', revision: policy.revision, default: true}, label: 'managed creation default', warning: 'Offer managed access preselected in future Create forms. The creator must submit the reviewed policy binding and revision. Existing projects and legacy requests stay unchanged.'})}>Offer managed access by default</button>` : ''}
           <button type="button" @click=${(e: Event) => void this.choose(e, {scope: 'enrollment', body: {action: 'default', revision: policy.revision, default: false}, label: 'default Off', warning: 'Save Off for future creation defaults. Existing project settings and connections do not change.'})}>Keep new-project default Off</button></div>` : ''}
         </fieldset>
       </section>` : ''}

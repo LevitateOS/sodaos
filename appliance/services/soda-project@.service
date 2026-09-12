@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/podman start --attach soda-%i
+# Queue only; enrollment never waits inside the helper's project admission gate.
+ExecStartPost=-/usr/bin/systemctl --no-block start soda-tailnet@%i.service
 ExecStop=/usr/bin/podman stop --time 30 soda-%i
 Restart=on-failure
 TimeoutStopSec=60

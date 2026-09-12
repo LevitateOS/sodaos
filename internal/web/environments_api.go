@@ -17,6 +17,7 @@ import (
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/projectos"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
 // Project-local Linux names are a native provisioning constraint, not a
@@ -108,14 +109,15 @@ func validRepositoryPart(value string) bool {
 }
 func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var input struct {
-		RepositoryID string `json:"repository_id"`
-		ProfileID    string `json:"profile_id"`
+		RepositoryID string                    `json:"repository_id"`
+		ProfileID    string                    `json:"profile_id"`
+		Tailnet      *tailnet.ProjectSelection `json:"tailnet,omitempty"`
 	}
 	if !decodeAPIObject(w, r, &input) {
 		return
 	}
 	repositoryID, valid := positiveID(input.RepositoryID)
-	if !valid || (input.ProfileID != "" && input.ProfileID != projectos.RockyHeadless) {
+	if !valid || (input.ProfileID != "" && input.ProfileID != projectos.RockyHeadless) || (input.Tailnet != nil && input.Tailnet.Validate() != nil) {
 		jsonError(w, 400, "invalid_repository", "Provide a repository_id and a supported profile_id.")
 		return
 	}
@@ -143,6 +145,21 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 	if err != nil {
 		jsonError(w, 422, "profile_unavailable", "The native installed Project OS is unavailable or incompatible. No reservation was created.")
 		return
+	}
+	if input.Tailnet != nil && input.Tailnet.Enabled {
+		options, e := s.Host.TailnetOptions(r.Context())
+		if e != nil {
+			tailnetError(w, e)
+			return
+		}
+		if !options.Available {
+			tailnetError(w, tailnet.ErrUnsupported)
+			return
+		}
+		if options.Revision != input.Tailnet.Revision || options.Binding != input.Tailnet.Binding {
+			tailnetError(w, tailnet.ErrConflict)
+			return
+		}
 	}
 	// The read-only native preflight can take time. Do not reserve using a
 	// cancelled context or an owner observed before that I/O.
@@ -174,7 +191,7 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		return
 	}
 	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
-	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
+	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile, Tailnet: input.Tailnet})
 	if err != nil {
 		jsonResponse(w, 502, struct {
 			Error       apiError        `json:"error"`

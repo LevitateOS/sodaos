@@ -66,11 +66,16 @@ func verifyInstalled(root *os.Root, inv Inventory, revision string, inspect func
 		}
 		localPrefix = "var/usrlocal/"
 	}
+	for _, retired := range []string{localPrefix + "share/cockpit/soda-runners", localPrefix + "share/cockpit/soda-tailscale", "usr/share/cockpit/soda-runners", "usr/share/cockpit/soda-tailscale"} {
+		if _, e := root.Lstat(retired); !errors.Is(e, os.ErrNotExist) {
+			return errors.New("retired Cockpit package remains; removal requires its own authorization")
+		}
+	}
 	for name, file := range inv.Files {
 		if file.Directory {
 			continue
 		}
-		selected := strings.HasPrefix(name, "rootfs/usr/local/") || strings.HasPrefix(name, "rootfs/etc/cockpit/branding/") || strings.HasPrefix(name, "rootfs/var/lib/soda/forgejo/gitea/public/") || name == "rootfs/etc/pam.d/cockpit" || name == "rootfs/etc/cockpit/users.override.json"
+		selected := strings.HasPrefix(name, "rootfs/etc/systemd/system/soda-") || strings.HasPrefix(name, "rootfs/usr/local/") || strings.HasPrefix(name, "rootfs/etc/cockpit/branding/") || strings.HasPrefix(name, "rootfs/var/lib/soda/forgejo/gitea/public/") || name == "rootfs/etc/pam.d/cockpit" || name == "rootfs/etc/cockpit/users.override.json"
 		for _, sodaFile := range forgejoFiles {
 			selected = selected || name == sodaFile
 		}

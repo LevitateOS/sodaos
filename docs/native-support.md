@@ -64,7 +64,7 @@ bash scripts/check-native.sh x86_64
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, four actual OCI archives, the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions.
+The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, five actual OCI archives (including the locked Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
@@ -189,7 +189,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 | `cockpit-account.py` | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
 | `service-https.py ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
 | `operator.sh` | Selected native Tailnet/runner/version/branding/quiet-hook facts; no enrollment, registration or job. |
-| `operator.ts ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh` | Actual root login, native PAM/SELinux bridge access, retained pages/read paths and logout. Trust the CA in the isolated browser home first. Tailnet's existing page effect may refresh Forgejo advertisement; that grant is mandatory. No screenshot/trace/provider-body capture. |
+| `operator.ts ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only` | Actual root login, stock Overview bridge/PAM/SELinux/native CLI read paths, Services/Logs and logout; reject Soda custom packages. Trust the CA in the isolated browser home first. No advertisement refresh or enrollment; no screenshot/trace/provider-body capture. Authored for the stock-only candidate, not executed on unretired targets. |
 | `forgejo-advertisement.sh` | Explicit existing-helper invocation and unchanged core origins; also requires `SODA_ALLOW_FORGEJO_ADVERTISEMENT_REFRESH=1` and an already approved running Tailnet. |
 | `probe-ssh --owner P11 --remote FILE …` | Pinned Git endpoint observed from the actual selected client. Use `User: git`; no identity key is used. Not Git auth/project acceptance. |
 
@@ -218,7 +218,7 @@ Each new private evidence root has bounded, streaming-redacted captures. Structu
 Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Product observations retain their original owner labels (including historical U08/U20), not an independent support certification. No sibling/media/product qualification gate is introduced.
 
 Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`,
-`tests/build/test_native_support.py` and production/packaging/Cockpit tests. Execution
+`tests/build/test_native_support.py` and production/packaging/browser tests. Execution
 is revision-scoped in the handoff. Native builds/checks/VM/provider work still need
 applicable action/target permission.
 
@@ -240,7 +240,7 @@ claim stays unverified. This is not a second product readiness gate.
 | Process ownership | Linux non-reaping leader/group termination and resistant-descendant cases exist; native cancellation, leader-first exit, remote interruption and exact bounded cleanup still need observed results. No stale-PID adoption. |
 | Evidence/redaction/finalization | Structured escaped-secret handling and exclusive pending→final publication exist; retain failure-injection coverage and exercise actual partial launch/write/close/scan/cleanup failures. Unknown secrets remain outside exact-match guarantees. |
 | Filesystem confinement | Directory-relative scans/hash/copy and parent checks exist; cover changed parents, special files, byte changes during copy/stream and actual native extraction, including legitimate CoreOS `/usr/local` mapping. |
-| Artifact identity | Retired SPA payloads are rejected; rebuild/check current Go/Cockpit output. OCI schema/descriptor/rootfs checks and tiny real tar fixtures exist, not a full compressed-layer/native-import proof. Verify exact transfer digest, installer/verifier trust and byte-bound handoff; generic exec identity stays caller-declared. |
+| Artifact identity | Retired SPA payloads are rejected; rebuild/check current Go/Lit/stock-branding output. OCI schema/descriptor/rootfs checks and tiny real tar fixtures exist, not a full compressed-layer/native-import proof. Verify exact transfer digest, installer/verifier trust and byte-bound handoff; generic exec identity stays caller-declared. |
 | CoreOS/VM inputs | Missing-tool preflight, version capture and bounded tool phases exist. Independently select trusted signer/keyring and matching per-architecture firmware/tools; exercise retrieval/signature/decompression, strict Ignition and fresh KVM boot/restart/shutdown with retained disk/NVRAM. Never adopt the live guest. |
 | First installation | Route/container-network collision, writable ancestry and booted-deployment checks exist; complete behavioral rejection fixtures and a genuinely fresh exact-target install/activation without repair edits. Reinstalling the persistent guest is not that proof. |
 | Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and Forgejo runner lifecycle/jobs/removal require separate grants. |

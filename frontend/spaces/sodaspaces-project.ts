@@ -4,6 +4,9 @@ import {signOut} from './soda-connection.js';
 import {LitElement, html} from 'lit';
 import {renderEnvironment, renderProjectOS, renderOSObservation} from './sodaspaces-environment-view.js';
 import {renderConnection, renderKeys, renderForgejoKeys, renderProjectStatus} from './sodaspaces-project-view.js';
+import {renderNetwork, renderNetworkSelection} from './sodaspaces-network.js';
+import {projectOptions, projectView} from '../tailnet/soda-tailnet-response.js';
+import type {ProjectOptions, ProjectNetwork} from '../tailnet/soda-tailnet-response.js';
 import type {TemplateResult} from 'lit';
 import {object, check, id, creationProfile, osObservation, projectId, fingerprint, sessionResponse, environmentResponse, detailResponse, savedKeysResponse, profileKeysResponse, keyPreviewResponse, SodaRequestError, readSodaJSON} from './sodaspaces-api.js';
 import type {OSObservation, CreationProfile, Session, Environment, Detail, KeyPreview, SavedKey, ProfileKeys} from './sodaspaces-api.js';
@@ -14,7 +17,7 @@ export interface ProjectContext {
   settings?: boolean;
 }
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
-const views = ['environment', 'access'] as const;
+const views = ['environment', 'access', 'network'] as const;
 type View = typeof views[number];
 type Lifecycle = {
   running: boolean;
@@ -45,6 +48,7 @@ function renderLifecycle(lifecycle: Lifecycle | undefined, blocked: boolean, con
 }
 export class SodaProjectControls extends LitElement {
   static properties = {
+    network: {state: true}, networkOptions: {state: true}, networkEnabled: {state: true}, networkConfirmed: {state: true}, networkNotice: {state: true},
     observedOS: {
       state: true
     }, osStatus: {
@@ -103,6 +107,11 @@ export class SodaProjectControls extends LitElement {
       state: true
     },
   };
+  declare private network: ProjectNetwork | undefined;
+  declare private networkOptions: ProjectOptions | undefined;
+  declare private networkEnabled: boolean;
+  declare private networkConfirmed: boolean;
+  declare private networkNotice: string;
   declare private observedOS: OSObservation | undefined;
   declare private osStatus: string;
   declare private profiles: CreationProfile[];
@@ -141,6 +150,9 @@ export class SodaProjectControls extends LitElement {
   get canRestore() { return !this.mutationPending && !this.uncertain; }
   constructor() {
     super();
+    this.network = this.networkOptions = undefined;
+    this.networkEnabled = this.networkConfirmed = false;
+    this.networkNotice = '';
     this.profiles = [];
     this.selectedProfile = '';
     this.observedOS = undefined;
@@ -233,6 +245,8 @@ export class SodaProjectControls extends LitElement {
       if (this.profiles.some(p => p.id === value))
         this.selectedProfile = value;
     })}
+        ${this.canCreate ? renderNetworkSelection(this.networkOptions, this.networkEnabled, this.blocked, enabled => {this.networkEnabled = enabled;}) : ''}
+        ${this.environment ? html`<p data-project-network-summary>Tailnet: ${this.network ? (this.network.enabled ? 'managed' : 'Off') + ' · ' + this.network.state : 'not observed'}</p>` : ''}
         ${this.environment ? renderOSObservation(this.observedOS, this.osStatus, this.blocked, event => this.command(event, () => this.inspectOS())) : ''}
         ${renderEnvironment({
       connectURL: '/-/soda/login?' + intent, connectVisible: this.connectVisible,
@@ -254,7 +268,8 @@ export class SodaProjectControls extends LitElement {
       },
       logout: event => this.command(event, () => signOut(this.session?.user.id || ''), true),
       create: event => this.command(event, () => this.mutate('/api/environments', {
-        repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile
+        repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile,
+        tailnet: this.networkEnabled && this.networkOptions?.available ? {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding} : {enabled: false}
       }, 'Environment created. Explicitly Join for a browser terminal; external SSH keys are optional. Creation does not join you.')),
       join: event => this.command(event, () => this.joinEnvironment()),
     }, renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed, event => this.command(event, () => this.changeLifecycle(false)), event => this.command(event, () => this.changeLifecycle(true)), checked => {
@@ -281,6 +296,14 @@ export class SodaProjectControls extends LitElement {
         ${this.saved ? renderForgejoKeys(this.profileKeys, this.blocked, page => {
       void this.reviewProfileKeys(page);
     }, key => this.selectForgejoKey(key)) : ''}
+      </section>
+      <section id=${'soda-project-' + this.binding?.repositoryId + '-network'} class="soda-spaces-view" role="tabpanel" aria-label="Network" ?hidden=${this.selected !== 'network'}>
+        ${renderNetwork(this.network, this.networkNotice, !!this.detail?.environment_administrator, this.blocked, this.networkConfirmed,
+          confirmed => {this.networkConfirmed = confirmed;}, (event, action) => this.command(event, () => this.changeNetwork(action)))}
+        ${this.network?.state === 'connected' && this.connection && this.detail?.login ? html`<fieldset><legend>Own-account Tailnet SSH</legend>
+          <input readonly aria-label="Tailnet SSH command" .value=${'ssh ' + this.detail.login + '@' + this.network.addresses[0]}>
+          <p>Ed25519 host-key fingerprint: ${this.connection.fingerprint}. Same project account and host key as LAN SSH; no Tailscale SSH or automatic authentication.</p>
+        </fieldset>` : ''}
       </section>
       ${renderProjectStatus(this.repository, this.session ? `Soda account: ${this.session.user.login} (ID ${this.session.user.id})` : '', this.connection ? 'Project account: ' + this.detail?.login : '', this.status, this.outcome)}
     </section>`;
@@ -310,6 +333,9 @@ export class SodaProjectControls extends LitElement {
     }
   }
   private reset() {
+    this.network = this.networkOptions = undefined;
+    this.networkEnabled = this.networkConfirmed = false;
+    this.networkNotice = '';
     this.repositoryURL = '';
     this.environment = this.detail = this.keyPreview = this.saved = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.profiles = [];
@@ -403,6 +429,16 @@ export class SodaProjectControls extends LitElement {
           this.profiles = available.items.map(creationProfile);
           this.selectedProfile = this.profiles[0]?.id || '';
           this.canCreate = !!this.selectedProfile;
+          try {
+            const options = projectOptions(await this.api('/api/repositories/' + repositoryId + '/tailnet-options', 'GET', undefined, control.signal));
+            if (!this.active(n)) return;
+            this.networkOptions = options; this.networkEnabled = options.available && options.default;
+          } catch (error) {
+            if (error instanceof SodaRequestError && error.status === 401) throw error;
+            if (!this.active(n)) return;
+            // A missing/off helper must not block legacy Off creation.
+            this.networkOptions = undefined; this.networkEnabled = false;
+          }
         }
         this.status = 'No shared environment. Creation is owner-only and does not join you.';
         return;
@@ -443,6 +479,18 @@ export class SodaProjectControls extends LitElement {
         this.connection = {
           command: `ssh ${detail.login}@${native.ip}`, fingerprint: c.fingerprint
         };
+      }
+      if (detail.environment.provisioned && (detail.login || detail.environment_administrator)) {
+        try {
+          const network = projectView(await this.api(`/api/environments/${environment.id}/tailnet`, 'GET', undefined, control.signal), environment.id);
+          check(!network.saved);
+          if (!this.active(n)) return;
+          this.network = network;
+        } catch (error) {
+          if (error instanceof SodaRequestError && error.status === 401) throw error;
+          if (!this.active(n)) return;
+          this.network = undefined; this.networkNotice = 'Private network state unavailable. No disconnected state was inferred; ordinary project controls remain independent.';
+        }
       }
     }
     catch (error) {
@@ -495,6 +543,11 @@ export class SodaProjectControls extends LitElement {
         check(typeof result?.login === 'string' && /^[a-z][a-z0-9_-]{0,30}$/.test(result.login) && result.login !== 'root');
       else if (path.endsWith('/lifecycle'))
         check(result && object(result.environment).id === this.environment?.id && object(result.environment).running === (body.action === 'start') && result.boot_enabled === (body.action === 'start'));
+      else if (path.endsWith('/tailnet')) {
+        const network = projectView(result, this.environment?.id || '');
+        check(network.saved && network.revision !== body.revision && network.enabled === (body.action !== 'disable'));
+        message = network.outcome === 'queued' ? 'Network policy saved; native work queued. Refresh observes the outcome without replay.' : 'Network policy saved; native outcome unconfirmed. Observe before retrying; no connection or disconnection was assumed.';
+      }
       else if (path.endsWith('/access-keys'))
         check(result?.applied === true && result.login === this.detail?.login && typeof result.revision === 'string' && /^[0-9a-f]{64}$/.test(result.revision) && JSON.stringify(result.installed_fingerprints) === JSON.stringify(body.saved_fingerprints));
       else if (method === 'DELETE')
@@ -532,6 +585,16 @@ export class SodaProjectControls extends LitElement {
       if (this.active(n))
         this.busy = false;
     }
+  }
+  private changeNetwork(action: 'enable' | 'disable' | 'retry') {
+    const network = this.network;
+    if (!network || !this.environment || !this.detail?.environment_administrator || !this.networkConfirmed || this.blocked) return;
+    if (action !== 'disable' && (!network.available_binding || (network.binding && network.binding !== network.available_binding))) return;
+    this.networkConfirmed = false;
+    return this.mutate('/api/environments/' + this.environment.id + '/tailnet', {
+      action, revision: network.revision, confirm_id: network.project,
+      ...(action === 'disable' ? {} : {binding: network.available_binding})
+    }, 'Network policy saved; observe the native outcome.');
   }
   private async inspectOS() {
     if (this.blocked || !this.environment)

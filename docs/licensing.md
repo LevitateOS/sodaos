@@ -51,10 +51,11 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   Font Name Red Hat. Font Awesome 5.0.13 distinguishes fonts (OFL-1.1), SVG/JS icons
   (CC-BY-4.0) and other code (MIT). Actual shipped-font/notice pairing remains a
   packaging check; an arbitrary current OFL text is not proof for every version.
-- `cockpit/build/licenses.ts` exempts `@patternfly/*` from missing-license-text
-  refusal. The removed dashboard also used it at the reviewed revision. Current
-  Cockpit delivery still needs actual CSS/emitted font/icon notices; this exemption
-  is not complete compliance.
+- The historical `cockpit/build/licenses.ts` exempted `@patternfly/*` from missing
+  license-text refusal; the removed dashboard also used it. The custom Cockpit build
+  is now retired, not a complete compliance finding for those historical bundles.
+  Stock branding stages the current canonical font licenses independently; retained
+  vendor attribution is preserved.
 - Top-level license/NOTICE texts for all 13 modules named in Soda's go.mod were
   reviewed from exact-version caches: MIT/BSD and YAML's per-file MIT/Apache split
   plus NOTICE. This is not the full dependency graph or final binary closure.

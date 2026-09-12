@@ -7,7 +7,7 @@ Spaces, Runners, Tailnet and repository controls directly; the old Go shells and
 auto-boot callers are removed. The native page/drawer journey shares these same
 component owners.
 Forgejo owns its pages, forms, permissions, authentication and native scripts;
-Cockpit keeps React/PatternFly. See the handoff for actual local checks; no new
+Cockpit's custom React/PatternFly workspace is retired; stock branding is independent. See the handoff for actual local checks; no new
 installed browser/CLI compatibility proof follows from the port.
 
 The [Spaces implementation plan](lit-migration-plan.md) defines the drawer-first

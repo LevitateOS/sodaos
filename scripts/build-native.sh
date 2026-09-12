@@ -51,10 +51,9 @@ for command in cmd/*; do
   CGO_ENABLED=0 go build -mod=readonly -buildvcs=true -trimpath -o "$out/bin/$(basename "$command")" "./$command"
 done
 go mod verify
-# Soda is a Go API/OAuth service; Cockpit keeps its separate frontend build.
+# Soda is Go/Lit. Stock Cockpit packages and branding need no custom frontend build.
 bun install --frozen-lockfile
 bun scripts/build-forgejo.ts --out "$out/forgejo-js"
-bun run --cwd cockpit build
 python3 scripts/build-project-tools.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac
 # Resolve the unchanged core-owned base and service references for this platform.
@@ -77,10 +76,14 @@ for image in project-os dashboard; do
   # Image IDs, not mutable :dev lookups; the installer restores core-owned tags.
   podman save --format oci-archive -o "$out/images/$image.oci" "$(<"$out/$image.iid")"
 done
-for image in forgejo caddy; do
+for image in forgejo caddy tailnet; do
   unit=appliance/services/forgejo.container
   [[ "$image" != caddy ]] || unit=appliance/services/soda-proxy.container
-  reference=$(awk -F= '$1=="Image" {print $2}' "$unit")
+  if [[ "$image" == tailnet ]]; then
+    reference=$(python3 -c 'import json; print(json.load(open("appliance/locks/tailscale-image.json"))["reference"])')
+  else
+    reference=$(awk -F= '$1=="Image" {print $2}' "$unit")
+  fi
   id=$(podman pull --quiet --platform "linux/$oci_arch" "$reference")
   printf '%s\n' "$id" > "$out/$image.iid"
   podman save --format oci-archive -o "$out/images/$image.oci" "$id"

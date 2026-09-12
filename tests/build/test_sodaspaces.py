@@ -7,6 +7,7 @@ from pathlib import Path
 import runpy
 import shutil
 import stat
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -150,7 +151,19 @@ class SodaspacesPackaging(unittest.TestCase):
                 os.umask(previous)
             stage = build / 'rootfs'
             self.assertFalse((stage / 'usr/local/share/cockpit/soda-runners').exists())
-            self.assertTrue((stage / 'usr/local/share/cockpit/soda-tailscale/index.html').is_file())
+            self.assertFalse((stage / 'usr/local/share/cockpit').exists())
+            brand = stage / 'etc/cockpit/branding'
+            self.assertEqual((brand / 'soda-symbol-brutalist.svg').read_bytes(), (ROOT / 'assets/branding/source/soda-symbol-brutalist.svg').read_bytes())
+            self.assertTrue((brand / 'fonts/barlow-condensed/LICENSE').is_file())
+            self.assertEqual((brand / 'apple-touch-icon.png').read_bytes(), (ROOT / 'assets/branding/forgejo/apple-touch-icon.png').read_bytes())
+            icon = (brand / 'favicon.ico').read_bytes()
+            self.assertEqual(struct.unpack_from('<HHH', icon), (0, 1, 2))
+            for i, (size, name) in enumerate(((16, 'favicon-16.png'), (32, 'favicon.png'))):
+                w, h, colors, reserved, planes, bits, length, offset = struct.unpack_from('<BBBBHHII', icon, 6 + 16 * i)
+                self.assertEqual((w, h, colors, reserved, planes, bits), (size, size, 0, 0, 1, 32))
+                self.assertEqual(icon[offset:offset + length], (ROOT / 'assets/branding/forgejo' / name).read_bytes())
+            self.assertFalse((brand / 'login-background-light.svg').exists())
+            self.assertFalse((brand / 'soda-symbol.svg').exists())
             self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
             for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
@@ -186,7 +199,7 @@ class SodaspacesPackaging(unittest.TestCase):
                 (root / name).symlink_to(ROOT / name)
             stage = root / '.artifacts/native/x86_64'
             stage.mkdir(parents=True)
-            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy'):
+            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
                 (stage / (name + '.iid')).write_text('sha256:' + '1' * 64)
             def synthetic_output(args):
                 return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
@@ -194,6 +207,8 @@ class SodaspacesPackaging(unittest.TestCase):
                 module['collect'](root, 'x86_64', '1' * 40)
             self.assertEqual((stage / 'inputs/lit-check-package.json').read_bytes(),
                              (ROOT / 'tools/lit-check/package.json').read_bytes())
+            self.assertEqual((stage / 'inputs/tailscale-image.json').read_bytes(), (ROOT / 'appliance/locks/tailscale-image.json').read_bytes())
+            self.assertFalse((stage / 'inputs/cockpit-package.json').exists())
             for source, name in (('LICENSE', 'soda-LICENSE'), ('NOTICE', 'soda-NOTICE')):
                 self.assertEqual((stage / 'notices' / name).read_bytes(), (ROOT / source).read_bytes())
 

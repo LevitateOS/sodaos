@@ -65,8 +65,8 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
 | `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
-| `bun run --cwd cockpit test` | Cockpit tests. |
-| `bun run check:source` | Broad Go, TypeScript, browser/Cockpit and Python source checks. |
+| `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |
+| `bun run check:source` | Broad Go, TypeScript, browser and Python source checks. |
 | `bash scripts/build-native.sh ARCH` | Resolve/build/stage native artifacts; does not install or publish. |
 | `bash scripts/check-native.sh ARCH` | Native checks against a prepared matching-architecture stage. |
 

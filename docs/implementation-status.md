@@ -16,8 +16,9 @@ The canonical `~/Projects/sodaos` checkout on `main` contains the new visual sys
 ## Active work — Tailnet
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
-place; Stage 4 source implementation is underway. Actual native-page parity,
-complete project runtime and installed proof remain pending.
+place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.
+Actual native-page parity, native lifecycle/security/connectivity acceptance and
+installed delivery/removal remain pending.
 The user declined local fixture repair, deferred configured-device validation to the
 intended ARM device and selected further device-independent source work.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
@@ -58,23 +59,36 @@ separates those results from the failed native-page attempt. A later source-only
 follow-up fixed lost enrollment drafts on admission/default writes and added passing
 CSRF/origin and failed-readback checks, without contacting either device.
 
-**Stage-4 first slice:** bounded official-SDK key issuance, durable no-replay run
-admission/attempt observations, and native incarnation/companion-recipe primitives
-now have local race-tested coverage. No shipping runtime caller is activated; Create,
-supervision, lifecycle/DNS/key-file integration and project UI remain unfinished.
-See the [Stage-4 receipt](implementation-history.md#tailnet-stage-4--enrollment-core-and-incarnation-foundations).
+**Stage-4 source candidate:** the earlier
+[enrollment/incarnation foundation](implementation-history.md#tailnet-stage-4--enrollment-core-and-incarnation-foundations)
+now has native run/stop supervision, restricted run/key state, companion occupancy
+and incarnation checks, resolver binding/recovery checks, explicit managed Create,
+Network controls, own-account SSH projection and compact Spaces summaries wired.
+Fresh-install source selects the companion image and opts into management; old
+configuration remains opt-out. No native image/install or provider action was run.
+
+**Stock-only Cockpit candidate:** custom Tailnet presentation and its workspace,
+build and unused dependencies are removed. Canonical current-design branding is
+staged independently; the operator journey uses stock Overview and read-only native
+checks, without advertisement refresh. Retained vendor attribution is preserved.
+Both installed fallbacks remain untouched. The
+[integration receipt](implementation-history.md#tailnet-stage-4--runtime-ui-and-stock-cockpit-source-candidate)
+records source/browser/packaging-fixture checks and limits.
 
 ### Next step
 
-Continue the approved Stage-4 implementation: wire the trusted native consumer and
-supervision outside the project admission gate, resolver/exec/stop checks, then
-explicit Create selection and project Network/connection UI. [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+Select and authorize the intended native candidate/target/actions for the
+[Stage-5 proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof),
+including the candidate-bound Tailnet installed scenario and actual stock branding.
+Source implementation is no longer waiting for local fixture repair.
+[Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
 is still unproven, not replaced by component-shell tests. The user declined repairing
 the broken local fixture and identified the ARM device as the intended target for
 configured-device validation. Its exact identity, current installed configuration
 and approved checks/delivery effects must be established before contact; no ARM
 action or deployment was granted. Do not make local fixture repair a prerequisite
-for unrelated source work. Cockpit Tailnet stays source/installed fallback.
+for unrelated source work. Cockpit Tailnet stays installed fallback on retained targets;
+source retirement does not authorize or imply its removal there.
 
 The earlier authorized local start failed because template and preview-asset mounts
 point into deleted `.artifacts/worktrees/combined-candidate-0f1d2b1/`. No subsequent
@@ -109,7 +123,9 @@ Tailnet work.
 - **Authorized:** routine local source implementation, builds and tests for selected
   work, including existing local fixtures within their approved scope.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
-  tests. That work is in progress; no new source-work handoff approval is required.
+  tests, and then explicitly requested source completion rather than another blocker
+  handoff. The source candidate is prepared; further source fixes/tests need no new
+  source-work grant.
   Stage-3 native-page/device acceptance remains deferred. The user
   previously approved starting exact `sodaos-local-forgejo`; that attempt failed.
   The user then declined source-mount repair and chose device-independent work,
@@ -174,9 +190,11 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
 
 ## Remaining work
 
-1. **Active — Tailnet:** follow the next source slice and separately gated native
-   proof above. The feature is not complete after moving only the host screen;
-   project automation and replacement acceptance precede Tailnet retirement.
+1. **Active — Tailnet:** validate the integrated source candidate with the separately
+   authorized native proof above, then minimal paired delivery and actual-occupant
+   removal rehearsal/approval. Namespace/DNS/stop/restart/enrollment/client outcomes
+   and actual current-design stock Cockpit remain unaccepted, not proved by synthetic
+   tests. Source retirement is prepared; installed retirement is not done.
 2. **Separate — installed Runners retirement:** source retirement is complete, but
    actual-occupant inventory, target-specific removal rehearsal and explicit
    per-target delivery approval remain. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)

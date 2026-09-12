@@ -4,11 +4,15 @@ export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureProfile = {id: 'rocky-headless', distribution: 'rocky', version: '10.2', interface: 'headless', architecture: 'amd64', image: 'sha256:' + 'a'.repeat(64), revision: 'b'.repeat(40)};
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}
-export interface State {running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
+export interface State {tailnetAvailable: boolean; tailnetEnabled: boolean; tailnetDefault: boolean; tailnetState: string; tailnetRevision: string; running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
 function createFixture(extra: Partial<State> = {}) {
   const root = document.querySelector('main'); if (!root) throw Error('fixture mount missing');
   const calls: Call[] = [];
-  const state: State = {running: true, member: true, admin: true, absent: false, saved: [fixtureFingerprint], installed: [fixtureFingerprint], user: '1', provider: '1', provisioned: true, unavailable: false, ...extra};
+  const state: State = {tailnetAvailable: false, tailnetEnabled: false, tailnetDefault: false, tailnetState: 'unconfirmed', tailnetRevision: '0', running: true, member: true, admin: true, absent: false, saved: [fixtureFingerprint], installed: [fixtureFingerprint], user: '1', provider: '1', provisioned: true, unavailable: false, ...extra};
+  const network = (saved = false) => ({project: environmentID, revision: state.tailnetRevision, binding: state.tailnetEnabled || state.tailnetRevision !== '0' ? 'a'.repeat(32) : '', enabled: state.tailnetEnabled, saved,
+    state: state.tailnetAvailable ? state.tailnetState : 'runtime-unsupported', outcome: saved ? 'queued' : 'observed',
+    ...(state.tailnetAvailable ? {available_binding: 'a'.repeat(32), available_network: 'soda.example.test'} : {}),
+    ...(state.tailnetState === 'connected' ? {addresses: ['100.64.0.2'], dns_name: 'project.soda.ts.net'} : {})});
   let reply: ((call: Call) => Promise<Response | null>) | undefined;
   const fetchFixture = async (input: RequestInfo | URL, init?: RequestInit) => {
     const call: Call = {url: String(input), method: init?.method || 'GET', ...(typeof init?.body === 'string' ? {body: init.body} : {}), headers: Object.fromEntries(new Headers(init?.headers).entries())};
@@ -22,6 +26,11 @@ function createFixture(extra: Partial<State> = {}) {
       if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
       if (url.endsWith('/api/session/logout')) return new Response(null, {status: 204});
       if (url.endsWith('/api/environments')) body = {id: environmentID, repository_id: '7', provisioned: true, profile: fixtureProfile};
+      else if (url.endsWith('/tailnet')) {
+        state.tailnetEnabled = 'action' in input && input.action !== 'disable';
+        state.tailnetRevision = state.tailnetRevision === '0' ? 'b'.repeat(32) : 'c'.repeat(32);
+        body = network(true);
+      }
       else if (url.endsWith('/join')) body = {login: 'alice'};
       else if (url.endsWith('/lifecycle')) body = {environment: {id: environmentID, running: 'action' in input && input.action === 'start'}, boot_enabled: 'action' in input && input.action === 'start'};
       else if (url.endsWith('/access-keys')) body = {applied: true, login: 'alice', revision: 'a'.repeat(64), installed_fingerprints: 'saved_fingerprints' in input ? input.saved_fingerprints : null};
@@ -30,6 +39,8 @@ function createFixture(extra: Partial<State> = {}) {
     } else if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
     else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
     else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
+    else if (url.endsWith('/tailnet-options')) body = {revision: state.tailnetAvailable ? 'b'.repeat(32) : '0', binding: state.tailnetAvailable ? 'a'.repeat(32) : '', tailnet: state.tailnetAvailable ? 'soda.example.test' : '', available: state.tailnetAvailable, default: state.tailnetAvailable && state.tailnetDefault};
+    else if (url.endsWith('/tailnet')) body = network();
     else if (url.endsWith('/api/repositories/7/profiles')) body = {items: [fixtureProfile]};
     else if (url.includes('/api/environments?')) body = {repository: {id: '7', owner: 'alice', name: 'demo'}, can_create: state.absent, items: state.absent ? [] : [{id: environmentID, repository_id: '7'}]};
     else if (url.endsWith('/api/me/development-keys')) body = {items: state.saved.map((fingerprint, i) => ({id: String(i + 1), fingerprint}))};

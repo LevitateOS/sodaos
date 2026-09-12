@@ -163,7 +163,7 @@ Use a fresh private evidence directory under `.artifacts/`; publish selected ima
 | Soda Projects | Real environment list and native provisioning/error state |
 | Soda project detail | Explicit join or joined account, actual project IP and SSH guidance; no invented DNS route |
 | Project terminal | Alice/Bob identity and matching shared install paths, without secrets or fabricated output |
-| Cockpit | Stock operator navigation with Tailnet; Runners fallback only on unretired targets recorded in the handoff; no old Projects/People/Updates pages |
+| Cockpit | Stock-only operator candidate; Tailnet/Runners fallbacks remain only on unretired targets recorded in the handoff; no custom replacement pages |
 | Tailnet | Connected native state/addresses and relevant preference; authentication URL and sensitive peers hidden |
 | Runners | Disposable local capacity and native service state, with no registration token |
 | Forgejo repository | Native repository view and actual clone control |

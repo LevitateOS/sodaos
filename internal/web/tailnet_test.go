@@ -11,9 +11,100 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
+
+func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
+	for _, kind := range []string{"legacy", "off", "managed", "stale", "closed", "transfer", "native-failure"} {
+		t.Run(kind, func(t *testing.T) {
+			owner := 1
+			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v1/user" {
+					fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+				} else {
+					fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
+				}
+			})
+			options, creates := 0, 0
+			s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/profile" {
+					return profileTestResponse(), nil
+				}
+				var value any
+				status := 200
+				switch r.URL.Path {
+				case "/tailnet/options":
+					options++
+					revision := strings.Repeat("a", 32)
+					if kind == "stale" {
+						revision = strings.Repeat("c", 32)
+					}
+					value = tailnet.ProjectOptions{Revision: revision, Binding: strings.Repeat("b", 32), Tailnet: "soda.example.test", Available: kind != "closed", Default: kind != "closed"}
+					if kind == "transfer" {
+						owner = 2
+					}
+				case "/create":
+					creates++
+					var in host.Create
+					if json.NewDecoder(r.Body).Decode(&in) != nil {
+						t.Fatal("invalid helper creation")
+					}
+					if kind == "legacy" {
+						if in.Tailnet != nil {
+							t.Fatal("legacy default changed")
+						}
+					} else if kind == "off" {
+						if in.Tailnet == nil || in.Tailnet.Enabled {
+							t.Fatal("explicit Off changed")
+						}
+					} else if in.Tailnet == nil || !in.Tailnet.Enabled || in.Tailnet.Binding != strings.Repeat("b", 32) || in.Tailnet.Revision != strings.Repeat("a", 32) {
+						t.Fatal("reviewed selection lost")
+					}
+					value = host.Environment{ID: in.ID, Running: true, IP: "10.89.0.2", Profile: in.Profile}
+					if kind == "native-failure" {
+						status = 500
+					}
+				default:
+					t.Fatal("unexpected helper operation", r.URL.Path)
+				}
+				b, _ := json.Marshal(value)
+				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(string(b))), Header: make(http.Header)}, nil
+			})
+			body := `{"repository_id":"7"}`
+			if kind == "off" {
+				body = `{"repository_id":"7","tailnet":{"enabled":false}}`
+			} else if kind != "legacy" {
+				body = `{"repository_id":"7","tailnet":{"enabled":true,"revision":"` + strings.Repeat("a", 32) + `","binding":"` + strings.Repeat("b", 32) + `"}}`
+			}
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, apiTestRequest("POST", "/api/environments", body, "alice"))
+			project, e := s.Store.ProjectByRepository(t.Context(), 7)
+			switch kind {
+			case "stale", "closed", "transfer":
+				if w.Code < 400 || creates != 0 || e == nil {
+					t.Fatal("preflight failure reserved/created", kind, w.Code, creates, e)
+				}
+			case "native-failure":
+				if w.Code != 502 || creates != 1 || e != nil || project.Ready {
+					t.Fatal("failed reservation lost", w.Code, creates, e)
+				}
+			default:
+				if w.Code != 201 || creates != 1 || e != nil || !project.Ready {
+					t.Fatal("creation failed", kind, w.Code, creates, e)
+				}
+			}
+			expected := 1
+			if kind == "legacy" || kind == "off" {
+				expected = 0
+			}
+			if options != expected {
+				t.Fatal("implicit policy lookup", options)
+			}
+		})
+	}
+}
 
 func tailnetOffSettings() tailnet.SettingsView {
 	return tailnet.SettingsView{HostUnavailable: true, Enrollment: tailnet.EnrollmentView{Revision: "0", Tags: []string{}}}

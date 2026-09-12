@@ -25,7 +25,40 @@ func main() {
 }
 func run() error {
 	path := flag.String("config", "/etc/soda/host.json", "operator-owned runtime configuration")
+	action := flag.String("tailnet-action", "", "fixed native companion phase: run or stop")
+	project := flag.String("project", "", "exact native project ID for a companion phase")
 	flag.Parse()
+	if *action != "" {
+		if os.Geteuid() != 0 || !tailnet.ValidProject(*project) || (*action != "run" && *action != "stop") || flag.NArg() != 0 {
+			return tailnet.ErrInvalid
+		}
+		c, e := host.LoadConfig(*path)
+		if e != nil {
+			return tailnet.ErrUnavailable
+		}
+		if !c.TailnetManagement || c.TailnetImage == "" {
+			return nil
+		}
+		d := &host.Daemon{Config: c, Exec: host.Native{}, Tailnet: tailnet.NewProjectManagement()}
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		phase, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+		if *action == "stop" {
+			bounded, done := context.WithTimeout(phase, 30*time.Second)
+			defer done()
+			return d.StopTailnet(bounded, *project)
+		}
+		cid, e := d.StartTailnet(phase, *project)
+		if e != nil {
+			return e
+		}
+		cancel()
+		return d.WaitTailnet(ctx, cid)
+	}
+	if *project != "" || flag.NArg() != 0 {
+		return tailnet.ErrInvalid
+	}
 	if os.Geteuid() != 0 || os.Getenv("LISTEN_PID") != strconv.Itoa(os.Getpid()) || os.Getenv("LISTEN_FDS") != "1" {
 		return fmt.Errorf("requires root and the soda-host systemd Unix socket")
 	}
@@ -44,6 +77,9 @@ func run() error {
 	daemon := &host.Daemon{Config: c, Exec: host.Native{}, Runners: &runners.Operations{Local: runnerNative, Lifecycle: runnerNative}}
 	if c.TailnetManagement {
 		daemon.Tailnet = tailnet.NewManagement()
+		if c.TailnetImage != "" {
+			daemon.Tailnet = tailnet.NewProjectManagement()
+		}
 	}
 	server := &http.Server{Handler: daemon, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

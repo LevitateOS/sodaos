@@ -1,4 +1,4 @@
-import {check, object} from '../spaces/sodaspaces-api.js';
+import {check, object, projectId} from '../spaces/sodaspaces-api.js';
 
 const revision = (v: unknown, host = false): string => {check(typeof v === 'string' && (host ? /^[a-f0-9]{64}$/ : /^(?:0|[a-f0-9]{32})$/).test(v)); return v;};
 const text = (v: unknown, max = 253): string => {check(typeof v === 'string' && v.length <= max && !/[\x00-\x1f\x7f]/.test(v)); return v;};
@@ -36,14 +36,37 @@ export function enrollmentView(value: unknown) {
   const result = {revision: revision(v.revision), binding: text(v.binding, 32), tailnet: text(v.tailnet), tags,
     configured: bool(v.configured), admission: bool(v.admission), default: bool(v.default), preauthorized: bool(v.preauthorized),
     credential_checked: bool(v.credential_checked), enrollment_verified: bool(v.enrollment_verified), runtime_supported: bool(v.runtime_supported)};
-  // Do not accidentally unlock unimplemented project runtime on a newer/mixed helper.
-  check(!result.runtime_supported && !result.enrollment_verified && !result.default);
+  // Runtime configuration and token acceptance are not enrollment proof.
+  check(!result.enrollment_verified && (!result.default || (result.configured && result.admission)));
   if (result.configured) {
     check(result.revision !== '0' && /^[a-f0-9]{32}$/.test(result.binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.tailnet) && tags.length > 0 && result.credential_checked);
   } else check(result.revision === '0' && result.binding === '' && result.tailnet === '' && tags.length === 0 && !result.admission && !result.preauthorized && !result.credential_checked);
   return result;
 }
 export type Enrollment = ReturnType<typeof enrollmentView>;
+export function projectOptions(value: unknown) {
+  const v = object(value), result = {revision: revision(v.revision), binding: text(v.binding, 32), tailnet: text(v.tailnet), available: bool(v.available), default: bool(v.default)};
+  check(!result.default || result.available);
+  if (result.revision === '0') check(!result.available && result.binding === '' && result.tailnet === '');
+  else check(/^[a-f0-9]{32}$/.test(result.binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.tailnet));
+  return result;
+}
+export type ProjectOptions = ReturnType<typeof projectOptions>;
+export function projectView(value: unknown, project: string) {
+  const v = object(value);
+  check(projectId(project) && v.project === project);
+  const result = {project, revision: revision(v.revision), binding: text(v.binding, 32), enabled: bool(v.enabled), saved: bool(v.saved), state: text(v.state, 32), outcome: text(v.outcome, 32),
+    available_binding: v.available_binding === undefined ? '' : text(v.available_binding, 32), available_network: v.available_network === undefined ? '' : text(v.available_network),
+    addresses: v.addresses === undefined ? [] : list(v.addresses, 16).map(address), dns_name: v.dns_name === undefined ? '' : dns(v.dns_name)};
+  check(!result.binding || /^[a-f0-9]{32}$/.test(result.binding));
+  check(!result.enabled || result.binding !== '');
+  check(result.available_binding ? /^[a-f0-9]{32}$/.test(result.available_binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.available_network) : result.available_network === '');
+  check(result.saved ? result.revision !== '0' && ['queued', 'runtime-unconfirmed', 'disconnect-unconfirmed'].includes(result.outcome) : result.outcome === 'observed');
+  check(['runtime-unsupported', 'off', 'stopped', 'pending', 'needs-login', 'approval-required', 'unconfirmed', 'connected'].includes(result.state));
+  check(result.state === 'connected' ? result.enabled && result.addresses.length > 0 : result.addresses.length === 0 && !result.dns_name);
+  return result;
+}
+export type ProjectNetwork = ReturnType<typeof projectView>;
 export function settingsView(value: unknown) {
   const v = object(value), unavailable = bool(v.host_unavailable);
   check((v.host === null) === unavailable);

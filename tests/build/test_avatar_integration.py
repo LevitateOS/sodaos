@@ -122,8 +122,8 @@ class AvatarPackaging(unittest.TestCase):
             root = Path(directory)
             # Actual public inputs; only the build observations below are synthetic.
             for source in ('go.mod', 'go.sum', 'project-os/locks/tea-source.toml',
-                           'appliance/locks/coreos-qemu.json',
-                           'package.json', 'cockpit/package.json', 'tools/lit-check/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
+                           'appliance/locks/coreos-qemu.json', 'appliance/locks/tailscale-image.json',
+                           'package.json', 'tools/lit-check/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
                            'docs/native-support-notices.md', 'project-os/licenses/tea-LICENSE',
                            'appliance/licenses/avatar-dependencies.txt', 'LICENSE', 'NOTICE'):
                 destination = root / source
@@ -131,7 +131,7 @@ class AvatarPackaging(unittest.TestCase):
                 shutil.copyfile(ROOT / source, destination)
             stage = root / '.artifacts/native/x86_64'
             stage.mkdir(parents=True)
-            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy'):
+            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
                 (stage / (name + '.iid')).write_text('sha256:' + 'a' * 64)
             def observed_output(args):
                 if '{{json .RepoDigests}}' in args:

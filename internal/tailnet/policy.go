@@ -21,6 +21,7 @@ import (
 // policyStore has one stable directory lock. Production anchors at /var/lib;
 // tests supply a private descriptor, never a browser/native request path.
 type policyStore struct {
+	runtime bool // Fixed at construction after native runtime configuration admission.
 	parent  func() (*os.Root, error)
 	uid     uint32
 	syncDir func(*os.File) error
@@ -233,10 +234,15 @@ func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 func (v enrollmentPolicy) view() EnrollmentView {
 	return EnrollmentView{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Tags: slices.Clone(v.Tags), Configured: v.Revision != "0", Admission: v.Admission, Default: v.Default, Preauthorized: v.Preauthorized, CredentialChecked: v.Revision != "0", RuntimeSupported: false}
 }
+func (p *policyStore) view(v enrollmentPolicy) EnrollmentView {
+	out := v.view()
+	out.RuntimeSupported = p.runtime
+	return out
+}
 func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	root, lock, err := p.lock(ctx, false)
 	if errors.Is(err, os.ErrNotExist) {
-		return (enrollmentPolicy{Revision: "0", Tags: []string{}}).view(), nil
+		return p.view(enrollmentPolicy{Revision: "0", Tags: []string{}}), nil
 	}
 	if err != nil {
 		return EnrollmentView{}, err
@@ -244,13 +250,13 @@ func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	defer root.Close()
 	defer lock.Close()
 	v, err := p.load(root)
-	return v.view(), err
+	return p.view(v), err
 }
 func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
 	if r.Validate() != nil {
 		return EnrollmentResult{}, ErrInvalid
 	}
-	if r.Action == "default" && *r.Default {
+	if r.Action == "default" && *r.Default && !p.runtime {
 		return EnrollmentResult{}, ErrUnsupported
 	}
 	// A pure credential check must not create directories, files or device keys.
@@ -316,7 +322,10 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 		if v.Revision == "0" {
 			return EnrollmentResult{}, ErrConflict
 		}
-		v.Default = false
+		if *r.Default && !v.Admission {
+			return EnrollmentResult{}, ErrConflict
+		}
+		v.Default = *r.Default
 	case "disable":
 		if v.Revision == "0" {
 			return EnrollmentResult{}, ErrConflict
@@ -331,7 +340,7 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 	if err = p.publish(root, lock, "policy.json", v); err != nil {
 		return EnrollmentResult{}, err
 	}
-	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: v.view()}, nil
+	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: p.view(v)}, nil
 }
 func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPolicy, error) {
 	v := projectPolicy{Project: project, Container: cid, Revision: "0"}
@@ -355,8 +364,8 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 	if r.Validate() != nil || !containerPattern.MatchString(cid) {
 		return ProjectView{}, ErrInvalid
 	}
-	// No dormant launcher, pretend success or automatic key creation in stage 2.
-	if r.Action == "enable" || r.Action == "retry" {
+	// Without the separately configured native consumer, intent cannot enable effects.
+	if !p.runtime && (r.Action == "enable" || r.Action == "retry") {
 		return ProjectView{}, ErrUnsupported
 	}
 	root, lock, err := p.lock(ctx, r.Action != "inspect")
@@ -372,14 +381,28 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 			return ProjectView{}, err
 		}
 	}
-	if r.Action == "disable" {
+	if r.Action != "inspect" {
 		if v.Revision != r.Revision {
 			return ProjectView{}, ErrConflict
 		}
 		if ctx.Err() != nil {
 			return ProjectView{}, ErrUnconfirmed
 		}
-		v.Enabled = false
+		if r.Action == "enable" || r.Action == "retry" {
+			policy, e := p.load(root)
+			if e != nil {
+				return ProjectView{}, e
+			}
+			if !policy.Admission || policy.Binding != r.Binding || (r.Action == "retry" && (!v.Enabled || v.Binding != r.Binding)) {
+				return ProjectView{}, ErrConflict
+			}
+			// Changing networks is not implicit migration of an existing node.
+			if v.Binding != "" && v.Binding != r.Binding {
+				return ProjectView{}, ErrConflict
+			}
+			v.Binding = r.Binding
+		}
+		v.Enabled = r.Action != "disable"
 		v.Version = 1
 		v.Revision = newRevision()
 		if err = p.publish(root, lock, "project-"+r.Project+".json", v); err != nil {
@@ -391,5 +414,22 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 	if r.Action == "disable" {
 		outcome = "disconnect-unconfirmed"
 	} // No companion observer yet.
-	return ProjectView{Saved: r.Action == "disable", Project: r.Project, Revision: v.Revision, Binding: v.Binding, Enabled: v.Enabled, State: state, Outcome: outcome}, nil
+	if p.runtime {
+		state = "unconfirmed"
+		if r.Action != "inspect" {
+			outcome = "runtime-unconfirmed"
+		}
+	}
+	result := ProjectView{Saved: r.Action != "inspect", Project: r.Project, Revision: v.Revision, Binding: v.Binding, Enabled: v.Enabled, State: state, Outcome: outcome}
+	if p.runtime && root != nil {
+		policy, e := p.load(root)
+		if e != nil {
+			return ProjectView{}, e
+		}
+		if policy.Admission {
+			result.AvailableBinding = policy.Binding
+			result.AvailableNetwork = policy.Tailnet
+		}
+	}
+	return result, nil
 }

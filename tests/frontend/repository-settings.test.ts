@@ -26,7 +26,7 @@ test('native repository settings mounts shared creation/access controls and pres
         assert.equal(request.headers()['x-csrf-token'], 'csrf-alice');
         assert.equal(pathname, '/-/soda/api/environments');
         const body: unknown = request.postDataJSON(); writes.push(body);
-        assert.deepEqual(body, {repository_id: '7', profile_id: 'rocky-headless'});
+        assert.deepEqual(body, {repository_id: '7', profile_id: 'rocky-headless', tailnet: {enabled: false}});
         if (failWrite) {await writePause; await route.fulfill({status: 503, json: {error: {code: 'native_unavailable'}}}); return;}
         exists = true;
         await route.fulfill({status: 201, json: env}); return;

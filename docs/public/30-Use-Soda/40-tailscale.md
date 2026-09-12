@@ -32,16 +32,36 @@ and [Cockpit tunnel](10-cockpit.md). Finish
 [operator setup](../20-Deploy/25-operator-setup.md) for browser endpoints. Keep
 provider public ingress closed and the console available.
 
-## Use the Cockpit page
+## Use the dashboard Tailnet page
 
-For an already reachable appliance, sign into operator Cockpit and open
-**Tailscale**. Select **Sign in**, follow the native browser authentication and
-check the resulting device identity and addresses. Native status is observed
-while the page is active; leaving the page does not log the host out.
+The source candidate places **Tailnet** in the native Forgejo dashboard for the
+configured Soda operator. It has not yet replaced the installed Cockpit fallback
+on retained development targets; [the handoff](../../implementation-status.md)
+records delivery and acceptance separately.
+
+For a reachable, paired deployment, open **Tailnet → Appliance**, select **Sign in**,
+follow the explicit authentication link and observe the resulting identity. Saving
+or acknowledging an action is not proof of connection. Leaving the page does not
+log the host out; refreshing observes and never reenrolls.
 
 Visible peers and a connected device are not proof that a policy permits a
 particular service. Use the advertised name when the client's DNS supports it,
 or the actual Tailnet IP. Project labels are not Tailnet DNS names.
+
+## Automatic project access
+
+The operator separately configures **Automatic project access** with a restricted
+OAuth credential, exact Tailnet/tags and approval choice. This is not the appliance's
+node identity. New projects can explicitly select the reviewed managed network;
+legacy requests and existing projects remain Off. Each started managed project uses
+its own ephemeral node without asking a developer to perform provider login.
+
+The project **Network** tab separates saved intent, queued startup, observed
+connection and uncertainty. Administrators/operators can enable, disable or retry
+native startup; a read never retries enrollment. Members receive only authorized
+metadata and their own ordinary SSH account/fingerprint. Missing or uncertain run
+state does not permit automatically issuing another key. Native DNS, lifecycle and
+intended-client connectivity acceptance are still pending for the source candidate.
 
 ## Route the project subnet
 
@@ -65,8 +85,8 @@ project subnet via the appliance; do not install conflicting routes blindly.
 
 ## Forgejo address refresh
 
-The page can request a Forgejo Git SSH advertisement refresh after observing a
-connected host. The native Git listener must already accept the selected private
+The dashboard requires an explicit confirmed request for Forgejo Git SSH
+advertisement refresh after observing a connected host. Reads do not request it. The native Git listener must already accept the selected private
 address on port 2222. A LAN-only listener is not made Tailnet-accessible by
 changing its advertised address.
 

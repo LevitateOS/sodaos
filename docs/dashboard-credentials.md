@@ -60,8 +60,12 @@ saved preauthorization choice. Reusable OAuth material stays in the helper; only
 validated single-use key reaches its consumption callback. No HTTP key/credential
 endpoint exists. SDK/provider errors are sanitized, all work has an operation
 deadline and no key POST is replayed. Project/CID/binding admission and incarnation
-rechecks fence key consumption. The runtime consumer is not wired yet; shipping
-project/default-enable operations remain unsupported.
+rechecks fence key consumption. The configured runtime consumes only an exclusive
+single-use key file through the companion's fixed native CLI. Input is retired by
+inode only after native exec completion is observed; uncertain completion retains
+it in the restricted run root. Run-owned state permits daemon-only restart, never
+credential regeneration after missing/ambiguous state. Runtime activation and native
+proof belong to the [Tailnet plan](tailnet-integration-plan.md#stage-4--automatic-enrollment-and-project-integration).
 
 Append-only **schema v10** rebuilds the existing OAuth table with the same rows,
 columns and constraints, extending `settings_return` to empty/runners/tailnet.

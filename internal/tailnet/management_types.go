@@ -219,11 +219,15 @@ func (r ProjectRequest) Validate() error {
 }
 
 type ProjectView struct {
-	Saved    bool   `json:"saved"`
-	Project  string `json:"project"`
-	Revision string `json:"revision"`
-	Binding  string `json:"binding"`
-	Enabled  bool   `json:"enabled"`
-	State    string `json:"state"`
-	Outcome  string `json:"outcome"`
+	AvailableBinding string   `json:"available_binding,omitempty"`
+	AvailableNetwork string   `json:"available_network,omitempty"`
+	Addresses        []string `json:"addresses,omitempty"`
+	DNSName          string   `json:"dns_name,omitempty"`
+	Saved            bool     `json:"saved"`
+	Project          string   `json:"project"`
+	Revision         string   `json:"revision"`
+	Binding          string   `json:"binding"`
+	Enabled          bool     `json:"enabled"`
+	State            string   `json:"state"`
+	Outcome          string   `json:"outcome"`
 }

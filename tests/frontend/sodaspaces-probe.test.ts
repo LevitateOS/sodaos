@@ -25,10 +25,10 @@ test('operator package handoff waits for the real rendered heading before native
   assert(from >= 0 && to > from);
   let ready: (()=>void) | undefined;
   const heading=new Promise<void>(resolve=>{ready=resolve;});
-  const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/soda-tailscale/index.html',
-    getByRole:(role: string, options: {name: string})=>{assert.equal(role,'heading'); assert.equal(options.name,'Tailscale'); return {waitFor:()=>heading};}};
+  const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/system/index.html',
+    getByRole:(role: string, options: {level: number})=>{assert.equal(role,'heading'); assert.equal(options.level,1); return {first:()=>({waitFor:()=>heading})};}};
   const page={getByRole:()=>({click:async()=>{}}), waitForFunction:async()=>{}, frames:()=>[frame]};
-  const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Tailscale","soda-tailscale")',{assert,page,URL});
+  const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Overview","system")',{assert,page,URL});
   let returned=false; const completed=Promise.resolve(attempt).then(value=>{returned=true; return value;});
   await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(ready); ready();
   assert.equal(await completed,frame);
@@ -36,16 +36,16 @@ test('operator package handoff waits for the real rendered heading before native
 
 test('remaining Cockpit origin observation assimilates its native thenable', async () => {
   const source=await Bun.file(new URL('../installed/operator.ts',import.meta.url)).text();
-  const from=source.indexOf('  assert.equal(await tailnet.evaluate(async script =>'), to=source.indexOf('\n',from);
+  const from=source.indexOf('  assert.equal(await stock.evaluate(async script =>'), to=source.indexOf('\n',from);
   assert(from > 0 && to > from);
-  const tailnet={async evaluate(callback: (script: string)=>unknown, script: string) {
+  const stock={async evaluate(callback: (script: string)=>unknown, script: string) {
     const value=callback(script);
     assert.equal(Object.prototype.toString.call(value),'[object Promise]');
     return await value;
   }};
   const window={cockpit:{spawn:()=>({then:(resolve: (value: string)=>void)=>resolve('synthetic origins')})}};
   await runInNewContext('(async()=>{'+source.slice(from,to)+'})()',
-    {assert,tailnet,window,originProbe:'synthetic probe',before:{origins:'synthetic origins'}});
+    {assert,stock,window,originProbe:'synthetic probe',before:{origins:'synthetic origins'}});
 });
 
 test('native coordinated logout requires both Soda and Forgejo response contracts', async () => {

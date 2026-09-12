@@ -47,6 +47,15 @@ func NewManagement() *Management {
 	}, provider: &http.Client{Timeout: 10 * time.Second, Transport: boundedProviderTransport{http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return ErrUnavailable }}, command: managementCommand}
 }
 
+// NewProjectManagement is used only by the root runtime entrypoint/helper when
+// its immutable companion image is explicitly configured. No installed default
+// turns this on, and construction performs no provider or native operations.
+func NewProjectManagement() *Management {
+	m := NewManagement()
+	m.policy.runtime = true
+	return m
+}
+
 // A streaming cap errors on overflow, even when a valid JSON prefix fits. Never
 // silently truncate a body into an apparently successful provider response.
 type boundedBody struct {
@@ -95,6 +104,12 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	return b.buffer.Write(p)
 }
 func managementCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
+	return RunNative(ctx, path, args...)
+}
+
+// RunNative bounds stdout and discards private native diagnostics. Callers supply
+// fixed executables/argument recipes, never a request-selected command or shell.
+func RunNative(ctx context.Context, path string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, path, args...)
 	var out boundedOutput
 	cmd.Stdout = &out
@@ -473,7 +488,7 @@ func (m *Management) Enrollment(ctx context.Context, r EnrollmentRequest) (Enrol
 }
 func (m *Management) Options(ctx context.Context) (ProjectOptions, error) {
 	v, e := m.policy.enrollment(ctx)
-	return ProjectOptions{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Available: false, Default: false}, e
+	return ProjectOptions{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Available: v.RuntimeSupported && v.Configured && v.Admission, Default: v.RuntimeSupported && v.Admission && v.Default}, e
 }
 func (m *Management) Project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
 	return m.policy.project(ctx, r, cid)

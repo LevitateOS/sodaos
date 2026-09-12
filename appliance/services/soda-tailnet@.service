@@ -1,0 +1,21 @@
+[Unit]
+Description=Ephemeral Tailnet companion for Soda project %i
+BindsTo=soda-project@%i.service
+After=soda-project@%i.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=/usr/local/libexec/soda/soda-host --tailnet-action=run --project=%i
+# Cancel bounded preparation/provider observation before waiting for its run lock.
+ExecStop=-/usr/bin/systemctl kill --kill-whom=main --signal=SIGTERM soda-tailnet@%i.service
+ExecStop=/usr/local/libexec/soda/soda-host --tailnet-action=stop --project=%i
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=35
+KillMode=control-group
+UMask=0077
+# Native errors are sanitized; no daemon output or enrollment input is logged.
+StandardOutput=null
+StandardError=journal

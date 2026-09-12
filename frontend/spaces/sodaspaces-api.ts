@@ -126,6 +126,7 @@ export function terminalResponse(value: unknown, binding: TerminalIdentity): Ter
   const data = object(value); return data.terminal === null ? null : terminalMetadata(data.terminal, binding);
 }
 export interface Space {
+  tailnet_state?: string;
   environment: Environment & {name: string; repository: string; owner_id: string; provisioned: boolean};
   login: string; environment_administrator: boolean; authority_unavailable: boolean; native_unavailable: boolean;
   observed: Detail['observed']; terminals: TerminalMetadata[];
@@ -144,7 +145,9 @@ export function spacesResponse(value: unknown, expectedUserId: string): {items: 
       check(!sessions.has(terminal.id)); sessions.add(terminal.id); return terminal;
     });
     check(sessions.size <= 64);
-    return {...detail, environment: {...detail.environment, name: env.name, repository: env.repository, owner_id: env.owner_id}, terminals};
+    const network = data.tailnet_state;
+    check(network === undefined || (typeof network === 'string' && ['unavailable', 'off', 'managed'].includes(network)));
+    return {...detail, ...(typeof network === 'string' ? {tailnet_state: network} : {}), environment: {...detail.environment, name: env.name, repository: env.repository, owner_id: env.owner_id}, terminals};
   });
   return {items, complete: data.complete};
 }

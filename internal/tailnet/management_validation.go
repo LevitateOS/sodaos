@@ -3,7 +3,7 @@ package tailnet
 import "strings"
 
 func (v EnrollmentView) Validate() error {
-	if !validRevision(v.Revision) || v.Tags == nil || v.RuntimeSupported || v.EnrollmentVerified || v.Default {
+	if !validRevision(v.Revision) || v.Tags == nil || v.EnrollmentVerified || (v.Default && (!v.Configured || !v.Admission)) {
 		return ErrUnavailable
 	}
 	if !v.Configured {
@@ -92,7 +92,7 @@ func (v EnrollmentResult) Validate() error {
 	return v.Enrollment.Validate()
 }
 func (v ProjectOptions) Validate() error {
-	if !validRevision(v.Revision) || v.Available || v.Default {
+	if !validRevision(v.Revision) || (v.Default && !v.Available) || (v.Available && v.Revision == "0") {
 		return ErrUnavailable
 	}
 	if v.Revision == "0" {
@@ -105,16 +105,31 @@ func (v ProjectOptions) Validate() error {
 	return nil
 }
 func (v ProjectView) Validate() error {
+	if (v.AvailableBinding == "") != (v.AvailableNetwork == "") || (v.AvailableBinding != "" && (!revisionPattern.MatchString(v.AvailableBinding) || !networkPattern.MatchString(v.AvailableNetwork))) {
+		return ErrUnavailable
+	}
 	if !ValidProject(v.Project) || !validRevision(v.Revision) || (v.Binding != "" && !revisionPattern.MatchString(v.Binding)) || (v.Enabled && v.Binding == "") {
 		return ErrUnavailable
 	}
-	if v.Saved && (v.Enabled || v.Revision == "0" || v.Outcome != "disconnect-unconfirmed") {
+	if v.Saved && (v.Revision == "0" || (v.Outcome != "disconnect-unconfirmed" && v.Outcome != "runtime-unconfirmed" && v.Outcome != "queued")) {
 		return ErrUnavailable
 	}
 	if !v.Saved && v.Outcome != "observed" {
 		return ErrUnavailable
 	}
-	if v.State != "runtime-unsupported" || (v.Outcome != "observed" && v.Outcome != "disconnect-unconfirmed") {
+	switch v.State {
+	case "runtime-unsupported", "off", "stopped", "pending", "needs-login", "approval-required", "unconfirmed":
+		if len(v.Addresses) != 0 || v.DNSName != "" {
+			return ErrUnavailable
+		}
+	case "connected":
+		if !v.Enabled || len(v.Addresses) == 0 {
+			return ErrUnavailable
+		}
+		if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
+			return e
+		}
+	default:
 		return ErrUnavailable
 	}
 	return nil

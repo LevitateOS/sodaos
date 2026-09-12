@@ -1,7 +1,10 @@
 # Cockpit: host administration
 
-Use stock Cockpit and its Tailscale extension to administer the host.
-[Runner management](50-ci-runners.md) belongs to **Runners** in native Forgejo.
+Use Soda-branded stock Cockpit to administer the host. [Tailnet](40-tailscale.md)
+and [Runners](50-ci-runners.md) belong to the native Forgejo dashboard, not custom
+Cockpit pages. The source candidate is not yet delivered to retained development
+targets; their installed fallbacks remain as recorded in the
+[handoff](../../implementation-status.md).
 
 ## Connect as the operator
 
@@ -36,7 +39,6 @@ Do not open public administration ports as a connection shortcut.
 | Storage | Disks, filesystems, mounts and free space |
 | Networking | Native interfaces and available firewall controls |
 | Terminal | Privileged host administration as the operator |
-| [Tailscale](40-tailscale.md) | Native Tailnet sign-in, device status and routing preferences |
 
 The operator terminal is a host shell. It is not the developer's browser workspace
 terminal. Development accounts, repositories and environment joins belong in

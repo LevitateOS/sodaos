@@ -27,8 +27,8 @@ def collect(root, arch, revision):
         ('go.mod', 'go.mod'), ('go.sum', 'go.sum'),
         ('project-os/locks/tea-source.toml', 'tea-source.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
+        ('appliance/locks/tailscale-image.json', 'tailscale-image.json'),
         ('package.json', 'package.json'),
-        ('cockpit/package.json', 'cockpit-package.json'),
         ('tools/lit-check/package.json', 'lit-check-package.json'),
         ('bun.lock', 'bun.lock'),
         ('bunfig.toml', 'bunfig.toml'),
@@ -49,7 +49,7 @@ def collect(root, arch, revision):
         'python': ['python3', '--version'], 'kernel': ['uname', '-r'],
     }.items()}
     images = {}
-    for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy'):
+    for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
         image = (stage / (name + '.iid')).read_text().strip()
         if not re.fullmatch('(?:sha256:)?[0-9a-f]{64}', image):
             raise ValueError('invalid resolved image ID')
@@ -62,6 +62,9 @@ def collect(root, arch, revision):
             # A fresh read-only build-inspection container, never a Soda project.
             # No application entrypoint, network, persistent mount or provider use.
             images[name]['RPMs'] = sorted(output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=/usr/bin/rpm', image, '-qa', '--qf', '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n']).splitlines())
+        if name == 'tailnet':
+            # Version-only, read-only and networkless: no daemon or enrollment.
+            images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, *flags]) for binary, flags in (('/usr/local/bin/tailscale', ('version', '--json')), ('/usr/local/bin/tailscaled', ('--version',)))}
         if name == 'project-os':
             images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]) for binary, flag in (('/usr/local/bin/tea', '--version'), ('/usr/bin/gh', '--version'), ('/usr/bin/tmux', '-V'))}
     with (inputs / 'native-build.json').open('x') as f:

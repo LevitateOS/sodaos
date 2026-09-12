@@ -25,7 +25,8 @@ const snapshot = (): Settings => ({host_unavailable: false, host: {
 test('Tailnet projections reject malformed, unsafe and mixed-version responses', () => {
   const value = snapshot(); assert.deepEqual(settingsView(value), value);
   assert.throws(() => settingsView({host: null, enrollment: value.enrollment}));
-  assert.throws(() => settingsView({...value, enrollment: {...value.enrollment, runtime_supported: true}}));
+  assert.equal(settingsView({...value, enrollment: {...value.enrollment, runtime_supported: true}}).enrollment.runtime_supported, true);
+  assert.throws(() => settingsView({...value, enrollment: {...value.enrollment, default: true}}));
   assert.throws(() => settingsView({...value, host: {...value.host, state: 'invented'}}));
   for (const url of ['http://login.tailscale.com/a/test', 'https://evil.test/a/test', 'https://user@login.tailscale.com/a/test', 'https://login.tailscale.com/a/test?secret=x', 'https://login.tailscale.com/a/test#secret']) assert.throws(() => authenticationURL(url));
   assert.throws(() => hostResult({outcome: 'pending', host: value.host, readback_unavailable: false}, 'signin'));

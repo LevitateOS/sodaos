@@ -1,20 +1,19 @@
 #!/usr/bin/env bun
-// P11 only: root Cockpit/Tailnet and retained CLI, no dashboard/user fixtures.
-// Opening Tailnet can invoke its existing Forgejo advertisement refresh effect.
+// P11 only: stock Cockpit administration and retained read-only native CLIs.
+// No custom page, advertisement refresh, enrollment or provider mutation.
 import assert from 'node:assert/strict';
-import type {} from '../../cockpit/src/cockpit/types.ts';
+import type {} from './cockpit-types.ts';
 import { lstat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type {Page} from 'playwright';
 
-// Native root login. Merely seeing the Tailnet navigation link does not open
-// its effectful package.
+// Native root login and stock navigation; the overview retains upstream behavior.
 export async function loginOperator(page: Page, origin: string, password: string) {
   await page.goto(origin + '/');
   await page.locator('#login-user-input').fill('root');
   await page.locator('#login-password-input').fill(password);
   await page.locator('#login-button').click();
-  await page.getByRole('link', {name: 'Tailscale', exact: true}).waitFor();
+  await page.getByRole('link', {name: 'Overview', exact: true}).waitFor();
   assert.equal(await page.getByRole('link', {name: 'Accounts', exact: true}).count(), 0);
 }
 
@@ -23,15 +22,16 @@ export async function openOperatorPackage(page: Page, label: string, name: strin
   await page.waitForFunction(suffix => [...document.querySelectorAll('iframe')].some(frame => frame.src && new URL(frame.src).pathname.endsWith(suffix)), `/${name}/index.html`);
   const frame = page.frames().find(candidate => candidate.url() && new URL(candidate.url()).pathname.endsWith(`/${name}/index.html`));
   assert(frame, 'Native Cockpit package frame not found');
-  await frame.getByRole('heading', {name: label, exact: true}).waitFor();
+  // Cockpit 366 Overview's h1 is the hostname, not the navigation label.
+  await frame.getByRole('heading', {level: 1}).first().waitFor();
   return frame;
 }
 
 if (import.meta.main) {
 const args = Bun.argv.slice(2);
-assert.equal(args.length, 5, 'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --allow-advertisement-refresh');
+assert.equal(args.length, 5, 'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only');
 const [origin, passwordFile, browserHome, hostname, permission] = args;
-assert.equal(permission, '--allow-advertisement-refresh', 'Tailnet page effect must be explicitly selected');
+assert.equal(permission, '--stock-read-only', 'Select the stock-page read-only journey explicitly');
 assert(origin && passwordFile && browserHome && hostname, 'All operator arguments are required');
 const url = new URL(origin);
 assert.equal(url.protocol, 'https:');
@@ -65,7 +65,7 @@ try {
   stage = 'root Cockpit password login';
   await loginOperator(page, url.origin, password);
 
-  stage = 'native target and core origin snapshot before page effects';
+  stage = 'native target and core origin snapshot before stock observations';
   const originProbe = 'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
   await page.waitForFunction(() => [window, ...[...document.querySelectorAll('iframe')].map(frame => frame.contentWindow)].some(candidate => candidate?.cockpit));
   const before = await page.evaluate(async script => {
@@ -76,10 +76,11 @@ try {
   }, originProbe);
   assert.equal(before.host, hostname);
 
-  stage = 'Tailnet native root session and SELinux/socket access';
-  const tailnet = await openOperatorPackage(page, 'Tailscale', 'soda-tailscale');
-  const native = await tailnet.evaluate(async () => {
+  stage = 'stock Overview native root session and SELinux/socket access';
+  const stock = await openOperatorPackage(page, 'Overview', 'system');
+  const native = await stock.evaluate(async () => {
     const c = window.cockpit;
+    if (!c.manifests || Object.keys(c.manifests).some(name => name.startsWith('soda-'))) throw new Error('Custom Soda package still installed');
     const uid = (await c.spawn(['id', '-u'], { err: 'message' })).trim();
     const host = (await c.spawn(['hostname'], { err: 'message' })).trim();
     const domain = (await c.spawn(['id', '-Z'], { err: 'message' })).trim();
@@ -101,11 +102,11 @@ try {
   assert.equal(typeof native.wantRunning, 'boolean');
   console.log('Native root Cockpit session read Tailnet status/preferences with its native SELinux transition. No enrollment/exit-node/route action was requested.');
 
-  stage = 'retired Runners navigation and ordinary administration';
-  assert.equal(await page.getByRole('link', {name: 'Runners', exact: true}).count(), 0);
+  stage = 'stock-only navigation and ordinary administration';
+  for (const name of ['Runners', 'Tailscale', 'Tailnet']) assert.equal(await page.getByRole('link', {name, exact: true}).count(), 0);
   await page.getByRole('link', {name: 'Services', exact: true}).waitFor();
   await page.getByRole('link', {name: 'Logs', exact: true}).waitFor();
-  const ordinary = await tailnet.evaluate(async () => {
+  const ordinary = await stock.evaluate(async () => {
     const c = window.cockpit;
     return {
       host: (await c.spawn(['systemctl', 'show', 'soda-host.service', '--property=LoadState', '--value'], {err:'message'})).trim(),
@@ -115,7 +116,7 @@ try {
   assert.equal(ordinary.host, 'loaded');
   assert.equal(ordinary.logs, '');
   stage = 'retained root runner CLI read path';
-  const summary = await tailnet.evaluate(async () => {
+  const summary = await stock.evaluate(async () => {
     const raw = await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners', 'list'], { err: 'message' }).input('{}\n');
     const data: unknown = JSON.parse(raw);
     if (!data || typeof data !== 'object' || !('runner_count' in data) || !('active_listeners' in data) || !('total_capacity' in data)) throw new Error('Invalid runner capacity response');
@@ -123,9 +124,9 @@ try {
   });
   assert(Object.values(summary).every(Number.isInteger));
   console.log('Root CLI capacity, ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
-  assert.equal(await tailnet.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during retained page effects');
+  assert.equal(await stock.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during stock read-only observations');
   stage = 'Cockpit sign-out';
-  await tailnet.evaluate(() => window.cockpit.logout(true));
+  await stock.evaluate(() => window.cockpit.logout(true));
   await page.locator('#login-user-input').waitFor({ state: 'visible' });
   assert(!interrupted);
 } catch (error) {

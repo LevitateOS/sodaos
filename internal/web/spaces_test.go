@@ -85,10 +85,17 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 					}
 					return
 				}
-				if len(result.Items) != 1 || native.Load() != 1 {
+				expectedNative := int32(1)
+				if status == 0 {
+					expectedNative++
+				} // Optional authorized Tailnet observation.
+				if len(result.Items) != 1 || native.Load() != expectedNative {
 					t.Fatal("legitimate observation missing")
 				}
 				row := result.Items[0]
+				if (status == 0 && row.TailnetState != "unavailable") || (status != 0 && row.TailnetState != "") {
+					t.Fatal("private network observation escaped fresh authority", row.TailnetState)
+				}
 				if status != 0 && (result.Complete || !row.AuthorityUnavailable || row.Administrator || len(row.Terminals) != 0 || row.Login != "original-alice") {
 					t.Fatal("degraded data elevated", row)
 				}
@@ -117,7 +124,7 @@ func TestSpacesBoundsAreIncompleteNotCompleteEmpty(t *testing.T) {
 				}
 			}
 			result := readSpaces(t, s)
-			if result.Complete || len(result.Items) > 32 || provider.Load() > 256 || native.Load() > 32 {
+			if result.Complete || len(result.Items) > 32 || provider.Load() > 256 || native.Load() > 64 {
 				t.Fatal("unbounded or falsely complete", len(result.Items), provider.Load(), native.Load())
 			}
 		})

@@ -486,7 +486,7 @@ export class SodaSpaces extends LitElement {
   private projectRows(space: Space) {
     const query = this.search.toLocaleLowerCase(), rows = this.rows(space).filter(row => !query || this.projectName(space).toLocaleLowerCase().includes(query) || this.rowName(row).toLocaleLowerCase().includes(query));
     const shown = this.attentionOnly ? rows.filter(row => this.rowAttention(space, row)) : rows;
-    return renderProjectNavigation(this.projectName(space), space.authority_unavailable || space.native_unavailable ? 'Status unavailable' : space.observed?.running ? 'Running' : 'Stopped', shown.map(row => ({
+    return renderProjectNavigation(this.projectName(space), (space.authority_unavailable || space.native_unavailable ? 'Status unavailable' : space.observed?.running ? 'Running' : 'Stopped') + (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : ''), shown.map(row => ({
       key: row.key, name: this.rowName(row), unread: !!this.slots.find(slot => slot.key === row.key)?.unread, attention: this.rowAttention(space, row),
       description: row.metadata?.retain_until ? 'Kept until ' + new Date(row.metadata.effective_until * 1000).toLocaleTimeString()
         : row.metadata && row.metadata.state !== 'ready' ? row.metadata.state

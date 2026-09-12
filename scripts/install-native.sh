@@ -41,7 +41,7 @@ if grep -Eq '^(soda-forgejo|soda-dashboard|soda-proxy|p[0-9a-f]{24})$' <<<"$cont
   echo 'Existing appliance/project containers require an operator decision; not a first install' >&2; exit 1
 fi
 configure_network() {
-python3 - "$subnet" "$1" <<'PY'
+python3 - "$subnet" "$1" "$bundle/build-info.json" <<'PY'
 import ipaddress, json, subprocess, sys
 from pathlib import Path
 network = ipaddress.ip_network(sys.argv[1], strict=True)
@@ -91,7 +91,8 @@ root = Path('/etc/soda')
 root.chmod(0o700)
 p = root / 'host.json'
 with p.open('x') as f:
-    json.dump({'image':'localhost/soda-project-os:dev','network':'soda-projects','subnet':str(network),'bridge':'soda0'}, f, indent=2)
+    companion = json.load(open(sys.argv[3]))['Images']['tailnet']['Config']
+    json.dump({'image':'localhost/soda-project-os:dev','network':'soda-projects','subnet':str(network),'bridge':'soda0', 'tailnet_management': True, 'tailnet_image': companion}, f, indent=2)
     f.write('\n')
 p.chmod(0o600)
 PY
@@ -149,7 +150,7 @@ for name in json.load(open(sys.argv[1]))['Files']:
 PYOWNER
 # OCI image-ID saves need not preserve tag annotations. Restore precisely the
 # existing core references, from the verified config identity, without repulling.
-for image in project-os dashboard forgejo caddy; do
+for image in project-os dashboard forgejo caddy tailnet; do
   podman load -i "$bundle/images/$image.oci"
   id=$(python3 - "$bundle/build-info.json" "$image" <<'PY'
 import json, sys
@@ -157,6 +158,7 @@ print(json.load(open(sys.argv[1]))['Images'][sys.argv[2]]['Config'])
 PY
 )
   case "$image" in
+    tailnet) continue;; # The helper uses the verified immutable image ID, no tag.
     project-os) reference=localhost/soda-project-os:dev;;
     dashboard) reference=localhost/soda-dashboard:dev;;
     forgejo) reference=$(awk -F= '$1=="Image" {print $2}' "$bundle/rootfs/etc/containers/systemd/forgejo.container");;

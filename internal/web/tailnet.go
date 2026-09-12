@@ -207,11 +207,11 @@ func (s *Server) apiProjectTailnet(w http.ResponseWriter, r *http.Request, v sto
 			return
 		}
 	}
-	if !s.tailnetSession(w, r, v) {
+	if !s.authorizeProjectTailnet(w, r, v, p) || !s.tailnetSession(w, r, v) {
 		return
 	}
 	result, err := s.Host.TailnetProject(r.Context(), in)
-	if !s.tailnetSession(w, r, v) {
+	if !s.tailnetSession(w, r, v) || !s.authorizeProjectTailnet(w, r, v, p) {
 		return
 	}
 	if err != nil {

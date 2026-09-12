@@ -13,6 +13,7 @@ import (
 )
 
 type spaceView struct {
+	TailnetState         string            `json:"tailnet_state,omitempty"`
 	Environment          environmentView   `json:"environment"`
 	Login                string            `json:"login"`
 	Administrator        bool              `json:"environment_administrator"`
@@ -105,6 +106,20 @@ func (s *Server) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Sessi
 			}
 			s.terminalMu.Unlock()
 			sort.Slice(row.Terminals, func(i, j int) bool { return row.Terminals[i].ID < row.Terminals[j].ID })
+		}
+		if p.Ready && !reader.authorityUnavailable && (reader.login != "" || reader.administrator) {
+			// Optional, bounded read. Networking cannot redefine project readiness or
+			// consume the whole collection's existing time budget.
+			networkCtx, done := context.WithTimeout(check, 300*time.Millisecond)
+			network, e := s.Host.TailnetPolicy(networkCtx, p.ID)
+			done()
+			row.TailnetState = "unavailable"
+			if e == nil {
+				row.TailnetState = "off"
+				if network.Enabled {
+					row.TailnetState = "managed"
+				}
+			}
 		}
 		cancel()
 		response.Items = append(response.Items, row)

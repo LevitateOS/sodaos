@@ -30,6 +30,7 @@ var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
 	TailnetManagement bool   `json:"tailnet_management,omitempty"`
+	TailnetImage      string `json:"tailnet_image,omitempty"`
 	Image             string `json:"image"`
 	Network           string `json:"network"`
 	Subnet            string `json:"subnet"`
@@ -49,6 +50,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if _, err = netip.ParsePrefix(c.Subnet); err != nil {
 		return c, err
+	}
+	if c.TailnetImage != "" && (!c.TailnetManagement || !strings.HasPrefix(c.TailnetImage, "sha256:") || !imageID.MatchString(c.TailnetImage)) {
+		return c, errors.New("invalid immutable Tailnet companion configuration")
 	}
 	if c.Image == "" || strings.HasPrefix(c.Image, "-") || !networkName.MatchString(c.Network) || !networkName.MatchString(c.Bridge) {
 		return c, errors.New("invalid native runtime configuration")
@@ -140,11 +144,15 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// already-running native commands retain their existing context handling.
 		return ctx.Err()
 	}
-	if err := d.acquireAdmission(ctx); err != nil {
-		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
-		return
+	// Create owns its gate inside the native provisioning phase: a managed
+	// reservation may wait for policy admission without blocking unrelated projects.
+	if r.URL.Path != "/create" {
+		if err := d.acquireAdmission(ctx); err != nil {
+			http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
+			return
+		}
+		defer func() { <-d.admission }()
 	}
-	defer func() { <-d.admission }()
 	var out any
 	var err error
 	switch r.URL.Path {
@@ -206,20 +214,60 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
-	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil {
+	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil || (in.Tailnet != nil && in.Tailnet.Validate() != nil) {
 		return Environment{}, errors.New("invalid creation identity")
 	}
-	profile, err := d.resolveProfile(ctx)
-	if err != nil {
+	if in.Tailnet != nil && in.Tailnet.Enabled && (d.Tailnet == nil || d.Config.TailnetImage == "") {
+		return Environment{}, tailnet.ErrUnsupported
+	}
+	if in.Tailnet != nil && in.Tailnet.Enabled {
+		var original string
+		err := d.Tailnet.ProvisionProject(ctx, in.ID, *in.Tailnet, func() (string, error) {
+			if e := d.acquireAdmission(ctx); e != nil {
+				return "", e
+			}
+			defer func() { <-d.admission }()
+			if e := d.createContainer(ctx, in); e != nil {
+				return "", e
+			}
+			var e error
+			original, e = d.projectContainer(ctx, in.ID, false)
+			return original, e
+		})
+		if err != nil {
+			return Environment{}, err
+		}
+		if err = d.acquireAdmission(ctx); err != nil {
+			return Environment{}, err
+		}
+		defer func() { <-d.admission }()
+		current, e := d.projectContainer(ctx, in.ID, false)
+		if e != nil || current != original {
+			return Environment{}, tailnet.ErrConflict
+		}
+		return d.startCreated(ctx, in)
+	}
+	if err := d.acquireAdmission(ctx); err != nil {
 		return Environment{}, err
 	}
+	defer func() { <-d.admission }()
+	if err := d.createContainer(ctx, in); err != nil {
+		return Environment{}, err
+	}
+	return d.startCreated(ctx, in)
+}
+func (d *Daemon) createContainer(ctx context.Context, in Create) error {
+	profile, err := d.resolveProfile(ctx)
+	if err != nil {
+		return err
+	}
 	if profile != *in.Profile {
-		return Environment{}, errors.New("installed profile changed; reservation retained")
+		return errors.New("installed profile changed; reservation retained")
 	}
 	encoded, _ := json.Marshal(profile)
 	if _, err := d.podman(ctx, nil, "network", "exists", d.Config.Network); err != nil {
 		if _, err = d.podman(ctx, nil, "network", "create", "--driver", "bridge", "--subnet", d.Config.Subnet, "--interface-name", d.Config.Bridge, d.Config.Network); err != nil {
-			return Environment{}, err
+			return err
 		}
 	}
 	name := "soda-" + in.ID
@@ -228,9 +276,11 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	// SYS_PTRACE lets the engine enter different-UID workload process namespaces.
 	// Both are confined to the project's user namespace, not the appliance.
 	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", d.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE", "--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image}
-	if _, err := d.podman(ctx, nil, args...); err != nil {
-		return Environment{}, err
-	}
+	_, err = d.podman(ctx, nil, args...)
+	return err
+}
+func (d *Daemon) startCreated(ctx context.Context, in Create) (Environment, error) {
+	name := "soda-" + in.ID
 	if _, err := d.Exec.Run(ctx, nil, "/usr/bin/systemctl", "enable", "--now", "soda-project@"+in.ID+".service"); err != nil {
 		return Environment{}, err
 	}
@@ -250,7 +300,7 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	if err != nil {
 		return env, err
 	}
-	if !env.Running || env.IP == "" || env.Profile == nil || *env.Profile != profile {
+	if !env.Running || env.IP == "" || env.Profile == nil || *env.Profile != *in.Profile {
 		return env, errors.New("project did not report the expected profile and running endpoint")
 	}
 	return env, nil

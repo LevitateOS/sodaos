@@ -7,7 +7,7 @@ individual Linux accounts on the host.
 **Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
 button/environment drawer, without adding a new tab. Both standalone Soda frontends (React and Go/HTMX) are
 removed. The protected Go environment/access API, OAuth, native provisioning and
-Cockpit Tailnet and native Forgejo Runners remain. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
+Native Forgejo Tailnet/Runners and stock-only branded Cockpit are the source candidate; retained targets still have both custom Cockpit fallbacks until authorized replacement acceptance/removal. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
 
 The handoff records installed revisions, schemas, preserved roots and which
 targets still retain the Cockpit Runners fallback. Bounded native x86_64 first-product
@@ -19,7 +19,7 @@ and [local access](docs/local-testing.md). This is not a ready-to-deploy release
 
 ```text
 Fedora CoreOS host — operator administration only
-├── Native Cockpit + Tailnet, tailscaled, project helper and CI runners
+├── Stock branded Cockpit, tailscaled, trusted project Tailnet companions and CI runners
 └── Podman
     ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
     ├── Soda Go API/OAuth service — separate SQLite/grants
@@ -52,7 +52,7 @@ routing are separate configuration—not inferred from an old port or hostname.
 | API/auth/native integration | `cmd/`, `internal/`, [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md), [Forgejo customization](docs/forgejo-frontend-integration.md) |
 | Installation/operator access | `appliance/`, `scripts/`, [installation](docs/installation.md), [bootstrap](docs/operator-setup.md), [native validation](docs/native-validation.md) |
 | Project environments | `project-os/`, [Project OS baseline](docs/project-os.md), [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |
-| Cockpit and outside tooling | `cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
+| Cockpit branding and outside tooling | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
 | Branding and reuse | `assets/`, [attribution](docs/predecessor-reuse.md), [console](docs/console-welcome.md), [branding review](docs/branding-review.md), [capture rules](docs/screenshot-capture.md) |
 | Public handbook | [Release-day handbook](docs/public/10-Start-here/10-index.md), [authoring/sync](docs/public/README.md), [editorial review](docs/public-docs-review.md); intended product documentation, not current acceptance |
 | Evidence and coding guidance | [Current handoff](docs/implementation-status.md), [local test host](docs/local-testing.md), [AGENTS.md](AGENTS.md) |

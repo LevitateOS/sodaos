@@ -253,12 +253,14 @@ unconfigured state. Every enrollment POST requires `action` and `revision`:
 - `disable` takes no credential/policy fields and closes future admission/default,
   without changing project policies or disconnecting/deleting devices.
 - `default` takes only explicit `default`. False can be saved on a configured policy;
-  true fails unsupported before file/provider effects until the runtime exists.
+  true requires configured project runtime and open admission. It affects only a new
+  Create form's reviewed selection, never legacy omission or existing projects.
 
 Results separate `saved`, `credential_checked`, `outcome` and the safe `enrollment`
 summary: configuration/admission/default, Tailnet/tags/preauthorization, binding and
 revision, credential-check status, `enrollment_verified` and `runtime_supported`.
-The latter two remain false in Stage 2, as do creation-option availability/default.
+`runtime_supported` describes configured runtime, not native acceptance or successful
+enrollment. `enrollment_verified` remains false; token acceptance alone cannot set it.
 Reusable secrets, bearer tokens and private filenames never occur in projections.
 Storage/preservation belongs to the [credential owner](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return).
 
@@ -267,20 +269,37 @@ project, and `binding` for enable/retry. The helper resolves the original full n
 CID and verifies project labels and private mappings; a stored policy cannot adopt a
 replacement CID. Successful operations recheck the CID before response publication;
 an Off intent may already have been saved if that final observation fails.
-`enable`/`retry` are validated but return unsupported without credential/runtime
-work. `disable` persists Off intent with revision CAS, not a disconnection claim.
-Results contain `project`, `revision`, `binding`, `enabled`, `saved`,
-`state:"runtime-unsupported"`, and `outcome:"observed"` on reads or
-`"disconnect-unconfirmed"` after saving Off. Missing/unsafe/configured state is not
-recreated to resolve a conflict; interrupted atomic publication is unconfirmed,
-never rolled back or automatically replayed.
+With configured runtime, enable/retry enforce revision, original binding and open
+admission, then enqueue the fixed native companion unit. Enable on a stopped project
+records intent; it does not start the project. Disable saves Off, queues unit stop
+and attempts bounded shutdown of an owned orphan; saving intent is not proof of
+logout. Without runtime, enable/retry remain unsupported and Off remains a saved
+`disconnect-unconfirmed` intent.
+
+Results distinguish `saved`, `outcome`, observed `state`, the original binding, an
+available binding/network selection and bounded `ips`/`dns_name`. Only matched native
+version/network/tags/preferences may report connected. Startup failure, queued work,
+stopped/Off intent and failed readback are distinct from connected or disconnected
+proof. Missing/unsafe state is not recreated to resolve a conflict; ambiguous
+publication or enrollment is never rolled back or automatically replayed.
+
+Create optionally takes `tailnet:{enabled:false}` or an explicit enabled selection
+with exact reviewed `revision` and `binding` from the repository options endpoint.
+Omission is always Off. Current human repository ownership and the session are
+rechecked after preflight, before reservation/dispatch. Native policy reservation
+precedes stopped-container creation and CID binding precedes startup. Provisioning
+failure retains the reservation; network failure does not change project `ready`.
+Spaces summaries use helper-only read-only `/tailnet/policy`, not per-row daemon
+exec. Authorized project members can observe Network metadata; only current
+administrators/operators can change it. SSH projection uses the existing original
+Linux login and host fingerprint, never another account or Tailscale SSH.
 
 Errors retain the normal JSON envelope: 400 malformed, 401 context loss, 403 missing
 authority, 409 changed revision/native identity, 422 unsupported operation/version,
 503 unavailable helper/configuration/observation, 502 unknown native outcome. Native
-and provider diagnostic bodies are never copied into errors. Create, connection/SSH
-endpoints and legacy omission behavior are unchanged. Explicit managed creation,
-run-incarnation admission, reachable project status and all runtime hooks belong to
+and provider diagnostic bodies are never copied into errors. Existing LAN/SSH
+endpoints and legacy omission behavior are unchanged. Run-incarnation admission,
+companion containment and native reachability proof belong to
 Stage 4. Stage 3 now supplies native page registration/assets/navigation and the
 protected Lit caller; its current native-page acceptance is recorded in the handoff.
 The caller separates rejected requests, acknowledged effects, unavailable readback
@@ -697,7 +716,7 @@ create/join/reservation, key and persistence coverage. Negative route tests ensu
 retired forge adapters do not reach provider/helper operations. React-specific DOM
 and browser orchestration tests were removed with their callers; their historical
 source and U08 logs remain in Git/ignored evidence. Native SSH/Git/workload/lifecycle
-and Cockpit tests remain. Sodaspaces read-only browser coverage passed independently
+and native browser tests remain. Sodaspaces read-only browser coverage passed independently
 of historical React results; helper-backed native create/join/SSH coverage remains
 step 5.
 

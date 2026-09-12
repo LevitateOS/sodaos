@@ -18,10 +18,7 @@ class NativeStage(unittest.TestCase):
             self.assertTrue(p.is_file(), str(p))
             self.assertTrue(p.stat().st_mode & 0o111, str(p))
         self.assertFalse((self.root / 'usr/local/libexec/soda/soda-runner-helper').exists())
-        for name in ['soda-tailscale']:
-            folder = self.root / 'usr/local/share/cockpit' / name
-            self.assertTrue((folder / 'index.html').is_file())
-            self.assertTrue((folder / 'manifest.json').is_file())
+        self.assertFalse((self.root / 'usr/local/share/cockpit').exists())
         retired = self.root / 'usr/local/share/cockpit/soda-runners'
         self.assertFalse(retired.exists() or retired.is_symlink())
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-updates').exists())
@@ -68,7 +65,7 @@ class NativeStage(unittest.TestCase):
         brand = self.root / 'etc/cockpit/branding'
         css = (brand / 'branding.css').read_text()
         self.assertNotIn('../theme/palette.css', css)
-        for name in ['palette.css', 'theme.css', 'soda-logo-horizontal.svg', 'soda-logo-horizontal-dark.svg']:
+        for name in ['palette.css', 'theme.css', 'soda-symbol-brutalist.svg', 'soda-symbol-brutalist-dark.svg', 'fonts/fonts.css', 'fonts/barlow/LICENSE', 'fonts/barlow-condensed/LICENSE']:
             self.assertTrue((brand / name).is_file(), name)
 
     def test_sodaspaces_proxy_namespace(self):

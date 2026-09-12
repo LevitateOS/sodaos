@@ -14,6 +14,79 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet stage 4 — runtime UI and stock Cockpit source candidate
+
+The user requested finishing the already-approved integration instead of treating
+unavailable native validation as a blocker to source work. Work started from clean
+`df59e10`, including the separately merged current Forgejo design. No retained
+fixture repair/start, ARM contact, installation, real enrollment or installed
+Cockpit removal was performed.
+
+The candidate wires the existing protected Go/Lit owners rather than adding a
+second dashboard or credential endpoint:
+
+- Explicit reviewed managed Create, native policy reservation before container
+  creation and original full-CID binding before startup. Legacy omission remains
+  Off; failures preserve reservations/roots. Policy admission waits outside the
+  unrelated global project gate. Fresh repository/session checks precede dispatch.
+- Root-only native run/stop phases and `soda-tailnet@`, ordered after/bound to the
+  parent, with nonblocking start/boot activation. Restricted per-project locks and
+  per-run state/control/input, exclusive single-use key files, descriptor/inode
+  checks and durable attempt markers prevent automatic reminting after uncertainty.
+  Reusable OAuth credentials never enter the companion or project.
+- Exact stored companion CID, immutable image/creation recipe, shifted namespace
+  identity, process/start observation and bounded sanitized CLI calls. Actual
+  resolver inode checks replace reliance on Podman's generated resolver metadata:
+  it is unset before first start and does not describe every explicit mount.
+  Logout/stop can still reach the exact owned old companion after the parent gets
+  a new resolver inode. Upstream Tailscale owns DNS backup/restore; conflict or
+  uncertain restoration is not a repair grant.
+- Same-run daemon restart requires retained state. Parent stop/restart or Off
+  requests logout; native completion/readback is distinct from queued intent.
+  Reviewed systemd v259.8 `list-jobs` uses four-column text, not JSON; the exact-unit
+  parser handles the native output with decoration disabled.
+- Shared project Network tab, explicit target confirmation, own-account SSH with
+  the existing fingerprint, compact authorized Spaces policy summaries and managed
+  default selection. Reads never enqueue enrollment; stale/context-loss observations
+  clear sensitive metadata and uncertain outcomes never imply connection.
+- Fifth OCI image from `appliance/locks/tailscale-image.json`, image/version metadata,
+  unit/tmpfiles staging and fresh-install configuration selecting the immutable
+  companion ID. This first-install recipe was authored, not executed.
+- Removed 40 tracked custom Cockpit workspace/page/build files and unused lock
+  dependencies. Preserved vendor attribution/licenses, native Tailnet and runner
+  services/CLIs and ordinary Cockpit security/configuration. No ignored dist is
+  copied; bundle/installed verification rejects retired custom packages.
+- Current canonical palette, brutalist symbols, licensed Barlow family/IBM Plex Mono,
+  square controls and current favicon pixels through native Cockpit branding hooks.
+  No replacement login, custom page or injected application script. The installed
+  operator journey now uses stock Overview with `--stock-read-only`, retaining
+  PAM/SELinux/socket/CLI/Services/Logs/logout checks without advertisement refresh.
+
+Evidence is retained at `.artifacts/tailnet-stage4-integration/`. Final checks:
+Go 1.26.7 race tests for host/Tailnet/web/nativebuild/scripts plus host command compile
+passed (`go-07.log`); later focused host/Tailnet/command checks cover the final native
+resolver/root guards. Module verification passed. Strict TypeScript and Lit checks
+passed over 29 browser sources with the positive/ten negative analyzer cases.
+Emitted frontend/Forgejo suites passed **284 tests, 44 explicit opt-in skips** across
+49 files (`browser-03.log`). Python build/source/staging fixtures passed **141 tests,
+2 optional skips** (`python-03.log`); shell syntax checks passed. Browser checks
+include independent branding CSS/font resolution, not actual Cockpit acceptance.
+
+Original failed logs remain: early Spaces fixture call accounting; private-filesystem
+UID test setup and status binding fixtures; missing new image metadata inputs and a
+stale component-mode script expectation; the old operator probe expecting a custom
+Tailscale heading. Corrected checks passed without weakening production privilege
+checks or substituting component HTML for native pages. The public upstream
+`pkg/static/login.scss` request returned 404; the selected release's actual
+`pkg/static/login.css`, shell and Overview sources were reviewed instead.
+
+This is source/component/temporary-filesystem evidence, not a native bundle build,
+installed lifecycle/isolation/DNS proof, provider registration, successful enrollment,
+client reachability or actual login/shell/stock-page visual parity. Stage-5 native
+scenario/build/proof and authorized minimal paired delivery/removal remain. Both
+retained targets and their v9 data/custom fallbacks remain unchanged. The latest
+built native bundle is still the earlier Runners-only retirement candidate.
+
 ## Tailnet and Forgejo source merge
 
 The user requested pulling upstream and resolving conflicts before further Stage-4

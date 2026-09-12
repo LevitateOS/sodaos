@@ -23,7 +23,7 @@ func (f tailnetRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { r
 func TestTailnetNativeDisabledAndStrictRouting(t *testing.T) {
 	calls := 0
 	d := &Daemon{Exec: managementExec(func(context.Context, []byte, string, ...string) ([]byte, error) { calls++; return nil, nil })}
-	for _, action := range []string{"settings", "host", "enrollment", "options", "project"} {
+	for _, action := range []string{"settings", "host", "enrollment", "options", "project", "policy"} {
 		w := httptest.NewRecorder()
 		d.ServeHTTP(w, httptest.NewRequest("POST", "/tailnet/"+action, strings.NewReader(`{}`)))
 		if w.Code != 503 || calls != 0 {
@@ -42,6 +42,7 @@ func TestTailnetNativeDisabledAndStrictRouting(t *testing.T) {
 		{"/tailnet/host", `{"action":"logout","revision":"a","confirm":"logout"}`, 400},
 		{"/tailnet/project", `{"project":"../other","action":"inspect"}`, 400},
 		{"/tailnet/unknown", `{}`, 404},
+		{"/tailnet/policy", `{"project":"p0123456789abcdef01234567","action":"disable","revision":"0","confirm_id":"p0123456789abcdef01234567"}`, 400},
 	} {
 		w := httptest.NewRecorder()
 		d.ServeHTTP(w, httptest.NewRequest("POST", tc.path, strings.NewReader(tc.body)))

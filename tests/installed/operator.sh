@@ -9,7 +9,7 @@ printf '{}\n' | /usr/local/libexec/soda/soda-runners list | python3 -c 'import j
 /usr/bin/forgejo-runner --version
 [[ -s /etc/cockpit/branding/favicon.ico && -s /etc/cockpit/branding/branding.css ]]
 [[ -s /var/lib/soda/forgejo/gitea/public/assets/img/logo.svg ]]
-[[ -s /usr/local/share/cockpit/soda-tailscale/index.html ]]
+[[ ! -e /usr/local/share/cockpit/soda-tailscale && ! -L /usr/local/share/cockpit/soda-tailscale ]]
 [[ ! -e /usr/local/share/cockpit/soda-runners && ! -L /usr/local/share/cockpit/soda-runners ]]
 [[ ! -e /usr/local/share/cockpit/soda-updates ]]
 # Test the delivered noninteractive hook without a login, TTY or MOTD trace.

@@ -503,8 +503,10 @@ The [Tailnet implementation plan](tailnet-integration-plan.md) adds optional,
 automatically enrolled ephemeral project network identities. Its native runtime
 selection and proof must preserve this guide's namespace, account, persistent-root
 and lifecycle boundaries. Ephemeral applies to the network identity, not the project.
-No Tailscale package/device/capability change or retained-root enrollment is currently
-implemented by that plan; older incompatible roots remain unchanged, not recreated.
+The source candidate now wires explicit managed Create, Network controls and native
+start/stop/boot supervision using a separate immutable companion image, not a Tailscale
+package or reusable credential in the developer root. It has not been installed or
+enrolled on a retained root. Older incompatible roots remain unchanged, not recreated.
 Enrollment policy is host-managed and startup is native-supervised, not owned by a
 browser tab. Reusable enrollment credentials never belong in project roots.
 

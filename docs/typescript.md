@@ -2,13 +2,14 @@
 
 Run dependency commands from the repository root using the Bun version pinned in
 `package.json`. The root package owns shared script/test tooling and the single
-`bun.lock`; `cockpit/` is its UI workspace. Declare dependencies where they are
-used. Root tools must not reach through Cockpit or another package's transitive
-installation to load a dependency. Cockpit keeps React, PatternFly and Vite+.
+`bun.lock`; `tools/lit-check/` is the remaining workspace. Declare dependencies
+where they are used, not through another package's transitive installation.
+Cockpit's custom workspace, React/PatternFly/Zustand and Vite build are retired;
+stock Cockpit branding uses canonical assets without a frontend application.
 
 ```sh
 bun install --frozen-lockfile
-bun run check:source # Go + TypeScript/Lit + local browser/Cockpit + Python
+bun run check:source # Go + TypeScript/Lit + local browser + Python
 bun run typecheck
 bun run test
 bun run build
@@ -16,10 +17,10 @@ bun run build:preview # local Forgejo branding mount
 bun run screenshot --help
 ```
 
-`build` compiles and minifies the Forgejo browser assets and the Cockpit
-Tailnet page. It does not install an appliance or build a standalone dashboard. `test`
+`build` compiles and minifies the Forgejo browser assets. It does not install an appliance or build a standalone dashboard. `test`
 prepares locked terminal assets and emitted Forgejo modules once, then runs the
-frontend, native Forgejo page fixtures, drawer layout, Forgejo and Cockpit suites.
+frontend, native Forgejo page fixtures, drawer layout and Forgejo suites. The latter
+includes independent Cockpit branding checks; the stock installed journey stays opt-in.
 The page group requires the authorized local Forgejo fixture at `localhost:3300`
 and its saved screenshot-account credential. It reuses `TestNativeConnectionFixture`,
 prepares a fresh canonical public payload and isolated Soda OAuth/DB state, then
@@ -27,8 +28,7 @@ runs the existing page consumers, including Tailnet, with that fixture's own nat
 host/assets fail this group; no handwritten HTML fallback or implicit installation
 is used. Synthetic operation APIs remain separate from native/provider proof.
 The local Lit runtime and operator settings-link browser checks are enabled in the
-Forgejo group. Cockpit builds through Vite+'s programmatic API under Bun; it retains
-React and PatternFly. Installed/provider checks keep their explicit opt-in flags
+Forgejo group. Installed/provider checks keep their explicit opt-in flags
 and target/action permissions; installing dependencies does not run those journeys.
 
 ## Local source checks
@@ -154,7 +154,6 @@ TypeScript and complement, rather than replace, internal template analysis.
 | `tsconfig.json` | Root scripts; Bun, with DOM types for Playwright page callbacks |
 | `tsconfig.tests.json` | Root tests; Bun plus browser/JSDOM fixtures |
 | `tsconfig.browser.json` | Forgejo branding and Sodaspaces browser scripts; DOM types, no automatic Bun/Node globals |
-| `cockpit/tsconfig.json` | Existing Cockpit TS/TSX, test and Vite+ build code |
 | `tools/lit-check/tsconfig.json` | Analyzer runner checked by product TS7 against its classic compiler API; no browser runtime |
 
 All authored scripts, browser modules and tests are TypeScript. No compiler

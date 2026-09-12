@@ -71,7 +71,7 @@ remain product requirements.
 | Placement | Implemented mechanism |
 | --- | --- |
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman and systemd |
-| Native operator services | Stock Cockpit plus Tailnet, native Forgejo Runners management, `tailscaled`, CI runner services and restricted Soda project helper |
+| Native operator services | Stock branded Cockpit, native Forgejo Tailnet/Runners management, `tailscaled`, CI runner services and restricted Soda project helper |
 | Appliance applications | Separate Podman containers for stock Forgejo, Soda's Go API/OAuth service and Caddy |
 | Persistent application data | Separate Soda SQLite database and upstream-owned Forgejo data/database |
 | Projects | Persistent Rocky + mise containers, project-local accounts/homes, writable roots, SSH and shared installations/files |
