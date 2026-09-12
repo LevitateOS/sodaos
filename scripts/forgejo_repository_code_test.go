@@ -81,6 +81,14 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 				t.Fatal("missing pinned upstream attribution")
 			}
 			if tc.path == "repo/home.tmpl" {
+				// Reviewed upstream presentation refinements. Recover the same
+				// pinned native body; do not rebaseline its controls or gates.
+				tc.undo = append(tc.undo, [][2]string{
+					{`<button type="button" id="manage_topic" class="ui basic button">`, `<button id="manage_topic" class="btn interact-fg tw-text-12">`},
+					{`class="ui dropdown basic compact jump button soda-code-add-file"`, `class="ui dropdown basic compact jump button tw-mr-1"`},
+					{`<span>{{ctx.Locale.Tr "repo.editor.add_file"}}</span>`, `{{ctx.Locale.Tr "repo.editor.add_file"}}`},
+					{`class="soda-code-toolbar-end tw-flex tw-items-center"`, `class="tw-flex tw-items-center max-[390px]:tw-w-full"`},
+				}...)
 				native = strings.ReplaceAll(native, `
 		{{$sodaSidebar := and (eq (len .TreeNames) 0) (not .IsViewFile) (not .IsBlame) (not .HideRepoInfo)}}
 		{{if $sodaSidebar}}<div class="soda-repo-layout"><aside class="soda-repo-sidebar" aria-label="{{ctx.Locale.Tr "repo.desc"}}">{{end}}`, "")

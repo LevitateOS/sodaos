@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2f9cc3c4ac91529bdc4b0fb406d6a5bf86ba75df21866ce6edcdb9d6f7e92d29",
-      "presentationReview": "Merge Tailnet native-view drawer suppression and the combined module epoch; retain notification, repository and signed-in gates.",
+      "beforeRoleHash": "caafd734b633bd9bfd024e4af717853dfadee2a7b4cf4274d8bda994c717680c",
+      "presentationReview": "Retain Tailnet runtime entry/drawer suppression and the newer repository-switcher script, preserving notification, repository and signed-in gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -920,12 +920,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0508839779f68ca0c5bd3b372c30a7b426674f3348231741fa1027ae6f1b0c45",
+      "beforeRoleHash": "61e14aa963db39e58983e2ff97576d98b9eb27e66dcf33e8543de1ba3b2cb8ba",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Retain the reviewed brutalist stylesheet versions and adopt one merged Tailnet/navigation module epoch; native context and scripts retained."
+      "presentationReview": "Retain the Tailnet runtime epoch with current upstream stylesheet versions, including compact notifications and the repository-only switcher; native context and scripts retained."
     },
     {
       "template": "custom/soda/empty_content.tmpl",

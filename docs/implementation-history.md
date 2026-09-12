@@ -14,6 +14,52 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet rebase consistency repair
+
+The user reported possible conflicts after pulling. Inspection found clean `8c3c594`,
+no active merge/rebase and no tracked conflict markers. The reflog showed a completed
+rebase onto `b76cb60`, replaying the Tailnet source commits but dropping the earlier
+merge-only test fixes. The presentation inventory also contained stale header/footer
+hashes. Both failures were reproduced, not inferred from the changed commit IDs.
+
+Updated only the two reviewed presentation hashes/notes and restored the exact
+component-version and repository-presentation test fixes from `c0e4ac0`; pinned
+native control hashes remain unchanged. New compact notifications and repository-only
+switcher assets/scripts are preserved, as are Tailnet runtime and stock-only Cockpit
+source. This repair adds a commit, not another rebase, reset, amend or rollback.
+The earlier merge receipt is restored below; existing history is otherwise unchanged.
+
+Evidence: `.artifacts/tailnet-rebase-repair/`. Go 1.26.7 scripts race tests, strict
+TypeScript/Lit, Forgejo build, **100 browser/source tests with 31 native/opt-in skips**
+and seven temporary staging tests passed. Original failures remain in
+`inventory-before.log` and `go-before.log`. No fixture/device contact, installed
+change, provider action or push occurred; native acceptance remains pending.
+
+## Tailnet runtime and upstream presentation merge
+
+The user requested pulling upstream and fixing conflicts. From clean `235919c`,
+`git pull --no-rebase origin main` fetched `e49de45` (17 incoming commits) and
+produced one conflict in `tests/forgejo/presentation/inventory.json`. The header's
+reviewed hash now describes the combined Tailnet runtime asset epoch and upstream
+stylesheet versions. Both histories, runtime/UI/payload additions, stock-only
+Cockpit source retirement and the new Forgejo layouts/assets are retained. No
+runtime JavaScript changed, so its existing graph epoch remains valid.
+
+Checks exposed two stale upstream source-test expectations: component stylesheet
+versions now have descriptive suffixes, and the repository home template has four
+new presentation deltas. The tests now admit the bounded suffix format and explicitly
+undo those reviewed deltas while retaining the original native-body hash. Native
+permission gates, form/context behavior and pinned control baselines were not reset.
+
+Evidence: `.artifacts/tailnet-runtime-upstream-merge/`. Strict TypeScript/Lit, Forgejo
+asset build, **100 browser/source tests with 30 explicit native/opt-in skips**, Go
+1.26.7 race checks for `scripts` and `internal/nativebuild`, and seven temporary
+staging tests passed. `go.log` retains the initial test failures and nativebuild
+pass; `go-final.log` records the corrected scripts pass. No backend change required
+repeating the previous Tailnet/host/web race coverage. Docs/whitespace and merge
+preservation checks passed. No native bundle, fixture/device contact, deployment,
+enrollment, installed removal, history rewriting or push occurred.
+
 ## Tailnet stage 4 — runtime UI and stock Cockpit source candidate
 
 The user requested finishing the already-approved integration instead of treating

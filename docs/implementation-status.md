@@ -75,6 +75,12 @@ Both installed fallbacks remain untouched. The
 [integration receipt](implementation-history.md#tailnet-stage-4--runtime-ui-and-stock-cockpit-source-candidate)
 records source/browser/packaging-fixture checks and limits.
 
+After the user rebased these commits onto newer upstream source, a
+[consistency repair](implementation-history.md#tailnet-rebase-consistency-repair)
+corrected stale presentation hashes and restored dropped test fixes. Tailnet/runtime
+and stock-only Cockpit source remain intact; installed state and permissions are
+unchanged. These checks are not native acceptance.
+
 ### Next step
 
 Select and authorize the intended native candidate/target/actions for the

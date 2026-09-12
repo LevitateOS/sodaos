@@ -463,7 +463,7 @@ func TestForgejoHeaderLoadsGuestThemeScriptOnlyForToggleRoutes(t *testing.T) {
 			if count := strings.Count(output, `login-theme.js`); count > 1 {
 				t.Errorf("custom header rendered guest theme script %d times:\n%s", count, output)
 			}
-			if !regexp.MustCompile(`/soda/forgejo/components\.css\?v=[1-9][0-9]*"`).MatchString(output) {
+			if !regexp.MustCompile(`/soda/forgejo/components\.css\?v=[1-9][0-9]*(?:-[a-z0-9]+)*"`).MatchString(output) {
 				t.Errorf("custom header lost the shared component stylesheet:\n%s", output)
 			}
 		})
