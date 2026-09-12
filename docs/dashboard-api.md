@@ -467,6 +467,16 @@ native ownership by stored repository ID and native organization `is_owner`, not
 access. Organization-owned **creation** remains unsupported; do not infer otherwise
 from the current-owner visibility check on transferred repositories.
 
+Detail, member-list and connection reads recheck the original Soda session immediately
+before publishing a successful response, after provider/helper/store I/O. Compare the
+original user ID, login context and CSRF using the request context. Completed logout,
+session replacement, cancellation or failure of that final read returns
+`401 unauthenticated` JSON without the protected result. Earlier failures retain their
+existing status. This preserves degraded member/operator observations while the Soda
+session is valid; it does not require fresh provider access for own connection data.
+The check does not cancel/undo an admitted helper read, serialize response writing
+with later logout, or establish native Forgejo/Soda session equivalence.
+
 New-join requests independently check the acting grant's `read:user` and
 `read:repository` consent, fresh subject and `RepositoryByID` visibility; neither
 operator nor generic administrator status bypasses that check. Use the fresh login
