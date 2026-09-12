@@ -4,6 +4,8 @@ The [12 September source audit](forgejo-extension-audit.md) maps the current
 extension implementation, native-session/hosting limits and a reproduced runner
 admission defect. It recommends how to extend the existing owners without a plugin
 framework; it is not a new execution plan or installed acceptance receipt.
+The [Forgejo extension status](forgejo-extension-status.md) now owns this agent's
+follow-up implementation order and progress, independently of the Tailnet workstream.
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)

@@ -1,6 +1,9 @@
 # Current implementation status
 
-This replace-in-place handoff leads with the active workstream, **Tailnet**.
+This replace-in-place handoff tracks **Tailnet** and shared retained-target state.
+[Forgejo extension implementation](forgejo-extension-status.md) is a separately owned
+workstream with its own status and task order; its progress is not maintained here.
+
 Installed state below describes **development fixtures, not customer installations**;
 it is last verified state, not a fresh health/liveness observation.
 Detailed receipts and completed work belong in [implementation history](implementation-history.md);
@@ -61,21 +64,6 @@ Public evidence remains at `.artifacts/onedev-research-34y1pE/` and
 or plugin was built or run during these reviews. The decision changes documentation,
 not runtime state, fixture custody, existing execution permissions or the separate
 Tailnet work.
-
-## Forgejo extension audit
-
-The [source audit](forgejo-extension-audit.md) confirms the existing native-document,
-Go/Lit and separate OAuth-session boundary; no plugin system or replacement is
-selected. It reproduced a **runner mutation admission gap**: logout completed during
-body decoding still allowed create/start/stop/restart/remove to reach a synthetic
-helper. The defect remains unfixed; a post-decode current-session check and focused
-regressions are recommended before copying this pattern into further operator work.
-
-Pinned local Go and selected frontend/Forgejo checks passed; the audit-only runner
-regression expectations failed in all five logout cases, with unchanged controls
-passing. See the [receipt](implementation-history.md#forgejo-extension-source-audit).
-No production patch, appliance/provider operation or new execution grant resulted.
-Tailnet remains the active workstream; the audit does not reopen completed delivery.
 
 ## Current permissions
 
@@ -146,23 +134,18 @@ for checks, skips and exact scope. No Tailnet implementation build supersedes it
 1. **Active — Tailnet:** follow the next source slice and separately gated native
    proof above. The feature is not complete after moving only the host screen;
    project automation and replacement acceptance precede Tailnet retirement.
-2. **Recommended source correction — runner admission:** the
-   [reproduced post-decode gap](forgejo-extension-audit.md#runner-admission-gap)
-   remains unfixed. Reuse the existing current-session check immediately before
-   helper dispatch and add focused regressions. This audit result is not a refreshed
-   installed finding or a new lifecycle/delivery grant.
-3. **Separate — installed Runners retirement:** source retirement is complete, but
+2. **Separate — installed Runners retirement:** source retirement is complete, but
    actual-occupant inventory, target-specific removal rehearsal and explicit
    per-target delivery approval remain. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
    owns this work. Keep both installed fallbacks; do not reopen step 5 or interpret
    Tailnet work as removal permission.
-4. **Broader acceptance:** physical-keyboard/real editor use, wider Access/error/
+3. **Broader acceptance:** physical-keyboard/real editor use, wider Access/error/
    profile-menu and CLI/provider combinations, intended-client routing, native
    aarch64 and whole-product/release acceptance remain outside completed delivery
    claims. These are not new gates for that completed work; consult the
    [terminal](terminal-integration.md), [CLI](project-clis.md) and
    [native validation](native-validation.md) owners when selected.
-5. **Other roadmaps:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
+4. **Other roadmaps:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
    [Services/AI](services-and-ai-plan.md) and the [installer](coreos-installer.md)
    retain their own remaining scope. Moving this handoff's focus does not complete
    or authorize those roadmaps.
@@ -196,12 +179,3 @@ for checks, skips and exact scope. No Tailnet implementation build supersedes it
 
 Other retained fixtures/private evidence keep their existing custody. Documentation
 reorganization does not authorize cleanup or re-execution.
-
-## Latest local change
-
-Audited the existing Forgejo extension source and documented the concrete native
-integration recipe, architectural limits and unfixed runner admission defect.
-Selected Go 1.26.7 tests, emitted asset build and 54 frontend/Forgejo checks passed;
-the separate synthetic runner regression probe exposed five logout failures.
-Documentation links/anchors and whitespace checked. No production code, installed
-runtime, credentials, retained fixtures or cleanup changed.

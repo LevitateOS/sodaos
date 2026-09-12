@@ -16,7 +16,9 @@
 - Update requirements in their owning guide; link to them elsewhere instead of
   copying rules or appending exceptions. The documentation map below identifies owners.
 - Report changes, checks actually run and remaining limitations concisely. Update
-  `docs/implementation-status.md` in place for substantial changes; detailed receipts
+  the owning workstream's status in place for substantial changes; keep independent
+  agents' task lists separate. `docs/implementation-status.md` retains shared target
+  state and permissions and links separate workstream statuses. Detailed receipts
   belong in history, not additional rules here.
 
 ## Permissions and preservation
@@ -80,7 +82,8 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 | --- | --- |
 | Product scope and ownership | [Architecture](docs/architecture.md), [Sodaspaces](docs/sodaspaces-plan.md), [deferred work](docs/deferred.md) |
 | Native pages and Runners | [Active combined plan](docs/native-pages-runners-plan.md), [page integration](docs/forgejo-soda-pages-plan.md), [runner contracts](docs/runners-port.md) |
-| Forgejo customization and UI | [Supported integration](docs/forgejo-frontend-integration.md), [Lit](docs/lit.md), [TypeScript and test prerequisites](docs/typescript.md) |
+| Forgejo extension implementation | [Dedicated status and order](docs/forgejo-extension-status.md), [source audit](docs/forgejo-extension-audit.md) |
+| Forgejo customization and UI | [Customization contract](docs/forgejo-frontend-integration.md), [Lit](docs/lit.md), [TypeScript and test prerequisites](docs/typescript.md) |
 | Project runtime and access | [Project OS](docs/project-os.md), [terminals](docs/terminal-integration.md), [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md) |
 | Cockpit and Tailnet | [Tailnet implementation](docs/tailnet-integration-plan.md), [Cockpit](docs/cockpit-port.md), [operator setup](docs/operator-setup.md) |
 | Build, deployment and native tools | [Installation](docs/installation.md), [native validation](docs/native-validation.md), [support-tool effects](docs/native-support.md) |

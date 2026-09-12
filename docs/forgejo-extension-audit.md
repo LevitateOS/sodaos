@@ -6,6 +6,9 @@ execution plan. [Forgejo remains selected](architecture.md#forge-selection).
 The [customization guide](forgejo-frontend-integration.md),
 [native page guide](forgejo-soda-pages-plan.md) and [API guide](dashboard-api.md)
 remain the contract owners. No production code was changed by this audit.
+Follow-up work is now owned by the [dedicated Forgejo extension implementation
+status](forgejo-extension-status.md), separate from the Tailnet agent's work. This
+audit remains baseline research, not a second live task list.
 
 ## Verdict
 
@@ -215,6 +218,7 @@ Evidence: `.artifacts/forgejo-native-audit-XdXOQq/`. The previously retained eig
 Forgejo 15.0.7 source receipt was checksum-verified and reused, not treated as a
 whole-upstream or all-template audit. No fresh appliance/native-provider acceptance,
 visual/accessibility audit, full frontend/typecheck suite, deployment, real credential
-use, fixture lifecycle or cleanup was performed. The admission defect remains
-unfixed; [current work and permissions](implementation-status.md) are unchanged by
-these recommendations.
+use, fixture lifecycle or cleanup was performed. The admission defect was unfixed
+at this audit baseline; its current remediation state belongs in the
+[Forgejo extension status](forgejo-extension-status.md). Retained-target permissions
+remain with the [shared handoff](implementation-status.md#current-permissions).
