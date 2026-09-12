@@ -59,6 +59,46 @@ not claim this revised driver ran installed. The operator journey retains root,
 Tailnet advertisement permission, CLI and logout checks, and checks retired
 navigation plus ordinary systemd/journal access. No target was contacted.
 
+### Candidate build and packaging receipt
+
+Committed source candidate **`dc38af94c0b6a0eba7db5c06a8a71bcb6828c414`**.
+Focused main-checkout checks passed: TypeScript/Lit, native page fixtures including
+the three new failure/busy cases, 37 Cockpit tests, runner input/postcondition/
+operator-driver tests, affected Go packages and synthetic staging. The latter
+supplies stale retired dist output and verifies only Tailnet is staged; bundle
+unit tests reject both obsolete package HTML and hashed assets.
+
+A new clean detached checkout `.artifacts/step6-native-dc38af9/` used native Linux
+x86_64, Go 1.26.7 and Bun 1.4.2. `build-native.sh x86_64`,
+`check-native.sh x86_64`, bundle export and independent verifier invocation all
+passed. Native check ran the full source suite and 11 stage packaging tests;
+141 Python source tests reported two existing optional real-Caddy skips
+(`SODA_CADDY_BINARY` was not selected); xorriso was available. This built the contract's images/inspection
+containers but did not install any component or boot/contact a retained target.
+The local Forgejo fixture was reused within its existing test scope.
+
+Sealed export: `.artifacts/step6-source/export/x86_64/`.
+Manifest SHA-256:
+`8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
+Logs: `.artifacts/step6-source/{native-build,native-check,export,export-verify}.log`;
+focused logs remain there too, plus `.artifacts/step6-typecheck.log`.
+
+Verified the retained `19824ec` export with its own verifier, then compared public
+inventories in `packaging-delta.json`: all **40 obsolete Cockpit runner entries
+(38 regular files)** are absent; no other predecessor path was removed. Tailnet's
+entire payload is byte-identical. CLI/helper/launch commands, runner unit,
+sysusers/tmpfiles and root Cockpit policy remain in the candidate. New command/image
+build provenance is not a proposal to replace those unchanged target mechanisms.
+
+**Remaining:** actual per-target occupants, including retained earlier hashed
+assets, must be checked before selecting deletion. Offline export comparison and
+synthetic staging are not a rehearsal against a current target tree. No target-
+specific removal rehearsal/delivery or revised installed CLI/native contention
+case ran. Both retained targets keep their fallback. No project/runner/account/
+credential/provider state or older evidence was cleaned up; the new build checkout,
+its restricted fixture-input copy and export remain retained. The user must approve
+the exact target/removal delivery before installed retirement.
+
 ## Process correction — do not turn execution history into mandatory work
 
 Step 5's excessive broad investigations/suite reruns, overly broad empty-ExecIDs gate,

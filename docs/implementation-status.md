@@ -57,10 +57,11 @@ The active grant record is:
 
 ## Remaining work
 
-1. **Native pages/Runners:** step-6 source removal is implemented and focused local
-   checks pass; exact-revision native build/check/export remains in progress.
-   No installed retirement occurred. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
-   owns remaining packaging rehearsal and explicit per-target removal delivery.
+1. **Native pages/Runners:** step-6 source removal and native x86_64 build/check/
+   export/verification passed for **`dc38af9`**. No installed retirement occurred.
+   The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+   owns remaining actual-occupant inventory, target-specific removal rehearsal and
+   explicit per-target removal delivery. Both retained targets still keep Cockpit Runners.
 2. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
    Access/error/profile-menu and CLI/provider combinations, intended-client routing,
    aarch64 and whole-product/release acceptance remain outside the bounded delivery
@@ -86,12 +87,15 @@ The active grant record is:
   inputs. `.local/screenshot-fixture/create-output.txt` is the preserved regular
   credential file, not a worktree symlink. Use the [screenshot guide](screenshot-capture.md)
   for login; do not recreate fixtures or expose credentials to recover a stale path.
-- **Worktrees:** all 17 linked worktrees were removed at the user's request. The main
-  checkout, Git history and surviving exports remain. Deleted ignored worktree
-  outputs cannot be cited as retained evidence, even where the archive names them.
+- **Worktrees:** the original 17 linked worktrees were removed at the user's request.
+  Step 6 added one fresh detached build checkout at `.artifacts/step6-native-dc38af9/`,
+  retained with its native outputs and restricted copy of the local fixture input.
+  Deleted earlier worktree outputs cannot be cited as retained evidence, even where
+  the archive names them.
 
 | Evidence | Location |
 | --- | --- |
+| Step-6 source/native checks, export and offline packaging delta | `.artifacts/step6-source/`; sealed export `export/x86_64/` |
 | `soda-test` delivery, backups and failed/corrected observers | `.artifacts/step5-cutover-19824ec/` |
 | Validation delivery and final completion receipt | `.artifacts/step5-validation-b5af330/`, including `completion.json` |
 | Guest-side paired backups/rehearsals on both retained targets | `/var/lib/soda-native-pages-19824ec-cutover/` |
@@ -103,15 +107,27 @@ documentation does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Step-6 source candidate removes only Cockpit's runner presentation and updates
-staging/verifier, installed operator/CLI-native drivers and current operator journeys.
-Tailnet/React/PatternFly, native runner services/CLI/backend and provider state are
-preserved. Added native browser failure/busy/confirmation parity coverage; old
-Cockpit overlap inputs are rejected in favor of separately gated CLI/native contention.
+**Source candidate:** `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` removes only
+Cockpit's runner presentation and updates staging/verifier, installed operator/
+CLI-native drivers and current operator journeys. Tailnet/React/PatternFly and
+native runner services/CLI/backend remain. Added native browser failure/busy/
+confirmation parity coverage; old Cockpit overlap inputs are rejected in favor of
+separately gated CLI/native contention. That revised installed case is authored,
+not executed on an appliance.
 
-Passed local `bun run typecheck`, `bun run test:pages`, Cockpit tests, focused
-runner input/postcondition/operator-driver tests, affected Go packages and the
-synthetic staging suite (including stale runner dist exclusion). Logs:
-`.artifacts/step6-source/` and `.artifacts/step6-typecheck.log`.
-Native candidate build/check/export is next. No appliance/VM/provider action,
-installed removal or retained-state cleanup occurred.
+Passed focused local checks, then fresh pinned native x86_64 `build-native.sh`,
+`check-native.sh` (including the full source suite and 11 packaging tests), bundle
+export and independent verification. Two optional Python source checks skipped.
+The verified predecessor-to-candidate comparison removes exactly the old runner
+package's 40 inventory entries (38 files), nothing else; Tailnet files are byte-
+identical. Synthetic staging also proves stale runner dist output is not copied.
+This is an offline packaging comparison, not an installed occupant inventory:
+retained targets include older hashed assets requiring explicit review.
+
+Export: `.artifacts/step6-source/export/x86_64/`.
+`build-info.json` SHA-256:
+`8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
+Logs/delta: `.artifacts/step6-source/`; detailed scope in
+[history](implementation-history.md#step-6--source-retirement-parity-review).
+No retained appliance contact, VM/provider action, installed removal or retained-
+state cleanup occurred. Source/native export acceptance is not per-target retirement.
