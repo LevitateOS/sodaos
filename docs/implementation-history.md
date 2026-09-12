@@ -14,6 +14,62 @@ not claims that those outputs are still retained.
 
 ---
 
+## Forgejo extension source audit
+
+**12 September 2026; baseline `5c2f92a`; documentation-only production diff.**
+The user requested a source audit of seamless/native-feeling Forgejo extensions,
+not a plugin implementation or appliance change. The tree was clean at entry.
+The [audit](forgejo-extension-audit.md) records the implementation map, confirmed
+runner defect and recommendations; existing feature guides retain their contracts.
+
+Reviewed the one-origin proxy, native template host/navigation, shared Lit entry,
+connection/logout and workspace owners, Go session/provider/runner authorization,
+and browser build/payload/staging. Reused the retained Forgejo **15.0.7** source
+in `.artifacts/forgejo-pages-plan-9ncxei8z/`; all eight files listed in `sources.json`
+matched their recorded SHA-256 values. This was not a review of every upstream
+handler or every Soda template.
+
+### Checks and reproduction
+
+Evidence is retained in `.artifacts/forgejo-native-audit-XdXOQq/`.
+
+| Check | Actual result and scope |
+| --- | --- |
+| Selected `internal/web` checks | 35 top-level tests passed, including actor/CSRF/OAuth/cancellation, current-session, existing mutation-admission and runner boundaries; `go-web-go1.26.7.log`. Real local store/router, synthetic provider/helper peers. |
+| Selected `scripts` template checks | 7 top-level tests passed: native host/selector validation, ordinary-dashboard preservation, operator navigation, drawer context/escaping and query-free logging; `go-templates-go1.26.7.log`. |
+| `bun run build:forgejo` | Passed using pinned Bun **1.4.2**; `browser-build.log`. Emitted browser assets, not a native appliance build or installation. |
+| Selected frontend/Forgejo checks | 54 tests passed across `tests/frontend/{drawer-controls,workspace-journey}.test.ts` and `tests/forgejo/{connection,settings-link,lit-build}.test.ts`; `browser-tests.log`. Includes DOM fixtures, build-contract checks and emitted Chromium connection/navigation tests, not a fresh installed Forgejo journey. |
+| Audit-only runner admission probe | Five unchanged-session controls passed. All five logout cases failed the safe expectation: create/start/stop/restart/remove returned 200 and dispatched once after logout completed during body decoding; expected 401/no dispatch. `runner-admission-probe-go1.26.7.log`. |
+
+Go checks used the existing cached **Go 1.26.7 darwin/arm64** toolchain, with
+`GOTOOLCHAIN=local`, `GOWORK=off`, `CGO_ENABLED=0`, read-only modules and `-count=1`.
+`go-checks.json` records exact commands, tool version, logs and exit codes. An initial
+runner probe used the shell's Go 1.27.1; it and the earlier baseline logs remain
+preserved. The pinned repetitions are the Go evidence used here, not native Linux
+or aarch64 appliance proof.
+
+The probe is `runner_admission_audit_test.go`, injected into `internal/web` only
+through `runner-overlay.json` and Go's `-overlay` option. No failing production test
+or implementation patch was added. It completes the real routed Soda logout and
+checks session deletion before allowing the original body's read to continue;
+provider and helper traffic goes only to synthetic test peers. The original runner
+request had already passed actor/operator/Origin/CSRF authorization. This is a
+post-authorization stale-session defect, not unauthenticated operator access.
+
+### Outcome and limits
+
+The audit recommends retaining the early operator gate and adding the existing
+current-session check after decoding/validation, immediately before runner helper
+dispatch, with focused regressions. **The defect remains unfixed.** The separate
+native-session/logout and dashboard-hosting limitations were confirmed from source,
+not presented as problems a new JavaScript framework could solve.
+
+Documentation local links/anchors and whitespace were checked. No full source or
+frontend/typecheck suite, native build, installed/provider acceptance, credential
+use, fixture lifecycle, network/trust change, deployment or cleanup occurred.
+Tailnet remains the separate active workstream. This receipt does not renew any
+execution permission or invalidate the stated scope of historical delivery checks.
+
 ## Tailnet stage 1 — local runtime and enrollment investigation
 
 The user approved the first step of `43238d3`'s Tailnet plan: local native/source

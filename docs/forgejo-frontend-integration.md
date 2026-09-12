@@ -1,5 +1,10 @@
 # Forgejo customization contract
 
+The [12 September source audit](forgejo-extension-audit.md) maps the current
+extension implementation, native-session/hosting limits and a reproduced runner
+admission defect. It recommends how to extend the existing owners without a plugin
+framework; it is not a new execution plan or installed acceptance receipt.
+
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
 and [handoff](implementation-status.md). The read-only hook/drawer/context caller
@@ -137,7 +142,7 @@ Neither source inspection nor fixture tests are authenticated browser proof.
 
 ### Recommended candidate: native fragment plus existing HTMX
 
-Use supported navbar/custom hooks for the bell panel, plus a compact presentation
+Use the documented navbar/custom hooks for the bell panel, plus a compact presentation
 branch in the already overridden notification fragment. A presentation-only query
 flag such as `soda-preview=true` can select that branch; it must not affect native
 identity, permissions or notification queries. Source wiring exposes the web context
@@ -330,7 +335,7 @@ Further source facts informing the [implementation sequence](sodaspaces-plan.md)
   source fixtures exercise the actual staging/preflight logic. No generic merge,
   existing-target upgrade or permission to replace customizations was added.
 
-If supported configuration/templates/assets/APIs cannot meet the requirement,
+If stock configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,
 ship a custom executable, scrape/relay HTML, borrow credentials or introduce a
 replacement frontend/framework. Keep native Git/LFS/package and administrator flows.

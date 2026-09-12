@@ -60,7 +60,9 @@ Forgejo's actual document supplies the native actor and chrome. The existing Lit
 components use protected APIs for inventory and operations, with expected-actor,
 CSRF/origin, scope and fresh-session checks. Spaces retains its per-row degraded
 observation rules and logout-winning publication; the redirect is not authorization.
-Native page CSP and assets belong to Forgejo's supported template integration.
+Native page CSP and assets belong to Forgejo's documented template integration;
+its [upstream support limits](forgejo-frontend-integration.md#shared-presentation-components)
+apply.
 
 `GET /login?destination=spaces` accepts exactly one fixed destination and no
 `repository_id`. An append-only schema-v6 boolean binds that intent to the existing
