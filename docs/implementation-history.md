@@ -85,8 +85,26 @@ at `.artifacts/tailnet-stage3-typecheck.log`.
   Forgejo tests. Documentation checked 93 local links/anchors across eight documents
   (history: this entry only), retaining prior handoff headings; whitespace passed.
 
-Remaining acceptance: run the actual native fixture/consumers after an applicable
-exact-container start grant, verifying Tailnet HTML/CSP/chrome/labels/navigation and
+### Authorized start follow-up
+
+The user subsequently approved starting exact `sodaos-local-forgejo` to finish the
+checks, without replacement/deletion. `podman start` failed before Forgejo started:
+`getxattr` could not find the template bind source. A narrow mount inventory showed
+both source mounts beneath the previously removed worktree:
+
+- `.artifacts/worktrees/combined-candidate-0f1d2b1/appliance/forgejo/templates`
+- `.artifacts/worktrees/combined-candidate-0f1d2b1/.artifacts/forgejo-preview/public/assets`
+
+Container `0634b216624c` remained exited. Its existing `soda-pages-0f1d2b1-data` volume
+was not replaced or restored. No source mount regeneration, new test run, cleanup,
+container recreation or other lifecycle action occurred. Narrow before/after/mount
+observations and the start-failure receipt are retained in
+`.artifacts/tailnet-stage3-acceptance/`. Regenerating only those two source directories
+from current canonical source and retrying is proposed, not yet approved; this would
+not restore the deleted worktree or its historical evidence.
+
+Remaining acceptance: run the actual native fixture/consumers after resolving its
+source-mount blocker, verifying Tailnet HTML/CSP/chrome/labels/navigation and
 layout without synthetic host replacement. Shared native authentication/cache/logout
 proof cannot be inferred from the component shell. Installed preference comparisons,
 network routing/approval, companion runtime and both-architecture installed evidence

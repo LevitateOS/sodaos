@@ -602,8 +602,9 @@ secret and auth-link retirement, late responses ignoring abort, actor loss, dupl
 dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity and
 existing Cockpit tests also passed. The actual native-page consumer is wired into the
 existing fixture, not replaced with handwritten native HTML: its run failed because
-`sodaos-local-forgejo` is stopped. Starting that retained container needs explicit
-lifecycle approval. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
+`sodaos-local-forgejo` is stopped. The subsequently approved start failed because its
+source bind mounts point into a deleted worktree. Regenerating those source directories
+needs approval; the container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
 for exact checks/skips and the remaining native acceptance; source tests alone do not
 meet the full exit below.
 

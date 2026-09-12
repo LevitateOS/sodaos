@@ -8,7 +8,8 @@ historical approvals are not renewed execution permission.
 ## Active work — Tailnet
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
-place; actual native-page parity is blocked on the stopped local Forgejo fixture.
+place; actual native-page parity is blocked on missing source bind mounts for the
+stopped local Forgejo fixture.
 Project runtime and installed proof remain pending.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
 connections and eventual retirement of Soda's remaining Cockpit presentation.
@@ -49,12 +50,14 @@ separates those results from the failed native-page attempt.
 ### Next step
 
 Complete [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
-after explicit approval to start the exact retained `sodaos-local-forgejo` container,
-without replacement/deletion. The attempted shared fixture failed before OAuth-app
-creation because localhost:3300 was unreachable; a read-only inventory found the
-container exited. It was not restarted. Reuse the existing native fixture/consumers,
-not the separate component-only shell, to establish actual HTML/CSP/chrome parity.
-This local browser-fixture grant is distinct from appliance/companion proof below.
+after repairing the local fixture's missing source bind mounts under an applicable
+grant. The user approved starting exact `sodaos-local-forgejo` without replacement or
+deletion. That start failed: both template and preview-asset mounts point into the
+previously removed `.artifacts/worktrees/combined-candidate-0f1d2b1/` checkout.
+The container remains exited; its data volume was not replaced or restored. Approval
+to regenerate only those two source directories and retry is pending. Reuse the
+existing native fixture/consumers, not the component-only shell, for acceptance.
+The local browser-fixture grant is distinct from appliance/companion proof below.
 Project automation remains Stage 4; Cockpit Tailnet stays source/installed fallback.
 
 The separate [native proof proposal](tailnet-integration-plan.md#remaining-native-proof-proposal)
@@ -72,9 +75,10 @@ configuration changes.
 - **Authorized:** routine local source implementation, builds and tests for selected
   work, including existing local fixtures within their approved scope.
 - **Tailnet:** the user selected Stage 3 UI/parity source work and local checks.
-  Source/component checks are complete; native-page acceptance is blocked. Approval
-  to start the exact stopped local browser fixture was requested, not granted.
-  Stage 1/2 grants are complete. No enrollment, networking/capability changes,
+  Source/component checks are complete; native-page acceptance is blocked. The user
+  approved starting exact `sodaos-local-forgejo` and running the checks, without
+  replacement/deletion. Start failed on deleted source bind mounts; regenerating
+  those directories is not yet approved. Stage 1/2 grants are complete. No enrollment, networking/capability changes,
   other fixture lifecycle, deployment or installed Tailnet removal is authorized.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
@@ -161,8 +165,9 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
   remain. Check the recorded owner/deadline before separately authorized reuse;
   no current liveness is asserted. See the [isolated proof receipt](implementation-history.md#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed).
 - **Local browser fixture:** `sodaos-local-forgejo`, `localhost:3300`, volume
-  `soda-pages-0f1d2b1-data`. Stage-3 read-only inspection found it exited; no start or
-  replacement was performed. Preserve accounts/repositories, OAuth state and private
+  `soda-pages-0f1d2b1-data`. The authorized Stage-3 start attempt failed on missing
+  template/preview source bind mounts in the deleted combined-candidate worktree.
+  Exact container `0634b216624c` remains exited; no replacement was performed. Preserve accounts/repositories, OAuth state and private
   inputs. `.local/screenshot-fixture/create-output.txt` is the retained regular
   credential file, not a symlink. Follow the [screenshot guide](screenshot-capture.md)
   for login; do not recreate the fixture or expose credentials to repair access.
@@ -172,6 +177,7 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
 
 | Evidence | Location |
 | --- | --- |
+| Tailnet stage-3 authorized fixture-start failure and narrow mount inventory | `.artifacts/tailnet-stage3-acceptance/` |
 | Tailnet stage-3 source/component checks and failed native-page attempt | `.artifacts/tailnet-stage3-XEzD7o/`; `.artifacts/pages-FcP3af/` |
 | Tailnet stage-2 local source checks and failed/corrected attempts | `.artifacts/tailnet-stage2-O5WkS5/` |
 | Tailnet stage-1 research, synthetic probes and receipt | `.artifacts/tailnet-stage1-G8Rnza/`; preceding research `.artifacts/tailnet-enrollment-TDPVW1/` |
@@ -190,7 +196,8 @@ reorganization does not authorize cleanup or re-execution.
 Implemented Stage-3 UI source and bounded emitted-component parity; updated the
 native page, API and feature owners. TypeScript/Lit, frontend, selected Forgejo,
 Tailnet Go, nativebuild source, locale and existing Cockpit tests passed. Receipt:
-`.artifacts/tailnet-stage3-XEzD7o/`. Actual native-page acceptance remains blocked as
-above; no fixture restart, appliance contact/migration, real Tailnet credential/device
-work, native bundle build or installed change occurred. Both retained targets remain
+`.artifacts/tailnet-stage3-XEzD7o/`. The subsequently authorized exact fixture start
+failed on missing source mounts; evidence is in `.artifacts/tailnet-stage3-acceptance/`.
+No successful fixture start or new native-page run, appliance contact/migration,
+real Tailnet credential/device work, native bundle build or installed change occurred. Both retained targets remain
 v9; native runtime proof and installed retirement stay separately gated.
