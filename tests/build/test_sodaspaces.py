@@ -165,6 +165,10 @@ class SodaspacesPackaging(unittest.TestCase):
             self.assertFalse((brand / 'login-background-light.svg').exists())
             self.assertFalse((brand / 'soda-symbol.svg').exists())
             self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
+            logo = stage / 'usr/local/share/soda/fastfetch/sodaos.txt'
+            self.assertEqual(logo.read_bytes(), (ROOT / 'assets/branding/terminal/sodaos.txt').read_bytes())
+            self.assertIn('/usr/local/share/soda/fastfetch/sodaos.txt', (stage / 'etc/fastfetch/config.jsonc').read_text())
+            self.assertFalse((stage / 'usr/share').exists())
             for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
