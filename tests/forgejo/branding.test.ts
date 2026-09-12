@@ -20,7 +20,7 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
   'public/assets/soda/source/soda-symbol-brutalist-dark.svg',
  ];
  for(const size of ['mobile','tablet','desktop']) for(const mode of ['day','night'])
-  approvedImages.push(`public/assets/soda/forgejo/backgrounds/${size}-${mode}.webp`);
+  approvedImages.push(`public/assets/soda/forgejo/backgrounds/subway-${size}-${mode}.webp`);
  assert.deepEqual(Object.keys(payload).filter(path=>/\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(path)).sort(),approvedImages.sort(),'only the six brand images and six welcome backgrounds may be delivered');
  const imageSources=await readdir(new URL('assets/branding/forgejo/',root));
  assert(!imageSources.some(name=>name.includes('papercraft')||name.endsWith('-prompt.md')||name.endsWith('-prompts.md')),'retired artwork or prompt sheet returned');

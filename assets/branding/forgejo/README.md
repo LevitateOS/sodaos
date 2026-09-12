@@ -16,7 +16,7 @@ canonical exports; they are not separate artwork. The native symbol/core remains
 open, with a red outer plate and contrasting middle plate.
 
 The delivery manifest is `internal/nativebuild/forgejo-payload.json`. Its source
-test rejects extra branding images. `build:preview` removes unlisted top-level
+test rejects extra delivered branding images. `build:preview` removes unlisted top-level
 images from its generated Soda image directories after successful staging; native
 icons and uploaded content are outside that cleanup.
 
@@ -31,7 +31,7 @@ images remain. The functional `theme-preview.html` uses the native canonical log
 See [redesign status](../../../docs/forgejo-redesign-status.md) for live/component
 review evidence and [branding review](../../../docs/branding-review.md) for tools.
 
-The public front page uses the website’s six approved soda-bar WebPs: mobile,
+The public front page uses the six approved subway WebPs: mobile,
 tablet and desktop, each in day/night. They live in `backgrounds/`; its README
 records provenance. The native page and footer form one centered opaque frame.
 Other pages do not request or display these backgrounds.

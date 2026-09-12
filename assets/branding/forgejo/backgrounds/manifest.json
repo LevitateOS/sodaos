@@ -1,0 +1,72 @@
+{
+  "generator": "OpenAI built-in image generation",
+  "exportCommand": "cwebp -q 86 -mt MASTER -o EXPORT",
+  "images": [
+    {
+      "size": "mobile",
+      "exposure": "day",
+      "master": "masters/mobile-day.png",
+      "export": "subway-mobile-day.webp",
+      "width": 941,
+      "height": 1672,
+      "masterSha256": "8ebc22ac4b17616afdc3d550d1d838d40eab6b8800a52191435f8cb4619cb91a",
+      "exportSha256": "29f96d700e31c420f88af6821b468ff67bc1bddcf4b7222db098429aa4fde10f",
+      "bytes": 233804
+    },
+    {
+      "size": "mobile",
+      "exposure": "night",
+      "master": "masters/mobile-night.png",
+      "export": "subway-mobile-night.webp",
+      "width": 941,
+      "height": 1672,
+      "masterSha256": "669890fc17c9fd0bacd1551b88f51aa6d0162f23b3d4ce4e4a052dc34dd0e715",
+      "exportSha256": "d66951a450d9e19dda2638573ee2fed4a4752e6ede6328fa56d49247b4a0b2a3",
+      "bytes": 155894
+    },
+    {
+      "size": "tablet",
+      "exposure": "day",
+      "master": "masters/tablet-day.png",
+      "export": "subway-tablet-day.webp",
+      "width": 1086,
+      "height": 1448,
+      "masterSha256": "ef832e54d14d2a4e683b83287b7f5f20a906ecbc591de4e71e16df793b192476",
+      "exportSha256": "64918797e3987ef234ff58a5bb244d655d83fc08ca40746b7328dccf7980f30f",
+      "bytes": 274838
+    },
+    {
+      "size": "tablet",
+      "exposure": "night",
+      "master": "masters/tablet-night.png",
+      "export": "subway-tablet-night.webp",
+      "width": 1086,
+      "height": 1448,
+      "masterSha256": "1bd2faad7b27ac434332b34722a08cc2dd85e3202f2fe4160b48c2feb9b29e17",
+      "exportSha256": "8e59988d7f70d8606fa769bea11c137dc26f78ee3ca977ad8d5b420b1ffea44a",
+      "bytes": 171396
+    },
+    {
+      "size": "desktop",
+      "exposure": "day",
+      "master": "masters/desktop-day.png",
+      "export": "subway-desktop-day.webp",
+      "width": 1672,
+      "height": 941,
+      "masterSha256": "c6d4ddbbff2b4bc934c020cf5f9a0cae8b3522f7ba703dcfc954ef34e2df703a",
+      "exportSha256": "3678cb965aa0b081afff5fe2fff8dcbd01e2e2996b842efeb9b4097e9db27c24",
+      "bytes": 248520
+    },
+    {
+      "size": "desktop",
+      "exposure": "night",
+      "master": "masters/desktop-night.png",
+      "export": "subway-desktop-night.webp",
+      "width": 1672,
+      "height": 941,
+      "masterSha256": "4f89f7019ae2aa5b915b55f0b8a6d3f9c43741a653d253e585997781bdb836c8",
+      "exportSha256": "1e82ef885643e4a75d65dabe85daa29923919de69f21a4f724c29daf45b8e624",
+      "bytes": 160098
+    }
+  ]
+}

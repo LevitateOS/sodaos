@@ -1,16 +1,51 @@
 # Forgejo redesign status
 
-Updated 12 September 2026 in `/Users/vince/Projects/sodaos-forgejo-redesign`, branch `codex/forgejo-redesign`.
+Updated 12 September 2026 in `/Users/vince/Projects/sodaos`, branch `main`.
 
 ## Current workspace
 
 The owner moved ongoing work to the canonical `/Users/vince/Projects/sodaos`
-checkout on `main`. The deleted worktree is no longer the development workspace.
-The committed redesign through `bcf0fb1` is merged here, including the framed
-welcome page. The six uninstalled subway concepts are preserved under
-`.artifacts/subway-backgrounds/`; they remain previews. The running local
-container still uses surviving presentation mounts under the former directory;
-moving those runtime mounts is separate from this source recovery.
+checkout on `main`. The redesign through `bcf0fb1` was merged in `b81cab4`.
+The deleted worktree is no longer used for development or local presentation mounts.
+The six approved subway backgrounds are now source assets and are installed on
+localhost:3300.
+
+## Subway welcome background and canonical local delivery
+
+Six distinct WebPs replace the website's soda-bar photographs: mobile, tablet and
+desktop, each with day and artificially lit night variants. Approved PNG masters,
+export hashes and prompt summaries live in `assets/branding/forgejo/backgrounds/`.
+Only the active crop downloads; the six WebPs total 1,244,550 bytes. The welcome
+page retains its opaque centered frame and shared footer divider. Right anchoring
+preserves the vending machine, portrait desktop windows use the tablet composition,
+and mobile has space below the frame to reveal the foreground. The header requests
+`home.css?v=18-subway` to avoid stale cached presentation.
+
+The local container now mounts presentation files from
+`.artifacts/forgejo-delivery/2026-09-12-subway/`, using that directory's
+`compose.override.json` with `.artifacts/local-forgejo/compose.yaml`. Before the
+move, 253 templates and 108 available public files were copied and verified.
+A fresh stopped-state private backup of `/data/gitea` and `/data/git` is retained in
+`private-backup/` under the delivery directory. The same named data volume,
+loopback port and application configuration remain. Account, repository and issue
+counts match the backup.
+
+Fresh-browser checks exposed assets already missing after the worktree deletion.
+Missing runtime modules were rebuilt from the deployed historical revision;
+all 19 surviving modules matched that build byte-for-byte. Missing styles, symbols,
+locked terminal dependencies and native-theme import bridges were also restored.
+The exact revisions and paths are recorded in `restored-runtime-assets.json`;
+this recovery does not upgrade the running JavaScript to newer source behavior.
+
+Verification: all 14 live homepage theme/viewport combinations pass, including
+320–2560px widths and a tall 1716×1975 window, with opposite system preferences.
+Checks cover one matching image request, no failed resources or page errors,
+no horizontal overflow, an opaque centered frame and one footer divider.
+Both themes were also reviewed visually. All six served images and live home CSS
+match source bytes; the six retired image URLs return 404. Five branding/inventory
+checks, changed-test TypeScript checks and the preview build pass. Logs and the
+mount/data preservation receipt are retained in the canonical delivery directory.
+These checks cover the homepage and asset recovery, not authenticated workflows.
 
 ## Scope completed
 
@@ -57,7 +92,7 @@ font families, inverse labels, 2px framed uppercase actions and red selected-sta
 markers. The standalone Forgejo front page now uses the shared action owner too.
 The website retains photography/marketing scale; handbook content retains its
 sentence-case reading layout. Run the website's `bun run check:brand-parity
-../sodaos-forgejo-redesign` to compare the actual sources (no duplicate manifest).
+../sodaos` to compare the actual sources (no duplicate manifest).
 
 On 12 September the owner selected **localhost:3300** for delivery. The Mac
 container `sodaos-local-forgejo` was updated using its existing observed
@@ -96,9 +131,9 @@ bytes and native image aliases/icons still load. Public native browser checks,
 source contracts, Go checks, packaging checks and website parity pass.
 See `.artifacts/forgejo-image-cleanup/` for exact removal lists and receipts.
 
-## Framed public welcome page
+## Initial framed public welcome page (superseded photography)
 
-The public front page now places its native header, welcome content and footer
+The initial framed front page placed its native header, welcome content and footer
 inside one centered, opaque 2px frame over the website’s soda-bar photography.
 Mobile keeps 4% gutters; tablet uses 7%, desktop at least 12%, with a 1280px
 maximum panel. Short pages center vertically; taller content scrolls naturally.

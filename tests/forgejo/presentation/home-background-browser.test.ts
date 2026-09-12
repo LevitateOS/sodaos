@@ -1,24 +1,26 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {chromium} from 'playwright';
-const origin = 'http://localhost:8140';
-const enabled = process.env.SODA_FORGEJO_REVIEW_ORIGIN === origin;
+const origin = process.env.SODA_FORGEJO_REVIEW_ORIGIN;
+const enabled = origin === 'http://localhost:8140' || origin === 'http://localhost:3300';
+const live = origin === 'http://localhost:3300';
 
 test('welcome frame contains all content and selects one responsive background', {skip: !enabled}, async () => {
  const browser = await chromium.launch({channel: 'chrome', headless: true});
  try {
-  for (const theme of ['light', 'dark']) for (const width of [320, 390, 768, 1024, 1440, 2560]) {
-   const page = await browser.newPage({viewport: {width, height: 1000}, colorScheme: theme === 'light' ? 'dark' : 'light'});
+  for (const theme of ['light', 'dark']) for (const [width, height] of [[320,1000], [390,1000], [768,1000], [1024,1000], [1440,1000], [2560,1000], [1716,1975]] as const) {
+   const page = await browser.newPage({viewport: {width, height}, colorScheme: theme === 'light' ? 'dark' : 'light'});
    const failures: string[] = [], backgrounds: string[] = [];
    page.on('pageerror', error => failures.push(error.message));
    page.on('response', response => {
     if (response.status() >= 400) failures.push(response.url());
     if (response.url().includes('/backgrounds/')) backgrounds.push(response.url());
    });
-   await page.goto(`${origin}/home-${theme}.html`, {waitUntil: 'networkidle'});
+   if (live) await page.addInitScript(theme => localStorage.setItem('soda.login.theme:/', theme), theme);
+   await page.goto(live ? `${origin}/` : `${origin}/home-${theme}.html`, {waitUntil: 'networkidle'});
    await page.evaluate(() => document.fonts.ready);
-   const size = width < 768 ? 'mobile' : width < 1200 ? 'tablet' : 'desktop';
-   const image = `${size}-${theme === 'dark' ? 'night' : 'day'}.webp`;
+   const size = width < 768 ? 'mobile' : width < 1200 || width < height ? 'tablet' : 'desktop';
+   const image = `subway-${size}-${theme === 'dark' ? 'night' : 'day'}.webp`;
    assert.equal(backgrounds.length, 1, 'only the active background should download');
    assert(backgrounds[0]!.endsWith(image), image);
    const layout = await page.evaluate(() => {

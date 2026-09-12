@@ -50,8 +50,8 @@ body:has(.soda-home) footer a { color: var(--soda-guest-link); }
 /* The native full-height shell and footer form one opaque, centered frame.
    Keep native footer menus and links in place; only the guest welcome page opts in. */
 body:has(.soda-home) {
-  --soda-home-day: url("./backgrounds/mobile-day.webp");
-  --soda-home-night: url("./backgrounds/mobile-night.webp");
+  --soda-home-day: url("./backgrounds/subway-mobile-day.webp");
+  --soda-home-night: url("./backgrounds/subway-mobile-night.webp");
   --soda-home-background: var(--soda-home-day);
   box-sizing: border-box;
   position: relative;
@@ -61,14 +61,14 @@ body:has(.soda-home) {
   justify-content: center;
   min-height: 100svh;
   height: auto;
-  padding: 32px 4% 48px;
+  padding: 32px 4% max(48px, 35svh);
 }
 body:has(.soda-home)::before {
   content: "";
   position: fixed;
   z-index: -1;
   inset: 0;
-  background: #292929 var(--soda-home-background) center / cover no-repeat;
+  background: #292929 var(--soda-home-background) right center / cover no-repeat;
   pointer-events: none;
 }
 html[data-soda-login-theme="dark"] body:has(.soda-home) {
@@ -100,17 +100,23 @@ body:has(.soda-home) footer .ui.dropdown .menu {
 }
 @media (min-width: 48rem) {
   body:has(.soda-home) {
-    --soda-home-day: url("./backgrounds/tablet-day.webp");
-    --soda-home-night: url("./backgrounds/tablet-night.webp");
+    --soda-home-day: url("./backgrounds/subway-tablet-day.webp");
+    --soda-home-night: url("./backgrounds/subway-tablet-night.webp");
     padding: 48px 7% 64px;
   }
   body:has(.soda-home) footer { padding-inline: 32px; }
 }
 @media (min-width: 75rem) {
   body:has(.soda-home) {
-    --soda-home-day: url("./backgrounds/desktop-day.webp");
-    --soda-home-night: url("./backgrounds/desktop-night.webp");
     padding: 64px max(12%, calc((100% - 1280px) / 2));
+  }
+}
+/* Tall desktop windows use the portrait composition instead of cutting away
+   the vending machine. Right anchoring preserves its outer-edge placement. */
+@media (min-width: 75rem) and (min-aspect-ratio: 1/1) {
+  body:has(.soda-home) {
+    --soda-home-day: url("./backgrounds/subway-desktop-day.webp");
+    --soda-home-night: url("./backgrounds/subway-desktop-night.webp");
   }
 }
 @media print {
