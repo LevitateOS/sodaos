@@ -38,7 +38,8 @@ for file in /etc/cockpit/cockpit.conf /etc/pam.d/cockpit; do
   [[ $(stat -c '%u:%g:%a' "$file") == 0:0:644 ]]
   matchpathcon -V "$file"
 done
-for page in soda-runners soda-tailscale; do
+[[ ! -e /usr/local/share/cockpit/soda-runners && ! -L /usr/local/share/cockpit/soda-runners ]]
+for page in soda-tailscale; do
   [[ -r /usr/local/share/cockpit/$page/index.html ]]
   [[ -r /usr/local/share/cockpit/$page/manifest.json ]]
 done

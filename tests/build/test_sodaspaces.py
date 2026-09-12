@@ -137,8 +137,11 @@ class SodaspacesPackaging(unittest.TestCase):
                     (build / 'terminal-assets' / asset['file']).write_bytes(data)
                     asset['sha256'] = hashlib.sha256(data).hexdigest()
             lock_path.write_text(json.dumps(lock))
+            # Stale ignored build output must not resurrect the retired package.
             for page in ('tailscale', 'runners'):
-                (checkout / 'cockpit/dist' / f'soda-{page}').mkdir(parents=True)
+                folder = checkout / 'cockpit/dist' / f'soda-{page}'
+                folder.mkdir(parents=True)
+                (folder / 'index.html').write_text('synthetic Cockpit package')
             previous = os.umask(0o077)
             try:
                 with patch('sys.argv', ['stage.py', '--arch', 'x86_64']), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
@@ -146,6 +149,8 @@ class SodaspacesPackaging(unittest.TestCase):
             finally:
                 os.umask(previous)
             stage = build / 'rootfs'
+            self.assertFalse((stage / 'usr/local/share/cockpit/soda-runners').exists())
+            self.assertTrue((stage / 'usr/local/share/cockpit/soda-tailscale/index.html').is_file())
             self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
             for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)

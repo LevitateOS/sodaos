@@ -71,7 +71,9 @@ no standalone CLI. Preserve these driver contracts:
    exceptions, request bodies or provider responses. No screenshots/traces/network
    logs around credentials. No automatic retry or cleanup on an unconfirmed result.
 
-`operator.ts`/`operator.sh` and their existing Cockpit/Tailnet checks are unchanged.
+`operator.ts`/`operator.sh` retain root/Tailnet/CLI checks and now check retired
+runner navigation/package absence. Use their historical revision on targets that
+still retain the fallback; source retirement does not assert installed removal.
 They are not silently opted into registration, jobs or destructive checks.
 
 ## Exact private inputs and effect gates
@@ -293,28 +295,29 @@ On a changing/unavailable process or state read, preserve the failed receipt and
 perform only separately permitted fresh **reads**. Do not rerun the mutation to get
 clean evidence. The observer does not freeze jobs or guarantee atomic backups.
 
-### C. Installed caller overlap and a bounded cancellation failure
+### C. Installed CLI/native contention and a bounded cancellation failure
 
-The existing `sodaspaces.ts --runner-phase FILE` caller now authors two explicit
-phases for steps 1–2 and 4 below: `overlap` / `--allow-runner-overlap` and
-`departure` / `--allow-runner-departure`. Both require an idle running disposable
-listener and use one 20s lock hold plus one exact native-page Restart. Overlap also
-clicks one exact Cockpit Stop and runs one ordinary CLI list; departure navigates
-to native Issues only after the POST is observed, then returns/reloads without a
-new mutation permit. They never dispatch jobs, register, remove or reboot.
-`overlap` alone additionally requires `cockpit: {origin, password_file}` in the
-restricted input, with a distinct canonical HTTPS origin and that fixture's root
-password file. Trust its actual certificate in the new private browser home first;
-no TLS bypass/global trust or borrowed credentials. It reuses the operator login
-helper and opens only Runners, **not Tailnet or its advertisement effect**. The
-existing native-page actor/CSRF/one-shot guard remains in force. These new phase
-ports have local input/postcondition/type coverage; installed results belong in
-the leading handoff, not this procedure. The separate CLI waiter remains step 3.
+The original Cockpit/web/CLI `overlap` case is historical pre-retirement proof at
+`19824ec`; see the [record](implementation-history.md#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed).
+It is no longer an executable phase in current source. Its old permission and
+Cockpit credential fields are rejected, not repurposed for different effects.
 
-Use an idle disposable runner, with the native page and Cockpit already connected
-through their real operator logins. The full phase driver performs preflight reads,
-so do not start it behind an intentionally held lock and mistake preflight timeout
-for mutation contention. This case uses the prepared native UIs and the root CLI.
+The existing `sodaspaces.ts --runner-phase FILE` driver owns `contention` /
+`--allow-runner-contention` and `departure` / `--allow-runner-departure`.
+Both require an idle running disposable listener, one 20s lock hold and one exact
+native-page Restart. Contention also sends one exact-ID root CLI Stop on stdin
+and one ordinary CLI list through pinned SSH. Departure navigates to native Issues
+only after the POST is observed, then returns/reloads without a new mutation permit.
+Neither phase dispatches jobs, registers, removes or reboots. The shared native
+login, actor/CSRF guard and one-shot web permit remain unchanged. CLI Stop needs
+its explicit contention grant; no Cockpit package or second login is invoked.
+The new CLI/native combination needs separately approved installed execution;
+historical overlap is evidence for unchanged locking, not a run of this driver.
+
+Use an idle disposable runner and the connected native page. The full phase
+driver performs preflight reads, so do not start it behind an intentionally held
+lock and mistake preflight timeout for mutation contention. The independent
+cancelled CLI waiter remains step 3.
 
 1. In root SSH session A, verify the existing lock is a root-owned mode-0600 regular
    file (no link). After explicit lock-hold approval, run:
@@ -328,8 +331,8 @@ for mutation contention. This case uses the prepared native UIs and the root CLI
    Use a separate SSH session for contenders, so they cannot inherit the holder's
    lock descriptor. The holder releases normally after 20 seconds; do not kill
    unknown processes or leave an unbounded operator-owned lock.
-2. During that interval, click exact-ID Restart once in the native page and Stop
-   once in Cockpit, with both actions expressly approved. In session B request an
+2. During that interval, click exact-ID Restart once in the native page and send
+   one exact-ID CLI Stop, with both actions expressly approved. In session B request an
    ordinary CLI read, retaining its timing/status privately:
 
    ```sh
@@ -337,8 +340,8 @@ for mutation contention. This case uses the prepared native UIs and the root CLI
    ```
 
    Neither a read nor mutation may finish through the held lock. After release,
-   require bounded completion through the shared native owner, compare both UIs
-   and native observations, and record which final enabled/active state resulted.
+   require bounded completion through the shared native owner, compare the native
+   page and CLI observations, and record which final enabled/active state resulted.
    Do not assert a predetermined winner. No registration/deletion/job occurs here.
 3. Independently repeat a **cancelled CLI waiter**, without competing mutations:
    create a mode-0600 file containing `{"id":"probe-one"}` in the run's restricted

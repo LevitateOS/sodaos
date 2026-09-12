@@ -7,10 +7,10 @@ individual Linux accounts on the host.
 **Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
 button/environment drawer, without adding a new tab. Both standalone Soda frontends (React and Go/HTMX) are
 removed. The protected Go environment/access API, OAuth, native provisioning and
-separate Cockpit Tailnet/Runners pages remain. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
+Cockpit Tailnet and native Forgejo Runners remain. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
 
-The isolated `soda-test` guest now serves native Forgejo/Sodaspaces with schema v5;
-all four retained project roots are preserved. Bounded native x86_64 first-product
+The handoff records installed revisions, schemas, preserved roots and which
+targets still retain the Cockpit Runners fallback. Bounded native x86_64 first-product
 proof is accepted, not final product, fresh-install or aarch64 acceptance. See
 [current work](docs/sodaspaces-plan.md), [handoff/evidence](docs/implementation-status.md)
 and [local access](docs/local-testing.md). This is not a ready-to-deploy release.
@@ -19,7 +19,7 @@ and [local access](docs/local-testing.md). This is not a ready-to-deploy release
 
 ```text
 Fedora CoreOS host — operator administration only
-├── Native Cockpit + Tailnet/Runners, tailscaled, project helper and CI runners
+├── Native Cockpit + Tailnet, tailscaled, project helper and CI runners
 └── Podman
     ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
     ├── Soda Go API/OAuth service — separate SQLite/grants

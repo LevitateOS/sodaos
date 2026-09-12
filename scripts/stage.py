@@ -28,7 +28,7 @@ for command in (source / 'cmd').iterdir():
 for unit in (source / 'appliance/services').iterdir():
     folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
     copy(unit, f'{folder}/{unit.name}', 0o644)
-for page in ['tailscale', 'runners']:
+for page in ['tailscale']:
     shutil.copytree(source / 'cockpit/dist' / f'soda-{page}', stage / 'usr/local/share/cockpit' / f'soda-{page}')
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',

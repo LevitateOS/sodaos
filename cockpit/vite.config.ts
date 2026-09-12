@@ -3,7 +3,7 @@ import { licenses } from "./build/licenses.ts";
 import { defineConfig } from "vite-plus";
 import { resolve } from "node:path";
 
-const pages = ["tailscale", "runners"] as const;
+const pages = ["tailscale"] as const;
 export default defineConfig({
   base: "./",
   resolve: {

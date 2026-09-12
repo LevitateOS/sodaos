@@ -36,6 +36,10 @@ refresh and diagnostics/provider guidance. Applicable isolated mutation evidence
 can cover unchanged mechanisms; do not create or destroy retained capacity merely
 to fill a matrix. Missing applicable evidence keeps the fallback in place.
 
+The step-6 source review is recorded in the
+[parity coverage map](implementation-history.md#step-6--source-retirement-parity-review).
+Installed removal remains a separate per-target outcome in the handoff.
+
 Then make one coordinated source-removal candidate:
 
 - Remove `cockpit/soda-runners/` and runner-only React presentation/store/transport

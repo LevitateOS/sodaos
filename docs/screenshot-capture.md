@@ -9,9 +9,9 @@ Adapted from `soda-os`'s handbook capture rules, not its old page list or releas
 **Linux builder distinction:** the authorized step-3 fixture now also exists on
 this computer at localhost:3300, in `sodaos-local-forgejo` with named volume
 `soda-pages-0f1d2b1-data`. It is separate from the Mac fixture. Its own restricted
-credential input is retained under
-`.artifacts/worktrees/combined-candidate-2cdc238/.local/screenshot-fixture/create-output.txt`.
-The same fixture's original input remains in the `0f1d2b1` worktree. No manual
+credential input is retained at the path in the
+[current handoff](implementation-status.md#retained-fixtures-and-evidence).
+Historical worktree paths are not current credential locations. No manual
 screenshot profile was created on this builder; the page harness's private browser
 state is not a replacement manual-login profile. Use the leading handoff for exact
 mounts/setup and preserve all state. Do not borrow the Mac's credential or assume
@@ -163,7 +163,7 @@ Use a fresh private evidence directory under `.artifacts/`; publish selected ima
 | Soda Projects | Real environment list and native provisioning/error state |
 | Soda project detail | Explicit join or joined account, actual project IP and SSH guidance; no invented DNS route |
 | Project terminal | Alice/Bob identity and matching shared install paths, without secrets or fabricated output |
-| Cockpit | Stock operator navigation with Tailnet/Runners; no old Projects/People/Updates pages |
+| Cockpit | Stock operator navigation with Tailnet; Runners fallback only on unretired targets recorded in the handoff; no old Projects/People/Updates pages |
 | Tailnet | Connected native state/addresses and relevant preference; authentication URL and sensitive peers hidden |
 | Runners | Disposable local capacity and native service state, with no registration token |
 | Forgejo repository | Native repository view and actual clone control |

@@ -18,10 +18,12 @@ class NativeStage(unittest.TestCase):
             self.assertTrue(p.is_file(), str(p))
             self.assertTrue(p.stat().st_mode & 0o111, str(p))
         self.assertFalse((self.root / 'usr/local/libexec/soda/soda-runner-helper').exists())
-        for name in ['soda-runners', 'soda-tailscale']:
+        for name in ['soda-tailscale']:
             folder = self.root / 'usr/local/share/cockpit' / name
             self.assertTrue((folder / 'index.html').is_file())
             self.assertTrue((folder / 'manifest.json').is_file())
+        retired = self.root / 'usr/local/share/cockpit/soda-runners'
+        self.assertFalse(retired.exists() or retired.is_symlink())
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-updates').exists())
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-projects').exists())
 

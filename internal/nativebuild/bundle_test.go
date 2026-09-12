@@ -20,7 +20,7 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container",
 		"rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket",
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
-		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html",
+		"rootfs/usr/local/share/cockpit/soda-tailscale/index.html",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
 		"inputs/package.json", "inputs/cockpit-package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
@@ -129,7 +129,7 @@ func TestBundleAllowlistIntegrityAndNoOverwrite(t *testing.T) {
 	}
 }
 func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
-	for _, name := range []string{"rootfs/etc/soda/operator.key", "rootfs/usr/local/libexec/soda/soda-artifacts", "rootfs/etc/soda/oauth-secret", "rootfs/etc/soda/admin-token", "rootfs/etc/soda/grant-key", "rootfs/etc/soda/dashboard.json", "rootfs/etc/private/credentials", "rootfs/etc/soda/unknown-input"} {
+	for _, name := range []string{"rootfs/etc/soda/operator.key", "rootfs/usr/local/libexec/soda/soda-artifacts", "rootfs/etc/soda/oauth-secret", "rootfs/etc/soda/admin-token", "rootfs/etc/soda/grant-key", "rootfs/etc/soda/dashboard.json", "rootfs/etc/private/credentials", "rootfs/etc/soda/unknown-input", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "rootfs/usr/local/share/cockpit/soda-runners/assets/old.js"} {
 		root := fixtureBundle(t)
 		p := filepath.Join(root, name)
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
@@ -143,7 +143,7 @@ func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
 		}
 	}
 	root := fixtureBundle(t)
-	if err := os.Remove(filepath.Join(root, "rootfs/usr/local/share/cockpit/soda-runners/index.html")); err != nil {
+	if err := os.Remove(filepath.Join(root, "rootfs/usr/local/share/cockpit/soda-tailscale/index.html")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tree(root); err == nil {

@@ -14,6 +14,51 @@ not claims that those outputs are still retained.
 
 ---
 
+## Step 6 — source retirement parity review
+
+The user requested step 6 after being told source retirement and installed removal
+are separate approvals. Source removal/build/check is selected; no retained-target
+removal, service/VM lifecycle, provider mutation or cleanup is authorized.
+
+Reviewed Cockpit's `RunnersPage`, runner store/UI/protocol tests and their actual
+imports against native owners. The following coverage supports source retirement
+for the delivered `19824ec` baseline on `soda-test` and
+`soda-native-spaces-658f2af`, not an assertion of installed removal:
+
+| Former Cockpit responsibility | Retained owner and applicable checks |
+| --- | --- |
+| Local counts, one-slot capacity, service/boot state, unavailable inventory | `frontend/runners/soda-runners-page.ts` and `soda-runner-response.ts`; `tests/frontend/runners.test.ts` response/populated/stale cases; `internal/runners` exact-count and whole-list-failure tests. Step-5 native operator/denied reads passed on both targets (empty inventories). |
+| Fixed Forgejo registration, token clearing, provider authority and public links | Native registration/field/public-origin/browser-secret tests; added pending and synchronous-failure cases. CLI `command_test.go`, coordinator strict-input/root-before-read tests and native token-file tests retain transport/security coverage. Isolated registration and successful trusted job retain their original revision-scoped proof. |
+| Start/Stop/Restart and exact-ID Remove, boot/destructive warnings | Native browser lifecycle/confirmation/keyboard tests now explicitly assert each effect and whitespace refusal. Native lifecycle and staged-Remove tests remain. Isolated idle/active/reboot and exact Remove/provider-history evidence applies to unchanged production mechanisms. Native confirmation is stricter than former direct Cockpit lifecycle buttons. |
+| Busy/duplicate actions, success with failed readback, retained creation failure, uncertainty | Added native pending duplicate-dispatch/failed-readback and retained-registration-failure tests. Existing uncertainty/refresh and late-reply/departure tests preserve independent operation notices and no replay. Native staged creation/Remove failure tests remain; sanitized web diagnostics intentionally do not expose native output. |
+| Refresh, departure/disconnect, instance ownership and diagnostics/provider guidance | Existing native actor/session/generation, pagehide, logout, remount and BFCache tests; provider/host-execution guidance remains in native UI and public runner guide. Root CLI plus Cockpit Services/Logs remain diagnostic owners. Actual step-4 departure and step-5 authentication/history evidence is retained. |
+
+`git diff 19824ec -- frontend/runners internal/runners internal/host/runners.go
+internal/web/runners.go appliance/services/soda-runner@.service` was empty before
+this candidate. No new runner implementation replaces those mechanisms. The
+[isolated composition record](#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed)
+retains each job/lifecycle case's actual revision; the
+[step-5 delivery record](#step-5--bounded-retained-delivery-completed-on-both-targets)
+records bounded target authentication/preservation acceptance. No unresolved
+runner/authentication/preservation defect is recorded at that delivered scope.
+Broader release, aarch64 and client-route limits are not relabelled as parity proof.
+
+Removed only the Cockpit runner package, entry/page, runner-specific components,
+store/transport/UI and their superseded tests. Import audit found `CodeValue` and
+`ConfirmationField` runner-only; they are removed too. Tailnet still imports the
+shared page template, diagnostics, external links, Zustand, PatternFly tables and
+React. Those owners/dependencies, stock Cockpit, runner backend/CLI/launch/service,
+accounts and provider templates are preserved. Staging ignores stale retired dist
+output; the bundle verifier rejects that package, including old assets.
+
+The old `overlap` phase remains historical proof, not current executable coverage.
+The same installed driver now offers separately gated `contention`: native Restart,
+root CLI Stop and CLI List, without a Cockpit package or copied login harness.
+Old overlap grants/Cockpit inputs are rejected. Local input/postcondition tests do
+not claim this revised driver ran installed. The operator journey retains root,
+Tailnet advertisement permission, CLI and logout checks, and checks retired
+navigation plus ordinary systemd/journal access. No target was contacted.
+
 ## Process correction — do not turn execution history into mandatory work
 
 Step 5's excessive broad investigations/suite reruns, overly broad empty-ExecIDs gate,

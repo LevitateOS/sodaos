@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// P11 only: existing root Cockpit/Tailnet/Runners, no dashboard/user fixtures.
+// P11 only: root Cockpit/Tailnet and retained CLI, no dashboard/user fixtures.
 // Opening Tailnet can invoke its existing Forgejo advertisement refresh effect.
 import assert from 'node:assert/strict';
 import type {} from '../../cockpit/src/cockpit/types.ts';
@@ -7,8 +7,8 @@ import { lstat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type {Page} from 'playwright';
 
-// Shared native login, also used by the bounded runner-overlap journey. Merely
-// seeing the Tailnet navigation link does not open its effectful package.
+// Native root login. Merely seeing the Tailnet navigation link does not open
+// its effectful package.
 export async function loginOperator(page: Page, origin: string, password: string) {
   await page.goto(origin + '/');
   await page.locator('#login-user-input').fill('root');
@@ -101,19 +101,31 @@ try {
   assert.equal(typeof native.wantRunning, 'boolean');
   console.log('Native root Cockpit session read Tailnet status/preferences with its native SELinux transition. No enrollment/exit-node/route action was requested.');
 
-  stage = 'Runners native read path';
-  const runners = await openOperatorPackage(page, 'Runners', 'soda-runners');
-  const summary = await runners.evaluate(async () => {
+  stage = 'retired Runners navigation and ordinary administration';
+  assert.equal(await page.getByRole('link', {name: 'Runners', exact: true}).count(), 0);
+  await page.getByRole('link', {name: 'Services', exact: true}).waitFor();
+  await page.getByRole('link', {name: 'Logs', exact: true}).waitFor();
+  const ordinary = await tailnet.evaluate(async () => {
+    const c = window.cockpit;
+    return {
+      host: (await c.spawn(['systemctl', 'show', 'soda-host.service', '--property=LoadState', '--value'], {err:'message'})).trim(),
+      logs: (await c.spawn(['journalctl', '--quiet', '--no-pager', '--lines=0'], {err:'message'})).trim(),
+    };
+  });
+  assert.equal(ordinary.host, 'loaded');
+  assert.equal(ordinary.logs, '');
+  stage = 'retained root runner CLI read path';
+  const summary = await tailnet.evaluate(async () => {
     const raw = await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners', 'list'], { err: 'message' }).input('{}\n');
     const data: unknown = JSON.parse(raw);
     if (!data || typeof data !== 'object' || !('runner_count' in data) || !('active_listeners' in data) || !('total_capacity' in data)) throw new Error('Invalid runner capacity response');
     return { count: data.runner_count, listeners: data.active_listeners, capacity: data.total_capacity };
   });
   assert(Object.values(summary).every(Number.isInteger));
-  console.log('Native Cockpit runner list/capacity read completed. Registration/lifecycle/trusted provider jobs remain separate.');
-  assert.equal(await runners.evaluate(script => window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during retained page effects');
+  console.log('Root CLI capacity, ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
+  assert.equal(await tailnet.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during retained page effects');
   stage = 'Cockpit sign-out';
-  await runners.evaluate(() => window.cockpit.logout(true));
+  await tailnet.evaluate(() => window.cockpit.logout(true));
   await page.locator('#login-user-input').waitFor({ state: 'visible' });
   assert(!interrupted);
 } catch (error) {

@@ -16,8 +16,8 @@ bun run build:preview # local Forgejo branding mount
 bun run screenshot --help
 ```
 
-`build` compiles and minifies the Forgejo browser assets and the two Cockpit
-pages. It does not install an appliance or build a standalone dashboard. `test`
+`build` compiles and minifies the Forgejo browser assets and the Cockpit
+Tailnet page. It does not install an appliance or build a standalone dashboard. `test`
 prepares locked terminal assets and emitted Forgejo modules once, then runs the
 frontend, native Forgejo page fixtures, drawer layout, Forgejo and Cockpit suites.
 The page group requires the authorized local Forgejo fixture at `localhost:3300`

@@ -59,9 +59,11 @@ func allowedPayload(p string) bool {
 			return true
 		}
 	}
-	// Retired React output is not a valid payload for new Soda bundles.
-	if p == "rootfs/usr/local/share/soda/dashboard" || strings.HasPrefix(p, "rootfs/usr/local/share/soda/dashboard/") {
-		return false
+	// Retired presentation output is not a valid payload for new Soda bundles.
+	for _, retired := range []string{"rootfs/usr/local/share/soda/dashboard", "rootfs/usr/local/share/cockpit/soda-runners"} {
+		if p == retired || strings.HasPrefix(p, retired+"/") {
+			return false
+		}
 	}
 	if p == "rootfs" || strings.HasPrefix(p, "rootfs/") {
 		if p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") {
@@ -163,7 +165,7 @@ func tree(root string) (map[string]File, error) {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
 		entry, ok := result[required]
 		if !ok || entry.SHA256 == "" {
 			return nil, fmt.Errorf("missing core/support payload: %s", required)

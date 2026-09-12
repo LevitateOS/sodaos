@@ -24,7 +24,7 @@ function snapshot(present=true, stopped=false, start='42'): RunnerState {
 
 test('contention accepts either serialized winner, but departure never invents acknowledgement',()=>{
   const before=snapshot(), restarted=snapshot(true,false,'43'), stopped=snapshot(true,true);
-  const overlap={...input('restart'),phase:'overlap' as const};
+  const overlap={...input('restart'),phase:'contention' as const};
   const departure={...input('restart'),phase:'departure' as const};
   assert.equal(verifyRunnerContention(overlap,before,restarted),'restart-last');
   assert.equal(verifyRunnerContention(overlap,before,stopped),'stop-last');

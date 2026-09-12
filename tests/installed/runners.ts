@@ -99,7 +99,7 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
       assert.deepEqual(evidence.after,before,'Read-only page changed observed runner state');
       evidence.outcome='confirmed'; return;
     }
-    if(input.phase === 'overlap' || input.phase === 'departure') {
+    if(input.phase === 'contention' || input.phase === 'departure') {
       await exerciseRunnerContention(operator,input,before,permit,evidence);
       return;
     }

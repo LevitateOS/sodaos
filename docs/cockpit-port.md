@@ -1,6 +1,8 @@
 # Operator Cockpit source port
 
-Only Tailnet/Tailscale and Runners are retained. Common PatternFly/Cockpit components, frontend tooling and their upstream licenses are copied from predecessor commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. Projects/People/Updates entrypoints are excluded. Dependency manifests/lockfile are retained. Native x86_64 bundles and source checks have now run; see [local testing](local-testing.md) for installed evidence and remaining gaps.
+Tailnet/Tailscale is the retained Soda Cockpit extension. Runners presentation is
+retired in source; its native Forgejo owner is `/?soda-view=runners`. Installed
+fallback removal is tracked separately in the [handoff](implementation-status.md). Common PatternFly/Cockpit components, frontend tooling and their upstream licenses are copied from predecessor commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. Projects/People/Updates entrypoints are excluded. Dependency manifests/lockfile are retained. Native x86_64 bundles and source checks have now run; see [local testing](local-testing.md) for installed evidence and remaining gaps.
 
 ## Native delivery candidate
 
@@ -14,4 +16,4 @@ Branding is installed under `/etc/cockpit/branding`, a native configuration bran
 
 The stock **Accounts** navigation entry is hidden with `/etc/cockpit/users.override.json`, using Cockpit's native [manifest override](https://docs.cockpit-project.org/cockpit-guide/latest/guide/packages.html#package-manifest-override) mechanism. It removes only `users.menu.index`: the upstream package, host accounts, native account tools and all other operator pages remain intact. This is navigation cleanup, not an authorization boundary. Soda people belong in the dashboard/Forgejo, and developer Linux accounts belong inside projects. Log out and back in if an existing Cockpit session still displays its cached Accounts entry.
 
-The retained pages still use the actual Cockpit bridge/native API. They are not replacements implemented in the Soda dashboard. On the installed target, verify root login, denial of non-operator host accounts, package discovery, command execution and branding separately from source completion.
+The retained Tailnet page still uses the actual Cockpit bridge/native API. It is not a replacement implemented in the Soda dashboard. On the installed target, verify root login, denial of non-operator host accounts, package discovery, command execution and branding separately from source completion.

@@ -195,7 +195,10 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 
 Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains product validation.
 
-Registration/start/stop/restart/remove use the **existing** `soda-runners` stdin protocol and Cockpit UI with separately approved IDs/provider grants. Retain actual provider run URL/attempt and job output, not merely listener status. `tests/fixtures/runner/native-support.yaml` is a manually selected trusted-job fixture, outside CI discovery; approve any copy/scheduling in the actual provider repository first. Choose the actual registered label. Record registration removal, service/account cleanup and provider leftovers explicitly. Never dump registrations, runner credentials, container environments or entire provider responses.
+Registration/start/stop/restart/remove use native **Runners** at
+`/?soda-view=runners` and the existing root `soda-runners` stdin protocol with
+separately approved IDs/provider grants. The current operator journey checks
+Cockpit runner retirement; unretired targets retain their historical check revision. Retain actual provider run URL/attempt and job output, not merely listener status. `tests/fixtures/runner/native-support.yaml` is a manually selected trusted-job fixture, outside CI discovery; approve any copy/scheduling in the actual provider repository first. Choose the actual registered label. Record registration removal, service/account cleanup and provider leftovers explicitly. Never dump registrations, runner credentials, container environments or entire provider responses.
 
 Interactive console/native-branding reviews reuse the existing console welcome, opt-in branding renderer/tests and [capture rules](screenshot-capture.md). Do not call a quiet noninteractive check an interactive/visual pass. Browser/product/user/repository/shared-tool/workload/persistence tests remain at their core-owned entrypoints.
 

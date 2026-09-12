@@ -45,8 +45,10 @@ The active grant record is:
 - **No outstanding grant from the completed delivery** for another retained-target
   cutover/lifecycle, new native fixture, provider job/registration, network/trust/
   capability change, publishing/automatic CI or cleanup.
-- **Cockpit Runners retirement is not approved.** Keep its package, backing logic and
-  tests pending accepted replacement parity and separate removal scope/delivery approval.
+- **Step-6 source retirement/build/check is approved** by the user's request to do
+  step 6. The [parity review](implementation-history.md#step-6--source-retirement-parity-review)
+  covers the delivered baseline. Installed removal still requires explicit per-target
+  scope/delivery approval; both retained targets keep their fallback until then.
 - The isolated runner fixture's one reboot and exact `probe-one` removal grants were
   used. Its time-bounded VM hold is not a new lifecycle grant. The two-GET diagnostic
   authorization was also completed, not permission to reopen the listener.
@@ -55,9 +57,10 @@ The active grant record is:
 
 ## Remaining work
 
-1. **Native pages/Runners:** step 6 remains pending, without removal approval.
-   The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
-   is the sole owner of its parity, source-removal and delivery requirements.
+1. **Native pages/Runners:** step-6 source removal is implemented and focused local
+   checks pass; exact-revision native build/check/export remains in progress.
+   No installed retirement occurred. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+   owns remaining packaging rehearsal and explicit per-target removal delivery.
 2. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
    Access/error/profile-menu and CLI/provider combinations, intended-client routing,
    aarch64 and whole-product/release acceptance remain outside the bounded delivery
@@ -100,9 +103,15 @@ documentation does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Documentation only: distinguished scoped evidence and historical recommendations
-from current requirements; made the duplicate pre-native page-suite run optional
-without weakening the native gate. The history's process assessment names mistakes,
-not procedures to preserve; original execution receipts and review results remain.
-Checked source call paths, affected links/anchors, receipt preservation and
-`git diff --check`. No builds, application tests, target contact or native actions ran.
+Step-6 source candidate removes only Cockpit's runner presentation and updates
+staging/verifier, installed operator/CLI-native drivers and current operator journeys.
+Tailnet/React/PatternFly, native runner services/CLI/backend and provider state are
+preserved. Added native browser failure/busy/confirmation parity coverage; old
+Cockpit overlap inputs are rejected in favor of separately gated CLI/native contention.
+
+Passed local `bun run typecheck`, `bun run test:pages`, Cockpit tests, focused
+runner input/postcondition/operator-driver tests, affected Go packages and the
+synthetic staging suite (including stale runner dist exclusion). Logs:
+`.artifacts/step6-source/` and `.artifacts/step6-typecheck.log`.
+Native candidate build/check/export is next. No appliance/VM/provider action,
+installed removal or retained-state cleanup occurred.

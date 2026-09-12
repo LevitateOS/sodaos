@@ -125,10 +125,10 @@ Forgejo runner contract and its actual behavior.
 | Web authority and fixed API | `internal/web/runners.go` |
 | Shared OAuth/session persistence | Existing `internal/web` and `internal/store` owners; see the page and credential guides |
 | Root bridge and native runner state | `internal/host/runners.go`, `cmd/soda-host`, `cmd/soda-runners`, `internal/runners/` |
-| Shared Lit/Cockpit response protocol | `frontend/runners/soda-runner-types.d.ts`, `frontend/runners/soda-runner-response.ts` |
+| Native-page and installed-test response protocol | `frontend/runners/soda-runner-types.d.ts`, `frontend/runners/soda-runner-response.ts` |
 | Packaging | `internal/nativebuild/forgejo-payload.json`, `scripts/build-forgejo.ts`, `scripts/stage.py` |
 
-The CLI/Cockpit path requires real/effective root, rejects non-root original
+The root CLI path requires real/effective root, rejects non-root original
 `PKEXEC_UID` and verifies the native root account before operations. The separate
 web-to-helper authority path is specified below; a root CLI does not authorize a
 Forgejo web user.
@@ -165,7 +165,7 @@ or bookmark response is not authorization to read capacity or dispatch an operat
 The dashboard container runs as UID 2000 with no capabilities, a read-only root,
 and `NoNewPrivileges`; it cannot safely reuse the Cockpit coordinator by pretending
 to be native root or by adding a web-triggered polkit prompt. Preserve the current
-root-only `LinuxAuthorizer` for the CLI/Cockpit path. The fixed runner methods in the
+root-only `LinuxAuthorizer` for the CLI path. The fixed runner methods in the
 existing root:soda Unix-socket service reuse `internal/runners.Native` behind
 them. The web handler authorizes the configured Soda operator; the socket ACL admits
 the existing root service and dedicated Soda service group to the fixed native
@@ -180,9 +180,10 @@ origin in links. Only `provider=forgejo` is accepted. Reject every other provide
 before native dispatch; a saved unsupported provider makes inventory unavailable
 rather than being omitted or interpreted as Forgejo.
 
-Cockpit, the CLI and the native page reach the same state. The native lock covers
+The CLI and native page reach the same state; retained pre-retirement Cockpit
+clients also use that unchanged native owner. The native lock covers
 reads and all mutations, including the whole restart enable/restart sequence.
-A Lit busy button protects only one document and cannot prevent a Cockpit action, another tab,
+A Lit busy button protects only one document and cannot prevent a CLI action, another tab,
 or remove/start races. Reads during a partial mutation must return unavailable or a
 specific uncertain outcome, not a fabricated previous state.
 
@@ -237,7 +238,7 @@ from workflow usage. If later source adds locally recorded label metadata, it ne
 an explicitly backward-readable representation and an `unknown` legacy state;
 never rewrite retained descriptors merely to make the table look complete. Deploy
 any root protocol/helper and web consumer changes as a paired, version-compatible
-set while the old Cockpit/CLI path continues to work.
+set while the CLI and any retained pre-retirement Cockpit clients continue to work.
 
 Provider-side deletion or label edits can leave the local descriptor stale. That is
 an honest provider/local mismatch, not permission for background reconciliation.
@@ -284,8 +285,8 @@ owned by the page integration guide. The runner component additionally preserves
 Local runner tests own API admission before decode/native reads, strict requests,
 secret/public-origin projection, unsupported providers, cross-process serialization
 and cancellation-before-dispatch, whole-list failure and staged Remove/creation
-failures. Preserve legacy data and both consumers' response/confirmation behavior.
-The existing Go, browser and Cockpit tests remain with those production owners;
+failures. Preserve legacy data and the retained consumers' response/confirmation behavior.
+The existing Go and native-page browser tests remain with those production owners;
 use the [source-check guide](typescript.md#local-source-checks) for commands.
 
 The [runner native guide](runners-native-validation.md) owns exact provider jobs,

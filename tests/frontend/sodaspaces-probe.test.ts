@@ -8,7 +8,6 @@ import {mkdtemp, lstat, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {launchNativeBrowser} from '../installed/native-browser.ts';
-import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response.ts';
 
 const probe = await Bun.file(new URL('../installed/sodaspaces.ts', import.meta.url)).text();
 const transpiler = new Bun.Transpiler({loader: 'ts', target: 'bun'});
@@ -26,43 +25,27 @@ test('operator package handoff waits for the real rendered heading before native
   assert(from >= 0 && to > from);
   let ready: (()=>void) | undefined;
   const heading=new Promise<void>(resolve=>{ready=resolve;});
-  const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/soda-runners/index.html',
-    getByRole:(role: string, options: {name: string})=>{assert.equal(role,'heading'); assert.equal(options.name,'Runners'); return {waitFor:()=>heading};}};
+  const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/soda-tailscale/index.html',
+    getByRole:(role: string, options: {name: string})=>{assert.equal(role,'heading'); assert.equal(options.name,'Tailscale'); return {waitFor:()=>heading};}};
   const page={getByRole:()=>({click:async()=>{}}), waitForFunction:async()=>{}, frames:()=>[frame]};
-  const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Runners","soda-runners")',{assert,page,URL});
+  const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Tailscale","soda-tailscale")',{assert,page,URL});
   let returned=false; const completed=Promise.resolve(attempt).then(value=>{returned=true; return value;});
   await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(ready); ready();
   assert.equal(await completed,frame);
 });
 
-test('Cockpit CLI observation assimilates the native thenable inside the browser', async () => {
-  const source=await Bun.file(new URL('../installed/runners-contention.ts',import.meta.url)).text();
-  const from=source.indexOf('      const raw=await frame.evaluate('), to=source.indexOf('\n',from);
+test('remaining Cockpit origin observation assimilates its native thenable', async () => {
+  const source=await Bun.file(new URL('../installed/operator.ts',import.meta.url)).text();
+  const from=source.indexOf('  assert.equal(await tailnet.evaluate(async script =>'), to=source.indexOf('\n',from);
   assert(from > 0 && to > from);
-  const frame={async evaluate(callback: ()=>unknown) {
-    const value=callback();
-    assert.equal(Object.prototype.toString.call(value),'[object Promise]','Playwright requires a browser Promise, not the native Cockpit thenable');
+  const tailnet={async evaluate(callback: (script: string)=>unknown, script: string) {
+    const value=callback(script);
+    assert.equal(Object.prototype.toString.call(value),'[object Promise]');
     return await value;
   }};
-  const window={cockpit:{spawn:()=>({input:()=>({then:(resolve: (value: string)=>void)=>resolve('synthetic stdout')})})}};
-  const value=await runInNewContext('(async()=>{'+source.slice(from,to)+'\nreturn raw;})()',{frame,window});
-  assert.equal(value,'synthetic stdout');
-});
-
-test('Cockpit comparison applies only the documented private registration URL projection', async () => {
-  const source=await Bun.file(new URL('../installed/runners-contention.ts',import.meta.url)).text();
-  const from=source.indexOf('      const cliInventory='), to=source.indexOf("      evidence.stage='Cockpit refreshed native row'",from);
-  assert(from > 0 && to > from);
-  const inventory={forgejo_url:'https://public.invalid',runner_count:1,active_listeners:1,total_capacity:1,runners:[
-    {id:'one',provider:'forgejo',registration_url:'https://public.invalid',account:'soda-runner-one',architecture:'x86-64',version:'fixture',capacity:1,service:{load:'loaded',active:'active',sub:'running',enabled:'enabled'}}]};
-  for(const changed of [false,true]) {
-    const cli=structuredClone(inventory), row=cli.runners[0]; assert(row);
-    row.registration_url='https://private.invalid'; if(changed) row.service.enabled='disabled';
-    // JSON parsing in the executed source creates its realm's own objects.
-    const scope={assert,raw:JSON.stringify(cli),after:{inventory},input:{origin:inventory.forgejo_url},decodeRunnerResponse,JSON};
-    if(changed) assert.throws(()=>runInNewContext(source.slice(from,to),scope));
-    else runInNewContext(source.slice(from,to),scope);
-  }
+  const window={cockpit:{spawn:()=>({then:(resolve: (value: string)=>void)=>resolve('synthetic origins')})}};
+  await runInNewContext('(async()=>{'+source.slice(from,to)+'})()',
+    {assert,tailnet,window,originProbe:'synthetic probe',before:{origins:'synthetic origins'}});
 });
 
 test('native coordinated logout requires both Soda and Forgejo response contracts', async () => {

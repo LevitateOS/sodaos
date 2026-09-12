@@ -106,7 +106,7 @@ async function releaseFetch(page: Page) {
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }
 
-test('runner response shares Cockpit one-slot validation', () => {
+test('runner response enforces native one-slot validation', () => {
   assert.throws(() => decodeRunnerResponse('list', {runners: [], runner_count: 1, active_listeners: 0, total_capacity: 0}));
   assert.throws(() => decodeRunnerResponse('remove', {ok: false}));
   assert.throws(() => decodeRunnerResponse('list', {runners: [], runner_count: 0, active_listeners: -1, total_capacity: 0}));
@@ -125,6 +125,17 @@ test('native HTML and emitted Lit register Forgejo and confirm exact lifecycle t
   assert(!await page.evaluate(() => document.documentElement.outerHTML.includes('synthetic-secret-never-store') || JSON.stringify(localStorage).includes('synthetic-secret-never-store') || JSON.stringify(sessionStorage).includes('synthetic-secret-never-store')));
   for (const action of ['start', 'stop', 'restart', 'remove']) {
     await page.getByRole('button', {name: `${action} one`, exact: true}).click();
+    const warning = await page.getByRole('region', {name: 'Confirm runner operation'}).innerText();
+    const effects: Record<string, RegExp> = {
+      start: /enable host-boot start.*does not register or repair/,
+      stop: /disable host-boot start.*active job may be interrupted/,
+      restart: /Boot start will be enabled.*previously stopped/,
+      remove: /provider credentials, dependencies, work files and uncommitted job changes.*Provider registration and history remain/,
+    };
+    assert.match(warning, effects[action] ?? /unexpected action/);
+    await page.getByLabel('Exact runner ID').fill(' one');
+    await page.getByRole('button', {name: `Confirm ${action}`, exact: true}).click();
+    await page.getByText('Type the exact runner ID to confirm.').waitFor();
     await page.getByLabel('Exact runner ID').fill('wrong');
     await page.getByRole('button', {name: `Confirm ${action}`, exact: true}).click();
     await page.getByText('Type the exact runner ID to confirm.').waitFor();
@@ -136,6 +147,60 @@ test('native HTML and emitted Lit register Forgejo and confirm exact lifecycle t
   assert.equal(await page.getByRole('combobox').count(), 0);
   assert.equal(await page.locator('input[name=registration_url]').count(), 0);
   assert(state.sessionReads >= 10);
+});
+
+test('pending registration clears credentials, rejects duplicate dispatch and preserves confirmed operation with failed readback', browserCase, async t => {
+  const {page, state, mutations} = await runnersPage(t);
+  await registerDraft(page);
+  await pauseNextFetch(page, 'mutation');
+  await page.getByRole('button', {name: 'Register and start listener'}).click();
+  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'mutation');
+  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
+  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
+  assert(!await page.evaluate(() => document.documentElement.outerHTML.includes('synthetic-secret-never-store') || JSON.stringify(localStorage).includes('synthetic-secret-never-store') || JSON.stringify(sessionStorage).includes('synthetic-secret-never-store')));
+  // Direct form dispatch also cannot bypass the busy guard.
+  await page.locator('input[name=id]').evaluate(input => input.closest('form')?.dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true})));
+  state.failList = true;
+  await releaseFetch(page); await settled(page);
+  await page.getByText(/Native operation confirmed/).waitFor();
+  await page.getByText('Local refresh failed; shown observations are stale.').waitFor();
+  assert.equal(mutations.length, 0, 'only the intercepted request was sent');
+  state.failList = false; state.runners = [exampleRunner()];
+  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
+  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
+  await page.getByText(/Native operation confirmed/).waitFor();
+});
+
+test('failed registration refreshes retained capacity without erasing uncertainty or leaking diagnostics', browserCase, async t => {
+  const {page, state, mutations} = await runnersPage(t);
+  state.runners = [exampleRunner()]; state.mutationStatus = 502;
+  await registerDraft(page);
+  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
+  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
+  await page.getByText(/Operation unconfirmed:/).waitFor();
+  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
+  assert(!(await page.locator('body').innerText()).includes('must-not-render-native-secret'));
+  assert.equal(mutations.length, 1);
+  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
+  await page.getByText(/Operation unconfirmed:/).waitFor();
+  assert.equal(mutations.length, 1);
+});
+
+test('synchronous transport failure clears registration secrets and remains unconfirmed', browserCase, async t => {
+  const {page, mutations} = await runnersPage(t);
+  await registerDraft(page);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    window.fetch = Object.assign((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') throw Error('synthetic transport secret');
+      return original(input, init);
+    }, original);
+  });
+  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
+  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
+  await page.getByText(/Operation unconfirmed:/).waitFor();
+  assert(!(await page.locator('body').innerText()).includes('synthetic transport secret'));
+  assert.equal(mutations.length, 0);
 });
 
 test('Forgejo links use only the configured public origin and unsupported observations fail closed', browserCase, async t => {

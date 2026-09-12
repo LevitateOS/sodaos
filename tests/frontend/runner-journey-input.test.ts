@@ -34,26 +34,24 @@ test('actual native role expectations are explicit and read-only, never a weaker
   for (const roles of [null,{},[true,false],{operator:true},{operator:1,denied:false},{operator:true,denied:'false'},{...native_admins,token:'not-allowed'}]) {
     assert.throws(()=>runnerInput({...base(),native_admins:roles},'--allow-runner-list','runner-fixture'));
   }
-  for (const phase of ['register','start','stop','restart','remove','dispatch','job','overlap','departure']) {
-    const other = {...input,phase,...(phase === 'register' ? {registration} : {}),...(['dispatch','job'].includes(phase) ? {provider:{...provider,...(phase === 'job' ? {run_id:12} : {})}} : {}),...(phase === 'overlap' ? {cockpit:{origin:'https://cockpit.invalid',password_file:'/private/password'}} : {})};
+  for (const phase of ['register','start','stop','restart','remove','dispatch','job','contention','departure']) {
+    const other = {...input,phase,...(phase === 'register' ? {registration} : {}),...(['dispatch','job'].includes(phase) ? {provider:{...provider,...(phase === 'job' ? {run_id:12} : {})}} : {})};
     assert.throws(()=>runnerInput(other,'--allow-runner-'+phase,'runner-fixture'));
   }
   assert.throws(()=>runnerInput({...input,operator_id:input.denied_id},'--allow-runner-list','runner-fixture'));
 });
 
-test('contention cases have exact distinct grants and only overlap accepts Cockpit credentials', () => {
+test('CLI/native contention requires its new exact grant and refuses retired Cockpit inputs', () => {
   const cockpit={origin:'https://127.0.0.1:39090',password_file:'/private/operator-password'};
-  for(const phase of ['overlap','departure']) {
-    const value={...base(),phase,...(phase === 'overlap' ? {cockpit} : {})};
+  for(const phase of ['contention','departure']) {
+    const value={...base(),phase};
     assert.deepEqual(runnerInput(value,'--allow-runner-'+phase,'runner-fixture'),value);
-    for(const grant of ['restart','stop','list',phase === 'overlap' ? 'departure' : 'overlap']) assert.throws(()=>runnerInput(value,'--allow-runner-'+grant,'runner-fixture'));
+    for(const grant of ['restart','stop','list','overlap',phase === 'contention' ? 'departure' : 'contention']) assert.throws(()=>runnerInput(value,'--allow-runner-'+grant,'runner-fixture'));
     assert.throws(()=>runnerInput(value,'--allow-runner-'+phase,'other'));
     assert.throws(()=>runnerInput({...value,registration},'--allow-runner-'+phase,'runner-fixture'));
+    assert.throws(()=>runnerInput({...value,cockpit},'--allow-runner-'+phase,'runner-fixture'));
   }
-  assert.throws(()=>runnerInput({...base(),phase:'departure',cockpit},'--allow-runner-departure','runner-fixture'));
-  for(const extra of [{origin:base().origin},{origin:'http://127.0.0.1:39090'},{origin:'https://user:password@host'},{origin:'https://host/path'},{password_file:'relative'},{password:'secret'}]) {
-    assert.throws(()=>runnerInput({...base(),phase:'overlap',cockpit:{...cockpit,...extra}},'--allow-runner-overlap','runner-fixture'));
-  }
+  assert.throws(()=>runnerInput({...base(),phase:'overlap',cockpit},'--allow-runner-overlap','runner-fixture'));
 });
 
 test('runner scope refuses ambiguous identities, paths, retained targets and credential values', () => {

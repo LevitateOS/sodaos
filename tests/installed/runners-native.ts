@@ -122,7 +122,7 @@ export function verifyRunnerOperation(input: RunnerInput, before: RunnerState, a
 }
 
 export function verifyRunnerContention(input: RunnerInput, before: RunnerState, after: RunnerState) {
-  assert(input.phase === 'overlap' || input.phase === 'departure');
+  assert(input.phase === 'contention' || input.phase === 'departure');
   preserveRunnerBaseline(input,before,after);
   if(input.phase === 'departure') {
     const unchanged=JSON.stringify(after.inventory) === JSON.stringify(before.inventory) && JSON.stringify(after.states) === JSON.stringify(before.states) && JSON.stringify(after.processes) === JSON.stringify(before.processes);

@@ -58,7 +58,7 @@ try {
   assert(permission === '--allow-auth-transitions' && (extra.length === 0 ||
     (extra.length === 1 && ['--allow-environment-access', '--private-repository', '--allow-existing-terminal'].includes(extra[0] ?? '')) ||
     (extra.length === 2 && ['--allow-existing-management', '--allow-workspace-matrix'].includes(extra[0] || '')) ||
-    (extra.length === 3 && extra[0] === '--runner-phase' && /^--allow-runner-(list|register|start|stop|restart|remove|dispatch|job|overlap|departure)$/.test(extra[2] || ''))));
+    (extra.length === 3 && extra[0] === '--runner-phase' && /^--allow-runner-(list|register|start|stop|restart|remove|dispatch|job|contention|departure)$/.test(extra[2] || ''))));
   runnerMode = extra[0] === '--runner-phase';
   managementMode = extra[0] === '--allow-existing-management';
   matrixMode = extra[0] === '--allow-workspace-matrix';
@@ -374,7 +374,7 @@ try {
       stage='runner phase '+runnerRequest.phase;
       const permit=(actor: string, route: string, body: string) => {
         assert(!accessWrite && !interrupted && !refusedRequest && actor === runnerRequest.operator_id);
-        const action=['overlap','departure'].includes(runnerRequest.phase) ? 'restart' : runnerRequest.phase;
+        const action=['contention','departure'].includes(runnerRequest.phase) ? 'restart' : runnerRequest.phase;
         const expected='/api/settings/runners'+(action === 'register' ? '' : '/'+runnerRequest.runner_id+'/'+action);
         assert(['register','start','stop','restart','remove'].includes(action) && route === expected);
         accessWrite={actor,path:'/-/soda'+route,body,page}; // Preserve the exact serialized secret body; never log or reserialize it.
