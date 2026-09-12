@@ -115,7 +115,7 @@ class MediaConfiguration(unittest.TestCase):
         self.assertEqual(loader['mode'], 0o755)
         self.assertTrue(all(set(f['contents']) == {'inline'} for f in files.values()))
         self.assertEqual(files['/etc/motd']['contents']['inline'].splitlines()[0], 'canonical-artwork')
-        self.assertEqual({f['path'] for f in files.values() if f.get('overwrite')}, {'/etc/motd', '/etc/os-release'})
+        self.assertEqual({f['path'] for f in files.values() if f.get('overwrite')}, {'/etc/motd'})
         self.assertIs(files['/etc/motd']['overwrite'], True)
         service = config['systemd']['units'][0]['contents']
         self.assertIn('ExecStart=/usr/local/libexec/soda/load-install-console ' + 'a' * 64, service)
@@ -123,8 +123,9 @@ class MediaConfiguration(unittest.TestCase):
         self.assertIn('StandardError=tty', service)
         self.assertIn('Type=idle', service)
         self.assertIn('PrivateMounts=yes', service)
-        self.assertIn('PRETTY_NAME="SodaOS"', files['/etc/os-release']['contents']['inline'])
-        self.assertNotIn('IMAGE_VERSION=', files['/etc/os-release']['contents']['inline'])
+        self.assertNotIn('/etc/os-release', raw)
+        self.assertNotIn('/usr/lib/os-release', raw)
+        self.assertIn('/var/usrlocal/share/icons/hicolor/scalable/apps/sodaos-icon.svg', files)
         self.assertIn('Restart=no', service)
         self.assertNotIn('coreos-installer install', service)
         self.assertIn({'name': 'getty@tty1.service', 'mask': True}, config['systemd']['units'])
@@ -240,7 +241,7 @@ class MediaConfiguration(unittest.TestCase):
             root = Path(directory).resolve()
             for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
                          'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
-                         'assets/branding/terminal/sodaos.txt', 'assets/branding/host/os-release',
+                         'assets/branding/terminal/sodaos.txt',
                          'assets/branding/source/soda-symbol.svg', 'LICENSE', 'NOTICE'):
                 dest = root / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -477,11 +478,14 @@ class ProductProvisioning(unittest.TestCase):
         data = self.module.public_config()
         base = json.loads((ROOT / 'appliance/provisioning/base.json').read_text())
         self.assertEqual(data['systemd'], base['systemd'])
-        self.assertEqual(data['storage']['files'][:-2], base['storage']['files'])
-        identity, icon = data['storage']['files'][-2:]
-        self.assertEqual(identity['path'], '/etc/os-release')
-        self.assertIs(identity['overwrite'], True)
-        self.assertEqual(identity['contents']['inline'], (ROOT / 'assets/branding/host/os-release').read_text())
+        self.assertEqual(data['storage']['files'][:-1], base['storage']['files'])
+        icon = data['storage']['files'][-1]
+        self.assertEqual(icon['path'], '/var/usrlocal/share/icons/hicolor/scalable/apps/sodaos-icon.svg')
+        # /etc/os-release takes precedence over /usr/lib/os-release; it does not
+        # inherit missing VERSION_ID/IMAGE_VERSION fields. Retain the vendor link
+        # across future OSTree updates rather than freezing today's version.
+        self.assertNotIn('/etc/os-release', json.dumps(data))
+        self.assertNotIn('/usr/lib/os-release', json.dumps(data))
         self.assertEqual(icon['contents']['inline'], (ROOT / 'assets/branding/source/soda-symbol.svg').read_text())
         self.assertNotIn('passwd', data)
         data['passwd'] = {'fixture': True}

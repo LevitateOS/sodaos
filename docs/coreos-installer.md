@@ -53,12 +53,17 @@ machine-readable boot-volume identifier and upstream attribution remain intact.
 
 The console uses the canonical artwork and clears boot output on startup; its
 systemd unit uses `Type=idle` to reduce status-message interleaving. Public live and
-destination provisioning share `assets/branding/host/os-release` and the canonical
-SVG icon. `/etc/os-release` supplies SodaOS display identity while retaining the
-Fedora/CoreOS compatibility IDs. It does not copy a stale base version: the Go
-installer validates the immutable `/usr/lib/os-release` and exact `IMAGE_VERSION`.
-The existing vendor `/etc/os-release` entry and live `/etc/motd` are explicitly
-replaced; other existing-file protections remain.
+destination provisioning share the canonical SVG icon, but leave the native
+`/etc/os-release` link and `/usr/lib/os-release` metadata intact. An `/etc` override
+replaces rather than inherits the vendor document: omitting `VERSION_ID` broke
+rpm-ostree Count Me, and copying today's version would become stale after an OS
+update. Do not use OS metadata as a display-only branding overlay or add a boot
+rewrite loop. The native OS field identifies Fedora/CoreOS; Soda branding belongs
+in the installer, console artwork and supported Cockpit hooks. The old
+`assets/branding/host/os-release` is retained provenance, not a provisioning input.
+The Go installer still validates immutable `/usr/lib/os-release` and exact
+`IMAGE_VERSION`. Only the live `/etc/motd` is explicitly replaced; other
+existing-file protections remain.
 
 **Installed-disk GRUB titles are not yet rebranded.** Selected OSTree 2026.3 derives
 BLS titles from `/usr/lib/os-release`, preferentially over `/etc/os-release`.

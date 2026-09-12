@@ -3,7 +3,10 @@
 All Soda custom pages are retired in the source candidate, including Tailnet and
 Runners. Their Forgejo owners are `/?soda-view=tailnet` and `/?soda-view=runners`.
 The custom workspace/build and unused React/PatternFly/Zustand dependencies are
-removed; `cockpit/vendor/` retains attribution and license provenance, not an app.
+removed, including the top-level `cockpit/` directory. Its attribution and upstream
+provenance now live in [`assets/branding/cockpit/provenance/`](../assets/branding/cockpit/provenance/README.md),
+not an app or staging input. Active branding remains in `assets/branding/cockpit/`;
+native service/security configuration and installed checks remain in their owners.
 Both installed fallbacks remain on the retained targets in the
 [handoff](implementation-status.md). Source removal is not installed retirement.
 
@@ -31,6 +34,32 @@ Cockpit version; shared palette imports alone do not prove visual alignment.
 “Stock” here removes all Soda extension pages, not root-only PAM/private access,
 native SELinux transitions, branding or the existing Accounts navigation policy.
 No native Cockpit package removal or security-policy reset is selected by the UI move.
+
+## Page recommendations
+
+These are recommendations, **not additional package installation/removal or a new
+navigation policy**. The fresh-VM inventory and metadata repair are recorded in the
+[receipt](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement).
+Keep Cockpit as root-only appliance administration and Forgejo as the project UI.
+
+| Native page | Recommendation | Boundary |
+| --- | --- | --- |
+| Overview | Keep | Host health, hardware, clock and intentional power controls. |
+| Logs | Keep | Native journal diagnostics, including real service failures; do not hide failures to clean up the UI. |
+| Storage | Keep | Appliance disks/filesystems and capacity. Avoid ad hoc changes to retained project roots or Soda-owned volumes. |
+| Networking | Keep | Native host interfaces/firewall. Tailnet settings stay in the dashboard; network changes can cut off operator access. |
+| Services | Keep | Native service/socket/timer inspection and deliberate maintenance; not a replacement project lifecycle UI. |
+| Software updates | Keep the native rpm-ostree page | Host deployments, updates and rollback; not PackageKit or a Soda application updater. |
+| Terminal | Keep | Root recovery/administration. Developer terminals stay inside Soda projects. |
+| Accounts | Keep the existing navigation hiding | Forgejo owns Soda identities; project Linux accounts remain project-local. Do not uninstall native account tools or treat hidden navigation as authorization. |
+| Metrics / hardware details | Keep accessible from Overview | No additional top-level navigation is needed. Recording/history depends on native capabilities and is not established by the presence of the page. |
+
+`base1`, shell, static, branding and issue assets are infrastructure, not extra
+product pages; leave them upstream-owned. Do not reintroduce custom Tailnet/Runners
+pages. Optional Podman, Virtual Machines, PackageKit Applications, diagnostic-report,
+kernel-dump or session-recording extensions are **not installed on this fixture**;
+do not add them by default. Review a concrete host-administration need before adding
+another control surface, storage/recording footprint or package dependency.
 
 ## Native delivery candidate
 

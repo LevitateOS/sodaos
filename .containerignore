@@ -1,7 +1,5 @@
 .git
 .local
-cockpit/node_modules
-cockpit/dist
 # Deny artifacts by default. Only the core's image build inputs are admitted.
 .artifacts/**
 !.artifacts/native

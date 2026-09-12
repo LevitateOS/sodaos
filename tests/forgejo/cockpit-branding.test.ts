@@ -10,6 +10,10 @@ test('Cockpit branding is independent of retired custom-page tooling and uses cu
   assert(!Object.values(manifest.scripts).some(command => command.includes('--cwd cockpit')));
   const staging = await Bun.file(new URL('scripts/stage.py', source)).text();
   assert(!staging.includes("shutil.copytree(source / 'cockpit/dist'"));
+  assert(!staging.includes("shutil.copytree(source / 'assets/branding/cockpit'"));
+  for (const name of ['LICENSES.txt', 'patternfly-MIT.txt', 'patternfly-react-MIT.txt', 'redhat-fonts-OFL.txt']) {
+    assert(await Bun.file(new URL('assets/branding/cockpit/provenance/' + name, source)).exists(), 'Retired attribution must remain preserved');
+  }
   const css = await Bun.file(new URL('assets/branding/cockpit/branding.css', source)).text();
   assert(css.includes('soda-symbol-brutalist.svg') && css.includes('soda-symbol-brutalist-dark.svg'));
   assert(css.includes('fonts/fonts.css') && css.includes('Barlow Condensed'));

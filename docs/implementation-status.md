@@ -156,6 +156,12 @@ Tailnet work.
   **2026-09-13 22:37 UTC**; disks/inputs remain afterward. This does not authorize
   real Tailscale enrollment, provider jobs, global client trust changes, cleanup,
   another start after the hold, or maintenance of older retained targets.
+- **Metadata repair / source workspace retirement:** the user requested the Count Me
+  fix on the fresh Tailnet VM and removal of the obsolete project `cockpit/`
+  directory. The exact OS override was backed up, the native link restored and
+  Count Me retried once successfully. The source directory was retired by relocating
+  provenance and archiving ignored outputs, not deleting their contents. This grant
+  is complete; no other target repair, package removal or cleanup is implied.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -171,7 +177,7 @@ Tailnet work.
 
 **`soda-native-tailnet-bb3a13c`**, custody `.artifacts/tailnet-vm-bb3a13c/`, is the
 new x86_64 access fixture. Base installation is the sealed `bb3a13c` export;
-`soda-host` alone was corrected from clean source `3cb7408`. The original bundle
+`soda-host` was corrected from clean source `3cb7408`. The original bundle
 and install marker are unchanged: this is an explicitly recorded helper correction,
 not a newly sealed full bundle. Schema v10, zero projects, original base service
 image IDs, six active service/socket units and enforcing SELinux were observed.
@@ -184,6 +190,16 @@ pending. Access/password-file/public-CA paths belong in
 [local testing](local-testing.md#fresh-tailnet-vm-access); failures, hashes and the
 precise limited verification scope are in the
 [fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
+
+The subsequent [OS metadata repair](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
+restored `/etc/os-release` to the vendor link after preserving the exact bad
+Soda override. Count Me now reads Fedora 44 metadata and completed both native
+requests successfully; its timer and historical logs remain. Provisioning source
+no longer overrides OS metadata. The top-level `cockpit/` directory is gone;
+tracked provenance is retained under `assets/branding/cockpit/provenance/`, and
+ignored outputs/dependency links are archived under
+`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`. Native package/navigation
+changes beyond the existing stock-only policy are recommendations, not applied.
 
 ## Installed state
 
@@ -302,9 +318,10 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-`3cb7408` fixes the actual upstream `HaveNodeKey,omitempty` first-boot status,
-with host/project malformed-value regressions and passing Tailnet/host/web race
-checks. The installed operator test now exercises stock Session → Log out rather
-than an iframe API call that leaves the shell disconnected. Native access and
-strict TypeScript/Lit checks passed; see the [fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
-No push, provider enrollment/job, older retained-target change or cleanup occurred.
+Provisioning now preserves upstream OS metadata; the fresh VM's actual Count Me
+failure was repaired and successfully retried. Obsolete `cockpit/` contents were
+preserved outside the retired top-level workspace. The
+[receipt](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
+records source/native checks and preservation; the [Cockpit guide](cockpit-port.md#page-recommendations)
+owns page recommendations. No older retained target, native package selection,
+Tailnet enrollment/provider job, project data or credentials changed. Nothing pushed.

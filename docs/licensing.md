@@ -55,7 +55,9 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   license-text refusal; the removed dashboard also used it. The custom Cockpit build
   is now retired, not a complete compliance finding for those historical bundles.
   Stock branding stages the current canonical font licenses independently; retained
-  vendor attribution is preserved.
+  vendor attribution is preserved in
+  [`assets/branding/cockpit/provenance/`](../assets/branding/cockpit/provenance/README.md)
+  after removing the retired top-level workspace.
 - Top-level license/NOTICE texts for all 13 modules named in Soda's go.mod were
   reviewed from exact-version caches: MIT/BSD and YAML's per-file MIT/Apache split
   plus NOTICE. This is not the full dependency graph or final binary closure.

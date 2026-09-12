@@ -14,6 +14,62 @@ not claims that those outputs are still retained.
 
 ---
 
+## Native OS metadata repair and Cockpit workspace retirement
+
+The user reported the fresh VM's `rpm-ostree-countme.service` failure, requested
+its repair, asked for Cockpit page recommendations and removal of the obsolete
+project directory. Scope remained `soda-native-tailnet-bb3a13c` and local source;
+older retained VMs/projects and native Cockpit package selection were untouched.
+Evidence: `.artifacts/cockpit-metadata-fix-Ace3yt/`.
+
+**Cause and repair:** the sparse Soda `/etc/os-release` replaced, rather than
+inherited, the native document. Missing `VERSION_ID` produced `fedora-` and
+`updates-released-f` metalinks and HTTP 404. The selected native `/usr/etc/os-release`
+provides `../usr/lib/os-release`, so no hardcoded version, custom updater or boot
+rewrite service was needed. The exact old regular root-owned override was checked
+against its source SHA-256, backed up under guest
+`/var/lib/soda-candidate-bb3a13c/os-release-repair/`, rechecked and atomically replaced
+with that native link. The observed vendor file was also preserved in the backup.
+
+One actual retry of the existing Count Me unit succeeded: Fedora Linux 44 user
+agent, `updates-released-f44` and `fedora-44` requests, **2/2 successful**, native
+`Result=success`, exit status 0. Inactive/dead afterward is normal for this oneshot.
+The unit/timer was not disabled, no reset-failed hid the result, and old journal
+entries remain. Both browser endpoints still returned trusted HTTPS 200; no
+Cockpit/dashboard restart or user-session termination was needed for this repair.
+
+**Source prevention:** shared live/destination provisioning no longer writes
+`/etc/os-release` or vendor metadata. It retains the canonical icon and presentation
+branding; the OS identity field truthfully names Fedora/CoreOS. The old sparse
+asset remains explicitly retired provenance, not an input. The
+[installer guide](coreos-installer.md#sodaos-branding) owns the corrected contract.
+This source change does not rebuild media or rewrite retained private Ignition,
+sealed bundles or older installed machines.
+
+**Directory retirement:** nine tracked upstream input/license/provenance files
+moved from `cockpit/vendor/` to `assets/branding/cockpit/provenance/`. They are not
+compiled or staged. Ignored `dist` and dependency-link entries moved to
+`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`; the empty top-level
+`cockpit/` was removed. An inventory verified all 122 original entry modes, file
+hashes and link text without following dependency links. The provenance README
+was then clarified, with its original retained separately. Obsolete ignore entries
+were removed. Canonical branding, source licenses, generated historical bundles,
+native CLIs/services and installed Cockpit pages remain preserved.
+
+**Checks:** 18 installer/provisioning tests, seven temporary-filesystem staging
+fixtures, two Cockpit branding tests, strict TypeScript/Lit, native Butane strict
+conversion, link/history preservation and whitespace checks passed. Converted
+public provisioning contains the icon and no OS metadata overwrite. An initial
+actual-stage test invocation without `SODA_STAGE` was refused before tests; the
+proper source staging fixtures were then selected, not reported as native bundle
+validation. A root `countme --help` probe was refused by its native unprivileged-user
+guard; the real unit ran under its unchanged native identity. Failures are retained.
+
+[Page recommendations](cockpit-port.md#page-recommendations) are based on the native
+manifest inventory; no additional pages, packages, hidden navigation or authority
+changes were applied. No Tailscale enrollment, provider runner/job, project mutation,
+reboot, network/trust reconfiguration or push occurred.
+
 ## Fresh Tailnet VM installation and access smoke
 
 The user explicitly approved a **separate x86_64 test VM and installation for
