@@ -208,6 +208,17 @@ func nativeObject(data []byte, out any, required ...string) error {
 	}
 	for _, key := range required {
 		value, ok := fields[key]
+		// Tailscale 1.102.4 ipnstate.Status marks HaveNodeKey omitempty:
+		// an absent field is false on a fresh, unenrolled daemon. Keep explicit
+		// null/type errors and case-aliased fields fail-closed.
+		if !ok && key == "HaveNodeKey" {
+			for name := range fields {
+				if strings.EqualFold(name, key) {
+					return ErrUnavailable
+				}
+			}
+			continue
+		}
 		if !ok || (bytes.Equal(value, []byte("null")) && key != "AdvertiseRoutes") {
 			return ErrUnavailable
 		}

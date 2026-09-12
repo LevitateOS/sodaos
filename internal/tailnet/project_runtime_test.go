@@ -130,6 +130,20 @@ func TestProjectRuntimeEnableCASAndNoImplicitRetarget(t *testing.T) {
 		t.Fatal("cancelled policy admitted")
 	}
 }
+func TestProjectStatusFreshDaemonOmitsFalseNodeKey(t *testing.T) {
+	data := []byte(`{"Version":"1.102.4","BackendState":"NeedsLogin"}`)
+	state, ips, dns, err := ProjectStatus(data, nil, RunBinding{})
+	if err != nil || state != "needs-login" || len(ips) != 0 || dns != "" {
+		t.Fatal("fresh project status", state, err)
+	}
+	for _, value := range []string{"null", `"false"`, "0"} {
+		data := []byte(`{"Version":"1.102.4","BackendState":"NeedsLogin","HaveNodeKey":` + value + `}`)
+		if _, _, _, err := ProjectStatus(data, nil, RunBinding{}); !errors.Is(err, ErrUnavailable) {
+			t.Fatal("malformed optional node key accepted", value, err)
+		}
+	}
+}
+
 func TestProjectStatusRequiresExactNetworkTagsAndNativePreferences(t *testing.T) {
 	binding := RunBinding{Enabled: true, Tailnet: "soda.example.test", Tags: []string{"tag:soda-project"}}
 	status := map[string]any{"Version": ManagementCLIRelease, "BackendState": "Running", "HaveNodeKey": true, "CurrentTailnet": map[string]string{"Name": binding.Tailnet}, "Self": map[string]any{"ID": "node-project-a", "Online": true, "DNSName": "project.soda.ts.net.", "TailscaleIPs": []string{"100.64.0.2"}, "Tags": binding.Tags}, "AuthURL": "private", "Health": []string{"private"}}
