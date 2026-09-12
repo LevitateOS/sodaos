@@ -66,15 +66,14 @@ entry from an expired/remembered session; raw root queries alone can lose that r
 
 The stylesheets use `AssetUrlPrefix` through the template and relative CSS imports.
 Guest pages use the shared light/dark palette; signed-in pages derive their
-appearance from Forgejo's native account theme. Below 900px the login illustration
-is hidden to prioritize signing in. The English
+appearance from Forgejo's native account theme. Sign-in uses the compact canonical symbol and a text-led layout. The English
 brand copy is authored here; native form labels retain Forgejo localization.
 No password-manager replacement, fake theme switch or unsupported sign-in option
 is added. Forgejo's native footer retains language/license access.
 
-The papercraft PNG is the user-approved original generated illustration, copied
-unchanged from `.artifacts/design/login-papercraft-v1.png`. Canonical logo artwork
-and the shared palette are reused unchanged. Fonts retain their family OFL notices.
+Only the canonical light/dark symbols and four raster exports are shipped as
+Soda branding. Retired illustrations and their prompt sheets were removed; Git
+history retains provenance. Fonts retain their family OFL notices.
 
 ## Scope and checks
 
@@ -265,7 +264,7 @@ visibility behavior were not newly exercised.
 `users-papercraft.png` depicts three distinct robot contributors; `orgs-papercraft.png`
 depicts a shared workshop and project handoff. Both were newly generated with the
 built-in image tool, retaining PNG alpha. Exact prompts are recorded in
-`assets/branding/forgejo/directory-art-prompts.md`. Local template reload and browser
+[historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/directory-art-prompts.md). Local template reload and browser
 inspection confirmed each directory references its own asset.
 
 ### Signed-in explorer parity
@@ -313,7 +312,7 @@ Organization contexts retain stock navigation and receive an organization greeti
 New custom copy is English pending the existing i18n follow-up.
 
 `dashboard-papercraft.png` is a newly generated supplemental asset; its exact
-prompt is in `assets/branding/forgejo/dashboard-art-prompt.md`.
+prompt is in [historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/dashboard-art-prompt.md).
 
 Local stock 15.0.7 template reload succeeded. Chrome checks covered the Vince
 empty feed, sidebar tab switching, light and auto/dark colors, native appearance
@@ -333,7 +332,7 @@ upstream-owned. The shared template now also applies the design to Pull requests
 heading, introduction and status icons.
 Shared page, toolbar and list components own the presentation; the former
 PR-only `issues.css` adapter was removed. Account theme state remains native. The two custom intro strings remain English. Artwork provenance
-and exact prompt are in `assets/branding/forgejo/issues-art-prompt.md`.
+and exact prompt are in [historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/issues-art-prompt.md).
 
 Local template reload and Chrome checks covered populated dark-mode rows,
 created-by/in-your-repositories switching (2/6 open issues), closed empty results,
@@ -375,7 +374,7 @@ and pagination were not newly exercised. No new fixtures or appliance deployment
 
 Milestone artwork/fixture follow-up (2026-09-08): dedicated generated steps/flag
 illustration now replaces the reused checklist image. Prompt and provenance:
-`assets/branding/forgejo/milestones-art-prompt.md`. User-authorized native API writes
+[historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/milestones-art-prompt.md). User-authorized native API writes
 added ten milestones and thirty linked issues within the existing three local
 fixture repositories. Browser confirmed 9 open / 2 closed milestones, 0/25/33/50/75/100%
 progress examples, overdue/upcoming/no-deadline states and empty milestone content.
@@ -389,7 +388,7 @@ customize the stock 15.0.7 wrappers. Keep notification IDs, sequence/data hooks
 and native forms intact: Forgejo refreshes the notification partial after actions.
 `notifications.css` supplies notification metadata, visible row actions and
 responsive row placement; shared toolbar/list/empty files own the common visuals. Dedicated artwork provenance lives
-in `assets/branding/forgejo/notifications-art-prompt.md`. Existing local fixtures
+in [historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/notifications-art-prompt.md). Existing local fixtures
 were used for read/unread and empty-state checks; original states were restored.
 
 ### New Repository
@@ -430,7 +429,7 @@ containers; repository action rows wrap on mobile without clipping dropdowns.
 Forms retain native handler URLs, security fields, permissions, state, scripts and
 semantic danger controls. Narrow auth grids explicitly clear native percentage
 padding before constraining width. Personal settings no longer render artwork or an introductory hero. Previously
-selected artwork remains attributed in `assets/branding/forgejo/settings-art-prompts.md`.
+selected artwork remains attributed in [historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/settings-art-prompts.md).
 
 `custom/soda/guest_theme` owns one presentation gate for the head script and native
 navbar toggle. Repository context uses `.Repository`, organization context uses

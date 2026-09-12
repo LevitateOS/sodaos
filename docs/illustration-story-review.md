@@ -35,7 +35,7 @@ they are not replacements for, or variants of, the papercraft mascot.
 
 ## Character and art direction
 
-Use [Dashboard](../assets/branding/forgejo/dashboard-papercraft.png) as the fixed
+Use [Dashboard](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/dashboard-papercraft.png) as the fixed
 character/material reference. Match its rounded cream helmet and fine seam, inset
 navy face, cyan oval eyes and small thin smile, cobalt ears with cyan centers,
 short cream body, navy joints/mittens/soles. Keep one design across multiple bots.
@@ -120,7 +120,7 @@ Integrated **16 narrative redesigns and three identity/interaction corrections**
 All other 59 tracked images, including the five retained active scenes, are
 byte-identical to the starting source. All 34 illustration hashes remain distinct. Exact scene
 prompts, reference choices, selected output filenames and rejected variants are in
-[story-art-prompts.md](../assets/branding/forgejo/story-art-prompts.md); older prompt
+[story-art-prompts.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/story-art-prompts.md); older prompt
 records now point to it. The first Wiki replacement was rejected for repeating New
 repository's triangular book silhouette; the accepted book hammock has a low U shape.
 

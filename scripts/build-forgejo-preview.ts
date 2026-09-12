@@ -1,7 +1,7 @@
 // Two projections of the canonical payload: the retained branding-only mount,
 // and the complete public tree needed by Spaces. Neither changes a live mount.
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir, readdir, unlink} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
 import payload from '../internal/nativebuild/forgejo-payload.json';
@@ -31,6 +31,20 @@ for (const [target, source] of Object.entries(payload)) {
     if (output === input) continue;
     await mkdir(dirname(output), {recursive: true});
     await Bun.write(output, Bun.file(input));
+  }
+}
+// These generated Soda image directories belong to the payload. Remove stale
+// top-level images after successful staging; never walk uploads or native icons.
+for (const [directory, prefix] of [
+  [out, 'public/assets/soda/forgejo/'],
+  [resolve(publicOut, 'assets/soda/forgejo'), 'public/assets/soda/forgejo/'],
+  [resolve(publicOut, 'assets/soda/source'), 'public/assets/soda/source/'],
+] as const) {
+  for (const file of await readdir(directory, {withFileTypes: true})) {
+    if (file.isFile() && /\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(file.name)
+      && !Object.hasOwn(payload, prefix + file.name)) {
+      await unlink(resolve(directory, file.name));
+    }
   }
 }
 console.log(`Generated preview branding: ${out}\nGenerated complete preview public tree: ${publicOut}\nNo live mount or service was changed.`);

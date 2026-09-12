@@ -356,7 +356,7 @@ Organization settings routes discovered in the native navbar (each still needs i
 
 ### Organization package registry — integrated, native verification pending
 
-- Appropriate in the existing compact introduction. Sorting packages onto a shared shelf distinguishes the team collection from personal package wrapping. [Exact prompts and provenance](../assets/branding/forgejo/organization-packages-art-prompt.md).
+- Appropriate in the existing compact introduction. Sorting packages onto a shared shelf distinguishes the team collection from personal package wrapping. [Exact prompts and provenance](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/organization-packages-art-prompt.md).
 - Initial RGB checkerboard rejected; built-in cutout correction produced visually inspected 1536×1024 RGBA with transparent corners. Only the organization branch's Artwork field changed; native owner navigation and shared list remain intact.
 - Focused offline `TestForgejoPackages` tests passed, including personal/organization owner branches.
 - Read-only `/api/v1/orgs?limit=20` returned an empty list. No organization fixture was created, so native desktop/mobile verification remains pending and this page is not marked Done. Proceeding to independent pages.
@@ -369,7 +369,7 @@ That record owns the 2026-09-10 layout and native navigation evidence; the artwo
 generation notes below remain historical.
 
 - Decision: appropriate in the existing intro; replace reused new-repository art with a distinct import/history scene.
-- Prompt and rationale: [migrate-art-prompt.md](../assets/branding/forgejo/migrate-art-prompt.md). Built-in image generator; fixed Dashboard/Notifications/New-repository references.
+- Prompt and rationale: [migrate-art-prompt.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/migrate-art-prompt.md). Built-in image generator; fixed Dashboard/Notifications/New-repository references.
 - Integration: only the existing `Artwork` filename changed; native provider controls/routes were preserved. PNG verified as 1536×1024 RGBA with transparent corners.
 - Local stock Forgejo template reload returned `Reloaded`. Focused offline `go test -count=1 -mod=readonly ./scripts -run TestForgejoOnboarding` passed.
 - Actual authorized screenshot-helper captures inspected: `.artifacts/screenshots/capture-LnR3TI/001.png` (1440×1000), `.artifacts/screenshots/capture-gYsMJg/001.png` (390×844). The new illustration displays cleanly on the fixture's light theme, stays within the mobile header, and does not cover provider controls. Baseline: `capture-QmgQHa/001.png`.
@@ -378,14 +378,14 @@ generation notes below remain historical.
 ### Repository fork
 
 - Decision: appropriate in the existing intro. Two notebooks connected by a branching ribbon show a new independent copy with a retained connection.
-- [Exact prompt/provenance](../assets/branding/forgejo/fork-art-prompt.md); selected transparent 1536×1024 PNG uses the same three style references as Migration and Settings.
+- [Exact prompt/provenance](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/fork-art-prompt.md); selected transparent 1536×1024 PNG uses the same three style references as Migration and Settings.
 - Only the existing Artwork filename changed. Focused offline `TestForgejoOnboarding` tests passed; local templates reloaded.
 - Actual `/repo/fork/23` screenshots inspected using the authorized fixture: `.artifacts/screenshots/capture-Ja64Ea/001.png` (1440×1000) and `capture-fK2bfz/001.png` (390×844). Art is contained, cream surfaces remain intact, and native ownership/source/name/visibility/branch controls remain visible without overlap. Baseline: `capture-SBm2fy/001.png`.
 - No fork submitted and no fixture/account preferences changed. Dark appearance and POST validation were not exercised.
 
 ### Not-found page (general and repository context)
 
-- Appropriate as a small decorative map/compass scene; it does not assert that a resource was deleted or exists behind a permission boundary. The native 404 heading, translated/custom explanation, conditional recovery link and version remain intact. [Exact prompt](../assets/branding/forgejo/not-found-art-prompt.md).
+- Appropriate as a small decorative map/compass scene; it does not assert that a resource was deleted or exists behind a permission boundary. The native 404 heading, translated/custom explanation, conditional recovery link and version remain intact. [Exact prompt](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/not-found-art-prompt.md).
 - Transparent RGBA 1536×1024 image; local status CSS limits display to 220px and 65% of the card. Empty alt text preserves the accessible diagnostic text.
 - Focused offline `TestForgejoStatus` tests passed, including escaped custom messages. Test context gained only the native asset-prefix function required by the decorative image.
 - Initial captures exposed cached status CSS and oversized artwork (`capture-bFddDz`, `capture-ziCjI7`); rejected. Bumped status.css to v3 and reloaded local templates.
@@ -394,7 +394,7 @@ generation notes below remain historical.
 
 ### Notification subscriptions
 
-- Appropriate in the existing intro. The robot bookmarks conversation cards, distinguishing followed discussions from inbox delivery. [Exact generation/correction prompts](../assets/branding/forgejo/subscriptions-art-prompt.md).
+- Appropriate in the existing intro. The robot bookmarks conversation cards, distinguishing followed discussions from inbox delivery. [Exact generation/correction prompts](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/subscriptions-art-prompt.md).
 - Initial RGB/checkerboard output rejected; one built-in cutout edit produced verified 1536×1024 RGBA with transparent corners. The existing `Status == 1` native branch selects the new asset; no native controls, filtering, list logic or status mutations changed.
 - Focused offline shared-page-boundary and notification-preview Go tests passed. Local templates reloaded.
 - Actual fixture screenshots inspected: `.artifacts/screenshots/capture-Pe7Zti/001.png` (1440×1000 subscriptions), `capture-MrHjH1/001.png` (390×844 subscriptions), and `capture-Pe7Zti/002.png` (Watching isolation check). The decorative scene is contained, native tabs/filters and truthful empty state remain. Watching still shows the original inbox art. Baseline `capture-fZfjV8/001.png`.
@@ -402,7 +402,7 @@ generation notes below remain historical.
 
 ### Watched repositories
 
-- Appropriate in the existing header. Binoculars and repository folders distinguish watching whole repositories from inbox messages and bookmarked discussions. [Exact prompt](../assets/branding/forgejo/watching-art-prompt.md).
+- Appropriate in the existing header. Binoculars and repository folders distinguish watching whole repositories from inbox messages and bookmarked discussions. [Exact prompt](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/watching-art-prompt.md).
 - Verified 1536×1024 RGBA with transparent corners. The shared template defaults to Watching artwork and retains its existing subscriptions-specific override; no native controls or watch records changed.
 - Focused offline shared presentation-boundary and notification-preview Go tests passed. Local templates reloaded.
 - Native screenshot-helper evidence inspected: `.artifacts/screenshots/capture-kRrPCS/001.png` (1440×1000 Watching), `capture-aNBSUP/001.png` (390×844 Watching), `capture-kRrPCS/002.png` (Subscriptions isolation check). Image, search and filter controls fit; the original truthful empty result remains. Baseline: `capture-Pe7Zti/002.png`.
@@ -417,7 +417,7 @@ generation notes below remain historical.
 
 ### Personal package registry
 
-- Appropriate in its dedicated compact introduction, distinct from basic profile tabs. A small wrapping scene identifies package publishing while the real owner avatar and native list remain separate. [Exact prompt](../assets/branding/forgejo/personal-packages-art-prompt.md).
+- Appropriate in its dedicated compact introduction, distinct from basic profile tabs. A small wrapping scene identifies package publishing while the real owner avatar and native list remain separate. [Exact prompt](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/personal-packages-art-prompt.md).
 - Selected 1536×1024 RGBA image with transparent corners; no alpha repair. Added Artwork only to the individual-owner branch of `user/overview/packages.tmpl`, retaining the organization branch and shared package renderer.
 - Focused offline `TestForgejoPackages` tests passed; local templates reloaded.
 - Native `/bob/-/packages` screenshot-helper captures inspected: `.artifacts/screenshots/capture-idaJqm/001.png` (1440×1000), `capture-xqKhxu/001.png` (390×844). The illustration fits the introduction without overlapping identity/navigation/text. Desktop shows the unchanged truthful empty registry and documentation link. Baseline `capture-4tPRwq/001.png`.
@@ -432,7 +432,7 @@ generation notes below remain historical.
 
 ### Personal registry settings illustration
 
-- [Exact prompts/provenance](../assets/branding/forgejo/settings-packages-art-prompt.md). Robot adjusts the gear on a package organizer, distinguishing maintenance from public registry publishing. Initial RGB output rejected; built-in correction yielded visually inspected 1536×1024 RGBA with transparent corners.
+- [Exact prompts/provenance](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/settings-packages-art-prompt.md). Robot adjusts the gear on a package organizer, distinguishing maintenance from public registry publishing. Initial RGB output rejected; built-in correction yielded visually inspected 1536×1024 RGBA with transparent corners.
 - Added the stock 15.0.7 personal settings landing template as an official override, changing only its layout call to supply artwork. The shared layout accepts that explicit input; existing artwork selection remains. Cleanup callers do not supply it, so they remain undecorated. Inventory now contains 204 overrides/helpers.
 - Focused offline `TestForgejoPackages` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed. Local templates reloaded.
 - Inspected native captures: `.artifacts/screenshots/capture-gzvM6u/001.png` (1440×1000 landing), `002.png` (add-cleanup isolation), and `capture-X8BBed/001.png` (390×844 landing). The image composites cleanly and fits beside the heading without overlap. Mobile settings navigation still precedes the form below the viewport. Baseline `capture-AyNtZk/001.png`.
@@ -448,7 +448,7 @@ generation notes below remain historical.
 ### Personal webhook list
 
 - Inspected native `user/settings/hooks.tmpl` and `hook_new.tmpl` via the running binary's embedded viewer, the shared provider-dispatch override and initial shared event controls. Personal new/edit forms retain provider identity, endpoint configuration and delivery history without decorative art. Other owners/providers remain pending; this does not close all shared webhook partial callers.
-- Generated a distinct endpoint-connection scene using the fixed references; [exact prompts/provenance](../assets/branding/forgejo/settings-webhooks-art-prompt.md). Initial RGB/checkerboard rejected; built-in correction produced visually inspected 1536×1024 RGBA with transparent corners.
+- Generated a distinct endpoint-connection scene using the fixed references; [exact prompts/provenance](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/settings-webhooks-art-prompt.md). Initial RGB/checkerboard rejected; built-in correction produced visually inspected 1536×1024 RGBA with transparent corners.
 - Added a stock personal list override, changing only its layout call to pass the existing explicit artwork input. Inventory now contains 205 overrides/helpers. Native list/actions remain unchanged.
 - Focused offline `TestForgejoWebhookPartialsRetain1507Source` and `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
 - Native captures inspected: `.artifacts/screenshots/capture-AsQZYE/001.png` (1440×1000 list), `002.png` (new Forgejo webhook form isolation), and `capture-86gUS7/001.png` (390×844 list). Art fits and composites cleanly; new form remains undecorated. Baselines `capture-v83uiR/{001,002}.png`.
@@ -456,7 +456,7 @@ generation notes below remain historical.
 
 ### Personal organization memberships
 
-- Read the complete native `user/settings/organization.tmpl` from the running stock binary. The introduction can carry a small membership-card scene while real organization avatars/names and leave controls remain in the list. [Exact prompt/provenance](../assets/branding/forgejo/settings-organizations-art-prompt.md).
+- Read the complete native `user/settings/organization.tmpl` from the running stock binary. The introduction can carry a small membership-card scene while real organization avatars/names and leave controls remain in the list. [Exact prompt/provenance](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/settings-organizations-art-prompt.md).
 - Selected 1536×1024 RGBA with transparent corners; visually inspected, no repair needed. New official override changes the layout call only. Direct line comparison confirmed all subsequent membership list, conditional create permission, pagination, empty state and leave-confirmation content matches stock. Inventory now has 206 overrides/helpers.
 - Focused offline `TestForgejoPagesComposeSharedPresentationWithNativeBoundaries` passed; local templates reloaded.
 - Native captures inspected: `.artifacts/screenshots/capture-3Mk8rM/001.png` (1440×1000) and `capture-rAjYlf/001.png` (390×844), baseline `capture-m6PFNf/001.png`. Image fits the introduction without overlapping text and preserves the truthful no-memberships result. Mobile navigation remains ahead of the list below the viewport.
@@ -597,11 +597,11 @@ generation notes below remain historical.
 
 ## Team creation and invitation assessment
 
-New-team creation gets its own member-card assembly scene, recorded in [new-team-art-prompt.md](../assets/branding/forgejo/new-team-art-prompt.md). The `PageIsOrgTeamsNew` branch supplies artwork to the existing intro; edit and protected Owners-team forms receive none. All repository scope, administrative/general access, unit permission matrix, disabled units, update/delete controls and native form markup remain intact. The source parity/parse test and shared presentation boundary test passed. Selected PNG was visually inspected and has RGBA transparency. Native organization screenshots remain pending; no organization or invitation was created. Invitation uses its real organization avatar and explicit join action without decorative art.
+New-team creation gets its own member-card assembly scene, recorded in [new-team-art-prompt.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/new-team-art-prompt.md). The `PageIsOrgTeamsNew` branch supplies artwork to the existing intro; edit and protected Owners-team forms receive none. All repository scope, administrative/general access, unit permission matrix, disabled units, update/delete controls and native form markup remain intact. The source parity/parse test and shared presentation boundary test passed. Selected PNG was visually inspected and has RGBA transparency. Native organization screenshots remain pending; no organization or invitation was created. Invitation uses its real organization avatar and explicit join action without decorative art.
 
 ## Personal/organization project workflow
 
-Creation uses a robot placing the first card on a paper planning board; exact prompt and transparency edit are in [new-project-art-prompt.md](../assets/branding/forgejo/new-project-art-prompt.md). Selected image is RGBA 1536×1024, alpha 0–254. Only the existing wrapper intro changes; shared title/description/template/card-preview fields and native form actions are untouched. `PageIsEditProjects` excludes art during editing. Personal native creation was inspected at 1440×1000 (`capture-4gebxg/001.png`) and 390×844 (`capture-HnZ2xF/001.png`), using the authorized fixture and `--scroll-top`; transparent composition is clean and the form remains reachable. Baseline creation is `capture-bepvu4/002.png`. No project was submitted. Organization creation and edit-state rendering remain pending existing accessible data.
+Creation uses a robot placing the first card on a paper planning board; exact prompt and transparency edit are in [new-project-art-prompt.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/new-project-art-prompt.md). Selected image is RGBA 1536×1024, alpha 0–254. Only the existing wrapper intro changes; shared title/description/template/card-preview fields and native form actions are untouched. `PageIsEditProjects` excludes art during editing. Personal native creation was inspected at 1440×1000 (`capture-4gebxg/001.png`) and 390×844 (`capture-HnZ2xF/001.png`), using the authorized fixture and `--scroll-top`; transparent composition is clean and the form remains reachable. Baseline creation is `capture-bepvu4/002.png`. No project was submitted. Organization creation and edit-state rendering remain pending existing accessible data.
 
 Personal empty project list was inspected at `capture-bepvu4/001.png`; organization/personal list source and full board source were reviewed, including write/archive gating, open/close/delete, sorting/search, authored descriptions, column colors/defaults, issue cards and dialogs. These operational pages need no additional illustration. Organization project context and shared presentation tests passed; `git diff --check` passed. Repository wrappers remain next.
 
@@ -609,7 +609,7 @@ Personal empty project list was inspected at `capture-bepvu4/001.png`; organizat
 
 Repository project wrappers were individually reviewed against the previously inspected full shared list/form/board partials. Caller search found the repository and personal/organization wrappers; all are now assessed. Repository list capture: `.artifacts/screenshots/capture-4u3Imx/001.png` (1440×1000, existing public Bob repository, non-writer empty state). Repository creation/edit and board decisions are source-based, with no project or permission mutation.
 
-Wiki welcome now replaces the decorative book icon with the distinct [wiki-welcome scene](../assets/branding/forgejo/wiki-welcome-art-prompt.md), RGBA 1536×1024, alpha 0–254. Scoped sizing replaces the obsolete icon styling. Native translated heading/description and `CanWriteWiki`/mirror gate are unchanged; the adjusted source parity test restores only this exact image substitution before checking the pinned upstream hash. `go test ./scripts -run TestForgejoRepositoryContent -count=1` passed. Templates reloaded locally. Desktop native capture: `capture-Mt5rd1/001.png`; mobile: `capture-jIRhpd/001.png` (390×844), inspected with clean transparency and readable native text. Baseline: `capture-6uTxx1/001.png`. Fixture is read-only for this repository, so the create-page button is correctly absent; writer rendering remains unobserved, with gate source preserved.
+Wiki welcome now replaces the decorative book icon with the distinct [wiki-welcome scene](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/wiki-welcome-art-prompt.md), RGBA 1536×1024, alpha 0–254. Scoped sizing replaces the obsolete icon styling. Native translated heading/description and `CanWriteWiki`/mirror gate are unchanged; the adjusted source parity test restores only this exact image substitution before checking the pinned upstream hash. `go test ./scripts -run TestForgejoRepositoryContent -count=1` passed. Templates reloaded locally. Desktop native capture: `capture-Mt5rd1/001.png`; mobile: `capture-jIRhpd/001.png` (390×844), inspected with clean transparency and readable native text. Baseline: `capture-6uTxx1/001.png`. Fixture is read-only for this repository, so the create-page button is correctly absent; writer rendering remains unobserved, with gate source preserved.
 
 ## Wiki content and release/tag assessment
 
@@ -695,7 +695,7 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 
 ### Public registration artwork
 
-- Generated `signup-papercraft.png`: the established cream cardstock robot opens a mint welcome folder with a blank page and small doorway symbol. Exact prompt and original output: [signup-prompt.md](../assets/branding/forgejo/signup-prompt.md). Selected unchanged, 1536×1024 RGBA with transparency.
+- Generated `signup-papercraft.png`: the established cream cardstock robot opens a mint welcome folder with a blank page and small doorway symbol. Exact prompt and original output: [signup-prompt.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/signup-prompt.md). Selected unchanged, 1536×1024 RGBA with transparency.
 - The standalone signup wrapper selects the image only when registration is enabled and account-linking mode is absent. Native fields, CAPTCHA, OAuth choices and disabled-registration explanation remain upstream-owned.
 - `go test ./scripts -run 'TestForgejoSecondaryAuth|TestForgejoPagesComposeSharedPresentationWithNativeBoundaries' -count=1` passed. Templates reloaded successfully.
 - Native guest captures inspected: `.artifacts/screenshots/capture-sQUJUE/001.png` (1440×1000) and `.artifacts/screenshots/capture-ZgJTAd/001.png` (390×844). Both display the disabled-registration explanation without artwork. Enabled rendering remains pending; registration was not enabled and no account was created.
@@ -704,7 +704,7 @@ Admin layout consolidation: all 18 local leaf callers and 15 additional stock ad
 ### Repository Actions artwork
 
 - Reviewed all six local Actions templates and their caller chain. Workflow selection/dispatch, populated or filtered run lists and the native JS detail mount remain free of decorative art. Only the no-workflows branch gains a distinct robot assembling workflow tiles.
-- Built-in generation retained unchanged as `assets/branding/forgejo/workflows-papercraft.png`, 1536×1024 RGBA, alpha range 0–254; visually inspected against the dashboard identity/material reference. Exact prompt/original path: [workflows-prompt.md](../assets/branding/forgejo/workflows-prompt.md).
+- Built-in generation retained unchanged as `assets/branding/forgejo/workflows-papercraft.png`, 1536×1024 RGBA, alpha range 0–254; visually inspected against the dashboard identity/material reference. Exact prompt/original path: [workflows-prompt.md](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/workflows-prompt.md).
 - Focused native-body parity and shared presentation tests passed; templates reloaded. Native capture `.artifacts/screenshots/capture-rxLOx6/001.png` shows 404 at `/bob/activity-field-notes/actions`, not the empty state. Rendering verification remains pending an accessible Actions page. No Actions configuration or workflow execution was changed.
 - Next: repository search, user code search and remaining unchecked pages/shared callers.
 

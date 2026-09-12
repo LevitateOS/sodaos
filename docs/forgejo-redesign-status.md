@@ -8,7 +8,7 @@ The full inventory of **253 Forgejo 15.0.7 overrides** uses the redesigned share
 
 - White/near-black surfaces, red filled actions, square controls and no decorative shadows. Barlow Condensed 800 headings, Barlow body text and IBM Plex Mono controls. Input/control borders and text roles meet the checked contrast thresholds.
 - Symbol-only navigation and sign-in branding: red outer plate, opposite-color middle plate, transparent core. Explicit light/dark and automatic theme selection retain native ownership. Updated SVG staging and generated favicon, logo PNG and black Apple touch icon.
-- Retired all robot/papercraft rendering and 24 image delivery entries. Original source images and provenance remain archived. Avatars, organization logos, repository content and native functional icons remain.
+- Retired all robot/papercraft rendering and 24 image delivery entries. Retired source images and prompt sheets are now removed; their provenance remains in Git history. Avatars, organization logos, repository content and native functional icons remain.
 - Text-only intros, restrained empty states, mobile-first creation/dashboard layouts, neutral information panels and readable selected buttons. Existing native status/diff/syntax colors remain separately owned.
 - The shared semantic palette also supplies the existing Soda-owned page/island consumers and Cockpit. Their native layout and behavior were not reimplemented.
 - Versioned entry styles and transitive font/palette imports; added the licensed Barlow Condensed font to the canonical payload. Native JavaScript graph revision and authorization/integration contracts are unchanged.
@@ -67,6 +67,24 @@ updated local instance. Website build, Storybook build, typecheck, unit checks,
 132 browser combinations and 163 internal links pass. Delivery logs and the
 preservation receipt are in the same ignored delivery directory. Component and
 repository-settings keyboard/no-JavaScript evidence remains in the refinement logs.
+
+## Retired image cleanup
+
+Removed 34 papercraft images, 29 obsolete prompt/review documents, the old artwork
+preview and two unused Forgejo wordmark masters. All 11 legacy SVG entries are
+removed from the Forgejo delivery manifest. Nine shared masters remain only for
+the still-active Cockpit/installer consumers, outside Forgejo's payload.
+
+The active localhost:3300 public tree was cleaned of its 24 stale papercraft PNGs
+and 11 legacy SVGs. The generated preview also prunes unlisted top-level Soda
+images on rebuild. No uploaded images, provider/interface icons, database or
+private backup was removed. Historical source-contract fixtures intentionally
+retain old filenames to verify native template preservation; these are not assets.
+
+All 35 retired local image URLs return 404; the six current images match source
+bytes and native image aliases/icons still load. Public native browser checks,
+source contracts, Go checks, packaging checks and website parity pass.
+See `.artifacts/forgejo-image-cleanup/` for exact removal lists and receipts.
 
 ## Remaining boundaries
 

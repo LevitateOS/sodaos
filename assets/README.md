@@ -1,21 +1,21 @@
 # Reusable Soda assets
 
-Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`). Artwork and color values are unchanged; stylesheet paths were adjusted for this layout. These are design resources, not an implementation of the old product architecture.
+Imported from `~/Projects/soda-os` (source HEAD `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`). That import is the historical baseline; Forgejo and terminal branding now use the brutalist offset-core symbol. These are design resources, not an implementation of the old product architecture.
 
 ## Inventory
 
 | Path | Contents |
 | --- | --- |
-| `branding/source/` | Nine canonical SVG logos and symbols: full-color, dark-background, white, navy, and black variants |
+| `branding/source/` | Canonical brutalist light/dark symbols plus shared legacy masters still consumed by Cockpit/installer |
 | `branding/soda-os-logo-concept-v3.png` | Approved visual reference |
 | `branding/web/` | Web favicons and Apple touch icon |
 | `branding/icons/hicolor/` | System icons from 16px to 512px |
 | `branding/installer/` | Raster logo variants, export manifest, and Anaconda CSS |
 | `branding/cockpit/` | Light/dark login backgrounds, ICO/PNG icons, offline preview, and Cockpit/PatternFly styles |
-| `branding/fonts/` | Self-hosted Fraunces, Barlow and IBM Plex Mono WOFF2 faces, CSS, exact-version provenance and OFL licenses |
-| `branding/forgejo/` | App/favicon exports, manifest, artwork preview, native component preview, and light/dark/automatic themes in `css/` |
+| `branding/fonts/` | Self-hosted Barlow Condensed, Barlow and IBM Plex Mono, plus retained Fraunces WOFF2 faces, CSS, exact-version provenance and OFL licenses |
+| `branding/forgejo/` | Four PNG exports, native theme review sheet, manifest and light/dark/automatic themes; no decorative artwork |
 | `branding/theme/palette.css` | Shared light/dark semantic color tokens and control ramps |
-| `branding/terminal/sodaos.txt` | Terminal wordmark |
+| `branding/terminal/sodaos.txt` | Canonical ASCII symbol; sibling fastfetch preset and plain MOTD |
 | `animated-wave-background/` | Animated SVG background with standalone HTML/CSS demo |
 
 Start with the SVG masters and `branding/theme/palette.css` for new UI work. The palette exposes mode-qualified tokens such as `--soda-light-canvas` and `--soda-dark-action`; it does not select a theme or define typography/spacing. Preserve the distinction between link and filled-action colors.
@@ -25,7 +25,6 @@ Start with the SVG masters and `branding/theme/palette.css` for new UI work. The
 Open these files directly in a browser:
 
 - `branding/cockpit/preview.html`
-- `branding/forgejo/preview.html`
 - `animated-wave-background/index.html`
 
 `branding/forgejo/theme-preview.html` is **not standalone**: it requires a matching Forgejo instance and its native CSS/image routes.
@@ -48,6 +47,6 @@ The READMEs in `branding/cockpit/` and `branding/theme/` retain original design 
 
 No application components, services, OS configuration, dependencies, caches, credentials, or build artifacts were imported. No standalone font files existed outside dependencies/build outputs; use the chosen frontend's fonts rather than copying vendored font infrastructure.
 
-Raster exports and manifests are retained unchanged. Forgejo-only regeneration/check source is now ported as `scripts/render-forgejo-branding.sh` and `tools/png-equal/`, together with `scripts/check-forgejo-branding.ts` for the native component sheet. See [branding review](../docs/branding-review.md); execution is held and no derivatives were regenerated. Other renderer source (`scripts/render-branding.*`, `scripts/render-installer-branding.sh`, `tools/render-cockpit-branding/`) remains in the predecessor; do not execute or modify that repository without separate authorization, or hand-edit derivative PNGs.
+Forgejo raster exports and manifest follow the current canonical symbol. Forgejo-only regeneration/check source is now ported as `scripts/render-forgejo-branding.sh` and `tools/png-equal/`, together with `scripts/check-forgejo-branding.ts` for the native component sheet. See [branding review](../docs/branding-review.md); current verification and deployment boundaries are recorded in the Forgejo redesign status. Other renderer source (`scripts/render-branding.*`, `scripts/render-installer-branding.sh`, `tools/render-cockpit-branding/`) remains in the predecessor; do not execute or modify that repository without separate authorization, or hand-edit derivative PNGs.
 
 See [branding usage](../docs/branding.md) for mark selection and constraints.

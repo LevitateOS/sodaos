@@ -1,12 +1,12 @@
-# Branding review — execution held
+# Branding review
 
-The Forgejo browser check, SVG-to-PNG renderer and pixel-comparison utility are adapted from `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`, with their focused tests. No rendering, browser execution, tests or artwork changes were performed during the port.
+The Forgejo browser check, SVG-to-PNG renderer and pixel-comparison utility are adapted from `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`, with their focused tests. That describes the historical port. Current brutalist assets and local verification are recorded in [Forgejo redesign status](forgejo-redesign-status.md); retired art survives only in Git history.
 
 ## Installed configuration
 
 `appliance/config/forgejo.env` carries the predecessor's app metadata, stock/accessibility theme choices and static-cache revalidation setting into the container deployment. It does not bring over the old PAM identity, host paths, fixed ports, package restrictions or generated secrets. The selected Forgejo 15.0.7 environment-to-INI source supports the empty/default section (`FORGEJO____APP_NAME`) and escaped section dot (`ui_0x2E_meta`). Setup still owns browser/SSH configuration; existing installations are not silently migrated by this source edit.
 
-Staging supplies the canonical symbols at Forgejo's native `/assets/img/` paths and relocates the palette imports consistently. The application keeps its native diff, error and ANSI colors. These remain unvalidated installed assumptions.
+Staging supplies the canonical symbols at Forgejo's native `/assets/img/` paths and relocates the palette imports consistently. The application keeps its native diff, error and ANSI colors. The selected local Forgejo delivery has been checked; native appliance acceptance remains separately scoped.
 
 ## Later component-sheet check
 
@@ -29,7 +29,7 @@ Review the resulting images and remove only the explicitly run-owned review shee
 
 ## Later raster consistency/regeneration
 
-Canonical SVGs and the existing export manifest remain unchanged. With Go and native `rsvg-convert` explicitly available:
+The export manifest now points to the canonical brutalist symbol masters. With Go and native `rsvg-convert` explicitly available:
 
 ```sh
 scripts/render-forgejo-branding.sh --check

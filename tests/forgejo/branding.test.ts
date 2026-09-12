@@ -11,6 +11,17 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
  };
  for(const source of await walk(new URL('appliance/forgejo/templates/',root))) assert(!source.includes('-papercraft.png'),'retired artwork remains in a production template');
  for(const [target,source] of Object.entries(payload)) assert(!target.includes('-papercraft.png')&&!source.includes('-papercraft.png'),'retired artwork remains in the staged payload');
+ const approvedImages=[
+  'public/assets/soda/forgejo/apple-touch-icon.png',
+  'public/assets/soda/forgejo/favicon-16.png',
+  'public/assets/soda/forgejo/favicon.png',
+  'public/assets/soda/forgejo/logo.png',
+  'public/assets/soda/source/soda-symbol-brutalist.svg',
+  'public/assets/soda/source/soda-symbol-brutalist-dark.svg',
+ ];
+ assert.deepEqual(Object.keys(payload).filter(path=>/\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(path)).sort(),approvedImages.sort(),'only the six approved branding images may be delivered');
+ const imageSources=await readdir(new URL('assets/branding/forgejo/',root));
+ assert(!imageSources.some(name=>name.includes('papercraft')||name.endsWith('-prompt.md')||name.endsWith('-prompts.md')),'retired artwork or prompt sheet returned');
  const light=await readFile(new URL('assets/branding/source/soda-symbol-brutalist.svg',root),'utf8');
  const dark=await readFile(new URL('assets/branding/source/soda-symbol-brutalist-dark.svg',root),'utf8');
  assert.equal(light.replace('fill="#101010"','fill="#ffffff"'),dark,'theme variants must have identical geometry and an open core');
