@@ -14,6 +14,39 @@ not claims that those outputs are still retained.
 
 ---
 
+## Cockpit administration recommendation review
+
+The user rejected the prior blanket exclusion of Podman and requested a complete
+reconsideration. The recommendation had conflated project workflow ownership with
+root host administration; no installed package/navigation change had implemented
+that list. The [owning guide](cockpit-port.md#page-recommendations) now withdraws it
+and distinguishes the root-administration baseline, role-dependent extensions,
+current policy and unvalidated installation details.
+
+Evidence: `.artifacts/cockpit-admin-review-9R2s2j/`. Review reused the fresh VM's
+existing manifest inventory without contacting it. Local architecture, project
+state/lifecycle and actual Quadlet/project unit callers were read. Public upstream
+Cockpit application documentation and Fedora 44 metadata were retrieved for
+Podman (`123-1.fc44`), Files (`39-1.fc44`), SELinux and reports (`360.1-1.fc44`). These
+are observed package listings, not new source pins, a resolved installation
+transaction or proof on the appliance's current deployment.
+
+Podman tag 123 `Containers.jsx`, `PodActions.jsx`, `util.tsx`, `rest.ts`, client and
+Quadlet detector were examined: recognized systemd-owned start/stop/restart calls
+use `systemctl`, and host system/user sockets are selected explicitly. The previous
+implication that a Podman GUI necessarily bypasses Quadlet lifecycle was not sound.
+Project-local nested engines and Soda's additional records remain separate; that
+is an ownership distinction, not justification for withholding host administration.
+
+The revised baseline proposes Podman, Files, SELinux and manual Diagnostic Reports,
+and recommends exposing Accounts for host administration rather than confusing it
+with Forgejo/project accounts. Existing Accounts hiding remains unchanged. VMs,
+crash capture and recording are tied to actual host roles/backend configuration or
+retention/privacy choices, not excluded merely because they give root control.
+CoreOS updates retain the native OSTree owner. No packages, navigation, services,
+providers, private inputs or runtime state changed; no native addon compatibility
+or UI acceptance is claimed. Documentation links/history preservation were checked.
+
 ## Native OS metadata repair and Cockpit workspace retirement
 
 The user reported the fresh VM's `rpm-ostree-countme.service` failure, requested

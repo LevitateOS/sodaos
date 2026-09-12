@@ -37,29 +37,71 @@ No native Cockpit package removal or security-policy reset is selected by the UI
 
 ## Page recommendations
 
-These are recommendations, **not additional package installation/removal or a new
-navigation policy**. The fresh-VM inventory and metadata repair are recorded in the
-[receipt](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement).
-Keep Cockpit as root-only appliance administration and Forgejo as the project UI.
+The previous blanket exclusion of Podman and other administrative extensions is
+withdrawn. **Cockpit is the root administrator's host console, not a restricted
+copy of the project dashboard.** Ability to change Soda-managed resources is not
+by itself a reason to omit a page: Terminal, Services, Storage and Networking
+already provide that authority. Preserve the root-only/private access boundary;
+explain resource ownership consistently across all administrative tools.
 
-| Native page | Recommendation | Boundary |
+These are proposed product choices, **not installed changes or evidence that every
+additional package has passed native acceptance**. The [review receipt](implementation-history.md#cockpit-administration-recommendation-review)
+records source/package research; the earlier [inventory](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
+records what is installed. The existing Accounts navigation policy below remains
+in force until a separately approved change.
+
+### Proposed root-administration baseline
+
+| Page | Recommendation | Actual administrative purpose and qualification |
 | --- | --- | --- |
-| Overview | Keep | Host health, hardware, clock and intentional power controls. |
-| Logs | Keep | Native journal diagnostics, including real service failures; do not hide failures to clean up the UI. |
-| Storage | Keep | Appliance disks/filesystems and capacity. Avoid ad hoc changes to retained project roots or Soda-owned volumes. |
-| Networking | Keep | Native host interfaces/firewall. Tailnet settings stay in the dashboard; network changes can cut off operator access. |
-| Services | Keep | Native service/socket/timer inspection and deliberate maintenance; not a replacement project lifecycle UI. |
-| Software updates | Keep the native rpm-ostree page | Host deployments, updates and rollback; not PackageKit or a Soda application updater. |
-| Terminal | Keep | Root recovery/administration. Developer terminals stay inside Soda projects. |
-| Accounts | Keep the existing navigation hiding | Forgejo owns Soda identities; project Linux accounts remain project-local. Do not uninstall native account tools or treat hidden navigation as authorization. |
-| Metrics / hardware details | Keep accessible from Overview | No additional top-level navigation is needed. Recording/history depends on native capabilities and is not established by the presence of the page. |
+| Overview | Keep | Host health, clock, hardware information, shutdown/reboot. |
+| Logs | Keep | Native journal diagnosis, including failures outside Soda's application logs. |
+| Storage | Keep | Disks, filesystems, mounts and capacity; Soda's project UI is not a host storage manager. Destructive changes need the same preservation discipline as CLI changes. |
+| Networking | Keep | Native host interfaces and firewall configuration. This is broader than dashboard Tailnet controls; preserve a recovery access path when changing connectivity. |
+| Services | Keep | Host services, sockets and timers, including appliance Quadlets and Soda project units. Use their native systemd ownership during maintenance. |
+| Podman Containers | Add | Host container, image, pod and volume administration, logs and troubleshooting. Soda does not supply a general host-engine UI. Upstream already supports systemd/Quadlet lifecycle; see the verified mechanism below. |
+| Terminal | Keep | General root diagnosis/recovery, not developer terminals or evidence that every graphical tool is redundant. |
+| Files (`cockpit-files`) | Add | Graphical host file inspection, transfer and deliberate configuration maintenance. Root permissions still apply; do not expose private files in support evidence. |
+| SELinux | Add | Diagnose policy denials on the enforcing appliance. The ability to change policy is not a reason to hide diagnosis; disabling enforcement or automatically allowing denials is not the recommendation. |
+| Diagnostic Reports | Add, with manual collection/export | Collect a native support bundle when needed. Reports can contain private configuration and must be reviewed before sharing; no automatic collection/upload is proposed. |
+| Accounts | Recommend exposing for root administration | Manages host Linux accounts/passwords/keys, not Forgejo identities or project-local accounts. Those different identity domains do not make the page redundant. This revises the recommendation, not the currently applied hiding policy. |
+| Software updates (OSTree) | Keep | Native CoreOS deployment updates and rollback. It is not an updater for Soda application images. |
+| Metrics / hardware details | Keep available | Host resource diagnosis and hardware inventory. Continuous PCP history/recording is a separate resource/retention decision, not implied by the page being present. |
 
-`base1`, shell, static, branding and issue assets are infrastructure, not extra
-product pages; leave them upstream-owned. Do not reintroduce custom Tailnet/Runners
-pages. Optional Podman, Virtual Machines, PackageKit Applications, diagnostic-report,
-kernel-dump or session-recording extensions are **not installed on this fixture**;
-do not add them by default. Review a concrete host-administration need before adding
-another control surface, storage/recording footprint or package dependency.
+### Role-dependent extensions, not blanket exclusions
+
+| Extension | Recommendation and reason |
+| --- | --- |
+| Virtual Machines | Include when the appliance is also a VM host. It manages libvirt-backed VMs, a legitimate administrative need distinct from Soda's containers. No libvirt workload has been established on the current fixture; running Soda inside a QEMU VM does not make its parent hypervisor available to the guest's Cockpit. Validate the chosen host's virtualization/storage/network setup when this role is selected. |
+| Kernel Dump | Offer for kernel/crash diagnosis. Enabling crash capture entails backend configuration, reserved resources and possibly boot changes; installing a page alone does not establish capture. |
+| Session Recording | Explicit opt-in for an audit requirement. Recording introduces retention/access/privacy obligations and can capture credentials, unlike merely providing an interactive administration page. |
+| PackageKit updates / Applications installers | Do not substitute these for the selected CoreOS rpm-ostree layering/update path. Cockpit extensions are useful; the installation mechanism must match the host. No compatible general add-on installer has been validated here. |
+| Image Builder, directory/HA servers, file-sharing/ZFS or other role-specific extensions | Assess against the actual host role and native backend, rather than exclude them because an operator could change the system. They are not replacements for the existing Soda project workflow. |
+
+### Checked ownership and upstream mechanisms
+
+- [Cockpit's application catalog](https://cockpit-project.org/applications) identifies
+  the separate Podman, Files, SELinux, reports, VMs, OSTree and PackageKit roles.
+  Fedora 44 package metadata was checked for Podman, Files, SELinux and reports;
+  availability is not a successful dependency transaction or native UI test.
+- [Published Fedora 44 Podman metadata](https://packages.fedoraproject.org/pkgs/cockpit-podman/cockpit-podman/fedora-44.html)
+  lists 123. Its [tagged container caller](https://github.com/cockpit-project/cockpit-podman/blob/123/src/Containers.jsx)
+  uses `systemctl` for recognized `PODMAN_SYSTEMD_UNIT` start/stop/restart, rather
+  than always bypassing systemd. Its detector includes inactive Quadlets. There is
+  no basis for adding a Soda adapter or claiming Quadlet incompatibility here.
+- Its [tagged transport](https://github.com/cockpit-project/cockpit-podman/blob/123/src/rest.ts)
+  selects the host system or user Podman sockets. It is not automatically a manager
+  for the separate engines and stores **inside** Soda projects; see
+  [Project OS state/lifecycle](project-os.md#persistent-state-and-lifecycle).
+- Soda's appliance services use Quadlets; projects use the explicit
+  [`soda-project@.service`](../appliance/services/soda-project@.service) and helper.
+  Dashboard project actions also own Soda records, memberships and Tailnet intent.
+  A host engine UI does not replace those operations, but remains appropriate for
+  deliberate root inspection, recovery and administration of other host workloads.
+
+No new custom Tailnet/Runners pages are proposed: their selected dashboard move
+is a separate product decision. `base1`, shell, static, branding and issue assets
+remain upstream infrastructure, not additional product pages to remove.
 
 ## Native delivery candidate
 

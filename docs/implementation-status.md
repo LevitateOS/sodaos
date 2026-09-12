@@ -322,6 +322,11 @@ Provisioning now preserves upstream OS metadata; the fresh VM's actual Count Me
 failure was repaired and successfully retried. Obsolete `cockpit/` contents were
 preserved outside the retired top-level workspace. The
 [receipt](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
-records source/native checks and preservation; the [Cockpit guide](cockpit-port.md#page-recommendations)
-owns page recommendations. No older retained target, native package selection,
+records source/native checks and preservation. The subsequent
+[administration review](implementation-history.md#cockpit-administration-recommendation-review)
+withdraws the blanket Podman/addon exclusion and proposes a complete host-admin
+baseline, including reconsidering Accounts visibility. The
+[Cockpit guide](cockpit-port.md#page-recommendations) owns the revised recommendations;
+installed packages and the existing Accounts hiding policy are unchanged.
+No older retained target, native package selection,
 Tailnet enrollment/provider job, project data or credentials changed. Nothing pushed.
