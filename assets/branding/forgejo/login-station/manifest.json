@@ -1,0 +1,9 @@
+{
+  "generator": "OpenAI built-in image generation",
+  "imageInputs": [],
+  "exportCommand": "cwebp -q 86 -mt masters/approaching-train.png -o approaching-train.webp",
+  "sha256": {
+    "masters/approaching-train.png": "16f12e8e0ca4856f4ec3905948bc91b0f40bdf3fafe53ddaabb4ab38ee68787e",
+    "approaching-train.webp": "0eeac6105f92ee90822a87b937b15000cccefb8f5503807e56471964178022d3"
+  }
+}

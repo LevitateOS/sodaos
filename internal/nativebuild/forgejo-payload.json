@@ -369,5 +369,6 @@
   "public/assets/soda/forgejo/backgrounds/subway-tablet-day.webp": "assets/branding/forgejo/backgrounds/subway-tablet-day.webp",
   "public/assets/soda/forgejo/backgrounds/subway-tablet-night.webp": "assets/branding/forgejo/backgrounds/subway-tablet-night.webp",
   "public/assets/soda/forgejo/backgrounds/subway-desktop-day.webp": "assets/branding/forgejo/backgrounds/subway-desktop-day.webp",
-  "public/assets/soda/forgejo/backgrounds/subway-desktop-night.webp": "assets/branding/forgejo/backgrounds/subway-desktop-night.webp"
+  "public/assets/soda/forgejo/backgrounds/subway-desktop-night.webp": "assets/branding/forgejo/backgrounds/subway-desktop-night.webp",
+  "public/assets/soda/forgejo/login-station/approaching-train.webp": "assets/branding/forgejo/login-station/approaching-train.webp"
 }

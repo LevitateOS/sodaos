@@ -35,3 +35,7 @@ The public front page uses the six approved subway WebPs: mobile,
 tablet and desktop, each in day/night. They live in `backgrounds/`; its README
 records provenance. The native page and footer form one centered opaque frame.
 Other pages do not request or display these backgrounds.
+
+The desktop sign-in page uses the approved original motion-blurred train photograph
+in `login-station/`. Its PNG master, prompt summary and export hashes are retained
+there; the WebP loads only for the left panel at 1200px and above.

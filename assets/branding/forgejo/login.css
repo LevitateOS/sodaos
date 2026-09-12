@@ -66,13 +66,14 @@ body:has(.soda-login) {
 .soda-login a { color: var(--soda-guest-link); }
 .soda-login .soda-login-account { font-size: 15px; color: var(--soda-guest-muted); margin: 24px 0 0; text-align: center; }
 .soda-login .ui.message { margin: 0 0 16px; }
-@media (min-width: 900px) {
-  .soda-login { grid-template-columns: 1fr 1fr; align-content: stretch; }
-  .soda-login-story { display: flex; flex-direction: column; padding: 16px 24px; border-right: 3px solid var(--soda-guest-text); background: var(--soda-page-canvas); }
+@media (min-width: 1200px) {
+  .soda-login { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-content: stretch; }
+  .soda-login-story { display: flex; flex-direction: column; padding: 24px; min-height: 680px; border-right: 3px solid var(--soda-guest-text); background: #292929 url("./login-station/approaching-train.webp") center / cover no-repeat; }
+  .soda-login-brand { align-self: flex-start; padding: 8px; background: var(--soda-guest-canvas); }
   .soda-login-brand img { width: 40px; }
-  .soda-login-message { display: flex; flex: 1; flex-direction: column; justify-content: center; padding-top: 16px; }
-  .soda-login-message h1 { margin: 0 0 24px; font: 800 clamp(42px, 4.4vw, 72px)/1.07 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.045em; color: var(--soda-guest-text); }
-  .soda-login-tagline { display: block; margin: 16px 0 0; font-size: 14px; color: var(--soda-guest-muted); }
+  .soda-login-message { display: flex; flex: 1; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding-top: 24px; }
+  .soda-login-message h1 { margin: 0; padding: 16px; background: var(--soda-guest-canvas); max-width: 100%; font: 800 clamp(36px, 3.2vw, 56px)/1.07 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
+  .soda-login-tagline { display: block; align-self: flex-start; padding: 8px 12px; background: var(--soda-guest-canvas); margin: 24px 0 0; font-size: 14px; color: var(--soda-guest-muted); }
   .soda-login-panel { padding: 32px clamp(36px, 5vw, 90px); }
 }
 @media (max-height: 850px) {

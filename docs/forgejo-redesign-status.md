@@ -83,6 +83,29 @@ checks and preview build pass. These are representative page-family checks, not
 an assertion that every authenticated or operator workflow was exercised. Evidence
 and before/after 800px captures are in `.artifacts/forgejo-half-width/`.
 
+## Desktop login station
+
+The owner-selected original text-only train photograph now fills only the left
+half of the sign-in page at widths of 1200px and above. It shows an approaching
+train with pronounced motion blur, sharp brutalist station architecture and a
+small soda machine down the platform. The native form stays on the right. Below
+1200px the compact login remains and the photograph is not requested. Both themes
+use the approved artificially lit scene, with theme-aware opaque text plates.
+No animation, image filter or reference-photo-derived candidate is installed.
+
+The PNG master, optimized WebP, prompt summary and hashes live in
+`assets/branding/forgejo/login-station/`. Only the WebP enters the native payload.
+Delivery changed this new asset, `login.css` and its `v=17-station` header link on
+the existing canonical local mounts. Native authentication markup and JavaScript
+were preserved. Previous CSS/header are retained under
+`.artifacts/forgejo-login-station/before-delivery/`.
+
+All 14 live theme/viewport cases pass at 320, 640, 960, 1199, 1200, 1440 and 1920px:
+left-half geometry, no page overflow, desktop-only download, readable native
+fields and unchanged form method/password type. Both desktop themes were reviewed
+visually. Branding/inventory, test typecheck and preview build pass. Evidence is
+in `.artifacts/forgejo-login-station/`; no credentials or form submission were used.
+
 ## Scope completed
 
 The full inventory of **253 Forgejo 15.0.7 overrides** uses the redesigned shared presentation owners. This includes authentication and onboarding, dashboard and exploration, public profiles and organizations, repositories and code views, issues and pull requests, milestones/projects/wiki/releases, Actions, packages, notifications, personal/repository/organization settings, moderation, administration and status pages. Most native templates inherit the design without unnecessary markup edits; explicit template edits remove obsolete presentation inputs and refine shared composition without replacing native control bodies.
