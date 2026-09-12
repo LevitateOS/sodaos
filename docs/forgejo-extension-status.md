@@ -27,35 +27,28 @@ architectural limits, not promised fixes in this queue.
 | Item | State |
 | --- | --- |
 | Source audit | Complete at `e415330`, inspecting Soda `5c2f92a` and stock Forgejo 15.0.7. |
-| First implementation slice | **Next: runner post-decode mutation admission.** Reproduced, not fixed. |
+| First implementation slice | **Complete locally: runner post-decode mutation admission.** Source fixed; focused Go/race checks passed. |
 | Navigation and presentation | Queued below; no source changes yet. |
 | Customization reduction | Conditional review, not a blanket rewrite or release gate. |
 | Native build / installed validation / delivery | Not performed for these follow-up changes. No target selected. |
 
-This status separation changes documentation only. It does not turn the passing
-baseline checks into evidence that the runner defect is fixed.
+The runner correction now has its own post-fix evidence, separate from the audit's
+baseline checks. It has not been built or delivered to an appliance.
 
 ## Implementation order
 
-### 1. Correct runner mutation admission — next
+### 1. Correct runner mutation admission — complete locally
 
-**Scope:** `internal/web/runners.go` and focused runner handler tests, following the
-[runner authority contract](runners-port.md#required-web-and-native-authority-path).
+`internal/web/runners.go` now checks the original session immediately before create
+and lifecycle dispatch; early authorization is unchanged. The checked-in
+`internal/web/runner_admission_test.go` covers all five mutations with unchanged,
+logout, user/context/CSRF drift, storage failure and cancellation cases.
 
-- Keep the configured-operator, actor, Origin/CSRF and provider checks before body
-  decoding. Do not weaken that early gate.
-- After decoding/validation, recheck the original session with the existing
-  `requireCurrentSession` immediately before create/start/stop/restart/remove
-  helper dispatch. No new authentication helper or operation scheduler is needed.
-- Turn the audit reproduction into checked-in regressions using the existing
-  real-router/store and synthetic-peer fixtures. Cover logout, changed actor,
-  context/CSRF, store failure/cancellation and unchanged-session success.
-
-**Completion:** the formerly failing logout cases refuse dispatch, unchanged valid
-requests dispatch once, existing authorization/validation cases remain intact,
-and affected Go/race checks pass. This is admission safety, not rollback of a
-previously admitted operation. No real runner registration or lifecycle action is
-needed to establish this source correction.
+The [runner authority contract](runners-port.md#required-web-and-native-authority-path)
+owns the admission—not rollback—limit. The
+[execution receipt](forgejo-extension-history.md#runner-post-decode-mutation-admission)
+records the reproduced failures and passing focused Go/race checks. No real runner,
+shared authentication mechanism, host protocol, migration or Tailnet code changed.
 
 ### 2. Make navigation coherent
 
@@ -93,9 +86,9 @@ to rewrite all customization before shipping a bounded fix.
 
 ## Parallel-work boundary
 
-- **This agent:** the work above and this status file. Start with runner-specific
-  handlers/tests; the first slice does not need changes to shared OAuth, migrations,
-  the host protocol, page entry or payload manifests.
+- **This agent:** the work above and this status file. The completed runner slice
+  changed only runner handlers/tests and their documentation, not shared OAuth,
+  migrations, the host protocol, page entry or payload manifests.
 - **Tailnet agent:** its feature, source state/migrations, enrollment, host/project
   controls, native proof and its own progress. Do not implement, reschedule or mark
   that work complete here.
@@ -112,15 +105,16 @@ network/trust changes or cleanup.
 
 ## Evidence and latest change
 
-**Audit evidence, reused—not rerun by the status separation:**
-35 selected top-level web tests, 7 template tests, 54 frontend/Forgejo checks and the
-emitted asset build passed. The separate runner probe had five passing unchanged
-controls and **five failing logout regression expectations**. Exact scope, versions
-and commands remain in the [audit receipt](implementation-history.md#forgejo-extension-source-audit)
-and `.artifacts/forgejo-native-audit-XdXOQq/`.
+**Latest change — runner admission fixed in source:** all 35 new regression cases
+now pass, together with the existing selected boundaries: 18 top-level tests / 360
+subcases, both normally and with `-race` on pinned Go 1.26.7. The pre-fix run had
+5 passing unchanged controls and 30 failing refusal cases. Documentation and
+formatting checks passed. Evidence and exact scope are in the
+[Forgejo extension history](forgejo-extension-history.md#runner-post-decode-mutation-admission)
+and `.artifacts/runner-admission-fix-ut6yVW/`.
 
-**Latest change:** created this dedicated implementation handoff and removed the
-Forgejo audit/repair queue from the Tailnet-focused status. Documentation links and
-whitespace checked; no production source, fixture or installed state changed.
-Update this file in place after each Forgejo slice; keep the audit as baseline
-research and the shared target record separate from this source work.
+The [original audit receipt](implementation-history.md#forgejo-extension-source-audit)
+and `.artifacts/forgejo-native-audit-XdXOQq/` remain historical baseline evidence.
+No frontend tests/build, native build, installed validation, provider action or
+Tailnet work was performed for this backend-only fix. Navigation is the next queued
+slice, not part of the completed correction.
