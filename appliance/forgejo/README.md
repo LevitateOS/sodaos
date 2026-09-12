@@ -471,8 +471,8 @@ of joined repository controls are square even when a native modal lies between
 the action and count. Page and section typography use shared font tokens with
 Barlow Condensed (800), Barlow and IBM Plex Mono families. Display headings and
 action labels are uppercase. Intro/sidebar labels invert foreground and canvas;
-red edge markers identify current navigation. Primary/secondary actions have 2px
-frames, while intro/settings structural rules use 3px. Keep data/input borders
+red edge markers identify current navigation. Primary/secondary actions and migration choices have 1px
+frames. Page intros have no top border; keyboard focus outlines remain distinct. Keep data/input borders
 quiet and preserve the native status colors. Ordinary content is
 1120px; wide data views remain 1440px or native fluid canvases. Narrow columns
 use the shared 240px token and stack at 900px where the native layout allows it.

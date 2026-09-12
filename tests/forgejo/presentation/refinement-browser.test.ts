@@ -22,7 +22,7 @@ test('refined page families fit narrow screens and keep content readable',{skip:
     assert.equal(await page.locator('[id=""]').count(),0,'no empty IDs from optional intro context');
     if(name==='home') {
      const action=await page.locator('.soda-home-primary').evaluate(el=>({border:getComputedStyle(el).borderTopWidth,transform:getComputedStyle(el).textTransform}));
-     assert.deepEqual(action,{border:'2px',transform:'uppercase'},'standalone homepage uses shared action styling');
+     assert.deepEqual(action,{border:'1px',transform:'uppercase'},'standalone homepage uses shared action styling');
     }
     if(name==='migration') {
      const cards=page.locator('.soda-migrate-provider');assert.equal(await cards.count(),4);

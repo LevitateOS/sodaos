@@ -29,11 +29,11 @@
 .soda-notification-preview-title { font: 600 18px/1.35 Barlow, sans-serif; }
 .soda-notification-preview-repo, .soda-notification-preview-time { color: var(--soda-page-muted); font: 500 11px/1.6 "IBM Plex Mono", monospace; }
 .soda-notification-preview-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: var(--soda-page-text); }
-.soda-notification-preview-all { display: flex; flex: none; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-top: 2px solid var(--soda-page-text); background: var(--soda-page-action); color: var(--soda-page-on-action); font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; text-align: center; }
+.soda-notification-preview-all { display: flex; flex: none; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-top: 1px solid var(--soda-page-text); background: var(--soda-page-action); color: var(--soda-page-on-action); font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; text-align: center; }
 .soda-notification-preview-status, .soda-notification-preview-empty { margin: 0; padding: 24px 20px; color: var(--soda-page-muted); }
 .soda-notification-preview-status:empty { display: none; }
 .soda-notification-preview-status[role="status"] { flex: none; }
-.soda-notification-preview-retry { align-self: flex-start; min-height: 44px; margin: 0 20px 20px; padding: 8px 16px; color: var(--soda-page-text); background: var(--soda-page-canvas); border: 2px solid var(--soda-page-text); border-radius: 0; cursor: pointer; font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; }
+.soda-notification-preview-retry { align-self: flex-start; min-height: 44px; margin: 0 20px 20px; padding: 8px 16px; color: var(--soda-page-text); background: var(--soda-page-canvas); border: 1px solid var(--soda-page-text); border-radius: 0; cursor: pointer; font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; }
 .soda-notification-preview [hidden] { display: none; }
 .soda-notification-preview-list a:hover { border-left-color: var(--soda-page-action); background: var(--soda-page-hover); }
 .soda-notification-preview-all:hover { background: var(--soda-page-action-hover); color: var(--soda-page-on-action); }

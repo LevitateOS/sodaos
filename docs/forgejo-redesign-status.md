@@ -10,6 +10,19 @@ The deleted worktree is no longer used for development or local presentation mou
 The six approved subway backgrounds are now source assets and are installed on
 localhost:3300.
 
+## Quieter button borders
+
+Forgejo's shared primary and secondary actions now use 1px borders, including
+homepage, login, forms and repository controls. Migration choices and notification
+retry/footer actions follow the same lighter treatment. Focus outlines and target
+sizes retain their existing values. Only these three stylesheets and their cache
+versions were updated on localhost:3300; previous files are retained in
+`.artifacts/forgejo-thin-buttons/before-delivery/`. A read-only browser review
+passed 166 visible-action checks across six routes at 320, 800 and 1440px in both
+themes; primary focus outlines and minimum target size also pass. The migration
+Git option retains its separate 6px red accent. Source inventory, branding and
+changed-test TypeScript checks pass.
+
 ## Dashboard repository browser refinement
 
 The native Vue sidebar uses understated mono tabs, unboxed counts and red selected
@@ -181,7 +194,7 @@ The second pass audits the full override inventory and shared stylesheet cascade
 
 ## Brutalist personality pass
 
-The shared presentation now uses uppercase condensed headings, inverse intro/sidebar labels, 2px framed red and neutral actions, inverse selected controls with red navigation markers, and 3px structural rules at page introductions/settings bars. Migration provider cards use firmer outlines and display typography. Text inputs and code/data canvases keep their quieter borders; no decorative imagery or shadows were added. The same semantic colors invert these treatments in dark mode.
+The shared presentation now uses uppercase condensed headings, inverse intro/sidebar labels, 1px framed red and neutral actions, inverse selected controls with red navigation markers, and unframed page introductions. Migration provider cards use 1px outlines and display typography. Text inputs and code/data canvases keep their quieter borders; no decorative imagery or shadows were added. The same semantic colors invert these treatments in dark mode.
 
 Candidate build and five affected browser cases pass (component boundaries, refinement, gallery and settings with/without JavaScript). Mobile/desktop captures are in `.artifacts/forgejo-refinement/captures/personality-*`; logs use the `personality-` prefix. This remains isolated preview evidence.
 
@@ -198,7 +211,7 @@ Candidate build and five affected browser cases pass (component boundaries, refi
 ## Website parity and local delivery
 
 The website and Forgejo now share their canonical logo geometry, light/dark palette,
-font families, inverse labels, 2px framed uppercase actions and red selected-state
+font families, inverse labels, uppercase actions and red selected-state
 markers. The standalone Forgejo front page now uses the shared action owner too.
 The website retains photography/marketing scale; handbook content retains its
 sentence-case reading layout. Run the website's `bun run check:brand-parity

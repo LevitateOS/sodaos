@@ -28,7 +28,7 @@
  --color-active: var(--soda-page-selected);
  --color-text-light: var(--soda-page-text);
  background: transparent;
- border: 2px solid var(--soda-page-text);
+ border: 1px solid var(--soda-page-text);
  color: var(--soda-page-text);
  &:hover, &:focus-visible { background: var(--soda-page-hover); border-color: var(--soda-page-muted); }
  &:active, &.active, &[aria-pressed=true] { background: var(--soda-page-text); border-color: var(--soda-page-text); color: var(--soda-page-canvas); }
@@ -41,7 +41,7 @@
  --color-primary-contrast: var(--soda-button-primary-text);
  --color-button: var(--soda-button-primary-bg);
  background: var(--soda-button-primary-bg);
- border: 2px solid var(--soda-page-text);
+ border: 1px solid var(--soda-page-text);
  &:not(.loading) { color: var(--soda-button-primary-text); }
  &:hover, &:focus-visible { background: var(--soda-button-primary-hover); border-color: var(--soda-button-primary-text); }
  &:active { background: var(--soda-button-primary-hover); }
