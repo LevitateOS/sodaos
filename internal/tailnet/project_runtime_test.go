@@ -34,19 +34,10 @@ func TestProjectRuntimeSelectionAndIndependentOriginalBindings(t *testing.T) {
 	for index := range 2 {
 		project := "p" + strings.Repeat(string(rune('a'+index)), 24)
 		cid := strings.Repeat(string(rune('c'+index)), 64)
-		calls := 0
-		create := func() (string, error) { calls++; return cid, nil }
-		selection := ProjectSelection{Enabled: true, Revision: options.Revision, Binding: options.Binding}
-		stale := selection
-		stale.Revision = policy.Revision
-		if e = m.ProvisionProject(t.Context(), project, stale, create); !errors.Is(e, ErrConflict) || calls != 0 {
-			t.Fatal("stale selection created", e, calls)
-		}
-		if e = m.ProvisionProject(t.Context(), project, selection, create); e != nil || calls != 1 {
-			t.Fatal(e, calls)
-		}
-		if e = m.ProvisionProject(t.Context(), project, selection, create); !errors.Is(e, ErrConflict) || calls != 1 {
-			t.Fatal("recreated reservation", e, calls)
+		// A provisioned project uses the ordinary exact-project operation, not a
+		// second reservation or a policy-lock-held native creation callback.
+		if _, e = m.Project(t.Context(), ProjectRequest{Project: project, Action: "enable", Revision: "0", Binding: options.Binding, ConfirmID: project}, cid); e != nil {
+			t.Fatal(e)
 		}
 		view, e := m.Project(t.Context(), ProjectRequest{Project: project, Action: "inspect"}, cid)
 		if e != nil || view.Validate() != nil || !view.Enabled || view.Binding != options.Binding || view.AvailableBinding != options.Binding {
@@ -70,22 +61,9 @@ func TestProjectRuntimeSelectionAndIndependentOriginalBindings(t *testing.T) {
 		t.Fatal("default enrolled old project", old, e)
 	}
 }
-func TestProjectRuntimeRetainsFailedReservationsAndClosesAdmission(t *testing.T) {
+func TestProjectRuntimeClosedAdmissionHasNoReservation(t *testing.T) {
 	m, p, parent := runtimePolicy(t)
 	project := "p" + strings.Repeat("a", 24)
-	selection := ProjectSelection{Enabled: true, Revision: p.Revision, Binding: p.Binding}
-	calls := 0
-	create := func() (string, error) { calls++; return "", errors.New("synthetic provisioning failure") }
-	if e := m.ProvisionProject(t.Context(), project, selection, create); !errors.Is(e, ErrUnconfirmed) {
-		t.Fatal(e)
-	}
-	if e := m.ProvisionProject(t.Context(), project, selection, create); !errors.Is(e, ErrConflict) || calls != 1 {
-		t.Fatal("failed creation replay", e, calls)
-	}
-	b, e := os.ReadFile(filepath.Join(parent, "soda-tailnet", "reservation-"+project+".json"))
-	if e != nil || strings.Contains(string(b), "tskey") || strings.Contains(string(b), "secret") {
-		t.Fatal("unsafe/missing reservation", e)
-	}
 	result, e := m.policy.update(t.Context(), EnrollmentRequest{Action: "disable", Revision: p.Revision}, acceptedCredential)
 	if e != nil {
 		t.Fatal(e)
@@ -94,9 +72,12 @@ func TestProjectRuntimeRetainsFailedReservationsAndClosesAdmission(t *testing.T)
 	if _, e = m.policy.update(t.Context(), EnrollmentRequest{Action: "default", Revision: result.Enrollment.Revision, Default: &yes}, acceptedCredential); !errors.Is(e, ErrConflict) {
 		t.Fatal(e)
 	}
-	selection.Revision = result.Enrollment.Revision
-	if e = m.ProvisionProject(t.Context(), "p"+strings.Repeat("b", 24), selection, create); !errors.Is(e, ErrConflict) || calls != 1 {
-		t.Fatal("closed admission created", e, calls)
+	if _, e = m.Project(t.Context(), ProjectRequest{Project: project, Action: "enable", Revision: "0", Binding: p.Binding, ConfirmID: project}, strings.Repeat("b", 64)); !errors.Is(e, ErrConflict) {
+		t.Fatal("closed admission enabled project", e)
+	}
+	entries, e := os.ReadDir(filepath.Join(parent, "soda-tailnet"))
+	if e != nil || len(entries) != 1 || entries[0].Name() != "policy.json" {
+		t.Fatal("failed selection wrote a reservation", e)
 	}
 }
 func TestProjectRuntimeEnableCASAndNoImplicitRetarget(t *testing.T) {
@@ -130,9 +111,32 @@ func TestProjectRuntimeEnableCASAndNoImplicitRetarget(t *testing.T) {
 		t.Fatal("cancelled policy admitted")
 	}
 }
+func TestProjectHasNodeUsesCurrentStateNotReleaseOrMissingFields(t *testing.T) {
+	for _, tc := range []struct {
+		body          string
+		node, invalid bool
+	}{
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":false}`, false, false},
+		{`{"Version":"other","BackendState":"Running","HaveNodeKey":true}`, true, false},
+		{`{"BackendState":"NeedsMachineAuth","HaveNodeKey":true}`, true, false},
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":true}`, true, false},
+		{`{"BackendState":"Running","HaveNodeKey":false}`, false, true},
+		{`{"BackendState":"Unknown","HaveNodeKey":false}`, false, true},
+		{`{"BackendState":"NeedsLogin"}`, false, true},
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":null}`, false, true},
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":false,"HaveNodeKey":true}`, false, true},
+		{`null`, false, true},
+	} {
+		node, e := ProjectHasNode([]byte(tc.body))
+		if node != tc.node || (e != nil) != tc.invalid {
+			t.Fatal(tc.body, node, e)
+		}
+	}
+}
+
 func TestProjectStatusRequiresExactNetworkTagsAndNativePreferences(t *testing.T) {
 	binding := RunBinding{Enabled: true, Tailnet: "soda.example.test", Tags: []string{"tag:soda-project"}}
-	status := map[string]any{"Version": ManagementCLIRelease, "BackendState": "Running", "HaveNodeKey": true, "CurrentTailnet": map[string]string{"Name": binding.Tailnet}, "Self": map[string]any{"ID": "node-project-a", "Online": true, "DNSName": "project.soda.ts.net.", "TailscaleIPs": []string{"100.64.0.2"}, "Tags": binding.Tags}, "AuthURL": "private", "Health": []string{"private"}}
+	status := map[string]any{"Version": "1.102.4", "BackendState": "Running", "HaveNodeKey": true, "CurrentTailnet": map[string]string{"Name": binding.Tailnet}, "Self": map[string]any{"ID": "node-project-a", "Online": true, "DNSName": "project.soda.ts.net.", "TailscaleIPs": []string{"100.64.0.2"}, "Tags": binding.Tags}, "AuthURL": "private", "Health": []string{"private"}}
 	prefs := map[string]any{"WantRunning": true, "CorpDNS": true, "RouteAll": false, "RunSSH": false, "ExitNodeID": "", "ExitNodeIP": "", "AdvertiseRoutes": nil, "Persist": map[string]string{"PrivateNodeKey": "private"}}
 	encode := func(v any) []byte {
 		b, e := json.Marshal(v)
@@ -173,7 +177,9 @@ func TestProjectStatusRequiresExactNetworkTagsAndNativePreferences(t *testing.T)
 			t.Fatal(state, e)
 		}
 	}
-	if CheckDaemonRelease([]byte(`{"Version":"1.0"}`)) != ErrUnsupported || ProjectCLIRelease([]byte(`{"short":"1.0"}`)) != ErrUnsupported {
-		t.Fatal("unreviewed runtime version accepted")
+	status["Version"] = "a different release"
+	status["BackendState"] = "NeedsLogin"
+	if _, _, _, e = ProjectStatus(encode(status), nil, binding); e != nil {
+		t.Fatal("number-only runtime veto", e)
 	}
 }

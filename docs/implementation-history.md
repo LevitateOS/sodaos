@@ -9167,3 +9167,33 @@ The ignored one-shot execution record is `.artifacts/local-forgejo/seed-mileston
 do not blindly rerun it. No non-fixture repository writes or deployment.
 
 <!-- Illustration queue: personal Actions lists, four runner subpages and both owner storage overviews source-assessed without art; organization general and deletion pages source-assessed without extra art; labels and hooks also source-assessed without extra art; organization applications and Actions source-assessed without art; organization home and members source-assessed without art; team list/member/repository pages source-assessed without art; creation and invitations are next. See the per-page checklist. -->
+
+## Mechanism removals — Tailnet and helper reads
+
+Owner-approved D1–D13 source work began at `8bd0af4` in the canonical checkout.
+This first slice implements D4–D8 and D13: no durable key-attempt journal, memory
+node identity per daemon activation, no restart-reason parser, one active private
+credential/policy, concrete native interface checks rather than release vetoes,
+project provisioning before separate network application, and read-only helper
+routes outside mutation admission. Preparation failure exits 78 and systemd excludes
+it from automatic restart; an activated daemon's later failure may restart.
+
+Passed local checks: `go test -mod=readonly` for `internal/tailnet`, `internal/host`,
+`internal/web` and `cmd/soda-host` with `GOTOOLCHAIN=local GOWORK=off CGO_ENABLED=0`;
+Go 1.27.1 on Darwin/arm64. `bun run build:forgejo`, 51 emitted Create/control/cache-
+epoch checks, `bun run typecheck` (including Lit and its analyzer fixtures), and two
+presentation-inventory checks passed with pinned Bun 1.4.2. Template changes were
+cache-epoch-only; the three reviewed source hashes were updated accordingly.
+
+Initial checks exposed an incorrect post-consumption test admission model, a
+completed-input dangling-symlink refusal bug, the changed mount-count expectation,
+and a transfer test whose actor was still the configured operator. These were
+corrected and rerun; the source fix now verifies the input's own inode before open.
+Logs: `.artifacts/mechanism-removal-8bd0af4/`.
+
+This is source/emitted-component evidence, not native namespace/DNS/shutdown,
+provider or installed proof. No fixture/service lifecycle, provider request,
+installation, publishing or retained-state conversion/cleanup occurred. Version-1
+Tailnet policy/reference files and retired run-marker fields require separately
+authorized conversion; they are not silently rewritten or deleted. Remaining
+mechanism work is tracked only in the refactoring plan.

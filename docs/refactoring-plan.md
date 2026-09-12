@@ -22,15 +22,32 @@ there, not in a second inventory here. The [repository instructions](../AGENTS.m
 and feature-owner contracts continue to govern implementation; neither document
 grants native execution or deployment permission.
 
-## Requested mechanism-deletion audit — source review complete
+## Selected mechanism removals
 
-The [Spaces/Runners/Tailnet deletion audit](mechanism-deletion-audit.md) reviews all
-28 requested slices at `7bd8f3b`, including the policies that create their machinery.
-It recommends explicit mechanism and policy removals, rather than another
-behavior-preserving extraction pass. These recommendations revisit some earlier
-preservation decisions below; they are not implemented or selected changes. The
-line-count target was withdrawn. No runtime code, retained state or native target
-was changed, and no product tests were run for that audit.
+**Status: implementation in progress.**
+
+The owner approved implementing D1–D13 from the
+[Spaces/Runners/Tailnet deletion audit](mechanism-deletion-audit.md), including the
+stated product-policy tradeoffs. That audit covers all 28 slices at `7bd8f3b`;
+it remains historical research, not an implementation receipt. This selection
+supersedes the earlier preservation recommendations for those mechanisms below.
+There is no line-count target; the audit's estimate is not a promised reduction.
+
+Work starts from `8bd0af4` in the canonical checkout. Source implementation and
+focused local checks are approved; retained-state conversion/cleanup, native
+service operations, provider requests, installation and publishing are not.
+
+| Coherent change | Status |
+| --- | --- |
+| D4–D8: Tailnet enrollment recovery, activation lifetime, independent Create, active credential storage and concrete interface checks | Implemented; focused Go, emitted Create/epoch, strict TS/Lit and presentation inventory checks passed. [Receipt](implementation-history.md#mechanism-removals--tailnet-and-helper-reads). Native proof/conversion remain separate. |
+| D1–D2: native-owned terminal lifetime and exact lookup; D9: current-only disposable workspace cache | Pending |
+| D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | Pending |
+| D11–D12: partial runner inventory and routine confirmations | Pending |
+| D13: concurrent bounded helper reads | Implemented; four fixed read-only routes bypass mutation admission; cancellation/writer-serialization checks passed. |
+
+Change owning feature requirements and affected tests with each source slice.
+Native replacement behavior remains unproved until separately authorized native
+validation; no retained target or fixture is changed by this work.
 
 ## Decision
 

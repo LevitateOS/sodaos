@@ -537,8 +537,13 @@ export class SodaProjectControls extends LitElement {
       const raw = await this.api(path, method, body, controller.signal), result = raw === null ? null : object(raw);
       if (!this.active(n))
         return;
-      if (path === '/api/environments')
+      if (path === '/api/environments') {
         check(result && projectId(result.id) && result.repository_id === this.binding?.repositoryId && result.provisioned === true && creationProfile(result.profile).id === body.profile_id);
+        if (object(body.tailnet).enabled === true) {
+          check(result.tailnet_outcome === 'queued' || result.tailnet_outcome === 'unconfirmed');
+          message = result.tailnet_outcome === 'queued' ? 'Project created. Network policy saved; enrollment queued.' : 'Project created. Network setup unconfirmed; inspect Network and explicitly retry there. Do not recreate the project.';
+        }
+      }
       else if (path.endsWith('/join'))
         check(typeof result?.login === 'string' && /^[a-z][a-z0-9_-]{0,30}$/.test(result.login) && result.login !== 'root');
       else if (path.endsWith('/lifecycle'))

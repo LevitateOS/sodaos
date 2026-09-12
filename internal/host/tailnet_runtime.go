@@ -188,11 +188,10 @@ func companionCreateArgs(run projectRun, image string) ([]string, error) {
 		"--pid=private", "--ipc=private", "--uts=private", "--cgroupns=private", "--user=0:0",
 		"--cap-drop=ALL", "--cap-add=NET_ADMIN", "--device=/dev/net/tun", "--security-opt=label=disable",
 		"--no-hosts", "--log-driver=none", "--pull=never",
-		"--volume", base + "/state:/var/lib/tailscale:rw",
 		"--volume", base + "/control:/run/tailscale:rw",
 		"--volume", base + "/input:/run/soda-enrollment:ro",
 		"--entrypoint=/usr/local/bin/tailscaled", image,
-		"--state=/var/lib/tailscale/tailscaled.state", "--socket=/run/tailscale/tailscaled.sock", "--tun=tailscale0", "--no-logs-no-support"}
+		"--state=mem:", "--socket=/run/tailscale/tailscaled.sock", "--tun=tailscale0", "--no-logs-no-support"}
 	return args, nil
 }
 

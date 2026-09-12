@@ -90,8 +90,12 @@ func TestTailnetPolicyRotationCASAndSecretProjection(t *testing.T) {
 			credentials++
 		}
 	}
-	if credentials != 2 {
-		t.Fatal("previous credential was not retained", credentials)
+	if credentials != 0 || len(entries) != 1 {
+		t.Fatal("rotation archived a credential", credentials, len(entries))
+	}
+	active, e := os.ReadFile(filepath.Join(root, "policy.json"))
+	if e != nil || !strings.Contains(string(active), rotate.ClientSecret) || strings.Contains(string(active), in.ClientSecret) {
+		t.Fatal("active credential was not atomically replaced", e)
 	}
 	encoded, _ := json.Marshal(second)
 	if strings.Contains(string(encoded), "synthetic") || strings.Contains(string(encoded), "credential-") {
@@ -106,6 +110,54 @@ func TestTailnetPolicyRotationCASAndSecretProjection(t *testing.T) {
 		t.Fatal(v, e)
 	}
 }
+func TestTailnetPolicyDoesNotConvertOrDeleteRetainedCredentials(t *testing.T) {
+	p, parent := policyFixture(t)
+	first, e := p.update(t.Context(), enrollmentInput(), acceptedCredential)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dir := filepath.Join(parent, "soda-tailnet")
+	retained := filepath.Join(dir, "credential-"+strings.Repeat("a", 32)+".json")
+	secret := []byte(`{"client_id":"synthetic-client","secret":"tskey-client-retained-synthetic-secret"}`)
+	if e = os.WriteFile(retained, secret, 0600); e != nil {
+		t.Fatal(e)
+	}
+	rotate := enrollmentInput()
+	rotate.Action, rotate.Revision = "rotate", first.Enrollment.Revision
+	if _, e = p.update(t.Context(), rotate, acceptedCredential); e != nil {
+		t.Fatal(e)
+	}
+	if b, e := os.ReadFile(retained); e != nil || string(b) != string(secret) {
+		t.Fatal("retained secret altered", e)
+	}
+	path := filepath.Join(dir, "policy.json")
+	b, e := os.ReadFile(path)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var old map[string]any
+	if json.Unmarshal(b, &old) != nil {
+		t.Fatal("fixture decode")
+	}
+	old["version"], old["credential"] = 1, strings.Repeat("a", 32)
+	b, _ = json.Marshal(old)
+	if e = os.WriteFile(path, b, 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = p.enrollment(t.Context()); e == nil {
+		t.Fatal("v1 policy needs explicit conversion")
+	}
+	if _, e = p.update(t.Context(), rotate, acceptedCredential); e == nil {
+		t.Fatal("old policy silently overwritten")
+	}
+	if after, e := os.ReadFile(path); e != nil || string(after) != string(b) {
+		t.Fatal("old policy changed", e)
+	}
+	if after, e := os.ReadFile(retained); e != nil || string(after) != string(secret) {
+		t.Fatal("retained secret lost", e)
+	}
+}
+
 func TestTailnetPolicyConcurrencyAndCancelledWaiter(t *testing.T) {
 	p, _ := policyFixture(t)
 	seed, e := p.update(t.Context(), enrollmentInput(), acceptedCredential)
@@ -151,7 +203,7 @@ func TestTailnetPolicyConcurrencyAndCancelledWaiter(t *testing.T) {
 	}
 }
 func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
-	for _, kind := range []string{"root-link", "policy-link", "credential-hardlink", "permissions", "corrupt", "missing-credential"} {
+	for _, kind := range []string{"root-link", "policy-link", "policy-hardlink", "permissions", "corrupt", "missing-credential"} {
 		t.Run(kind, func(t *testing.T) {
 			p, parent := policyFixture(t)
 			if kind == "root-link" {
@@ -164,13 +216,6 @@ func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
 				}
 				dir := filepath.Join(parent, "soda-tailnet")
 				path := filepath.Join(dir, "policy.json")
-				entries, _ := os.ReadDir(dir)
-				credentialPath := ""
-				for _, f := range entries {
-					if strings.HasPrefix(f.Name(), "credential-") {
-						credentialPath = filepath.Join(dir, f.Name())
-					}
-				}
 				switch kind {
 				case "policy-link":
 					if e := os.Rename(path, path+".kept"); e != nil {
@@ -179,8 +224,8 @@ func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
 					if e := os.Symlink(path+".kept", path); e != nil {
 						t.Fatal(e)
 					}
-				case "credential-hardlink":
-					if e := os.Link(credentialPath, credentialPath+".link"); e != nil {
+				case "policy-hardlink":
+					if e := os.Link(path, path+".link"); e != nil {
 						t.Fatal(e)
 					}
 				case "permissions":
@@ -192,7 +237,17 @@ func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
 						t.Fatal(e)
 					}
 				case "missing-credential":
-					if e := os.Rename(credentialPath, credentialPath+".kept"); e != nil {
+					b, e := os.ReadFile(path)
+					if e != nil {
+						t.Fatal(e)
+					}
+					var policy enrollmentPolicy
+					if json.Unmarshal(b, &policy) != nil {
+						t.Fatal("fixture decode")
+					}
+					policy.Credential = credential{}
+					b, _ = json.Marshal(policy)
+					if e = os.WriteFile(path, b, 0600); e != nil {
 						t.Fatal(e)
 					}
 				}

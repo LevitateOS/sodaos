@@ -30,15 +30,6 @@ func (t RunTarget) valid() bool {
 	return ValidProject(t.Project) && containerPattern.MatchString(t.Container) && containerPattern.MatchString(t.Run)
 }
 
-type runAttempt struct {
-	Version   int    `json:"version"`
-	Project   string `json:"project"`
-	Container string `json:"container"`
-	Run       string `json:"run"`
-	Binding   string `json:"binding"`
-	Phase     string `json:"phase"`
-}
-
 // keyTransport admits exactly one key POST, with an operation-owned bearer. The
 // SDK never sees a reusable credential, redirect, uncapped body or raw error body.
 // No SDK Auth wrapper/background token refresh and no automatic POST replay.
@@ -133,54 +124,14 @@ func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c crede
 	return value, nil
 }
 
-// RunAttempt is a passive native observation. It does not create directories,
-// repair missing journals, fetch tokens or expose credentials. A same-run durable
-// marker without its matching journal is explicitly unconfirmed.
-func (m *Management) RunAttempt(ctx context.Context, target RunTarget) (string, error) {
-	if !target.valid() {
-		return "", ErrInvalid
-	}
-	root, lock, e := m.policy.lock(ctx, false)
-	if errors.Is(e, os.ErrNotExist) {
-		return "none", nil
-	}
-	if e != nil {
-		return "", e
-	}
-	defer root.Close()
-	defer lock.Close()
-	project, e := m.policy.loadProject(root, target.Project, target.Container)
-	if e != nil {
-		return "", e
-	}
-	var attempt runAttempt
-	e = m.policy.read(root, "attempt-"+target.Project+"-"+target.Run+".json", &attempt)
-	if errors.Is(e, os.ErrNotExist) {
-		if project.ActiveRun == target.Run {
-			return "unconfirmed", nil
-		}
-		return "none", nil
-	}
-	if e != nil {
-		return "", e
-	}
-	if attempt.Version != 1 || attempt.Project != target.Project || attempt.Container != target.Container || attempt.Run != target.Run || attempt.Binding != project.Binding || project.ActiveRun != target.Run {
-		return "", ErrConflict
-	}
-	switch attempt.Phase {
-	case "key-requested", "submitted", "unconfirmed":
-		return attempt.Phase, nil
-	}
-	return "", ErrUnavailable
-}
-
 // EnrollRun is a root-native operation, not an HTTP credential/key endpoint.
 // validate rechecks the exact incarnation; consume writes only the single-use key
 // into the validated companion input and invokes its fixed CLI. Neither callback
 // receives the OAuth secret/token. The existing policy lock fences rotation/Off;
 // this must run outside the host's global Create/lifecycle admission gate.
-// Any previous attempt in this run is observed/refused, never replayed. A missing
-// journal with a matching durable ActiveRun marker is uncertainty, not first use.
+// The native caller holds its runtime lock and observes the actual daemon before
+// calling: an existing node or unfinished exec is not a new enrollment. A failed
+// operation leaves no permanent attempt veto; a later explicit retry is permitted.
 func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
 	if !target.valid() || validate == nil || consume == nil {
 		return ErrInvalid
@@ -207,32 +158,11 @@ func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate f
 	if !project.Enabled || !policy.Admission || project.Binding != policy.Binding || policy.Revision == "0" {
 		return ErrConflict
 	}
-	if project.ActiveRun == target.Run {
-		return ErrConflict
-	}
-	name := "attempt-" + target.Project + "-" + target.Run + ".json"
-	if _, e = root.Lstat(name); !errors.Is(e, os.ErrNotExist) {
-		return ErrConflict
-	}
 	if validate(ctx) != nil || ctx.Err() != nil {
 		return ErrConflict
 	}
-	// Publish the durable incarnation marker first: even a missing/lost journal or
-	// directory-fsync uncertainty cannot cause a second automatic key request.
-	project.ActiveRun = target.Run
-	if e = m.policy.publish(root, lock, "project-"+target.Project+".json", project); e != nil {
-		return e
-	}
-	attempt := runAttempt{Version: 1, Project: target.Project, Container: target.Container, Run: target.Run, Binding: project.Binding, Phase: "key-requested"}
-	if e = m.policy.publish(root, lock, name, attempt); e != nil {
-		return e
-	}
-	var credential credential
-	if m.policy.read(root, "credential-"+policy.Credential+".json", &credential) != nil {
-		return ErrUnavailable
-	}
-	key, e := m.projectKey(ctx, policy, credential)
-	credential.Secret = ""
+	key, e := m.projectKey(ctx, policy, policy.Credential)
+	policy.Credential.Secret = ""
 	if e == nil {
 		if validate(ctx) != nil || ctx.Err() != nil {
 			e = ErrUnconfirmed
@@ -241,13 +171,6 @@ func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate f
 		}
 	}
 	key = ""
-	attempt.Phase = "submitted"
-	if e != nil {
-		attempt.Phase = "unconfirmed"
-	}
-	if m.policy.publish(root, lock, name, attempt) != nil {
-		return ErrUnconfirmed
-	}
 	if e != nil || validate(ctx) != nil || ctx.Err() != nil {
 		return ErrUnconfirmed
 	}

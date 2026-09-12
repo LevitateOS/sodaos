@@ -65,15 +65,15 @@ func TestTailnetHostProjectionAndPassiveReads(t *testing.T) {
 	}
 }
 func TestTailnetHostUnavailableIsNotDisconnected(t *testing.T) {
-	for _, kind := range []string{"version", "prefs", "oversize", "null", "duplicate"} {
+	for _, kind := range []string{"state", "prefs", "oversize", "null", "duplicate"} {
 		t.Run(kind, func(t *testing.T) {
 			m := managementFixture(t)
 			original := m.local.Transport
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Path == "/localapi/v0/status" {
 					switch kind {
-					case "version":
-						return managementResponse(200, strings.Replace(nativeStatusFixture(), "1.102.4", "1.1.0", 1)), nil
+					case "state":
+						return managementResponse(200, strings.Replace(nativeStatusFixture(), "Running", "UnknownState", 1)), nil
 					case "oversize":
 						return managementResponse(200, nativeStatusFixture()+strings.Repeat(" ", 65536)), nil
 					case "null":
@@ -249,7 +249,7 @@ func TestTailnetCredentialCheckIsScopedBoundedAndNoRegistration(t *testing.T) {
 		})
 	}
 }
-func TestTailnetHostRevisionIncludesNativeIdentityAndCLIIsPinned(t *testing.T) {
+func TestTailnetHostRevisionIncludesNativeIdentityWithoutReleaseVeto(t *testing.T) {
 	m := managementFixture(t)
 	before, _, e := m.observe(t.Context())
 	if e != nil {
@@ -258,7 +258,7 @@ func TestTailnetHostRevisionIncludesNativeIdentityAndCLIIsPinned(t *testing.T) {
 	base := m.local.Transport
 	m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		if strings.HasSuffix(r.URL.Path, "/status") {
-			return managementResponse(200, strings.Replace(nativeStatusFixture(), `"ID":"self"`, `"ID":"replacement"`, 1)), nil
+			return managementResponse(200, strings.Replace(strings.Replace(nativeStatusFixture(), `"ID":"self"`, `"ID":"replacement"`, 1), "1.102.4", "1.1.0", 1)), nil
 		}
 		return base.RoundTrip(r)
 	})
@@ -266,15 +266,18 @@ func TestTailnetHostRevisionIncludesNativeIdentityAndCLIIsPinned(t *testing.T) {
 	if e != nil || after.Revision == before.Revision {
 		t.Fatal("replacement did not retire revision", e)
 	}
+	calls := 0
 	m.command = func(ctx context.Context, path string, args ...string) ([]byte, error) {
-		if path != DefaultCLI || strings.Join(args, " ") != "version --json" {
-			t.Error("unsupported CLI dispatched mutation")
+		if path != DefaultCLI || strings.Join(args, " ") != "--socket="+hostSocket+" set --advertise-exit-node=true" {
+			t.Error("unexpected command/version preflight")
 		}
-		return []byte(`{"short":"1.1.0"}`), nil
+		calls++
+		return nil, nil
 	}
 	b := true
-	if _, e = m.HostAction(t.Context(), HostRequest{Action: "advertise-exit-node", Confirm: "advertise-exit-node", Advertise: &b, Revision: after.Revision}); !errors.Is(e, ErrUnsupported) {
-		t.Fatal(e)
+	result, e := m.HostAction(t.Context(), HostRequest{Action: "advertise-exit-node", Confirm: "advertise-exit-node", Advertise: &b, Revision: after.Revision})
+	if e != nil || calls != 1 || result.Outcome != "unconfirmed" {
+		t.Fatal("concrete action or independent readback lost", e)
 	}
 }
 func TestTailnetExitSelectionPreservesRoutesAndLogoutHidesAuthURL(t *testing.T) {

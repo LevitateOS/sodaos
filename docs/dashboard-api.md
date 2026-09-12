@@ -171,12 +171,13 @@ passed, not provider/native acceptance; Cockpit remains installed.
 
 ## Tailnet backend
 
-**Stage-2 backend and Stage-3 UI source; native-page acceptance, project runtime and
-installed proof remain pending.**
+**Host/project backend and UI source are implemented; native-page acceptance,
+project-runtime native proof and installed delivery remain pending.**
 The [Tailnet owner](tailnet-integration-plan.md) owns lifecycle and acceptance.
 The optional native host configuration field `tailnet_management` defaults false;
-only an explicitly enabled helper constructs the management backend. No setup,
-service or retained configuration enables it in this slice. Paths below are under
+only an explicitly enabled helper constructs the management backend. Fresh-install
+source selects it with an immutable companion image; retained configurations are
+not changed by source work. Paths below are under
 `/-/soda`. Models and bounds live in
 [`management_types.go`](../internal/tailnet/management_types.go), with narrow helper
 response validation before browser publication.
@@ -211,8 +212,9 @@ node are accepted. Host addresses/online state are not reachability receipts.
 Every host POST requires `action` and the observed opaque 64-hex `revision`, covering
 native identity/state and preferences. Soda mutations share the native policy lock;
 this is not transactional exclusion of unrelated direct Tailscale/Cockpit writers.
-The adapter checks the reviewed daemon release, and the matching CLI release before
-CLI-dependent effects; the baseline belongs in `ManagementCLIRelease` in source.
+The adapter validates the concrete bounded native fields and fixed operations,
+not an exact CLI/daemon release string. Build/image versions remain selected by
+their manifests; accepting a response is not compatibility proof for a new release.
 
 | Action | Additional fields / effect |
 | --- | --- |
@@ -247,8 +249,9 @@ unconfigured state. Every enrollment POST requires `action` and `revision`:
   credential, auth key or device. Token acceptance is not network/tag enrollment
   verification. No redirects or automatic authentication retry are allowed.
 - `save` checks the credential then publishes a new binding/revision. `rotate`
-  requires the existing exact Tailnet/tags/preauthorization, preserves its binding
-  and retains previous credential files. Neither retargets project records nor
+  requires the existing exact Tailnet/tags/preauthorization and preserves its binding.
+  Both atomically publish one restricted active credential/policy configuration,
+  without automatic credential archival. Neither retargets project records nor
   revokes enrolled devices.
 - `disable` takes no credential/policy fields and closes future admission/default,
   without changing project policies or disconnecting/deleting devices.
@@ -277,8 +280,8 @@ logout. Without runtime, enable/retry remain unsupported and Off remains a saved
 `disconnect-unconfirmed` intent.
 
 Results distinguish `saved`, `outcome`, observed `state`, the original binding, an
-available binding/network selection and bounded `ips`/`dns_name`. Only matched native
-version/network/tags/preferences may report connected. Startup failure, queued work,
+available binding/network selection and bounded `addresses`/`dns_name`. Only matched
+native network/tags/preferences and a valid current node may report connected. Startup failure, queued work,
 stopped/Off intent and failed readback are distinct from connected or disconnected
 proof. Missing/unsafe state is not recreated to resolve a conflict; ambiguous
 publication or enrollment is never rolled back or automatically replayed.
@@ -286,16 +289,22 @@ publication or enrollment is never rolled back or automatically replayed.
 Create optionally takes `tailnet:{enabled:false}` or an explicit enabled selection
 with exact reviewed `revision` and `binding` from the repository options endpoint.
 Omission is always Off. Current human repository ownership and the session are
-rechecked after preflight, before reservation/dispatch. Native policy reservation
-precedes stopped-container creation and CID binding precedes startup. Provisioning
-failure retains the reservation; network failure does not change project `ready`.
+rechecked after preflight, before reservation/dispatch. Persistent project provisioning
+and recording `ready` complete before the normal exact-project network operation;
+there is no second Tailnet reservation. Its binding check still refuses a changed
+network. A managed Create returns the normal 201 environment plus `tailnet_outcome`
+(`queued` or `unconfirmed`); Off/omitted selection has no network outcome or operation.
+Network failure leaves the successfully provisioned project ready and requires an
+explicit Network retry, never another Create. Authority is rechecked before network
+dispatch and response publication; loss of authority may hide the response but does
+not undo provisioning. Actual provisioning failure retains the original reservation.
 Spaces summaries use helper-only read-only `/tailnet/policy`, not per-row daemon
 exec. Authorized project members can observe Network metadata; only current
 administrators/operators can change it. SSH projection uses the existing original
 Linux login and host fingerprint, never another account or Tailscale SSH.
 
 Errors retain the normal JSON envelope: 400 malformed, 401 context loss, 403 missing
-authority, 409 changed revision/native identity, 422 unsupported operation/version,
+authority, 409 changed revision/native identity, 422 unsupported operation/runtime,
 503 unavailable helper/configuration/observation, 502 unknown native outcome. Native
 and provider diagnostic bodies are never copied into errors. Existing LAN/SSH
 endpoints and legacy omission behavior are unchanged. Run-incarnation admission,

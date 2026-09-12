@@ -31,28 +31,35 @@ bootstrap tokens or developer Git credentials. No existing secret is reused/expo
 for project enrollment, and neither project nor companion receives a reusable secret
 or bearer token.
 
-The opt-in root helper owns `/var/lib/soda-tailnet/` (0700), version-1 `policy.json`,
-immutable `credential-REVISION.json` inputs, and `project-PROJECT_ID.json` intent
-records (0600). They are outside developer roots, companion mounts and the dashboard
+The opt-in root helper owns `/var/lib/soda-tailnet/` (0700), version-2 `policy.json`
+containing the active enrollment credential and policy together, and
+`project-PROJECT_ID.json` intent records (0600). They are outside developer roots, companion mounts and the dashboard
 service account. Trusted ancestors, owner/type/mode and single-link regular-file
 checks precede bounded no-follow reads. One descriptor-bound directory flock
 serializes cooperating writers without taking the project's lifecycle gate.
 Publication uses exclusive temporary files, file/directory fsync and atomic rename;
-ambiguous publication is not rolled back or replayed. Rotation retains old credential
-files; leftover publication inputs are not automatically cleaned up. Missing or
-unsafe configured inputs are unavailable, not permission to regenerate them.
+ambiguous publication is not rolled back or replayed. Rotation atomically replaces
+the active configuration; it does not create historical credential copies or revoke
+provider credentials. Existing retained secret files and leftover failed publication
+inputs are not automatically cleaned up. Missing or unsafe configured inputs are
+unavailable, not permission to regenerate them.
 Passive reads and credential checks create no state files. The separate provider
 check uses an operation-local upstream OAuth token, never a global cached token or
 a test-device registration.
 
-The Stage-4 native enrollment core adds a durable `active_run` incarnation marker to
-project intent and version-1 `attempt-PROJECT_ID-RUN_HASH.json` records under the same
-private root. They contain only target/binding/phase metadata, never keys/tokens.
-The marker is published before the attempt and provider call: missing same-run
-journals and uncertain fsync/response/consumption refuse automatic re-enrollment.
-These are separate from the still-unimplemented companion `/run` state/key files.
-Older strict helpers may refuse the added project field; source tests are not
-installed mixed-version compatibility or restoration permission.
+Enrollment writes no attempt journal or durable at-most-once run marker. The native
+caller serializes activation, observes/reuses an existing node and refuses another
+consumer while a native exec is unfinished. A failed request permits a later bounded
+explicit retry; a lost response can leave an extra unused short-lived key. Key expiry
+does not revoke a device that already consumed it.
+
+Retained version-1 reference-based policies and project policies containing the
+retired `active_run` field require an explicitly authorized conversion before using
+the changed helper. Reads refuse them without mutation; Save does not silently
+convert, overwrite or delete them. No retained target has received this source
+change. Preserve their complete policy/credential inputs and later writes when
+planning that conversion; old-helper restoration is not automatically compatible
+with version 2.
 
 The native-only `EnrollRun` operation uses the pinned official v2 SDK with explicit
 saved Tailnet, exact tags, non-reusable ephemeral keys, bounded short expiry and the
@@ -63,8 +70,9 @@ deadline and no key POST is replayed. Project/CID/binding admission and incarnat
 rechecks fence key consumption. The configured runtime consumes only an exclusive
 single-use key file through the companion's fixed native CLI. Input is retired by
 inode only after native exec completion is observed; uncertain completion retains
-it in the restricted run root. Run-owned state permits daemon-only restart, never
-credential regeneration after missing/ambiguous state. Runtime activation and native
+it in the restricted run root. A subsequent explicit activation may retire that
+exact input after observing native completion. Node identity is in-memory per daemon
+activation; it is not retained across daemon restarts. Runtime activation and native
 proof belong to the [Tailnet plan](tailnet-integration-plan.md#stage-4--automatic-enrollment-and-project-integration).
 
 Append-only **schema v10** rebuilds the existing OAuth table with the same rows,

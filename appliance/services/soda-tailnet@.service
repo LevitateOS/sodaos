@@ -12,6 +12,8 @@ ExecStart=/usr/local/libexec/soda/soda-host --tailnet-action=run --project=%i
 ExecStop=-/usr/bin/systemctl kill --kill-whom=main --signal=SIGTERM soda-tailnet@%i.service
 ExecStop=/usr/local/libexec/soda/soda-host --tailnet-action=stop --project=%i
 Restart=on-failure
+# Failed preparation/enrollment needs explicit retry; daemon failure may restart.
+RestartPreventExitStatus=78
 RestartSec=2
 TimeoutStopSec=35
 KillMode=control-group

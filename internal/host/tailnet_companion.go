@@ -271,16 +271,6 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 		return "", e
 	}
 	defer root.Close()
-	phase, e := d.Tailnet.RunAttempt(ctx, run.Target)
-	if e != nil {
-		return "", e
-	}
-	if phase != "none" {
-		info, e := root.Lstat("state/tailscaled.state")
-		if e != nil || !runtimeFile(info, run.UID, run.GID, 0600) || info.Size() == 0 {
-			return "", tailnet.ErrUnconfirmed
-		}
-	}
 	if fresh {
 		if e = f.saveCurrent(run); e != nil {
 			return "", e
@@ -313,7 +303,8 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 			return "", e
 		}
 	}
-	// Version/status reads are bounded readiness observation, never login polling.
+	// Status reads are bounded readiness observation, never login polling.
+	var hasNode bool
 	ready, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 	tick := time.NewTicker(100 * time.Millisecond)
@@ -321,7 +312,8 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 	for {
 		b, other := d.companionCLI(ready, run, "status", "--json", "--peers=false")
 		if other == nil {
-			if e = tailnet.CheckDaemonRelease(b); e != nil {
+			hasNode, e = tailnet.ProjectHasNode(b)
+			if e != nil {
 				return "", e
 			}
 			break
@@ -332,15 +324,16 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 		case <-tick.C:
 		}
 	}
-	b, e := d.companionCLI(ctx, run, "version", "--json")
-	if e != nil {
-		return "", e
-	}
-	if e = tailnet.ProjectCLIRelease(b); e != nil {
-		return "", e
-	}
-	if phase == "none" && binding.Admission {
-		// The durable policy marker, not the volatile filesystem, decides first use.
+	if !hasNode && binding.Admission {
+		// The runtime lock excludes other Soda activations. A prior cancelled
+		// observer is not proof the native CLI has stopped consuming its input.
+		c, e = d.inspectCompanion(ctx, run)
+		if e != nil || len(c.Execs) != 0 {
+			return "", tailnet.ErrUnconfirmed
+		}
+		if e = retirePendingRunKey(root, run); e != nil {
+			return "", e
+		}
 		e = d.Tailnet.EnrollRun(ctx, run.Target, func(c context.Context) error { return d.recheckProjectRun(c, run) }, func(c context.Context, key string) error { return d.consumeRunKey(c, run, root, key) })
 		if e != nil {
 			return "", e
@@ -357,7 +350,7 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 }
 
 // WaitTailnet delegates lifetime to native Podman/systemd, not a reenrollment
-// worker. Daemon failure restarts reuse this same run's available state.
+// worker. Each daemon activation has its own in-memory ephemeral identity.
 func (d *Daemon) WaitTailnet(ctx context.Context, cid string) error {
 	if cid == "" {
 		return nil
@@ -380,34 +373,6 @@ func (d *Daemon) WaitTailnet(ctx context.Context, cid string) error {
 	return tailnet.ErrUnavailable
 }
 
-// ParentStopQueued checks the actual job type; ActiveState may still be active
-// while an ordered stop/restart is queued behind this companion's ExecStop.
-func parentStopQueued(data []byte, unit string) (bool, error) {
-	// v259.8 list-jobs uses table_print, not JSON output. Filter the exact unit,
-	// disable decoration/truncation and parse its four native scalar columns.
-	if len(data) > 4096 {
-		return false, tailnet.ErrUnavailable
-	}
-	fields := strings.Fields(string(data))
-	if len(fields) == 0 {
-		return false, nil
-	}
-	if len(fields) != 4 || fields[1] != unit || (fields[3] != "waiting" && fields[3] != "running") {
-		return false, tailnet.ErrUnavailable
-	}
-	id, e := strconv.ParseUint(fields[0], 10, 64)
-	if e != nil || id == 0 || strconv.FormatUint(id, 10) != fields[0] {
-		return false, tailnet.ErrUnavailable
-	}
-	switch fields[2] {
-	case "stop", "restart":
-		return true, nil
-	case "start", "reload", "reload-or-start", "verify-active", "nop":
-		return false, nil
-	default:
-		return false, tailnet.ErrUnavailable
-	}
-}
 func (d *Daemon) StopTailnet(ctx context.Context, id string) error {
 	if !projectID.MatchString(id) {
 		return tailnet.ErrInvalid
@@ -440,36 +405,14 @@ func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	if !c.Running {
 		return nil
 	}
-	read, done := context.WithTimeout(ctx, 2*time.Second)
-	binding, policyErr := d.Tailnet.RunBinding(read, run.Target)
-	done()
-	read, done = context.WithTimeout(ctx, 2*time.Second)
-	b, jobErr := d.runtimeCommand(read, "/usr/bin/systemctl", "list-jobs", "--plain", "--no-legend", "--no-pager", "--full", "soda-project@"+id+".service")
-	done()
-	endRun, parseErr := parentStopQueued(b, "soda-project@"+id+".service")
-	read, done = context.WithTimeout(ctx, 2*time.Second)
-	current, runErr := d.projectRun(read, id)
-	endRun = endRun || (runErr == nil && current != run) || (policyErr == nil && !binding.Enabled)
-	if runErr != nil {
-		env, _, e := d.inspect(read, id)
-		if e == nil && !env.Running {
-			endRun = true
-		}
-	}
-	done()
-	// If job/policy observation is uncertain, stop safely without destroying the
-	// identity. Never reinterpret an uncertain daemon restart as an explicit logout.
+	// Every activation ends its identity. Native mem: shutdown also attempts
+	// logout; neither a successful stop nor key expiry proves provider deletion.
 	result := error(nil)
-	if policyErr != nil || jobErr != nil || parseErr != nil || runErr != nil {
+	logout, done := context.WithTimeout(ctx, 5*time.Second)
+	if _, e = d.companionCLI(logout, run, "logout"); e != nil {
 		result = tailnet.ErrUnconfirmed
 	}
-	if endRun {
-		logout, done := context.WithTimeout(ctx, 5*time.Second)
-		if _, e = d.companionCLI(logout, run, "logout"); e != nil {
-			result = tailnet.ErrUnconfirmed
-		}
-		done()
-	}
+	done()
 	if _, e = d.runtimePodman(ctx, "stop", "--time=8", c.ID); e != nil {
 		return tailnet.ErrUnconfirmed
 	}
@@ -477,7 +420,7 @@ func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	if e != nil || after.ID != c.ID || after.Running {
 		return tailnet.ErrUnconfirmed
 	}
-	if runErr == nil && current == run {
+	if current, runErr := d.projectRun(ctx, id); runErr == nil && current == run {
 		resolver, e := os.ReadFile(run.Resolver)
 		if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
 			return tailnet.ErrUnconfirmed

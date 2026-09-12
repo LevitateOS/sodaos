@@ -172,6 +172,16 @@ test('managed Create submits the reviewed binding, while an explicit Off ignores
     assert.deepEqual(JSON.parse(sent[0]?.body || '{}').tailnet, enabled ? {enabled: true, revision: 'b'.repeat(32), binding: 'a'.repeat(32)} : {enabled: false});
   }
 });
+test('network failure after Create keeps the project and offers network recovery, not recreation', async t => {
+  const page = await fixture(t, {absent: true, tailnetAvailable: true, tailnetDefault: true, tailnetCreateOutcome: 'unconfirmed'}); await refresh(page);
+  await click(page, 'Create environment');
+  assert.match(await page.locator('main').innerText(), /Project created\. Network setup unconfirmed/);
+  assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0);
+  assert.equal((await writes(page)).length, 1);
+  await refresh(page);
+  assert.equal((await writes(page)).length, 1);
+});
+
 test('shared Network panel requires current administration and explicit target confirmation; double activation sends once', async t => {
   const page = await fixture(t, {tailnetAvailable: true}); await refresh(page); await click(page, 'Network');
   await click(page, 'Use managed network'); assert.deepEqual(await writes(page), []);

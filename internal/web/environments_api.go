@@ -191,7 +191,7 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		return
 	}
 	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
-	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile, Tailnet: input.Tailnet})
+	env, err := s.Host.Create(r.Context(), host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
 	if err != nil {
 		jsonResponse(w, 502, struct {
 			Error       apiError        `json:"error"`
@@ -207,7 +207,29 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		return
 	}
 	p.Ready = true
-	jsonResponse(w, 201, environmentDTO(p))
+	result := struct {
+		environmentView
+		TailnetOutcome string `json:"tailnet_outcome,omitempty"`
+	}{environmentView: environmentDTO(p)}
+	if input.Tailnet != nil && input.Tailnet.Enabled {
+		// Provisioning is already complete. Network failure must not strand its
+		// reservation or cause another Create. The normal policy operation binds
+		// the exact native CID and rejects a changed network under its own lock.
+		if !s.authorizeProjectTailnet(w, r, v, p) || !s.tailnetSession(w, r, v) {
+			return
+		}
+		network, e := s.Host.TailnetProject(r.Context(), tailnet.ProjectRequest{
+			Project: p.ID, Action: "enable", Revision: "0", Binding: input.Tailnet.Binding, ConfirmID: p.ID,
+		})
+		if !s.tailnetSession(w, r, v) || !s.authorizeProjectTailnet(w, r, v, p) {
+			return
+		}
+		result.TailnetOutcome = "unconfirmed"
+		if e == nil && network.Outcome == "queued" {
+			result.TailnetOutcome = "queued"
+		}
+	}
+	jsonResponse(w, 201, result)
 }
 func (s *Server) loadEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
 	p, err := s.Store.Project(r.Context(), r.PathValue("id"))

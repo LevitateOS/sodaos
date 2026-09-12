@@ -12,14 +12,12 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/projectos"
-	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
 type Create struct {
-	Tailnet *tailnet.ProjectSelection `json:"tailnet,omitempty"`
-	Profile *projectos.Profile        `json:"profile,omitempty"`
-	ID      string                    `json:"id"`
-	Owner   int64                     `json:"owner"`
+	Profile *projectos.Profile `json:"profile,omitempty"`
+	ID      string             `json:"id"`
+	Owner   int64              `json:"owner"`
 }
 type Account struct {
 	Project  string   `json:"project"`
