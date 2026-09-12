@@ -20,6 +20,21 @@ URLs to fixed native-login bookmark bridges. It adds no schema/key migration,
 credential format or session authority. Schema-v9 connection/cancellation behavior
 from step 2 remains; no retained-target upgrade follows from local page checks.
 
+## Planned Tailnet credential and return changes
+
+The [Tailnet implementation plan](tailnet-integration-plan.md) owns its proposed
+host-only enrollment credential, native policy and ephemeral-node state separation.
+These are not Forgejo session grants, bootstrap tokens or developer Git credentials;
+do not reuse or export those existing secrets for enrollment.
+
+Its native page also needs an append-only schema migration for the current
+`oauth.settings_return` CHECK, which admits only empty/runners. Extend enumerated
+returns without deleting pending OAuth rows, login contexts or encrypted grants;
+update the supported-schema/completeness tests with the implementation. No new schema
+version is allocated by this planning document. The existing consistent-backup,
+wrong-key/refusal and paired-artifact restoration contracts below remain in force.
+Copied-state rehearsal must not authenticate a cloned host/project Tailscale identity.
+
 ## New installations
 
 `soda-setup` now creates an exclusive `grant-key` file alongside OAuth credentials,

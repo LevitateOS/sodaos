@@ -177,9 +177,7 @@ has a shared owner; differing page policies remain explicit rather than generali
 **Owners:** [API guard](../internal/web/api.go),
 [repository authority](../internal/web/environment_authority.go),
 [provider grants](../internal/web/provider.go),
-[Spaces page](../internal/web/spaces_page.go),
-[runner page](../internal/web/settings_page.go),
-[repository settings](../internal/web/repository_settings.go).
+[native Spaces/runner/repository bookmark bridges](../internal/web/pages.go).
 
 1. Give the repeated current-session comparison a concrete helper with explicit
    original-session input and an error result. Check stable user ID, `ContextID`
@@ -347,7 +345,7 @@ This review does not itself rewrite those historical entries.
 
 | Selected unfinished work | Integration direction retained; what this plan must not invent |
 | --- | --- |
-| Sodarunners parity | Existing native runner lifecycle and shared protocol, Forgejo registration and scheduling. Keep Cockpit Runners and backing tests until the separately required parity/cutover; Tailnet stays in Cockpit. No Soda CI scheduler or provider-role copy. |
+| Sodarunners parity | Existing native runner lifecycle and shared protocol, Forgejo registration and scheduling. Keep Cockpit Runners and backing tests until the separately required parity/cutover; the [Tailnet plan](tailnet-integration-plan.md) separately owns its dashboard/project move. No Soda CI scheduler or provider-role copy. |
 | Rocky/Fedora headless and KDE | Existing Project OS foundation, native package/session mechanisms and exact native investigation. No live distro conversion, separate desktop machine or speculative VM/host-runtime fallback. |
 | Desktop transport/Lock | Investigate the selected KDE/private native transport and established browser client under the desktop guide. No homegrown remote-desktop protocol/compositor, second reusable password authority or fake computer-use support. Native Lock/unlock integration and exact package/session compatibility remain open. |
 | Services marketplace | Reviewed app recipes over Podman/Quadlet/systemd, Caddy ingress and each app's native accounts/settings. Do not reproduce Vaultwarden, Adminer or Homepage, use SQLite as service-running truth, or build a generic registry/update platform/service supervisor. Preserve the selected catalog and per-app upgrade design work. |

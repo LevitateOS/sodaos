@@ -488,12 +488,25 @@ credential; never export them into a project.
 Use actual reachable endpoints and independently trusted host keys/CA roots. Trust
 in the browser does not install trust inside the project; never copy appliance TLS
 private keys into it or disable verification. Direct development access is
-`user@project-ip`, not project DNS or an SSH gateway. Project IP can change after
+`user@project-ip`, not Soda-invented project DNS or an SSH gateway. The planned
+Tailnet integration below may also report a native Tailscale address/MagicDNS name;
+it does not invent DNS records or replace SSH authentication. Project IP can change after
 Start; identity is the project/container/account and trusted host key, not the IP.
 Browser HTTPS/terminal connectivity does not prove laptop access to project HTTP,
 database or SSH ports. Private client routes/authorized native forwarding remain
 [deployment responsibilities](installation.md#4-establish-real-project-reachability);
 no automatic port proxy or public ingress follows from this baseline.
+
+### Planned project Tailnet integration
+
+The [Tailnet implementation plan](tailnet-integration-plan.md) adds optional,
+automatically enrolled ephemeral project network identities. Its native runtime
+selection and proof must preserve this guide's namespace, account, persistent-root
+and lifecycle boundaries. Ephemeral applies to the network identity, not the project.
+No Tailscale package/device/capability change or retained-root enrollment is currently
+implemented by that plan; older incompatible roots remain unchanged, not recreated.
+Enrollment policy is host-managed and startup is native-supervised, not owned by a
+browser tab. Reusable enrollment credentials never belong in project roots.
 
 ## Managed-key writer contract
 

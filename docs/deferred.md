@@ -51,7 +51,7 @@ preprovisioning per-app certificates must not be prerequisites for trying SodaOS
 or using baseline Services. Finish the local access journey and actual app
 requirements without adding a production hosting or general recovery platform.
 
-The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. Stock operator Cockpit and its Tailnet page remain selected. Runner backing logic, native integration and focused tests are retained; the Cockpit Runners page remains until its selected global-settings replacement passes parity and coordinated cutover. Deferral does not authorize stripping working validation or error handling.
+The current baseline still includes usable project-local accounts and SSH, genuine shared installed tools, reachable project IPs, a usable native service runtime and ordinary persistent project state. Stock operator Cockpit remains selected; its Tailnet extension remains pending the separately selected [native Tailnet migration](tailnet-integration-plan.md). Runner backing logic, native integration and focused tests are retained; the Cockpit Runners page remains until its selected global-settings replacement passes parity and coordinated cutover. Deferral does not authorize stripping working validation or error handling.
 
 The user subsequently selected the bounded authenticated **Spaces** listing and
 global navigation link; the earlier environment-catalog exclusion is superseded.
@@ -128,7 +128,7 @@ Basic persistence across normal project stop/start and host reboot stays in scop
 - **A Soda-specific repository/toolchain/service format.** Repositories can use normal files, optional native mise configuration, image recipes and native workload definitions. Soda is not a replacement version manager, package catalog or Git workflow engine.
 - **A project DNS or custom SSH-gateway project.** Show the project's reachable IP and use ordinary `ssh user@ip`; project labels are not a hostname-routing requirement.
 - **Unrestricted host Podman access presented as project scoping.** Prefer a workable nested runtime; investigate project-scoped host execution if needed. A remote connection alone is not that boundary.
-- **Restoring the old host-account developer model.** Developer accounts belong inside project environments. Both old Soda frontends are removed; the selected UI is native Forgejo plus Sodaspaces. The explicitly retained operator Cockpit Tailnet and Runners pages do not restore custom Cockpit developer workspaces.
+- **Restoring the old host-account developer model.** Developer accounts belong inside project environments. Both old Soda frontends are removed; the selected UI is native Forgejo plus Sodaspaces. Retained operator Cockpit fallbacks and their selected native-page replacements do not restore custom Cockpit developer workspaces.
 - **Frameworks justified only by deferred scenarios.** Do not add generic authorization, reconciliation or orchestration platforms just because a future edge case could use one.
 
 ## 7. Still to prove, not deferred away

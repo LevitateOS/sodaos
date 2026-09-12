@@ -42,7 +42,8 @@ local availability, but they do not create host accounts, register capacity, or
 become a scheduler.
 
 Cockpit presentation retention/removal follows the [combined retirement gate](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation).
-Tailnet remains a separate Cockpit responsibility.
+Tailnet's separately selected [native host/project migration](tailnet-integration-plan.md)
+has its own parity and retirement scope; runner maintenance does not remove it.
 
 ## Selected Runner OS direction
 

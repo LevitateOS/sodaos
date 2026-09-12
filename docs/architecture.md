@@ -81,9 +81,14 @@ Sodaspaces and CLI-based AI automation in repository settings and local Sodarunn
 capacity in global Soda-operator settings. “Move runners to the dashboard” means
 this bounded native-interface extension, not reviving either removed frontend.
 Forgejo retains Actions settings/scheduling/permissions. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
-owns Cockpit Runners retirement; Tailnet stays in Cockpit. Marketplace apps, persistent
-Project OS roots, isolated AI jobs and account-owned desktop sessions have distinct
-native lifetimes and credentials; sharing UI does not combine their privileges.
+owns Cockpit Runners retirement. The selected [Tailnet implementation plan](tailnet-integration-plan.md)
+moves host controls into native operator settings and adds automatically enrolled,
+project-scoped ephemeral nodes. It supersedes the earlier permanent Cockpit Tailnet
+placement; the replacement is planned, not delivered. Projects inherit enrollment
+policy, never the host's device identity or reusable credentials. Stock Cockpit
+administration and its private/root-only security boundary remain. Marketplace apps,
+persistent Project OS roots, isolated AI jobs and account-owned desktop sessions
+have distinct native lifetimes and credentials; sharing UI does not combine privileges.
 
 The backend also renders [original robot avatars](avatars.md) from embedded SVG
 parts using Forgejo's supported provider setting. Only the avatar namespace is
@@ -196,15 +201,19 @@ runtime decision, not a selected desktop or nested-workload replacement.
 ## Networking and operator tools
 
 Project access is ordinary `user@project-ip`, SSH/PTY/SCP/SFTP and native service
-ports—not project DNS or a custom SSH gateway. An observed bridge address does not
+ports—not Soda-invented project DNS or a custom SSH gateway. The planned Tailnet
+integration may display Tailscale's actually observed address/MagicDNS identity; it
+does not manufacture names or install client trust. An observed bridge address does not
 prove client reachability. Host Tailnet enrollment does not imply an advertised,
 approved or working project subnet route. Keep actual client/route evidence explicit.
 
 Browser/OAuth origins, listeners and Forgejo Git advertisement are distinct configured
 facts. Do not infer endpoints from predecessor ports or another browser hostname.
 Cockpit is loopback-first and root/operator-only; do not silently expose administration
-or development services publicly. Retain Tailnet/Runners backing logic, native service
-wiring, dependencies and tests, not just page appearance. Providers own CI workflows,
+or development services publicly. Tailnet's planned host/project enrollment and
+Cockpit presentation retirement follow the [feature owner](tailnet-integration-plan.md),
+preserving native integration and applicable behavior/security tests before removing
+obsolete UI dependencies. Providers own CI workflows,
 registration authority, scheduling and results; Soda owns local capacity, not a scheduler.
 
 ## Scope, safety and proof

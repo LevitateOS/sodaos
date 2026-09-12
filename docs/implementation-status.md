@@ -49,6 +49,10 @@ The active grant record is:
   step 6. The [parity review](implementation-history.md#step-6--source-retirement-parity-review)
   covers the delivered baseline. Installed removal still requires explicit per-target
   scope/delivery approval; both retained targets keep their fallback until then.
+- **Tailnet:** the user requested the [full implementation plan](tailnet-integration-plan.md)
+  for native host controls, automatic ephemeral project enrollment and eventual
+  stock Cockpit administration. This change is planning only; no real enrollment,
+  networking/capability change, fixture lifecycle or installed Tailnet removal is granted.
 - The isolated runner fixture's one reboot and exact `probe-one` removal grants were
   used. Its time-bounded VM hold is not a new lifecycle grant. The two-GET diagnostic
   authorization was also completed, not permission to reopen the listener.
@@ -62,13 +66,17 @@ The active grant record is:
    The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
    owns remaining actual-occupant inventory, target-specific removal rehearsal and
    explicit per-target removal delivery. Both retained targets still keep Cockpit Runners.
-2. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
+2. **Tailnet:** [the implementation plan](tailnet-integration-plan.md) is written;
+   host UI/backend, automatic project enrollment and Tailnet source/installed
+   retirement remain unimplemented. Begin with its bounded native/runtime/credential
+   decisions; it does not reopen runner step 5 or authorize either installed removal.
+3. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
    Access/error/profile-menu and CLI/provider combinations, intended-client routing,
    aarch64 and whole-product/release acceptance remain outside the bounded delivery
    claim. They are not new blockers for completed step 5; follow the
    [terminal](terminal-integration.md), [CLI](project-clis.md) and
    [native validation](native-validation.md) owners when that work is selected.
-3. **Other product work:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
+4. **Other product work:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
    [Services/AI](services-and-ai-plan.md) and the [installer](coreos-installer.md)
    retain their own selected scope and remaining work. Runner completion does not
    complete or authorize those roadmaps; consult the relevant guide, not the full archive.
@@ -105,7 +113,7 @@ The active grant record is:
 Other retained fixtures and private evidence keep their existing custody; moving
 documentation does not authorize cleanup or re-execution.
 
-## Latest local change
+## Latest built source candidate
 
 **Source candidate:** `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` removes only
 Cockpit's runner presentation and updates staging/verifier, installed operator/
@@ -131,3 +139,16 @@ Logs/delta: `.artifacts/step6-source/`; detailed scope in
 [history](implementation-history.md#step-6--source-retirement-parity-review).
 No retained appliance contact, VM/provider action, installed removal or retained-
 state cleanup occurred. Source/native export acceptance is not per-target retirement.
+
+## Latest local change
+
+Documentation only: added `docs/tailnet-integration-plan.md`, covering native host
+UI parity, operator-managed OAuth enrollment, per-project authority/native lifetime,
+credential isolation, staged implementation, focused/native acceptance and scoped
+Cockpit retirement. Linked it from owning guides and replaced permanent Cockpit-
+Tailnet placement wording with the selected, not-yet-implemented direction.
+
+Grounded the plan in current page/auth/schema, project/helper/systemd, Tailnet and
+packaging callers plus the retained upstream research. Checked affected links,
+source paths, ownership/scope consistency and `git diff --check`. No application
+code, builds, application tests, target contact or network/provider mutations ran.

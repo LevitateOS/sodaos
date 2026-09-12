@@ -4,8 +4,11 @@ This guide owns the native page host, connection/logout, navigation and browser
 acceptance contracts. Product scope belongs to [Sodaspaces](sodaspaces-plan.md);
 runner operation semantics belong to [Runners](runners-port.md).
 
-The [combined plan](native-pages-runners-plan.md) alone owns coordination and
-retirement. Installed state and permissions belong to the [handoff](implementation-status.md).
+The [combined plan](native-pages-runners-plan.md) owns the delivered native-page/
+Runners coordination and runner retirement. The separately selected
+[Tailnet plan](tailnet-integration-plan.md) owns its host/project feature and Cockpit
+retirement, reusing the shared page contracts here. Installed state and permissions
+belong to the [handoff](implementation-status.md).
 Earlier implementation steps, editor reservations and intermediate results remain
 in Git and [execution history](implementation-history.md), not a second work queue.
 
@@ -71,6 +74,13 @@ Use **one query-selected presentation of Forgejo's existing global dashboard**.
 | Spaces | `/?soda-view=spaces` | Shared `SodaSpaces` component in full-page mode |
 | Runners | `/?soda-view=runners` | Runner Lit component |
 | Repository Spaces settings | `/?soda-view=repository-spaces&repository_id=123` | Shared project controls, authorized for that stable repository ID |
+
+**Planned extension:** Tailnet adds an operator-only `/?soda-view=tailnet` under the
+[Tailnet plan](tailnet-integration-plan.md). It is not admitted by current source.
+Implement its fixed bookmark, enumerated OAuth destination/schema constraint,
+settings-link visibility, mount/title, selector validation and fixture consumers as
+one paired change; no generic return URL or second login coordinator. Project
+Network controls reuse the existing authorized project settings/workspace owner.
 
 **Entry constraint found in the real browser:** a raw root query does not force
 native authentication. In particular, Forgejo's remember-me redirect can discard

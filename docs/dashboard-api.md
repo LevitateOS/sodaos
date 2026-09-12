@@ -167,6 +167,39 @@ unconfirmed local/provider effects and are never replayed. The shared native run
 lock serializes Cockpit/CLI/web reads and mutations. Local source/fixture checks
 passed, not provider/native acceptance; Cockpit remains installed.
 
+## Planned Tailnet surfaces
+
+**Proposed, not implemented.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+owns the host/project UX, enrollment/state/lifecycle and acceptance. Extend the
+existing API, not a generic socket/command proxy. Paths below are under `/-/soda`;
+concrete DTOs, field bounds and error codes must land here with implementation.
+
+| Proposed path | Methods and authority |
+| --- | --- |
+| `/api/settings/tailnet` | GET; configured Soda operator only. Projected host status/preferences and safe enrollment/default summary, never raw daemon/config/credential state. |
+| `/api/settings/tailnet/host` | POST; operator only. Strict action-specific models for sign-in/resume, logout, exit-node/LAN preference, exit-node advertisement and explicit Forgejo refresh. Never arbitrary CLI flags or LocalAPI paths. |
+| `/api/settings/tailnet/enrollment` | POST; operator only. Distinct check/save/rotate/default/admission-disable actions with the observed configuration revision. A check does not create a test node; rotating credentials does not revoke enrolled devices. |
+| `/api/repositories/{repositoryID}/tailnet-options` | GET; current authorized creator under existing repository/Create rules. Safe managed-network availability/default/revision for the Create form, not global peer or credential information. |
+| `/api/environments/{id}/tailnet` | GET for authorized members/current environment administrators/operator; POST enable/disable/retry for current environment administrators/operator. Repository visibility alone does not authorize private network reads. |
+
+Create will accept an explicit managed/Off selection with the reviewed binding
+revision. Omitted legacy fields mean Off. Native enrollment failure is a separate
+network result, not permission to recreate the reservation or redefine provisioning
+success. The existing own-member `/api/environments/{id}/connection` may gain an
+optional freshly observed Tailnet endpoint; preserve LAN data, original Linux login,
+SSH host-key trust and explicit unverified-routing semantics.
+
+Apply the existing expected-actor/session/Origin/CSRF/strict-JSON contracts to every
+route. No browser-supplied UID, socket, PID, namespace, executable or credential
+path. Only the dedicated operator enrollment configuration selects validated tags;
+connection/lifecycle actions use the saved binding, not caller-selected tags.
+Exact-project disruptive actions confirm the project ID and current revision/
+incarnation; host actions confirm their own host effect, not a project selection.
+Responses separate saved policy, observed native state and confirmed versus unknown
+operation outcome. GET/polling never enroll, repair, refresh Forgejo advertisement or
+start a project. Credential-bearing auth URLs are restricted transient operator
+responses with no-store, not ordinary cached host status or telemetry.
+
 ## Browser namespace
 
 Source now mounts the API and OAuth routes at **`/-/soda/` on `forgejo_url`**.

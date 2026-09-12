@@ -4,6 +4,19 @@ Tailnet/Tailscale is the retained Soda Cockpit extension. Runners presentation i
 retired in source; its native Forgejo owner is `/?soda-view=runners`. Installed
 fallback removal is tracked separately in the [handoff](implementation-status.md). Common PatternFly/Cockpit components, frontend tooling and their upstream licenses are copied from predecessor commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. Projects/People/Updates entrypoints are excluded. Dependency manifests/lockfile are retained. Native x86_64 bundles and source checks have now run; see [local testing](local-testing.md) for installed evidence and remaining gaps.
 
+## Selected Tailnet move and stock administration
+
+The user selected the [Tailnet implementation plan](tailnet-integration-plan.md):
+native dashboard host controls and automatic project enrollment, followed by
+retirement of this last Soda Cockpit extension. It is planned, not implemented or
+installed. The plan owns parity, source/workspace removal and per-target delivery;
+this guide continues to own ordinary Cockpit configuration below. Existing source
+and installed fallbacks remain until their respective acceptance/removal stages.
+
+“Stock” here removes Soda extension pages, not root-only PAM/private access, native
+SELinux transitions, branding or the existing Accounts navigation policy. No native
+Cockpit package removal or security-policy reset is selected by the UI move.
+
 ## Native delivery candidate
 
 Use native Cockpit packages layered onto the upstream Fedora CoreOS deployment, following its [OS extension mechanism](https://docs.fedoraproject.org/en-US/fedora-coreos/os-extensions/). Layering requires an explicitly authorized reboot; it is provisioning, not a Soda update/release platform. Package installation and initial Cockpit access have been exercised on the isolated x86_64 VM, not on all supported targets.

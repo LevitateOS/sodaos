@@ -20,6 +20,12 @@ Requirements stay with their owners:
 
 ## Completed execution
 
+The separately selected [Tailnet plan](tailnet-integration-plan.md) owns moving the
+last Soda Cockpit extension and adding automatic project enrollment. Step 6 below
+still removes **only Runners**; its Tailnet-preservation rule is scoped to that
+candidate, not a permanent ban on the later Tailnet move. Neither feature grants
+the other's installed removal or makes project-network work a runner parity gate.
+
 The former steps 1–5 are recorded in the handoff and history, with their bounded
 acceptance and remaining wider gaps. They are not standing prerequisites for every
 change. Their old procedures and intermediate statuses are retained in Git, not

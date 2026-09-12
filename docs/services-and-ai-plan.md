@@ -823,7 +823,9 @@ installer or project-lifecycle framework is implied.
    a read-only catalog or generated unit files as a working marketplace.
 3. Add isolated container execution to runner configuration, provisioning,
    lifecycle, staging and focused tests. Preserve existing host runners and Cockpit
-   Runners until its separately selected replacement works. Tailnet stays in Cockpit.
+   Runners until its separately selected replacement works. The independent
+   [Tailnet migration](tailnet-integration-plan.md) owns its host/project UI and
+   Cockpit retirement; it is not an AI-job prerequisite.
 4. Implement repository AI setup, workflow integration, live run terminals in the
    shared Spaces/drawer UI and issue-to-PR publication. Prove background execution
    with no browser, authorized attachment and view-only navigation. Complete a

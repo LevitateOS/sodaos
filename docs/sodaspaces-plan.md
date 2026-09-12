@@ -2,7 +2,9 @@
 
 This document owns Sodaspaces product scope. The [combined native-pages/Runners
 plan](native-pages-runners-plan.md) alone owns their remaining coordination and
-Cockpit retirement; unrelated Project OS/services/CLI work is not absorbed into it.
+Cockpit runner retirement. The separately selected [Tailnet plan](tailnet-integration-plan.md)
+owns host/project networking and the last Soda Cockpit extension's retirement;
+unrelated Project OS/services/CLI work is not absorbed into either.
 Installed revisions, acceptance gaps and active grants belong to the
 [current handoff](implementation-status.md), with receipts in [history](implementation-history.md).
 
@@ -394,6 +396,7 @@ following placement in the unified interface:
 | Repository settings → Sodaspaces | Project OS selection before Create; existing project/profile/status, access summary and links to the real Spaces/drawer controls. Preserve current operation-specific project authority. |
 | Repository settings → AI automation | Issue resolver and PR review/fix configuration, user-defined CLI commands and documented variables, eligible execution image, setup/tests, event policy, secret references, timeout and fix-round bound. Native repository/workflow/secret permissions govern writes. |
 | Global Runners (`/?soda-view=runners`) | Operator-only local runner registration/service controls, configured slots, listener state and verified execution support. Repository owners do not administer host runners. |
+| Planned global Tailnet (`/?soda-view=tailnet`) and project Network panel | Operator-only host/enrollment configuration; current environment administration controls that project's managed connection. UI/lifecycle and implementation are owned by the [Tailnet plan](tailnet-integration-plan.md), not implemented by this table. |
 | Existing repository settings → Actions | Keep Forgejo's native runner visibility/registration scope, secrets and variables pages. These do not become local host-capacity controls. |
 
 **Sodaspaces page:** use a single labelled **Project OS** dropdown containing the
@@ -571,8 +574,10 @@ remain intact. Feature guides own detailed checks rather than competing roadmaps
    page/API/root bridge already have source and local coverage. Follow the
    [runner completion plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation) for
    remaining source fixes, native/provider proof and coordinated Cockpit removal.
-   Tailnet stays in Cockpit; Soda operator and native provider authorities remain
-   separate. Runner OS isolation, AI and caching are independent work.
+   Tailnet remains during the runner-only cutover; its separately selected
+   [dashboard/project migration](tailnet-integration-plan.md) has its own parity and
+   delivery. Soda operator and native provider authorities remain separate.
+   Runner OS isolation, AI and caching are independent work.
 5. **Complete operator/client delivery gaps.** Finish console welcome installation/
    interactive proof, intended laptop SSH/editor routes, actual Tailnet and both
    provider-runner journeys. Existing infra/fixture evidence is not laptop/provider
