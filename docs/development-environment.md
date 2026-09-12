@@ -1,6 +1,6 @@
 # Working inside a project
 
-Adapted from the predecessor's developer handbook for project-local identities and shared resources. The [Project OS baseline](project-os.md) owns supported userspace, native permissions, persistent state and same-root maintenance. Recorded x86_64 clients have bounded SSH/file-transfer, personal Git, shared-tool and lifecycle evidence, not general laptop/client or final-product acceptance; see the [current handoff](implementation-status.md#accepted-native-evidence).
+Adapted from the predecessor's developer handbook for project-local identities and shared resources. The [Project OS baseline](project-os.md) owns supported userspace, native permissions, persistent state and same-root maintenance. Recorded x86_64 clients have bounded SSH/file-transfer, personal Git, shared-tool and lifecycle evidence, not general laptop/client or final-product acceptance; see the [recorded evidence](implementation-history.md#accepted-native-evidence).
 
 ## Planned profiles and desktop access
 

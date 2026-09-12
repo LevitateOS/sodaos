@@ -105,7 +105,7 @@ product-owned tests; it does not create a second acceptance gate.
 
 **Implemented with local source/browser checks.** See the
 [commands and prerequisites](typescript.md#local-source-checks) and
-[revision-specific results and failures](implementation-status.md#refactoring-step-1--local-source-check-wiring).
+[revision-specific results and failures](implementation-history.md#refactoring-step-1--local-source-check-wiring).
 This does not complete native-stage or installed acceptance, or the later slices.
 
 **Owners:** [root scripts](../package.json), [Spaces fixture orchestrator](../scripts/test-spaces-page.ts),
@@ -141,7 +141,7 @@ without promising an unmeasured speedup or treating prior counts as new results.
 ### B. Complete schema-v8 validation — independent small fix
 
 **Implemented with local source checks.** The
-[handoff](implementation-status.md#refactoring-step-b--schema-v8-completeness)
+[handoff](implementation-history.md#refactoring-step-b--schema-v8-completeness)
 records the reproduced failures, independent historical fixtures and passing checks.
 No migration history was rewritten and no retained database was accessed.
 
@@ -169,7 +169,7 @@ Do not inspect or modify a retained database to manufacture a failing fixture.
 ### C. Current-session and page mechanics — bounded cleanup
 
 **Implemented with local source/browser and web race checks.** See the
-[handoff](implementation-status.md#refactoring-step-c--current-session-and-page-mechanics)
+[handoff](implementation-history.md#refactoring-step-c--current-session-and-page-mechanics)
 for the bounded extraction, explicit Spaces stored-user consistency hardening,
 preserved caller policy and actual successful/failed checks. Cookie parsing already
 has a shared owner; differing page policies remain explicit rather than generalized.
@@ -207,7 +207,7 @@ stored login merely to replace booleans or introduce arbitrary return URLs.
 ### D. Readable frontend ownership using Lit — incremental, not a rewrite
 
 **Implemented as a bounded local slice.** See the
-[handoff](implementation-status.md#refactoring-step-d--frontend-readability-and-measurement-ownership)
+[handoff](implementation-history.md#refactoring-step-d--frontend-readability-and-measurement-ownership)
 for formatting equivalence checks, the private measurement controller, named owner
 commands and emitted-browser/source results. Existing terminal/project authority,
 payload ownership and unfinished features remain; no async-task dependency was needed.
@@ -250,7 +250,7 @@ claim of native CLI compatibility follows from this source refactor.
 ### E. Native and terminal coupling — separate conditional slices
 
 **Reviewed; only cancellation-aware helper admission was justified and implemented.**
-The [handoff](implementation-status.md#refactoring-e--cancellation-aware-helper-admission-only)
+The [handoff](implementation-history.md#refactoring-e--cancellation-aware-helper-admission-only)
 records the reproduced contention, new regressions, serial gate and passing local
 source/race checks. Registry extraction is deferred: moving fields alone would not
 improve its atomic logout/OAuth/Stop coordination. Account validation already has one
@@ -429,7 +429,7 @@ delivery or native acceptance. The x86 ISO build and full install remain deferre
 ### Phase 0 — reliable baseline
 
 **Source fixed; native macOS rerun pending.** The
-[handoff](implementation-status.md#phase-0--physical-temporary-fixture-path)
+[handoff](implementation-history.md#phase-0--physical-temporary-fixture-path)
 records the reproduced symlink-path failure and passing local checks.
 
 **Owner:** [source-command tests](../tests/build/test_source_checks.py).
@@ -445,7 +445,7 @@ this is a test portability defect, not a failed database or installer operation.
 ### Phase 1 — retire the unused bootstrap token
 
 **Source complete, locally checked.** See the
-[handoff](implementation-status.md#phase-1--retire-bootstrap-token-retention)
+[handoff](implementation-history.md#phase-1--retire-bootstrap-token-retention)
 for regressions, scope research and executed checks. The separate
 [existing-install maintenance recipe](dashboard-credentials.md#retired-bootstrap-token--existing-install-maintenance)
 is authored, not executed; no installed credential has been remediated by this work.
@@ -482,7 +482,7 @@ does not mean already installed tokens have been remediated.
 
 **Source complete, locally checked.** The existing helper now gates Join, Start/Stop
 and key Apply at their first-effect boundaries. See the
-[handoff](implementation-status.md#phase-2--fresh-session-mutation-admission)
+[handoff](implementation-history.md#phase-2--fresh-session-mutation-admission)
 for reproduced failures, actual checks and the explicit admission—not rollback—limit.
 
 **Finding:** [stale-session mutation admission](upstream-ownership-audit.md#recheck-the-original-session-before-native-mutation).
@@ -515,7 +515,7 @@ alone is not completion of this phase.
 
 **Approved and source-complete, locally checked.** The user accepted the cooperative
 writer rule and requested the bounded fix, not a new subsystem. See the
-[handoff](implementation-status.md#phase-3--cooperative-managed-key-writers)
+[handoff](implementation-history.md#phase-3--cooperative-managed-key-writers)
 for actual checks and the explicit advisory-lock/native-delivery limits.
 
 **Finding:** [key concurrency and durability](upstream-ownership-audit.md#correct-project-key-concurrency-before-claiming-compare-and-swap).
@@ -650,7 +650,7 @@ checks followed by the aggregate source check; no deployment or retained-state w
   replacement; retain their documented contracts and unresolved evidence reporting.
 
 Actual checks and remaining native limits belong in the
-[handoff](implementation-status.md#overengineering-review-follow-through).
+[handoff](implementation-history.md#overengineering-review-follow-through).
 
 ### Phase 7 — optional cleanup after correctness
 

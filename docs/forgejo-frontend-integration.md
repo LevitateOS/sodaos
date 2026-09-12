@@ -291,7 +291,7 @@ isolated read-only journey; follow the [API caller boundary](dashboard-api.md#na
 The mutation-time path subsequently passed bounded native create/key/join/Copy/SSH
 on the fresh fixture. Separately approved retained cutover now serves the native
 integration with one Forgejo browser origin and schema v5; native private-page and
-existing-account access checks passed. See the [cutover evidence](implementation-status.md#approved-retained-cutover).
+existing-account access checks passed. See the [cutover evidence](implementation-history.md#approved-retained-cutover).
 
 The public [robot-avatar route](avatars.md) also uses this namespace, without
 sessions or grants; it does not confer authenticated drawer access.

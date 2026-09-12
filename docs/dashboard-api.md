@@ -5,7 +5,7 @@ removed. This guide describes the **Go environment/access contract**. Native For
 owns collaboration/account/administration pages; the Go/HTMX frontend is also removed.
 The integrated drawer passed bounded native create/key/join/Copy/SSH proof, followed
 by separately approved preserved-state cutover and existing-account observations.
-See the [handoff](implementation-status.md#approved-retained-cutover) for exact payloads,
+See the [handoff](implementation-history.md#approved-retained-cutover) for exact payloads,
 configuration, client reachability and acceptance limits.
 
 The split-view drawer uses

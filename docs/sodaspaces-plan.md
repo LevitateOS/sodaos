@@ -1060,7 +1060,7 @@ retained-appliance delivery remain unproven by that run.
 ### 4. Wire the explicit access actions
 
 **Status:** source-implemented; full Go, focused races, 89 Node tests and 36 build
-fixtures passed. See the [handoff](implementation-status.md#explicit-access-actions-source-implementation).
+fixtures passed. See the [handoff](implementation-history.md#explicit-access-actions-source-implementation).
 The [API guide](dashboard-api.md) now specifies the stable-ID create body. The
 contracts below are implemented with the existing stack; updated-payload browser,
 real account/key/SSH evidence and appliance cutover remain steps 5–6.
@@ -1135,7 +1135,7 @@ not actual SSH provisioning; step 5 supplies the helper-backed native evidence.
 
 **Bounded x86_64 exit passed at `bdbce8e`:** real native build/export/first delivery,
 stock-browser create/key/join/Copy and actual own-key SSH/PTY/SCP/SFTP from the fresh
-fixture's separate client bridge namespace. See the [handoff](implementation-status.md#phase-5-bounded-native-access-proof).
+fixture's separate client bridge namespace. See the [handoff](implementation-history.md#phase-5-bounded-native-access-proof).
 This is not builder/laptop routing, a lifecycle/workload retest or aarch64 acceptance.
 The requirements below remain the owned regression scope, not instructions to replay
 fixture mutations.
@@ -1185,7 +1185,7 @@ a new paired backup and affected-component cutover on `soda-test`. Native callba
 namespace/config/schema-v5 delivery, private-page browser/own-connection checks and
 all seven existing memberships' SSH/PTY observations passed. Four roots and persistent
 product records were preserved; no project lifecycle or routing change occurred.
-See the [cutover handoff](implementation-status.md#approved-retained-cutover) and
+See the [cutover handoff](implementation-history.md#approved-retained-cutover) and
 [affected-component procedure](installation.md#retained-sodaspaces-cutover). The steps
 below remain the maintenance contract, not permission to replay it.
 
@@ -1223,7 +1223,7 @@ PTY/profile, EOF/lease/owned-helper-loss and independent SSH-preservation checks
 `soda-native-spaces-658f2af`, with no installed helper replacement. Protected browser
 transport, a self-contained terminal component and pinned local renderer packaging
 are now source implemented, not deployed or genuinely browser-proven. See the [native
-proof](implementation-status.md#approved-native-terminal-fixture-proof) and
+proof](implementation-history.md#approved-native-terminal-fixture-proof) and
 [component contract](terminal-integration.md).
 
 **Integration ownership:** the native dialog shell now mounts the complete content;

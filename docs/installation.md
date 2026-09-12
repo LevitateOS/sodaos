@@ -186,7 +186,7 @@ a prior binary is not assumed compatible with the new schema.
 This is the bounded affected-component procedure for the retained `soda-test`,
 **not a general upgrade tool or permission to replay maintenance**. Fresh delivery,
 copied private v3 → v5 / paired rollback and the separately approved retained cutover
-passed; see the [handoff](implementation-status.md#approved-retained-cutover). Any new
+passed; see the [handoff](implementation-history.md#approved-retained-cutover). Any new
 maintenance still needs its own exact scope and current backup.
 
 1. Approve the exact candidate/configuration and short Soda/Forgejo/proxy interruption.

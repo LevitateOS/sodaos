@@ -5,7 +5,7 @@ liveness check or permission to mutate it. Separately approved cutover delivered
 `bdbce8e` affected artifacts, native Forgejo/Sodaspaces and schema v5. Native private-page
 browser and all seven existing memberships' SSH/PTY observations passed; the four
 project roots and unchanged native components retain prior provenance. See the
-[cutover evidence](implementation-status.md#approved-retained-cutover).
+[cutover evidence](implementation-history.md#approved-retained-cutover).
 
 ## Target and state to preserve
 

@@ -16,7 +16,7 @@ primitives. Every CSS file has exactly one registry entry and every entry exists
 
 These counts describe audit candidate `919bb97`. Canonical main also retains the
 newer notification preview: combined source has 203 template files, five Soda
-partials and 46 registered CSS files. The [merge handoff](implementation-status.md#expanded-component-audit-merged-into-canonical-main)
+partials and 46 registered CSS files. The [merge handoff](implementation-history.md#expanded-component-audit-merged-into-canonical-main)
 records merged-tree tests and explicitly separates them from template activation.
 
 Backend authority, canonical artwork, Cockpit's separate frontend and the
@@ -78,7 +78,7 @@ cannot establish compatibility with a different Forgejo release.
 
 ## Validation and limits
 
-The [current handoff](implementation-status.md#expanded-component-audit) records
+The [historical audit record](implementation-history.md#expanded-component-audit) records
 executed tests and captures. New browser regressions load stock native CSS plus
 the complete candidate cascade around small native markup contracts. They test
 presentation collisions, not server permission enforcement or successful POSTs.

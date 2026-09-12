@@ -514,7 +514,7 @@ not a standalone invocation or installed-service control. Native shell/sudo book
 audit state; no transcripts or credentials are captured. Keep inputs, marker and
 result; an occupied run refuses replay. `terminal-proof.json` records only this scope.
 
-The [approved isolated x86_64 proof](implementation-status.md#approved-native-terminal-fixture-proof)
+The [approved isolated x86_64 proof](implementation-history.md#approved-native-terminal-fixture-proof)
 passed the **earlier request-owned version** of this probe plus independent continuously
 held own-key SSH/process-preservation observations. It does not validate this managed-
 tmux revision. That proof closes only its original native boundary, not the later

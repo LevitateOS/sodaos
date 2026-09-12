@@ -24,7 +24,7 @@ native context-expression seam. Desktop/mobile panel containment, Escape/focus,
 full-page coexistence, ordinary fragment refresh and “View all notifications” passed;
 unread counts stayed 3/3 and 0/0. Screenshots were inspected. Focused suites passed
 again. A pre-existing 3px signed-in navbar overflow at 320px remains; the popup adds
-no overflow. See the [handoff](implementation-status.md#notification-bell-quick-view-local-activation).
+no overflow. See the [handoff](implementation-history.md#notification-bell-quick-view-local-activation).
 
 Remaining: actual pinned rows, live badge-event changes, account switching/expiry,
 native read-on-navigation and user acceptance. Real notification status changes need

@@ -2,14 +2,14 @@
 
 **Rehearsed and executed for dashboard candidate `35df189` on the existing
 `soda-test` guest; not a general installer or final cutover proof.** See
-[revision-specific evidence](implementation-status.md#accepted-native-evidence);
+[revision-specific evidence](implementation-history.md#accepted-native-evidence);
 the complete historical migration record remains in Git at `9f3baa7`.
 Both standalone frontends are now removed, but the Go API's schema/key contract
 remains. Candidate `bdbce8e` subsequently passed fresh and copied retained-v3 → v5
 native rehearsal, including rejection and paired rollback cases, in an isolated
 networkless fixture. The user then separately approved retained cutover: a new matching backup preceded
 live v3 → v5 migration and native callback/config/proxy delivery. Native browser and
-existing-account access observations passed; see the [cutover handoff](implementation-status.md#approved-retained-cutover).
+existing-account access observations passed; see the [cutover handoff](implementation-history.md#approved-retained-cutover).
 This is a bounded service upgrade, not bootstrap, an updater or appliance recovery.
 Require explicit target/deployment permission before executing any step.
 
@@ -119,7 +119,7 @@ rejects old configuration; this is not an automatic migration or permission to
 edit the retained VM. Routing commit `6deaf9a` left schema v3 unchanged; current
 source appends v4/v5 as described below, with unchanged encrypted grant binding/key.
 The integrated drawer and bounded native browser/access proof passed. Copied private
-state rehearsal also passed; see the [handoff](implementation-status.md#phase-6-preserved-state-rehearsal).
+state rehearsal also passed; see the [handoff](implementation-history.md#phase-6-preserved-state-rehearsal).
 Those proofs did not authorize silent cutover; separate approval was subsequently
 obtained and the bounded retained-target transition passed.
 
