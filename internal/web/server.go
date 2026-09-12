@@ -45,6 +45,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.authRoutes()
 	s.apiRoutes()
 	s.runnerRoutes()
+	s.tailnetRoutes()
 	return s
 }
 

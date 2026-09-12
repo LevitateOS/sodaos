@@ -14,6 +14,83 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet stage 2 — backend state and authorization
+
+The user selected Stage 2 from the clean `a921a2e` handoff. This slice implements
+backend/state/authorization source only, with synthetic/local tests. No retained
+appliance/fixture was contacted or changed; no provider credential, auth key, device,
+VM/container lifecycle, networking/capability change, deployment or cleanup was used.
+
+### Source delivered
+
+- Added strict protected Tailnet settings, host, enrollment, creation-option and
+  exact-project routes plus typed fixed helper methods. Fresh stable operator or
+  current repository administration/membership governs access; stored creators,
+  public readers and Forgejo site admins cannot acquire private/global authority.
+  Session loss before dispatch stops it; loss after dispatch hides the result and
+  does not claim the effect was cancelled.
+- Added the separate `internal/tailnet` management adapter without changing the
+  existing status/identity/advertisement CLI contracts. The host configuration
+  opt-in defaults false. LocalAPI and CLI-dependent effects check the reviewed
+  release in source; host updates preserve unrelated preferences/routes, and
+  Forgejo refresh remains explicit. Auth URLs and native/provider diagnostics are
+  bounded and projected separately from ordinary status.
+- Added root-only, versioned credential/enrollment/project policy with trusted
+  ancestors, no-follow single-link reads, directory flock, CAS and fsync/rename
+  publication. Credential rotation preserves its binding and previous inputs;
+  publication uncertainty never rolls state back or replays an operation. Project
+  records bind the original native CID, not a caller-selected namespace or PID.
+- Pinned upstream `golang.org/x/oauth2` for operation-owned credential checking,
+  with fixed scoped token requests, bounded bodies/deadlines, no redirect/auth-style
+  retry and sanitized errors. No key-creation SDK or real enrollment is wired yet.
+  Default enable/project enable/retry refuse; Off saves intent with disconnect
+  explicitly unconfirmed. Create, SSH endpoints, project images/units and Cockpit
+  presentation remain unchanged.
+- Appended schema v10 to preserve the OAuth table's rows/constraints while adding
+  the fixed Tailnet return. Added transactional completeness probing, v9-to-v10
+  pending-context/grant preservation, wrong-key/stale-marker/incomplete-schema
+  refusal and callback-failure coverage. Updated the native-connection fixture's
+  authored expected schema; that opt-in browser/native fixture was not executed.
+- Updated the API and credential owners, plan, installation link and current
+  handoff. Lit registration/assets/navigation remain Stage 3; no browser page is
+  claimed by the new bookmark/OAuth enum.
+
+### Local checks and findings
+
+Evidence is retained in `.artifacts/tailnet-stage2-O5WkS5/`:
+
+- Pinned Go 1.26.7, `GOTOOLCHAIN=local`: full race-enabled tests for
+  `internal/tailnet`, `internal/host`, `internal/store`, `internal/web`,
+  `cmd/soda-tailnet` and `cmd/soda-forgejo-tailnet` passed; `cmd/soda-host` compiled
+  with no test files (`go-race-03.log`). Installed terminal, connection and avatar
+  browser fixture environment switches were explicitly absent.
+- Final focused follow-up (`go-race-04.log`) reran full Tailnet/host race tests and
+  Tailnet/named-OAuth web tests after reviewing upstream's stable-ID exit-node
+  normalization. Selection accepts the native ID representation, clearing checks
+  both ID/IP, and offline choices refuse without a mutation. These are mocked
+  operations, not actual route changes.
+- Local `tailscale version --json` confirmed the reviewed CLI's metadata only;
+  no daemon status/socket, appliance or provider query was made. Existing retained
+  upstream source/docs supplied the exit-node and space-delimited OAuth-tag checks.
+- Focused tests caught an `io.Copy` optimization bypassing the stdout cap through
+  an embedded `bytes.Buffer.ReadFrom`; the writer now uses composition and a Go
+  subprocess regression. This was a local implementation defect, not native proof.
+- Earlier receipts remain: `go-race.log` records the v8 incomplete-schema test's
+  earlier migration-10 refusal point; the assertion now accepts that precise
+  refusal while checking unchanged schema/version/rows. `go-focused.log` records
+  the creation-options fixture missing required repository `full_name`; it was
+  corrected, not treated as a provider finding. `go-race-02.log` is intermediate
+  passing evidence, not the final source snapshot.
+- Changed-document links/anchors, preserved handoff headings, source formatting and
+  whitespace checks passed. The receipt records their scope, not an installed gate.
+
+No native bundle build/check/export, browser/UI suite, live host management, project
+namespace/TUN/DNS/systemd proof or real provider operation was run. Host native
+compatibility, project runtime/enrollment and both architectures' installed proof
+remain unclaimed. Both retained targets remain at paired `19824ec`, schema v9, with
+both Cockpit fallbacks. Native proof, delivery, Runners removal and eventual Tailnet
+retirement still need the current target/action-specific grants.
+
 ## Tailnet stage 1 — local runtime and enrollment investigation
 
 The user approved the first step of `43238d3`'s Tailnet plan: local native/source

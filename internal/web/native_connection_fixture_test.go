@@ -330,8 +330,8 @@ func TestNativeConnectionFixture(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = upgraded.Close() })
 			after, err := readVersion()
-			if err != nil || after != 9 {
-				return nil, fmt.Errorf("current backend did not migrate to schema v9")
+			if err != nil || after != 10 {
+				return nil, fmt.Errorf("current backend did not migrate to schema v10")
 			}
 			receipt, _ := json.Marshal(map[string]any{"before": before, "after": after, "same_database": true, "prior_exit_confirmed": true, "scope": "fresh synthetic fixture grants, not retained appliance data"})
 			if err := os.WriteFile(filepath.Join(dir, "backend-transition.json"), receipt, 0600); err != nil {

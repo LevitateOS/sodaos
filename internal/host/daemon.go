@@ -9,6 +9,7 @@ import (
 	"github.com/levitateos/sodaos/internal/projectos"
 	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/sodaos/internal/tailnet"
 	"golang.org/x/crypto/ssh"
 	"log/slog"
 	"net/http"
@@ -28,10 +29,11 @@ var imageID = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
-	Image   string `json:"image"`
-	Network string `json:"network"`
-	Subnet  string `json:"subnet"`
-	Bridge  string `json:"bridge"`
+	TailnetManagement bool   `json:"tailnet_management,omitempty"`
+	Image             string `json:"image"`
+	Network           string `json:"network"`
+	Subnet            string `json:"subnet"`
+	Bridge            string `json:"bridge"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -72,6 +74,7 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 }
 
 type Daemon struct {
+	Tailnet        *tailnet.Management
 	Runners        *runners.Operations
 	Config         Config
 	Exec           Executor
@@ -106,6 +109,10 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 }
 
 func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/tailnet/") {
+		d.tailnetHandler(w, r)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/runners/") {
 		d.runnerHandler(w, r)
 		return

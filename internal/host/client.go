@@ -38,6 +38,11 @@ type Connection struct {
 	Fingerprint string      `json:"fingerprint"`
 }
 type Client struct{ HTTP *http.Client }
+type nativeHTTPError struct{ status int }
+
+func (e nativeHTTPError) Error() string {
+	return fmt.Sprintf("native project operation failed (HTTP %d); operator should inspect soda-host journal", e.status)
+}
 
 func NewClient(socket string) *Client {
 	return &Client{HTTP: &http.Client{Timeout: 4 * time.Minute, Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -60,7 +65,7 @@ func (c *Client) call(ctx context.Context, path string, in, out any) error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return fmt.Errorf("native project operation failed (HTTP %d); operator should inspect soda-host journal", res.StatusCode)
+		return nativeHTTPError{res.StatusCode}
 	}
 	if out != nil {
 		body, err := io.ReadAll(io.LimitReader(res.Body, 65537))

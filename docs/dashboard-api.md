@@ -167,38 +167,118 @@ unconfirmed local/provider effects and are never replayed. The shared native run
 lock serializes Cockpit/CLI/web reads and mutations. Local source/fixture checks
 passed, not provider/native acceptance; Cockpit remains installed.
 
-## Planned Tailnet surfaces
+## Tailnet backend
 
-**Proposed, not implemented.** The [Tailnet implementation plan](tailnet-integration-plan.md)
-owns the host/project UX, enrollment/state/lifecycle and acceptance. Extend the
-existing API, not a generic socket/command proxy. Paths below are under `/-/soda`;
-concrete DTOs, field bounds and error codes must land here with implementation.
+**Stage-2 source contracts; no native-page UI, project runtime or installed proof.**
+The [Tailnet owner](tailnet-integration-plan.md) owns lifecycle and acceptance.
+The optional native host configuration field `tailnet_management` defaults false;
+only an explicitly enabled helper constructs the management backend. No setup,
+service or retained configuration enables it in this slice. Paths below are under
+`/-/soda`. Models and bounds live in
+[`management_types.go`](../internal/tailnet/management_types.go), with narrow helper
+response validation before browser publication.
 
-| Proposed path | Methods and authority |
+| Path | Methods and authority |
 | --- | --- |
-| `/api/settings/tailnet` | GET; configured Soda operator only. Projected host status/preferences and safe enrollment/default summary, never raw daemon/config/credential state. |
-| `/api/settings/tailnet/host` | POST; operator only. Strict action-specific models for sign-in/resume, logout, exit-node/LAN preference, exit-node advertisement and explicit Forgejo refresh. Never arbitrary CLI flags or LocalAPI paths. |
-| `/api/settings/tailnet/enrollment` | POST; operator only. Distinct check/save/rotate/default/admission-disable actions with the observed configuration revision. A check does not create a test node; rotating credentials does not revoke enrolled devices. |
-| `/api/repositories/{repositoryID}/tailnet-options` | GET; current authorized creator under existing repository/Create rules. Safe managed-network availability/default/revision for the Create form, not global peer or credential information. |
-| `/api/environments/{id}/tailnet` | GET for authorized members/current environment administrators/operator; POST enable/disable/retry for current environment administrators/operator. Repository visibility alone does not authorize private network reads. |
+| `/api/settings/tailnet` | GET; configured stable Soda operator only. Host and enrollment projections. |
+| `/api/settings/tailnet/host` | POST; operator only. Fixed actions below. |
+| `/api/settings/tailnet/enrollment` | POST; operator only. Credential check and versioned policy actions below. |
+| `/api/repositories/{repositoryID}/tailnet-options` | GET; current human repository owner under existing Create rules. Only `available`, `default`, `binding`, `revision`, `tailnet`; no peers or credentials. |
+| `/api/environments/{id}/tailnet` | GET for own members with fresh repository access, current environment administrators or operator; POST for current environment administrators/operator. Public visibility, stored creator and Forgejo site-admin status alone grant neither private reads nor changes. |
 
-Create will accept an explicit managed/Off selection with the reviewed binding
-revision. Omitted legacy fields mean Off. Native enrollment failure is a separate
-network result, not permission to recreate the reservation or redefine provisioning
-success. The existing own-member `/api/environments/{id}/connection` may gain an
-optional freshly observed Tailnet endpoint; preserve LAN data, original Linux login,
-SSH host-key trust and explicit unverified-routing semantics.
+All routes reject query parameters and apply expected-actor/session and fresh
+acting-user authority checks; POST additionally requires configured Origin, CSRF
+and strict single-object JSON. Authorization precedes decode/native dispatch and
+session currency is checked again after provider/native work. Identity loss hides
+the response, not proof that an already-dispatched effect was cancelled. API/helper
+bodies and native/provider responses are bounded to 64 KiB. No caller-selected UID,
+CID, PID, socket, namespace, executable, endpoint or credential path is accepted.
+GET never initializes policy directories, checks credentials, enrolls, repairs,
+refreshes Forgejo or starts a project.
 
-Apply the existing expected-actor/session/Origin/CSRF/strict-JSON contracts to every
-route. No browser-supplied UID, socket, PID, namespace, executable or credential
-path. Only the dedicated operator enrollment configuration selects validated tags;
-connection/lifecycle actions use the saved binding, not caller-selected tags.
-Exact-project disruptive actions confirm the project ID and current revision/
-incarnation; host actions confirm their own host effect, not a project selection.
-Responses separate saved policy, observed native state and confirmed versus unknown
-operation outcome. GET/polling never enroll, repair, refresh Forgejo advertisement or
-start a project. Credential-bearing auth URLs are restricted transient operator
-responses with no-store, not ordinary cached host status or telemetry.
+### Host projection and actions
+
+Settings returns `{host, host_unavailable, enrollment}`. `host` is null when native
+observation is unavailable, not a fabricated disconnected state. It projects native
+state, node-key presence/expiry, Tailnet name/MagicDNS flag, DNS name/addresses,
+peers, a health-issue count and the supported preferences. Raw health strings,
+preferences, node keys and auth URLs are excluded. Up to 128 peers/16 addresses per
+node are accepted. Host addresses/online state are not reachability receipts.
+
+Every host POST requires `action` and the observed opaque 64-hex `revision`, covering
+native identity/state and preferences. Soda mutations share the native policy lock;
+this is not transactional exclusion of unrelated direct Tailscale/Cockpit writers.
+The adapter checks the reviewed daemon release, and the matching CLI release before
+CLI-dependent effects; the baseline belongs in `ManagementCLIRelease` in source.
+
+| Action | Additional fields / effect |
+| --- | --- |
+| `signin` | None. Existing-node masked `WantRunning` plus native interactive login; initial login uses bounded `up --json --timeout=5s`, never reset or caller flags. |
+| `authentication` | None. Explicit transient authentication observation, no login mutation. |
+| `logout` | `confirm:"logout"`; persistent host logout, not provider deletion. |
+| `exit-node` | `confirm:"exit-node"`, canonical `exit_node` IP or empty string, explicit `allow_lan` boolean. Selection must be a freshly observed online, unexpired exit-node peer; clearing requires LAN false. |
+| `advertise-exit-node` | `confirm:"advertise-exit-node"`, explicit `advertise` boolean; field-specific native set preserves unrelated routes/preferences. |
+| `refresh-forgejo` | `confirm:"refresh-forgejo"`; invokes the existing fixed advertisement helper, never as a read side effect. |
+
+Other fields are invalid for each action. Results carry `outcome` (`observed`,
+`pending`, `confirmed`, `unconfirmed`), nullable `host`, `readback_unavailable` and
+optional `auth_url`. Native acknowledgment and failed readback remain independent;
+confirmed is not routed-traffic proof. Pending auth may survive an observer timeout.
+Only explicit operator authentication/sign-in responses carry allowlisted
+`https://login.tailscale.com/a/...` URLs, with no query, userinfo or arbitrary host.
+All Tailnet responses are no-store/no-referrer; callers must not persist these URLs
+or replay effects to repair an observer.
+
+### Enrollment policy and project contracts
+
+Policy revisions and binding IDs are opaque 32-hex values; `revision:"0"` denotes
+unconfigured state. Every enrollment POST requires `action` and `revision`:
+
+- `check`, `save`, `rotate`: require explicit `tailnet`, 1–8 sorted unique tags,
+  `preauthorized` boolean, `client_id` and raw `client_secret`. Tags use
+  `tag:[A-Za-z][A-Za-z0-9-]{0,62}`; credential/client lengths and Tailnet grammar are
+  enforced in the model. Empty/`-` targets, OAuth-secret query options, paths,
+  endpoint overrides and caller key-expiry/reuse controls are refused.
+- `check` performs one bounded upstream OAuth token request to the fixed Tailscale
+  endpoint, scoped to `auth_keys` and the tags. It creates no directory, saved
+  credential, auth key or device. Token acceptance is not network/tag enrollment
+  verification. No redirects or automatic authentication retry are allowed.
+- `save` checks the credential then publishes a new binding/revision. `rotate`
+  requires the existing exact Tailnet/tags/preauthorization, preserves its binding
+  and retains previous credential files. Neither retargets project records nor
+  revokes enrolled devices.
+- `disable` takes no credential/policy fields and closes future admission/default,
+  without changing project policies or disconnecting/deleting devices.
+- `default` takes only explicit `default`. False can be saved on a configured policy;
+  true fails unsupported before file/provider effects until the runtime exists.
+
+Results separate `saved`, `credential_checked`, `outcome` and the safe `enrollment`
+summary: configuration/admission/default, Tailnet/tags/preauthorization, binding and
+revision, credential-check status, `enrollment_verified` and `runtime_supported`.
+The latter two remain false in Stage 2, as do creation-option availability/default.
+Reusable secrets, bearer tokens and private filenames never occur in projections.
+Storage/preservation belongs to the [credential owner](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return).
+
+Project POST takes only `action`, `revision`, `confirm_id` matching the route's exact
+project, and `binding` for enable/retry. The helper resolves the original full native
+CID and verifies project labels and private mappings; a stored policy cannot adopt a
+replacement CID. Successful operations recheck the CID before response publication;
+an Off intent may already have been saved if that final observation fails.
+`enable`/`retry` are validated but return unsupported without credential/runtime
+work. `disable` persists Off intent with revision CAS, not a disconnection claim.
+Results contain `project`, `revision`, `binding`, `enabled`, `saved`,
+`state:"runtime-unsupported"`, and `outcome:"observed"` on reads or
+`"disconnect-unconfirmed"` after saving Off. Missing/unsafe/configured state is not
+recreated to resolve a conflict; interrupted atomic publication is unconfirmed,
+never rolled back or automatically replayed.
+
+Errors retain the normal JSON envelope: 400 malformed, 401 context loss, 403 missing
+authority, 409 changed revision/native identity, 422 unsupported operation/version,
+503 unavailable helper/configuration/observation, 502 unknown native outcome. Native
+and provider diagnostic bodies are never copied into errors. Create, connection/SSH
+endpoints and legacy omission behavior are unchanged. Explicit managed creation,
+run-incarnation admission, reachable project status and all runtime hooks belong to
+Stage 4; native page registration/assets/navigation belong to Stage 3.
 
 ## Browser namespace
 

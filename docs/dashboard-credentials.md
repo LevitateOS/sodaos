@@ -20,19 +20,48 @@ URLs to fixed native-login bookmark bridges. It adds no schema/key migration,
 credential format or session authority. Schema-v9 connection/cancellation behavior
 from step 2 remains; no retained-target upgrade follows from local page checks.
 
-## Planned Tailnet credential and return changes
+## Tailnet credentials and schema-v10 return
 
-The [Tailnet implementation plan](tailnet-integration-plan.md) owns its proposed
-host-only enrollment credential, native policy and ephemeral-node state separation.
-These are not Forgejo session grants, bootstrap tokens or developer Git credentials;
-do not reuse or export those existing secrets for enrollment.
+**Stage-2 backend source, not installed migration or real enrollment proof.**
+The [Tailnet plan](tailnet-integration-plan.md) owns host-only credential, policy and
+future ephemeral-node state separation; [the API](dashboard-api.md#tailnet-backend)
+owns requests and projections. These credentials are not Forgejo session grants,
+bootstrap tokens or developer Git credentials. No existing secret is reused/exported
+for project enrollment, and neither project nor companion receives a reusable secret
+or bearer token.
 
-Its native page also needs an append-only schema migration for the current
-`oauth.settings_return` CHECK, which admits only empty/runners. Extend enumerated
-returns without deleting pending OAuth rows, login contexts or encrypted grants;
-update the supported-schema/completeness tests with the implementation. No new schema
-version is allocated by this planning document. The existing consistent-backup,
-wrong-key/refusal and paired-artifact restoration contracts below remain in force.
+The opt-in root helper owns `/var/lib/soda-tailnet/` (0700), version-1 `policy.json`,
+immutable `credential-REVISION.json` inputs, and `project-PROJECT_ID.json` intent
+records (0600). They are outside developer roots, companion mounts and the dashboard
+service account. Trusted ancestors, owner/type/mode and single-link regular-file
+checks precede bounded no-follow reads. One descriptor-bound directory flock
+serializes cooperating writers without taking the project's lifecycle gate.
+Publication uses exclusive temporary files, file/directory fsync and atomic rename;
+ambiguous publication is not rolled back or replayed. Rotation retains old credential
+files; leftover publication inputs are not automatically cleaned up. Missing or
+unsafe configured inputs are unavailable, not permission to regenerate them.
+Passive reads and credential checks create no state files. The separate provider
+check uses an operation-local upstream OAuth token, never a global cached token or
+a test-device registration. Project runtime/run-state files are not implemented yet.
+
+Append-only **schema v10** rebuilds the existing OAuth table with the same rows,
+columns and constraints, extending `settings_return` to empty/runners/tailnet.
+Pending transactions, contexts, encrypted grants, cancellation and mixed-destination
+refusals are preserved. Startup completeness also probes acceptance of an expired,
+unbound synthetic Tailnet return inside a rolled-back savepoint: no product row is
+changed, no probe is committed, and a v9 CHECK under a stale v10 marker is refused.
+Missing/wrong-key, newer-schema and incomplete-schema refusal remain required.
+
+`/settings/tailnet` and `destination=tailnet` bind only the fixed
+`/?soda-view=tailnet` return, including named callback failures. The native Lit
+registration/navigation is Stage 3, not delivered by this backend bookmark bridge.
+The SQLite migration is independent of the helper opt-in flag. Existing targets
+remain v9; local migration tests do not grant delivery or a rollback window.
+
+The consistent-backup and paired-artifact restoration contracts below remain in
+force. Authorized maintenance must also preserve any populated private Tailnet policy
+root and matching helper configuration separately from SQLite/grant backups; neither
+an older database nor old credential policy may overwrite later writes blindly.
 Copied-state rehearsal must not authenticate a cloned host/project Tailscale identity.
 
 ## New installations

@@ -36,6 +36,19 @@ ALTER TABLE oauth ADD COLUMN repository_settings_return INTEGER NOT NULL DEFAULT
 	`ALTER TABLE login_contexts ADD COLUMN oauth_cookie TEXT;
 CREATE UNIQUE INDEX login_context_oauth_cookie ON login_contexts(oauth_cookie);
 UPDATE login_contexts SET oauth_cookie=pending;`,
+	`CREATE TABLE oauth_tailnet (
+state TEXT PRIMARY KEY, verifier TEXT NOT NULL, expires INTEGER NOT NULL,
+return_path TEXT NOT NULL DEFAULT '/projects' CHECK(return_path IN ('/projects','/app/')),
+repository_id INTEGER NOT NULL DEFAULT 0 CHECK(repository_id>=0),
+expected_user_id INTEGER NOT NULL DEFAULT 0 CHECK(expected_user_id>=0),
+context_id TEXT REFERENCES login_contexts(id) ON DELETE CASCADE,
+spaces_return INTEGER NOT NULL DEFAULT 0 CHECK(spaces_return IN(0,1) AND (spaces_return=0 OR repository_id=0)),
+settings_return TEXT NOT NULL DEFAULT '' CHECK(settings_return IN ('','runners','tailnet') AND (settings_return='' OR (spaces_return=0 AND repository_id=0))),
+repository_settings_return INTEGER NOT NULL DEFAULT 0 CHECK(repository_settings_return IN(0,1) AND (repository_settings_return=0 OR (repository_id>0 AND spaces_return=0 AND settings_return='')))
+);
+INSERT INTO oauth_tailnet SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return FROM oauth;
+DROP TABLE oauth;
+ALTER TABLE oauth_tailnet RENAME TO oauth;`,
 }
 
 func migrate(ctx context.Context, db *sql.DB) error {
@@ -103,6 +116,19 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if err = rows.Close(); err != nil {
 			return err
 		}
+	}
+	// v10 changes a CHECK without adding a column. A forged/stale version marker
+	// over the v9 table must not pass the column check. Probe only an unbound,
+	// expired synthetic row inside a rolled-back savepoint, never product rows;
+	// no parsing or repair of sqlite_master SQL and no committed probe state.
+	if _, err = tx.ExecContext(ctx, `SAVEPOINT tailnet_return_contract`); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,settings_return) VALUES(lower(hex(randomblob(32))),'',0,'tailnet')`); err != nil {
+		return errors.New("database schema is incomplete")
+	}
+	if _, err = tx.ExecContext(ctx, `ROLLBACK TO tailnet_return_contract; RELEASE tailnet_return_contract`); err != nil {
+		return err
 	}
 	// Immutability is a required Soda schema contract, not just an application
 	// convention. Require the named trigger on projects; do not repair or parse SQL.
