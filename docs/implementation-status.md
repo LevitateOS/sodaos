@@ -100,8 +100,9 @@ documentation does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Documentation only: consolidated active guidance around its owners, removed obsolete
-lane reservations and competing completion sequences, and replaced stale state/grant
-copies with links here. Feature contracts and archived evidence were retained.
-Checked affected links/anchors, retained sections, unchanged history and
+Documentation only: distinguished scoped evidence and historical recommendations
+from current requirements; made the duplicate pre-native page-suite run optional
+without weakening the native gate. The history's process assessment names mistakes,
+not procedures to preserve; original execution receipts and review results remain.
+Checked source call paths, affected links/anchors, receipt preservation and
 `git diff --check`. No builds, application tests, target contact or native actions ran.

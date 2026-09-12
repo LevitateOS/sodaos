@@ -6,8 +6,10 @@
   do not amend or rewrite history without permission.
 - Finish approved work without repeated handoffs. Ask again only for actions outside
   approval or a concrete safety issue requiring the user's decision.
-- Use the smallest sufficient investigation and affected-contract checks. Reuse valid
-  evidence; historical execution sequences are not standing gates.
+- Use the smallest sufficient investigation and affected-contract checks. A passing
+  receipt supports its stated scope, not a prescribed sequence. Reuse valid evidence;
+  ground required checks in current contracts, source behavior or an explicit user
+  decision. Label optional diagnostic/review choices as recommendations.
 - Prefer upstream mechanisms and direct, concrete code over duplicated authority,
   speculative frameworks or new orchestration. Check the selected upstream version
   and actual Soda caller before adding an adapter or declaring a limitation.

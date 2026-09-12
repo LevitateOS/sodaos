@@ -65,8 +65,10 @@ Focused commands prepare their own assets:
 - `bun run test:forgejo` — Forgejo source tests plus local Lit runtime/settings-link.
 - `bun run test:lit` — focused emitted Lit runtime, settings-link and workspace tests.
 
-For the selected retained-page transition, the **existing** native fixture also
-accepts `SODA_CONNECTION_PREDECESSOR` (an absolute verified b8af68c export),
+**Optional predecessor-transition investigation:** the existing fixture's b8af68c
+mode was added for the recorded retained-page transition. Select it when that
+compatibility path is affected or relevant evidence is missing, not as a routine
+page-test prerequisite. It accepts `SODA_CONNECTION_PREDECESSOR` (an absolute verified b8af68c export),
 `SODA_CONNECTION_PREDECESSOR_REVISION` (its full revision) and
 `SODA_CONNECTION_PREDECESSOR_MANIFEST_SHA256` (its independently established
 `build-info.json` hash). Verify an older export with its own trusted verifier first;
@@ -92,7 +94,8 @@ handlers migrate that **same database** to v9 with the same fixture key/client.
 The old page remains open for its real Refresh control and subsequent departure.
 The browser observes actual pagehide retirement and the actual history outcome:
 retired BFCache owner or a network reload/current owner, labelled separately. Headers
-are not changed to force BFCache. The current passing run used a network reload.
+are not changed to force BFCache. The recorded step-5 run used a network reload;
+that is an observed result, not a required outcome for every browser run.
 
 This phase uses the existing fixture account/login owner and leaves its new OAuth
 app, separate databases, logs and private browser evidence retained. The old process

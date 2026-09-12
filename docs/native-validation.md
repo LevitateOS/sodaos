@@ -7,7 +7,7 @@ not a second progress or permission record.
 This is the product validation guide, not another roadmap. Features own their
 focused tests; extend existing product entrypoints rather than copying scenarios
 into the [outside support tools](native-support.md). Those tools have separate
-[remaining checks](native-support.md#remaining-validation), not a second readiness
+[historical audit reference](native-support.md#historical-audit-reference), not a second readiness
 gate. Optional media/helper completion is not required to use authorized tools.
 
 Name the exact revision/artifacts, builder, target, architecture, developer client,
@@ -189,13 +189,16 @@ running the final gate in its **clean frozen candidate worktree**, provide:
 Inspect/preserve any existing fixture first. If none exists or its service/account/
 browser installation needs actions outside the recorded grant, obtain that precise
 fixture/setup authorization before proceeding. Do not silently reinitialize data.
-`bun run test:pages` is the supported focused prerequisite check and must run **all**
-consumers; it creates fresh retained fixture evidence and a fixture OAuth app.
-Once setup is ready, build/seal the exact candidate using pinned Go 1.26.7/Bun 1.4.2
-on matching-native Linux, then run `scripts/check-native.sh ARCH` in that same
-worktree. The full gate repeats its page phase normally. Export only after the
-applicable checks pass. Do not transplant an earlier revision's seal/check receipt
-or omit the page phase because another computer passed it.
+For fixture setup or diagnosis, `bun run test:pages` is an **optional focused run**;
+it creates fresh retained fixture evidence and a fixture OAuth app. It is not a
+required preliminary run: `scripts/check-native.sh ARCH` already invokes the page
+suite through `bun run check:source`. Whenever either command is selected, its
+mandatory consumers must all run; do not suppress them or count another machine's
+receipt as that invocation's result.
+
+Build/seal and check the exact candidate under the [native build contract](native-support.md#build-and-artifact-contract).
+Export after its applicable checks pass. A separately recorded focused pass can
+support diagnosis, but does not replace the native gate or require repeating it.
 
 `tests/installed/sodaspaces-controls.ts` follows actual project views, New chooser
 and per-terminal menus; it does not authorize requests or substitute API writes.
@@ -450,8 +453,10 @@ resize/interrupt, streaming and SSH comparison. No CLI acceptance boolean is fab
 Long-lived CLI child cleanup and retained application state still require scoped
 native review. Local driver fixtures use emitted components, fixture-only loopback
 TLS/browser trust and synthetic peers/native observations: not Forgejo, SSH or tmux
-acceptance. The existing native boundary probe below remains required, including its
-retained framing failure.
+acceptance. Coverage of the native boundary below remains necessary for claims about
+that boundary; use applicable results for unchanged mechanisms rather than requiring
+a new run solely because this guide records an earlier framing failure. That failed
+attempt remains a failure in history, not an instruction to reproduce it.
 
 ## Integrated existing-project management mode
 

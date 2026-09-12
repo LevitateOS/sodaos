@@ -381,7 +381,7 @@ for mutation contention. This case uses the prepared native UIs and the root CLI
    observations for the pre-existing runner and all other protected roots. If no
    prior-version baseline exists, obtain separate permission to create that fixture;
    do not invent one by downgrading a retained runner or copying live credentials.
-2. Use the combined plan's copied-state rehearsal and affected-artifact activation
+2. Use the [installation maintenance contract](installation.md#retained-sodaspaces-cutover) for applicable copied-state rehearsal and affected-artifact activation
    recipe: fresh backups under approved quiescence, old-writer drain and paired
    management delivery. Do not run cloned listeners. After activation and first
    opening the new page, compare descriptor/account/UID/work/credential/client and

@@ -1,10 +1,14 @@
-# Native Soda pages — review of the complete integration plan
+# Native Soda pages — historical review
 
-**Current delivery:** the combined plan's bounded step 5 is now complete on both
-retained targets with paired `19824ec`/schema v9. Native pages/BFCache, authority,
-Cockpit Runners, SSH/PTY and preservation receipts are in the leading handoff.
-This does not relabel the historical review below, waive its broader coverage
-limits or authorize step-6 Cockpit retirement.
+This records revision-bound findings, review recommendations and their resolution,
+not an active completion checklist. “Changes required”, “remaining” and numbered
+exits below describe the reviewed revisions; they do not reopen resolved findings
+or prescribe the same run sequence for later changes.
+
+Use the [current handoff](implementation-status.md) for installed state/evidence,
+the [native page contracts](forgejo-soda-pages-plan.md) for required behavior and
+the [combined plan](native-pages-runners-plan.md) for remaining coordination.
+The original findings and check results below are retained as historical evidence.
 
 ## Resolution of R1–R4 — `18c6b07`
 

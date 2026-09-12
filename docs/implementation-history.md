@@ -16,12 +16,16 @@ not claims that those outputs are still retained.
 
 ## Process correction — do not turn execution history into mandatory work
 
-The user identified the excessive token/time cost of step 5. Its successful delivery
-receipts below do not endorse the repeated investigations, overly broad empty-exec-
-record gate or fragmented approval handoffs. Those were process mistakes. Future
-work must use proportional checks, reuse applicable evidence and carry approved
-work through without unnecessary prompts. Retain the evidence and real preservation/
-authorization requirements; do not replay the historical sequence as a default.
+Step 5's excessive broad investigations/suite reruns, overly broad empty-ExecIDs gate,
+fragmented continuation handoffs and growth of standing guidance were **process
+failures**. Successful delivery does not justify them. The subsequent observer fixes,
+exact stopped-record exception and timed drain describe that cutover, not default
+requirements for another change. They did not establish that stored exec records
+must be absent or that every browser/maintenance check must be repeated.
+
+The receipts establish their recorded compatibility/preservation outcomes, not the
+efficiency of the route taken. Future working method belongs to
+[AGENTS.md](../AGENTS.md#working-style); historical mistakes are not new procedures.
 `AGENTS.md` is now a short operational guide with essential commands, durable
 boundaries and task-specific links instead of deployment timelines and repeated
 status/approval summaries. The execution evidence below is unchanged. The rewrite

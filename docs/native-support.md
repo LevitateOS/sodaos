@@ -3,8 +3,8 @@
 Implemented outside artifact/VM/SSH/evidence tools with **partial native evidence**.
 See the [handoff](implementation-status.md) for exact build/check revisions and
 limits; suite participation does not prove every remote/VM/install path. The
-historical plan/audit are retired from active docs; unresolved checks are retained
-[below](#remaining-validation), not declared fixed by deleting an audit.
+historical plan/audit are retired from active docs; their follow-up notes remain
+in the [historical audit reference](#historical-audit-reference), not a second active work queue.
 
 The [Sodaspaces plan](sodaspaces-plan.md) and production callers own API/config/schema,
 build/stage and product behavior. These tools supply transport/artifacts/observations,
@@ -219,15 +219,19 @@ Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuil
 is revision-scoped in the handoff. Native builds/checks/VM/provider work still need
 applicable action/target permission.
 
-## Remaining validation
+<a id="remaining-validation"></a>
 
-Condensed from the audit at `58ddc0d` and its subsequent source-remediation record,
-retained in full at `git show 9f3baa7:docs/native-porting-audit.md`. The old audit's
-line-specific defects are not assertions about today's edited source. These are
-remaining proof/coverage obligations, not new work authorizations or a finding
-that any retained bundle leaked secrets.
+## Historical audit reference
 
-| Boundary | Source follow-up and remaining proof |
+The reference inventory below is condensed from the audit at `58ddc0d` and its
+subsequent remediation record (`git show 9f3baa7:docs/native-porting-audit.md`). It
+records historical follow-up recommendations and evidence limits, not a current
+list of defects or a mandatory matrix to replay after each change. The concrete
+tool contracts above define required behavior. For an affected tool or new claim,
+use applicable evidence and identify only the relevant missing proof; an untested
+claim stays unverified. This is not a second product readiness gate.
+
+| Boundary | Historical follow-up and evidence limits (not a current checklist) |
 | --- | --- |
 | Public/private payload | Explicit public paths and real credential-name rejection tests exist; exercise fresh staging/export and private-input contamination. Filename checks cannot prove unknown secrets absent from allowed content. Preserve old bundles with their original verifier. |
 | Process ownership | Linux non-reaping leader/group termination and resistant-descendant cases exist; native cancellation, leader-first exit, remote interruption and exact bounded cleanup still need observed results. No stale-PID adoption. |
@@ -239,8 +243,8 @@ that any retained bundle leaked secrets.
 | Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and Forgejo runner lifecycle/jobs/removal require separate grants. |
 | Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage and independent aarch64 results remain incomplete; no inferred full support acceptance. |
 
-Tests for these boundaries are not an exhaustive recovery framework. Preserve
-failed attempts and the worktree retention mappings. Product reachability, native
-Git/shared tools/workloads/persistence and browser integration remain in
-[native validation](native-validation.md), not a second support suite. Actual
-input/package/license/source-delivery closure is still required; see [licensing](licensing.md).
+Current results and retained evidence belong to the [handoff](implementation-status.md),
+not the audit's old worktree mappings. Product reachability, Git/shared tools,
+workloads/persistence and browser integration stay with [native validation](native-validation.md).
+[Licensing](licensing.md) owns input/package/license/source-delivery obligations.
+Neither this reference table nor a past successful run establishes new execution permission.
