@@ -120,7 +120,7 @@
   top: calc(100% + 8px);
   inset-inline: auto 0;
   min-width: 0;
-  width: 260px;
+  width: 288px;
   max-width: calc(100vw - 32px);
   padding: 8px;
   background: var(--soda-page-surface);
@@ -179,11 +179,72 @@
   .soda-repository-feed-label { display: none; }
 }
 
-/* Native controls enforce their radius with !important. Fork may place its
-   dialog between the action and counter, so target the labeled group itself. */
-.soda-repository-header .repo-buttons .ui.labeled.button > .ui.button {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+/* Join each native action and its separately linked count into one quiet
+   control. Fork's modal can sit between them, so do not rely on adjacency. */
+.soda-repository-header .repo-buttons .ui.labeled.button {
+  gap: 0;
+  align-items: stretch;
+  padding: 0 !important;
+  border: 0;
+  background: transparent;
+}
+.soda-repository-header .repo-buttons .ui.labeled.button > .ui.button,
+.soda-repository-header .soda-repository-action-menu > .ui.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px !important;
+  border: 1px solid var(--soda-page-edge);
+  border-radius: 0 !important;
+  color: var(--soda-page-text);
+  background: transparent;
+  font: 500 12px/1.4 "IBM Plex Mono",monospace !important;
+  letter-spacing: 0;
+}
+.soda-repository-header .repo-buttons .ui.labeled.button > .ui.label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 44px;
+  height: auto;
+  margin: 0 !important;
+  padding: 0 10px;
+  border: 1px solid var(--soda-page-edge);
+  border-inline-start: 0;
+  border-radius: 0 !important;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-muted);
+  font: 500 12px/1.4 "IBM Plex Mono",monospace;
+  font-variant-numeric: tabular-nums;
+}
+.soda-repository-header .repo-buttons .ui.labeled.button > .ui.label::before { display: none; }
+.soda-repository-header .repo-buttons .ui.labeled.button > :is(.ui.button,.ui.label):hover,
+.soda-repository-header .soda-repository-action-menu > .ui.button:hover {
+  background: var(--soda-page-hover);
+  color: var(--soda-page-link);
+  border-color: var(--soda-page-edge);
+}
+.soda-repository-header .repo-buttons :is(.ui.button,.ui.label) > svg { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; }
+.soda-repository-header .repo-buttons #sodaspaces-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px !important;
+  border: 1px solid var(--soda-page-link);
+  border-radius: 0;
+  background: transparent;
+  color: var(--soda-page-link);
+  font: 500 12px/1.4 "IBM Plex Mono",monospace !important;
+  letter-spacing: 0;
+}
+.soda-repository-header .repo-buttons #sodaspaces-button:is(:hover,[aria-expanded="true"]) { background: var(--soda-page-selected); }
+@container repository-header (width > 1000px) {
+  .soda-repository-header .soda-repository-action-menu > a[href$=".rss"] { width: 44px; min-width: 44px; padding: 0 !important; justify-content: center; }
+  .soda-repository-header .repo-buttons #sodaspaces-button { margin-inline-start: 8px; }
 }
 
 .soda-repository-header .fork-flag {
@@ -241,7 +302,7 @@
   .soda-repository-header .repo-header { gap: 8px; }
   .soda-repository-header .repo-header .flex-item-leading { display: none; }
   .soda-repository-header .repo-header .flex-item-title { font-size: 20px; }
-  .soda-repository-header #sodaspaces-button { width: 44px; min-width: 44px; padding: 0 !important; }
+  .soda-repository-header .repo-buttons #sodaspaces-button { width: 44px; min-width: 44px; padding: 0 !important; }
   .soda-repository-header #sodaspaces-button > span { display: none; }
 }
 

@@ -10,6 +10,25 @@ The deleted worktree is no longer used for development or local presentation mou
 The six approved subway backgrounds are now source assets and are installed on
 localhost:3300.
 
+## Repository action bar refinement
+
+Watch, star and fork now pair their native action and separately linked count in
+one continuous 1px frame. Counts use aligned tabular numerals; controls share 16px
+icons, 12px mono labels, 44px targets and quieter edge colors. RSS is a matching
+square on wide screens and a labeled row in the compact menu. Sodaspaces keeps
+its native insertion point and gets a matching red outlined control. Below the
+existing 1000px container threshold, the same native actions occupy aligned rows
+in a bounded 288px disclosure. Native forms, counters, permissions, workspace
+behavior and the fork modal remain unchanged.
+
+`repository.css?v=21-actionbar` is delivered on localhost:3300. Previous CSS/header
+files and light/dark captures are under `.artifacts/forgejo-repo-actionbar/`.
+The read-only live test passes at 320, 640, 720, 800, 960, 1000, 1100 and 1440px
+in both themes, checking joined edges, count links, target sizes, menu containment
+and Escape dismissal. Seven existing disclosure tests, branding/inventory checks
+and changed-test TypeScript checks also pass. No watch, star, fork or workspace
+mutation was performed.
+
 ## Quieter button borders
 
 Forgejo's shared primary and secondary actions now use 1px borders, including
