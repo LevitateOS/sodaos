@@ -107,6 +107,8 @@
 }
 .soda-code-files.ui.table tr.entry:hover { background: var(--soda-page-hover); }
 .soda-code-files .name a.muted { color: var(--soda-page-text); }
+.soda-code-browser .code-search { padding: 0 !important; border-radius: 0 !important; }
+.soda-code-browser .code-search :is(.input,input,.dropdown,.menu,.item,button) { border-radius: 0 !important; }
 .soda-code-browser .code-search,
 .soda-code-file,
 .soda-code-file .file-header {
