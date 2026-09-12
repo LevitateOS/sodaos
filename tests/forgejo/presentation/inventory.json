@@ -3873,7 +3873,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/003.png"
         ]
       },
-      "beforeRoleHash": "123fed9a34007ee7a77d2680863ba9231117065655203993433a28a657c014b8",
+      "beforeRoleHash": "82116cfd6b8c3c03f2dcd7925c4c51dba5c242d326e7354c4464669c1389f638",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
