@@ -1,9 +1,11 @@
 # Tailnet in the native dashboard — implementation plan
 
 **Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
-implemented, with actual native-page acceptance pending. The user declined local
-fixture repair and deferred configured-device validation to the intended ARM device.
-Project runtime, installed proof and retirement remain pending.** The user requested native dashboard ownership
+implemented, with actual native-page acceptance pending. Stage-4 runtime/UI and
+stock-only Cockpit source are implemented; native proof and installed retirement
+remain pending. The user declined local fixture repair and clarified that the ARM
+machine is only an ephemeral Forgejo frontend test bed: Soda is not currently
+compatible there. It is not the target for native Soda/Tailnet/Cockpit validation.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -605,9 +607,11 @@ dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity
 existing Cockpit tests also passed. The actual native-page consumer is wired into the
 existing fixture, not replaced with handwritten native HTML: its run failed because
 `sodaos-local-forgejo` is stopped. The subsequently approved start failed because its
-source bind mounts point into a deleted worktree. The user declined regeneration and
-identified the ARM device as the intended configured-device validation target. No
-exact ARM target/action is authorized; no further fixture repair/start is selected.
+source bind mounts point into a deleted worktree. The user declined regeneration.
+The subsequent ARM discussion was misinterpreted as selecting a Soda appliance;
+the owner clarified that it is only an ephemeral Forgejo frontend test bed. Such
+frontend checks do not establish native Soda backend/runtime or stock Cockpit proof.
+No device action or further fixture repair/start is authorized by that clarification.
 Source-only follow-up fixed unsent enrollment-draft loss on admission/default writes
 and passed focused emitted-component, authorization and readback checks. The
 container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)

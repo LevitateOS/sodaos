@@ -19,8 +19,9 @@ The canonical `~/Projects/sodaos` checkout on `main` contains the new visual sys
 place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.
 Actual native-page parity, native lifecycle/security/connectivity acceptance and
 installed delivery/removal remain pending.
-The user declined local fixture repair, deferred configured-device validation to the
-intended ARM device and selected further device-independent source work.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+The user declined local fixture repair and selected further device-independent
+source work. The owner clarified that Soda is not currently compatible with the ARM
+machine: it is only an ephemeral Forgejo frontend test bed, not a Soda appliance.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
 connections and eventual retirement of Soda's remaining Cockpit presentation.
 
@@ -83,17 +84,18 @@ unchanged. These checks are not native acceptance.
 
 ### Next step
 
-Select and authorize the intended native candidate/target/actions for the
-[Stage-5 proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof),
-including the candidate-bound Tailnet installed scenario and actual stock branding.
-Source implementation is no longer waiting for local fixture repair.
-[Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
-is still unproven, not replaced by component-shell tests. The user declined repairing
-the broken local fixture and identified the ARM device as the intended target for
-configured-device validation. Its exact identity, current installed configuration
-and approved checks/delivery effects must be established before contact; no ARM
-action or deployment was granted. Do not make local fixture repair a prerequisite
-for unrelated source work. Cockpit Tailnet stays installed fallback on retained targets;
+Keep Forgejo frontend validation separate from native Soda acceptance. The ARM
+machine is an ephemeral Forgejo frontend test bed only; do not request a Soda
+installation inventory, deploy Soda, or expect project/Tailnet/Cockpit runtime there.
+Any selected frontend checks establish only their actual presentation scope, not
+backend authorization, enrollment or installed appliance acceptance.
+
+The [Stage-5 native proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof)
+needs a separately selected compatible Soda target and approved actions. No such
+target is currently selected by the ARM clarification. Native runtime proof is not
+a prerequisite for independent frontend/source work. [Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+remains pending beyond the checks actually run. The declined local fixture repair
+remains declined; no new device contact, provisioning or deployment was authorized. Cockpit Tailnet stays installed fallback on retained targets;
 source retirement does not authorize or imply its removal there.
 
 The earlier authorized local start failed because template and preview-asset mounts
@@ -134,9 +136,12 @@ Tailnet work.
   source-work grant.
   Stage-3 native-page/device acceptance remains deferred. The user
   previously approved starting exact `sodaos-local-forgejo`; that attempt failed.
-  The user then declined source-mount repair and chose device-independent work,
-  deferring configured-device validation to the intended ARM device. No further local
-  repair/start, ARM contact or deployment is authorized. Stage 1/2 grants are complete.
+  The user then declined source-mount repair and chose device-independent work.
+  The owner clarified that ARM is only an ephemeral Forgejo frontend test bed, not
+  a currently compatible Soda target. The earlier request for a Soda inventory on
+  ARM was based on a mistaken assumption, not an outstanding prerequisite or grant.
+  No further local repair/start, ARM contact or deployment is authorized.
+  Stage 1/2 grants are complete.
   No enrollment, networking/capability changes,
   other fixture lifecycle, deployment or installed Tailnet removal is authorized.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
