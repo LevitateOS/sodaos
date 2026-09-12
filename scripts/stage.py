@@ -92,7 +92,10 @@ for name, origin in payload.items():
         if parent == stage:
             break
         parent.chmod(0o755)
-copy(source / 'assets/branding/terminal/sodaos.txt', '/etc/motd', 0o644)
+# MOTD is plain text; fastfetch alone interprets the logo's color placeholders.
+copy(source / 'assets/branding/terminal/motd.txt', '/etc/motd', 0o644)
+copy(source / 'assets/branding/terminal/sodaos.txt', '/usr/share/soda/fastfetch/sodaos.txt', 0o644)
+copy(source / 'assets/branding/terminal/fastfetch.jsonc', '/etc/fastfetch/config.jsonc', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
 tailnet_cli = stage / 'usr/local/bin/soda-tailnet'

@@ -11,7 +11,7 @@ historical approvals are not renewed execution permission.
 
 ## Isolated Forgejo visual redesign
 
-The `codex/forgejo-redesign` worktree now applies the new visual system across the Forgejo override set. [Its independent status](forgejo-redesign-status.md) owns scope, source checks and browser review evidence. The owner-selected Mac localhost:3300 Forgejo presentation is updated on its existing sodaos-local-forgejo_data volume, with a consistent private backup; the separate builder/VM targets are unchanged. The independent status records parity and delivery evidence. Fastfetch ASCII branding remains separate from this template pass.
+The `codex/forgejo-redesign` worktree now applies the new visual system across the Forgejo override set. [Its independent status](forgejo-redesign-status.md) owns scope, source checks and browser review evidence. The owner-selected Mac localhost:3300 Forgejo presentation is updated on its existing sodaos-local-forgejo_data volume, with a consistent private backup; the separate builder/VM targets are unchanged. The independent status records parity and delivery evidence. The subsequent fastfetch/ASCII identity update and staging checks are recorded in the independent redesign status.
 
 ## Active work — Tailnet
 

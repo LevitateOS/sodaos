@@ -77,4 +77,7 @@ individually exercised. No real provider/account actions were submitted. The web
 `822ce09`; both repositories retain their own normal commit history. Cockpit's
 complete native screens were not captured in this Forgejo pass.
 
-Fastfetch ASCII branding remains a separate requested follow-up.
+Fastfetch ASCII branding is updated to the same canonical symbol. The native
+stage delivers a themed fastfetch preset and a separate plain-text MOTD; see
+[terminal identity](../assets/branding/terminal/README.md). Local fastfetch render
+and staging-source checks pass; no native appliance installation was performed.
