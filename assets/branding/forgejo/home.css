@@ -37,6 +37,9 @@ body:has(.soda-home) footer a { color: var(--soda-guest-link); }
   .soda-home-nav { padding-inline: 32px; }
   .soda-home-links > a:first-child { display: inline; }
   .soda-home-hero { padding: 64px 32px; }
+}
+/* Split desktop panes keep readable full-width feature rows. */
+@media (min-width: 64rem) {
   .soda-home-features { grid-template-columns: repeat(3,minmax(0,1fr)); margin-inline: 32px; }
   .soda-home-features article { padding: 28px 20px; }
   .soda-home-features article:first-child { padding-left: 0; }

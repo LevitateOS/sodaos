@@ -280,7 +280,8 @@ body:has(.soda-page, .soda-page-marker) :is(a,button,input,textarea,summary,[tab
   gap: 32px;
 }
 .soda-metadata-sidebar { min-width: 0; }
-@media (min-width: 901px) {
+/* Metadata follows the editor in a half-width desktop pane. */
+@media (min-width: 1101px) {
   .soda-editor-layout { grid-template-columns: minmax(0, 1fr) var(--soda-sidebar-width); }
 }
 

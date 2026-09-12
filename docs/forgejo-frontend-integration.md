@@ -80,6 +80,19 @@ selected version/configuration when changing an override.
 
 ## Shared presentation components
 
+### Responsive workspace contract
+
+All Forgejo page families must support a desktop split view: Forgejo in the left
+half and a terminal in the right half. Treat 640, 720, 800 and 960 CSS-pixel panes
+as primary working sizes in both light and dark mode, alongside mobile and full
+width. Preserve readable content, accessible navigation and usable controls;
+stack auxiliary columns before they squeeze the task area. Layout must follow
+the available pane width, including an in-page terminal drawer where applicable.
+Wide code, diffs and tables may scroll within their own canvas; ordinary page
+content must not force horizontal scrolling. Check representative page families
+and resizing, not just the public homepage or a phone-sized viewport.
+
+
 The existing overrides use the [Soda component contract](../appliance/forgejo/README.md#presentation-component-contract):
 small Go template partials for intros, empty content and guest theme controls;
 explicit CSS classes for page shells, toolbars, form sections and native list rows.

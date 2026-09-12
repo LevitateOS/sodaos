@@ -6,7 +6,7 @@ test('production reference compositions retain native controls across themes and
   const browser = await chromium.launch({channel:'chrome',headless:true});
   try {
     const page = await browser.newPage();
-    for (const theme of ['light','dark']) for (const width of [1440,900,390,320]) {
+    for (const theme of ['light','dark']) for (const width of [1440,1101,1100,960,900,800,720,640,390,320]) {
       await t.test(`${theme} at ${width}px`, async () => {
         await page.setViewportSize({width,height:width < 500 ? 844 : 1000});
         await page.emulateMedia({colorScheme: theme === 'light' ? 'dark' : 'light'});
@@ -32,7 +32,7 @@ test('production reference compositions retain native controls across themes and
         await page.locator('summary').first().click();
         assert(await page.locator('#branch').isVisible());
         const layout=await page.locator('.soda-editor-layout').evaluate(el => ({cols:getComputedStyle(el).gridTemplateColumns.split(' ').length}));
-        assert.equal(layout.cols,width<=900?1:2);
+        assert.equal(layout.cols,width<=1100?1:2);
         for (const button of await page.locator('.ui.labeled.button > button').all()) {
           const edges = await button.evaluate(el => ({top:getComputedStyle(el).borderTopRightRadius,bottom:getComputedStyle(el).borderBottomRightRadius}));
           assert.deepEqual(edges,{top:'0px',bottom:'0px'});

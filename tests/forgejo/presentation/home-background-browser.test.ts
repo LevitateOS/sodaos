@@ -8,7 +8,7 @@ const live = origin === 'http://localhost:3300';
 test('welcome frame contains all content and selects one responsive background', {skip: !enabled}, async () => {
  const browser = await chromium.launch({channel: 'chrome', headless: true});
  try {
-  for (const theme of ['light', 'dark']) for (const [width, height] of [[320,1000], [390,1000], [768,1000], [1024,1000], [1440,1000], [2560,1000], [1716,1975]] as const) {
+  for (const theme of ['light', 'dark']) for (const [width, height] of [[320,1000], [390,1000], [640,1000], [720,1000], [768,1000], [800,1000], [960,1000], [1024,1000], [1440,1000], [2560,1000], [1716,1975]] as const) {
    const page = await browser.newPage({viewport: {width, height}, colorScheme: theme === 'light' ? 'dark' : 'light'});
    const failures: string[] = [], backgrounds: string[] = [];
    page.on('pageerror', error => failures.push(error.message));
@@ -45,6 +45,8 @@ test('welcome frame contains all content and selects one responsive background',
    assert(Math.abs(layout.boundary) < 1, 'no gap before native footer');
    assert.equal(layout.background, theme === 'dark' ? 'rgb(16, 16, 16)' : 'rgb(255, 255, 255)');
    assert.equal(layout.footerBackground, layout.background);
+   const featureColumns = await page.locator('.soda-home-features').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+   assert.equal(featureColumns, width < 1024 ? 1 : 3, 'features stay readable beside a desktop terminal');
    assert.equal(layout.panelBorder, '0px');
    assert.equal(layout.footerBorder, '1px', 'footer owns the shared divider');
    assert.deepEqual(failures, []);

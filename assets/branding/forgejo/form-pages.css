@@ -191,15 +191,15 @@
 .ui.form .soda-form-actions > .button-sequence { width: 100%; flex-wrap: wrap; gap: 12px; }
 .ui.form .soda-form-actions > .button-sequence > .button { width: 100%; margin: 0; }
 @media (min-width: 761px) {
- .soda-form-layout { grid-template-columns: minmax(200px, .7fr) minmax(0, 1.5fr); gap: 32px; padding-block: 40px 64px; }
  .soda-form-pair { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 24px; }
  .ui.form .soda-form-actions > .button,
  .ui.form .soda-form-actions > .button-sequence,
  .ui.form .soda-form-actions > .button-sequence > .button,
  .soda-form-editor .ui.form .text.right:has(> .primary.button) > .button { width: auto; }
 }
+/* Keep creation fields full-width while Forgejo shares a desktop with a terminal. */
 @media (min-width: 1101px) {
- .soda-form-layout { grid-template-columns: minmax(240px, .8fr) minmax(0, 1.5fr); gap: 64px; }
+ .soda-form-layout { grid-template-columns: minmax(240px, .8fr) minmax(0, 1.5fr); gap: 64px; padding-block: 40px 64px; }
 }
 /* A nested settings rail already consumes the narrow column. */
 :is(.soda-admin-layout, .soda-org-settings-layout) .soda-form-layout { grid-template-columns: minmax(0, 1fr); }

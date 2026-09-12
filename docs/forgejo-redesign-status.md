@@ -47,6 +47,32 @@ checks, changed-test TypeScript checks and the preview build pass. Logs and the
 mount/data preservation receipt are retained in the canonical delivery directory.
 These checks cover the homepage and asset recovery, not authenticated workflows.
 
+## Half-width desktop working layout
+
+The owner explicitly requires browsing Forgejo beside a terminal. The standing
+[responsive workspace contract](forgejo-frontend-integration.md#responsive-workspace-contract)
+covers all page families at 640, 720, 800 and 960 CSS pixels in both themes.
+Creation forms and editor metadata now stack through 1100px; homepage feature
+rows stack below 1024px. Repository actions retain their existing container-based
+compact disclosure, and settings keep their existing compact navigation.
+
+Only `components.css`, `form-pages.css`, `home.css` and their versioned links were
+updated on the canonical local delivery mounts. Prior files are retained under
+`.artifacts/forgejo-half-width/before-delivery/`; native runtime and data are unchanged.
+
+A read-only audit using the existing screenshot fixture passed at four split widths
+in explicit light/dark themes: dashboard, exploration, public profile, repository
+code/issues/pulls/commits/releases, creation, migration, organization creation and
+personal settings/appearance. There were 120 navigations, including eight expected
+signed-in redirects from the login URL. No page or checked content overflow was
+found. The separate guest homepage test passes 22 theme/viewport combinations.
+Production component, editor, administration/form reference and settings navigation
+checks pass across split widths, mobile and full desktop, including keyboard and
+no-JavaScript settings access. Source branding/inventory, changed-test TypeScript
+checks and preview build pass. These are representative page-family checks, not
+an assertion that every authenticated or operator workflow was exercised. Evidence
+and before/after 800px captures are in `.artifacts/forgejo-half-width/`.
+
 ## Scope completed
 
 The full inventory of **253 Forgejo 15.0.7 overrides** uses the redesigned shared presentation owners. This includes authentication and onboarding, dashboard and exploration, public profiles and organizations, repositories and code views, issues and pull requests, milestones/projects/wiki/releases, Actions, packages, notifications, personal/repository/organization settings, moderation, administration and status pages. Most native templates inherit the design without unnecessary markup edits; explicit template edits remove obsolete presentation inputs and refine shared composition without replacing native control bodies.
