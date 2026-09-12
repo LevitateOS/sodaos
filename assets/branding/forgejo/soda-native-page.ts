@@ -45,6 +45,12 @@ if (mount && mount.dataset.sodaEntryMounted !== 'true') {
           mount.classList.add('soda-settings', 'soda-runner-settings');
           render(html``, mount);
           mountRunnersPage(mount, actor);
+        } else if (view === 'tailnet') {
+          const {mountTailnetPage} = await import('../../../frontend/tailnet/soda-tailnet-page.js');
+          if (!isCurrent()) return;
+          mount.classList.add('soda-settings', 'soda-tailnet-settings');
+          render(html``, mount);
+          mountTailnetPage(mount, actor);
         } else if (view === 'repository-spaces') {
           const {mountRepositorySpaces} = await import('../../../frontend/spaces/soda-repository-spaces.js');
           if (generation !== current || !mount.isConnected) return;

@@ -375,6 +375,57 @@ func TestTailnetOfflineExitNodeAndUnconfirmedClear(t *testing.T) {
 		})
 	}
 }
+
+// Browser parity uses the existing bounded Go notification decoder, not a
+// second browser framing engine. These are synthetic command/LocalAPI results.
+func TestTailnetInitialLoginNotificationsAndTimeoutKeepNativeAuthentication(t *testing.T) {
+	for _, mode := range []string{"multiple notifications", "observer timeout", "malformed notification", "private diagnostic"} {
+		t.Run(mode, func(t *testing.T) {
+			m := managementFixture(t)
+			base := m.local.Transport
+			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
+				if strings.HasSuffix(r.URL.Path, "/status") {
+					status := strings.Replace(strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":false`, 1), `"Running"`, `"NeedsLogin"`, 1)
+					return managementResponse(200, status), nil
+				}
+				return base.RoundTrip(r)
+			})
+			calls := 0
+			m.command = func(ctx context.Context, path string, args ...string) ([]byte, error) {
+				if strings.Join(args, " ") == "version --json" {
+					return []byte(`{"short":"1.102.4"}`), nil
+				}
+				calls++
+				if path != DefaultCLI || strings.Join(args, " ") != "--socket="+hostSocket+" up --json --timeout=5s" {
+					t.Error("unexpected command")
+				}
+				switch mode {
+				case "observer timeout":
+					return nil, context.DeadlineExceeded
+				case "malformed notification":
+					return []byte(`not json`), nil
+				case "private diagnostic":
+					return []byte(`{"Error":"must-not-escape-private-diagnostic"}`), nil
+				default:
+					return []byte("{\n\"AuthURL\":\"https://login.tailscale.com/a/synthetic\"\n}\n{\"BackendState\":\"NeedsLogin\"}\n"), nil
+				}
+			}
+			before, _, e := m.observe(t.Context())
+			if e != nil {
+				t.Fatal(e)
+			}
+			out, e := m.HostAction(t.Context(), HostRequest{Action: "signin", Revision: before.Revision})
+			if e != nil || out.Outcome != "pending" || out.AuthURL == "" || calls != 1 {
+				t.Fatal(out, e, calls)
+			}
+			data, _ := json.Marshal(out)
+			if strings.Contains(string(data), "must-not-escape") {
+				t.Fatal("raw diagnostic escaped")
+			}
+		})
+	}
+}
+
 func TestTailnetBoundedOutputChild(t *testing.T) {
 	if os.Args[len(os.Args)-1] != "soda-tailnet-stdout-probe" {
 		return

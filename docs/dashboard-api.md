@@ -169,7 +169,8 @@ passed, not provider/native acceptance; Cockpit remains installed.
 
 ## Tailnet backend
 
-**Stage-2 source contracts; no native-page UI, project runtime or installed proof.**
+**Stage-2 backend and Stage-3 UI source; native-page acceptance, project runtime and
+installed proof remain pending.**
 The [Tailnet owner](tailnet-integration-plan.md) owns lifecycle and acceptance.
 The optional native host configuration field `tailnet_management` defaults false;
 only an explicitly enabled helper constructs the management backend. No setup,
@@ -278,7 +279,12 @@ authority, 409 changed revision/native identity, 422 unsupported operation/versi
 and provider diagnostic bodies are never copied into errors. Create, connection/SSH
 endpoints and legacy omission behavior are unchanged. Explicit managed creation,
 run-incarnation admission, reachable project status and all runtime hooks belong to
-Stage 4; native page registration/assets/navigation belong to Stage 3.
+Stage 4. Stage 3 now supplies native page registration/assets/navigation and the
+protected Lit caller; its current native-page acceptance is recorded in the handoff.
+The caller separates rejected requests, acknowledged effects, unavailable readback
+and unknown outcomes. Refresh retains edited scope revisions, never automatically
+rebases drafts or replays writes. Explicit authentication recovery is the only
+read-style POST; ordinary polling remains GET-only.
 
 ## Browser namespace
 

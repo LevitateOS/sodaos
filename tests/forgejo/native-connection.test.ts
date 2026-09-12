@@ -61,8 +61,8 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     assert.equal(repositoryResponse.status(), 200);
     const repositoryData: unknown = await repositoryResponse.json();
     assert(repositoryData && typeof repositoryData === 'object' && 'repository' in repositoryData);
-    const child = Bun.spawn(['bun', 'test', '--timeout', '90000', 'tests/frontend/spaces-page.test.ts', 'tests/frontend/runners.test.ts', 'tests/frontend/repository-settings.test.ts'], {
-      env: {...process.env, SODA_PAGE_ORIGIN: origin, SODA_PAGE_ACTOR: actor, SODA_PAGE_REPOSITORY: JSON.stringify(repositoryData.repository)}, stdout: 'inherit', stderr: 'inherit',
+    const child = Bun.spawn(['bun', 'test', '--timeout', '90000', 'tests/frontend/spaces-page.test.ts', 'tests/frontend/runners.test.ts', 'tests/frontend/tailnet.test.ts', 'tests/frontend/repository-settings.test.ts'], {
+      env: {...process.env, SODA_TAILNET_COMPONENT: '0', SODA_PAGE_ORIGIN: origin, SODA_PAGE_ACTOR: actor, SODA_PAGE_REPOSITORY: JSON.stringify(repositoryData.repository)}, stdout: 'inherit', stderr: 'inherit',
     });
     assert.equal(await child.exited, 0, 'Native page consumers failed');
   }

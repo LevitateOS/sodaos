@@ -25,12 +25,16 @@ test('emitted native settings link requires matching Soda operator, not site-adm
     });
     await page.goto(origin); await page.waitForLoadState('networkidle');
     const link = page.getByRole('link', {name: 'Runners', exact: true});
+    const tailnet = page.getByRole('link', {name: 'Tailnet', exact: true});
+    assert.equal(await tailnet.count(), mode === 'operator' ? 1 : 0);
     assert.equal(await link.count(), mode === 'operator' ? 1 : 0);
     assert.equal(await page.locator('#draft').inputValue(), 'unsaved'); assert(queries >= 1);
     if (mode === 'operator') {
       assert.equal(await link.getAttribute('href'), '/?soda-view=runners');
+      assert.equal(await tailnet.getAttribute('href'), '/?soda-view=tailnet');
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true})));
       assert.equal(await link.count(), 0);
+      assert.equal(await tailnet.count(), 0);
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true})));
       await link.waitFor(); assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
     }

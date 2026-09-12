@@ -54,7 +54,8 @@ Missing/wrong-key, newer-schema and incomplete-schema refusal remain required.
 
 `/settings/tailnet` and `destination=tailnet` bind only the fixed
 `/?soda-view=tailnet` return, including named callback failures. The native Lit
-registration/navigation is Stage 3, not delivered by this backend bookmark bridge.
+registration/navigation now has Stage-3 source and emitted-component checks; actual
+native-page acceptance remains pending in the handoff.
 The SQLite migration is independent of the helper opt-in flag. Existing targets
 remain v9; local migration tests do not grant delivery or a rollback window.
 

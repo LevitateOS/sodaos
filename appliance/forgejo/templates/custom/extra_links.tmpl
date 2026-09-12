@@ -1,5 +1,5 @@
 <a class="item" href="{{AppSubUrl}}{{if .IsSigned}}/?soda-view=spaces{{else}}/-/soda/spaces{{end}}">Spaces</a>
-{{if .IsSigned}}<span id="soda-settings-link" hidden data-actor="{{.SignedUserID}}" data-sub-url="{{AppSubUrl}}"></span>{{end}}
+{{if .IsSigned}}<span id="soda-settings-link" hidden data-actor="{{.SignedUserID}}" data-sub-url="{{AppSubUrl}}" data-tailnet-label="{{ctx.Locale.Tr "soda.tailnet_title"}}"></span>{{end}}
 {{template "custom/soda/guest_theme" (dict "Page" . "Placement" "navbar")}}
 
 {{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations .PageIsNews .PageIsExploreCode .ContextUser .Repository .Org .PageIsUserSettings .PageIsAdmin) .IsSigned}}

@@ -114,6 +114,27 @@ test('entry connection is bounded, actor checked, and never restarts on focus or
   }
 });
 
+test('Tailnet entry uses the shared fixed one-attempt OAuth return, not focus reconnect', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
+  const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
+  const page = await browser.newPage(); let logins = 0;
+  await page.route(origin + '/**', async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/') return route.fulfill({contentType: 'text/html', body: shell.replace('data-view="spaces"', 'data-view="tailnet"') + '<script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>'});
+    if (url.pathname === '/-/soda/api/session') return route.fulfill({status: 401, json: {error: {code: 'unauthorized'}}});
+    if (url.pathname === '/-/soda/login') {
+      logins++; assert.deepEqual([...url.searchParams], [['destination', 'tailnet'], ['expected_user_id', '1']]);
+      return route.fulfill({contentType: 'text/html', body: 'Consent fixture'});
+    }
+    const source = files['public' + url.pathname]; assert(source && source.startsWith('@build/forgejo-js/'));
+    return route.fulfill({contentType: 'text/javascript', body: await Bun.file(path.resolve('.artifacts/forgejo-js', path.basename(source))).text()});
+  });
+  await page.goto(origin + '/?soda-view=tailnet'); await page.waitForURL('**/-/soda/login?**'); assert.equal(logins, 1);
+  await page.goto(origin + '/?soda-view=tailnet'); await page.getByRole('button', {name: 'Retry connection'}).waitFor();
+  await page.evaluate(() => {window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange'));});
+  assert.equal(logins, 1); assert.equal(await page.locator('soda-tailnet').count(), 0);
+  await page.getByRole('button', {name: 'Retry connection'}).click(); await page.waitForURL('**/-/soda/login?**'); assert.equal(logins, 2);
+});
+
 test('coordinated logout captures keyboard activation and retires other tabs before native POST', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
   for (const mode of ['session', 'pending', 'soda-failure', 'native-failure', 'actor-change']) {

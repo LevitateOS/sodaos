@@ -127,7 +127,7 @@ document.addEventListener('click', event => {
 // Entry-only bootstrap: callers invoke this before exposing editable content.
 // No focus/polling/error handler is permitted to restart OAuth.
 export async function connectPage(actor: string, destination: string, repository: string, isCurrent: () => boolean, retry = false, restoring = false): Promise<boolean> {
-  if (!id(actor) || !['spaces', 'runners', 'repository-spaces'].includes(destination) || (destination === 'repository-spaces' ? !id(repository) : repository !== '')) throw Error('Invalid page context');
+  if (!id(actor) || !['spaces', 'runners', 'tailnet', 'repository-spaces'].includes(destination) || (destination === 'repository-spaces' ? !id(repository) : repository !== '')) throw Error('Invalid page context');
   const key = 'soda-entry:' + destination + ':' + repository + ':' + actor;
   if (!isCurrent()) return false;
   if (retry) {

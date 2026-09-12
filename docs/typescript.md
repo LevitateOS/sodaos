@@ -23,7 +23,7 @@ frontend, native Forgejo page fixtures, drawer layout, Forgejo and Cockpit suite
 The page group requires the authorized local Forgejo fixture at `localhost:3300`
 and its saved screenshot-account credential. It reuses `TestNativeConnectionFixture`,
 prepares a fresh canonical public payload and isolated Soda OAuth/DB state, then
-runs the existing page consumers with that fixture's own native login. Missing native
+runs the existing page consumers, including Tailnet, with that fixture's own native login. Missing native
 host/assets fail this group; no handwritten HTML fallback or implicit installation
 is used. Synthetic operation APIs remain separate from native/provider proof.
 The local Lit runtime and operator settings-link browser checks are enabled in the
@@ -55,10 +55,12 @@ independently gated and are not enabled by the aggregate.
 
 Focused commands prepare their own assets:
 
-- `bun run test:frontend` — frontend unit/browser tests; conditional page/layout
-  journeys are executed by the commands below, not silently counted as covered here.
-- `bun run test:pages` — uncached Go producers followed by all three real HTML/CSP
-  browser consumers (Spaces, operator runners and repository settings). Missing or
+- `bun run test:frontend` — frontend unit/browser tests, including explicitly labelled
+  Tailnet emitted-component fixtures (`SODA_TAILNET_COMPONENT=1`). These use no native
+  HTML, authentication or provider and cannot be selected alongside a native page
+  origin. Conditional page/layout journeys are executed by the commands below, not silently counted as covered here.
+- `bun run test:pages` — uncached Go producers followed by all four real HTML/CSP
+  browser consumers (Spaces, operator runners, Tailnet and repository settings). Missing or
   empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
   alias for this expanded group. Run directories are printed and retained on failure.
 - `bun run test:layout` — the integrated drawer layout fixture.
@@ -90,7 +92,7 @@ No rebuild or hand-written old HTML is substituted. After all ordinary consumers
 the native parent finish, a separate browser context uses the old process, complete
 old public-file tree and a fresh synthetic v6 database. The private `backend-phase`
 file switches to current handlers only after confirmed old-process exit; those
-handlers migrate that **same database** to v9 with the same fixture key/client.
+handlers migrate that **same database** to the [current supported schema](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return) with the same fixture key/client.
 The old page remains open for its real Refresh control and subsequent departure.
 The browser observes actual pagehide retirement and the actual history outcome:
 retired BFCache owner or a network reload/current owner, labelled separately. Headers

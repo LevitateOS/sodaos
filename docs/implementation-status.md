@@ -7,8 +7,9 @@ historical approvals are not renewed execution permission.
 
 ## Active work — Tailnet
 
-**Stage 1's local investigation and Stage 2's backend source contracts are complete;
-native UI, project runtime and installed proof remain pending.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+**Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
+place; actual native-page parity is blocked on the stopped local Forgejo fixture.
+Project runtime and installed proof remain pending.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
 connections and eventual retirement of Soda's remaining Cockpit presentation.
 
@@ -35,23 +36,33 @@ retained at `.artifacts/tailnet-stage1-G8Rnza/`; see the
 **Stage-2 source:** fixed protected Go APIs/helper methods, root-only credential and
 policy storage, host operations and schema-v10 Tailnet OAuth returns now have local
 race-tested coverage. Native management defaults off; managed defaults and project
-enable/retry refuse, while Off saves intent without claiming disconnection. No UI,
-project image/unit/lifecycle change or real enrollment was added. Checks and remaining
+enable/retry refuse, while Off saves intent without claiming disconnection. That slice
+added no UI, project image/unit/lifecycle change or real enrollment. Checks and remaining
 limits are in the [stage-2 receipt](implementation-history.md#tailnet-stage-2--backend-state-and-authorization).
+
+**Stage-3 source:** native Tailnet selector/navigation/entry, canonical payload and
+cache epoch, Lit appliance/enrollment controls, transient credentials/auth links and
+scoped confirmations are implemented. Component, source and retained Cockpit checks
+passed; the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
+separates those results from the failed native-page attempt.
 
 ### Next step
 
-The next source slice is [stage 3 — native host Tailnet UI and parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity):
-Lit page/navigation/entry and asset registration, host and enrollment controls, and
-emitted-browser authority, secret-handling, pending/draft/readback and parity checks.
-Project automation is Stage 4; Cockpit Tailnet remains source/installed fallback.
+Complete [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+after explicit approval to start the exact retained `sodaos-local-forgejo` container,
+without replacement/deletion. The attempted shared fixture failed before OAuth-app
+creation because localhost:3300 was unreachable; a read-only inventory found the
+container exited. It was not restarted. Reuse the existing native fixture/consumers,
+not the separate component-only shell, to establish actual HTML/CSP/chrome parity.
+This local browser-fixture grant is distinct from appliance/companion proof below.
+Project automation remains Stage 4; Cockpit Tailnet stays source/installed fallback.
 
 The separate [native proof proposal](tailnet-integration-plan.md#remaining-native-proof-proposal)
 requires a specifically authorized isolated fixture and exact inputs/actions. It
 covers namespace/TUN/LocalAPI isolation, DNS ownership/recovery, systemd stop/restart
 ordering and, in a separately approved phase, real enrollment/connectivity. No
 fixture, credential, provider action or maintenance window is currently selected.
-Stage-2 source completion does not authorize that execution, deployment or native
+Source/UI completion does not authorize that execution, deployment or native
 configuration changes.
 
 ## Current permissions
@@ -60,10 +71,11 @@ configuration changes.
 
 - **Authorized:** routine local source implementation, builds and tests for selected
   work, including existing local fixtures within their approved scope.
-- **Tailnet:** the user selected Stage 2; its backend/state/authorization source work
-  and local tests are complete. This did not grant enrollment, networking/capability
-  changes, new fixture lifecycle, deployment or installed Tailnet removal. The
-  earlier Stage-1 investigation/proposal grant is also complete.
+- **Tailnet:** the user selected Stage 3 UI/parity source work and local checks.
+  Source/component checks are complete; native-page acceptance is blocked. Approval
+  to start the exact stopped local browser fixture was requested, not granted.
+  Stage 1/2 grants are complete. No enrollment, networking/capability changes,
+  other fixture lifecycle, deployment or installed Tailnet removal is authorized.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -149,7 +161,8 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
   remain. Check the recorded owner/deadline before separately authorized reuse;
   no current liveness is asserted. See the [isolated proof receipt](implementation-history.md#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed).
 - **Local browser fixture:** `sodaos-local-forgejo`, `localhost:3300`, volume
-  `soda-pages-0f1d2b1-data`. Preserve accounts/repositories, OAuth state and private
+  `soda-pages-0f1d2b1-data`. Stage-3 read-only inspection found it exited; no start or
+  replacement was performed. Preserve accounts/repositories, OAuth state and private
   inputs. `.local/screenshot-fixture/create-output.txt` is the retained regular
   credential file, not a symlink. Follow the [screenshot guide](screenshot-capture.md)
   for login; do not recreate the fixture or expose credentials to repair access.
@@ -159,6 +172,7 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
 
 | Evidence | Location |
 | --- | --- |
+| Tailnet stage-3 source/component checks and failed native-page attempt | `.artifacts/tailnet-stage3-XEzD7o/`; `.artifacts/pages-FcP3af/` |
 | Tailnet stage-2 local source checks and failed/corrected attempts | `.artifacts/tailnet-stage2-O5WkS5/` |
 | Tailnet stage-1 research, synthetic probes and receipt | `.artifacts/tailnet-stage1-G8Rnza/`; preceding research `.artifacts/tailnet-enrollment-TDPVW1/` |
 | Step-6 source/native checks, export and offline packaging delta | `.artifacts/step6-source/` |
@@ -173,10 +187,10 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Implemented Tailnet Stage 2 and updated its API, credential/schema and feature owners.
-Affected Go packages/CLI callers passed race-enabled local checks, with focused final
-native-adapter follow-up and documentation/whitespace checks. Receipt:
-`.artifacts/tailnet-stage2-O5WkS5/`. No browser/UI tests, native bundle build, target
-contact, appliance migration, real credential/device work or retained-state change
-was performed. Installed v9 state and the separately gated native proof/removal work
-remain unchanged.
+Implemented Stage-3 UI source and bounded emitted-component parity; updated the
+native page, API and feature owners. TypeScript/Lit, frontend, selected Forgejo,
+Tailnet Go, nativebuild source, locale and existing Cockpit tests passed. Receipt:
+`.artifacts/tailnet-stage3-XEzD7o/`. Actual native-page acceptance remains blocked as
+above; no fixture restart, appliance contact/migration, real Tailnet credential/device
+work, native bundle build or installed change occurred. Both retained targets remain
+v9; native runtime proof and installed retirement stay separately gated.

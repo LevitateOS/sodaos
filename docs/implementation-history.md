@@ -14,6 +14,86 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet stage 3 — native UI source and bounded parity
+
+The user selected Stage 3 from clean `254e6d1`. The UI/source slice is implemented,
+but **actual native-page acceptance is blocked**, not counted as completed Stage 3.
+No appliance, host Tailnet state, project runtime, provider enrollment, service or
+Cockpit payload was changed. The only retained fixture observation was the stopped
+local Forgejo browser fixture described below.
+
+### Implemented source
+
+- Native dashboard Tailnet selector/title, strict repository incompatibility and
+  drawer suppression; lazy Lit entry using the existing one-attempt OAuth owner.
+  The operator navigation hint shares the existing session/bootstrap check with
+  Runners, never a Forgejo site-admin check. Fixed bookmark/schema work is reused.
+- Canonical payload/build/compiler inventory for the Tailnet page, response decoder
+  and token-based CSS; graph-wide presentation epoch updated with entries/styles.
+  Native navigation/section labels use the Soda English catalog. Explanatory Lit
+  copy follows the existing English UI convention, not a new translation framework.
+- Separate Appliance and Automatic project access sections, with explicit scoped
+  host-disconnect/routing/advertisement/Forgejo-refresh confirmations. Unknown
+  management routing and possible Forgejo restart are warned about, not verified.
+  Credential check/save/rotation/admission/default-Off use existing Go APIs; project
+  runtime/default-enable remain unavailable and no project operation is dispatched.
+- Original-actor checks before requests and response publication, bounded JSON,
+  rejected/unknown/acknowledged outcomes and independent readback errors. Independent
+  exit/advertisement drafts keep their original revisions through reads and other
+  writes; explicit discard is required to abandon stale edits. No read/focus poll
+  performs a mutation or obtains an authentication URL.
+- Passwords/auth URLs clear synchronously on submission, failure, authorization loss
+  and departure; no browser storage or raw provider diagnostics. Recovering an auth
+  URL is an explicit protected observation. Page/element lifetimes fence responses
+  ignoring abort, preserve uncertain outcomes and never replay or cancel native work.
+- Existing native-page consumers now include Tailnet. The ordinary frontend group
+  also runs an explicitly separate emitted-component shell; it cannot be selected
+  alongside a native page origin or mask a missing native host.
+
+### Checks and retained attempts
+
+Evidence: `.artifacts/tailnet-stage3-XEzD7o/`; original early typecheck log also remains
+at `.artifacts/tailnet-stage3-typecheck.log`.
+
+- Strict TypeScript and actual-source Lit analysis passed, with all ten independent
+  negative checker fixtures. Browser asset emission and graph/payload closure passed.
+- Frontend suite: 234 passed, 20 explicit skips. This includes emitted Tailnet
+  behavior, scoped keyboard confirmation and token-resolved light/dark layouts at
+  390/1440 px, not real Forgejo HTML. Existing native-page/layout opt-ins remain skips.
+- Selected Forgejo connection/navigation/cache tests passed, including Tailnet's
+  fixed one-attempt entry. Native-only tests remain explicit skips. Existing Cockpit
+  Tailnet/stream/presentation tests: 37 passed; no Cockpit source was removed.
+- Pinned Go 1.26.7 race tests for `internal/tailnet` passed, including multiple JSON
+  notifications, observer timeout, malformed/native diagnostics and continued safe
+  native authentication observation. `internal/nativebuild` source tests passed;
+  these are not a native bundle build/check/export. Four locale/source Python tests
+  passed, including the deliberate wrong-catalog refusal.
+- The actual shared native-page run failed before OAuth-app creation because
+  localhost:3300 refused the connection. `.artifacts/pages-FcP3af/` retains its
+  preparation output; `pages-01.log` records the failure. Read-only exact-name Podman
+  inventory reported `sodaos-local-forgejo` exited. Starting that exact retained
+  fixture was requested, not granted or performed; no replacement, cleanup or HTML
+  substitution was used to repair this observer.
+- `component-01.log` retains the initial failures: a test queried an already-retired
+  auth link, and select labels included option text. The assertion now checks absence
+  of a usable link; explicit accessible select labels fix the UI naming. The earlier
+  compiler check also caught an HTMLElement `prefix` name collision, renamed to
+  `apiBase`. A final new test also needed an explicit non-undefined asset guard for
+  strict TypeScript narrowing (`typecheck-final.log`); `typecheck-final-02.log` passed.
+  Corrected component/full-frontend checks passed.
+- Final affected follow-ups passed: 9 Tailnet tests/1 native-only skip and 10 selected
+  Forgejo tests. Documentation checked 93 local links/anchors across eight documents
+  (history: this entry only), retaining prior handoff headings; whitespace passed.
+
+Remaining acceptance: run the actual native fixture/consumers after an applicable
+exact-container start grant, verifying Tailnet HTML/CSP/chrome/labels/navigation and
+layout without synthetic host replacement. Shared native authentication/cache/logout
+proof cannot be inferred from the component shell. Installed preference comparisons,
+network routing/approval, companion runtime and both-architecture installed evidence
+remain the separately gated later stages. Retained appliances remain at paired
+`19824ec`, schema v9, with both Cockpit fallbacks; no native bundle or deployment is
+claimed by this source commit.
+
 ## Tailnet stage 2 — backend state and authorization
 
 The user selected Stage 2 from the clean `a921a2e` handoff. This slice implements

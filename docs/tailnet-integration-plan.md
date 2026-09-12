@@ -1,7 +1,8 @@
 # Tailnet in the native dashboard — implementation plan
 
-**Status: stage-1 local investigation and stage-2 backend source contracts complete;
-native UI, project runtime, installed proof and retirement remain pending.** The user requested native dashboard ownership
+**Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
+implemented, with actual native-page acceptance blocked on the stopped local fixture.
+Project runtime, installed proof and retirement remain pending.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -589,7 +590,24 @@ enrollment, UI, runtime hooks, target contact or installed acceptance.
 
 ### Stage 3 — native host Tailnet UI and parity
 
-Add Lit Tailnet modules and the native page/entry/bookmark/navigation registrations.
+**Source implemented; native-page acceptance still pending.** The native dashboard
+selector, operator navigation, shared entry/OAuth owner and lazy Lit Tailnet component
+are wired through the canonical payload/build/epoch and English native labels.
+Appliance and Automatic project access are distinct sections. The latter uses the
+existing protected check/save/rotation/admission APIs but keeps runtime/default-enable
+unsupported. No project runtime, helper activation or Cockpit removal was added.
+
+Local emitted-component tests cover scoped confirmation, independent drafts/revisions,
+secret and auth-link retirement, late responses ignoring abort, actor loss, duplicate
+dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity and
+existing Cockpit tests also passed. The actual native-page consumer is wired into the
+existing fixture, not replaced with handwritten native HTML: its run failed because
+`sodaos-local-forgejo` is stopped. Starting that retained container needs explicit
+lifecycle approval. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
+for exact checks/skips and the remaining native acceptance; source tests alone do not
+meet the full exit below.
+
+The stage's integration contract remains: add Lit Tailnet modules and the native page/entry/bookmark/navigation registrations.
 Update canonical templates, `forgejo-payload.json`, browser build inputs, localization
 and the graph-wide presentation epoch through their existing owners. No React mount,
 iframe, copied login harness or replacement Forgejo header.
@@ -622,7 +640,8 @@ A global default must be reviewed in the Create request and recorded once by the
 native policy owner; missing legacy fields remain Off. Provisioning failures retain
 the original reservation and do not leave an unbound auto-enrollment task.
 
-Add the operator setup/rotation/default UX and project summary/actions. Support the
+Extend Stage 3's operator setup/rotation form with runtime-backed default enablement
+and project summary/actions. Support the
 OAuth baseline first. Native enrollment failure does not undo successful project
 provisioning or change the meaning of `ready`; expose separate Tailnet state.
 Ensure project-root changes cannot select host targets, credentials, tags or binaries.

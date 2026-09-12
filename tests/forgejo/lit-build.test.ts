@@ -50,7 +50,7 @@ test('moved workspace source imports retain canonical public URLs from either as
 test('entry templates and every emitted relative import share the presentation cache epoch', async () => {
   const templates = await Promise.all(['custom/header', 'custom/footer', 'user/dashboard/dashboard'].map(name =>
     readFile(join(root, `appliance/forgejo/templates/${name}.tmpl`), 'utf8')));
-  for (const name of ['sodaspaces.js', 'soda-native-page.js', 'soda-settings-link.js', 'soda-settings.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css', 'sodaspaces.css']) {
+  for (const name of ['sodaspaces.js', 'soda-native-page.js', 'soda-settings-link.js', 'soda-settings.css', 'soda-tailnet.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css', 'sodaspaces.css']) {
     assert(templates.join('\n').includes(`${name}?v=${presentationVersion}`), name);
   }
   for (const [destination, source] of Object.entries(payload)) {

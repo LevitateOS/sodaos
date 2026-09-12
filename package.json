@@ -21,7 +21,7 @@
     "test:pages:prepared": "bun scripts/test-spaces-page.ts",
     "test:spaces-page": "bun run test:pages",
     "test:frontend": "bun run build:forgejo && bun run test:frontend:prepared",
-    "test:frontend:prepared": "bun test tests/frontend/*.test.ts",
+    "test:frontend:prepared": "SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts",
     "test:forgejo": "bun run build:forgejo && bun run test:forgejo:prepared",
     "test:forgejo:prepared": "SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts",
     "test:lit": "bun run build:forgejo && SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/lit-*.test.ts tests/forgejo/settings-link.test.ts tests/frontend/drawer-controls.test.ts tests/frontend/workspace.test.ts tests/frontend/workspace-journey.test.ts tests/frontend/spaces-attention.test.ts tests/frontend/terminal.test.ts",
