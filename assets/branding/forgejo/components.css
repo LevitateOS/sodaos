@@ -97,9 +97,11 @@ body:has(.soda-page, .soda-page-marker) #navbar .active.item {
   background: transparent;
 }
 
-body:has(.soda-page, .soda-page-marker) #navbar-logo {
+body:has(.soda-page, .soda-page-marker) #navbar #navbar-logo {
   width: 44px;
-  background: url('../source/soda-symbol-brutalist.svg') center / 32px auto no-repeat;
+  border-radius: 0;
+  /* Outrank native link hover backgrounds without resetting the theme image. */
+  background: var(--soda-navbar-symbol, url('../source/soda-symbol-brutalist.svg')) center / 32px auto no-repeat;
   margin-right: 16px;
 }
 
@@ -108,12 +110,12 @@ body:has(.soda-page, .soda-page-marker) #navbar-logo img {
 }
 
 html[data-soda-login-theme="dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="false"]) #navbar-logo, html[data-theme*="-dark"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"]) #navbar-logo {
-  background-image: url('../source/soda-symbol-brutalist-dark.svg');
+  --soda-navbar-symbol: url('../source/soda-symbol-brutalist-dark.svg');
 }
 
 @media (prefers-color-scheme: dark) {
   html[data-theme*="-auto"] body:has(:is(.soda-page, .soda-page-marker)[data-signed="true"]) #navbar-logo {
-    background-image: url('../source/soda-symbol-brutalist-dark.svg');
+    --soda-navbar-symbol: url('../source/soda-symbol-brutalist-dark.svg');
   }
 
 }
@@ -299,7 +301,7 @@ body:has(.soda-login) {
 /* Keep the desktop navigation's utility actions clear of the final text link
    just above Forgejo's mobile breakpoint, without reducing the logo artwork. */
 @media (min-width: 768px) and (max-width: 1000px) {
- body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 44px; margin-right: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar #navbar-logo { width: 44px; margin-right: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-right { gap: 4px; }
 }
 
@@ -307,7 +309,7 @@ body:has(.soda-login) {
    Group the theme and menu actions at the end of the header. */
 @media (max-width: 767px) {
  body:has(.soda-page, .soda-page-marker) #navbar { padding-inline: 16px; }
- body:has(.soda-page, .soda-page-marker) #navbar-logo { width: 44px; margin-right: 0; }
+ body:has(.soda-page, .soda-page-marker) #navbar #navbar-logo { width: 44px; margin-right: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-left { gap: 0; }
  body:has(.soda-page, .soda-page-marker) #navbar .navbar-mobile-right { padding: 0; gap: 0; }
  body:has(.soda-page, .soda-page-marker) :is(#soda-theme-toggle,.soda-account-appearance) { margin-left: 0; }
