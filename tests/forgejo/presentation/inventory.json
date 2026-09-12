@@ -855,8 +855,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "39458f4d06e309607ea30a4d3e9def652b893d72c2714b47ba92ee40db73f68e",
-      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context.",
+      "beforeRoleHash": "0c05e0e7cf4d3d54ba5725ecc25d92eb392072e0a5c4fe4b8b4e284dab486cfe",
+      "presentationReview": "Merge Tailnet's localized navigation label with the stable Spaces current-page marker; retain native gates and guest-theme context.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "39aef85b48657cdb0e9649831b0e5d7a45fce72d312bbd5bea66809f0af144c4",
-      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context.",
+      "beforeRoleHash": "7b3c8cc30302a781971645f468ddae0a84a492fcc9c22ce75c1a2a591f10c056",
+      "presentationReview": "Merge Tailnet native-view drawer suppression and the combined module epoch; retain notification, repository and signed-in gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -920,12 +920,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7a842942109bc2cde3b18347caeafdd8dc63a6a6783e9fe69008a95311457b57",
+      "beforeRoleHash": "138008cb2962b58a1216b8f3013adae18af4443880a94b6bbf383ac637e318e9",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Version the reviewed brutalist stylesheet changes; native context and scripts retained."
+      "presentationReview": "Retain the reviewed brutalist stylesheet versions and adopt one merged Tailnet/navigation module epoch; native context and scripts retained."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -7815,10 +7815,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "b8de55a8c63924562382125b93523ca67538d09bb7823865f5bc71a3a482455a",
+      "beforeRoleHash": "cd395d9515e0713d1c2bb2497a9b21ce4c0e6f4e3443378c1f5d781b52c6ed1b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
+      "presentationReview": "Merge bounded Tailnet selector, localized labels and lazy assets with the redesigned ordinary dashboard; preserve native account/context and repository-ID gates."
     },
     {
       "template": "user/dashboard/issues.tmpl",

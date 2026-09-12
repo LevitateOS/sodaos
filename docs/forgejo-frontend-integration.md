@@ -26,8 +26,9 @@ acceptance are in the [handoff](implementation-status.md). Open in drawer has lo
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
 extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)
-now renders the three existing Soda page bodies within Forgejo's own dashboard
-and real native shell. Steps 1–4 include connection/logout, normal navigation and
+renders Soda page bodies within Forgejo's own dashboard and real native shell.
+The three earlier views have the recorded native evidence below; Tailnet now has
+source integration and component checks, with native-page acceptance still pending. Steps 1–4 include connection/logout, normal navigation and
 old-URL bookmark bridges; their Go shells are removed. Historical Go HTML placement
 below is not the current source contract. The protected APIs retain authority;
 no cookies or native authentication are borrowed. Step 5 adds whole-module-graph
@@ -43,11 +44,12 @@ global operator-only Sodarunners destination. The current local
 [`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
 already preserves native Actions runners/secrets/variables links. Add Soda links
 through the versioned customization mechanism without replacing those workflows.
-The three current views use Forgejo's existing dashboard handler and the same
+The four current source views use Forgejo's existing dashboard handler and the same
 protected Soda namespace/API/Lit boundary. A template link grants no authority.
 Repository settings keeps its stable-ID native link and native gates; repository
-AI settings remains unimplemented. The shared connection/logout contract uses
-schema v9. See the leading handoff for the source candidate, explicit shared-file
+AI settings remains unimplemented. The shared connection/logout contract uses the
+[credential owner's current schema](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return);
+recorded installed targets remain v9. See the leading handoff for the source candidate, explicit shared-file
 handoff status and pending native/provider proof. Public v15 customization documentation was
 reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
 note claims local override inspection rather than fresh upstream source verification.

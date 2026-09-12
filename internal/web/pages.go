@@ -14,6 +14,9 @@ func (s *Server) spacesPage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) runnersPage(w http.ResponseWriter, r *http.Request) {
 	s.nativePageEntry(w, r, store.OAuthLogin{SettingsReturn: "runners"})
 }
+func (s *Server) tailnetPage(w http.ResponseWriter, r *http.Request) {
+	s.nativePageEntry(w, r, store.OAuthLogin{SettingsReturn: "tailnet"})
+}
 func (s *Server) repositorySpacesPage(w http.ResponseWriter, r *http.Request) {
 	id, ok := positiveID(r.PathValue("repositoryID"))
 	if !ok {

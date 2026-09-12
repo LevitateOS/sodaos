@@ -11,6 +11,7 @@
   "include": [
     "assets/branding/forgejo/*.ts",
     "frontend/spaces/*.ts",
-    "frontend/runners/*.ts"
+    "frontend/runners/*.ts",
+    "frontend/tailnet/*.ts"
   ]
 }

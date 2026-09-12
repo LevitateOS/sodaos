@@ -80,7 +80,10 @@ INSERT INTO oauth(state,verifier,expires,settings_return) VALUES('pending','fixt
 						s.Close()
 						t.Fatal("malformed v8 accepted")
 					}
-					if !strings.Contains(err.Error(), "database schema is incomplete") {
+					// The v10 table copy now consumes this missing column before
+					// the final completeness check. Both paths must refuse and
+					// preserve the original schema/version/rows checked below.
+					if !strings.Contains(err.Error(), "database schema is incomplete") && !(tc.omit == "repository_settings_return" && strings.Contains(err.Error(), "database migration 10 failed:")) {
 						t.Fatal("unexpected refusal", err)
 					}
 				}

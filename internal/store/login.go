@@ -19,7 +19,7 @@ type OAuthAttempt struct {
 }
 
 func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, session, previous string) error {
-	if (login.RepositorySettingsReturn && (login.RepositoryID <= 0 || login.SpacesReturn || login.SettingsReturn != "")) || (login.SpacesReturn && login.RepositoryID != 0) || (login.SettingsReturn != "" && (login.SettingsReturn != "runners" || login.SpacesReturn || login.RepositoryID != 0)) {
+	if (login.RepositorySettingsReturn && (login.RepositoryID <= 0 || login.SpacesReturn || login.SettingsReturn != "")) || (login.SpacesReturn && login.RepositoryID != 0) || (login.SettingsReturn != "" && ((login.SettingsReturn != "runners" && login.SettingsReturn != "tailnet") || login.SpacesReturn || login.RepositoryID != 0)) {
 		return ErrLoginContext
 	}
 	tx, err := s.db.BeginTx(ctx, nil)

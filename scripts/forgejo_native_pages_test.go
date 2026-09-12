@@ -82,6 +82,7 @@ func TestNativeSodaPageHost(t *testing.T) {
 		for _, tc := range []struct{ query, view, destination, repository string }{
 			{"?soda-view=spaces", "spaces", "/spaces", ""},
 			{"?soda-view=runners", "runners", "/settings/runners", ""},
+			{"?soda-view=tailnet", "tailnet", "/settings/tailnet", ""},
 			{"?soda-view=repository-spaces&repository_id=9223372036854775807", "repository-spaces", "/repositories/9223372036854775807/settings/spaces", "9223372036854775807"},
 		} {
 			t.Run(prefix+tc.query, func(t *testing.T) {
@@ -97,10 +98,16 @@ func TestNativeSodaPageHost(t *testing.T) {
 						t.Fatalf("missing %s", want)
 					}
 				}
+				if strings.Contains(body, `/assets/soda-tailnet.css?v=`+sodaPresentationVersion(t)) != (tc.view == "tailnet") {
+					t.Fatal("Tailnet stylesheet escaped its native selector")
+				}
+				if tc.view == "tailnet" && (!strings.Contains(body, `data-appliance-label=`) || !strings.Contains(body, `data-enrollment-label=`)) {
+					t.Fatal("missing Tailnet localized section labels")
+				}
 				if strings.Count(body, `<main `) != 1 || strings.Count(body, `id="soda-native-content"`) != 1 {
 					t.Fatal("expected one main and one content owner")
 				}
-				for _, forbidden := range []string{`id="sodaspaces-root"`, `/assets/sodaspaces.js`, `NATIVE_GUIDE`, `NATIVE_REPOSITORIES`, `<form`, `<soda-runners`, `data-csrf`} {
+				for _, forbidden := range []string{`id="sodaspaces-root"`, `/assets/sodaspaces.js`, `NATIVE_GUIDE`, `NATIVE_REPOSITORIES`, `<form`, `<soda-runners`, `<soda-tailnet`, `data-csrf`} {
 					if strings.Contains(body, forbidden) {
 						t.Fatalf("native scaffold must not contain %s", forbidden)
 					}
@@ -112,7 +119,7 @@ func TestNativeSodaPageHost(t *testing.T) {
 
 func TestNativeSodaPageRejectsInvalidRepositoryLocators(t *testing.T) {
 	for _, query := range []string{
-		"?soda-view=spaces&repository_id=1", "?soda-view=runners&repository_id=1",
+		"?soda-view=spaces&repository_id=1", "?soda-view=runners&repository_id=1", "?soda-view=tailnet&repository_id=1",
 		"?soda-view=repository-spaces", "?soda-view=repository-spaces&repository_id=",
 		"?soda-view=repository-spaces&repository_id=0", "?soda-view=repository-spaces&repository_id=-1",
 		"?soda-view=repository-spaces&repository_id=01", "?soda-view=repository-spaces&repository_id=%2B1",
@@ -136,7 +143,7 @@ func TestNativeSodaPageRejectsInvalidRepositoryLocators(t *testing.T) {
 
 func TestNativeSodaPagePreservesOrdinaryDashboardAndOtherRoutes(t *testing.T) {
 	baseline := strings.Join(strings.Fields(renderNativePageHost(t, "", "", "", true, true)), " ")
-	for _, query := range []string{"?soda-view=unknown", "?soda-view=spaces&soda-view=runners", "?soda-view=", "?repository_id=1"} {
+	for _, query := range []string{"?soda-view=unknown", "?soda-view=spaces&soda-view=runners", "?soda-view=tailnet&soda-view=tailnet", "?soda-view=", "?repository_id=1"} {
 		if got := strings.Join(strings.Fields(renderNativePageHost(t, "", query, "", true, true)), " "); got != baseline {
 			t.Fatalf("ordinary dashboard changed for %s", query)
 		}

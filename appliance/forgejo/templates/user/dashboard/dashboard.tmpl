@@ -4,7 +4,7 @@
 {{$sodaView := ""}}
 {{if and .IsSigned .PageIsNews (eq .Link AppSubUrl)}}
   {{$requested := ctx.Context.FormString "soda-view"}}
-  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "spaces") (eq $requested "runners") (eq $requested "repository-spaces"))}}
+  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "spaces") (eq $requested "runners") (eq $requested "tailnet") (eq $requested "repository-spaces"))}}
     {{$sodaView = $requested}}
   {{end}}
 {{end}}
@@ -14,6 +14,8 @@
   {{$valid := eq (len (ctx.Context.FormStrings "repository_id")) 0}}
   {{if eq $sodaView "runners"}}
     {{$title = "Runners"}}
+  {{else if eq $sodaView "tailnet"}}
+    {{$title = ctx.Locale.Tr "soda.tailnet_title"}}
   {{else if eq $sodaView "repository-spaces"}}
     {{$title = "Repository Spaces settings"}}
     {{$valid = and (eq (len (ctx.Context.FormStrings "repository_id")) 1) (gt $repositoryID 0) (eq (printf "%d" $repositoryID) (ctx.Context.FormString "repository_id"))}}
@@ -22,11 +24,12 @@
     <div class="soda-page-container">
       {{template "custom/soda/page_intro" dict "TitleID" "soda-native-title" "Title" $title "Class" "soda-page-intro--compact"}}
       {{if $valid}}
-        {{if ne $sodaView "spaces"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-12.native-pages-8">{{end}}
-        <div id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="{{if eq $sodaView "repository-spaces"}}{{$repositoryID}}{{end}}" data-document-title="{{$title}} - {{AppDisplayName}}">
+        {{if ne $sodaView "spaces"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-12.tailnet-merge-1">{{end}}
+        {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-12.tailnet-merge-1">{{end}}
+        <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="{{if eq $sodaView "repository-spaces"}}{{$repositoryID}}{{end}}" data-document-title="{{$title}} - {{AppDisplayName}}">
           <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/">Return to your dashboard</a></p></noscript>
         </div>
-        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-12.native-pages-8"></script>
+        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-12.tailnet-merge-1"></script>
       {{else}}
         <p role="alert">Invalid Soda page destination.</p>
         <p><a href="{{AppSubUrl}}/">Return to your dashboard</a></p>

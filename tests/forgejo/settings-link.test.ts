@@ -60,15 +60,20 @@ test('emitted native settings link requires matching Soda operator, not site-adm
     const page = await browser.newPage();
     const errors = await navigationFixture(page, '', {target: '/?soda-view=runners', view: 'runners'}, mode);
     const link = page.getByRole('link', {name: 'Runners', exact: true});
+    const tailnet = page.getByRole('link', {name: 'Tailnet', exact: true});
+    assert.equal(await tailnet.count(), mode === 'operator' ? 1 : 0);
     assert.equal(await link.count(), mode === 'operator' ? 1 : 0);
     await assertCurrent(page, 'Spaces', false);
     assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
     assert.equal(await page.getByRole('link', {name: 'Native site admin'}).getAttribute('href'), '/admin');
     if (mode === 'operator') {
       assert.equal(await link.getAttribute('href'), '/?soda-view=runners');
+      assert.equal(await tailnet.getAttribute('href'), '/?soda-view=tailnet');
       await assertCurrent(page, 'Runners', true);
+      await assertCurrent(page, 'Tailnet', false);
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true})));
       assert.equal(await link.count(), 0);
+      assert.equal(await tailnet.count(), 0);
       await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true})));
       await link.waitFor();
       await assertCurrent(page, 'Runners', true);
@@ -86,6 +91,9 @@ test('emitted navigation marks only the matching validated native view', {skip: 
   const cases: readonly (NativeContext & {current: string})[] = [
     {target: '/?soda-view=spaces', view: 'spaces', current: 'Spaces'},
     {target: '/?soda-view=runners', view: 'runners', current: 'Runners'},
+    {target: '/?soda-view=tailnet', view: 'tailnet', current: 'Tailnet'},
+    {target: '/?soda-view=tailnet&repository_id=1', view: '', current: ''},
+    {target: '/?soda-view=tailnet', view: 'tailnet', actor: '2', current: ''},
     {target: '/?soda-view=repository-spaces&repository_id=7', view: 'repository-spaces', current: ''},
     {target: '/', view: '', current: ''},
     {target: '/?soda-view=spaces&soda-view=runners', view: '', current: ''},
@@ -101,9 +109,11 @@ test('emitted navigation marks only the matching validated native view', {skip: 
       await navigationFixture(page, prefix, context, 'operator');
       await assertCurrent(page, 'Spaces', context.current === 'Spaces');
       await assertCurrent(page, 'Runners', context.current === 'Runners');
+      await assertCurrent(page, 'Tailnet', context.current === 'Tailnet');
       assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
       assert.equal(await page.getByRole('link', {name: 'Spaces', exact: true}).getAttribute('href'), prefix + '/?soda-view=spaces');
       assert.equal(await page.getByRole('link', {name: 'Runners', exact: true}).getAttribute('href'), prefix + '/?soda-view=runners');
+      assert.equal(await page.getByRole('link', {name: 'Tailnet', exact: true}).getAttribute('href'), prefix + '/?soda-view=tailnet');
       assert.equal(await page.locator('#navbar [aria-current="page"]').count(), context.current ? 1 : 0);
       await page.close();
     }

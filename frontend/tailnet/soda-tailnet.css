@@ -1,0 +1,17 @@
+.soda-settings soda-tailnet { display: block; min-width: 0; }
+.soda-tailnet-settings { overflow-wrap: anywhere; color: var(--soda-page-text); background: var(--soda-page-canvas); }
+.soda-tailnet-settings fieldset { min-inline-size: 0; background: var(--soda-page-surface); }
+.soda-tailnet-settings input, .soda-tailnet-settings select { min-width: 0; max-width: 100%; }
+.soda-tailnet-settings input[type=checkbox] { width: auto; min-height: auto; justify-self: start; }
+.soda-tailnet-settings legend { padding-inline: var(--soda-space-2); font: var(--soda-font-label); }
+.soda-tailnet-settings dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--soda-space-3); }
+.soda-tailnet-settings dt { color: var(--soda-page-muted); font: var(--soda-font-label); }
+.soda-tailnet-settings dd { margin: 0; min-width: 0; }
+.soda-tailnet-settings .tailnet-notice { border-inline-start: var(--soda-space-1) solid var(--soda-page-warning-edge); padding: var(--soda-panel-inset); background: var(--soda-page-warning-bg); }
+.soda-tailnet-settings li { margin-block: var(--soda-space-2); }
+.soda-tailnet-settings summary { cursor: pointer; font: var(--soda-font-label); }
+.soda-tailnet-settings button:hover:not(:disabled) { background: var(--soda-page-hover); }
+@media (max-width: 600px) {
+  .soda-tailnet-settings dl { grid-template-columns: minmax(0, 1fr); }
+  .soda-tailnet-settings .settings-actions > button { width: 100%; }
+}

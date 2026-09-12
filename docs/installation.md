@@ -176,8 +176,9 @@ proof at `bdbce8e`; retained-target cutover and whole-appliance acceptance remai
 
 ### Existing-state dashboard migration
 
-The current source dashboard requires `grant_key_file` and schema v9, retaining the
-session-grant encryption introduced in v3. Do not run first-install or OAuth bootstrap again on an existing target.
+The current source dashboard requires `grant_key_file` and the
+[supported schema](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return),
+retaining session-grant encryption. Do not run first-install or OAuth bootstrap again on an existing target.
 Follow the [controlled credential migration and rollback procedure](dashboard-credentials.md),
 including a consistent SQLite backup, matching config/key/artifact set and
 separately approved rehearsal/deployment. A missing or wrong key fails closed;

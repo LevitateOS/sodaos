@@ -22,7 +22,7 @@ Historical lane links resolve here. Their original text is available with
   notifications and account links on every integrated Soda view. Profile,
   password, account settings and Forgejo administration continue to use native
   Forgejo pages and handlers.
-- The existing native navigation gains **Spaces** and **Runners**. Runners is
+- The existing native navigation gains **Spaces**, **Runners** and **Tailnet**. Runners/Tailnet are
   visible for the configured Soda operator after identity/bootstrap verification;
   Forgejo site-administrator status is not substituted for that authority.
   Spaces/Runners use native active-link styling and `aria-current="page"` only for
@@ -76,14 +76,15 @@ Use **one query-selected presentation of Forgejo's existing global dashboard**.
 | --- | --- | --- |
 | Spaces | `/?soda-view=spaces` | Shared `SodaSpaces` component in full-page mode |
 | Runners | `/?soda-view=runners` | Runner Lit component |
+| Tailnet | `/?soda-view=tailnet` | Operator Tailnet Lit component; native-page acceptance pending |
 | Repository Spaces settings | `/?soda-view=repository-spaces&repository_id=123` | Shared project controls, authorized for that stable repository ID |
 
-**Planned extension:** Tailnet adds an operator-only `/?soda-view=tailnet` under the
-[Tailnet plan](tailnet-integration-plan.md). It is not admitted by current source.
-Implement its fixed bookmark, enumerated OAuth destination/schema constraint,
-settings-link visibility, mount/title, selector validation and fixture consumers as
-one paired change; no generic return URL or second login coordinator. Project
-Network controls reuse the existing authorized project settings/workspace owner.
+Tailnet is now admitted by source through the [Tailnet plan](tailnet-integration-plan.md).
+Its fixed bookmark/OAuth return, operator settings-link visibility, mount/title,
+selector validation and native fixture consumer share these owners. The stopped local
+Forgejo fixture blocks actual native-page acceptance; emitted-component tests are not
+a substitute. There is no generic return URL or second login coordinator. Future
+project Network controls reuse the existing authorized project settings/workspace owner.
 
 **Entry constraint found in the real browser:** a raw root query does not force
 native authentication. In particular, Forgejo's remember-me redirect can discard
@@ -110,7 +111,7 @@ view, and display a repository heading/back-link resolved by the protected API.
 Do not manufacture Forgejo repository template context in the global dashboard.
 The existing repository drawer remains available from the native repository page.
 
-Treat query values as untrusted locators. Accept only the three explicit view
+Treat query values as untrusted locators. Accept only the four explicit view
 names and, for repository settings, one canonical positive repository ID. Invalid,
 duplicate or incompatible parameters must mount no controls or private metadata.
 Do not use a caller-supplied return URL. A generic native HTML response can be 200
@@ -124,7 +125,7 @@ input, not authentication for Soda's backend.
 
 The existing dashboard handler still performs its normal feed/organization reads.
 It also supplies the initial Dashboard document title. Set the final Spaces,
-Runners or repository title in the already-required entry module before mounting;
+Runners, Tailnet or repository title in the already-required entry module before mounting;
 the initial/no-JavaScript title remains a documented limit of this candidate.
 Do not copy the global `base/head` template just to change that title. Show a useful
 JavaScript-required message in the selected body while native navigation stays usable.

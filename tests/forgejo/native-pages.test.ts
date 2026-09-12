@@ -14,7 +14,7 @@ const origin = 'http://localhost:3300';
 // Prepare current canonical preview assets first. Without a Soda backend, the
 // native host must show stable connection failure; the separate connection journey
 // supplies real Soda/OAuth proof.
-test('native Forgejo hosts all three bounded Soda views', {
+test('native Forgejo hosts all four bounded Soda views', {
   skip: process.env.SODA_FORGEJO_NATIVE_PAGES !== '1',
   timeout: 120000,
 }, async t => {
@@ -51,6 +51,7 @@ test('native Forgejo hosts all three bounded Soda views', {
 
   const views = [
     {query: '?soda-view=spaces', title: 'Spaces', destination: '/-/soda/spaces', repository: ''},
+    {query: '?soda-view=tailnet', title: 'Tailnet', destination: '/-/soda/settings/tailnet', repository: ''},
     {query: '?soda-view=runners', title: 'Runners', destination: '/-/soda/settings/runners', repository: ''},
     {query: '?soda-view=repository-spaces&repository_id=9223372036854775807', title: 'Repository Spaces settings', destination: '/-/soda/repositories/9223372036854775807/settings/spaces', repository: '9223372036854775807'},
   ];
@@ -110,7 +111,7 @@ test('native Forgejo hosts all three bounded Soda views', {
     assert.equal(body, baseline, 'unchanged native dashboard HTML, independent of responsive Vue rendering');
   }
   for (const query of [
-    '?soda-view=spaces&repository_id=1', '?soda-view=repository-spaces',
+    '?soda-view=spaces&repository_id=1', '?soda-view=tailnet&repository_id=1', '?soda-view=repository-spaces',
     '?soda-view=repository-spaces&repository_id=01', '?soda-view=repository-spaces&repository_id=0',
     '?soda-view=repository-spaces&repository_id=1&repository_id=2',
     '?soda-view=repository-spaces&repository_id=9223372036854775808',
@@ -145,7 +146,7 @@ test('native login returns guests to Soda views and native logout still works', 
   const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
   t.after(() => browser.close());
   const page = await browser.newPage();
-  for (const query of ['?soda-view=spaces', '?soda-view=runners', '?soda-view=repository-spaces&repository_id=1']) {
+  for (const query of ['?soda-view=spaces', '?soda-view=runners', '?soda-view=tailnet', '?soda-view=repository-spaces&repository_id=1']) {
     await page.goto(origin + '/' + query);
     assert.equal(await page.locator('#soda-native-content').count(), 0);
     assert.equal(await page.locator('#soda-settings-link').count(), 0);
@@ -163,7 +164,7 @@ test('native login returns guests to Soda views and native logout still works', 
   await page.locator('form[action="/user/login"] button.ui.primary').click();
   await page.waitForURL(origin + destination);
   await page.locator('#soda-native-content').getByRole('button', {name: 'Retry connection'}).waitFor();
-  for (const query of ['?soda-view=runners', '?soda-view=repository-spaces&repository_id=1']) {
+  for (const query of ['?soda-view=runners', '?soda-view=tailnet', '?soda-view=repository-spaces&repository_id=1']) {
     await page.goto(`${origin}/user/login?redirect_to=${encodeURIComponent('/' + query)}`);
     assert.equal(page.url(), origin + '/' + query);
     assert.equal(await page.locator('#soda-native-content').count(), 1);

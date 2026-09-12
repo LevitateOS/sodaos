@@ -89,7 +89,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	destination, hasDestination := query["destination"]
-	if hasDestination && (len(destination) != 1 || (destination[0] != "spaces" && destination[0] != "runners" && destination[0] != "repository-spaces") || (destination[0] != "repository-spaces" && query.Has("repository_id"))) {
+	if hasDestination && (len(destination) != 1 || (destination[0] != "spaces" && destination[0] != "runners" && destination[0] != "tailnet" && destination[0] != "repository-spaces") || (destination[0] != "repository-spaces" && query.Has("repository_id"))) {
 		http.Error(w, "Unsupported sign-in destination.", http.StatusBadRequest)
 		return
 	}
@@ -100,8 +100,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settingsReturn := ""
-	if query.Get("destination") == "runners" {
-		settingsReturn = "runners"
+	if query.Get("destination") == "runners" || query.Get("destination") == "tailnet" {
+		settingsReturn = query.Get("destination")
 	}
 	state, verifier := token(), token()
 	login := store.OAuthLogin{RepositorySettingsReturn: query.Get("destination") == "repository-spaces", Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID, SpacesReturn: query.Get("destination") == "spaces", SettingsReturn: settingsReturn}
@@ -233,8 +233,8 @@ func (s *Server) nativeOAuthReturn(login store.OAuthLogin) string {
 	view := ""
 	if login.RepositorySettingsReturn {
 		view = "repository-spaces"
-	} else if login.SettingsReturn == "runners" {
-		view = "runners"
+	} else if login.SettingsReturn == "runners" || login.SettingsReturn == "tailnet" {
+		view = login.SettingsReturn
 	} else if login.SpacesReturn {
 		view = "spaces"
 	}

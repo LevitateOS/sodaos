@@ -14,6 +14,300 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet and Forgejo source merge
+
+The user requested pulling upstream and resolving conflicts before further Stage-4
+work. From clean `13d31aa`, `git pull --no-rebase origin main` fetched `e7760d4` and
+produced eight content conflicts. Both histories are retained; no rebase, reset,
+amend or push was used.
+
+Resolved the native header/footer/dashboard/navigation together: retained incoming
+brutalist presentation/style versions and Spaces/Runners current-page cues, preserved
+Tailnet selectors/localized labels/lazy assets/operator authorization, and extended
+the same validated-host current-page cue to Tailnet. All entries/imports share the
+new `2026-09-12.tailnet-merge-1` epoch. Both histories and the latest Tailnet grant/state
+remain alongside the independent Forgejo extension/redesign statuses. Incoming
+runner admission and environment read-publication session fixes are preserved.
+
+The presentation inventory initially rejected the changed override hashes. Reviewed
+and updated only the four merged template source hashes/notes, not pinned native
+control contracts. Added Tailnet template selector/stylesheet/invalid-query checks
+and merged operator/navigation tests for root and `/forge` prefixes, actor mismatch,
+retirement and exactly one current-page cue.
+
+Evidence: `.artifacts/merge-tailnet-forgejo-TSGPpY/`. Strict TypeScript/Lit and its
+negative fixtures passed. Emitted Tailnet/Forgejo source/browser suite: 53 passed,
+24 explicit native/presentation opt-in skips; `browser-01.log` retains the initial
+inventory failure, `browser-02.log` the corrected pass. Pinned Go 1.26.7 race tests
+passed for web/host/Tailnet/scripts, followed by final scripts/nativebuild tests.
+These are local source/component/template checks, not a native bundle or actual
+configured-device acceptance. No fixture repair/start, ARM or other device contact,
+provider operation, deployment or cleanup occurred. Stage 4 remains incomplete.
+
+## Tailnet stage 4 — enrollment core and incarnation foundations
+
+The user explicitly selected Stage 4 device-independent implementation from clean
+`879cdd4`. **This is the first source slice, not completed Stage 4.** The existing
+HTTP/CLI routes still report project runtime/default-enable unsupported. No runtime
+activation, project creation/start/stop, provider operation, ARM contact, local
+fixture repair/start or Cockpit removal occurred.
+
+### Implemented core
+
+- Pinned the previously selected official `tailscale.com/client/tailscale/v2` SDK;
+  only its required hujson dependency was added, without incidental upgrades.
+  The concrete key call uses the saved explicit Tailnet and upstream OAuth client
+  credentials with the existing bounded token transport, `auth_keys`/exact tags,
+  operation context and no SDK background OAuth wrapper or shared bearer cache.
+- The SDK key transport admits one fixed key POST, with response byte/deadline caps,
+  no redirect/replay and sanitized errors. Required nested capability fields must
+  be present/non-null/unduplicated before decoding. Returned key format, metadata,
+  short expiry, non-reusability, ephemeral flag, tags and preauthorization must
+  match before a single-use key can reach the native consumption callback.
+- Root-only `EnrollRun` admits the enabled original project/CID/binding under the
+  existing cancellable Tailnet policy lock, outside any project-gate implementation.
+  The native caller must validate/revalidate the exact incarnation and consume only
+  the single-use key; neither callback receives reusable credentials or bearer tokens.
+  There is no HTTP key/credential endpoint. Native submission is not connection,
+  approval or reachability confirmation.
+- Durable `active_run` marker publication precedes a sanitized run-attempt journal
+  and all provider work. Previous attempts, same-run journal loss, fsync uncertainty,
+  provider/consumption failure or late identity changes cannot automatically create
+  another key. `RunAttempt` is passive and reports missing matching state as
+  unconfirmed. A genuinely new validated project incarnation can admit a new attempt.
+  Existing project-policy reads/Off preserve the new marker; old strict helpers may
+  refuse it rather than silently dropping runtime history.
+- Native incarnation primitives reuse the full-CID project validator and add bounded
+  PID/start, boot ID, actual shifted UID/GID maps and non-host user/net namespace
+  observations with rechecks. A narrow Podman projection avoids full inspection
+  secrets; custom resolver storage paths refuse. The companion recipe binds an
+  immutable image and exact CID/run, private remaining namespaces, confined NET_ADMIN
+  and TUN, only three run-owned mounts, no host socket/project root/reusable credential,
+  no-hosts and no raw container logging. These are authored primitives, not an
+  executable supervisor or validated filesystem/DNS isolation.
+
+### Local checks and remaining wiring
+
+Evidence: `.artifacts/tailnet-stage4-source/`. Pinned Go 1.26.7 race-enabled Tailnet,
+host and web tests passed; `cmd/soda-host` compiled without tests. Focused cases cover
+SDK request/capability shape, unsafe/ambiguous/oversized/redirect/error results,
+cancellation, concurrent duplicate attempts, same-run lost journals versus fresh
+incarnations, CID/binding/admission refusal, failed publication/consumption and late
+target changes. Synthetic `/proc`/argument tests cover host namespace substitution,
+wrong/dead/reused process observations, incompatible mappings and forbidden mounts,
+flags/images. No real provider/Podman/namespace operation ran in these tests.
+
+Remaining approved source work: trusted supervisor/activation and key-file/native-exec
+consumption, actual resolver ownership/recovery and unit stop/restart admission;
+then explicit Create/Start/Stop/boot wiring and authorized Network/SSH/Lit projections.
+Those callers must use the new core; an unused primitive or argument test is not the
+Stage-4 lifecycle exit. The ARM target/configured-device proof and native-page
+acceptance remain separately selected/authorized later work, not a reason to request
+another source-implementation grant.
+
+## Tailnet stage 3 — native UI source and bounded parity
+
+The user selected Stage 3 from clean `254e6d1`. The UI/source slice is implemented,
+but **actual native-page acceptance is blocked**, not counted as completed Stage 3.
+No appliance, host Tailnet state, project runtime, provider enrollment, service or
+Cockpit payload was changed. The only retained fixture observation was the stopped
+local Forgejo browser fixture described below.
+
+### Implemented source
+
+- Native dashboard Tailnet selector/title, strict repository incompatibility and
+  drawer suppression; lazy Lit entry using the existing one-attempt OAuth owner.
+  The operator navigation hint shares the existing session/bootstrap check with
+  Runners, never a Forgejo site-admin check. Fixed bookmark/schema work is reused.
+- Canonical payload/build/compiler inventory for the Tailnet page, response decoder
+  and token-based CSS; graph-wide presentation epoch updated with entries/styles.
+  Native navigation/section labels use the Soda English catalog. Explanatory Lit
+  copy follows the existing English UI convention, not a new translation framework.
+- Separate Appliance and Automatic project access sections, with explicit scoped
+  host-disconnect/routing/advertisement/Forgejo-refresh confirmations. Unknown
+  management routing and possible Forgejo restart are warned about, not verified.
+  Credential check/save/rotation/admission/default-Off use existing Go APIs; project
+  runtime/default-enable remain unavailable and no project operation is dispatched.
+- Original-actor checks before requests and response publication, bounded JSON,
+  rejected/unknown/acknowledged outcomes and independent readback errors. Independent
+  exit/advertisement drafts keep their original revisions through reads and other
+  writes; explicit discard is required to abandon stale edits. No read/focus poll
+  performs a mutation or obtains an authentication URL.
+- Passwords/auth URLs clear synchronously on submission, failure, authorization loss
+  and departure; no browser storage or raw provider diagnostics. Recovering an auth
+  URL is an explicit protected observation. Page/element lifetimes fence responses
+  ignoring abort, preserve uncertain outcomes and never replay or cancel native work.
+- Existing native-page consumers now include Tailnet. The ordinary frontend group
+  also runs an explicitly separate emitted-component shell; it cannot be selected
+  alongside a native page origin or mask a missing native host.
+
+### Checks and retained attempts
+
+Evidence: `.artifacts/tailnet-stage3-XEzD7o/`; original early typecheck log also remains
+at `.artifacts/tailnet-stage3-typecheck.log`.
+
+- Strict TypeScript and actual-source Lit analysis passed, with all ten independent
+  negative checker fixtures. Browser asset emission and graph/payload closure passed.
+- Frontend suite: 234 passed, 20 explicit skips. This includes emitted Tailnet
+  behavior, scoped keyboard confirmation and token-resolved light/dark layouts at
+  390/1440 px, not real Forgejo HTML. Existing native-page/layout opt-ins remain skips.
+- Selected Forgejo connection/navigation/cache tests passed, including Tailnet's
+  fixed one-attempt entry. Native-only tests remain explicit skips. Existing Cockpit
+  Tailnet/stream/presentation tests: 37 passed; no Cockpit source was removed.
+- Pinned Go 1.26.7 race tests for `internal/tailnet` passed, including multiple JSON
+  notifications, observer timeout, malformed/native diagnostics and continued safe
+  native authentication observation. `internal/nativebuild` source tests passed;
+  these are not a native bundle build/check/export. Four locale/source Python tests
+  passed, including the deliberate wrong-catalog refusal.
+- The actual shared native-page run failed before OAuth-app creation because
+  localhost:3300 refused the connection. `.artifacts/pages-FcP3af/` retains its
+  preparation output; `pages-01.log` records the failure. Read-only exact-name Podman
+  inventory reported `sodaos-local-forgejo` exited. Starting that exact retained
+  fixture was requested, not granted or performed; no replacement, cleanup or HTML
+  substitution was used to repair this observer.
+- `component-01.log` retains the initial failures: a test queried an already-retired
+  auth link, and select labels included option text. The assertion now checks absence
+  of a usable link; explicit accessible select labels fix the UI naming. The earlier
+  compiler check also caught an HTMLElement `prefix` name collision, renamed to
+  `apiBase`. A final new test also needed an explicit non-undefined asset guard for
+  strict TypeScript narrowing (`typecheck-final.log`); `typecheck-final-02.log` passed.
+  Corrected component/full-frontend checks passed.
+- Final affected follow-ups passed: 9 Tailnet tests/1 native-only skip and 10 selected
+  Forgejo tests. Documentation checked 93 local links/anchors across eight documents
+  (history: this entry only), retaining prior handoff headings; whitespace passed.
+
+### Authorized start follow-up
+
+The user subsequently approved starting exact `sodaos-local-forgejo` to finish the
+checks, without replacement/deletion. `podman start` failed before Forgejo started:
+`getxattr` could not find the template bind source. A narrow mount inventory showed
+both source mounts beneath the previously removed worktree:
+
+- `.artifacts/worktrees/combined-candidate-0f1d2b1/appliance/forgejo/templates`
+- `.artifacts/worktrees/combined-candidate-0f1d2b1/.artifacts/forgejo-preview/public/assets`
+
+Container `0634b216624c` remained exited. Its existing `soda-pages-0f1d2b1-data` volume
+was not replaced or restored. No source mount regeneration, new test run, cleanup,
+container recreation or other lifecycle action occurred. Narrow before/after/mount
+observations and the start-failure receipt are retained in
+`.artifacts/tailnet-stage3-acceptance/`. Regenerating only those two source directories
+from current canonical source and retrying was proposed, not executed; this would
+not restore the deleted worktree or its historical evidence.
+
+### Device-independent follow-up
+
+The user declined local source-mount repair, identified the ARM device as the intended
+configured-device validation target, and requested other work that does not require
+it. No exact ARM identity/action was granted. No further local start/repair or device
+contact occurred; component-only tests remain distinct from native-page acceptance.
+
+A focused local review found a real draft-loss bug: a successful Close admission or
+Keep default Off response reset the unsent credential-binding form and adopted the
+new policy revision. The new regression reproduced the loss before the fix. These
+unrelated writes now leave the draft fields and original CAS revision intact; its
+own Save/Rotate or explicit Discard still resets it. Secrets still clear before
+dispatch. The API owner records that contract, and the shared presentation epoch
+was advanced for the changed emitted module graph.
+
+Evidence: `.artifacts/tailnet-source-followup/`. The existing emitted test driver
+was extended, not a new device/login harness. Tests cover both admission/default
+writes, retained fields/revision through refresh and rejection, explicit discard,
+invalid CSRF/provider-origin refusal without credential dispatch, and both host
+drafts surviving acknowledged writes with unavailable readback. Strict TypeScript
+and Lit analysis/negative fixtures passed; 12 Tailnet tests passed with 1 native-only
+skip, and all 6 selected graph/build tests passed. `component-before.log` retains the
+failing unsent-target assertion; `component-after.log` records the corrected pass.
+No native bundle, backend/Go change, real credential/device action, migration or
+installed proof is implied. Full earlier source-suite receipts remain scoped to
+their tested revisions; this follow-up ran only affected checks.
+
+Remaining acceptance: establish actual native-page HTML/CSP/chrome/labels/navigation
+and layout without synthetic host replacement on an explicitly selected, authorized
+target. Local mount repair is not the selected next task; configured-device checks
+are deferred to the intended ARM device, not authorized by this source-only work. Shared native authentication/cache/logout
+proof cannot be inferred from the component shell. Installed preference comparisons,
+network routing/approval, companion runtime and both-architecture installed evidence
+remain the separately gated later stages. Retained appliances remain at paired
+`19824ec`, schema v9, with both Cockpit fallbacks; no native bundle or deployment is
+claimed by this source commit.
+
+## Tailnet stage 2 — backend state and authorization
+
+The user selected Stage 2 from the clean `a921a2e` handoff. This slice implements
+backend/state/authorization source only, with synthetic/local tests. No retained
+appliance/fixture was contacted or changed; no provider credential, auth key, device,
+VM/container lifecycle, networking/capability change, deployment or cleanup was used.
+
+### Source delivered
+
+- Added strict protected Tailnet settings, host, enrollment, creation-option and
+  exact-project routes plus typed fixed helper methods. Fresh stable operator or
+  current repository administration/membership governs access; stored creators,
+  public readers and Forgejo site admins cannot acquire private/global authority.
+  Session loss before dispatch stops it; loss after dispatch hides the result and
+  does not claim the effect was cancelled.
+- Added the separate `internal/tailnet` management adapter without changing the
+  existing status/identity/advertisement CLI contracts. The host configuration
+  opt-in defaults false. LocalAPI and CLI-dependent effects check the reviewed
+  release in source; host updates preserve unrelated preferences/routes, and
+  Forgejo refresh remains explicit. Auth URLs and native/provider diagnostics are
+  bounded and projected separately from ordinary status.
+- Added root-only, versioned credential/enrollment/project policy with trusted
+  ancestors, no-follow single-link reads, directory flock, CAS and fsync/rename
+  publication. Credential rotation preserves its binding and previous inputs;
+  publication uncertainty never rolls state back or replays an operation. Project
+  records bind the original native CID, not a caller-selected namespace or PID.
+- Pinned upstream `golang.org/x/oauth2` for operation-owned credential checking,
+  with fixed scoped token requests, bounded bodies/deadlines, no redirect/auth-style
+  retry and sanitized errors. No key-creation SDK or real enrollment is wired yet.
+  Default enable/project enable/retry refuse; Off saves intent with disconnect
+  explicitly unconfirmed. Create, SSH endpoints, project images/units and Cockpit
+  presentation remain unchanged.
+- Appended schema v10 to preserve the OAuth table's rows/constraints while adding
+  the fixed Tailnet return. Added transactional completeness probing, v9-to-v10
+  pending-context/grant preservation, wrong-key/stale-marker/incomplete-schema
+  refusal and callback-failure coverage. Updated the native-connection fixture's
+  authored expected schema; that opt-in browser/native fixture was not executed.
+- Updated the API and credential owners, plan, installation link and current
+  handoff. Lit registration/assets/navigation remain Stage 3; no browser page is
+  claimed by the new bookmark/OAuth enum.
+
+### Local checks and findings
+
+Evidence is retained in `.artifacts/tailnet-stage2-O5WkS5/`:
+
+- Pinned Go 1.26.7, `GOTOOLCHAIN=local`: full race-enabled tests for
+  `internal/tailnet`, `internal/host`, `internal/store`, `internal/web`,
+  `cmd/soda-tailnet` and `cmd/soda-forgejo-tailnet` passed; `cmd/soda-host` compiled
+  with no test files (`go-race-03.log`). Installed terminal, connection and avatar
+  browser fixture environment switches were explicitly absent.
+- Final focused follow-up (`go-race-04.log`) reran full Tailnet/host race tests and
+  Tailnet/named-OAuth web tests after reviewing upstream's stable-ID exit-node
+  normalization. Selection accepts the native ID representation, clearing checks
+  both ID/IP, and offline choices refuse without a mutation. These are mocked
+  operations, not actual route changes.
+- Local `tailscale version --json` confirmed the reviewed CLI's metadata only;
+  no daemon status/socket, appliance or provider query was made. Existing retained
+  upstream source/docs supplied the exit-node and space-delimited OAuth-tag checks.
+- Focused tests caught an `io.Copy` optimization bypassing the stdout cap through
+  an embedded `bytes.Buffer.ReadFrom`; the writer now uses composition and a Go
+  subprocess regression. This was a local implementation defect, not native proof.
+- Earlier receipts remain: `go-race.log` records the v8 incomplete-schema test's
+  earlier migration-10 refusal point; the assertion now accepts that precise
+  refusal while checking unchanged schema/version/rows. `go-focused.log` records
+  the creation-options fixture missing required repository `full_name`; it was
+  corrected, not treated as a provider finding. `go-race-02.log` is intermediate
+  passing evidence, not the final source snapshot.
+- Changed-document links/anchors, preserved handoff headings, source formatting and
+  whitespace checks passed. The receipt records their scope, not an installed gate.
+
+No native bundle build/check/export, browser/UI suite, live host management, project
+namespace/TUN/DNS/systemd proof or real provider operation was run. Host native
+compatibility, project runtime/enrollment and both architectures' installed proof
+remain unclaimed. Both retained targets remain at paired `19824ec`, schema v9, with
+both Cockpit fallbacks. Native proof, delivery, Runners removal and eventual Tailnet
+retirement still need the current target/action-specific grants.
+
 ## Forgejo extension source audit
 
 **12 September 2026; baseline `5c2f92a`; documentation-only production diff.**

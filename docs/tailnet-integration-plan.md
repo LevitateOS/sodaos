@@ -1,7 +1,9 @@
 # Tailnet in the native dashboard — implementation plan
 
-**Status: stage-1 local investigation complete; production implementation and native
-runtime proof pending.** The user requested native dashboard ownership
+**Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
+implemented, with actual native-page acceptance pending. The user declined local
+fixture repair and deferred configured-device validation to the intended ARM device.
+Project runtime, installed proof and retirement remain pending.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -49,7 +51,7 @@ Requirements remain with their owners:
 | [Native pages](forgejo-soda-pages-plan.md) | Forgejo host, enumerated entry/OAuth returns, logout, navigation and asset lifecycle |
 | [Sodaspaces settings](sodaspaces-plan.md#settings-pages-and-os-selection) | Placement and existing Create/project administration |
 | This plan | Tailnet UX, enrollment/state/lifecycle design, delivery stages and parity |
-| [API](dashboard-api.md#planned-tailnet-surfaces) | Planned public route surface; concrete request/response models land there with implementation |
+| [API](dashboard-api.md#tailnet-backend) | Implemented backend request/response/error models and stage boundaries |
 | [Credentials](dashboard-credentials.md) | Shared OAuth/schema migration, consistent backups and compatible restoration |
 | [Project OS](project-os.md), [project services](project-services.md) | Persistent roots, native accounts, runtime and networking confinement |
 | [Cockpit](cockpit-port.md) | Retained stock administration/security configuration |
@@ -67,12 +69,12 @@ explicit operator/native workflow; moving the host page does not advertise route
 | Inspected source | Consequence for implementation |
 | --- | --- |
 | `cockpit/src/tailscale/native.ts`, `store.ts`, `status.ts`, `stream.ts`, `cockpit/src/pages/TailscalePage.tsx` and their tests | Existing host-only CLI/LocalAPI adapter: status/peers/preferences, initial login and reauthentication, exit-node selection/LAN preference, exit-node advertisement and Forgejo refresh. The adapter hardcodes the host socket. Port behavior, not React/Cockpit transport. |
-| `internal/tailnet/`, `cmd/soda-tailnet/`, `cmd/soda-forgejo-tailnet/` | Existing Go host identity/diagnostic/advertisement callers must keep working. The identity projection alone is not a management API. |
+| `internal/tailnet/`, `cmd/soda-tailnet/`, `cmd/soda-forgejo-tailnet/` | Existing identity/diagnostic/advertisement callers remain unchanged. Stage 2 adds a separate opt-in management adapter and native policy owner, not a change to the read-only CLI contract. |
 | `internal/web/runners.go`, `auth.go`, `pages.go`, `frontend/spaces/soda-connection.ts`, `assets/branding/forgejo/soda-native-page.ts` | Reuse native operator admission, fixed return handling and Lit page lifetime; no new password authority or dashboard shell. |
 | `internal/web/environment_authority.go`, `management.go`, `environments_api.go` | Current repository/organization ownership and explicit Soda operator authority govern lifecycle. Creation remains human repository-owner-only. Mere repository visibility is broader than membership and must not expose private network metadata. |
 | `internal/host/daemon.go`, `management.go`, `appliance/services/soda-project@.service` | The helper owns fixed native operations and cancellable admission; systemd owns Create/Start/Stop/boot and failure restart of the existing container. A browser-only enrollment hook would miss boot/native starts. |
 | `project-os/Containerfile`, `project-os/rootfs/`, project creation flags | Tailscale is not installed in the project image. Existing projects have their own network/user namespaces; selected new profiles include namespace-scoped NET_ADMIN but no explicit `/dev/net/tun` grant. Retained roots are not interchangeable with today's profile. |
-| `internal/store/migrations.go` | Current schema is v9; the earlier `oauth.settings_return` CHECK allows only empty/runners. Tailnet entry requires an append-only migration, not just a new frontend URL. |
+| `internal/store/migrations.go` | Stage 2 appends schema v10 for Tailnet OAuth returns, with local preservation/refusal tests. Installed targets remain v9; see the credential owner for migration/backup scope. |
 | `cockpit/`, root `package.json`, `scripts/stage.py`, `internal/nativebuild/bundle.go`, installed operator tests | Tailnet still owns the remaining Cockpit workspace/build dependencies and a required bundle page. Eventual removal must update actual callers/inventories, not just delete its directory. |
 
 Public research from the preceding brainstorm is retained in
@@ -555,29 +557,63 @@ host privilege, rebuild roots or replay registration to make the observer pass.
 
 ### Stage 2 — Go contracts, state and authorization
 
-Implement host Tailnet operations in `internal/tailnet` and fixed `internal/host`
-client/daemon methods. Add protected web handlers and explicit narrow DTOs; document
-request/response/error models in [the API owner](dashboard-api.md#planned-tailnet-surfaces).
-Preserve `soda-tailnet` and Forgejo advertisement CLI callers and their error semantics.
-Use one native policy writer/lock; do not expose raw preference/state files.
+**Completed source-only slice.** `internal/tailnet` now owns host management and
+versioned native policy/credential storage; `internal/host/tailnet.go` exposes fixed
+methods and `internal/web/tailnet.go` supplies protected models/handlers. Concrete
+requests, outcomes and limits belong to [the API owner](dashboard-api.md#tailnet-backend).
+The existing `soda-tailnet` and advertisement callers/error semantics are preserved.
+One native policy lock serializes cooperating writers without entering the project
+lifecycle gate; no raw preference, state or credential proxy was added.
 
-Extend enumerated Tailnet bookmark/OAuth returns through `internal/web/auth.go`,
-`pages.go`, `internal/store/login.go` and append-only migrations. Update the existing
-`oauth.settings_return` constraint without dropping pending contexts/grants or
-loosening mixed-destination checks. Allocate schema versions at implementation time;
-keep missing/wrong-key, newer-schema and incomplete-schema refusal. The Tailnet
-project policy itself is not a second SQLite lifecycle authority.
+The root helper's optional `tailnet_management` configuration defaults false.
+Host LocalAPI and CLI-dependent effects check the reviewed release recorded in
+`ManagementCLIRelease`. Root-only credential checking uses pinned upstream
+`clientcredentials` with bounded fixed-endpoint transport; it creates no auth key or
+device. The Tailscale key-creation SDK/runtime remains Stage 4, not a synthetic
+success path in this slice. Enabling managed defaults or project enable/retry refuses;
+project Off saves intent but cannot claim disconnection.
 
-Add source tests for identity/authorization before native reads/effects, strict
-input/path bounds, secret projection/public-origin links, preserved preferences,
-atomic policy updates, duplicate/cancelled requests and all partial outcomes.
+Schema v10 appends the enumerated bookmark/OAuth return without dropping pending
+contexts/grants or loosening mixed-destination checks. Storage, completeness probing,
+backup and refusal requirements belong to [the credential owner](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return).
+Project policy is not a second SQLite lifecycle authority; native run-incarnation
+and supervisor state is still Stage 4 work. The bookmark/callback enum does not
+register a Lit page or advertise unfinished navigation.
 
-**Exit:** source-tested backend/native contracts, disabled by default, without real
-enrollment or reliance on browser polling for mutations.
+Focused Go tests cover authority/context loss, current ownership/membership, strict
+input/secret projection, preserved native preference operations, provider bounds,
+concurrent CAS/cancelled locks, unsafe files, replacement CID refusal and uncertain
+publication/readback. See [the source receipt](implementation-history.md#tailnet-stage-2--backend-state-and-authorization)
+for checks actually run and limitations.
+
+**Exit met at source scope:** disabled-by-default backend contracts, no real
+enrollment, UI, runtime hooks, target contact or installed acceptance.
 
 ### Stage 3 — native host Tailnet UI and parity
 
-Add Lit Tailnet modules and the native page/entry/bookmark/navigation registrations.
+**Source implemented; native-page acceptance still pending.** The native dashboard
+selector, operator navigation, shared entry/OAuth owner and lazy Lit Tailnet component
+are wired through the canonical payload/build/epoch and English native labels.
+Appliance and Automatic project access are distinct sections. The latter uses the
+existing protected check/save/rotation/admission APIs but keeps runtime/default-enable
+unsupported. No project runtime, helper activation or Cockpit removal was added.
+
+Local emitted-component tests cover scoped confirmation, independent drafts/revisions,
+secret and auth-link retirement, late responses ignoring abort, actor loss, duplicate
+dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity and
+existing Cockpit tests also passed. The actual native-page consumer is wired into the
+existing fixture, not replaced with handwritten native HTML: its run failed because
+`sodaos-local-forgejo` is stopped. The subsequently approved start failed because its
+source bind mounts point into a deleted worktree. The user declined regeneration and
+identified the ARM device as the intended configured-device validation target. No
+exact ARM target/action is authorized; no further fixture repair/start is selected.
+Source-only follow-up fixed unsent enrollment-draft loss on admission/default writes
+and passed focused emitted-component, authorization and readback checks. The
+container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
+for exact checks/skips and the remaining native acceptance; source tests alone do not
+meet the full exit below.
+
+The stage's integration contract remains: add Lit Tailnet modules and the native page/entry/bookmark/navigation registrations.
 Update canonical templates, `forgejo-payload.json`, browser build inputs, localization
 and the graph-wide presentation epoch through their existing owners. No React mount,
 iframe, copied login harness or replacement Forgejo header.
@@ -603,6 +639,23 @@ light/dark/narrow/wide presentation and the existing connection/logout contracts
 
 ### Stage 4 — automatic enrollment and project integration
 
+**In progress — enrollment core and incarnation/recipe primitives implemented.**
+The first source slice adds the selected v2 SDK key call with fixed endpoint,
+operation-owned OAuth, bounded/validated responses and no POST replay. A durable
+project-run marker and sanitized attempt journal precede provider work; matching
+same-run attempts (including lost journals) cannot automatically mint another key.
+Passive attempt observation and cancellable policy serialization are source-tested.
+Native process identity checks cover boot/PID start, shifted mappings and non-host
+user/network namespaces; the fixed companion argument recipe is authored and tested,
+not an executed companion or installed compatibility claim.
+
+The native supervisor/activation, resolver ownership/recovery, key-file consumption
+and confirmed native exec observation remain to be wired, followed by explicit Create
+selection, Start/Stop/boot, project Network/SSH projections and the Lit controls.
+Shipping HTTP/CLI callers still report runtime unsupported; the new key operation is
+not exposed as a credential endpoint or enabled by configuration. This is not the
+Stage-4 exit. Source approval remains active; no ARM/device action was granted.
+
 Implement the accepted scoped runtime and root policy from stages 1–2. Wire existing
 Create/Start/Stop/native boot paths and the shared project Network panel; extend
 connection metadata without changing existing LAN/SSH behavior or account authority.
@@ -610,7 +663,8 @@ A global default must be reviewed in the Create request and recorded once by the
 native policy owner; missing legacy fields remain Off. Provisioning failures retain
 the original reservation and do not leave an unbound auto-enrollment task.
 
-Add the operator setup/rotation/default UX and project summary/actions. Support the
+Extend Stage 3's operator setup/rotation form with runtime-backed default enablement
+and project summary/actions. Support the
 OAuth baseline first. Native enrollment failure does not undo successful project
 provisioning or change the meaning of `ready`; expose separate Tailnet state.
 Ensure project-root changes cannot select host targets, credentials, tags or binaries.

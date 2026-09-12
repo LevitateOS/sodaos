@@ -17,19 +17,26 @@ if (marker && id(marker.dataset.actor)) {
   }
   const link = document.createElement('a'); link.className = 'item'; link.textContent = 'Runners';
   link.href = sub + '/?soda-view=runners';
+  const tailnet = document.createElement('a'); tailnet.className = 'item';
+  tailnet.textContent = marker.dataset.tailnetLabel || 'Tailnet';
+  tailnet.href = sub + '/?soda-view=tailnet';
   if (currentView === 'runners') {
     link.classList.add('active');
     link.setAttribute('aria-current', 'page');
   }
+  if (currentView === 'tailnet') {
+    tailnet.classList.add('active');
+    tailnet.setAttribute('aria-current', 'page');
+  }
   let generation = 0;
-  const hide = () => {generation++; link.remove();};
+  const hide = () => {generation++; link.remove(); tailnet.remove();};
   const check = async () => {
     hide(); if (connectionSuppressed()) return; const current = generation;
     try {
       const response = await fetch(sub + '/-/soda/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: {'X-Soda-Expected-User-ID': actor}, signal: AbortSignal.timeout(10000)});
       if (!response.ok) {await response.body?.cancel(); return;}
       const raw = await readSodaJSON(response), session = sessionResponse(raw, location.origin);
-      if (current === generation && !connectionSuppressed() && marker.isConnected && session.user.id === actor && object(raw).soda_operator === true) marker.after(link);
+      if (current === generation && !connectionSuppressed() && marker.isConnected && session.user.id === actor && object(raw).soda_operator === true) marker.after(link, tailnet);
     } catch {if (current === generation) hide();}
   };
   window.addEventListener('pagehide', hide);
