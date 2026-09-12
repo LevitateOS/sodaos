@@ -17,8 +17,9 @@ The canonical `~/Projects/sodaos` checkout on `main` contains the new visual sys
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
 place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.
-Actual native-page parity, native lifecycle/security/connectivity acceptance and
-installed delivery/removal remain pending.
+A separately approved fresh x86_64 VM now passes native dashboard/OAuth/Tailnet
+read and stock Cockpit access smoke. Full native-page parity, project lifecycle/
+security/connectivity acceptance and retained-target delivery/removal remain pending.
 The user declined local fixture repair and selected further device-independent
 source work. The owner clarified that Soda is not currently compatible with the ARM
 machine: it is only an ephemeral Forgejo frontend test bed, not a Soda appliance.** The [Tailnet implementation plan](tailnet-integration-plan.md)
@@ -66,8 +67,9 @@ now has native run/stop supervision, restricted run/key state, companion occupan
 and incarnation checks, resolver binding/recovery checks, explicit managed Create,
 Network controls, own-account SSH projection and compact Spaces summaries wired.
 Fresh-install source selects the companion image and opts into management; old
-configuration remains opt-out. The x86_64 candidate is now built and exported below;
-no installation, enrollment or provider action was run.
+configuration remains opt-out. The x86_64 candidate is built/exported and installed
+on the fresh access fixture below, with the first-boot helper correction `3cb7408`.
+No enrollment or provider job was run; older retained targets remain unchanged.
 
 **Stock-only Cockpit candidate:** custom Tailnet presentation and its workspace,
 build and unused dependencies are removed. Canonical current-design branding is
@@ -92,11 +94,11 @@ Any selected frontend checks establish only their actual presentation scope, not
 backend authorization, enrollment or installed appliance acceptance.
 
 The [Stage-5 native proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof)
-needs a separately selected compatible Soda target and approved actions. No such
-target is currently selected by the ARM clarification. Native runtime proof is not
-a prerequisite for independent frontend/source work. [Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
-remains pending beyond the checks actually run. The declined local fixture repair
-remains declined; no new device contact, provisioning or deployment was authorized. Cockpit Tailnet stays installed fallback on retained targets;
+now has `soda-native-tailnet-bb3a13c` for the approved fresh installation and access
+smoke, not blanket project/provider lifecycle permission. Native runtime proof is
+not a prerequisite for independent frontend/source work. [Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+remains pending beyond the native login/OAuth/read checks actually run. The declined
+local fixture repair remains declined. Cockpit Tailnet stays installed fallback on older retained targets;
 source retirement does not authorize or imply its removal there.
 
 The earlier authorized local start failed because template and preview-asset mounts
@@ -107,9 +109,9 @@ The separate [native proof proposal](tailnet-integration-plan.md#remaining-nativ
 requires a specifically authorized isolated fixture and exact inputs/actions. It
 covers namespace/TUN/LocalAPI isolation, DNS ownership/recovery, systemd stop/restart
 ordering and, in a separately approved phase, real enrollment/connectivity. No
-fixture, credential, provider action or maintenance window is currently selected.
-Source/UI completion does not authorize that execution, deployment or native
-configuration changes.
+credential, provider action or project lifecycle scenario is currently selected.
+The fresh-VM access grant below does not authorize the remaining enrollment,
+namespace/DNS/lifecycle matrix or changes to older retained targets.
 
 ## Forge decision — retain Forgejo
 
@@ -141,10 +143,19 @@ Tailnet work.
   The owner clarified that ARM is only an ephemeral Forgejo frontend test bed, not
   a currently compatible Soda target. The earlier request for a Soda inventory on
   ARM was based on a mistaken assumption, not an outstanding prerequisite or grant.
-  No further local repair/start, ARM contact or deployment is authorized.
+  No further local fixture repair/start, ARM contact or retained-target deployment is authorized.
   Stage 1/2 grants are complete.
-  No enrollment, networking/capability changes,
-  other fixture lifecycle, deployment or installed Tailnet removal is authorized.
+  No enrollment, project networking/capability changes, other fixture lifecycle,
+  retained-target deployment or installed Tailnet removal is authorized.
+- **Fresh Tailnet access VM:** the user approved a separate x86_64 VM and installation
+  for dashboard/Cockpit access. `soda-native-tailnet-bb3a13c` was provisioned with its
+  own disk/NVRAM/host and operator keys/passwords, extension-activation reboot,
+  native Forgejo/Soda bootstrap and loopback-only browser tunnels. The source-fixed
+  helper and required dashboard service restoration were applied only there, with
+  the old helper retained. The owned 24-hour hold ends approximately
+  **2026-09-13 22:37 UTC**; disks/inputs remain afterward. This does not authorize
+  real Tailscale enrollment, provider jobs, global client trust changes, cleanup,
+  another start after the hold, or maintenance of older retained targets.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -156,11 +167,29 @@ Tailnet work.
   failed attempts and later writes. Commands, input files and old receipts are not
   new permission.
 
+## Fresh Tailnet access fixture
+
+**`soda-native-tailnet-bb3a13c`**, custody `.artifacts/tailnet-vm-bb3a13c/`, is the
+new x86_64 access fixture. Base installation is the sealed `bb3a13c` export;
+`soda-host` alone was corrected from clean source `3cb7408`. The original bundle
+and install marker are unchanged: this is an explicitly recorded helper correction,
+not a newly sealed full bundle. Schema v10, zero projects, original base service
+image IDs, six active service/socket units and enforcing SELinux were observed.
+
+Native Forgejo operator login, actual OAuth consent/return, Tailnet `NeedsLogin`
+with unconfigured enrollment, Spaces mount, root Cockpit/stock Overview, native
+socket/CLI/Services/Logs access and stock menu logout passed. No custom Cockpit
+package is installed. Full visual/keyboard/theme and project/provider proof remain
+pending. Access/password-file/public-CA paths belong in
+[local testing](local-testing.md#fresh-tailnet-vm-access); failures, hashes and the
+precise limited verification scope are in the
+[fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
+
 ## Installed state
 
 **Native pages/Runners combined-plan step 5 is complete on both retained targets.**
 There is no outstanding step-5 deployment or exec-record blocker. No Tailnet change
-or installed Cockpit retirement has been delivered.
+or installed Cockpit retirement has been delivered to these older retained targets.
 
 | Target | Installed affected components | Schema | Preserved projects / membership checks |
 | --- | --- | --- | --- |
@@ -206,15 +235,18 @@ The older Runners-only `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` export remains
 `.artifacts/step6-source/export/x86_64/`, with recorded `build-info.json` SHA-256
 `8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
 Its [step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
-and all retained targets/fallbacks remain unchanged; this new build is not delivery.
+and all older retained targets/fallbacks remain unchanged. The fresh access VM uses
+the latest bundle plus the explicitly recorded `3cb7408` helper correction above;
+that correction is not included in this unchanged sealed export.
 
 ## Remaining work
 
 1. **Active — Tailnet:** validate the integrated source candidate with the separately
    authorized native proof above, then minimal paired delivery and actual-occupant
    removal rehearsal/approval. Namespace/DNS/stop/restart/enrollment/client outcomes
-   and actual current-design stock Cockpit remain unaccepted, not proved by synthetic
-   tests. Source retirement is prepared; installed retirement is not done.
+   remain unaccepted. Stock Cockpit native access/logout passed on the fresh VM;
+   full visual/theme/keyboard acceptance remains pending. Source retirement is
+   complete; older retained-target installed retirement is not done.
 2. **Separate — installed Runners retirement:** source retirement is complete, but
    actual-occupant inventory, target-specific removal rehearsal and explicit
    per-target delivery approval remain. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
@@ -270,11 +302,9 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Merged upstream `e7760d4` into the Tailnet work at `13d31aa`, retaining both histories.
-Resolved shared navigation/templates/cache epoch and documentation without dropping
-the redesign, incoming session checks or Tailnet source work. The [merge receipt](implementation-history.md#tailnet-and-forgejo-source-merge)
-records strict TypeScript/Lit, 53 source/browser tests (24 opt-in skips) and race-enabled
-Go checks, including nativebuild/template source contracts. Evidence:
-`.artifacts/merge-tailnet-forgejo-TSGPpY/`. No fixture repair/start, ARM/device contact,
-provider action, deployment, push or cleanup occurred. Stage 4 remains in progress;
-this source merge neither activates automation nor supplies native acceptance.
+`3cb7408` fixes the actual upstream `HaveNodeKey,omitempty` first-boot status,
+with host/project malformed-value regressions and passing Tailnet/host/web race
+checks. The installed operator test now exercises stock Session → Log out rather
+than an iframe API call that leaves the shell disconnected. Native access and
+strict TypeScript/Lit checks passed; see the [fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
+No push, provider enrollment/job, older retained-target change or cleanup occurred.

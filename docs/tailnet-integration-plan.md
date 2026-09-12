@@ -1,9 +1,10 @@
 # Tailnet in the native dashboard — implementation plan
 
 **Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
-implemented, with actual native-page acceptance pending. Stage-4 runtime/UI and
-stock-only Cockpit source are implemented; native proof and installed retirement
-remain pending. The user declined local fixture repair and clarified that the ARM
+implemented. Stage-4 runtime/UI and stock-only Cockpit source are implemented;
+a fresh x86_64 installation now passes native dashboard/OAuth/Tailnet read and
+stock Cockpit access smoke. Full native-page parity, project/provider proof and
+retained-target installed retirement remain pending. The user declined local fixture repair and clarified that the ARM
 machine is only an ephemeral Forgejo frontend test bed: Soda is not currently
 compatible there. It is not the target for native Soda/Tailnet/Cockpit validation.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
@@ -536,8 +537,10 @@ there is no reason to create a provider interface hierarchy or new task queue.
 
 #### Remaining native proof proposal
 
-No target or action below is authorized yet. Use one **new isolated native x86_64
-fixture**, not either retained appliance. Before execution, bind its exact name,
+The [fresh access fixture](implementation-status.md#fresh-tailnet-access-fixture)
+now supplies an isolated native x86_64 installation, not project/provider permission.
+The proposed project/companion/provider actions below still need their applicable
+grants; do not recreate the fixture merely to repeat provisioning. Before execution, bind its exact name,
 base/candidate, package/image identities, two newly created project IDs/roots,
 client route and preservation inventory in the existing support/installed inputs.
 Refuse occupied names/state. No sibling-architecture gate or retained-root retrofit.
@@ -697,8 +700,12 @@ reusable-key support remains out until equivalent containment/rotation is accept
 
 The [x86_64 build/export receipt](implementation-history.md#tailnet-x86_64-native-build-and-export)
 now records a sealed candidate, artifact verification and actual staging checks.
-The aggregate native-page/source gate and installed functional/security proof remain
-unrun; no Soda runtime or Cockpit acceptance is inferred from the build.
+The aggregate native-page/source gate remains unrun; no installed acceptance is
+inferred from the build. A separately approved
+[fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
+now establishes actual installation, dashboard login/OAuth/Tailnet reads and stock
+Cockpit root administration/logout, with a narrowly recorded first-boot helper
+correction. It does not establish the project/provider/security/connectivity matrix.
 
 Build/check/export a clean candidate under the existing native contract. Reuse
 `TestNativeConnectionFixture`, the page consumers, and the installed

@@ -126,7 +126,10 @@ try {
   console.log('Root CLI capacity, ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
   assert.equal(await stock.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during stock read-only observations');
   stage = 'Cockpit sign-out';
-  await stock.evaluate(() => window.cockpit.logout(true));
+  // An iframe's logout() leaves the outer shell on its Reconnect screen.
+  // Exercise the actual stock shell action, including its login navigation.
+  await page.getByRole('button', {name: 'Session', exact: true}).click();
+  await page.getByRole('menuitem', {name: 'Log out', exact: true}).click();
   await page.locator('#login-user-input').waitFor({ state: 'visible' });
   assert(!interrupted);
 } catch (error) {

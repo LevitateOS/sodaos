@@ -14,7 +14,9 @@ native dashboard host controls and automatic project enrollment, followed by
 retirement of the last Soda Cockpit extension. Dashboard host controls, project
 runtime/UI and the stock-only source candidate are implemented. The
 [x86_64 candidate is built/exported](implementation-status.md#latest-built-source-candidate);
-native acceptance and authorized per-target delivery/removal remain pending.
+the [fresh VM access receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
+now includes native root/stock administration and logout checks. Full visual/theme/
+keyboard acceptance and authorized retained-target delivery/removal remain pending.
 The plan owns those stages; this guide owns ordinary Cockpit configuration below.
 The user's source-completion instruction did not authorize installed fallback removal.
 

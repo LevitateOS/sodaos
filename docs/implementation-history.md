@@ -14,6 +14,70 @@ not claims that those outputs are still retained.
 
 ---
 
+## Fresh Tailnet VM installation and access smoke
+
+The user explicitly approved a **separate x86_64 test VM and installation for
+browser access**, leaving older retained targets/projects untouched. On
+2026-09-12, `soda-native-tailnet-bb3a13c` was created with a fresh 64-GiB overlay,
+NVRAM, pinned host/operator keys and private passwords. It uses the already
+verified read-only CoreOS `44.20260817.3.2` base, native KVM, four CPUs and 8 GiB RAM.
+The owned support-tool hold ends approximately **2026-09-13 22:37 UTC**, retaining
+disk/NVRAM/private inputs afterward. No old VM, fixture mount or ARM target changed.
+
+Custody/evidence: `.artifacts/tailnet-vm-bb3a13c/`. Browser origins, usernames,
+password-file paths and public test CA belong in
+[local testing](local-testing.md#fresh-tailnet-vm-access). All listeners are builder
+loopback; there is no new public endpoint, host route/firewall change or automatic
+client trust installation. Dedicated test-browser homes trust only the new public CA.
+
+**Installation:** the unchanged sealed `bb3a13c` export was verified locally and
+transferred through pinned SSH with manifest/verifier integrity checks. Native
+extension layering and its activation reboot succeeded; observed Tailscale is
+`1.102.4`, Cockpit system/bridge `367-1.fc44`, and Cockpit ws `366-1.fc44`. The first
+installer, native Forgejo administrator/token bootstrap, `soda-setup` and private
+certificate activation completed. Forgejo's native asynchronous installation
+returned HTTP 200; an older observer expected a redirect. Native authenticated
+identity confirmed installation, so setup was not replayed to repair that observer.
+
+**Actual first-boot defect and narrow correction:** Tailscale 1.102.4's
+`ipnstate.Status.HaveNodeKey` is `json:",omitempty"`. The fresh native daemon omitted
+false, while Soda required the field and showed host observation unavailable.
+`3cb7408` now accepts that upstream omission as false for host/project observation,
+retaining rejection of malformed/null values, case aliases and a Running host
+without a true node key. Fresh-daemon and malformed-value regressions passed with
+`go test -race ./internal/tailnet ./internal/host ./internal/web` on Go 1.26.7.
+
+Only the native `soda-host` binary from clean `3cb7408` was subsequently replaced on
+this fresh VM. SHA-256:
+`7ac2ad662e509db6b272c304d5004715a0b58823833c01cdf8b31e302aa0d686`.
+The previous verified helper remains at guest
+`/var/lib/soda-candidate-bb3a13c/helper-3cb7408/soda-host.before`.
+Stopping its socket also stopped the requiring dashboard unit; the failed browser
+observation was retained and that existing service was started, without setup replay
+or database restoration. Base images/configuration/install marker remain unchanged.
+The full installed verifier **passed before this helper correction**; this receipt
+is not an unchanged-bundle verification afterward or a resealed `3cb7408` bundle.
+The final observation checks the new helper hash and all three original service
+image IDs separately, plus schema v10, zero projects, six active service/socket
+units, enforcing SELinux and no custom Cockpit packages.
+
+**Native browser checks passed:** real Forgejo `operator` login, native OAuth
+consent/return, Tailnet HTTP 200 with `host_unavailable:false`, `NeedsLogin` and
+unconfigured project enrollment, and actual Spaces mount. Stock Cockpit root login,
+Overview, native SELinux transition/socket/Tailscale prefs/runner CLI reads,
+Services/Logs and stock Session → Log out passed. The initial test's iframe
+`cockpit.logout(true)` left the outer shell on Reconnect; fresh navigation confirmed
+logout. The owned test now uses the real stock menu and reaches the login form.
+Strict TypeScript/Lit and native `tests/installed/operator.sh` checks passed.
+
+`receipt.json`, `final-native-02.json`, `helper-build-info.txt`, `SHA256SUMS`, the
+support-tool observations and numbered browser/source logs retain exact scopes.
+Also retained: a pre-transfer flag typo, nonexistent custom-element selector and
+read-only final-observer table/digest-format mistakes; no mutation was replayed to
+repair them. No real Tailscale enrollment, provider runner/job, project creation,
+retained fallback removal, push or cleanup occurred. Full visual/keyboard/theme,
+project namespace/DNS/lifecycle and intended-client connectivity proof remain unrun.
+
 ## Tailnet x86_64 native build and export
 
 The user explicitly ordered the native x86_64 build. The builder is native x86_64
