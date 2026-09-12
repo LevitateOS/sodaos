@@ -1,35 +1,43 @@
-/* A bounded native-page popover, not another .soda-page or notifications table. */
+/* Native HTMX and popover lifecycle own behavior; this surface shares Soda's
+   neutral palette, inverse labels and framed actions with the rest of the forge. */
 .soda-notification-preview {
   display: none;
   box-sizing: border-box;
   position: fixed;
   inset: auto;
   margin: 0;
-  width: min(380px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0;
   overflow: auto;
-  color: var(--color-text);
-  background: var(--color-box-body);
-  border: 1px solid var(--color-secondary);
+  color: var(--soda-page-text);
+  background: var(--soda-page-canvas);
+  border: 2px solid var(--soda-page-text);
   border-radius: 0;
   box-shadow: none;
+  font: 400 16px/1.5 Barlow, sans-serif;
 }
 .soda-notification-preview:popover-open { display: flex; flex-direction: column; }
-.soda-notification-preview-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-secondary); }
-.soda-notification-preview-close { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 0; background: transparent; color: inherit; cursor: pointer; }
+.soda-notification-preview-header { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 8px 16px; color: var(--soda-page-canvas); background: var(--soda-page-text); }
+.soda-notification-preview-header strong { font: 800 26px/1.1 "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: -.02em; }
+.soda-notification-preview-close { display: grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid currentColor; border-radius: 0; background: transparent; color: inherit; cursor: pointer; }
 .soda-notification-preview-list ul { list-style: none; padding: 0; margin: 0; }
-.soda-notification-preview-list li + li { border-top: 1px solid var(--color-secondary); }
-.soda-notification-preview-list a { display: flex; gap: 12px; padding: 16px; color: inherit; }
+.soda-notification-preview-list li + li { border-top: 1px solid var(--soda-page-edge); }
+.soda-notification-preview-list a { display: flex; gap: 12px; padding: 16px; border-left: 4px solid transparent; color: var(--soda-page-text); text-decoration: none; }
 .soda-notification-preview-icon { flex: none; padding-top: 4px; }
-.soda-notification-preview-entry { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
-.soda-notification-preview-title { font-weight: 600; }
-.soda-notification-preview-repo, .soda-notification-preview-time { color: var(--color-text-light); font-size: 12px; }
-.soda-notification-preview-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
-.soda-notification-preview-all { display: block; text-align: center; padding: 16px; border-top: 1px solid var(--color-secondary); font-weight: 600; color: var(--color-primary); }
-.soda-notification-preview-status, .soda-notification-preview-empty { margin: 0; padding: 16px; }
+.soda-notification-preview-entry { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.soda-notification-preview-title { font: 600 18px/1.35 Barlow, sans-serif; }
+.soda-notification-preview-repo, .soda-notification-preview-time { color: var(--soda-page-muted); font: 500 11px/1.6 "IBM Plex Mono", monospace; }
+.soda-notification-preview-pin { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: var(--soda-page-text); }
+.soda-notification-preview-all { display: flex; flex: none; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-top: 2px solid var(--soda-page-text); background: var(--soda-page-action); color: var(--soda-page-on-action); font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; text-align: center; }
+.soda-notification-preview-status, .soda-notification-preview-empty { margin: 0; padding: 24px 20px; color: var(--soda-page-muted); }
 .soda-notification-preview-status:empty { display: none; }
-.soda-notification-preview-retry { align-self: flex-start; margin: 0 16px 16px; padding: 8px 12px; color: inherit; background: var(--color-button); border: 1px solid var(--color-secondary); border-radius: 0; cursor: pointer; }
+.soda-notification-preview-status[role="status"] { flex: none; }
+.soda-notification-preview-retry { align-self: flex-start; min-height: 44px; margin: 0 20px 20px; padding: 8px 16px; color: var(--soda-page-text); background: var(--soda-page-canvas); border: 2px solid var(--soda-page-text); border-radius: 0; cursor: pointer; font: 500 13px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; }
 .soda-notification-preview [hidden] { display: none; }
-.soda-notification-preview-list a:hover, .soda-notification-preview-all:hover, .soda-notification-preview-close:hover { background: var(--color-hover); }
-.soda-notification-preview :is(a, button):focus-visible { outline: 2px solid var(--color-primary); outline-offset: -3px; }
+.soda-notification-preview-list a:hover { border-left-color: var(--soda-page-action); background: var(--soda-page-hover); }
+.soda-notification-preview-all:hover { background: var(--soda-page-action-hover); color: var(--soda-page-on-action); }
+.soda-notification-preview-close:hover { background: var(--soda-page-canvas); color: var(--soda-page-text); }
+.soda-notification-preview-retry:hover { background: var(--soda-page-hover); }
+.soda-notification-preview :is(a, button):focus-visible { outline: 2px solid var(--soda-page-text); outline-offset: -5px; }
+.soda-notification-preview-header button:focus-visible { outline-color: var(--soda-page-canvas); }

@@ -106,6 +106,33 @@ fields and unchanged form method/password type. Both desktop themes were reviewe
 visually. Branding/inventory, test typecheck and preview build pass. Evidence is
 in `.artifacts/forgejo-login-station/`; no credentials or form submission were used.
 
+## Notifications completion pass
+
+The prior broad pass missed the bell preview's older palette/typography and the
+notification family's selected-tab treatment. This focused pass covers unread/read
+inboxes, subscriptions, watched repositories, and the bell preview's populated,
+pinned, loading, empty and failure/retry states. It uses the shared neutral palette,
+inverse tabs/header, framed visible row controls, condensed headings, technical
+metadata and a red View all notifications action. Single dividers separate rows
+and controls. Narrow rows move timestamps/actions below the title through 1100px.
+
+Only `notifications.css`, `notification-preview.css` and their versioned header
+links were delivered to the canonical localhost:3300 mounts. Native templates,
+HTMX lifecycle, notification IDs/status forms, destinations and runtime JS remain
+unchanged. Prior files and screenshots are retained in
+`.artifacts/forgejo-notification-refinement/`.
+
+Checks pass: 40 native route/theme/viewport combinations at 320, 640, 800, 960 and
+1440px using the existing screenshot session; populated/pinned row layout from
+production-rendered template fixtures; preview containment/design at 14 width/theme
+combinations, plus existing loading/error/retry/stale-response, keyboard/focus,
+outside click, redirect and progressive fallback cases. The real fixture inbox
+is empty; populated visual/lifecycle evidence is explicitly synthetic. No native
+notification state was changed. Focused Go rendering, source branding/inventory,
+test TypeScript and preview build pass. The opt-in populated fixture is generated
+with `SODA_FORGEJO_NOTIFICATION_GALLERY=1 go test ./scripts -run '^TestForgejoNotificationPreview'`;
+`SODA_FORGEJO_NOTIFICATION_REVIEW=1` enables its read-only live page checks.
+
 ## Scope completed
 
 The full inventory of **253 Forgejo 15.0.7 overrides** uses the redesigned shared presentation owners. This includes authentication and onboarding, dashboard and exploration, public profiles and organizations, repositories and code views, issues and pull requests, milestones/projects/wiki/releases, Actions, packages, notifications, personal/repository/organization settings, moderation, administration and status pages. Most native templates inherit the design without unnecessary markup edits; explicit template edits remove obsolete presentation inputs and refine shared composition without replacing native control bodies.

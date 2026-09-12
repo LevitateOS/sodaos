@@ -107,7 +107,8 @@ test('notification preview uses native HTMX with stable accessible lifecycle', {
     await page.locator('#navbar-logo').focus();
     await panel.waitFor({ state: 'hidden' });
 
-    for (const width of [768, 390, 320, 1440]) {
+    for (const colorScheme of ['light','dark'] as const) for (const width of [320,390,640,720,800,960,1440]) {
+      await page.emulateMedia({colorScheme});
       await page.setViewportSize({ width, height: 900 });
       const active = width < 768 ? page.locator('#fixture-mobile-bell') : bell;
       await active.click();
@@ -116,6 +117,17 @@ test('notification preview uses native HTMX with stable accessible lifecycle', {
       assert(bounds);
       assert(bounds.x >= 0 && bounds.x + bounds.width <= width, `${width}px horizontal containment`);
       assert(bounds.y >= 0 && bounds.y + bounds.height <= 900, `${width}px vertical containment`);
+      const design = await panel.evaluate(el => {
+        const header = el.querySelector('.soda-notification-preview-header')!;
+        const action = el.querySelector('.soda-notification-preview-all')!;
+        return {border:getComputedStyle(el).borderTopWidth,shadow:getComputedStyle(el).boxShadow,
+          headerBg:getComputedStyle(header).backgroundColor,headerFg:getComputedStyle(header).color,
+          bg:getComputedStyle(el).backgroundColor,fg:getComputedStyle(el).color,
+          actionCase:getComputedStyle(action).textTransform,actionHeight:action.getBoundingClientRect().height};
+      });
+      assert.equal(design.border,'2px');assert.equal(design.shadow,'none');
+      assert.equal(design.headerBg,design.fg);assert.equal(design.headerFg,design.bg);
+      assert.equal(design.actionCase,'uppercase');assert(design.actionHeight>=44);
       await close.click();
     }
     await page.emulateMedia({ colorScheme: 'light' });

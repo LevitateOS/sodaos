@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"html/template"
+	"os"
 	"strings"
 	"testing"
 )
@@ -58,7 +59,7 @@ func TestForgejoNotificationPreviewRendering(t *testing.T) {
 			}
 			rows := make([]previewNotification, count)
 			for i := range rows {
-				rows[i] = previewNotification{Status: 1, Repository: map[string]any{"FullName": "team/<repo>"}}
+				rows[i] = previewNotification{ID: i + 1, Status: 1, Repository: map[string]any{"FullName": "team/<repo>"}}
 				if i%2 == 0 {
 					rows[i].Issue = map[string]any{"Index": 1, "Title": "<script>alert(1)</script>"}
 				}
@@ -70,6 +71,14 @@ func TestForgejoNotificationPreviewRendering(t *testing.T) {
 			var out bytes.Buffer
 			if err := tmpl.ExecuteTemplate(&out, "fragment", data); err != nil {
 				t.Fatal(err)
+			}
+			if os.Getenv("SODA_FORGEJO_NOTIFICATION_GALLERY") == "1" && count == 5 && len(flags) == 0 {
+				if err := os.MkdirAll("../.artifacts/forgejo-notification-refinement", 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile("../.artifacts/forgejo-notification-refinement/populated.html", out.Bytes(), 0600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			compact := flags["soda-preview"] && flags["div-only"]
 			if strings.Contains(out.String(), "data-soda-notification-fragment") != compact {

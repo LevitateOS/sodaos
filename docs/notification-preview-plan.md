@@ -8,6 +8,13 @@ Implementation does not authorize login, fixture mutations, service reloads or d
 
 ## Implementation evidence
 
+The 12 September visual completion pass replaces the older popup colors and type
+with the shared brutalist system and refines the full notification page family.
+Current local presentation scope and its split-width/browser evidence are recorded
+in the [redesign status](forgejo-redesign-status.md#notifications-completion-pass).
+This changes presentation only; the native notification behavior below is preserved.
+
+
 The compact fragment, signed-in footer hook, scoped CSS and small lifecycle script
 are authored. The real bundle has no `window.htmx`; implementation uses its existing
 declarative attributes and DOM lifecycle/custom events instead. Native template-context
