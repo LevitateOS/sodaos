@@ -49,10 +49,10 @@ The active grant record is:
   step 6. The [parity review](implementation-history.md#step-6--source-retirement-parity-review)
   covers the delivered baseline. Installed removal still requires explicit per-target
   scope/delivery approval; both retained targets keep their fallback until then.
-- **Tailnet:** the user requested the [full implementation plan](tailnet-integration-plan.md)
-  for native host controls, automatic ephemeral project enrollment and eventual
-  stock Cockpit administration. This change is planning only; no real enrollment,
-  networking/capability change, fixture lifecycle or installed Tailnet removal is granted.
+- **Tailnet:** the user approved stage 1's local investigation, synthetic checks and
+  native test proposal after requesting the [implementation plan](tailnet-integration-plan.md).
+  That bounded investigation is complete. No real enrollment, networking/capability
+  change, new fixture lifecycle or installed Tailnet removal is granted.
 - The isolated runner fixture's one reboot and exact `probe-one` removal grants were
   used. Its time-bounded VM hold is not a new lifecycle grant. The two-GET diagnostic
   authorization was also completed, not permission to reopen the listener.
@@ -66,10 +66,13 @@ The active grant record is:
    The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
    owns remaining actual-occupant inventory, target-specific removal rehearsal and
    explicit per-target removal delivery. Both retained targets still keep Cockpit Runners.
-2. **Tailnet:** [the implementation plan](tailnet-integration-plan.md) is written;
-   host UI/backend, automatic project enrollment and Tailnet source/installed
-   retirement remain unimplemented. Begin with its bounded native/runtime/credential
-   decisions; it does not reopen runner step 5 or authorize either installed removal.
+2. **Tailnet:** [stage-1 local investigation](tailnet-integration-plan.md#stage-1-design-decisions)
+   is complete: proposed user/net-namespace companion, upstream Go key creation in
+   the host helper, explicit Tailnet binding and per-run ephemeral state. Native
+   namespace/DNS/systemd/provider proof remains separately gated by the
+   [effect proposal](tailnet-integration-plan.md#remaining-native-proof-proposal).
+   Stage-2 backend/state/auth, host UI, project automation and Tailnet retirement
+   remain unimplemented; neither runner step 5 nor installed removal is reopened.
 3. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
    Access/error/profile-menu and CLI/provider combinations, intended-client routing,
    aarch64 and whole-product/release acceptance remain outside the bounded delivery
@@ -142,13 +145,23 @@ state cleanup occurred. Source/native export acceptance is not per-target retire
 
 ## Latest local change
 
-Documentation only: added `docs/tailnet-integration-plan.md`, covering native host
-UI parity, operator-managed OAuth enrollment, per-project authority/native lifetime,
-credential isolation, staged implementation, focused/native acceptance and scoped
-Cockpit retirement. Linked it from owning guides and replaced permanent Cockpit-
-Tailnet placement wording with the selected, not-yet-implemented direction.
+Stage-1 Tailnet investigation and in-place design update. Podman's supported
+user/net joins and shared resolver path support the companion candidate. Linux
+peer-credential translation rules out assuming host-root LocalAPI write access
+inside the shifted user namespace; select upstream Go OAuth/key calls in the
+existing host helper and only single-use key delivery to the trusted companion.
+Explicit Tailnet key requests avoid implicit credential-selected rebinding. Native
+state in a run-scoped host `/run` directory preserves identity across daemon-only
+restarts; explicit project logout remains necessary.
 
-Grounded the plan in current page/auth/schema, project/helper/systemd, Tailnet and
-packaging callers plus the retained upstream research. Checked affected links,
-source paths, ownership/scope consistency and `git diff --check`. No application
-code, builds, application tests, target contact or network/provider mutations ran.
+Passed upstream OAuth tests plus synthetic single-use capability checks; four
+synthetic v2 SDK key cases; three upstream temporary-filesystem DNS tests; and the
+builder's Tailscale CLI against a synthetic Unix LocalAPI fixture. Initial stub
+protocol mistakes and corrected results are retained, not erased. Checked affected
+documentation links/source references and `git diff --check`.
+
+Tracked changes are documentation only; research/probes remain under
+`.artifacts/tailnet-stage1-G8Rnza/`. No Soda application build/test, container/VM
+lifecycle, namespace/capability/route change, enrollment, retained-target contact or
+cleanup occurred. These local library/CLI checks are not native companion or real
+provider proof. See the [receipt](implementation-history.md#tailnet-stage-1--local-runtime-and-enrollment-investigation).

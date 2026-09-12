@@ -1,6 +1,7 @@
 # Tailnet in the native dashboard — implementation plan
 
-**Status: planned, not implemented.** The user requested native dashboard ownership
+**Status: stage-1 local investigation complete; production implementation and native
+runtime proof pending.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -22,8 +23,10 @@ Recommended first-release decisions from the brainstorm:
   the host does not need a reusable credential to stay enrolled.
 - Use one operator-configured **OAuth client credential**, restricted to auth-key
   creation for the selected project tag(s), for automatic project enrollment.
-  Prefer Tailscale's own single-use ephemeral-key generation over a new Soda
-  provider/token service. Host sign-in alone does not grant device-creation rights.
+  Use upstream OAuth and Tailscale Go API clients in the existing host helper to
+  create single-use ephemeral keys. The [stage-1 design](#stage-1-design-decisions)
+  explains why the initially preferred host CLI/socket shortcut is not selected.
+  No separate provider/token service. Host sign-in alone does not grant device-creation rights.
 - Offer a managed-network default for new projects, explicitly enabled by the
   operator. Existing projects and old Create callers remain off until selected.
   Start re-enrolls an enabled project automatically; no repeated human consent.
@@ -98,8 +101,12 @@ Public research from the preceding brainstorm is retained in
   token. It is not the unattended enrollment mechanism selected here.
 
 Soda currently provisions Tailscale from its stable Fedora repository; this research
-**does not pin or upgrade the installed client**. Stage 1 must bind the chosen
-CLI/daemon/package behavior and compatibility before implementation relies on it.
+**does not pin or upgrade the installed client**. The
+[stage-1 receipt](implementation-history.md#tailnet-stage-1--local-runtime-and-enrollment-investigation)
+separates builder observations, retained package evidence, upstream source and local
+synthetic checks. Investigated versions are not a shipping compatibility claim;
+adopted Go dependencies and companion image identities must land in actual source
+manifests/build inputs when implementation selects them.
 
 ## 3. User experience
 
@@ -220,8 +227,9 @@ browser reload or polling side effect.
   Fixed helper operations resolve original project/container identity server-side;
   no caller-selected socket, namespace, PID, UID, unit, executable or host flag.
   Connection/lifecycle actions resolve tags from the saved enrollment binding.
-- Only the dedicated operator configuration flow chooses the validated enrollment binding/tags. Project admins may
-  enable/disable that binding; they cannot enlarge its permissions. Provider policy
+- Only the dedicated operator configuration flow chooses the validated enrollment
+  binding/tags. Project admins may enable/disable that binding; they cannot enlarge
+  its permissions. Provider policy
   remains Tailscale-owned, not a copied ACL database. `tag:soda-project` alone is not
   isolation: accepted Tailnet grants must also limit project access to host/peers.
 
@@ -246,13 +254,14 @@ no generic credential broker, job queue, reconciler or network-provider abstract
 Missing unconfigured policy means Off; malformed or ambiguous configured state means
 unavailable, not permission to regenerate it or enroll with defaults.
 
-A host-run CLI should resolve the root-only OAuth credential before sending a
-single-use auth key to the correctly bound project daemon. Verify this exact seam
-in the selected version; the command must not execute inside a developer-controlled
-root or load a project-selected binary/config. Reject credential-input URL options
-such as `baseURL`; derive supported OAuth options from validated server-owned policy
-and keep the selected provider/control endpoints fixed. No long-lived enrollment
-credential may cross that boundary. Never copy the host's Tailscale state into an image/root.
+The existing host helper resolves the root-only OAuth credential through upstream
+OAuth/Tailscale Go clients, addressing the explicit saved Tailnet rather than `-`.
+Only the resulting single-use key goes to an appliance-owned companion's CLI and
+daemon. Neither command executes in the developer-controlled Project OS root.
+The [stage-1 design](#stage-1-design-decisions) owns that transport decision. Reject
+credential-input URL options such as `baseURL`; derive options from validated
+server-owned policy and keep provider/control endpoints fixed. No reusable enrollment
+credential crosses into either container. Never copy host Tailscale state into an image/root.
 
 Secret entry is transient protected request data with no-store responses, cleared
 on serialization, failure, page departure and authorization loss. Native auth URLs
@@ -272,19 +281,19 @@ copied-state rehearsal.
 
 ### Project runtime and lifetime
 
-**Preferred investigation:** an appliance-controlled, per-project Tailscale daemon
-or upstream companion bound to that project's network namespace, with control
-socket/credentials outside its writable root. This can avoid baking credentials or
-new packages into retained projects. It is a candidate, not proven Podman support.
+**Selected design for native proof:** an appliance-owned upstream Tailscale
+companion joining the exact project's **user and network** namespaces through
+Podman. It has its own filesystem, PID/IPC/UTS/cgroup namespaces and lifecycle
+identity; no project root, host engine socket or reusable credential mount. Native
+execution remains unproven, including TUN, SELinux/seccomp and older retained profiles.
+The [stage-1 decisions](#stage-1-design-decisions) specify the supported upstream
+mechanisms and the remaining proof, not an installed capability grant.
 
-Stage 1 must resolve actual namespace joining, `/dev/net/tun`, user-ID mapping,
-capabilities, SELinux/seccomp, DNS and supervision against the selected runtime.
 Provide ordinary inbound OpenSSH/service access and intended outbound Tailnet access;
 do not substitute SOCKS-only or ingress-only proxying while claiming full networking.
-No host-network mode, general host socket, privileged parent or unrelated namespace
-access. Do not alter all project capabilities or recreate roots to make this work.
-An incompatible retained project stays unchanged and reports unsupported until a
-separately approved compatible path exists.
+No host-network mode, privileged parent or unrelated namespace access. Do not alter
+all project capabilities or recreate roots. An incompatible retained project stays
+unchanged and reports unsupported until a separately approved compatible path exists.
 
 Use systemd's native project startup/stop/boot ownership, not browser presence or a
 background scan of every project. The per-project policy survives restart; ephemeral
@@ -324,6 +333,10 @@ make unfinished desktops/runner jobs/installer roadmaps new Tailnet prerequisite
 
 ### Stage 1 — resolve the native integration and security decisions
 
+**Local investigation completed.** The design and native proof proposal below
+replace the earlier open runtime/CLI assumptions. No production handler, unit,
+image, policy writer or enrollment integration has been implemented.
+
 Inspect selected installed-package evidence and matching upstream source; record
 compatible versions in source manifests/recipes when selected, not just this plan.
 Reuse `.artifacts/tailnet-enrollment-TDPVW1/` research where applicable. Resolve:
@@ -348,6 +361,197 @@ Reuse `.artifacts/tailnet-enrollment-TDPVW1/` research where applicable. Resolve
 remaining native proof/effect proposal. Source research alone is not permission for
 a new VM, real enrollment or a capability/network change. A concrete unsupported
 mechanism comes back for a decision rather than a dormant alternate backend.
+
+#### Stage-1 design decisions
+
+**Host login:** retain the existing socket and persistent daemon state. For an
+existing node, use the current masked `WantRunning` update and, when required,
+`POST /localapi/v0/login-interactive`; preserve unrelated preferences. For first
+login, retain upstream `tailscale up --json`, but set a short native wait timeout
+and an enclosing process deadline. Decode bounded JSON notifications with Go,
+then observe the daemon's status/AuthURL. A wait timeout with a pending native
+login is not cancellation of that login. Never hold the helper's global project
+gate or a browser request until a human finishes. No new durable login worker.
+
+**Companion rather than a custom namespace launcher:** Podman supports both
+`--userns=container:FULL_CID` and `--network=container:FULL_CID`. Sharing only the
+network namespace is insufficient for the proposed capability boundary. Resolve
+FULL_CID with Soda's existing project validator, then add an incarnation observation
+(PID/start identity, user/net namespace identities, mappings and native unit).
+Recheck both project and companion before dispatch; labels/CID alone do not detect
+a restart of the same persistent container. An unowned `tailscale0`, socket,
+companion occupant or resolver owner is a conflict, not an attach/reset target.
+Use Podman's namespace joining, not browser-supplied `/proc` paths, a bespoke
+`setns` supervisor or `NetworkNamespacePath` without the owning user namespace.
+
+The native proof recipe is an immutable upstream Tailscale image, direct
+`/usr/local/bin/tailscaled` entrypoint, kernel `tailscale0`, `--cap-drop=ALL` plus
+project-user-namespace `NET_ADMIN`, and only `/dev/net/tun` as the added device.
+Keep private PID/IPC/UTS/cgroup namespaces, default seccomp and the existing selected
+outer-profile SELinux-label policy; no `--privileged`, SYS_MODULE or host namespace.
+Do not inherit containerboot enrollment/environment defaults. No image digest or
+installed compatibility is asserted yet; native staging must resolve/record the
+selected image, CLI/daemon versions and actual image contents. The published image
+owner is upstream `build_docker.sh`/mkctr, not its explicitly non-production Dockerfile.
+New companions use upstream `--no-logs-no-support` (including its loss of upstream
+technical support), no container log capture and no raw attached daemon output in
+the journal. Upstream daemon diagnostics can contain auth URLs. Emit only sanitized
+helper outcome/health projections; do not change the existing host daemon's logging
+or treat suppressed log uploads alone as stdout redaction.
+
+Only new, exact-run control/state directories are mounted into the companion.
+Their mapped ownership is derived from verified project mappings; never apply
+recursive `:U` chown or mount a project root. A root-only host ancestor prevents
+ordinary host access. Keep the companion's small writable runtime root for native
+DNS backup/recovery; a blanket read-only root would break the selected DNS manager.
+Project root retains its existing trusted-team ability to alter its own network,
+but must not see companion processes, filesystem, control socket or enrollment
+credentials. Prove this with a substituted socket/daemon and project-root attempts,
+not just file-mode inspection.
+
+**Why the original host CLI shortcut is not selected:** Linux translates Unix
+socket peer credentials into the receiving user namespace. Appliance UID 0 is
+outside the project's shifted mapping; Tailscale's LocalAPI write admission checks
+root/operator identity in the receiving namespace. A host-root CLI pointed at the
+companion socket therefore is not a valid write-authority design. The local CLI
+probe proves file input and socket selection only, not cross-user-namespace access.
+Do not repair this with host-user-namespace containers, an overflow-UID operator,
+a project-readable OAuth file or a new privileged socket proxy.
+
+Use the official `tailscale.com/client/tailscale/v2` key API in the existing Go
+helper instead. Upstream's older exported client is deprecated; its internal OAuth
+resolver is not an importable integration API. The concrete sequence is:
+
+1. Admit the saved binding/revision and exact project incarnation under its owning
+   lock; record the attempt before any provider call. Read the restricted host
+   client ID/secret only in that helper.
+2. Use upstream `clientcredentials.Config` with the operation context, bounded
+   HTTP transport, fixed token endpoint, `auth_keys` scope and selected `tags`
+   parameter. The v2 SDK's convenience OAuth wrapper uses a background token
+   context; do not use that wrapper for a bounded operation. No token cache/service
+   or reusable token in project/runtime metadata.
+3. Call `Keys().CreateAuthKey` with the explicit saved Tailnet identifier (never
+   empty or `-`), non-reusable, ephemeral, the exact tags, short key expiry and the
+   separately chosen preauthorization bit. This prevents a replacement credential
+   from silently selecting its own different Tailnet. Check returned key metadata;
+   missing/mismatched capabilities or an uncertain response do not authorize another
+   key or local enrollment. Do not add automatic POST retries.
+4. Publish only that single-use key to a new restrictive file in the companion's
+   exact-run input directory. Invoke its fixed upstream CLI as container UID 0
+   through host-owned Podman exec, targeting its own fixed socket and using `file:`
+   input. The companion is appliance-owned, **not** the developer's Project OS;
+   neither container receives the OAuth secret or provider access token. Validate
+   native exec completion, not just termination of its host-side observer.
+5. Observe Self/device ID, applied tags, expected native Tailnet identity, approval,
+   Lock and daemon state through the same trusted companion. Only then publish the
+   connected projection. A successful key response is not proof of registration,
+   reachability or provider-policy isolation.
+
+This is a small existing-helper operation using supported upstream clients, not a
+new key-minting service or copied provider implementation. The SDK reads response
+bodies without a size cap and exposes provider error text; its selected transport
+must enforce streaming byte/deadline limits, reject redirects/unexpected status
+and endpoints, and map errors without logging raw bodies. Local SDK fixture passes
+are not tests of that still-unimplemented Soda boundary.
+
+**Scope and binding:** baseline credentials need only `auth_keys` for the chosen
+tags. A token request can check usability/requested scope, but cannot prove the
+Tailnet binding. Save remains `configured`/`credential check passed`; the first
+explicitly enabled real project verifies enrollment. Every key request names the
+expected Tailnet before any device registration, so no hidden test node or new DNS,
+policy or device-write scope is needed. Provider refusal leaves the project intact.
+Use the provider's Tailnet identifier, not a friendly UI label; reject path syntax
+and implicit-default selectors. Credential rotation must preserve that identifier,
+tags and policy revision; a different network/tag set is an explicit new binding,
+never transparently adopted by already-enabled projects. Existing connections do
+not change when credentials rotate or the appliance logs into a different network.
+
+Device approval is separate: `preauthorized=false` remains the default. An
+approval-required Tailnet cannot promise unattended connectivity unless its operator
+explicitly selects provider-permitted preauthorization. Tailnet Lock is not an
+automatically supported signing path: report signature-required/unavailable, never
+copy host signing keys or expand credential scope. Native proof must establish the
+actual approval/Lock observations; do not infer them from token success.
+
+**DNS:** Podman's container-network join normally bind-mounts the original project's
+`/etc/resolv.conf`, not merely a copy. Tailscale's native direct DNS manager supports
+bind-mounted resolver files, backup and restore. This gives a plausible ordinary
+project MagicDNS/outbound path without a Soda DNS server or modifying old roots to
+install Tailscale. Use `--no-hosts` for the companion so its creation does not append
+its hostname to the project's shared `/etc/hosts`.
+
+Before offering managed access, validate the actual resolver mount/owner and that
+native Tailscale may manage it. Custom project resolver mounts/managers are not
+silently overwritten. Native DNS recovery must precede loss of the companion's
+backup/root. Its generated file declares native ownership; hand edits retaining the
+Tailscale marker are not protected by an upstream compare-and-swap. Do not claim
+arbitrary-edit preservation or repair DNS by blindly restoring an old snapshot.
+Prove normal/public DNS, MagicDNS, nested-workload behavior, conflicting owners and
+stop/crash recovery. If the selected profile cannot meet that contract, report it
+unsupported rather than claim SOCKS-only or IP-only behavior is full integration.
+
+**Ephemeral state:** use a native state file in a restricted host `/run` directory
+bound to the project incarnation. The key makes the device ephemeral; diskless
+`--state=mem:` is not required. This preserves the node across a companion-daemon
+restart during the same project run. A new project run uses a fresh directory/node,
+not an old retained copy. A missing/ambiguous state file in the same run requires
+inspection or explicit retry, never another automatic key.
+
+Unlike `mem:`, this file-backed mode does not set upstream's `LoginEphemeral` flag
+that triggers best-effort shutdown logout. The native stop path must explicitly
+attempt logout when ending project access; stopping a daemon alone only makes the
+provider device offline. Do not logout merely to restart the companion within the
+same project run. Native logout failure and eventual provider expiry stay distinct.
+
+**Systemd lifetime:** keep `soda-project@` as the only project running/boot owner.
+Its start-post hook queues the exact companion unit with `--no-block`; it must not
+call back into the helper's held global Create/lifecycle gate or wait for enrollment.
+That hook runs for a new unit activation/failure restart, not an already-active
+Start. The companion uses `BindsTo=` and `After=` on that exact project unit; its
+bounded preparation waits for and binds the actual container incarnation, not
+just Type=simple's early active indication. Provider work remains in the companion
+unit's fixed native phase, outside the helper's global gate.
+
+Stop ordering must end the companion before the project's network disappears.
+Logout is for Off or the end of the project run, not a same-run daemon restart;
+use saved policy and the actual owning systemd stop job, not `ActiveState` alone
+(which may still be active while an ordered stop is queued). Preserve per-run state
+on daemon failure/restart, inspect incomplete attempts, and do not mint twice from
+unit restart hooks. Exact stop-job detection and failure-restart ordering are
+native proof items, not established by reading the unit manual. No `Upholds=` loop,
+browser polling mutation or scan/re-enrollment of every project.
+
+**Testable implementation seams:** concrete Go operations for host
+observe/login/preference/refresh; credential check and atomic binding update;
+project policy selection; exact-run prepare/enroll/observe/disconnect. Keep provider
+key creation separately observable from LocalAPI enrollment and readback. Inputs
+are fixed IDs/revisions/actions; only root-owned state resolves units, CIDs, sockets,
+files and native arguments. Stage 2 adds their DTOs/failure tests to the API owner;
+there is no reason to create a provider interface hierarchy or new task queue.
+
+#### Remaining native proof proposal
+
+No target or action below is authorized yet. Use one **new isolated native x86_64
+fixture**, not either retained appliance. Before execution, bind its exact name,
+base/candidate, package/image identities, two newly created project IDs/roots,
+client route and preservation inventory in the existing support/installed inputs.
+Refuse occupied names/state. No sibling-architecture gate or retained-root retrofit.
+
+| Phase | Exact proposed effects and assertions |
+| --- | --- |
+| A — no provider credentials | Approved fixture provisioning/start, two disposable projects and their companion units; TUN/NET_ADMIN only in the specified companion profile. Prove actual UID/net namespace ownership, private PID/mount/IPC boundaries, denied project-root access using synthetic canaries, host-root LocalAPI admission versus companion-local admission, fixed binaries/CIDs and no host engine exposure. |
+| A — native runtime lifecycle | On those fixtures only: project Start/Stop, same-run companion restart/failure, project failure restart, duplicate Start and Off. Validate queued systemd stop jobs, reverse stop ordering, changed namespace/PID rejection and retained state. No auth key/device may be created. Resolver mount ownership and safe failure behavior are observed without claiming registered networking. |
+| B — separately approved real enrollment | A restricted client-ID/secret input for one explicitly named Tailnet/tag policy, approved client/peer endpoints and approval/Lock policy. At most four single-use keys/devices: initial A and B, then A after one clean project restart and one project failure restart. No hidden test device, same-run daemon-restart enrollment or retry after an uncertain key outcome. |
+| B — connectivity and isolation | Ordinary project SSH/PTY/SCP/SFTP plus one project service, intended outbound Tailnet traffic, public DNS/MagicDNS and permitted/denied policy paths. Preserve ordinary LAN/terminal paths. Verify A/B independent identities, actual tags, approval/signature states, and unchanged appliance identity/preferences. Do not enable Tailscale SSH, exit-node/subnet advertisement or route acceptance. |
+| B — ending access | Explicit logout/stop of those exact project nodes, one Disable with no subsequent re-enable, bounded failure handling and fresh readback. Record confirmed logout versus uncertain removal/delayed expiry. Preserve project roots, credentials and attempt evidence. |
+
+No host logout, host route/advertisement change, host reboot, ACL/tag creation,
+provider device-delete, retained-target contact, fixture teardown or resource
+cleanup is included. A negative real-credential or Lock case requiring another
+Tailnet/credential/policy change needs its own input/grant; the synthetic refusal
+tests do not justify such a mutation. If a namespace, resolver or supervisor
+mechanism fails, stop that case and report the concrete limitation; do not add
+host privilege, rebuild roots or replay registration to make the observer pass.
 
 ### Stage 2 — Go contracts, state and authorization
 
@@ -515,9 +719,11 @@ contracts/UI and automatic project integration. Do not claim the requested featu
 complete after merely moving the host screen. Do not claim Cockpit is stock on a
 target until both obsolete Soda extensions are actually retired there.
 
-The still-open implementation decisions are explicitly bounded: selected package
-compatibility; native login wait seam; daemon/network namespace/TUN/DNS supervision;
-least-scope target/tag verification; approval/Tailnet Lock support; and safe network
-replacement. Optional reusable-key enrollment and arbitrary additional project
-Tailnets are not hidden prerequisites. No retained target, native test fixture,
-provider credential or maintenance window is selected/authorized by this document.
+Stage 1 selected a companion/upstream-Go-client design, bounded host-login seam,
+explicit Tailnet targeting and approval/rotation behavior. Remaining native proof
+covers actual package/image compatibility, namespace/TUN/LocalAPI isolation, DNS
+ownership/recovery, systemd stop/restart ordering and provider responses. These
+are not proven by the local SDK or CLI fixtures. Optional reusable-key enrollment
+and arbitrary additional project Tailnets are not hidden prerequisites. No retained
+target, native test fixture, provider credential or maintenance window is
+selected/authorized by this document.

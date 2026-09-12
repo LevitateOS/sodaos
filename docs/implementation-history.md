@@ -14,6 +14,85 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet stage 1 — local runtime and enrollment investigation
+
+The user approved the first step of `43238d3`'s Tailnet plan: local native/source
+investigation, synthetic checks and a scoped native proof proposal. Starting tree
+was clean. No retained target was contacted, and no real credential, device,
+project/VM lifecycle, namespace/capability/route change or cleanup was used.
+
+### Actual versions and source scope
+
+- Builder x86_64: `tailscale-1.102.4-1`, CLI commit
+  `3caf7d9e7dcaba589cfc58beda596929733e4fea`;
+  `podman-5.8.2-5.el10_2`, `systemd-257-23.el10_2.2.rocky.0.1`,
+  `util-linux-2.40.2-18.el10`. These are local package/version observations only.
+- Existing step-5 preflight records for both retained targets contain
+  `podman-5.8.4-1.fc44` and `systemd-259.8-1.fc44`. They do **not** record Tailscale's
+  version. No target query or assumption filled that gap.
+- Reused `.artifacts/tailnet-enrollment-TDPVW1/`. Retrieved public Tailscale
+  `v1.102.4` source, matching Podman `v5.8.4` and systemd `v259.8` source/manuals,
+  the public REST OpenAPI document, and official Go client
+  `tailscale.com/client/tailscale/v2` at `v2.10.1`. Checked the v2 import origin;
+  the older exported client is deprecated and the CLI OAuth hook is internal.
+  No production dependency/image/package selection or upgrade was made.
+
+### Findings adopted in the feature owner
+
+[The implementation plan](tailnet-integration-plan.md#stage-1-design-decisions)
+now specifies the companion, host-helper enrollment seam, host login wait,
+credential/binding/approval behavior, per-run state, DNS ownership and systemd
+lifetime requirements. Key corrections to the original brainstorm:
+
+- Podman directly supports both container user-namespace and network-namespace
+  joins. Its network-sharing bind mounts include the original resolver file;
+  `--no-hosts` avoids the companion's otherwise shared-hosts-file write. Tailscale
+  has native bind-mounted resolver fallback/backup handling. This is source
+  evidence, not proof that the retained namespace/DNS profiles work unchanged.
+- Unix peer credentials are interpreted in the receiving user namespace.
+  Tailscale's root/operator check therefore cannot treat an unmapped appliance-root
+  client as companion root. Do not weaken user isolation or add a privileged socket
+  proxy merely to retain the host CLI shortcut.
+- Use the existing host helper with upstream OAuth and v2 `CreateAuthKey`, naming
+  the exact managed Tailnet. Only a non-reusable ephemeral key reaches the trusted
+  companion's own CLI. No separate token service or project-held OAuth credential.
+  The basic `auth_keys` scope suffices; credential usability remains distinct from
+  verification on the first explicitly enabled real project. No hidden test node.
+- The SDK's convenience OAuth wrapper uses a background context; its response
+  decoding is unbounded and errors contain provider text. Stage 2 must use an
+  operation-scoped upstream token call and bounded, no-redirect, sanitized HTTP
+  handling rather than treating the SDK as Soda's safety boundary.
+- File-backed state in a host run-scoped directory retains a node across a daemon
+  restart. `mem:` instead sets the native best-effort logout flag; file-backed
+  ephemeral enrollment needs an explicit logout on project disconnect. End-of-run
+  shutdown and same-run daemon restart must not be conflated.
+
+The plan includes an unexecuted, two-phase native proposal: one new isolated
+x86_64 fixture/two new projects; first namespace/LocalAPI/DNS/lifecycle work with no
+provider credentials, then separately approved real connectivity with at most four
+explicit ephemeral registrations. Actual target/IDs/inputs and approval remain
+unselected. Host routing/logout/reboot, policy changes, retained delivery and
+cleanup are excluded. Native systemd stop-job/restart ordering remains a proof item.
+
+### Local checks actually run
+
+All probes used synthetic values. Go checks used the existing Go **1.26.7** binary
+with `GOTOOLCHAIN=local`, not the builder's unpinned default Go 1.27.0. Public module
+fetches and local test processes do not constitute installation or native networking.
+
+| Check | Result and limit |
+| --- | --- |
+| Tailscale source `go test ./feature/oauthkey -count=1 -v` | Existing resolver/attribute tests and a research-only two-case test passed: non-reusable, ephemeral, correct tags and explicit preauthorization; reusable secret goes only to OAuth endpoint and resolver returns only the single-use key. Loopback fake provider, not live enrollment. |
+| v2 client source `go test . -run '^TestSodaStage1ExplicitTailnet$' -count=1 -v` | Four synthetic cases passed: explicit-tailnet success, target refusal, provider error, ambiguous response. Each issued one key POST, with operation-scoped upstream OAuth and correct capabilities; no automatic key replay. Not a test of Soda's future bounded transport or actual provider policy. |
+| Tailscale source `go test ./net/dns -run '^TestDirect(Manager\|BrokenRename\|BrokenRemove)$' -count=1 -v` | Three upstream temporary-filesystem tests passed, including bind-like rename/remove failure and resolver restoration. No host resolver or namespace was changed. |
+| Builder `/usr/bin/tailscale` with `--socket` and `up --auth-key=file:...` | Final Unix LocalAPI fixture passed with synthetic input, one Start dispatch and no key in CLI output. This is native CLI execution, not a daemon, user-namespace or provider receipt. Three earlier fake-server failures (chunked request/204 response/notification-state fidelity) were corrected; failed logs remain. |
+| Documentation consistency | Affected local links/anchors/source references and `git diff --check` passed. No Soda application build or application test was run. |
+
+Research, synthetic test sources, original/corrected logs, public package projection
+and receipt hashes: **`.artifacts/tailnet-stage1-G8Rnza/`**. The source archives and
+new tests remain ignored; no production Go handler, unit, image or schema changed.
+No installed Cockpit retirement or native project-Tailnet readiness is claimed.
+
 ## Step 6 — source retirement parity review
 
 The user requested step 6 after being told source retirement and installed removal
