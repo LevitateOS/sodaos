@@ -83,8 +83,8 @@
 				{{end}}
 
 				{{if and .CanWriteCode .IsViewBranch (not .Repository.IsMirror) (not .Repository.IsArchived) (not .IsViewFile)}}
-					<button class="ui dropdown basic compact jump button tw-mr-1"{{if not .Repository.CanEnableEditor}} disabled{{end}}>
-						{{ctx.Locale.Tr "repo.editor.add_file"}}
+					<button class="ui dropdown basic compact jump button soda-code-add-file"{{if not .Repository.CanEnableEditor}} disabled{{end}}>
+						<span>{{ctx.Locale.Tr "repo.editor.add_file"}}</span>
 						{{svg "octicon-triangle-down" 14 "dropdown icon"}}
 						<div class="menu">
 							<a class="item" href="{{.RepoLink}}/_new/{{.BranchName | PathEscapeSegments}}/{{.TreePath | PathEscapeSegments}}">
@@ -122,7 +122,7 @@
 					</span>
 				{{end}}
 			</div>
-			<div class="tw-flex tw-items-center max-[390px]:tw-w-full">
+			<div class="soda-code-toolbar-end tw-flex tw-items-center">
 				<!-- Only show clone panel in repository home page -->
 				{{if $isHomepage}}
 					<div class="clone-panel ui action tiny input max-[390px]:tw-w-full">
