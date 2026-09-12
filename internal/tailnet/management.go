@@ -33,6 +33,7 @@ type Management struct {
 	policy   policyStore
 	local    *http.Client
 	provider *http.Client
+	keyHTTP  http.RoundTripper // operation-owned SDK transport; nil uses the native default
 	command  func(context.Context, string, ...string) ([]byte, error)
 }
 

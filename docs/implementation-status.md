@@ -8,7 +8,8 @@ historical approvals are not renewed execution permission.
 ## Active work — Tailnet
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
-place; actual native-page parity, project runtime and installed proof remain pending.
+place; Stage 4 source implementation is underway. Actual native-page parity,
+complete project runtime and installed proof remain pending.
 The user declined local fixture repair, deferred configured-device validation to the
 intended ARM device and selected further device-independent source work.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
@@ -49,10 +50,17 @@ separates those results from the failed native-page attempt. A later source-only
 follow-up fixed lost enrollment drafts on admission/default writes and added passing
 CSRF/origin and failed-readback checks, without contacting either device.
 
+**Stage-4 first slice:** bounded official-SDK key issuance, durable no-replay run
+admission/attempt observations, and native incarnation/companion-recipe primitives
+now have local race-tested coverage. No shipping runtime caller is activated; Create,
+supervision, lifecycle/DNS/key-file integration and project UI remain unfinished.
+See the [Stage-4 receipt](implementation-history.md#tailnet-stage-4--enrollment-core-and-incarnation-foundations).
+
 ### Next step
 
-Continue selected device-independent source work; project automation remains the
-next planned Stage 4 slice. [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+Continue the approved Stage-4 implementation: wire the trusted native consumer and
+supervision outside the project admission gate, resolver/exec/stop checks, then
+explicit Create selection and project Network/connection UI. [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
 is still unproven, not replaced by component-shell tests. The user declined repairing
 the broken local fixture and identified the ARM device as the intended target for
 configured-device validation. Its exact identity, current installed configuration
@@ -78,8 +86,9 @@ configuration changes.
 
 - **Authorized:** routine local source implementation, builds and tests for selected
   work, including existing local fixtures within their approved scope.
-- **Tailnet:** the user selected Stage 3 UI/parity source work and local checks.
-  Source/component checks are complete; native-page acceptance is blocked. The user
+- **Tailnet:** the user explicitly selected Stage 4 source implementation and local
+  tests. That work is in progress; no new source-work handoff approval is required.
+  Stage-3 native-page/device acceptance remains deferred. The user
   previously approved starting exact `sodaos-local-forgejo`; that attempt failed.
   The user then declined source-mount repair and chose device-independent work,
   deferring configured-device validation to the intended ARM device. No further local
@@ -183,6 +192,7 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
 
 | Evidence | Location |
 | --- | --- |
+| Tailnet stage-4 enrollment core and native incarnation/recipe source checks | `.artifacts/tailnet-stage4-source/` |
 | Tailnet device-independent draft fix and failure-path checks | `.artifacts/tailnet-source-followup/` |
 | Tailnet stage-3 authorized fixture-start failure and narrow mount inventory | `.artifacts/tailnet-stage3-acceptance/` |
 | Tailnet stage-3 source/component checks and failed native-page attempt | `.artifacts/tailnet-stage3-XEzD7o/`; `.artifacts/pages-FcP3af/` |
@@ -200,11 +210,11 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Fixed admission/default writes discarding an unsent enrollment draft or rebasing its
-revision. Added emitted tests for both actions, invalid CSRF/provider-origin refusal,
-and draft preservation after failed host readback. Strict TypeScript/Lit, 12 Tailnet
-checks (1 native-only skip) and 6 graph/build tests passed; the failing regression is
-retained in `.artifacts/tailnet-source-followup/`. Updated the API/feature owners and
-shared presentation epoch. No fixture repair/start, ARM contact, real Tailnet action,
-native bundle build, migration or deployment occurred. Recorded installed v9 state,
-native runtime proof and installed retirement remain unchanged/separately gated.
+Started Stage 4 with the enrollment core and native incarnation/recipe primitives.
+Pinned the selected upstream SDK without incidental dependency upgrades. Local
+race-enabled Tailnet/host/web tests passed; `cmd/soda-host` compiled. The core refuses
+same-run replay, changed CID/binding, ambiguous provider metadata and late target
+changes; no credentials enter attempt projections. Evidence:
+`.artifacts/tailnet-stage4-source/`. These are source foundations, not completed
+automation or an activated runtime. No fixture repair/start, ARM/device contact,
+real Tailnet action, native bundle, migration, deployment or Cockpit removal occurred.

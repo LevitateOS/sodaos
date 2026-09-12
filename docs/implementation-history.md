@@ -14,6 +14,67 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet stage 4 — enrollment core and incarnation foundations
+
+The user explicitly selected Stage 4 device-independent implementation from clean
+`879cdd4`. **This is the first source slice, not completed Stage 4.** The existing
+HTTP/CLI routes still report project runtime/default-enable unsupported. No runtime
+activation, project creation/start/stop, provider operation, ARM contact, local
+fixture repair/start or Cockpit removal occurred.
+
+### Implemented core
+
+- Pinned the previously selected official `tailscale.com/client/tailscale/v2` SDK;
+  only its required hujson dependency was added, without incidental upgrades.
+  The concrete key call uses the saved explicit Tailnet and upstream OAuth client
+  credentials with the existing bounded token transport, `auth_keys`/exact tags,
+  operation context and no SDK background OAuth wrapper or shared bearer cache.
+- The SDK key transport admits one fixed key POST, with response byte/deadline caps,
+  no redirect/replay and sanitized errors. Required nested capability fields must
+  be present/non-null/unduplicated before decoding. Returned key format, metadata,
+  short expiry, non-reusability, ephemeral flag, tags and preauthorization must
+  match before a single-use key can reach the native consumption callback.
+- Root-only `EnrollRun` admits the enabled original project/CID/binding under the
+  existing cancellable Tailnet policy lock, outside any project-gate implementation.
+  The native caller must validate/revalidate the exact incarnation and consume only
+  the single-use key; neither callback receives reusable credentials or bearer tokens.
+  There is no HTTP key/credential endpoint. Native submission is not connection,
+  approval or reachability confirmation.
+- Durable `active_run` marker publication precedes a sanitized run-attempt journal
+  and all provider work. Previous attempts, same-run journal loss, fsync uncertainty,
+  provider/consumption failure or late identity changes cannot automatically create
+  another key. `RunAttempt` is passive and reports missing matching state as
+  unconfirmed. A genuinely new validated project incarnation can admit a new attempt.
+  Existing project-policy reads/Off preserve the new marker; old strict helpers may
+  refuse it rather than silently dropping runtime history.
+- Native incarnation primitives reuse the full-CID project validator and add bounded
+  PID/start, boot ID, actual shifted UID/GID maps and non-host user/net namespace
+  observations with rechecks. A narrow Podman projection avoids full inspection
+  secrets; custom resolver storage paths refuse. The companion recipe binds an
+  immutable image and exact CID/run, private remaining namespaces, confined NET_ADMIN
+  and TUN, only three run-owned mounts, no host socket/project root/reusable credential,
+  no-hosts and no raw container logging. These are authored primitives, not an
+  executable supervisor or validated filesystem/DNS isolation.
+
+### Local checks and remaining wiring
+
+Evidence: `.artifacts/tailnet-stage4-source/`. Pinned Go 1.26.7 race-enabled Tailnet,
+host and web tests passed; `cmd/soda-host` compiled without tests. Focused cases cover
+SDK request/capability shape, unsafe/ambiguous/oversized/redirect/error results,
+cancellation, concurrent duplicate attempts, same-run lost journals versus fresh
+incarnations, CID/binding/admission refusal, failed publication/consumption and late
+target changes. Synthetic `/proc`/argument tests cover host namespace substitution,
+wrong/dead/reused process observations, incompatible mappings and forbidden mounts,
+flags/images. No real provider/Podman/namespace operation ran in these tests.
+
+Remaining approved source work: trusted supervisor/activation and key-file/native-exec
+consumption, actual resolver ownership/recovery and unit stop/restart admission;
+then explicit Create/Start/Stop/boot wiring and authorized Network/SSH/Lit projections.
+Those callers must use the new core; an unused primitive or argument test is not the
+Stage-4 lifecycle exit. The ARM target/configured-device proof and native-page
+acceptance remain separately selected/authorized later work, not a reason to request
+another source-implementation grant.
+
 ## Tailnet stage 3 — native UI source and bounded parity
 
 The user selected Stage 3 from clean `254e6d1`. The UI/source slice is implemented,

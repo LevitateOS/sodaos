@@ -47,6 +47,7 @@ type projectPolicy struct {
 	Container string `json:"container"`
 	Binding   string `json:"binding"`
 	Enabled   bool   `json:"enabled"`
+	ActiveRun string `json:"active_run,omitempty"`
 }
 
 func newRevision() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
@@ -332,6 +333,24 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 	}
 	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: v.view()}, nil
 }
+func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPolicy, error) {
+	v := projectPolicy{Project: project, Container: cid, Revision: "0"}
+	var loaded projectPolicy
+	e := p.read(root, "project-"+project+".json", &loaded)
+	if errors.Is(e, os.ErrNotExist) {
+		return v, nil
+	}
+	if e != nil {
+		return v, e
+	}
+	if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") || (loaded.ActiveRun != "" && !containerPattern.MatchString(loaded.ActiveRun)) {
+		return v, ErrUnavailable
+	}
+	if loaded.Project != project || loaded.Container != cid {
+		return v, ErrConflict
+	}
+	return loaded, nil
+}
 func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
 	if r.Validate() != nil || !containerPattern.MatchString(cid) {
 		return ProjectView{}, ErrInvalid
@@ -348,17 +367,8 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 		}
 		defer root.Close()
 		defer lock.Close()
-		loaded := projectPolicy{}
-		err = p.read(root, "project-"+r.Project+".json", &loaded)
-		if err == nil {
-			if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") {
-				return ProjectView{}, ErrUnavailable
-			}
-			if loaded.Project != r.Project || loaded.Container != cid {
-				return ProjectView{}, ErrConflict
-			}
-			v = loaded
-		} else if !errors.Is(err, os.ErrNotExist) {
+		v, err = p.loadProject(root, r.Project, cid)
+		if err != nil {
 			return ProjectView{}, err
 		}
 	}

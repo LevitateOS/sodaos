@@ -22,7 +22,8 @@ from step 2 remains; no retained-target upgrade follows from local page checks.
 
 ## Tailnet credentials and schema-v10 return
 
-**Stage-2 backend source, not installed migration or real enrollment proof.**
+**Stage-2 backend plus Stage-4 enrollment-core source, not installed migration or
+real enrollment proof.**
 The [Tailnet plan](tailnet-integration-plan.md) owns host-only credential, policy and
 future ephemeral-node state separation; [the API](dashboard-api.md#tailnet-backend)
 owns requests and projections. These credentials are not Forgejo session grants,
@@ -42,7 +43,25 @@ files; leftover publication inputs are not automatically cleaned up. Missing or
 unsafe configured inputs are unavailable, not permission to regenerate them.
 Passive reads and credential checks create no state files. The separate provider
 check uses an operation-local upstream OAuth token, never a global cached token or
-a test-device registration. Project runtime/run-state files are not implemented yet.
+a test-device registration.
+
+The Stage-4 native enrollment core adds a durable `active_run` incarnation marker to
+project intent and version-1 `attempt-PROJECT_ID-RUN_HASH.json` records under the same
+private root. They contain only target/binding/phase metadata, never keys/tokens.
+The marker is published before the attempt and provider call: missing same-run
+journals and uncertain fsync/response/consumption refuse automatic re-enrollment.
+These are separate from the still-unimplemented companion `/run` state/key files.
+Older strict helpers may refuse the added project field; source tests are not
+installed mixed-version compatibility or restoration permission.
+
+The native-only `EnrollRun` operation uses the pinned official v2 SDK with explicit
+saved Tailnet, exact tags, non-reusable ephemeral keys, bounded short expiry and the
+saved preauthorization choice. Reusable OAuth material stays in the helper; only a
+validated single-use key reaches its consumption callback. No HTTP key/credential
+endpoint exists. SDK/provider errors are sanitized, all work has an operation
+deadline and no key POST is replayed. Project/CID/binding admission and incarnation
+rechecks fence key consumption. The runtime consumer is not wired yet; shipping
+project/default-enable operations remain unsupported.
 
 Append-only **schema v10** rebuilds the existing OAuth table with the same rows,
 columns and constraints, extending `settings_return` to empty/runners/tailnet.

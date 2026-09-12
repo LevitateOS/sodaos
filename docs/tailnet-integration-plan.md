@@ -639,6 +639,23 @@ light/dark/narrow/wide presentation and the existing connection/logout contracts
 
 ### Stage 4 — automatic enrollment and project integration
 
+**In progress — enrollment core and incarnation/recipe primitives implemented.**
+The first source slice adds the selected v2 SDK key call with fixed endpoint,
+operation-owned OAuth, bounded/validated responses and no POST replay. A durable
+project-run marker and sanitized attempt journal precede provider work; matching
+same-run attempts (including lost journals) cannot automatically mint another key.
+Passive attempt observation and cancellable policy serialization are source-tested.
+Native process identity checks cover boot/PID start, shifted mappings and non-host
+user/network namespaces; the fixed companion argument recipe is authored and tested,
+not an executed companion or installed compatibility claim.
+
+The native supervisor/activation, resolver ownership/recovery, key-file consumption
+and confirmed native exec observation remain to be wired, followed by explicit Create
+selection, Start/Stop/boot, project Network/SSH projections and the Lit controls.
+Shipping HTTP/CLI callers still report runtime unsupported; the new key operation is
+not exposed as a credential endpoint or enabled by configuration. This is not the
+Stage-4 exit. Source approval remains active; no ARM/device action was granted.
+
 Implement the accepted scoped runtime and root policy from stages 1–2. Wire existing
 Create/Start/Stop/native boot paths and the shared project Network panel; extend
 connection metadata without changing existing LAN/SSH behavior or account authority.
