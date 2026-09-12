@@ -37,30 +37,27 @@ paths, not retained-runner migration. See the [delivery record](implementation-h
 
 ## Current permissions
 
+Execution policy is owned by [AGENTS.md](../AGENTS.md#permissions-and-preservation).
+The active grant record is:
+
 - **Authorized:** routine local source implementation, builds and tests for selected
-  work, including existing local fixtures within their approved scope. No repeated
-  permission handoff is needed for that work.
-- **Not authorized by the completed delivery:** another retained-target cutover,
-  service/project/VM lifecycle, new native fixture, real provider registration/job,
-  network/trust/capability change, publishing/automatic CI or cleanup. Such effects
-  need their applicable target/action grant; old approvals do not renew themselves.
+  work, including existing local fixtures within their approved scope.
+- **No outstanding grant from the completed delivery** for another retained-target
+  cutover/lifecycle, new native fixture, provider job/registration, network/trust/
+  capability change, publishing/automatic CI or cleanup.
 - **Cockpit Runners retirement is not approved.** Keep its package, backing logic and
   tests pending accepted replacement parity and separate removal scope/delivery approval.
 - The isolated runner fixture's one reboot and exact `probe-one` removal grants were
   used. Its time-bounded VM hold is not a new lifecycle grant. The two-GET diagnostic
   authorization was also completed, not permission to reopen the listener.
 - Retained roots, current v9 data, credentials, fixtures, archives, stopped records,
-  failed attempts and later writes remain protected. No blanket pruning or blind
-  restoration is authorized; old backups may predate later writes.
+  failed attempts and later writes remain in custody. No cleanup/restore is approved.
 
 ## Remaining work
 
-1. **Native pages/Runners:** step 6 remains separately gated. Accept the delivered
-   parity/coverage map, then authorize the coordinated Cockpit Runners removal
-   candidate and target delivery. Reuse applicable isolated mutation evidence; do
-   not create retained capacity merely to fill a matrix. Preserve Tailnet, ordinary
-   Cockpit and runner backend/native contracts. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
-   owns this work; completed steps are not a checklist to replay.
+1. **Native pages/Runners:** step 6 remains pending, without removal approval.
+   The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+   is the sole owner of its parity, source-removal and delivery requirements.
 2. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
    Access/error/profile-menu and CLI/provider combinations, intended-client routing,
    aarch64 and whole-product/release acceptance remain outside the bounded delivery
@@ -103,6 +100,8 @@ documentation does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Documentation only: separated this snapshot from the historical record and retargeted
-historical deep links. Checked archive-body preservation, local links/anchors and
+Documentation only: consolidated active guidance around its owners, removed obsolete
+lane reservations and competing completion sequences, and replaced stale state/grant
+copies with links here. Feature contracts and archived evidence were retained.
+Checked affected links/anchors, retained sections, unchanged history and
 `git diff --check`. No builds, application tests, target contact or native actions ran.

@@ -11,35 +11,15 @@
 - Prefer upstream mechanisms and direct, concrete code over duplicated authority,
   speculative frameworks or new orchestration. Check the selected upstream version
   and actual Soda caller before adding an adapter or declaring a limitation.
-- Report changes, checks actually run and remaining limitations concisely. For
-  substantial changes, update `docs/implementation-status.md`; do not add timelines here.
-
-## Product and authority boundaries
-
-- Stock Forgejo owns identity, authentication, Git, permissions and administration.
-  Use supported configuration, templates, assets and APIs. No Forgejo fork, direct
-  database access or replacement authority; revisit the design if one seems necessary.
-- Soda's Go backend owns environment/access integration. Use native Forgejo pages
-  with Lit management/terminal controls, not a standalone Soda dashboard. Cockpit
-  retains its separate React/PatternFly operator UI, loopback-first.
-- Project owners administer projects, not the appliance. Native root, the configured
-  Soda operator and Forgejo site administrators are distinct authorities. Developer
-  Linux accounts belong inside projects, not on the host.
-- Enforce authorization server-side from trusted state; preserve session, OAuth,
-  CSRF and input protections. The host helper exposes fixed operations, not arbitrary
-  commands or unrestricted host Podman access.
-- Projects have persistent roots, accounts, homes, keys, installed tools and service
-  data. Normal startup starts the existing container. Joining must provision real
-  access; shared resources mean actual shared tools/files/services. Keep Git, mise
-  and SSH native; a bridge address alone does not prove client reachability.
-- Providers own CI workflows, scheduling and results; Soda manages Forgejo-only local
-  runner capacity. This does not remove project GitHub CLI tools or native imports.
-  Preserve stock Cockpit and Tailnet. Keep Cockpit Runners, its backing logic and tests
-  until replacement parity and separately approved retirement.
+- Update requirements in their owning guide; link to them elsewhere instead of
+  copying rules or appending exceptions. The documentation map below identifies owners.
+- Report changes, checks actually run and remaining limitations concisely. Update
+  `docs/implementation-status.md` in place for substantial changes; detailed receipts
+  belong in history, not additional rules here.
 
 ## Permissions and preservation
 
-- Routine local implementation, builds and tests for the planned work are authorized.
+- Current grants belong to the user's task and the [handoff](docs/implementation-status.md#current-permissions).
   Appliance installation, service/VM lifecycle, real provider registration/jobs,
   publishing/automatic CI, network/trust changes and cleanup require applicable
   target/action approval. A command, input file or old approval is not a new grant.
@@ -58,11 +38,9 @@
 
 ## Code and tooling
 
-- Use Go for backend/setup/privileged integration. New JS-family source is TypeScript;
-  retain strict checks, validate untrusted data from `unknown`, and use `import type`.
-  Do not bypass checking with blanket `any`, unchecked casts or disabled checks.
-- Use the root Bun workspace and single `bun.lock`. Tool/dependency versions belong
-  in `go.mod`, manifests and source lockfiles, not this guide. Avoid incidental upgrades.
+- Use Go for backend/setup/privileged integration. The [TypeScript guide](docs/typescript.md)
+  owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
+  Versions belong in source manifests/locks; avoid incidental upgrades.
 - Add focused behavior, failure and authorization tests with changes. Keep callers,
   generated browser assets and staging wired together; reuse existing test drivers.
 - Generated outputs belong in ignored `.artifacts/`; private inputs stay untracked.
@@ -92,8 +70,9 @@ real state. Provisioning output contains sensitive password hashes.
 
 ## Task-specific documentation
 
-Read the guides relevant to the change, not this entire list. Service/image source
-in `appliance/services/` and `project-os/` establishes implemented topology.
+Read the owning guide before changing its contracts, not this entire list.
+Architecture owns product/security boundaries; feature guides own their details.
+Service/image source in `appliance/services/` and `project-os/` establishes topology.
 
 | Area | Guide |
 | --- | --- |
@@ -105,4 +84,4 @@ in `appliance/services/` and `project-os/` establishes implemented topology.
 | Build, deployment and native tools | [Installation](docs/installation.md), [native validation](docs/native-validation.md), [support-tool effects](docs/native-support.md) |
 | Browser screenshots | [Capture and fixture login](docs/screenshot-capture.md); use `scripts/screenshot.ts`. |
 | Refactoring | [Upstream-first review](docs/refactoring-plan.md#1-upstream-first-review) |
-| Retained state, permissions and evidence | [Current handoff](docs/implementation-status.md), [local testing](docs/local-testing.md); historical receipts do not renew permissions. |
+| Retained state and active grants | [Current handoff](docs/implementation-status.md); [local testing](docs/local-testing.md) owns access paths, not another state/approval record. |

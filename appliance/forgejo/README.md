@@ -53,7 +53,7 @@ CSS and artwork changes need a browser refresh; template changes need:
 docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
-The [native Soda page host](../../docs/forgejo-soda-pages-plan.md#step-1--prove-the-native-page-host)
+The [native Soda page host](../../docs/forgejo-soda-pages-plan.md#3-native-page-host-and-ownership)
 has an opt-in browser check against this exact local preview:
 `SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts`.
 Prepare the matching canonical public payload first; missing server assets fail

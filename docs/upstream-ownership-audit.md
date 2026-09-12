@@ -19,7 +19,7 @@ The later [three-pass overengineering review](overengineering-review.md) records
 findings at `7594458`, the assistant's reversals and the investigation of dependants.
 It is a separate revision-bound supplement, not a rewrite of the findings below.
 
-The [architecture](architecture.md) and [upstream-first instructions](../AGENTS.md#human-maintainable-engineering)
+The [architecture](architecture.md) and [upstream-first instructions](../AGENTS.md#working-style)
 remain the product boundary. A small adapter is justified when it binds native
 operations to Soda's operator, project, actor or artifact contract. Reimplementing
 the underlying forge, package manager, authentication protocol, container engine

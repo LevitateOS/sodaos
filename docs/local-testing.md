@@ -1,11 +1,10 @@
 # Local test host and retained access
 
-This describes the **last recorded** isolated `soda-test` installation, not a new
-liveness check or permission to mutate it. Separately approved cutover delivered
-`bdbce8e` affected artifacts, native Forgejo/Sodaspaces and schema v5. Native private-page
-browser and all seven existing memberships' SSH/PTY observations passed; the four
-project roots and unchanged native components retain prior provenance. See the
-[cutover evidence](implementation-history.md#approved-retained-cutover).
+This guide owns recorded access paths and wrapper effects for `soda-test`.
+Installed versions, active grants and preservation results have one home in the
+[current handoff](implementation-status.md); historical access receipts are in
+[implementation history](implementation-history.md). None of the addresses below
+is a fresh liveness observation.
 
 ## Target and state to preserve
 
@@ -65,9 +64,8 @@ Inspect the subcommand and actual target before use:
 | `scripts/test-vm.sh start` | Starts the existing guest/disk; requires applicable scope |
 
 Port 23000 is diagnostic/bootstrap access, not the configured normal Forgejo origin.
-Existing fixture and reboot approvals were used. A new start/stop/reboot, fixture,
-installation, provider operation or host-network change requires its own scope.
-Never rerun first-install/bootstrap or clear markers/configuration to repair this guest.
+Use the handoff's current grants and [execution policy](../AGENTS.md#permissions-and-preservation)
+before a wrapper's effects; an available command does not authorize them.
 
 ## Developer routing and historical checks
 
@@ -76,9 +74,9 @@ SSH tunnel `tun8417` and exact run-owned firewall rules, not through a LAN/Tailn
 change. Direct SSH/PTY/SCP/SFTP, native Git/shared tools, HTTP/SQL and scoped lifecycle
 results are in the handoff. This does not route the laptop or establish automatic
 route/workload restart. Project addresses changed across lifecycle operations; old
-examples, agents and recorded bindings are not automatic liveness evidence. The latest
-cutover independently verified SSH/PTY for all seven existing memberships through
-this unchanged infra route, with operator-verified host keys; no laptop route was added.
+examples, agents and recorded bindings are not automatic liveness evidence. Do not
+attribute later access checks to this older route: the current handoff identifies
+the actual client transport used for each delivered scope.
 
 Preserve the run-owned tunnel, probe files, failed workload resources, private Git
 inputs and snapshots. Old agents/passphrases are not guaranteed available after

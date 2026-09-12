@@ -1,10 +1,8 @@
 # Native validation
 
-**Historical bounded U08 native x86_64 proof is accepted; new UI and final product
-acceptance are pending.** The [handoff](implementation-status.md) records exact
-`8b823db` build/rollout/regressions and scoped earlier lifecycle/fresh-project proof.
-The four retained environments and infra route are not a fresh appliance install
-or independent aarch64 result. No old browser harness validates current API-only source.
+Installed state, accepted evidence and remaining gaps belong to the
+[current handoff](implementation-status.md); this guide owns validation contracts,
+not a second progress or permission record.
 
 This is the product validation guide, not another roadmap. Features own their
 focused tests; extend existing product entrypoints rather than copying scenarios
@@ -146,8 +144,7 @@ Record actual source revision, native OS/architecture/tool versions, commands, o
 
 ## Local workspace checks and installed-journey source ports
 
-The step-5 workspace and current journey controls have local coverage, not current
-installed acceptance. `bun run test:pages` (`test:spaces-page` remains an alias)
+`bun run test:pages` (`test:spaces-page` remains an alias)
 runs `scripts/test-spaces-page.ts` and `TestNativeConnectionFixture` against the
 authorized stock Forgejo at `http://localhost:3300`. Forgejo supplies native HTML
 and authentication; a fresh retained Go backend/OAuth fixture serves the canonical
@@ -582,7 +579,7 @@ Forgejo Git advertisement is refreshed only when its actual private listener acc
 
 ## Operator Runners journey
 
-The [runner completion plan](runners-port.md#implementation-and-completion-gate)
+The [runner completion plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
 owns the dashboard migration's source/native/provider/preservation exits. The
 existing installed operator probe still reads Cockpit inventory only. The
 [runner-native preparation guide](runners-native-validation.md) now documents

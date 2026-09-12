@@ -1,10 +1,12 @@
 # Native build and installation
 
-Native execution has begun on the local x86_64 builder and an isolated CoreOS VM; see [local testing](local-testing.md) for observed results and remaining gaps. Use the actual authorized matching-native Linux builder and selected appliance target. A build or boot does not establish usable end-to-end development environments.
+This guide owns installation and affected-component maintenance procedures.
+Use the [handoff](implementation-status.md) for installed state and active grants,
+and [local testing](local-testing.md) for recorded access paths.
 
-The [Sodaspaces plan](sodaspaces-plan.md) and production callers own application
-payload/configuration/credentials/migrations/cutover. [Native support](native-support.md)
-supplies artifact inspection/bundling and provisioning transport, not a second
+[Sodaspaces](sodaspaces-plan.md) owns product scope; the [credential guide](dashboard-credentials.md)
+owns credential/schema contracts. These procedures use production callers.
+[Native support](native-support.md) supplies artifact inspection/bundling and provisioning transport, not a second
 installer or product gate. The [CoreOS installer implementation](coreos-installer.md)
 now has source and focused local tests for upstream ISO customization, a Go console
 and installed-host continuation instead of Anaconda. The console ships on media,
@@ -182,66 +184,42 @@ separately approved rehearsal/deployment. A missing or wrong key fails closed;
 a prior binary is not assumed compatible with the new schema.
 
 ### Retained Sodaspaces cutover
+This section owns affected-component maintenance, not first-install replay or a
+fixed historical v3→v5 recipe. Consult the [handoff](implementation-status.md) for
+actual installed versions/grants and [AGENTS.md](../AGENTS.md#permissions-and-preservation)
+for execution policy. Assess only the change's real compatibility and interruption
+effects; do not assume an old target inventory or replay completed maintenance.
 
-This is the bounded affected-component procedure for the retained `soda-test`,
-**not a general upgrade tool or permission to replay maintenance**. Fresh delivery,
-copied private v3 → v5 / paired rollback and the separately approved retained cutover
-passed; see the [handoff](implementation-history.md#approved-retained-cutover). Any new
-maintenance still needs its own exact scope and current backup.
-
-1. Approve the exact candidate/configuration and short Soda/Forgejo/proxy interruption.
-   Record installed image IDs and effective units, not assumed `:dev` tags: the retained
-   dashboard Quadlet is image-pinned. Inventory the four roots, their containers/images/
-   running state and original membership logins. Stop if identities or customizations
-   differ; do not force an old fixture inventory onto later writes.
-2. Quiesce Soda writes and stop only the old Soda service for a **new** consistent
-   SQLite backup and matching config/key/credential/artifact/unit/proxy/custom-file set.
-   The rehearsal backup is not current rollback data. Retain prior callbacks through
-   the actual owner's supported interface, file owners/modes/labels and the prior image.
-   Do not freeze, snapshot-restore or restart project workloads to manufacture equality.
-3. Verify the delivered bundle and stage the image by its actual config digest, plus
-   matching `soda-dashboard` and strict-config `soda-runners` binaries. The unchanged
-   helper, project image/default, project services, Cockpit and runner services are not
-   upgrade targets. Update the effective dashboard Quadlet's single image pin and
-   reload systemd; do not rely on loading an image to change a pinned unit.
-4. Preserve all credentials, native Forgejo origin/client, service UID, socket and
-   stored identities. Remove only legacy `public_url` from the prepared Soda config.
-   Deliver the namespaced Caddy recipe and remove only `SODA_ORIGIN` from `proxy.env`,
-   keeping `FORGEJO_ORIGIN`, private bind and TLS. Do not run first-install/setup/
-   activation recipes or generate a new grant key/OAuth application.
-5. Before any custom-file write, inspect the exact four hooks/assets and all ancestors,
-   including CustomPath, types, ownership and labels. Refuse unexpected occupants;
-   preserve operator changes. Install only the approved header/footer/CSS/JS, with
-   0644 files and readable new directories; no recursive mutable-tree chown. Retain
-   native theme/cache settings. Apply the reviewed query-free native logging settings
-   without replacing unrelated Forgejo configuration; general upstream logs remain.
-6. As the application's actual owner, use native Applications settings to update only
-   the intended callback to `FORGEJO_ORIGIN/-/soda/oauth/callback`, preserving unrelated
-   registered callbacks, name, confidential-client setting and secret. Retained app 4
-   currently has only the old Soda callback. **No API PATCH or secret regeneration.**
-   Verify the owner-visible client/callback metadata, and retain the exact prior list
-   for a reviewed rollback decision. Do not edit Forgejo's DB.
-7. Restart only the affected Forgejo/proxy/Soda services once their paired inputs are
-   ready. The correct key is checked before the backend migrates v3 → v5. Before new
-   browser login, verify integrity/FKs and preservation of original profile/key/
-   project/membership/session/grant columns and ciphertext. Run native runner `list`
-   with `{}` input, without registration/jobs or restarting runner services.
-8. Verify the running backend/image, custom bytes and native query-free logging.
-   Verify the unchanged Forgejo origin and native routes/protocols, the new scoped
-   namespace/cookies and removed separate Soda listener. Users explicitly sign in
-   again; old cookies/pending OAuth are not imported or replayed. Use the declared
-   private-repository read-only journey for the retained private repository, not a
-   visibility change, with real OAuth/identity/blur/BFCache/native-form observations.
-9. Compare all four root/container identities and original membership logins. Observe
-   own existing connection/host-key values and actual own-key SSH from a recorded
-   client path; do not add keys, join/create/start environments or change routing to
-   conceal a failed observation. Record the precise client, payloads and outcomes.
-
-On failure, retain candidate DB/WAL, credentials, partial delivery and all later writes.
-Do not run an old binary on v5, lower a schema marker or automatically overwrite data
-with a rehearsal snapshot. Rollback needs an explicit review of the matching prior
-DB/config/key/image/unit/callback/custom-file set **and** subsequent writes. Stop for
-that decision rather than inventing repair/reconciliation or deleting project roots.
+1. Identify the exact target, running image IDs/effective units, schema, private
+   inputs, customizations and affected project/runner/session state. Select the
+   minimal compatible delta and declare its interruptions. A bundle's project
+   images or package defaults are not automatically part of that delta.
+2. Before replacing active management writers or stopping shared services, close
+   their affected admission paths and drain actual pending writers. Replacing a file
+   does not stop an old process. Follow the [terminal shutdown contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits)
+   for managed-session quiescence and the [runner compatibility contract](runners-port.md#paired-artifact-compatibility)
+   for shared CLI/web writers; do not silently stop ordinary workloads or jobs.
+3. Take appropriate fresh consistent backups of affected state and matching
+   config/key/artifact/unit/custom-file inputs. The [credential migration contract](dashboard-credentials.md#controlled-existing-state-rehearsal-before-live-deployment)
+   owns SQLite/key/schema rehearsal and compatible restoration. Reuse applicable
+   compatibility evidence; copied state must not authenticate grants or start cloned
+   listeners with live credentials. Preserve metadata and operator customizations.
+4. Publish only the approved paired changes. Verify the dashboard OCI and actual
+   image pin, not just its separately staged executable. Required project-local
+   program changes follow [same-root maintenance](project-os.md#deliver-required-additions-without-replacing-roots); do not replace
+   roots. Do not rerun setup/activation, regenerate keys/OAuth applications or alter
+   callbacks/configuration merely because a historical recipe did so. Any required
+   upstream setting change uses its supported owner interface and declared scope.
+5. Restart only affected approved services after compatible inputs are ready.
+   Verify running bytes, applicable migration/preservation outcomes, native routes
+   and protected page/access paths. Keep original accounts, roots, credentials,
+   runner state and unaffected services. Use existing actor credentials and the
+   declared client route; a failed observation does not justify adding keys,
+   projects, permissions or network changes.
+6. Record completed versus unconfirmed effects and preserve failed/partial state
+   plus later writes. Restoration requires a compatible matching set and a
+   later-write preservation decision under the credential contract; never lower a
+   schema marker or replay a mutation to fix an observer.
 
 ## 4. Establish real project reachability
 

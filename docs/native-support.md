@@ -35,9 +35,11 @@ Reuse and licensing are recorded in [native support notices](native-support-noti
 
 ## Effects and permissions
 
-Every command below is a **later, explicitly authorized recipe**, not a record of execution:
+This section owns command effects, not an approval queue. Apply the
+[execution policy](../AGENTS.md#permissions-and-preservation) and [current grants](implementation-status.md#current-permissions)
+to those effects; already-approved local work does not need a new grant per command.
 
-- `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Tests, browser login and provider mutations need their own grants.
+- `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
 - `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
 - `fetch-coreos`: downloads/verifies/decompresses a public QEMU base into a fresh private cache. No overwrite, key import, VM or installation.
 - `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO selected by `appliance/locks/coreos-iso.json`, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. It does not customize, boot, publish or install; `scripts/build-installer.py` is its concrete media caller.
@@ -62,7 +64,7 @@ bash scripts/check-native.sh x86_64
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, four actual OCI archives, the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. New bundles reject retired standalone React assets/inputs; Soda's API/OAuth command includes only the bounded authenticated Spaces HTML shell, not a replacement Forgejo frontend. Core packaging tests still own their detailed payload assertions.
+The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, four actual OCI archives, the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 

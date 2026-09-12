@@ -1,62 +1,30 @@
 # Sodaspaces implementation plan
 
-The [combined native-pages/Runners completion plan](native-pages-runners-plan.md)
-is now the active sequence for their remaining integration, validation, delivery
-and Cockpit runner retirement. This document continues to own the wider product
-scope; unrelated Project OS/services/CLI work is not absorbed into that sequence.
+This document owns Sodaspaces product scope. The [combined native-pages/Runners
+plan](native-pages-runners-plan.md) alone owns their remaining coordination and
+Cockpit retirement; unrelated Project OS/services/CLI work is not absorbed into it.
+Installed revisions, acceptance gaps and active grants belong to the
+[current handoff](implementation-status.md), with receipts in [history](implementation-history.md).
 
-Add one **Sodaspaces button beside Forgejo's repository actions**, opening a
-**right-side shared-environment drawer**, plus a global **Spaces** navigation link
-and a full workspace page. The new [native page integration plan](forgejo-soda-pages-plan.md)
-replaces the current separate Go HTML shell with a view rendered inside Forgejo's
-real header/profile/navigation. It also covers Runners and repository Spaces
-settings, automatic connection and coordinated normal logout. Its first four steps now
-have native management bodies, shared connection/logout, switched navigation and
-fixed bookmark entries with local Forgejo browser proof. Old Go shells and their
-boot callers are removed; final integrated acceptance and delivery remain. No new Forgejo repository tab; tabs
-**inside the drawer and Spaces panes** are required. Both surfaces will use the
-shared **Lit** component implementation, not separate frontends.
+Provide one **Sodaspaces button beside Forgejo's repository actions**, opening a
+**right-side shared-environment drawer**, plus global **Spaces** navigation and a
+full workspace page. No new Forgejo repository tab; tabs inside the drawer and
+Spaces panes are required. Both surfaces share Lit components, not separate frontends.
 
-The [upstream-first refactoring review](refactoring-plan.md) records bounded
-maintenance recommendations and corrections to the initial audit. It preserves
-this feature sequence and unfinished work; it is not a framework rewrite, a new
-native readiness gate or deployment permission.
+Detailed requirements stay with their owners:
 
-**Current source:** native Forgejo hooks, real management/access integration and
-managed-tmux reattachment exist; management and terminal controls are ported to Lit
-with local emitted-browser/layout coverage. Xterm and transport stay imperative.
-The ID-keyed backend, exact correlation/cleanup outcomes, name metadata and bounded
-authorized collection now have local Go/race/browser coverage. The Spaces page,
-fixed OAuth return and shared multi-session UI now have local source/browser coverage.
-Bounded v2 layout, stable measured panes, shared navigation/actions and compact
-native coexistence now have local source/browser coverage, alongside current journey
-source ports and actual Go HTML→emitted-page integration. The
-[Lit workspace implementation plan](lit-migration-plan.md) retains the workspace
-feature sequence: steps 1–5 and 6a/6b are locally implemented and checked, including observed
-attention and extended candidate/installed-driver source coverage. Scoped native/CLI
-proof (6c) remains. No installed journey or CLI acceptance is
-inferred from the synthetic layout/socket fixtures.
-The [full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs own UX.
-The native page integration plan supersedes their separate-shell placement and
-routine manual-connection guidance; it preserves the shared workspace and existing
-native acceptance obligations. Descriptions of the removed Go shells below are historical; the native integration
-plan and leading handoff describe current source.
+- [Native page integration](forgejo-soda-pages-plan.md): native hosts, fixed bookmark
+  bridges, initial connection and coordinated logout; no separate Go page shells.
+- [Full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs: UX,
+  subject to that native host/connection contract.
+- [Lit](lit.md) and its [implementation guide](lit-migration-plan.md): shared rendering;
+  [terminal integration](terminal-integration.md): exact sessions and native lifetime.
+- [Frontend improvement](frontend-improvement-plan.md): canonical tokens, template
+  diagnostics, typed composition and source/build ownership.
+- [Upstream-first review](refactoring-plan.md): bounded maintenance recommendations.
 
-The [frontend improvement guide](frontend-improvement-plan.md) now consolidates the
-post-step-5 architecture research and cleanup requirements. Retain Go/Forgejo + Lit;
-canonical token migration is mandatory, alongside enforced template diagnostics,
-typed view composition and coherent source/build ownership. Apply this bounded
-cleanup before further UI expansion, preserving completed steps and any current
-step-6 work. The Lit plan remains the feature sequence; the guide contains cleanup
-detail, not a second product roadmap or new native permission.
-
-**Execution is revision-specific.** Original access/cutover and later single-terminal
-results are bounded x86_64 evidence, not full UX/product acceptance. Isolated
-`22d8591` passed actual same-shell reload and acknowledged/independently checked
-cleanup; the broader native probe/editor/build/network/failure matrix remains open.
-The user-rejected modal/blur-ending behavior is historical, not the selected contract.
-Preserve all earlier failures/evidence in the [handoff](implementation-status.md).
-This plan is not deployment permission or completion of the native acceptance gaps.
+Older shell/phase descriptions below retain design history, not alternate entry,
+release, permission or completion instructions.
 
 The [CoreOS product strategy](os-product-strategy.md) is longer-term host guidance.
 Capacity/recovery/boot work, the separate Rocky 10.2 retained-root decision and
@@ -501,7 +469,7 @@ person is not a Forgejo site administrator; native site-admin status alone canno
 grant it. Server-side checks apply to every read and mutation, including deep links.
 Keep Cockpit Runners and all its backing logic/tests until the replacement works.
 Sodarunners now has a protected Go/Lit page, APIs and fixed root bridge with local
-coverage; the [runner completion plan](runners-port.md#implementation-and-completion-gate)
+coverage; the [runner completion plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
 records the locally completed presentation/lifetime slice and proposed later
 native/provider acceptance, preserved-state delivery and Cockpit removal. The page
 still has a separate Soda-rendered shell. The user subsequently removed GitHub runner support; the local runner controls
@@ -601,7 +569,7 @@ remain intact. Feature guides own detailed checks rather than competing roadmaps
    clearly that destruction is operator-managed/outside the product for this version.
 4. **Finish runner parity and delivery in unified native operator settings.** The
    page/API/root bridge already have source and local coverage. Follow the
-   [runner completion plan](runners-port.md#implementation-and-completion-gate) for
+   [runner completion plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation) for
    remaining source fixes, native/provider proof and coordinated Cockpit removal.
    Tailnet stays in Cockpit; Soda operator and native provider authorities remain
    separate. Runner OS isolation, AI and caching are independent work.
@@ -1356,19 +1324,11 @@ project-subnet/SSH routing proof. Runner settings and other remaining work stay 
 
 ## Follow-up and limits
 
-**Runner configuration placement:** the user selected moving Soda's local runner
-capacity/service configuration from Cockpit into the unified SodaOS/Forgejo native
-interface, as operator-only settings—not the repository Sodaspaces drawer or a
-revived standalone dashboard. The protected Go/Lit page, API, fixed OAuth return,
-supported navbar hook and shared root bridge are implemented with local coverage.
-The [runner guide](runners-port.md#implementation-and-completion-gate) owns the
-remaining completion plan; no Forgejo fork or copied permission authority.
-Provider-owned registration authority, workflows, scheduling and results remain
-upstream-owned. Preserve the Cockpit Runners page until delivered parity passes
-and its removal is coordinated. Tailnet stays in Cockpit.
-Repository ownership or arbitrary Forgejo site administration does not confer Soda
-operator authority. Native/provider proof and cutover remain; the existing source
-is not a deployment grant.
+**Runner configuration placement:** [runner contracts](runners-port.md#selected-product-boundary)
+own operator-only local capacity and its native/provider authority boundary.
+The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+owns remaining retirement work. Delivery state and acceptance are recorded only
+in the current handoff.
 
 Basic Start/Stop and explicit own-key controls have source coverage and bounded
 recorded native proof; preserve their regressions and remaining operator/client scope.

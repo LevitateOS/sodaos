@@ -157,7 +157,7 @@ session/runtime set before stopping either service. If sessions or unconfirmed
 state remain, stop for an explicit decision—not forced logout/End, a shorter lease,
 automatic replacement or a promise of same-ID reattachment. Ordinary SSH/personal
 tmux and unrelated workloads are separate preservation observations. See the
-[retained delivery checkpoint](native-pages-runners-plan.md#5c-separately-approved-live-cutover-and-verification).
+[affected-component maintenance](installation.md#retained-sodaspaces-cutover).
 
 The protected per-ID `terminal-sessions/{terminalID}` API reports lifecycle/effective
 and hard deadlines, accepts End/Return/Keep/Hide and bounded display-only Rename.

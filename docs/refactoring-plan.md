@@ -18,7 +18,7 @@ session/page mechanics. The earlier sections retain their design/evidence contex
 
 The [audit](upstream-ownership-audit.md) is the evidence source for the remediation
 phases below. Its coverage, selected upstream versions and review limitations live
-there, not in a second inventory here. The [repository instructions](../AGENTS.md#human-maintainable-engineering)
+there, not in a second inventory here. The [repository instructions](../AGENTS.md#working-style)
 and feature-owner contracts continue to govern implementation; neither document
 grants native execution or deployment permission.
 

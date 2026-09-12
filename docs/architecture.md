@@ -19,24 +19,15 @@ features. It distinguishes today's upstream-based delivery from future boot/stor
 recovery ownership. It does not replace the current implementation plan or select
 the deferred features for execution.
 
-[Current work](sodaspaces-plan.md) is a **Sodaspaces** repository button/environment drawer
-inside Forgejo's native frontend. Both standalone React and original Go/HTMX Soda
-frontends are removed; the Go API/OAuth service remains. A read-only native drawer
-was implemented and passed native x86_64 build/stage and isolated exported-payload
-browser checks. The complete mounted management/terminal UI now has bounded native
-x86_64 OAuth, Create/Join, lifecycle, key-revocation and SSH/PTY/transfer proof on the
-isolated fixture; retained delivery and broader product acceptance remain separate.
-See the [handoff](implementation-status.md) for source versus installed evidence.
+[Sodaspaces](sodaspaces-plan.md) provides the repository environment drawer and
+shared workspace inside Forgejo's native frontend. The Go API/OAuth service remains;
+neither a standalone React nor Go/HTMX Soda frontend is selected.
 
-The current source hosts Spaces, Runners and repository Spaces settings inside
-Forgejo's native dashboard through supported template overrides. Native links reach
-`/?soda-view=spaces`, `/?soda-view=runners` and the repository-ID-bound settings
-view. The old `/-/soda/` page URLs are fixed native-login bookmark bridges; their
-Go HTML shells are removed. Existing Lit components retain the workspace,
-management and terminal owners, with protected Soda APIs and coordinated OAuth/
-logout. Forgejo supplies its actual header, profile menu and native authentication.
-See the [native integration plan](forgejo-soda-pages-plan.md) and handoff for local
-source/browser evidence versus separately authorized appliance delivery.
+The [native page integration guide](forgejo-soda-pages-plan.md) owns the dashboard
+hosts, fixed bookmark bridges, shared connection and coordinated logout. Forgejo
+supplies its actual header, profile menu and native authentication; Lit supplies
+Soda's management/workspace views. Installed revisions, delivery and acceptance
+status belong only to the [current handoff](implementation-status.md).
 
 The [Lit implementation sequence](lit-migration-plan.md) retains the shared page/
 drawer workspace and native terminal acceptance obligations. The
@@ -44,12 +35,10 @@ drawer workspace and native terminal acceptance obligations. The
 template checking and typed composition. This port changes presentation and entry,
 not project or runner backend responsibilities or atomic authentication semantics.
 
-The selected [native session mechanism](sodaspaces-plan.md#resumable-terminal-decision--tmux)
-is stock Rocky tmux under each original project account, with a private supervised
-server per managed browser terminal. Soda retains access/lifetime authority; tmux
-retains the live terminal state. This source is implemented with bounded isolated
-`22d8591` same-shell reload/cleanup evidence; broader native safety/UX proof remains
-open. It is not a replacement for ordinary SSH or a separate public terminal server.
+The [terminal guide](terminal-integration.md) owns the selected tmux mechanism:
+a private supervised server under each original project account. Soda retains
+access/lifetime authority; tmux retains live terminal state. This is not a
+replacement for ordinary SSH or a separate public terminal server.
 
 ## Topology
 
@@ -91,8 +80,8 @@ The [settings contract](sodaspaces-plan.md#settings-pages-and-os-selection) plac
 Sodaspaces and CLI-based AI automation in repository settings and local Sodarunners
 capacity in global Soda-operator settings. “Move runners to the dashboard” means
 this bounded native-interface extension, not reviving either removed frontend.
-Forgejo retains Actions settings/scheduling/permissions; Cockpit Runners remains
-until parity is proved, and Tailnet stays there. Marketplace apps, persistent
+Forgejo retains Actions settings/scheduling/permissions. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+owns Cockpit Runners retirement; Tailnet stays in Cockpit. Marketplace apps, persistent
 Project OS roots, isolated AI jobs and account-owned desktop sessions have distinct
 native lifetimes and credentials; sharing UI does not combine their privileges.
 
@@ -141,10 +130,8 @@ integration cannot meet a requirement, explain its actual constraint and return
 for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
 iframe or weakened native security. Management and terminal controls now use
 [Lit](lit.md), loaded on demand; the page and drawer share a multi-session workspace
-with flat terminal owners. Xterm/transport remain imperative; measured layouts and
-compact projections and observed attention have local coverage, while broader
-native/CLI acceptance remains outstanding. Local rendering tests are not installed
-CLI compatibility or full terminal acceptance.
+with flat terminal owners. Xterm/transport remain imperative. The Lit and terminal
+guides own their rendering and session contracts; the handoff records evidence.
 
 Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized
 refresh, logout-winning persistence, request/response bounds and CSRF/origin checks.
@@ -152,8 +139,8 @@ Native OAuth tokens are not native web sessions. Different ports do not isolate
 cookies. Root redirects to configured native Forgejo home; OAuth can return to a
 repository resolved by stored ID through the acting grant, never a supplied URL.
 Soda's expected-user header guards page/session consistency, not native browser
-session authenticity. Native-page wiring passed the isolated local browser journey; native
-WebAuthn origins/RP-ID, session revocation and Git protocols stay upstream-owned.
+session authenticity. Native WebAuthn origins/RP-ID, session revocation and Git
+protocols stay upstream-owned.
 
 The bookmark handlers redirect only to fixed native views. Private collection and
 operation authority stays in the existing protected APIs, including original-actor,
@@ -166,11 +153,10 @@ HTML relay, borrowed cookie or replacement password authority is used.
 
 **Add me to this project** must create the intended real project-local Linux account
 and install any explicitly selected external-SSH public keys, then record membership
-only after confirmed native success. The new source supports account-only Join with no external SSH keys, including
-real native script wiring and locally tested preservation checks. Native delivery
-and fresh browser-only access proof remain pending. A row,
-mock or manual-command checklist is not the feature. The creator explicitly joins
-as well. Never request a private SSH key.
+only after confirmed native success. Account-only Join without external SSH keys
+follows the [Project OS access contract](project-os.md#access-credentials-and-connectivity).
+A row, mock or manual-command checklist is not the feature. The creator explicitly
+joins as well. Never request a private SSH key.
 
 The root:soda Unix-socket helper exposes fixed operations, not arbitrary commands,
 host Podman flags or a generic forwarding surface. Resolve actor and native target
@@ -230,12 +216,9 @@ authorization, validation, error handling or persistence requirements.
 
 [Native validation](native-validation.md) owns product journeys. Outside
 [support tools](native-support.md) supply transport/artifacts/evidence, not copied
-product tests or another readiness gate. Native x86_64 and aarch64 are independent
-targets; cross-build/emulation is not installed proof and one need not block the other.
-Rehearse preserved-state changes before separately approved deployment. Build/test,
-install/restart, routing, provider actions and exact cleanup have distinct permission
-scopes. Keep secrets in restricted files/input channels, never argv/logs/screenshots.
-Preserve all unrelated work, private inputs, backups and failed evidence.
+product tests or another readiness gate. [AGENTS.md](../AGENTS.md#permissions-and-preservation)
+owns execution, preservation and evidence policy; the handoff records current grants.
+[Installation](installation.md#retained-sodaspaces-cutover) owns maintenance procedures.
 
 The predecessor repository is separate. Preserve [reuse attribution](predecessor-reuse.md),
 [licenses](licensing.md) and canonical artwork; do not modify it, close its issues or

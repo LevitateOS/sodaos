@@ -1,43 +1,10 @@
-# Runner native validation preparation
+# Runner native validation
 
-This guide supplies the runner inputs/tools for steps 2–4 of the active
-[combined completion plan](native-pages-runners-plan.md). The earlier
-[runner step 4](runners-port.md#4-prepare-product-owned-native-journeys-and-a-paired-candidate)
-remains a historical source/preparation record, not a separate execution sequence.
-It is not execution permission, an appliance updater or a second source/native gate.
-The combined plan owns the shared browser driver, authentication and paired
-delivery; earlier lane reservations are superseded.
-
-**Current status:** runner inputs, callable scenarios, fixed read-only native
-observations and provider dispatch/exact-run observations have source implementations.
-The historical candidate `9476858` passed the ordinary aggregate source gate and
-focused local input/transport-double/filesystem checks; this is not a fresh receipt
-for the pulled combined checkout. Native connection/logout and page bodies have
-now landed (`6097564`, `a77dea1`), followed by navigation retirement and cache/history
-source. The explicit `97a2d5e` handoff is incorporated. The existing installed driver
-now calls the runner phases through a distinct branch with isolated actor contexts
-and a one-shot page/actor/path/body guard. Its local source-backed tests use doubles;
-bounded installed phases have now run on the explicitly approved new
-`soda-native-runners-2cdc238` fixture. The active combined plan and leading handoff
-own its current results and remaining work; the older lane reservations are superseded.
-Latest installed native x86_64 candidate `19824ec` passed fresh build/seal, the full
-native check, export and verified paired maintenance on that fixture. Its exact
-inputs/evidence are retained under `.artifacts/runners-vm-2cdc238/`; its export is
-`.artifacts/runner-projection-19824ec/export/x86_64/`. The original `2cdc238` and subsequent
-`556038c` attempts remain retained, including the reproduced native umask failure.
-Native registration, successful exact job, idle/active lifecycle and aftermath have
-bounded results; older unconfirmed outer browser/guard receipts stay failed. The
-bounded waiter and coordinated logout ports passed natively. The **single approved
-reboot was used**, with preserved state/credentials/UIDs and enablement policy.
-The full installed native page/auth/cache journey, bounded cancelled CLI waiter,
-three-caller mutation overlap, dispatched departure/no-replay and exact probe Remove
-now passed. Probe work/credentials/evidence were archived first; baseline remains
-running and unchanged. Both provider registration records and all three exact run
-histories remain, verified by official API and native history pages. **Step 4 is
-complete only for this bounded isolated x86_64 scope**, with exact earlier-candidate
-mechanism continuity documented in the handoff—not relabelled old PASS records.
-Keep Cockpit Runners. Retained-target delivery, wider page/whole-product and aarch64
-acceptance remain separate.
+This guide owns runner test inputs, per-effect gates, native observations and
+installed scenarios. [Runner contracts](runners-port.md) own product behavior;
+the [combined plan](native-pages-runners-plan.md) owns coordination/retirement.
+Use the [current handoff](implementation-status.md) for installed state, active
+permissions and evidence, not historical fixture approvals as defaults.
 
 ## Owners and entrypoints
 
@@ -269,24 +236,15 @@ record, not in source or a new readiness database:
 | --- | --- |
 | Candidate | Full revision, architecture, passing check/export receipt, manifest and actual delivered-byte verifier receipt. |
 | Target | Actual hostname, origin, CA, SSH host-key pin/config, private browser home, existing versus newly approved fixture and affected activation components. |
-| Actors | Native nonadmin Soda operator, native nonoperator site administrator, and separate root/Cockpit operator. Record stable IDs and restricted login-input paths, never passwords. |
+| Actors | Effectful fixtures require a nonadmin Soda operator and nonoperator site administrator; list-only input may declare actual roles through `native_admins`. Root/Cockpit is separate. Record stable IDs and restricted login-input paths, never passwords. |
 | Provider | Already approved system runner record: native provider numeric ID/inspection URL and UUID, unique label, exact repository ID/path, workflow commit/file, provider actor/PAT scope and restricted token files. Local ID is not provider ID. |
 | Preservation | Every existing local runner ID/account/state and relevant project/root/terminal baseline; required quiescence and fresh backup scope. Unknown/unsupported inventory stops activation. |
 | Disposable resources | Exact local runner ID, provider record, unique observation per job, hold duration and exact run IDs returned by dispatch. No unrelated capacity may share the fixture label. |
 | Allowed cases | List/registration/job/lifecycle, 20-second lock hold and cancelled waiter, reboot, local Remove and provider cleanup separately. Each grant names its actual effects, not an `all` flag. |
 | Failure handling | Retain evidence/partial state; stop automatic writes. Name the person who may approve further observation or corrective actions. No automatic retry, old-snapshot restore or cleanup. |
 
-The completed isolated proposal selected `soda-native-runners-2cdc238`, x86_64,
-Forgejo `https://127.0.0.1:34443`, root Cockpit `https://127.0.0.1:39090`, pinned SSH
-on port 22226, nonadmin Soda operator `runner-operator` (ID 1), nonoperator site
-administrator `runner-admin` (ID 2), and the fixture's own root login. Provider
-records 1/2 were baseline/probe, repository ID 1 was `runner-operator/runner-proof`,
-with the exact trusted manual workflow/commit and run IDs in the restricted inputs.
-Only probe was disposable; baseline stayed preserved. The one reboot is used;
-probe local Remove is complete but provider removal was not performed. Inputs,
-archives, failures and exact candidate bindings remain under
-`.artifacts/runners-vm-2cdc238/`. These selections are not defaults for another
-fixture or retained-target grant.
+Past selections and consumed grants are recorded in the [handoff](implementation-status.md)
+and linked history. They are not defaults for these case inputs.
 
 ### A. Registration and successful trusted job
 
@@ -455,61 +413,11 @@ outcome and retain job/history/evidence as the provider actually supports. No bl
 inactive-runner deletion, work-tree pruning or shared fixture cleanup.
 
 ## One paired candidate and maintenance owner
-
-Use the existing producer/verifier rather than a new manifest format or updater:
-
-```sh
-# Only after the shared source handoff, with its exact clean revision and pinned
-# matching-native Linux toolchain, in a fresh worktree/output location:
-scripts/build-native.sh x86_64
-scripts/check-native.sh x86_64
-.artifacts/native/x86_64/tools/soda-artifacts bundle \
-  --source "$PWD/.artifacts/native/x86_64" --arch x86_64 \
-  --revision "$(git rev-parse HEAD)" --out /private/new-export-parent/x86_64
-```
-
-The export parent must already exist; outputs must be fresh. Use the independent
-matching-native aarch64 recipe on that architecture, not emulation or a sibling
-barrier. No script here creates a fixture, installs the appliance or publishes
-artifacts. The host default remains Go 1.27.0, but the required Go 1.26.7 is now
-available at `.artifacts/runners-step4-continued/toolchain/go/bin/go`, downloaded
-from go.dev and verified against its published SHA-256. Select its `bin` directory
-with command-local PATH and `GOTOOLCHAIN=local`; no shared pin or host installation
-changed. The `97a2d5e` page/driver handoff is incorporated. Toolchain availability and editor
-handoff are no longer blockers; only actual build/check/export receipts establish
-candidate readiness. Broader Soda-pages acceptance is still separately recorded.
-
-Review this affected set against the **real sealed inventory and target state**:
-
-| Artifact | Delivery/compatibility responsibility |
-| --- | --- |
-| `images/dashboard.oci` | The running backend is in this image. Verify its source/config digest and update the target's actual image pin through the approved recipe. A separately staged `soda-dashboard` binary does not replace this service. |
-| `rootfs/usr/local/libexec/soda/soda-host` and `soda-runners` | Paired management lock/protocol owners. Stop new management admission and wait for old CLI/helper operations before replacement. Restarting `soda-host` affects project/browser terminal integration too; declare that interruption. |
-| `rootfs/usr/local/libexec/soda/soda-runner-launch` | Matching Forgejo-only launcher. It is not a management-lock owner. Do not restart existing listeners merely to replace this file. |
-| Canonical Forgejo custom payload/assets/notices | Consume the Soda-pages handoff and `forgejo-payload.json`/sealed export, not a second handwritten file list. Review native template reload/service interruption with that owner. |
-| Existing runner units, sysusers/tmpfiles and package requirements | Inspect actual effective confinement and `rpm` versions. Change only separately reviewed deltas; do not recreate accounts, assign new UIDs, rewrite descriptors or upgrade clients incidentally. |
-| Obsolete installed `soda-runner-helper` | Explicit retirement only during approved maintenance after all old writers exit. Its absence in new source/bundles does not remove an installed independently callable writer. |
-| Cockpit Runners and Tailnet | Preserve both payloads and backing logic. Retirement of only the runner presentation remains step 7, not this candidate preparation. |
-
-The existing full producer also builds Project OS/service images. Their presence
-in a bundle does not select them for delivery or permit replacing project roots.
-No standalone runner image, GitHub client, whole-appliance upgrade or first-install
-recipe is introduced.
-
-Before calling the candidate ready, record the actual source revision, native arch,
-sealed inventory/checksum, package/version evidence, shared browser handoff, actual
-target/schema/private inputs, affected bytes, required interruptions and exact
-executor. Follow [credential/schema rehearsal](dashboard-credentials.md#controlled-existing-state-rehearsal-before-live-deployment)
-on copied state without starting cloned listeners with copied live credentials.
-Common build/schema/backup/delivery phases have one executor and one exact-candidate
-receipt across both lanes. Later target writes require fresh applicable backups;
-old evidence is not lossless rollback.
-
-**Remaining step-4 exit:** finish applicable local driver/guard validation and
-review the prepared cases against the selected target/provider inputs for approval, and
-use the prepared pinned builder to produce/check/inspect the matching native
-export and target-specific compatibility recipe. The local parser/transport-double/
-filesystem tests below are preparation evidence, not substitutes for those exits.
+The [runner compatibility contract](runners-port.md#paired-artifact-compatibility)
+owns the affected-artifact relationships. Use the [native build/export contract](native-support.md#build-and-artifact-contract)
+and [installation maintenance procedure](installation.md#retained-sodaspaces-cutover),
+not another build recipe or lane handoff here. Tool versions come from source pins;
+current candidates, target state and results come from the handoff.
 
 ## Local checks
 
