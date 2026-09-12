@@ -1,6 +1,6 @@
 # Forgejo image assets
 
-Forgejo delivers exactly six Soda branding images:
+Forgejo delivers six Soda branding images plus six welcome-page backgrounds:
 
 | Asset | Purpose |
 | --- | --- |
@@ -30,3 +30,8 @@ Native interface/provider icons, QR codes and actual user/repository/organizatio
 images remain. The functional `theme-preview.html` uses the native canonical logo.
 See [redesign status](../../../docs/forgejo-redesign-status.md) for live/component
 review evidence and [branding review](../../../docs/branding-review.md) for tools.
+
+The public front page uses the website’s six approved soda-bar WebPs: mobile,
+tablet and desktop, each in day/night. They live in `backgrounds/`; its README
+records provenance. The native page and footer form one centered opaque frame.
+Other pages do not request or display these backgrounds.

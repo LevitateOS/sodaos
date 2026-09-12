@@ -1,7 +1,7 @@
 @import "../fonts/fonts.css?v=2026-09-12.brutalist-2";
 @import "../theme/palette.css?v=2026-09-12.brutalist-2";
 /* Public welcome layout; shared guest roles select the current theme. */
-.soda-home { flex: 1; background: var(--soda-guest-canvas); color: var(--soda-guest-text); }
+.soda-home { flex: none; background: var(--soda-guest-canvas); color: var(--soda-guest-text); }
 .soda-home.page-content > :first-child { margin-top: 0; }
 .soda-home a { color: var(--soda-guest-link); }
 .soda-home :is(a,button):focus-visible { outline: 2px solid var(--soda-guest-focus); outline-offset: 4px; }
@@ -16,16 +16,16 @@
 .soda-home-brand .soda-home-logo-dark { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-light { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { display: block; }
-.soda-home-hero { display: grid; gap: 32px; max-width: 1280px; margin: auto; padding: 48px 16px; }
+.soda-home-hero { display: grid; gap: 32px; max-width: 1280px; margin: auto; padding: 36px 20px; }
 .soda-home-copy,.soda-home-entry { min-width: 0; }
 .soda-home-eyebrow { display: inline-block; max-width: 100%; padding: 4px 8px; margin: 0 0 20px; color: var(--soda-guest-canvas); background: var(--soda-guest-text); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .04em; }
-.soda-home h1 { margin: 0; font: 800 clamp(48px, 9vw, 116px)/.95 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
+.soda-home h1 { margin: 0; font: 800 clamp(44px, 7vw, 96px)/.95 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
 .soda-home-lede { max-width: 36ch; margin: 0 0 24px; font: 400 20px/1.5 Barlow, sans-serif; color: var(--soda-guest-muted); }
 .soda-home-actions { display: grid; gap: 12px; }
 .soda-home-actions a { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; }
 .soda-home-account { margin: 20px 0 0; color: var(--soda-guest-muted); font: 400 15px/1.5 Barlow, sans-serif; }
 .soda-home-account a { text-decoration: underline; text-underline-offset: 3px; }
-.soda-home-features { display: grid; max-width: 1248px; margin: 0 16px 40px; border-top: 1px solid var(--soda-guest-edge); }
+.soda-home-features { display: grid; max-width: 1248px; margin: 0 20px 16px; border-top: 1px solid var(--soda-guest-edge); }
 .soda-home-features article { display: grid; grid-template-columns: 32px 1fr; gap: 16px; padding-block: 24px; }
 .soda-home-features article + article { border-top: 1px solid var(--soda-guest-edge); }
 .soda-home-feature-number { color: var(--soda-guest-link); font: 500 14px/1.5 "IBM Plex Mono", monospace; }
@@ -34,15 +34,87 @@ html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { displ
 body:has(.soda-home) footer { background: var(--soda-guest-canvas); color: var(--soda-guest-muted); border-top: 1px solid var(--soda-guest-edge); }
 body:has(.soda-home) footer a { color: var(--soda-guest-link); }
 @media (min-width: 48rem) {
-  .soda-home-nav { padding-inline: max(32px, calc((100% - 1248px)/2)); }
+  .soda-home-nav { padding-inline: 32px; }
   .soda-home-links > a:first-child { display: inline; }
   .soda-home-hero { padding: 64px 32px; }
-  .soda-home-features { grid-template-columns: repeat(3,minmax(0,1fr)); margin-inline: max(32px,calc((100% - 1248px)/2)); }
+  .soda-home-features { grid-template-columns: repeat(3,minmax(0,1fr)); margin-inline: 32px; }
   .soda-home-features article { padding: 28px 20px; }
   .soda-home-features article:first-child { padding-left: 0; }
   .soda-home-features article + article { border-top: 0; border-left: 1px solid var(--soda-guest-edge); }
 }
 @media (min-width: 64rem) {
-  .soda-home-hero { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items: end; gap: 64px; padding-block: 88px; }
+  .soda-home-hero { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items: end; gap: 40px; padding-block: 64px; }
   .soda-home-entry { padding-bottom: 4px; }
+}
+
+/* The native full-height shell and footer form one opaque, centered frame.
+   Keep native footer menus and links in place; only the guest welcome page opts in. */
+body:has(.soda-home) {
+  --soda-home-day: url("./backgrounds/mobile-day.webp");
+  --soda-home-night: url("./backgrounds/mobile-night.webp");
+  --soda-home-background: var(--soda-home-day);
+  box-sizing: border-box;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  height: auto;
+  padding: 32px 4% 48px;
+}
+body:has(.soda-home)::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: #292929 var(--soda-home-background) center / cover no-repeat;
+  pointer-events: none;
+}
+html[data-soda-login-theme="dark"] body:has(.soda-home) {
+  --soda-home-background: var(--soda-home-night);
+}
+body:has(.soda-home) .full.height {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border: 2px solid var(--soda-guest-text);
+  border-bottom: 0;
+  background: var(--soda-guest-canvas);
+}
+body:has(.soda-home) footer {
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 20px;
+  border: 2px solid var(--soda-guest-text);
+  border-top: 1px solid var(--soda-guest-edge);
+  background: var(--soda-guest-canvas);
+}
+body:has(.soda-home) footer .ui.dropdown .menu {
+  max-width: calc(100vw - 64px);
+}
+@media (min-width: 48rem) {
+  body:has(.soda-home) {
+    --soda-home-day: url("./backgrounds/tablet-day.webp");
+    --soda-home-night: url("./backgrounds/tablet-night.webp");
+    padding: 48px 7% 64px;
+  }
+  body:has(.soda-home) footer { padding-inline: 32px; }
+}
+@media (min-width: 75rem) {
+  body:has(.soda-home) {
+    --soda-home-day: url("./backgrounds/desktop-day.webp");
+    --soda-home-night: url("./backgrounds/desktop-night.webp");
+    padding: 64px max(12%, calc((100% - 1280px) / 2));
+  }
+}
+@media print {
+  body:has(.soda-home) { padding: 0; }
+  body:has(.soda-home)::before { display: none; }
+  body:has(.soda-home) :is(.full.height, footer) { border: 0; }
 }

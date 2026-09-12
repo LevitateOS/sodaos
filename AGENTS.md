@@ -2,6 +2,8 @@
 
 ## Working style
 
+- Work in the canonical `~/Projects/sodaos` checkout for this redesign. Do not create or use a worktree unless the owner explicitly changes that preference.
+
 - Inspect the working tree first; preserve unrelated changes. Make coherent commits;
   do not amend or rewrite history without permission.
 - Finish approved work without repeated handoffs. Ask again only for actions outside

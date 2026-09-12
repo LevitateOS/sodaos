@@ -2,6 +2,16 @@
 
 Updated 12 September 2026 in `/Users/vince/Projects/sodaos-forgejo-redesign`, branch `codex/forgejo-redesign`.
 
+## Current workspace
+
+The owner moved ongoing work to the canonical `/Users/vince/Projects/sodaos`
+checkout on `main`. The deleted worktree is no longer the development workspace.
+The committed redesign through `bcf0fb1` is merged here, including the framed
+welcome page. The six uninstalled subway concepts are preserved under
+`.artifacts/subway-backgrounds/`; they remain previews. The running local
+container still uses surviving presentation mounts under the former directory;
+moving those runtime mounts is separate from this source recovery.
+
 ## Scope completed
 
 The full inventory of **253 Forgejo 15.0.7 overrides** uses the redesigned shared presentation owners. This includes authentication and onboarding, dashboard and exploration, public profiles and organizations, repositories and code views, issues and pull requests, milestones/projects/wiki/releases, Actions, packages, notifications, personal/repository/organization settings, moderation, administration and status pages. Most native templates inherit the design without unnecessary markup edits; explicit template edits remove obsolete presentation inputs and refine shared composition without replacing native control bodies.
@@ -85,6 +95,34 @@ All 35 retired local image URLs return 404; the six current images match source
 bytes and native image aliases/icons still load. Public native browser checks,
 source contracts, Go checks, packaging checks and website parity pass.
 See `.artifacts/forgejo-image-cleanup/` for exact removal lists and receipts.
+
+## Framed public welcome page
+
+The public front page now places its native header, welcome content and footer
+inside one centered, opaque 2px frame over the website’s soda-bar photography.
+Mobile keeps 4% gutters; tablet uses 7%, desktop at least 12%, with a 1280px
+maximum panel. Short pages center vertically; taller content scrolls naturally.
+The footer owns the single shared divider. Native content, registration gates,
+routes and theme controls remain unchanged.
+
+Six optimized WebPs are copied byte-for-byte from website commit `4ff11a5`:
+mobile/tablet/desktop, each in day/night. The website retains the PNG masters and
+prompts. The canonical payload stages them; only the selected background downloads
+on the welcome page. Other Forgejo pages retain their existing layouts.
+
+Installed on the existing localhost:3300 presentation mounts. Only `home.css`,
+its versioned header link and the six backgrounds were delivered; previous CSS
+and header are saved in `.artifacts/forgejo-home-background/before`. The local
+container restarted to reload its template; data, credentials and configuration
+were preserved.
+
+The preview build, affected Go templates, branding/presentation inventory and test
+type checks pass. Twelve browser combinations cover both themes at 320, 390, 768,
+1024, 1440 and 2560px, including opposite system preferences, one background
+request, an opaque centered frame, and a joined footer with no doubled divider.
+All 28 existing live public route/theme/viewport checks pass; the live theme toggle
+was also reviewed visually. An optional embedded-upstream inventory check remains
+skipped because its local export is absent. Logs are in `/tmp/forgejo-home-*.log`.
 
 ## Remaining boundaries
 
