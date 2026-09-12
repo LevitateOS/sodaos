@@ -125,8 +125,8 @@ test('notification preview uses native HTMX with stable accessible lifecycle', {
           bg:getComputedStyle(el).backgroundColor,fg:getComputedStyle(el).color,
           actionCase:getComputedStyle(action).textTransform,actionHeight:action.getBoundingClientRect().height};
       });
-      assert.equal(design.border,'2px');assert.equal(design.shadow,'none');
-      assert.equal(design.headerBg,design.fg);assert.equal(design.headerFg,design.bg);
+      assert.equal(design.border,'1px');assert.equal(design.shadow,'none');
+      assert.equal(design.headerBg,design.bg);assert.equal(design.headerFg,design.fg);
       assert.equal(design.actionCase,'uppercase');assert(design.actionHeight>=44);
       await close.click();
     }

@@ -920,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bd01aafaacade82965edde26ea7c6cdda57e04586a081af72842dfa38f4c7cfa",
+      "beforeRoleHash": "bb019297eb0eba9ffe360af14ddc077c3e9970a7bd6f6c5cac933b1d27f0db19",
       "upstreamCallers": [
         "base/head.tmpl"
       ],

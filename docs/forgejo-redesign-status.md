@@ -179,9 +179,14 @@ The prior broad pass missed the bell preview's older palette/typography and the
 notification family's selected-tab treatment. This focused pass covers unread/read
 inboxes, subscriptions, watched repositories, and the bell preview's populated,
 pinned, loading, empty and failure/retry states. It uses the shared neutral palette,
-inverse tabs/header, framed visible row controls, condensed headings, technical
-metadata and a red View all notifications action. Single dividers separate rows
-and controls. Narrow rows move timestamps/actions below the title through 1100px.
+inverse page tabs, framed visible row controls and single dividers. Narrow page
+rows move timestamps/actions below the title through 1100px. The bell preview uses
+a compact mono label, a theme-matched header, a 1px neutral frame, 16px medium-weight
+titles and a quiet red footer link. Its close target remains 44px and
+keyboard focus remains visible. Compact preview delivery and visual evidence are
+retained in `.artifacts/forgejo-notification-compact/`. Six populated browser-only
+visual fixtures cover 320, 800 and 1440px in both themes; the preview lifecycle
+suite passes all 14 viewport/theme checks after this refinement.
 
 Only `notifications.css`, `notification-preview.css` and their versioned header
 links were delivered to the canonical localhost:3300 mounts. Native templates,
