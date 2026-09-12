@@ -1,5 +1,5 @@
 /* Text-led page introductions; controls stay in native toolbars. */
-.soda-page-intro { display: block; padding-top: 16px; margin-bottom: 24px; border-top: 3px solid var(--soda-page-text); }
+.soda-page-intro { display: block; padding-top: 16px; margin-bottom: 24px; border-top: 0; }
 .soda-page-copy { min-width: 0; }
 .soda-page-eyebrow { display: inline-block; max-width: 100%; padding: 4px 8px; background: var(--soda-page-text); color: var(--soda-page-canvas); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 8px; }
 .soda-page-title { color: var(--soda-page-text); font: var(--soda-font-title); letter-spacing: -.02em; margin: 0 0 12px; overflow-wrap: anywhere; text-wrap: balance; text-transform: uppercase; }
