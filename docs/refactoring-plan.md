@@ -22,6 +22,16 @@ there, not in a second inventory here. The [repository instructions](../AGENTS.m
 and feature-owner contracts continue to govern implementation; neither document
 grants native execution or deployment permission.
 
+## Requested mechanism-deletion audit — source review complete
+
+The [Spaces/Runners/Tailnet deletion audit](mechanism-deletion-audit.md) reviews all
+28 requested slices at `7bd8f3b`, including the policies that create their machinery.
+It recommends explicit mechanism and policy removals, rather than another
+behavior-preserving extraction pass. These recommendations revisit some earlier
+preservation decisions below; they are not implemented or selected changes. The
+line-count target was withdrawn. No runtime code, retained state or native target
+was changed, and no product tests were run for that audit.
+
 ## Decision
 
 Keep the selected architecture. Improve Soda's integration and development feedback;
