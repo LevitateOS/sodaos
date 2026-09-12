@@ -4,13 +4,11 @@
   <div class="ui container soda-page-container">
     {{$introTitle := "Meet the people behind the code."}}
     {{$introDescription := "Find collaborators and discover what they’re building."}}
-    {{$introArtwork := "users-papercraft.png?v=2"}}
     {{if .PageIsExploreOrganizations}}
       {{$introTitle = "Good work happens together."}}
       {{$introDescription = "Find the teams bringing projects to life."}}
-      {{$introArtwork = "orgs-papercraft.png"}}
     {{end}}
-    {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Discover & collaborate" "Title" $introTitle "Description" $introDescription "Artwork" $introArtwork}}
+    {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Discover & collaborate" "Title" $introTitle "Description" $introDescription}}
     <div class="soda-toolbar soda-p-toolbar">
     {{template "custom/explore_navbar" .}}
     {{template "explore/search" .}}

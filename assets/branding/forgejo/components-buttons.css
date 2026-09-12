@@ -1,75 +1,80 @@
-/* C — Tonal, 44px. One size owner for native and Soda actions.
+/* Square controls, minimum 44px. One size owner for native and Soda actions.
    Native tiny/small/compact/utility rules enforce font, padding and heights.
    These bounded !important declarations replace that size matrix; they do not
    change display, visibility, pointer-events, loading or disabled behavior.
    Menus/tabs retain their native structure, and joined inputs retain boundaries. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(button, .ui.button, .ui.basic.button, a.button, .soda-toolbar-action, .soda-empty-actions a, .soda-home-actions a, .soda-icon-action, .soda-milestone-action):where(:not(.labeled:has(> .button))) {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) :is(button, .ui.button, .ui.basic.button, a.button, .soda-toolbar-action, .soda-empty-actions a, .soda-home-actions a, .soda-icon-action, .soda-milestone-action):where(:not(.labeled:has(> .button))) {
  --border-radius: var(--soda-button-radius);
  --button-min-height: var(--soda-control-height);
  --button-padding-inline: 14px;
  box-sizing: border-box;
- height: var(--soda-control-height) !important;
+ height: auto !important;
+ max-inline-size: 100%;
+ white-space: normal;
+ overflow-wrap: anywhere;
  min-height: var(--soda-control-height) !important;
- padding: 0 14px !important;
+ padding: 10px 14px !important;
  border-radius: var(--soda-button-radius);
  font: var(--soda-font-button) !important;
+ text-transform: uppercase;
+ letter-spacing: .035em;
  text-shadow: none;
  box-shadow: none;
 }
 /* Native plain/basic/secondary actions all use the open secondary treatment. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.button, .ui.basic.button, button.button, a.button, .soda-toolbar-action, .soda-home-secondary):not(:where(.primary, .soda-toolbar-action--primary, .red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black, .danger, .loading, .labeled:has(> .button))) {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) :is(.ui.button, .ui.basic.button, button.button, a.button, .soda-toolbar-action, .soda-home-secondary):not(:where(.primary, .soda-toolbar-action--primary, .red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black, .danger, .loading, .labeled:has(> .button))) {
  --color-button: transparent;
  --color-hover: var(--soda-page-hover);
  --color-active: var(--soda-page-selected);
  --color-text-light: var(--soda-page-text);
  background: transparent;
- border: 1px solid transparent;
+ border: 2px solid var(--soda-page-text);
  color: var(--soda-page-text);
  &:hover, &:focus-visible { background: var(--soda-page-hover); border-color: var(--soda-page-muted); }
- &:active, &.active, &[aria-pressed=true] { background: var(--soda-page-selected); border-color: var(--soda-button-primary-text); color: var(--soda-button-primary-text); }
+ &:active, &.active, &[aria-pressed=true] { background: var(--soda-page-text); border-color: var(--soda-page-text); color: var(--soda-page-canvas); }
 }
 /* Button-local palette binding leaves links, labels and status colors alone. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.primary.button, .ui.primary.buttons > .button, .button.primary, .soda-empty-primary, .soda-home-primary, .soda-toolbar-action--primary):not(:where(.red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black)) {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) :is(.ui.primary.button, .ui.primary.buttons > .button, .button.primary, .soda-empty-primary, .soda-home-primary, .soda-toolbar-action--primary):not(:where(.red, .negative, .orange, .yellow, .green, .positive, .teal, .blue, .violet, .purple, .pink, .brown, .grey, .black)) {
  --color-primary: var(--soda-button-primary-bg);
  --color-primary-hover: var(--soda-button-primary-hover);
  --color-primary-active: var(--soda-button-primary-hover);
  --color-primary-contrast: var(--soda-button-primary-text);
  --color-button: var(--soda-button-primary-bg);
  background: var(--soda-button-primary-bg);
- border: 1px solid var(--soda-button-primary-border);
+ border: 2px solid var(--soda-page-text);
  &:not(.loading) { color: var(--soda-button-primary-text); }
  &:hover, &:focus-visible { background: var(--soda-button-primary-hover); border-color: var(--soda-button-primary-text); }
  &:active { background: var(--soda-button-primary-hover); }
 }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .button.danger {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .button.danger {
  background: transparent; border: 1px solid transparent; color: var(--soda-button-danger);
  &:hover, &:focus-visible { background: color-mix(in srgb, var(--soda-button-danger) 12%, transparent); color: var(--soda-button-danger); }
 }
 /* Every icon target has the same height AND width as a text action. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) :is(.ui.icon.button:not(.labeled), .soda-icon-action, .soda-milestone-action, .soda-avatar-close, .soda-notification-preview-close, .overflow-menu-button) {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) :is(.ui.icon.button:not(.labeled), .soda-icon-action, .soda-milestone-action, .soda-avatar-close, .soda-notification-preview-close, .overflow-menu-button) {
  width: var(--soda-control-height) !important;
  min-width: var(--soda-control-height) !important;
  padding: 0 !important;
 }
 /* Native counter wrappers aren't actions themselves. Keep their children aligned. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.labeled.button {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.labeled.button {
  padding: 0; border: 0; background: transparent;
  & > .label { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; height: var(--soda-control-height); min-height: var(--soda-control-height); padding: 0 10px; border-color: transparent; background: transparent; color: var(--soda-page-text); font: var(--soda-font-button); }
 }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.action.input {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.action.input {
  & > input, & > .selection.dropdown { box-sizing: border-box; height: var(--soda-control-height); min-height: var(--soda-control-height); }
 }
 /* File selection is a native button too. Avoid a second frame around it. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) input[type=file] { min-height: var(--soda-control-height); padding: 0; border: 0; background: transparent; }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) input[type=file]::file-selector-button {
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) input[type=file] { min-height: var(--soda-control-height); padding: 0; border: 0; background: transparent; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) input[type=file]::file-selector-button {
  box-sizing: border-box; height: var(--soda-control-height); padding: 0 14px; margin-right: 8px;
  border: 1px solid transparent; border-radius: var(--soda-button-radius); background: transparent; color: var(--soda-page-text); font: var(--soda-font-button); cursor: pointer;
  &:hover { background: var(--soda-page-hover); }
 }
 /* Joined controls have square internal edges, including hidden native panels. */
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons > .button { border-radius: 0; }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons:not(.vertical) > .button:first-child { border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius); }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons:not(.vertical) > .button:last-child { border-radius: 0 var(--soda-button-radius) var(--soda-button-radius) 0; }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons.vertical > .button:first-child { border-radius: var(--soda-button-radius) var(--soda-button-radius) 0 0; }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons.vertical > .button:last-child { border-radius: 0 0 var(--soda-button-radius) var(--soda-button-radius); }
-:where(body:has(.soda-page, .soda-page-marker, .soda-login)) .ui.buttons > .button:only-child { border-radius: var(--soda-button-radius); }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons > .button { border-radius: 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons:not(.vertical) > .button:first-child { border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius); }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons:not(.vertical) > .button:last-child { border-radius: 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons.vertical > .button:first-child { border-radius: var(--soda-button-radius) var(--soda-button-radius) 0 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons.vertical > .button:last-child { border-radius: 0; }
+:where(body:has(.soda-page, .soda-page-marker, .soda-login, .soda-home)) .ui.buttons > .button:only-child { border-radius: var(--soda-button-radius); }

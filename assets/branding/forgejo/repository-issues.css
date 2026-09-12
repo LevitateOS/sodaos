@@ -80,7 +80,7 @@
 
 .soda-issue-template-card strong {
   color: var(--soda-page-text);
-  font: 600 18px/1.4 "Fraunces Variable", Georgia, serif;
+  font: 800 18px/1.4 "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 .soda-repo-labels-toolbar {
@@ -129,7 +129,8 @@
 
 .soda-repo-thread-title .issue-title-header h1 {
   color: var(--soda-page-text);
-  font-family: "Fraunces Variable", Georgia, serif;
+  font: var(--soda-font-title);
+  overflow-wrap: anywhere;
 }
 
 .soda-pull-tabs {
@@ -239,7 +240,6 @@
 .page-content.repository.milestone-issue-list progress {
   accent-color: var(--soda-page-action);
 }
-
 
 .soda-milestone-editor .soda-milestone-form .field.error :is(input,textarea) {
   border-color: var(--color-error-border);

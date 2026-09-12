@@ -1,20 +1,19 @@
 # Shared Soda palette
 
 `palette.css` is the source of color values for Soda's frontends. Its light and
-dark roles preserve the approved Forgejo themes, based on the Soda website at
-`b9e37c7`. It contains values, not application selectors, native variable names,
+dark roles implement the September brutalist design: white/near-black surfaces
+and red actions. It contains values, not application selectors, native variable names,
 layout, theme switching, or asset URLs.
 
 - Canvas, surface, panel, navigation, text, muted text, border, focus, hover and
   selection are separate roles.
 - `action` / `on-action` describe filled primary buttons. `link` / `on-link`
   describe link/accent treatments. Dark links are brighter than filled buttons;
-  do not collapse these roles because light mode happens to use the same blue.
+  do not collapse these roles because light mode happens to use the same red.
   Dark pressed/visited link text also stays bright enough for panel backgrounds.
-  Forgejo's native `primary-active` palette key retains its original medium-blue
-  ramp value; that native key is not the shared accessible link-text role.
+  Native primary ramp steps are separate from accessible link text.
 - Mode-qualified values let each application keep its own native theme selection.
-- Additional ramps and alpha values preserve existing Forgejo control colors.
+- Additional ramps and alpha values supply Forgejo native controls.
   Only distinct extra ramp values are named; adapters reuse semantic values where
   those already supply a ramp step. Alpha bytes remain exact, not rounded mixes.
 - Forgejo's existing success/warning roles are retained. Cockpit continues to use

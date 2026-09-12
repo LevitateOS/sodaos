@@ -12,13 +12,6 @@
 	box-shadow: none;
 }
 
-.soda-wiki-start .soda-wiki-welcome-art {
-	display: block;
-	width: 240px;
-	max-width: 100%;
-	height: auto;
-	margin: 0 auto 16px;
-}
 
 .soda-wiki-start h2,
 .soda-wiki-pages > .ui.container > h2,
@@ -59,9 +52,6 @@
 	font: 400 12px/1.5 "IBM Plex Mono", monospace;
 }
 
-
-
-
 .soda-wiki-editor > .ui.container > form > .help {
 	margin: -4px 0 16px;
 	color: var(--soda-page-muted);
@@ -81,18 +71,15 @@
 .soda-wiki-revisions #commits-table,
 .soda-wiki-revisions .commit-table {
 	border-color: var(--soda-page-edge);
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+	border-radius: 0;
 	background: var(--soda-page-surface);
 }
 
 /* Full release and wiki detail views retain their native markup and hooks. */
 .soda-wiki-view .ui.dividing.header {
 	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
+	font: var(--soda-font-heading);
 }
-
-
-
 
 .soda-wiki-view .repo-button-row {
 	gap: 12px;

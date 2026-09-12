@@ -86,14 +86,13 @@ func TestForgejoPageIntroComposition(t *testing.T) {
 		`Créer &amp; partager &lt;ensemble&gt;`,
 		`&lt;script&gt;eyebrow&lt;/script&gt;`,
 		`Make &amp; share &lt;strong&gt;things&lt;/strong&gt;.`,
-		`src="/forge/assets/soda/forgejo/diagram%22%20onerror=%22alert%281%29.png"`,
 		`soda-page-intro compact&#34; data-owned=&#34;true`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("rendered intro does not contain escaped %q:\n%s", want, output)
 		}
 	}
-	for _, forbidden := range []string{`<script>`, `onclick="alert(1)"`, `onerror="alert(1)`} {
+	for _, forbidden := range []string{`<img`, `<script>`, `onclick="alert(1)"`, `onerror="alert(1)`} {
 		if strings.Contains(output, forbidden) {
 			t.Errorf("rendered intro contains active caller markup %q:\n%s", forbidden, output)
 		}

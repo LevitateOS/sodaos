@@ -4,7 +4,7 @@
 	<div class="ui container soda-p-editor-container soda-form-editor">
 {{$formTitle := ctx.Locale.Tr "repo.release.new_release"}}{{$formDescription := ctx.Locale.Tr "repo.release.new_subheader"}}
 {{if .PageIsEditRelease}}{{$formTitle = ctx.Locale.Tr "repo.release.edit_release"}}{{$formDescription = ctx.Locale.Tr "repo.release.edit_subheader"}}{{end}}
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $formTitle "Description" $formDescription "Eyebrow" "" "Artwork" "" "Class" "soda-form-editor-intro"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $formTitle "Description" $formDescription "Eyebrow" "" "Class" "soda-form-editor-intro"}}
 		{{template "base/alert" .}}
 		<form class="ui form soda-p-form" action="{{.Link}}" method="post">
 			<div class="ui seven wide target">

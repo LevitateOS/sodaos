@@ -227,12 +227,12 @@ func TestForgejoMigrationChooserRendersOnlyAvailableSourcesAndPreservesContext(t
 					t.Error("provider title was not escaped")
 				}
 			}
-			for _, want := range []string{"native-migration-helper", `/forge/assets/soda/forgejo/migrate-papercraft.png`, `aria-labelledby="soda-migrate-source-title"`} {
+			for _, want := range []string{"native-migration-helper", `aria-labelledby="soda-migrate-source-title"`} {
 				if !strings.Contains(body, want) {
 					t.Errorf("missing %q", want)
 				}
 			}
-			if strings.Contains(body, "<form") || strings.Contains(body, "<script") {
+			if strings.Contains(body, "<img") || strings.Contains(body, "<form") || strings.Contains(body, "<script") {
 				t.Error("chooser must remain ordinary native navigation")
 			}
 		})

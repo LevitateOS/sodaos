@@ -37,7 +37,7 @@
 .soda-package-list .ui.label {
 	margin-left: 8px;
 	border: 1px solid var(--soda-page-edge);
-	border-radius: 6px;
+	border-radius: 0;
 	background: var(--soda-page-canvas);
 	color: var(--soda-page-muted);
 }
@@ -127,7 +127,7 @@
 	max-width: 100%;
 	overflow-x: auto;
 	border-color: var(--soda-page-edge) !important;
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius) !important;
+	border-radius: 0;
 	background: var(--soda-page-surface) !important;
 }
 

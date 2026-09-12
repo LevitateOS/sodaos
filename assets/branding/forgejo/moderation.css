@@ -16,13 +16,13 @@
   border-radius: var(--soda-panel-radius) var(--soda-panel-radius) 0 0;
   background: var(--soda-page-surface);
   color: var(--soda-page-text);
-  font: 600 28px/1.3 "Fraunces Variable",Georgia,serif;
+  font: 800 28px/1.3 "Barlow Condensed","Arial Narrow",sans-serif;
 }
 
 .soda-moderation .soda-form > .ui.segment {
   padding: 16px;
   border-color: var(--soda-page-edge);
-  border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+  border-radius: 0;
   background: var(--soda-page-surface);
 }
 

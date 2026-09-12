@@ -2,7 +2,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository new migrate soda-page soda-migrate-form">
 	<div class="ui container soda-page-container soda-form-layout">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.migrate.migrate" .service.Title) "Description" "Move your code and available history into Soda Forge." "Eyebrow" "Bring your work with you" "Artwork" "migrate-papercraft.png" "Class" "soda-form-story"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.migrate.migrate" .service.Title) "Description" "Move your code and available history into Soda Forge." "Eyebrow" "Bring your work with you" "Class" "soda-form-story"}}
 		<div class="soda-form-content">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				<h2 class="ui top attached header soda-form-section-title">

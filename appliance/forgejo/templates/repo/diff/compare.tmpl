@@ -165,7 +165,7 @@
 				<button class="ui button primary show-form">{{ctx.Locale.Tr "repo.pulls.new"}}</button>
 			</div>
 			<div class="pullrequest-form {{if not .Flash}}tw-hidden{{end}}">
-				<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Artwork" "pulls-papercraft.png" "Class" "soda-form-editor-intro"}}
+				<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Class" "soda-form-editor-intro"}}
 {{template "repo/issue/new_form" .}}</div>
 			</div>
 		{{else if and .HeadIsBranch .BaseIsBranch}}
@@ -213,7 +213,7 @@
 			{{end}}
 			{{if $.IsSigned}}
 				<div class="pullrequest-form {{if not .Flash}}tw-hidden{{end}}">
-					<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Artwork" "pulls-papercraft.png" "Class" "soda-form-editor-intro"}}
+					<div class="soda-form-editor">{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "repo.pulls.new") "Description" "Explain the changes and invite a review." "Eyebrow" "" "Class" "soda-form-editor-intro"}}
 {{template "repo/issue/new_form" .}}</div>
 				</div>
 			{{end}}

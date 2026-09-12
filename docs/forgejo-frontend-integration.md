@@ -345,3 +345,9 @@ replacement frontend/framework. Keep native Git/LFS/package and administrator fl
 Overrides/assets require [matching notices and source obligations](licensing.md).
 No image upgrade, ingress change, service restart or provider mutation is authorized
 by this guide. All retained project state, private credentials and evidence stay intact.
+
+## September Forgejo visual redesign
+
+The owner selected an image-light interface: no decorative robots or routine dashboard/profile photography. The complete override set now inherits neutral light/dark surfaces, red actions, square controls, Barlow Condensed headings, Barlow body text and IBM Plex Mono controls. Text-led intros, restrained functional empty-state icons, mobile-first creation/dashboard layouts and symbol-only navigation replace the older presentation. Native forms, permissions, translations, Git status/diff colors, avatars, organization logos and repository content retain their owners.
+
+[The independent redesign status](forgejo-redesign-status.md) records the source changes, browser fixtures and remaining installed verification. Fastfetch ASCII branding is a separate follow-up. Older route-specific art and visual receipts are historical, not the current design contract.

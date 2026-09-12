@@ -26,7 +26,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       for (const theme of ['light','dark']) for (const width of [1440,390,320]) {
         await page.setViewportSize({width,height:1000});
         await render(`<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,theme);
-        for (const heading of await page.locator('h4,legend').all()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px');
+        for (const heading of await page.locator('h4,legend').all()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'22px');
         assert.equal(await page.locator('.left.input input').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px');
         assert.equal(await page.locator('.input:not(.left) input').evaluate(el=>getComputedStyle(el).paddingInlineEnd),'40px');
       }
@@ -76,7 +76,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
               compactIcon: compactSymbol.getBoundingClientRect().width,
               fits: document.documentElement.scrollWidth <= innerWidth };
           });
-          assert.deepEqual(state, { border: '0px', background: 'rgba(0, 0, 0, 0)', fullIcon: 80, compactIcon: 48, fits: true });
+          assert.deepEqual(state, { border: '0px', background: 'rgba(0, 0, 0, 0)', fullIcon: 32, compactIcon: 32, fits: true });
         }
       }
       await page.setViewportSize({ width: 1654, height: 1000 });
@@ -122,8 +122,8 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         const controls = await page.locator('[id]').evaluateAll(els => els.map(el => ({id:el.id,height:el.getBoundingClientRect().height,top:getComputedStyle(el).borderTopRightRadius,left:getComputedStyle(el).borderTopLeftRadius})));
         for (const c of controls) assert.equal(c.height,44,`${theme}/${width}: ${c.id}`);
         for (const id of ['protocol','url','copy']) assert.equal(controls.find(c=>c.id===id)?.top,'0px');
-        assert.equal(controls.find(c=>c.id==='more')?.top,'6px');
-        assert.equal(controls.find(c=>c.id==='protocol')?.left,'6px');
+        assert.equal(controls.find(c=>c.id==='more')?.top,'0px');
+        assert.equal(controls.find(c=>c.id==='protocol')?.left,'0px');
         if (width <= 1000) {
           const rows = await page.evaluate(() => {
             const toolbar = document.querySelector('.repo-button-row.soda-toolbar');
@@ -150,7 +150,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         await render(`<main class="soda-page"><button id="basic-neutral" class="ui basic button">Add file</button><button id="neutral" class="ui button">Cancel</button><a id="secondary" class="button secondary" href="#">Add file</a><button id="primary" class="ui primary button">Save</button><button id="compact" class="ui compact button">Filter</button><div class="ui buttons"><button id="joined-first" class="ui button">One</button><button id="joined-last" class="ui button">Two</button></div><form class="ui form soda-p-form"><button id="form-save" class="primary button">Save profile</button></form></main>`, theme);
         for (const id of ['basic-neutral','neutral','secondary','primary','form-save']) {
           const style=await page.locator('#'+id).evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderTopLeftRadius,font:getComputedStyle(el).fontSize}));
-          assert.equal(style.height,44);assert.equal(style.radius,'6px');assert.equal(style.font,'14px');
+          assert.equal(style.height,44);assert.equal(style.radius,'0px');assert.equal(style.font,'13px');
         }
         assert.equal(await page.locator('#compact').evaluate(el=>el.getBoundingClientRect().height),44);
         for (const id of ['neutral','basic-neutral']) assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
@@ -168,7 +168,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         for (const el of await page.locator('[id]').all()) {
           assert.equal(await el.evaluate(e=>e.getBoundingClientRect().height),44,(await el.getAttribute('id')) ?? 'missing control ID');
         }
-        for (const el of await page.locator('button').all()) assert.equal(await el.evaluate(e=>getComputedStyle(e).fontSize),'14px');
+        for (const el of await page.locator('button').all()) assert.equal(await el.evaluate(e=>getComputedStyle(e).fontSize),'13px');
       }
     });
 
@@ -282,7 +282,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           })));
         for (const id of ['settings-primary', 'form-primary', 'repository-primary', 'tiny-primary', 'disabled-primary', 'loading-primary']) {
           assert(states[id] && states['action-color']);
-          assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the selected tonal primary`);
+          assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the filled primary`);
         }
         assert(states['anchor-primary'] && states['form-primary']);
         assert.equal(states['anchor-primary'].color, states['form-primary'].color, 'primary anchor text remains legible');

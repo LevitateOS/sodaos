@@ -2,7 +2,7 @@
    editable gates, registration tokens, forms, and command generation. */
 .soda-shared-runner > .ui.top.attached.header {
 	color: var(--soda-page-text);
-	font-family: "Fraunces Variable", Georgia, serif;
+	font: var(--soda-font-heading);
 }
 
 .soda-shared-runner > :is(.ui.attached.segment, .ui.attached.table.segment) {
@@ -27,9 +27,11 @@
 	border-bottom: 0;
 }
 
+.soda-shared-runner dl dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+
 .soda-shared-runner dl dt {
 	color: var(--soda-page-muted);
-	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+	font: 500 12px/1.5 "IBM Plex Mono", monospace;
 }
 
 .soda-shared-runner pre {

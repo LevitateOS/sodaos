@@ -162,10 +162,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7d35cd807bdb3d1d5925184d41ff8923f2d259f43ea779f815fc239bb56df417",
+      "beforeRoleHash": "199c3635939a6eee6c635aad23dca8466b0530f2f8157de32174678480bd3c8e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "admin/config.tmpl",
@@ -343,8 +343,8 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "572e10dc6e81153ac6eee814c0012172e37c636da7b20ba96275e4206c0bb5b9",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "17ef23e6244d814600f04e42b26b49b9acf8eff64c4a9f31bb0b58cadf5f8540",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "admin/layout_head.tmpl",
@@ -397,7 +397,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6c11885c9f1b9a9f6c47b4f97ed9b83d70e5d1b597b8a3ce02a2dd15acea3366",
+      "beforeRoleHash": "79804a001a9d8c83ea55772896735bc0e7cb0b71779b85eafc3bc1b0b9ab82fe",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "admin/config_settings.tmpl",
@@ -414,7 +414,7 @@
         "admin/user/view.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "admin/notice.tmpl",
@@ -581,8 +581,8 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "5793a9ef677cb563952d7d637ab84c14683b839cc51818436bb9b1c36c1a80c5",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "c39bd61d8534ce750e95869357d2e64d063beabe85da81bd2ee7cb758427fd87",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "admin/self_check.tmpl",
@@ -768,10 +768,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c78958c474be43e0eb40d955d95e0df583e4807fd5c4ad318389bfabf27d4c12",
+      "beforeRoleHash": "2758061848ecd08d8365350e3b018ab9d647081aa292faa78bceb6a034f1f5e4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "custom/explore_empty.tmpl",
@@ -855,8 +855,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1bc22b054fe9d44044ceeb4634e9f583fb5fc7d4398d83e28d741075c8aeb3a3",
-      "presentationReview": "Fixed Spaces link plus signed-actor marker for the Soda operator settings link. No native IsAdmin gate: the bounded session caller reveals navigation, while Go reauthorizes every page/API. Appearance and upstream navbar remain native. Local hook/emitted-browser checks, not installed capture.",
+      "beforeRoleHash": "39458f4d06e309607ea30a4d3e9def652b893d72c2714b47ba92ee40db73f68e",
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7757bfde9cddcc6a20799e707bd29e9963afaefa19ccc4d54f33ab29f4110d00",
-      "presentationReview": "Suppress the drawer only for the signed root dashboard with one recognized Soda view; preserve notifications, settings discovery and all other drawer callers. Native page-host browser evidence is recorded in the handoff.",
+      "beforeRoleHash": "39aef85b48657cdb0e9649831b0e5d7a45fce72d312bbd5bea66809f0af144c4",
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -920,12 +920,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a9a3d93cdb9980bb71af2f83a6ce9fefdc25afd583699d70a156855970239bf0",
+      "beforeRoleHash": "7a842942109bc2cde3b18347caeafdd8dc63a6a6783e9fe69008a95311457b57",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Bump the native-page presentation revision; existing stylesheet registry and native document policy remain unchanged."
+      "presentationReview": "Version the reviewed brutalist stylesheet changes; native context and scripts retained."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -1161,7 +1161,6 @@
       ],
       "nativeCalls": [],
       "roles": [
-        "soda-page-art",
         "soda-page-copy",
         "soda-page-description",
         "soda-page-eyebrow",
@@ -1179,9 +1178,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "554628eb1f910300b234304208822047e3de1be0f2fd5d827972f7ab9f1a339c",
+      "beforeRoleHash": "182fce02b74d0cfef9063a5fc4e429167cff825c5691a21591b48309c3c07f58",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "custom/soda/profile_block_dialog.tmpl",
@@ -1312,9 +1312,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ffdbbe3243f5edaabcd00ad166ae02e7b39cfcc64f7479b0e0ad25e8a6e54e52",
+      "beforeRoleHash": "731011da96066efd9e2a3568fb85117807646b19d59d770d580afc8a1dac0865",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "explore/repos.tmpl",
@@ -1354,9 +1355,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/002.png"
         ]
       },
-      "beforeRoleHash": "8819a61ef314b0cbdd01c4fe83c30f8532543c2752a5c073441295ea7067d49c",
+      "beforeRoleHash": "c6a18da54fcd4e330e973a53f9525ff91dfbdf2b58c378947e854416b6be58a3",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "explore/users.tmpl",
@@ -1391,9 +1393,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "18852f21ae713cdb7fc15a2dd37021d83c975dfdfe3c3f20f2fcf2e687bcaf4f",
+      "beforeRoleHash": "e766cc11d952751ef1fd49a079a71ac496fa3cc410cd07de535683669ccf89ac",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "home.tmpl",
@@ -1411,10 +1414,8 @@
         "soda-home-brand",
         "soda-home-copy",
         "soda-home-eyebrow",
-        "soda-home-feature-icon",
         "soda-home-features",
         "soda-home-hero",
-        "soda-home-illustration",
         "soda-home-lede",
         "soda-home-links",
         "soda-home-logo-dark",
@@ -1424,8 +1425,8 @@
         "soda-home-primary",
         "soda-home-secondary",
         "soda-home-title",
-        "soda-forge-logo-horizontal",
-        "soda-forge-logo-horizontal-dark"
+        "soda-home-entry",
+        "soda-home-feature-number"
       ],
       "states": [
         "light",
@@ -1438,7 +1439,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ea2e0b91ed00dee65908992a8ef27ed80aa20b7b1b35a788a08298dff24f26ea",
+      "beforeRoleHash": "46ec374201827cfe154f9d35303681296c9daca2acbefbb7e4961045f48a0b82",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -1482,9 +1483,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bcf7fd2079bc84cd23abea573d051ebfe3af2bfb9df61e1367e1aa487a017e0d",
+      "beforeRoleHash": "2c44e120d45a288871022263f3106f333bfc32a549399cf0c63ff17f982fa53c",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "moderation/new_abuse_report.tmpl",
@@ -1523,10 +1525,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a27c7967dca2f6ab3c072667224b93bc4d7f80a1d37d646870b1d0d516d8a5c0",
+      "beforeRoleHash": "0ddbacfeacabf7788b8cb3b69cf04608a40d614941b3e467fffb011fbb1720bf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/create.tmpl",
@@ -1568,10 +1570,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "38f14d504332dc0317ef557a5ed36319b121707bda54c5f513484268dda1c3aa",
+      "beforeRoleHash": "2b5a0031f76be44842353bde6a511cde22d7cc5b18b9c2c1e3645d70ea34238e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/header.tmpl",
@@ -1769,10 +1771,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "516a52bd95ba5ec17108833b4fbb33331f8c87c87351c3b86c45bc398e630d4a",
+      "beforeRoleHash": "edec1b6f008d066e208788f760325d9aec1867771cff2c8371099f2bc1546ad1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/projects/view.tmpl",
@@ -1836,8 +1838,8 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "309f0567777996ada45726288fdfd10562a94b53d3261fb760fb0550e7b2dd6a",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "12b9660775a41ba5626631a0a7950ec9da4c33cd2c6dbbd2a438d4505dffd024",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/settings/layout_head.tmpl",
@@ -1919,8 +1921,8 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "bca520bdfe08730764b11f56db0bf93b595e5fe728643857eadea5e02baf936c",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "b06ab4d8a04f9c7d178c1730d5a16876d6f24039e933434df77cb046dac6cbf1",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/settings/runners_create.tmpl",
@@ -1951,8 +1953,8 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "a6d82d196bd91c33255d43ff3e9bab8592dbe630ea60fd95ae492b1179200a70",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "f7190aa7ebcd449a00211a9437fb524f504b119b92644e70a7c96ddc61943dc6",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/team/invite.tmpl",
@@ -2075,10 +2077,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "acbcec2d2c6a8255ccf9a351e0a280650789869a5dc809c20e702917e9905ea1",
+      "beforeRoleHash": "9673bb0f28c81b77008d0693776a10b24310d921d045b7aa19b853072621db96",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "org/team/repositories.tmpl",
@@ -2826,9 +2828,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9c0e750d14e37085bfb257984427243422147aaee5a10d92a20ad0d4174508c8",
+      "beforeRoleHash": "a6ba34c307fabe784a51c2034a4fdc80e8fa9687f0b3a91eef901ed315b1c248",
       "upstreamCallers": [],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Brutalist redesign: decorative artwork removed; native controls and context retained."
     },
     {
       "template": "repo/actions/runs_list.tmpl",
@@ -3252,10 +3255,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "26780731cc809e585ae958f438e750d48c8532683d842c4e35b3db1b369b2bea",
+      "beforeRoleHash": "d0ace6fdcc6ba3fdbe7651cf925f7905237cc75ced35c8f1d0ca31e4595ead58",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/create_basic.tmpl",
@@ -3360,10 +3363,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f0033ddba1277d052957605aa120f8ff348ccdcc187c90de61a03f5077e2566a",
+      "beforeRoleHash": "91f86df6a177b38f6213267793926d70f4d404a070cb49e74c6229955bb91b4e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/editor/cherry_pick.tmpl",
@@ -3511,10 +3514,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2adf94deeb30e0c43ea280babe3aa8b5c6db212e8d1ea84ce92ca41be1003596",
+      "beforeRoleHash": "b4bc2324af148fcd0ce32ccce753823b17bb750d1adb993f798fc16125a07a93",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/editor/patch.tmpl",
@@ -3592,10 +3595,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "41e58d87b7504561a368ab7fb8f7a9e27172ec9f06362029055933b51ddd3d3b",
+      "beforeRoleHash": "6b525ee306304158162fc94f61d0526c098e49372cd785d59ced8dca5bb1e0df",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/empty.tmpl",
@@ -4080,10 +4083,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "cb8adc947fc30dbca5e72955235c826606a10a06f6cc6e73929ce9b6fd83ce48",
+      "beforeRoleHash": "68878accb153439801909121ec679e2da2f9b9c33ae51999fb21a95143a4442e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/issue/milestones.tmpl",
@@ -4193,10 +4196,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/007.png"
         ]
       },
-      "beforeRoleHash": "1728933dfe83b33b48f438a048ce5e93ebb8840bf5ca8d10ebf7bc01453fc3f2",
+      "beforeRoleHash": "ab8b24b2c1fa96a9d4abba7be9a36cb3860b316afe14cf6a2faf9738c01c12ae",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/issue/view.tmpl",
@@ -4267,8 +4270,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "aeb3a9b18ccc267c13c1008afa03f9a11f903c6ca57351b664d3e94dbc3f7059",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "8e0e4d92bbf996edb0adb869542729cb6f42ab155a8409bc46d20e2201f4832b",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/git.tmpl",
@@ -4307,8 +4310,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "09c54456502b85884e2d11cc8b71e8b2ad24b12cc1e3a781b0b827e5e5306b97",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "8179d6912843b447440edd4faaddf07caac27be55661ece4c65733b258bbb3fb",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/gitbucket.tmpl",
@@ -4347,8 +4350,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "5f850c283f6a3c44ff8eccd3ea35e60d05d9a0839051a8847def10b2b2ce40d4",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "83222dd3dfc0e2e20e03d1809648190f22a75b83eee2edba51a389a3cb76b2c5",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/gitea.tmpl",
@@ -4388,8 +4391,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "0f0dcae1c9149a28bf9eaaa63442110999971c6c6789bfc40d88747d3a89e06e",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "be75a1abf9bbf8f18aa0f0892b3d4a1945c7863d9586ae5907399d4569ea3182",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/github.tmpl",
@@ -4427,8 +4430,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "69c3ebd77f34d123be70d2ffe11d00926bd3c4e8af5c6c64a65d60107f016912",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "e24d624cc5aecabb8f69c990604d2cb5a4fb787dac3c361e376179344fedf2c3",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/gitlab.tmpl",
@@ -4466,8 +4469,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "d352fd06e86ab874abb5ca00be2b209d26b3fd692bb4c96eb69680313b531eb3",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "b1b1ef6a8375c0cc8735c937e2cdd695ef875dd96191b75ec14cba3f992789e0",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/gogs.tmpl",
@@ -4505,8 +4508,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "4297a1681ffabb4e1a01f616af97c19d4e8bcc9df544b74d5df44eaf7cae8cb3",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "7a59728883dc2324d6e65bb1887df88353f2ec74ff00de68d6088b65a7e9fd5e",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/migrate.tmpl",
@@ -4543,10 +4546,10 @@
         "native": "read-only local 15.0.7: all ten native provider forms; seven chooser widths in light/dark with logo, containment, focus and hover checks",
         "requiredStates": "configured ten-source fixture observed; absent/Git-only/provider-only states tested through actual Go template rendering, not fixture mutation"
       },
-      "beforeRoleHash": "d15dcb1a5d72a21006b91a0a81b4c024210a1ba0f283e68504289cd6c28eb852",
+      "beforeRoleHash": "a12f329516bf7c3277d6113f2b052b8e6a47ebf5d7da282207cc256cb93a2b55",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Migration chooser redesigned from an inspected desktop/mobile/dark prototype. Separate story and source chooser, Git URL option and compact provider cards; available Services, native helper, translated descriptions, route context and provider forms retained."
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
     },
     {
       "template": "repo/migrate/migrating.tmpl",
@@ -4627,8 +4630,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "d3ba1818b67468a5eb6fb1c7dbcb0b9ecdf271cade5f21c34d30083f6475249f",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "b72e86203da4a608b3701014f878f32fc0ec5d5f219fcd721e88c01b256183c6",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/migrate/options.tmpl",
@@ -4701,8 +4704,8 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "ee50d0facd5232f44fb71a53bd7122c030a91c28bc973890184ba4c2ada2838a",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "beforeRoleHash": "53a0ddd733de0f92093b96c2a8823115696d6a09649eb6bc7109a5fba42770f5",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/projects/list.tmpl",
@@ -4760,10 +4763,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a69805907a2d354ba93dcb297664356d8bcf36ef19ecbd72c93f2bd54a5626f7",
+      "beforeRoleHash": "16f621d4362278f3447904c415c037ad70862ee54514b45a1546a150a3a3d720",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/projects/view.tmpl",
@@ -4900,10 +4903,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2a7b8522551a64edf0f478f995578c30db2983c9a4c69e4f738def7ac5d04bbc",
+      "beforeRoleHash": "bdce99956944cc7ca6dd326d6306a3da14166f09dc84acbe7bdaff0bb0baf3c4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/pulls/status.tmpl",
@@ -5072,10 +5075,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "80ba408c88304f680e510d4b645983615891fc4926db79470be7a229145e7127",
+      "beforeRoleHash": "bb06d379872e4af6a7fe34ebfa4f5107976dd20d80dba976a2223947fcc46772",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/release_tag_header.tmpl",
@@ -5791,10 +5794,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "af19414a5d0e70b6323e682432f161a539f3345b4c7bccb9e39ce30ae1b8ffae",
+      "beforeRoleHash": "cb381164ae79058ff8d19c852d346a8557c9c379e0f39785ea4ad62a9c3d8b32",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/settings/runner_create.tmpl",
@@ -5821,10 +5824,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7c99380a6c992903269922bbadfb452f4eac61a2ae205c50939ede61aa5f9660",
+      "beforeRoleHash": "5d08ea69dc6ee3780b3986bef41ea1daef1922bf0a525703f536b8e130bcd602",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/settings/runner_details.tmpl",
@@ -6274,10 +6277,10 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c2c89a472774f6f7c02d43c7ab9913422ba4313c814784a06c4cbb9c974d9e00",
+      "beforeRoleHash": "a6b132a45d43b1a2516de41caad1dcb04a86b4818820702ac355b29924664bda",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/sub_menu.tmpl",
@@ -6507,10 +6510,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b2c241aaface2c55e212482bfc5f601daff42e4dba1cb725fe8c090833cfc2ab",
+      "beforeRoleHash": "f38f7b565146a87697e43c5abcdcefbd787fbf1f157c8b3aac594405fa972fb3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "repo/wiki/pages.tmpl",
@@ -6611,8 +6614,7 @@
       ],
       "roles": [
         "soda-repository-content",
-        "soda-wiki-start",
-        "soda-wiki-welcome-art"
+        "soda-wiki-start"
       ],
       "states": [
         "light",
@@ -6626,9 +6628,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9d1264f20e6894802a5aeb14a1a6208d2fa3af432be0757f672f08079cad6123",
+      "beforeRoleHash": "82cebc347fcfb5fe540a52e188475817f67994f52f82fcc808fd3e8a6d03730e",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
     },
     {
       "template": "repo/wiki/view.tmpl",
@@ -7084,7 +7087,6 @@
         "soda-page",
         "soda-page-container",
         "soda-status",
-        "soda-status-art",
         "soda-status-card",
         "soda-status-version"
       ],
@@ -7099,9 +7101,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "195d984c79b3edd9778bae0f628575656bcc665b6aef933293ecd7357ad5dad5",
+      "beforeRoleHash": "29a337b9a69c61581148ce6ab9379655d9d62a051667bb158109653ef6fe2166",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
     },
     {
       "template": "status/413.tmpl",
@@ -7423,7 +7426,6 @@
       "roles": [
         "soda-login",
         "soda-login-account",
-        "soda-login-art",
         "soda-login-brand",
         "soda-login-eyebrow",
         "soda-login-form",
@@ -7433,8 +7435,6 @@
         "soda-login-panel",
         "soda-login-story",
         "soda-login-tagline",
-        "soda-logo-horizontal",
-        "soda-logo-horizontal-dark",
         "soda-theme-toggle"
       ],
       "states": [
@@ -7454,9 +7454,10 @@
           ".artifacts/forgejo-presentation/final-login-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "2c16689be8c78eb66c7e88e64878e43fd9233e77691c89ce92bb8a424bd0273a",
+      "beforeRoleHash": "67b84538f0efd846cc769ec821ecb98e826c4b02d150d4f3acc901caff72ed28",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
     },
     {
       "template": "user/auth/signin_openid.tmpl",
@@ -7526,10 +7527,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b837cf445584137e911e0735acb9fc224647a460f36ec77473933258d8dcf692",
+      "beforeRoleHash": "dd64b93b099fc7e91d81dab5e8b749560c8e62a8a512a1b88ec1412947cc7eb3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/auth/signup_openid_connect.tmpl",
@@ -7608,10 +7609,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7d1c52b2423dd1d3cdeca47b1677b54e6816cb2ee2e6281bc16911ff4ee79a82",
+      "beforeRoleHash": "12daaae61cb387d80e76d29064d22afd5b0eaa79f1d744d5ba01cacda771f6a9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/auth/twofa.tmpl",
@@ -7783,7 +7784,6 @@
         "soda-activity-title",
         "soda-context-switcher",
         "soda-dashboard",
-        "soda-dashboard-art",
         "soda-dashboard-discover",
         "soda-dashboard-feed",
         "soda-dashboard-grid",
@@ -7815,10 +7815,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "c15380fecb454b2c93eb29a13520e706153b4432b44f83453bb97b0d6f3b44f0",
+      "beforeRoleHash": "b8de55a8c63924562382125b93523ca67538d09bb7823865f5bc71a3a482455a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Add three signed root-dashboard presentations with canonical repository-ID checks and one connected Lit content mount. Scoped settings CSS supports the existing controls; full Spaces measures the native chrome. Preserve native head/footer and the original dashboard branch; native browser checks and remaining page integration work belong to docs/forgejo-soda-pages-plan.md."
+      "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
     },
     {
       "template": "user/dashboard/issues.tmpl",
@@ -7863,9 +7863,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "024dea4b397e9a5843eb459b4805861881012ee88cc09e43aa3d7809908bc246",
+      "beforeRoleHash": "943c573f3ff03191d5f8a2ac0b73a875e478602e7e41468bdcb7a7f6480421f4",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/dashboard/milestones.tmpl",
@@ -7909,10 +7910,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1609159dca716d5573a71a4a95f3edb31b72567e868a24bf1fb126ebf3842c40",
+      "beforeRoleHash": "f93351dea970f52d0fcd3a60a2b1f8ab49a563add219d1077b61ab8f6637edb9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/notification/notification_div.tmpl",
@@ -7956,11 +7957,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d25776fa046a54241a04d4c02060f19787947a441650eae55e4d7871c3763473",
+      "beforeRoleHash": "10e0c4cb826b35340f5f6f5b0e88fd3d832622569d0e45e0e83a95010203922b",
       "upstreamCallers": [
         "user/notification/notification.tmpl"
       ],
-      "entryPoint": "shared partial"
+      "entryPoint": "shared partial",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/notification/notification_subscriptions.tmpl",
@@ -8000,9 +8002,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "12d856a8d3bc1a5213b4858b42f8badd8c51037a5361e19df7d7d271d1a4a66c",
+      "beforeRoleHash": "ef9a152520aa22dada1ad6dfd1d72642bff575ca01a71e4f662da7ec7bcd0054",
       "upstreamCallers": [],
-      "entryPoint": "native handler or extension hook; route evidence tracked separately"
+      "entryPoint": "native handler or extension hook; route evidence tracked separately",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/overview/header.tmpl",
@@ -8115,10 +8118,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1fff8f869262d011c86f1a768a5d811ad1e1940b8dbc9214fb9c5b3afb3df2a6",
+      "beforeRoleHash": "ad279dd36c4c2ffa4aab1486e424ffa4138fcb6a676cdf0b5d78c6b86f105ed7",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
       "template": "user/profile.tmpl",
@@ -8217,10 +8220,10 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "cf4256f49a70592deeea905b34b0d2b1b550a77167521147cc3d7de551c0f1db",
+      "beforeRoleHash": "1869a090acf0328726376d3c6d42e531933ab555334724f8e3941cb5eb63b043",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
       "taskComposition": "credential inventory / focused editor"
     },
     {
@@ -8652,8 +8655,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
-      "beforeRoleHash": "adaae3e9ba4b97b82f17d09a174cb77ac4a6b24c304ca0de67898b4b6c3a89fa",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
+      "beforeRoleHash": "2235a44d3218fe0438049885d3c2748cf2b69335bca4fc59b5e407083174c69d",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -9122,8 +9125,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md.",
-      "beforeRoleHash": "21e021cc0d7c37c3dd562072379b82d95c53ee966fffcbd92d3851fcf70656e1",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
+      "beforeRoleHash": "560c73a35a251d7a0484534e39b38c0816c6e9c997d2b7319a1677010094de27",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -9271,8 +9274,8 @@
       "callers": [],
       "upstreamCallers": [],
       "nativeCalls": [],
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md.",
-      "beforeRoleHash": "6a87c6e9c411e8bdb89e1dc16b4101fc9e5ca44766d639954906d928b72ae17b",
+      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
+      "beforeRoleHash": "b7cc3ef52d43bd1da49f78c6a651c6b3056bdc4e6ba185aaf6ac02b88b190a7d",
       "taskComposition": "native operations"
     },
     {

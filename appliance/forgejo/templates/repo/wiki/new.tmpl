@@ -2,7 +2,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository wiki new soda-repository-content soda-wiki-editor">
 	{{template "repo/header" .}}
 	<div class="ui container soda-p-editor-container soda-form-editor">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Make useful knowledge easy to find." "Eyebrow" "" "Artwork" "wiki-welcome-papercraft.png" "Class" "soda-form-editor-intro"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" .Title "Description" "Make useful knowledge easy to find." "Eyebrow" "" "Class" "soda-form-editor-intro"}}
 		{{template "base/alert" .}}
 		<div class="ui header flex-text-block tw-justify-between soda-p-heading">
 			{{ctx.Locale.Tr "repo.wiki.new_page"}}

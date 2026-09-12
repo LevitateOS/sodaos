@@ -3,7 +3,7 @@
 {{else}}
 <div role="main" aria-label="{{.Title}}" class="page-content user notification soda-page soda-notifications" data-signed="true" id="notification_div" data-sequence-number="{{.SequenceNumber}}">
 	<div class="ui container soda-page-container">
-        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace." "Artwork" "notifications-papercraft.png"}}
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your inbox" "Title" (ctx.Locale.Tr "notifications") "Description" "Stay in the loop. At your own pace."}}
 		{{$notificationUnreadCount := call .NotificationUnreadCount}}
 		<div class="soda-toolbar soda-notifications-toolbar soda-p-toolbar">
 			<div class="switch soda-tabs">

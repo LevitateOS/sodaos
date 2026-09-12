@@ -2,7 +2,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content moderation new-report soda-page soda-moderation" data-signed="{{if .IsSigned}}true{{else}}false{{end}}">
 	<div class="ui container soda-page-container soda-form-layout">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "moderation.report_abuse_form.header") "Description" "Provide the details moderators need to review this content." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" (ctx.Locale.Tr "moderation.report_abuse_form.header") "Description" "Provide the details moderators need to review this content." "Eyebrow" "" "Class" "soda-form-story"}}
 		<div class="soda-form-content">
 			<form class="ui form soda-form soda-p-form" action="{{.Link}}" method="post">
 				<div class="ui attached segment">

@@ -65,7 +65,7 @@ for stylesheet in (custom / 'css').glob('*.css'):
 images = custom / 'img'
 images.mkdir()
 for name in ['logo.svg', 'favicon.svg']:
-    shutil.copy2(source / 'assets/branding/source/soda-symbol.svg', images / name)
+    shutil.copy2(source / 'assets/branding/source/soda-symbol-brutalist.svg', images / name)
 for name in ['logo.png', 'favicon.png', 'apple-touch-icon.png']:
     shutil.copy2(source / 'assets/branding/forgejo' / name, images / name)
 # copytree/copy2 preserve checkout modes (a private worktree may be 0700/0600).

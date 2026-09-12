@@ -9,6 +9,10 @@ it is last verified state, not a fresh health/liveness observation.
 Detailed receipts and completed work belong in [implementation history](implementation-history.md);
 historical approvals are not renewed execution permission.
 
+## Isolated Forgejo visual redesign
+
+The `codex/forgejo-redesign` worktree now applies the new visual system across the Forgejo override set. [Its independent status](forgejo-redesign-status.md) owns scope, source checks and browser review evidence. The owner-selected Mac localhost:3300 Forgejo presentation is updated on its existing sodaos-local-forgejo_data volume, with a consistent private backup; the separate builder/VM targets are unchanged. The independent status records parity and delivery evidence. Fastfetch ASCII branding remains separate from this template pass.
+
 ## Active work — Tailnet
 
 **Stage 1's local investigation is complete; production implementation and native

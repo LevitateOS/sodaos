@@ -1,42 +1,48 @@
-.soda-home { flex: 1; background: radial-gradient(ellipse at 75% 35%, var(--soda-guest-glow), transparent 55%); }
+@import "../fonts/fonts.css?v=2026-09-12.brutalist-2";
+@import "../theme/palette.css?v=2026-09-12.brutalist-2";
+/* Public welcome layout; shared guest roles select the current theme. */
+.soda-home { flex: 1; background: var(--soda-guest-canvas); color: var(--soda-guest-text); }
 .soda-home.page-content > :first-child { margin-top: 0; }
 .soda-home a { color: var(--soda-guest-link); }
-.soda-home :is(a,button):not(.soda-guest-theme-toggle):focus-visible { outline: 2px solid var(--soda-guest-focus); outline-offset: 4px; }
-.soda-home-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 16px; border-bottom: 1px solid var(--soda-guest-edge); }
+.soda-home :is(a,button):focus-visible { outline: 2px solid var(--soda-guest-focus); outline-offset: 4px; }
+.soda-home-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border-bottom: 3px solid var(--soda-guest-text); }
 .soda-home-brand { flex-shrink: 0; }
-.soda-home-brand img { display: block; width: 152px; height: auto; }
-.soda-home-links { display: flex; align-items: center; gap: 16px; font-size: 15px; font-weight: 600; }
+.soda-home-brand img { display: block; width: 40px; height: 40px; }
+.soda-home-links { display: flex; align-items: center; gap: 16px; font: 500 13px/1.5 "IBM Plex Mono", monospace; }
 .soda-home-links > a:first-child { display: none; }
 .soda-home-links .soda-home-nav-signin { color: var(--soda-guest-text); white-space: nowrap; }
 .soda-home-nav-signin span { margin-left: 8px; }
+.soda-home .soda-guest-theme-toggle { border-radius: 0; }
 .soda-home-brand .soda-home-logo-dark { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-light { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { display: block; }
-.soda-home-hero { display: grid; gap: 24px; max-width: 1400px; margin: auto; padding: 32px 16px 24px; align-items: center; }
-.soda-home-eyebrow { display: flex; align-items: center; gap: 12px; color: var(--soda-guest-link); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .12em; margin: 0 0 16px; }
-.soda-home-eyebrow span { width: 24px; height: 3px; background: currentColor; border-radius: 2px; }
-.soda-home h1 { font: 600 clamp(44px, 5.2vw, 78px)/1.03 "Fraunces Variable", Georgia, serif; letter-spacing: -.045em; color: var(--soda-guest-text); margin: 0 0 24px; }
-.soda-home-lede { max-width: 440px; font-size: 19px; line-height: 1.6; color: var(--soda-guest-muted); margin: 0 0 24px; }
-.soda-home-actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
-.soda-home-actions a { display: inline-flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; border-radius: var(--soda-button-radius); padding: 8px 12px; font: var(--soda-font-button); }
-.soda-home-actions .soda-home-primary { min-width: 156px; }
-
-
-
-
-.soda-home-account { color: var(--soda-guest-muted); font-size: 14px; margin: 16px 0 0; line-height: 1.5; }
-.soda-home-illustration img { display: block; width: 100%; height: auto; }
-.soda-home-illustration p { color: var(--soda-guest-muted); text-align: center; font-size: 14px; margin: 16px 0 0; }
-.soda-home-features { display: grid; max-width: 1352px; margin: 0 16px 24px; border-top: 1px solid var(--soda-guest-edge); gap: 24px; padding-top: 24px; }
-.soda-home-features article { display: flex; gap: 16px; }
-.soda-home-feature-icon { display: grid; place-items: center; flex: 0 0 42px; height: 42px; border-radius: 12px; color: var(--soda-guest-link); background: var(--soda-guest-selected); }
-.soda-home-features h2 { margin: 0 0 8px; font: var(--soda-font-heading); color: var(--soda-guest-text); }
-.soda-home-features p { margin: 0; max-width: 300px; font: 400 15px/1.5 Barlow, Arial, sans-serif; color: var(--soda-guest-muted); }
-@media (min-width: 700px) { .soda-home-links > a:first-child { display: inline; } .soda-home-features { grid-template-columns: repeat(3,1fr); } }
-@media (min-width: 1000px) {
-  .soda-home-nav { padding-inline: max(36px, calc((100% - 1352px) / 2)); }
-  .soda-home-brand img { width: 156px; }
-  .soda-home-hero { grid-template-columns: 46% 54%; gap: 0; padding: 32px 24px 32px; min-height: min(700px, calc(100svh - 300px)); }
-  .soda-home-illustration { margin-left: -12px; }
-  .soda-home-features { margin-inline: max(36px, calc((100% - 1352px) / 2)); margin-bottom: 32px; }
+.soda-home-hero { display: grid; gap: 32px; max-width: 1280px; margin: auto; padding: 48px 16px; }
+.soda-home-copy,.soda-home-entry { min-width: 0; }
+.soda-home-eyebrow { display: inline-block; max-width: 100%; padding: 4px 8px; margin: 0 0 20px; color: var(--soda-guest-canvas); background: var(--soda-guest-text); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .04em; }
+.soda-home h1 { margin: 0; font: 800 clamp(48px, 9vw, 116px)/.95 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
+.soda-home-lede { max-width: 36ch; margin: 0 0 24px; font: 400 20px/1.5 Barlow, sans-serif; color: var(--soda-guest-muted); }
+.soda-home-actions { display: grid; gap: 12px; }
+.soda-home-actions a { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; }
+.soda-home-account { margin: 20px 0 0; color: var(--soda-guest-muted); font: 400 15px/1.5 Barlow, sans-serif; }
+.soda-home-account a { text-decoration: underline; text-underline-offset: 3px; }
+.soda-home-features { display: grid; max-width: 1248px; margin: 0 16px 40px; border-top: 1px solid var(--soda-guest-edge); }
+.soda-home-features article { display: grid; grid-template-columns: 32px 1fr; gap: 16px; padding-block: 24px; }
+.soda-home-features article + article { border-top: 1px solid var(--soda-guest-edge); }
+.soda-home-feature-number { color: var(--soda-guest-link); font: 500 14px/1.5 "IBM Plex Mono", monospace; }
+.soda-home-features h2 { margin: 0 0 8px; color: var(--soda-guest-text); font: 800 22px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
+.soda-home-features p { margin: 0; color: var(--soda-guest-muted); font: 400 16px/1.5 Barlow, sans-serif; }
+body:has(.soda-home) footer { background: var(--soda-guest-canvas); color: var(--soda-guest-muted); border-top: 1px solid var(--soda-guest-edge); }
+body:has(.soda-home) footer a { color: var(--soda-guest-link); }
+@media (min-width: 48rem) {
+  .soda-home-nav { padding-inline: max(32px, calc((100% - 1248px)/2)); }
+  .soda-home-links > a:first-child { display: inline; }
+  .soda-home-hero { padding: 64px 32px; }
+  .soda-home-features { grid-template-columns: repeat(3,minmax(0,1fr)); margin-inline: max(32px,calc((100% - 1248px)/2)); }
+  .soda-home-features article { padding: 28px 20px; }
+  .soda-home-features article:first-child { padding-left: 0; }
+  .soda-home-features article + article { border-top: 0; border-left: 1px solid var(--soda-guest-edge); }
+}
+@media (min-width: 64rem) {
+  .soda-home-hero { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items: end; gap: 64px; padding-block: 88px; }
+  .soda-home-entry { padding-bottom: 4px; }
 }

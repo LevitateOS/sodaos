@@ -2,6 +2,7 @@
    and administrator side navigation. Native templates retain every link,
    nested details group, visibility gate, form, and action. */
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu {
+	width: 100%;
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -11,20 +12,29 @@
 }
 
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu > .header.item {
-	padding: 8px 12px 12px;
+	margin: 4px 4px 12px;
+	border-radius: 0;
+	padding: 8px 12px;
 	border-bottom: 0;
-	background: transparent;
-	color: var(--soda-page-text);
-	font: 600 20px/1.3 "Fraunces Variable", Georgia, serif;
+	background: var(--soda-page-text);
+	color: var(--soda-page-canvas);
+	text-transform: uppercase;
+	letter-spacing: .025em;
+	font: 800 20px/1.3 "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu :is(a.item, details.item > summary) {
 	margin: 4px 4px;
 	padding: 8px 12px;
 	border: 0;
-	border-radius: 8px;
+	border-radius: 0;
 	color: var(--soda-page-muted);
 	font: 600 14px/1.45 Barlow, Arial, sans-serif;
+	white-space: normal;
+	text-overflow: clip;
+	min-height: 44px;
+	box-sizing: border-box;
+	overflow-wrap: anywhere;
 }
 
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu :is(a.item:hover, details.item > summary:hover) {
@@ -33,8 +43,10 @@
 }
 
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu a.active.item {
-	background: var(--soda-page-selected);
-	color: var(--soda-page-link);
+	background: var(--soda-page-text);
+	color: var(--soda-page-canvas);
+	border-inline-start: 4px solid var(--soda-page-action);
+	padding-inline-start: 8px;
 }
 
 :is(.soda-admin-layout, .soda-org-settings-layout) > .flex-container-nav > .ui.vertical.menu details.item > .menu {
@@ -76,7 +88,7 @@
 }
 
 :is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > :is(.ui.bottom.attached.segment, .ui.attached.segment:last-child, .ui.attached.table:last-child) {
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+	border-radius: 0;
 }
 
 :is(.soda-settings, .soda-repository-settings, .soda-admin, .soda-org-settings) :is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.attached.segment:only-child {
@@ -122,9 +134,9 @@
 
 /* Shared personal/repository settings shell, navigation and content contract. */
 .soda-settings-shell > .ui.container.soda-page-container { width: 100% !important; max-width: min(1168px, 100%) !important; margin-top: 0; padding-inline: 24px; margin-inline: auto !important; }
-.soda-settings-bar { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.soda-settings-bar { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 3px solid var(--soda-page-text); }
 .soda-settings-layout, .soda-settings-shell .flex-container-main, .soda-settings-shell :is(.user-setting-content, .repo-setting-content) { min-width: 0; width: 100%; }
-.soda-settings-shell #soda-settings-title { font-size: 32px; line-height: 1.2; margin: 0 0 24px; }
+.soda-settings-shell #soda-settings-title { text-transform: uppercase; font-size: 32px; line-height: 1.2; margin: 0 0 24px; }
 .soda-settings-parent { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .soda-settings-nav { position: relative; flex: none; }
 .soda-settings-destinations { display: flex; gap: 8px; }
@@ -133,12 +145,12 @@
 .soda-settings-nav button:hover, .soda-settings-nav button[aria-expanded=true], .soda-settings-nav .is-current > button { color: var(--soda-page-link); background: var(--soda-page-hover); }
 .soda-settings-nav :is(button, a):focus-visible, .soda-settings-disclosure > summary:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 2px; }
 .soda-settings-menu { display: grid; gap: 4px; padding: 8px; }
-.soda-settings-menu a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: 8px; color: var(--soda-page-text); }
+.soda-settings-menu a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; border-radius: 0; color: var(--soda-page-text); }
 .soda-settings-menu a:hover, .soda-settings-menu a[aria-current] { background: var(--soda-page-hover); color: var(--soda-page-link); }
-.soda-settings-menu a[aria-current] { font-weight: 600; }
-.soda-settings-menu-label, .soda-settings-group-label { color: var(--soda-page-muted); padding: 8px 12px 0; font-size: 14px; }
+.soda-settings-menu a[aria-current] { font-weight: 600; background: var(--soda-page-text); color: var(--soda-page-canvas); border-inline-start: 4px solid var(--soda-page-action); padding-inline-start: 8px; }
+.soda-settings-menu-label, .soda-settings-group-label { color: var(--soda-page-canvas); background: var(--soda-page-text); padding: 8px 12px; margin-block: 4px; font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .05em; }
 .soda-settings-nav .soda-settings-current, .soda-settings-group-label { display: none; }
-.soda-settings-nav.is-enhanced .soda-settings-menu { position: absolute; top: calc(100% + 4px); right: 0; width: 264px; max-height: 70vh; overflow-y: auto; z-index: 30; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; box-shadow: 0 8px 24px #0002; }
+.soda-settings-nav.is-enhanced .soda-settings-menu { position: absolute; top: calc(100% + 4px); right: 0; width: 264px; max-height: 70vh; overflow-y: auto; z-index: 30; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 0; box-shadow: none; }
 .soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { display: none; }
 .soda-settings-disclosure { margin-block: 16px; }
 .soda-settings-disclosure > summary { font: var(--soda-font-button); color: var(--soda-page-link); cursor: pointer; min-height: 44px; padding-block: 12px; }
@@ -153,16 +165,16 @@
 @media (max-width: 899px) {
 
  .soda-settings-shell > .ui.container.soda-page-container { padding-inline: 16px; }
- .soda-settings-bar { gap: 12px; margin-bottom: 16px; }
+ .soda-settings-bar { gap: 12px; margin-bottom: 24px; align-items: flex-start; flex-wrap: wrap; }
  .soda-settings-nav { flex: 0 1 auto; min-width: 0; }
  .soda-settings-nav .soda-settings-current { display: flex; max-width: 180px; text-align: left; }
  .soda-settings-nav .soda-settings-nav-trigger { display: none; }
  .soda-settings-group-label { display: block; }
  .soda-settings-nav.is-enhanced .soda-settings-current[aria-expanded=false] + .soda-settings-destinations { display: none; }
  .soda-settings-destinations { display: block; }
- .soda-settings-nav.is-enhanced .soda-settings-destinations { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: min(340px,calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 8px; padding: 8px; }
+ .soda-settings-nav.is-enhanced .soda-settings-destinations { position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: min(340px,calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--soda-page-surface); border: 1px solid var(--soda-page-edge); border-radius: 0; padding: 8px; }
  .soda-settings-nav.is-enhanced .soda-settings-menu, .soda-settings-nav.is-enhanced .soda-settings-nav-trigger[aria-expanded=false] + .soda-settings-menu { position: static; display: grid; width: auto; border: 0; box-shadow: none; padding: 0; }
- .soda-settings-shell #soda-settings-title { margin-bottom: 24px; }
+ .soda-settings-shell #soda-settings-title { margin-bottom: 0; }
  .soda-settings-bar:has(.soda-settings-nav:not(.is-enhanced)) { display: block; }
 }
 /* Shared-section adapters inside opted-in settings composition. Native

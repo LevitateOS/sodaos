@@ -50,7 +50,6 @@
         {{if .Feeds}}{{template "user/dashboard/feeds" .}}{{else}}{{template "user/dashboard/guide" .}}{{end}}
       </section>
       <aside class="soda-dashboard-sidebar" aria-label="Repositories and organizations">
-      <img class="soda-dashboard-art" src="{{AssetUrlPrefix}}/soda/forgejo/dashboard-papercraft.png" alt="" width="1536" height="1024">
         {{template "user/dashboard/repolist" .}}
         <section class="soda-dashboard-discover">
           {{svg "octicon-telescope" 24}}

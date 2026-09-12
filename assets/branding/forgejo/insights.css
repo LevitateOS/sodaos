@@ -15,7 +15,7 @@
 }
 
 .soda-insights .flex-container-nav > .ui.menu .item {
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--soda-page-muted);
   font-weight: 600;
 }
@@ -28,7 +28,7 @@
 .soda-insights .activity-header,
 .soda-insights #git-graph-heading h2 {
   color: var(--soda-page-text);
-  font: 600 28px/1.25 "Fraunces Variable", Georgia, serif;
+  font: 800 28px/1.25 "Barlow Condensed", "Arial Narrow", sans-serif;
   letter-spacing: -.025em;
 }
 
@@ -112,7 +112,7 @@
 .soda-insights-activity .divider.divider-text {
   margin-top: 24px;
   color: var(--soda-page-text);
-  font: 600 20px/1.4 "Fraunces Variable", Georgia, serif;
+  font: 800 20px/1.4 "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 .soda-insights-activity .list .desc {
@@ -158,7 +158,7 @@
 }
 
 .soda-insights-graph #git-graph-heading .switch .item {
-  border-radius: 7px;
+  border-radius: 0;
   color: var(--soda-page-muted);
 }
 

@@ -35,7 +35,7 @@ func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
 				{` class="page-content install soda-page soda-forgejo-setup" data-signed="false"`, ` class="page-content install"`},
 				{"\t<div class=\"soda-setup-theme\">{{template \"custom/soda/theme_toggle\" dict \"Class\" \"soda-setup-theme-toggle\"}}</div>\n", ""},
 				{` class="ui grid install-config-container soda-page-container"`, ` class="ui grid install-config-container"`},
-				{"\t\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Forge setup\" \"Title\" (ctx.Locale.Tr \"install.title\") \"Description\" \"Configure the native forge that powers your shared development workspace.\" \"Artwork\" \"home-papercraft.png\"}}\n\t\t\t<div class=\"ui segment soda-setup-panel\">", "\t\t\t<h3 class=\"ui top attached header\">\n\t\t\t\t{{ctx.Locale.Tr \"install.title\"}}\n\t\t\t</h3>\n\t\t\t<div class=\"ui attached segment\">"},
+				{"\t\t\t{{template \"custom/soda/page_intro\" dict \"TitleID\" \"soda-page-title\" \"Eyebrow\" \"Forge setup\" \"Title\" (ctx.Locale.Tr \"install.title\") \"Description\" \"Configure the native forge that powers your shared development workspace.\"}}\n\t\t\t<div class=\"ui segment soda-setup-panel\">", "\t\t\t<h3 class=\"ui top attached header\">\n\t\t\t\t{{ctx.Locale.Tr \"install.title\"}}\n\t\t\t</h3>\n\t\t\t<div class=\"ui attached segment\">"},
 				{` class="ui form soda-form"`, ` class="ui form"`},
 			},
 		},
