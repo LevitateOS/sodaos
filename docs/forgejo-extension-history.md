@@ -6,6 +6,55 @@ work; these records do not grant appliance/provider execution or reopen complete
 steps. The original source audit remains in its
 [existing receipt](implementation-history.md#forgejo-extension-source-audit).
 
+## Native navigation current-page cues
+
+**Baseline `9ebc3a8`; local source/browser work only.** The user requested further
+fixes and clarified that deployment belongs on the x86 machine, not this arm64
+macOS source session. The working tree was clean; no overlapping Tailnet edits were
+present when the affected files were inspected.
+
+The selected Forgejo 15.0.7 navbar already uses `active` and `aria-current="page"`;
+Soda's existing component CSS styles that native class. `soda-settings-link.ts` now
+uses those cues for Spaces/Runners from the matching actor in the existing validated
+`main.soda-native-page #soda-native-content` host. It does not parse the query again
+or infer authority from a selected view. Spaces has one stable template target;
+Runners remains absent unless its existing Soda-session/operator check succeeds.
+Generation-based retirement and ordinary links/drafts are preserved.
+
+The header/footer/dashboard entry URLs and compiler-owned transitive imports now
+share epoch `2026-09-12.native-pages-8`. No new runtime, dependency, CSS rule or payload
+entry was needed. Dashboard/footer selector logic, OAuth, backend/helper code and
+Tailnet feature implementation were not changed.
+
+### Checks actually run
+
+Evidence: `.artifacts/forgejo-navigation-YFesQX/`.
+
+| Check | Result and scope |
+| --- | --- |
+| New checks before the fix | Both emitted-browser tests failed on missing active state (Runners and Spaces); the Go navigation test failed on the missing stable Spaces target. Original logs retained as `browser-before.log` and `templates-before.log`. |
+| `bun run build:forgejo` | Passed before and after; `build-before.log`, `build-after.log`. Emitted browser assets only. |
+| Selected Go template checks | 7 top-level tests passed: native host/invalid locators/ordinary dashboard, operator navigation, drawer/context escaping and request logging. `templates-after.log`. |
+| Selected frontend/Forgejo checks | 10 tests passed across `settings-link`, `connection` and `lit-build`. The final navigation tests cover 25 fixture scenarios: operator/nonoperator/mismatch/expiry, both valid global views, repository settings, absent/invalid/unknown hosts, unrelated URLs, markers outside the native host, foreign actors, root/prefixed asset paths and expired Soda access on Spaces. `browser-final.log`; the earlier passing run is retained as `browser-after.log`. |
+| `bun run typecheck` | Passed all configured TypeScript checks, actual-source Lit analysis and checker fixtures. `typecheck.log`; test-config typing was rechecked after the final test-only host-boundary addition (`test-types-final.log`). |
+| Formatting/documentation | Pinned `gofmt`, local documentation links/anchors and whitespace checked. |
+
+Bun **1.4.2**. Go **1.26.7 darwin/arm64**, `GOTOOLCHAIN=local`, `GOWORK=off`,
+`CGO_ENABLED=0`, read-only modules and `-count=1`. Browser tests used
+`SODA_LIT_BROWSER=1` with the existing emitted-asset Playwright fixture pattern;
+no native fixture/provider opt-ins were enabled. `checks.json` records exact commands.
+
+### Outcome and limits
+
+**Source-complete navigation slice.** Browser authority data and host markup were
+synthetic; Go tests separately verify which native-template branches emit the host.
+Pagehide/pageshow checks simulate events rather than prove actual BFCache. Prefix
+checks establish navigation/module paths, not end-to-end subpath support. Full
+native visual/accessibility acceptance and installed cache transitions were not run.
+No native fixture login, real credentials, retained-state/lifecycle operation,
+Tailnet implementation, native appliance build or deployment occurred. Localization
+and conditional customization reduction remain separate queued work.
+
 ## Runner post-decode mutation admission
 
 **Baseline `61a84b6`; source correction and local tests only.** The user requested

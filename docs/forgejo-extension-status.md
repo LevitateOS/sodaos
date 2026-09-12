@@ -28,12 +28,14 @@ architectural limits, not promised fixes in this queue.
 | --- | --- |
 | Source audit | Complete at `e415330`, inspecting Soda `5c2f92a` and stock Forgejo 15.0.7. |
 | First implementation slice | **Complete locally: runner post-decode mutation admission.** Source fixed; focused Go/race checks passed. |
-| Navigation and presentation | Queued below; no source changes yet. |
+| Navigation | **Complete locally:** matching Spaces/Runners active styling and current-page accessibility cues; local template/browser/build checks passed. |
+| Localization | Next queued slice; no localization changes yet. |
 | Customization reduction | Conditional review, not a blanket rewrite or release gate. |
-| Native build / installed validation / delivery | Not performed for these follow-up changes. No target selected. |
+| Native build / installed validation / delivery | Outside this arm64 macOS source session; the x86 machine handles deployment for the current setup. |
 
-The runner correction now has its own post-fix evidence, separate from the audit's
-baseline checks. It has not been built or delivered to an appliance.
+Runner and navigation fixes have their own post-fix evidence, separate from the
+audit's baseline checks. This agent continues source fixes and local checks only,
+not appliance installation, service operations or deployment.
 
 ## Implementation order
 
@@ -50,16 +52,18 @@ owns the admission—not rollback—limit. The
 records the reproduced failures and passing focused Go/race checks. No real runner,
 shared authentication mechanism, host protocol, migration or Tailnet code changed.
 
-### 2. Make navigation coherent
+### 2. Make navigation coherent — complete locally
 
-**Scope:** existing Spaces/Runners navigation and their consumers, under the
-[native page contract](forgejo-soda-pages-plan.md).
+The existing settings-link module now reads the validated native content host and
+matching actor, applying native `active` styling and `aria-current="page"` to Spaces
+or Runners. Repository settings retains its own context/back-links; neither global
+link falsely claims it is that page. No second selector parser, client router or
+permission source was introduced. Operator visibility and retirement are unchanged.
 
-Add selected-view styling and `aria-current` from validated page context. Preserve
-operator-only visibility, native links, invalid-selector refusal, ordinary dashboard
-behavior and repository identity/back-links. Extend existing template and emitted
-browser tests; keep asset inventory/cache-version changes paired where affected.
-Do not invent a client router or manufacture repository-admin template context.
+The [native page contract](forgejo-soda-pages-plan.md) owns the behavior. The paired
+entry/import epoch is `2026-09-12.native-pages-8`; the canonical payload inventory
+and shared Lit runtime remain unchanged. The [navigation receipt](forgejo-extension-history.md#native-navigation-current-page-cues)
+records the failing-before/passing-after checks and local-only evidence limits.
 
 ### 3. Align Soda presentation text with native localization
 
@@ -105,16 +109,16 @@ network/trust changes or cleanup.
 
 ## Evidence and latest change
 
-**Latest change — runner admission fixed in source:** all 35 new regression cases
-now pass, together with the existing selected boundaries: 18 top-level tests / 360
-subcases, both normally and with `-race` on pinned Go 1.26.7. The pre-fix run had
-5 passing unchanged controls and 30 failing refusal cases. Documentation and
-formatting checks passed. Evidence and exact scope are in the
-[Forgejo extension history](forgejo-extension-history.md#runner-post-decode-mutation-admission)
-and `.artifacts/runner-admission-fix-ut6yVW/`.
+**Latest change — native navigation cues:** 7 Go template tests and 10 selected
+frontend/Forgejo tests passed, including 25 navigation fixture scenarios. The emitted
+asset build and full TypeScript/Lit checks passed. New checks reproduced both missing
+active states and the missing stable Spaces target before the fix. Evidence:
+[navigation receipt](forgejo-extension-history.md#native-navigation-current-page-cues)
+and `.artifacts/forgejo-navigation-YFesQX/`.
 
-The [original audit receipt](implementation-history.md#forgejo-extension-source-audit)
-and `.artifacts/forgejo-native-audit-XdXOQq/` remain historical baseline evidence.
-No frontend tests/build, native build, installed validation, provider action or
-Tailnet work was performed for this backend-only fix. Navigation is the next queued
-slice, not part of the completed correction.
+The prior [runner correction](forgejo-extension-history.md#runner-post-decode-mutation-admission)
+retains its 35 regression cases and focused Go/race evidence at
+`.artifacts/runner-admission-fix-ut6yVW/`; it was not changed or retested by the UI slice.
+The [original audit](implementation-history.md#forgejo-extension-source-audit) remains
+baseline evidence. No native fixture login, installed validation, provider action,
+Tailnet implementation or deployment occurred. Localization remains queued.
