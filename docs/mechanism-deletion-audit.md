@@ -3,7 +3,7 @@
 **Source baseline:** `7bd8f3b76359dcb0aa73c23ff4d7d4ca02526681`.
 **Scope:** all 28 slices in the requested inventory, including their callers,
 requirements and supporting tests. The line-count target was withdrawn; there is
-no deletion quota or claimed saving here.
+no deletion quota or measured saving. A preliminary size estimate is recorded below.
 
 This is a removal-focused audit, not a behavior-preserving refactoring review.
 Some of the largest mechanisms exist because earlier requirements demanded them.
@@ -37,6 +37,21 @@ terminal capacity, and networking that cannot recover after a failed key request
 **Runners is not hiding an equivalent large subsystem.** Its clearest excesses are
 whole-inventory failure propagation and universal typed confirmations. Inventing a
 runner scheduler or provider framework to delete would misrepresent this tree.
+
+## Preliminary size estimate
+
+If all recommended policy changes are accepted, the rough estimate is
+**1,000–2,000 net implementation lines removed**, with **about 1,500** as the working
+estimate. This uses physical source lines, including comments and blanks, but
+**excludes tests and documentation**. Most of the reduction would come from terminal
+lifetime/receipt machinery and Tailnet enrollment/restart bookkeeping.
+
+The estimate allows for replacement native lookup/admission/cleanup code and does
+not add overlapping findings together. Some smaller changes, particularly partial
+runner inventory reporting, may add code rather than remove it. This is a judgment
+estimate from the inspected source, not a measured patch or completed per-block
+sizing ledger. No runtime code has been deleted, and the estimate is not a target
+or implementation approval.
 
 ## Recommended mechanism deletions
 
