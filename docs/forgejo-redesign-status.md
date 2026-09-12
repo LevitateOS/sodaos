@@ -175,23 +175,16 @@ in `.artifacts/forgejo-login-station/`; no credentials or form submission were u
 
 ## Repository switcher
 
-The repository breadcrumb now has separate owner and repository dropdowns using
-the native Fomantic widget, search field and icons. Its compact menu follows the
-shared 1px/square design in both themes. Owner choices reuse the personal dashboard's
-membership data; repository results use native session-aware search. Changing owner
-opens a scoped repository picker without leaving the page. The owner name and
-repository name keep their native links. Guest/no-JS pages retain ordinary navigation.
+Only the repository dropdown remains. The owner name is an ordinary profile link;
+the separate owner selector, membership fragment, cross-owner scope control and
+their supporting code have been removed at the owner's request. Repository search
+is fixed to the current owner using native session-aware `/repo/search`.
 
-Only the new CSS/JS, repository header, owner-fragment wrapper and corresponding
-asset links were delivered to localhost:3300. Retained local runtime JS and unrelated
-Soda page versions remain intact. Backups and browser images are in
-`.artifacts/forgejo-repository-switcher/`. The live screenshot account has no
-organization memberships, so organization/private result journeys use explicitly
-controlled browser-only GET responses; actual native owner and repository reads
-were also checked. No memberships, repositories or settings were changed. Browser checks pass in both
-themes at 320, 640, 720, 800, 960 and 1440px, including keyboard owner handoff, actual
-link navigation, empty/retry states, stale-request cancellation and pagination.
-Focused native template rendering, TypeScript, asset build and inventory checks pass.
+The retained dropdown uses the native Fomantic widget, search field and icons with
+1px square borders, both themes, pagination and keyboard navigation. The normal
+dashboard template is restored. Local delivery preserves the independent runtime
+versions. Removal backups are in `.artifacts/forgejo-remove-owner/`; responsive
+browser evidence is in `.artifacts/forgejo-repository-switcher/`.
 
 ## Notifications completion pass
 

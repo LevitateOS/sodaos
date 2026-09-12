@@ -4,8 +4,8 @@ import {test} from 'node:test';
 import {chromium} from 'playwright';
 
 // Real Forgejo header and native dropdown bundle; controlled GET responses cover
-// scopes and failures without creating accounts, memberships or repositories.
-test('repository switcher reuses native dropdowns with scoped, cancellable search', {skip:process.env.SODA_FORGEJO_SWITCHER_REVIEW !== '1'}, async()=>{
+// search and failures without creating accounts, memberships or repositories.
+test('repository switcher reuses native dropdowns with current-owner, cancellable search', {skip:process.env.SODA_FORGEJO_SWITCHER_REVIEW !== '1'}, async()=>{
  const origin='http://localhost:3300';
  const c=await chromium.launchPersistentContext('.local/screenshot-fixture-profile',{channel:'chrome',headless:true});
  try {
@@ -15,18 +15,20 @@ test('repository switcher reuses native dropdowns with scoped, cancellable searc
   const root=p.locator('.soda-repository-breadcrumb');
   const actor=await root.getAttribute('data-user-id');assert(actor);
   const currentOwner=await root.getAttribute('data-owner-id');assert(currentOwner);
-  const owner=p.locator('.soda-repository-switcher[data-kind=owner]'),repo=p.locator('.soda-repository-switcher[data-kind=repository]');
+  assert.equal(await p.locator('.soda-repository-switcher[data-kind=owner]').count(),0);
+  assert.equal(await p.locator('.soda-repository-switcher').count(),1);
+  const repo=p.locator('.soda-repository-switcher[data-kind=repository]');
   const input=repo.locator('input');
   const requests:URL[]=[];
   let error=false, staleResolve:(()=>void)|undefined;
-  await p.route('**/?soda-switcher-owners=1',r=>r.fulfill({contentType:'text/html',body:`<select data-soda-switcher-owners data-actor="${actor}"><option value="${actor}">soda-screenshot</option><option value="101">studio</option><option value="102">empty-org</option></select>`}));
   await p.route('**/repo/search?*',async r=>{
    const u=new URL(r.request().url());requests.push(u);
    if(error)return r.fulfill({status:500,body:'Server details must stay private'});
    const q=u.searchParams.get('q')??'';
    if(q==='stale')await new Promise<void>(resolve=>{staleResolve=resolve;});
-   const count=q==='many'?15:q==='nothing'||u.searchParams.get('uid')==='102'?0:2;
-   const ownerName=u.searchParams.get('uid')==='101'?'studio':'alice';
+   const count=q==='many'?15:q==='nothing'?0:2;
+   const ownerName='alice';
+   assert.equal(u.searchParams.get('uid'),currentOwner);assert.equal(u.searchParams.get('exclusive'),'true');
    const data=Array.from({length:count},(_,i)=>({repository:{full_name:i?`${ownerName}/${q||'private-fork'}`:`${ownerName}/activity-workbench`,link:i?`/${ownerName}/repo-${u.searchParams.get('page')}-${i}`:`/${ownerName}/activity-workbench`,private:i===1,fork:i===1}}));
    await r.fulfill({json:{ok:true,data}}).catch(()=>{});
   });
@@ -46,14 +48,7 @@ test('repository switcher reuses native dropdowns with scoped, cancellable searc
   await input.fill('many');await repo.locator('.soda-switcher-more').waitFor();await repo.locator('.soda-switcher-more').click();
   await p.waitForFunction(()=>document.querySelectorAll('[data-kind="repository"] a.item').length===29);
   assert.equal(requests.at(-1)?.searchParams.get('page'),'2');
-  await p.keyboard.press('Escape');await owner.click();await owner.getByText('studio',{exact:true}).waitFor();
-  await owner.locator('input').fill('studio');await p.keyboard.press('ArrowDown');await p.keyboard.press('Enter');
-  await repo.getByText('studio/activity-workbench',{exact:true}).waitFor();
-  assert.equal(requests.at(-1)?.searchParams.get('uid'),'101');assert.equal(p.url(),`${origin}/alice/activity-workbench`);
-  await p.keyboard.press('Escape');await owner.click();await owner.locator('input').fill('');await owner.getByText('All your repositories',{exact:true}).click();
-  await repo.locator('a.item').first().waitFor();assert.equal(requests.at(-1)?.searchParams.get('uid'),actor);assert.equal(requests.at(-1)?.searchParams.get('exclusive'),'false');
-  await p.keyboard.press('Escape');await owner.click();await owner.getByText('empty-org',{exact:true}).click();await repo.getByText('No matching repositories.',{exact:true}).waitFor();
-  await p.keyboard.press('Escape');await owner.click();await owner.getByText('alice',{exact:true}).click();await repo.locator('a.item').first().waitFor();
+  await input.fill('');await repo.locator('a.item').first().waitFor();
   await mkdir('.artifacts/forgejo-repository-switcher',{recursive:true});
   for(const theme of ['light','dark'])for(const width of [320,640,720,800,960,1440]){
    await p.keyboard.press('Escape');await p.setViewportSize({width,height:900});

@@ -10,15 +10,12 @@
 					<div class="flex-item-title tw-font-normal">
 						<div class="soda-repository-breadcrumb" data-sub-url="{{AppSubUrl}}" data-owner-id="{{.Owner.ID}}" data-owner-name="{{.Owner.Name}}" data-user-id="{{if $.IsSigned}}{{$.SignedUserID}}{{end}}" data-repo-link="{{$.RepoLink}}" data-repo-name="{{.Name}}" data-repo-private="{{.IsPrivate}}" data-repo-fork="{{.IsFork}}">
                           <div class="soda-switcher-part"><a class="muted" href="{{.Owner.HomeLink}}">{{.Owner.Name}}</a>
-                          {{if $.IsSigned}}<div class="ui dropdown soda-repository-switcher" data-kind="owner" aria-label="Switch owner" hidden>
-                            {{svg "octicon-triangle-down" 14}}
-                            <div class="menu"><div class="header">Switch owner</div><div class="ui icon input"><input class="search" type="search" placeholder="Find an owner…" aria-label="Find an owner">{{svg "octicon-search" 16 "icon"}}</div><div class="message soda-switcher-status" role="status">Loading…</div></div>
-                          </div>{{end}}</div>
+                          </div>
                           <span aria-hidden="true">/</span>
                           <div class="soda-switcher-part"><a class="muted tw-font-semibold" href="{{$.RepoLink}}">{{.Name}}</a>
                           {{if $.IsSigned}}<div class="ui dropdown soda-repository-switcher" data-kind="repository" aria-label="Switch repository" hidden>
                             {{svg "octicon-triangle-down" 14}}
-                            <div class="menu"><div class="header">Switch repository</div><div class="ui icon input"><input class="search" type="search" placeholder="Find a repository…" aria-label="Find a repository">{{svg "octicon-search" 16 "icon"}}</div><div class="soda-switcher-scope"></div><div class="message soda-switcher-status" role="status">Loading…</div></div>
+                            <div class="menu"><div class="header">Switch repository</div><div class="ui icon input"><input class="search" type="search" placeholder="Find a repository…" aria-label="Find a repository">{{svg "octicon-search" 16 "icon"}}</div><div class="message soda-switcher-status" role="status">Loading…</div></div>
                           </div>{{end}}</div>
                           <template data-symbol="repo">{{svg "octicon-repo" 16}}</template><template data-symbol="private">{{svg "octicon-lock" 16}}</template><template data-symbol="fork">{{svg "octicon-repo-forked" 16}}</template><template data-symbol="check">{{svg "octicon-check" 16}}</template>
                         </div>

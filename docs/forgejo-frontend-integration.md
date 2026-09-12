@@ -126,36 +126,24 @@ explains the CSS and DOM boundaries that any future Lit component must account f
 
 ## Repository breadcrumb switcher
 
-The signed-in repository header reuses Forgejo 15.0.7's patched Fomantic dropdown,
-search input, native repository icons and shared theme tokens. Owner and repository
-names remain ordinary links; adjacent controls enhance them only when the native
-widget is available. Guest pages retain the links without empty switchers.
+The signed-in repository header has one repository dropdown beside the repository
+name. It reuses Forgejo 15.0.7's patched Fomantic dropdown, search input, native
+repository icons and shared theme tokens. The owner name remains an ordinary
+profile link. There is no owner selector or organization membership lookup.
 
-`repository-switcher.ts` supplies data and scope, not a replacement menu framework.
-The existing authenticated `GET /repo/search` uses `uid` and `exclusive=true` for
-one owner, or the current actor's `uid` and `exclusive=false` for “All your
-repositories.” The native handler remains the authority for repository visibility.
-Queries are debounced, cancelled when superseded/closed, and paginated in batches
-of 15. Links and names are inserted through DOM APIs; destinations must remain on
-the current origin and under `AppSubUrl`. No token, new authentication service,
-notification polling or persistent repository cache is introduced.
+`repository-switcher.ts` loads the existing authenticated `GET /repo/search` with
+`uid` fixed to the current repository owner and `exclusive=true`. The native
+handler remains the authority for visibility. The current repository appears first
+when opening the unfiltered list; search is debounced and cancelled when superseded
+or closed, and results are paginated in batches of 15. Selecting a result navigates
+to its repository homepage. Names use DOM text APIs, and links must remain on the
+current origin under `AppSubUrl`. No token or persistent repository cache is added.
 
-For owner options, `GET /?soda-switcher-owners=1` selects a presentation-only fragment
-of the existing Home template. Only the signed-in personal dashboard and one exact
-selector emit it. It serializes the same signed-in user and `.Orgs` membership list
-as the native dashboard context selector, with normal template escaping. The client
-checks its actor ID and includes the current owner even when visiting a non-member
-organization or another user's repository. IDs remain strings in the browser.
-Selecting an owner changes the picker scope, then opens the repository menu;
-selecting a repository navigates to its homepage. The current page's breadcrumb
-and owner links do not pretend that the navigation already happened.
-
-The native widget owns selection, keyboard navigation and dismissal. The scoped
-adapter supplies asynchronous loading/empty/retry states, focus transfer between
-the two menus, and viewport-contained positioning. `tests/forgejo/repository-switcher.test.ts`
-reuses the live native header/bundle with controlled GET responses for membership,
-private/fork rows, pagination, cancellation, errors and responsive states. Native
-owner-fragment rendering/escaping is covered by `TestNativeRepositorySwitcherOwners`.
+The native dropdown owns keyboard selection and dismissal. The adapter supplies
+loading/empty/retry states and viewport-contained positioning. Guest/no-JS pages
+retain the original links. `tests/forgejo/repository-switcher.test.ts` exercises the
+live native header/bundle with controlled GET responses and asserts that every
+search remains scoped to the current owner and only one switcher is rendered.
 
 ## Notification bell quick-view investigation
 

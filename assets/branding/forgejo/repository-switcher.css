@@ -13,7 +13,7 @@
 .soda-repository-switcher .item > svg { flex: none; margin: 0 !important; }
 .soda-switcher-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .soda-repository-switcher.ui.dropdown > .menu > .item:is(:hover,.selected,.active) { background: var(--soda-page-hover); color: var(--soda-page-link); }
-.soda-switcher-status, .soda-switcher-scope { padding: 0 16px 12px; font: 400 12px/1.5 "IBM Plex Mono", monospace; color: var(--soda-page-muted); }
+.soda-switcher-status { padding: 0 16px 12px; font: 400 12px/1.5 "IBM Plex Mono", monospace; color: var(--soda-page-muted); }
 .soda-switcher-status:empty { display: none; }
 .soda-repository-switcher .soda-switcher-more.ui.button { margin: 12px; }
 .soda-repository-switcher:focus-visible, .soda-repository-switcher input:focus-visible { outline: 2px solid var(--soda-page-text); outline-offset: -2px; }
