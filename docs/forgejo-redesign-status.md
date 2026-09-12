@@ -12,24 +12,27 @@ localhost:3300.
 
 ## Dashboard repository browser refinement
 
-The native Vue sidebar now has inverse repository/organization tabs, square count
-labels, a framed search/filter control, inverse source tabs and 48px repository
-links. The adapter targets the actual native `li` rows rather than unused `.item`
-selectors. The discover callout uses uppercase condensed display and mono action
-text. The sidebar stays full-width below the feed through 1199px, then moves into
-a dedicated 344px desktop column. Native search, filter, overflow-menu and tab
-behavior remain unchanged; no Vue fork or additional template override was added.
+The native Vue sidebar uses understated mono tabs, unboxed counts and red selected
+underlines. One thin closed frame encloses search, filters and results; the native
+attached results wrapper has no separate border. Search has one divider and a
+transparent filter button. Selected filters explicitly override Fomantic's important
+corner radius; the filter boundary also overrides Vue's important zero-width rule.
+Empty results do not double the bottom divider. Repository links retain 48px targets,
+and the discover callout uses a smaller condensed heading. The sidebar stays
+full-width below the feed through 1199px, then moves into a 344px desktop column.
+Native Vue search, filters, overflow menus and tabs retain their behavior.
 
-Only `dashboard.css` and its `v=21-sidebar` header link were delivered to the
-existing localhost:3300 mount. Previous files are retained in
-`.artifacts/forgejo-sidebar-refinement/before-delivery/`. The focused browser check
-covers 320, 640, 720, 800, 960, 1199 and 1440px in both themes, including search,
-fork filtering, empty results, organization tab switching, dropdown bounds, long
-names, inverse colors and 44px minimum targets. It uses the existing screenshot
-session with controlled repository GET responses; it changes no native data.
-Light/dark captures are in the same artifact directory. Branding, template
-inventory and changed-test TypeScript checks pass. This receipt covers the sidebar,
-not every authenticated dashboard workflow.
+Only `dashboard.css` and its `v=22-simple-sidebar` header link were delivered to the
+existing localhost:3300 mount. Prior files remain under
+`.artifacts/forgejo-sidebar-refinement/before-simplification/`. The focused browser
+check covers 320, 640, 720, 800, 960, 1199 and 1440px in both themes, including
+search, fork filtering, empty results, organization tabs, dropdown bounds, long
+names and 44px minimum targets. It now explicitly checks the reported single-fork
+state: zero-radius transparent selection, four one-pixel outer edges and no nested
+list borders. The existing screenshot session receives controlled repository GET
+responses; no native data is changed. Captures, including `simple-forks-*`, are in
+the same artifact directory. Branding, template inventory and changed-test TypeScript
+checks pass. This receipt covers the sidebar, not every dashboard workflow.
 
 ## Subway welcome background and canonical local delivery
 

@@ -4,36 +4,41 @@
 .soda-dashboard-heading h2, .soda-dashboard-discover h2 { color: var(--soda-page-text); font: var(--soda-font-heading); letter-spacing: -.025em; margin: 0 0 8px; }
 .soda-dashboard-heading { justify-content: space-between; gap: 16px; }
 .soda-dashboard-heading p { margin: 0; color: var(--soda-page-muted); font-size: 16px; }
-.soda-dashboard #dashboard-repo-list :is(.dashboard-repos,.dashboard-orgs) { margin: 0; border: 0; padding: 0; border-radius: 0; }
-/* Adapt the native Vue repository browser without replacing its controls. */
-.soda-dashboard #dashboard-repo-list { width: 100%; min-width: 0; padding: 0; margin: 0; background: transparent; border: 0; border-radius: 0 !important; }
-.soda-dashboard #dashboard-repo-list .tabs-with-labels.ui.menu { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin: 0 0 16px; padding: 0; gap: 0; border: 2px solid var(--soda-page-text); }
-.soda-dashboard #dashboard-repo-list .tabs-with-labels > .item { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-width: 0; min-height: 48px; margin: 0; padding: 10px 6px; border: 0; border-radius: 0 !important; color: var(--soda-page-text); font: 500 11px/1.4 "IBM Plex Mono",monospace; text-transform: uppercase; }
-.soda-dashboard #dashboard-repo-list .tabs-with-labels > .active.item { background: var(--soda-page-text); color: var(--soda-page-canvas) !important; box-shadow: inset 0 -4px var(--soda-page-action); }
-.soda-dashboard #dashboard-repo-list .ui.label { min-width: 20px; min-height: 20px; margin: 0 !important; padding: 3px 5px; border: 1px solid currentColor; border-radius: 0 !important; background: transparent !important; color: inherit !important; font: 500 10px/1.2 "IBM Plex Mono",monospace; }
-.soda-dashboard #dashboard-repo-list :is(.segment,.menu,.repo-owner-name-list) { background: var(--soda-page-canvas); border-color: var(--soda-page-edge); border-radius: 0 !important; box-shadow: none; }
-.soda-dashboard #dashboard-repo-list .repos-search { width: 100%; padding: 0; margin: 0; border: 0; }
-.soda-dashboard #dashboard-repo-list .repos-search > .input { width: 100%; }
-.soda-dashboard #dashboard-repo-list input[type="search"] { min-width: 0; min-height: 48px; border: 2px solid var(--soda-page-text); border-right: 0; border-radius: 0 !important; background: var(--soda-page-canvas); color: var(--soda-page-text); font: 400 16px/1.4 Barlow,sans-serif; }
-.soda-dashboard #dashboard-repo-list .repos-search > .input > .dropdown { display: flex; align-items: center; justify-content: center; flex: 0 0 48px; min-height: 48px; padding: 0; border: 2px solid var(--soda-page-text); border-radius: 0 !important; background: var(--soda-page-text); color: var(--soda-page-canvas) !important; }
-.soda-dashboard #dashboard-repo-list .repos-search .dropdown > .menu { left: auto; right: 0; min-width: 220px; border: 2px solid var(--soda-page-text); }
+/* One frame owns the search, native filter strip and results. */
+.soda-dashboard #dashboard-repo-list { width: 100%; min-width: 0; padding: 0; margin: 0; background: transparent; border: 0; }
+.soda-dashboard #dashboard-repo-list :is(.segment,.menu,.item,.label,.button,input,.dashboard-repos,.dashboard-orgs) { border-radius: 0 !important; box-shadow: none; }
+.soda-dashboard #dashboard-repo-list .tabs-with-labels.ui.menu { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; margin: 0 0 16px; padding: 0; border: 0; border-bottom: 1px solid var(--soda-page-edge); background: transparent; }
+.soda-dashboard #dashboard-repo-list .tabs-with-labels > .item { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; min-width: 0; min-height: 48px; margin: 0; padding: 12px 8px; border: 0; color: var(--soda-page-muted); background: transparent; font: 500 11px/1.4 "IBM Plex Mono",monospace; text-transform: uppercase; }
+.soda-dashboard #dashboard-repo-list .tabs-with-labels > .active.item { background: transparent; color: var(--soda-page-link) !important; box-shadow: inset 0 -2px var(--soda-page-action); }
+.soda-dashboard #dashboard-repo-list .ui.label { min-width: 0; min-height: 0; margin: 0 !important; padding: 0; border: 0; background: transparent !important; color: inherit !important; font: 500 11px/1.4 "IBM Plex Mono",monospace; }
+.soda-dashboard #dashboard-repo-list :is(.dashboard-repos,.dashboard-orgs) { margin: 0; padding: 0; border: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
+.soda-dashboard #dashboard-repo-list .dashboard-orgs:empty { border: 0; }
+.soda-dashboard #dashboard-repo-list .repos-search { width: 100%; max-width: 100%; padding: 0; margin: 0; border: 0; background: transparent; }
+.soda-dashboard #dashboard-repo-list .repos-search > .input { width: 100%; border-bottom: 1px solid var(--soda-page-edge); }
+.soda-dashboard #dashboard-repo-list input[type="search"] { min-width: 0; min-height: 48px; border: 0; background: transparent; color: var(--soda-page-text); font: 400 16px/1.4 Barlow,sans-serif; }
+.soda-dashboard #dashboard-repo-list .repos-search > .input > .dropdown { display: flex; align-items: center; justify-content: center; flex: 0 0 48px; min-height: 48px; padding: 0; border: 0; border-left: 1px solid var(--soda-page-edge); background: transparent; color: var(--soda-page-text); }
+.soda-dashboard #dashboard-repo-list .repos-search > .input > .dropdown:hover { background: var(--soda-page-hover); }
+.soda-dashboard #dashboard-repo-list .repos-search .dropdown > .menu { left: auto; right: 0; min-width: 220px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
 .soda-dashboard #dashboard-repo-list .repos-search .dropdown .menu > .item { min-height: 44px; color: var(--soda-page-text); }
-.soda-dashboard #dashboard-repo-list .repos-filter { width: 100%; min-height: 48px; margin: 0; padding: 0; border: 0; border-bottom: 2px solid var(--soda-page-text); }
+/* Native Vue sets border-bottom-width:0!important; this boundary is intentional. */
+.soda-dashboard #dashboard-repo-list .repos-filter { width: 100%; min-height: 48px; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--soda-page-edge) !important; background: transparent; }
+.soda-dashboard #dashboard-repo-list .dashboard-repos:not(:has(.repo-owner-name-list)) .repos-filter { border-bottom: 0 !important; }
 .soda-dashboard #dashboard-repo-list .repos-filter .overflow-menu-items { justify-content: flex-start !important; }
-.soda-dashboard #dashboard-repo-list .repos-filter .item { display: flex; gap: 6px; min-height: 48px; margin: 0; padding: 10px; border: 0; border-radius: 0 !important; color: var(--soda-page-text); font: 500 11px/1.4 "IBM Plex Mono",monospace; text-transform: uppercase; }
-.soda-dashboard #dashboard-repo-list .repos-filter .active.item { background: var(--soda-page-text); color: var(--soda-page-canvas) !important; box-shadow: inset 0 -4px var(--soda-page-action); }
-.soda-dashboard #dashboard-repo-list .overflow-menu-button { flex: 0 0 44px; width: 44px; min-height: 48px; border-radius: 0 !important; color: var(--soda-page-text); }
-.soda-dashboard #dashboard-repo-list .repo-owner-name-list { width: 100%; margin: 0; padding: 0; border: 0; border-bottom: 2px solid var(--soda-page-text); }
+.soda-dashboard #dashboard-repo-list .repos-filter .item { display: flex; gap: 6px; min-height: 48px; margin: 0; padding: 10px; border: 0; color: var(--soda-page-muted); background: transparent; font: 500 11px/1.4 "IBM Plex Mono",monospace; text-transform: uppercase; }
+.soda-dashboard #dashboard-repo-list .repos-filter .active.item { background: transparent; color: var(--soda-page-link) !important; box-shadow: inset 0 -2px var(--soda-page-action); }
+.soda-dashboard #dashboard-repo-list .overflow-menu-button { flex: 0 0 44px; width: 44px; min-height: 48px; color: var(--soda-page-text); }
+.soda-dashboard #dashboard-repo-list :is(.dashboard-repos,.dashboard-orgs) > .attached.segment { width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
+.soda-dashboard #dashboard-repo-list .repo-owner-name-list { width: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
 .soda-dashboard #dashboard-repo-list .repo-owner-name-list > li { margin: 0; padding: 0 !important; border: 0; }
 .soda-dashboard #dashboard-repo-list .repo-owner-name-list > li + li { border-top: 1px solid var(--soda-page-edge); }
-.soda-dashboard #dashboard-repo-list .repo-owner-name-list > li > a { min-width: 0; min-height: 48px; padding: 12px 8px; color: var(--soda-page-text); font: 500 15px/1.5 Barlow,sans-serif; }
-.soda-dashboard #dashboard-repo-list .repo-owner-name-list > li > a:hover { background: var(--soda-page-hover); color: var(--soda-page-link); box-shadow: inset 3px 0 var(--soda-page-action); }
+.soda-dashboard #dashboard-repo-list .repo-owner-name-list > li > a { min-width: 0; min-height: 48px; padding: 12px 10px; color: var(--soda-page-text); font: 500 15px/1.5 Barlow,sans-serif; }
+.soda-dashboard #dashboard-repo-list .repo-owner-name-list > li > a:hover { background: var(--soda-page-hover); color: var(--soda-page-link); }
 .soda-dashboard #dashboard-repo-list :is(a,button,input[type="search"],.dropdown):focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: -3px; }
 .soda-dashboard #activity-feed > .flex-item > .flex-item-main { line-height: 1.6; }
 .soda-dashboard #activity-feed relative-time { color: var(--soda-page-muted); font-size: 12px; }
-.soda-dashboard-discover { margin-top: 16px; padding: 0; border: 0; border-radius: 0 !important; background: transparent; }
+.soda-dashboard-discover { margin-top: 28px; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .soda-dashboard-discover > svg { color: var(--soda-page-link); margin-bottom: 12px; }
-.soda-dashboard-discover h2 { font: 800 26px/1.1 "Barlow Condensed",sans-serif; text-transform: uppercase; }
+.soda-dashboard-discover h2 { font: 800 24px/1.1 "Barlow Condensed",sans-serif; text-transform: uppercase; }
 .soda-dashboard-discover p { color: var(--soda-page-muted); font-size: 15px; line-height: 1.6; margin: 8px 0 16px; }
 .soda-dashboard-discover a { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; font: 500 12px/1.5 "IBM Plex Mono",monospace; text-transform: uppercase; }
 /* Keep the repository browser full-width in a terminal-sized desktop pane. */
