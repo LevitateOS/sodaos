@@ -208,7 +208,9 @@ class SodaTailnet extends LitElement {
         const result = enrollmentResult(raw, action, revision);
         this.settings = {...this.settings, enrollment: result.enrollment};
         this.notice = result.saved ? 'Policy saved. Existing devices were not disconnected, revoked or retargeted. Project enrollment is not verified.' : 'Credential check passed; nothing was saved and no auth key or device was created. Network, scope and enrollment remain unverified.';
-        if (result.saved) this.resetEnrollment();
+        // Admission/default writes do not submit the credential-binding draft.
+        // Keep its original CAS revision until explicit discard or save/rotation.
+        if (result.saved && (action === 'save' || action === 'rotate' || !this.enrollmentDirty)) this.resetEnrollment();
       }
     } catch (error) {
       if (this.current(lifetime)) {

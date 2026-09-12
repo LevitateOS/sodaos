@@ -100,12 +100,40 @@ was not replaced or restored. No source mount regeneration, new test run, cleanu
 container recreation or other lifecycle action occurred. Narrow before/after/mount
 observations and the start-failure receipt are retained in
 `.artifacts/tailnet-stage3-acceptance/`. Regenerating only those two source directories
-from current canonical source and retrying is proposed, not yet approved; this would
+from current canonical source and retrying was proposed, not executed; this would
 not restore the deleted worktree or its historical evidence.
 
-Remaining acceptance: run the actual native fixture/consumers after resolving its
-source-mount blocker, verifying Tailnet HTML/CSP/chrome/labels/navigation and
-layout without synthetic host replacement. Shared native authentication/cache/logout
+### Device-independent follow-up
+
+The user declined local source-mount repair, identified the ARM device as the intended
+configured-device validation target, and requested other work that does not require
+it. No exact ARM identity/action was granted. No further local start/repair or device
+contact occurred; component-only tests remain distinct from native-page acceptance.
+
+A focused local review found a real draft-loss bug: a successful Close admission or
+Keep default Off response reset the unsent credential-binding form and adopted the
+new policy revision. The new regression reproduced the loss before the fix. These
+unrelated writes now leave the draft fields and original CAS revision intact; its
+own Save/Rotate or explicit Discard still resets it. Secrets still clear before
+dispatch. The API owner records that contract, and the shared presentation epoch
+was advanced for the changed emitted module graph.
+
+Evidence: `.artifacts/tailnet-source-followup/`. The existing emitted test driver
+was extended, not a new device/login harness. Tests cover both admission/default
+writes, retained fields/revision through refresh and rejection, explicit discard,
+invalid CSRF/provider-origin refusal without credential dispatch, and both host
+drafts surviving acknowledged writes with unavailable readback. Strict TypeScript
+and Lit analysis/negative fixtures passed; 12 Tailnet tests passed with 1 native-only
+skip, and all 6 selected graph/build tests passed. `component-before.log` retains the
+failing unsent-target assertion; `component-after.log` records the corrected pass.
+No native bundle, backend/Go change, real credential/device action, migration or
+installed proof is implied. Full earlier source-suite receipts remain scoped to
+their tested revisions; this follow-up ran only affected checks.
+
+Remaining acceptance: establish actual native-page HTML/CSP/chrome/labels/navigation
+and layout without synthetic host replacement on an explicitly selected, authorized
+target. Local mount repair is not the selected next task; configured-device checks
+are deferred to the intended ARM device, not authorized by this source-only work. Shared native authentication/cache/logout
 proof cannot be inferred from the component shell. Installed preference comparisons,
 network routing/approval, companion runtime and both-architecture installed evidence
 remain the separately gated later stages. Retained appliances remain at paired

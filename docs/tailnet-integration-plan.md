@@ -1,7 +1,8 @@
 # Tailnet in the native dashboard — implementation plan
 
 **Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
-implemented, with actual native-page acceptance blocked on the stopped local fixture.
+implemented, with actual native-page acceptance pending. The user declined local
+fixture repair and deferred configured-device validation to the intended ARM device.
 Project runtime, installed proof and retirement remain pending.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
@@ -603,8 +604,12 @@ dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity
 existing Cockpit tests also passed. The actual native-page consumer is wired into the
 existing fixture, not replaced with handwritten native HTML: its run failed because
 `sodaos-local-forgejo` is stopped. The subsequently approved start failed because its
-source bind mounts point into a deleted worktree. Regenerating those source directories
-needs approval; the container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
+source bind mounts point into a deleted worktree. The user declined regeneration and
+identified the ARM device as the intended configured-device validation target. No
+exact ARM target/action is authorized; no further fixture repair/start is selected.
+Source-only follow-up fixed unsent enrollment-draft loss on admission/default writes
+and passed focused emitted-component, authorization and readback checks. The
+container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
 for exact checks/skips and the remaining native acceptance; source tests alone do not
 meet the full exit below.
 

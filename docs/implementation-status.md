@@ -8,9 +8,9 @@ historical approvals are not renewed execution permission.
 ## Active work — Tailnet
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
-place; actual native-page parity is blocked on missing source bind mounts for the
-stopped local Forgejo fixture.
-Project runtime and installed proof remain pending.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+place; actual native-page parity, project runtime and installed proof remain pending.
+The user declined local fixture repair, deferred configured-device validation to the
+intended ARM device and selected further device-independent source work.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
 connections and eventual retirement of Soda's remaining Cockpit presentation.
 
@@ -45,20 +45,24 @@ limits are in the [stage-2 receipt](implementation-history.md#tailnet-stage-2--b
 cache epoch, Lit appliance/enrollment controls, transient credentials/auth links and
 scoped confirmations are implemented. Component, source and retained Cockpit checks
 passed; the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
-separates those results from the failed native-page attempt.
+separates those results from the failed native-page attempt. A later source-only
+follow-up fixed lost enrollment drafts on admission/default writes and added passing
+CSRF/origin and failed-readback checks, without contacting either device.
 
 ### Next step
 
-Complete [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
-after repairing the local fixture's missing source bind mounts under an applicable
-grant. The user approved starting exact `sodaos-local-forgejo` without replacement or
-deletion. That start failed: both template and preview-asset mounts point into the
-previously removed `.artifacts/worktrees/combined-candidate-0f1d2b1/` checkout.
-The container remains exited; its data volume was not replaced or restored. Approval
-to regenerate only those two source directories and retry is pending. Reuse the
-existing native fixture/consumers, not the component-only shell, for acceptance.
-The local browser-fixture grant is distinct from appliance/companion proof below.
-Project automation remains Stage 4; Cockpit Tailnet stays source/installed fallback.
+Continue selected device-independent source work; project automation remains the
+next planned Stage 4 slice. [Stage 3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+is still unproven, not replaced by component-shell tests. The user declined repairing
+the broken local fixture and identified the ARM device as the intended target for
+configured-device validation. Its exact identity, current installed configuration
+and approved checks/delivery effects must be established before contact; no ARM
+action or deployment was granted. Do not make local fixture repair a prerequisite
+for unrelated source work. Cockpit Tailnet stays source/installed fallback.
+
+The earlier authorized local start failed because template and preview-asset mounts
+point into deleted `.artifacts/worktrees/combined-candidate-0f1d2b1/`. No subsequent
+repair/start was performed; the container and data volume remain retained.
 
 The separate [native proof proposal](tailnet-integration-plan.md#remaining-native-proof-proposal)
 requires a specifically authorized isolated fixture and exact inputs/actions. It
@@ -76,9 +80,11 @@ configuration changes.
   work, including existing local fixtures within their approved scope.
 - **Tailnet:** the user selected Stage 3 UI/parity source work and local checks.
   Source/component checks are complete; native-page acceptance is blocked. The user
-  approved starting exact `sodaos-local-forgejo` and running the checks, without
-  replacement/deletion. Start failed on deleted source bind mounts; regenerating
-  those directories is not yet approved. Stage 1/2 grants are complete. No enrollment, networking/capability changes,
+  previously approved starting exact `sodaos-local-forgejo`; that attempt failed.
+  The user then declined source-mount repair and chose device-independent work,
+  deferring configured-device validation to the intended ARM device. No further local
+  repair/start, ARM contact or deployment is authorized. Stage 1/2 grants are complete.
+  No enrollment, networking/capability changes,
   other fixture lifecycle, deployment or installed Tailnet removal is authorized.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
@@ -177,6 +183,7 @@ for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
 
 | Evidence | Location |
 | --- | --- |
+| Tailnet device-independent draft fix and failure-path checks | `.artifacts/tailnet-source-followup/` |
 | Tailnet stage-3 authorized fixture-start failure and narrow mount inventory | `.artifacts/tailnet-stage3-acceptance/` |
 | Tailnet stage-3 source/component checks and failed native-page attempt | `.artifacts/tailnet-stage3-XEzD7o/`; `.artifacts/pages-FcP3af/` |
 | Tailnet stage-2 local source checks and failed/corrected attempts | `.artifacts/tailnet-stage2-O5WkS5/` |
@@ -193,11 +200,11 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Implemented Stage-3 UI source and bounded emitted-component parity; updated the
-native page, API and feature owners. TypeScript/Lit, frontend, selected Forgejo,
-Tailnet Go, nativebuild source, locale and existing Cockpit tests passed. Receipt:
-`.artifacts/tailnet-stage3-XEzD7o/`. The subsequently authorized exact fixture start
-failed on missing source mounts; evidence is in `.artifacts/tailnet-stage3-acceptance/`.
-No successful fixture start or new native-page run, appliance contact/migration,
-real Tailnet credential/device work, native bundle build or installed change occurred. Both retained targets remain
-v9; native runtime proof and installed retirement stay separately gated.
+Fixed admission/default writes discarding an unsent enrollment draft or rebasing its
+revision. Added emitted tests for both actions, invalid CSRF/provider-origin refusal,
+and draft preservation after failed host readback. Strict TypeScript/Lit, 12 Tailnet
+checks (1 native-only skip) and 6 graph/build tests passed; the failing regression is
+retained in `.artifacts/tailnet-source-followup/`. Updated the API/feature owners and
+shared presentation epoch. No fixture repair/start, ARM contact, real Tailnet action,
+native bundle build, migration or deployment occurred. Recorded installed v9 state,
+native runtime proof and installed retirement remain unchanged/separately gated.

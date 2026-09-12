@@ -283,7 +283,10 @@ Stage 4. Stage 3 now supplies native page registration/assets/navigation and the
 protected Lit caller; its current native-page acceptance is recorded in the handoff.
 The caller separates rejected requests, acknowledged effects, unavailable readback
 and unknown outcomes. Refresh retains edited scope revisions, never automatically
-rebases drafts or replays writes. Explicit authentication recovery is the only
+rebases drafts or replays writes. Admission/default writes also preserve an unsent
+credential-binding draft and its original revision; only its own save/rotation or
+explicit discard replaces it. Transient secrets still clear before dispatch.
+Explicit authentication recovery is the only
 read-style POST; ordinary polling remains GET-only.
 
 ## Browser namespace

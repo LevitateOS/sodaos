@@ -24,12 +24,12 @@
     <div class="soda-page-container">
       {{template "custom/soda/page_intro" dict "TitleID" "soda-native-title" "Title" $title "Class" "soda-page-intro--compact"}}
       {{if $valid}}
-        {{if ne $sodaView "spaces"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-12.tailnet-1">{{end}}
-        {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-12.tailnet-1">{{end}}
+        {{if ne $sodaView "spaces"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-12.tailnet-2">{{end}}
+        {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-12.tailnet-2">{{end}}
         <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="{{if eq $sodaView "repository-spaces"}}{{$repositoryID}}{{end}}" data-document-title="{{$title}} - {{AppDisplayName}}">
           <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/">Return to your dashboard</a></p></noscript>
         </div>
-        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-12.tailnet-1"></script>
+        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-12.tailnet-2"></script>
       {{else}}
         <p role="alert">Invalid Soda page destination.</p>
         <p><a href="{{AppSubUrl}}/">Return to your dashboard</a></p>

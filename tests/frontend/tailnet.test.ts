@@ -39,13 +39,13 @@ async function tailnetPage(t: TestContext, operator = true) {
   t.after(() => browser.close());
   const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || ''});
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); t.after(() => assert.deepEqual(errors, []));
-  const state = {data: snapshot(), actor, operator, readStatus: 200, postStatus: 200, readbackUnavailable: false, reads: 0};
+  const state = {data: snapshot(), actor, operator, csrf: 'fixture-csrf', forgejoURL: origin, readStatus: 200, postStatus: 200, readbackUnavailable: false, reads: 0};
   const posts: {path: string; body: Record<string, unknown>}[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     if (path === '/-/soda/api/session') {
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
-      return route.fulfill({json: {user: {id: state.actor, login: 'operator'}, csrf_token: 'fixture-csrf', soda_operator: state.operator, forgejo_url: origin}});
+      return route.fulfill({json: {user: {id: state.actor, login: 'operator'}, csrf_token: state.csrf, soda_operator: state.operator, forgejo_url: state.forgejoURL}});
     }
     if (path.startsWith('/-/soda/api/settings/tailnet')) {
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
@@ -213,6 +213,67 @@ test('credential check/save/rotate/admission are explicit, redacted and do not e
   await page.getByRole('button', {name: 'Confirm close admission'}).click(); await settled(page);
   assert.equal(state.data.enrollment.admission, false); assert.equal(state.data.enrollment.default, false);
   assert.equal(posts.filter(p => p.body.action === 'enable' || p.body.action === 'retry' || p.body.default === true).length, 0);
+});
+
+test('admission/default writes preserve unsent enrollment fields and their original revision', behaviorCase, async t => {
+  for (const action of ['disable', 'default']) {
+    const {page, state, posts} = await tailnetPage(t);
+    state.data.enrollment = {...state.data.enrollment, configured: true, credential_checked: true, admission: true,
+      revision: 'c'.repeat(32), binding: 'e'.repeat(32), tailnet: 'soda.example.test', tags: ['tag:soda-project']};
+    await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
+    await credential(page); await page.getByLabel('Managed Tailnet', {exact: true}).fill('replacement.example.test');
+    await page.getByLabel('Project tags (comma separated)', {exact: true}).fill('tag:replacement');
+    await page.getByLabel('Explicitly preauthorize devices if provider policy permits').check();
+    await page.getByRole('button', {name: action === 'disable' ? 'Close future admission' : 'Keep new-project default Off', exact: true}).click();
+    await page.getByRole('button', {name: action === 'disable' ? 'Confirm close admission' : 'Confirm default Off', exact: true}).click(); await settled(page);
+    assert.equal(posts[0]?.body.action, action); assert.equal(posts[0]?.body.revision, 'c'.repeat(32));
+    assert.equal(await page.getByLabel('OAuth client secret', {exact: true}).inputValue(), '');
+    assert.equal(await page.getByLabel('Managed Tailnet', {exact: true}).inputValue(), 'replacement.example.test');
+    assert.equal(await page.getByLabel('Project tags (comma separated)', {exact: true}).inputValue(), 'tag:replacement');
+    assert(await page.getByLabel('Explicitly preauthorize devices if provider policy permits').isChecked());
+    await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
+    state.postStatus = 409;
+    await page.getByLabel('OAuth client secret', {exact: true}).fill('tskey-client-synthetic-ui-only');
+    await page.getByRole('button', {name: 'Check credential only'}).click(); await settled(page);
+    assert.equal(posts[1]?.body.revision, 'c'.repeat(32), 'unsubmitted draft must not adopt the admission/default write revision');
+    assert.equal(posts[1]?.body.tailnet, 'replacement.example.test');
+    assert.match(await page.locator('.tailnet-notice').innerText(), /Request rejected/);
+    await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
+    await page.getByRole('button', {name: 'Discard enrollment draft', exact: true}).click();
+    assert.equal(await page.getByLabel('Managed Tailnet', {exact: true}).inputValue(), 'soda.example.test');
+    assert.equal(posts.length, 2, 'discard and observations are not writes');
+  }
+});
+
+test('invalid CSRF or provider origin refuses credential dispatch and clears private controls', behaviorCase, async t => {
+  for (const invalid of ['csrf', 'origin']) {
+    const {page, state, posts} = await tailnetPage(t); await credential(page);
+    if (invalid === 'csrf') state.csrf = ''; else state.forgejoURL = 'https://other.example.test';
+    await page.getByRole('button', {name: 'Check credential only'}).click(); await settled(page);
+    assert.equal(posts.length, 0); assert.equal(await page.locator('soda-tailnet input').count(), 0);
+    assert.match(await page.locator('.tailnet-notice').innerText(), /Operation was not sent/);
+    assert(!await page.locator('soda-tailnet').innerText().then(text => text.includes('appliance.soda.ts.net')));
+  }
+});
+
+test('failed host readback preserves both drafts through later observation without replay', behaviorCase, async t => {
+  const {page, state, posts} = await tailnetPage(t);
+  await page.getByLabel('Exit node', {exact: true}).selectOption('100.64.0.2');
+  await page.getByLabel('Allow local LAN while using exit node').check();
+  await page.getByLabel('Advertise appliance as an exit node').check();
+  state.readbackUnavailable = true;
+  await page.getByRole('button', {name: 'Apply exit node', exact: true}).click();
+  await page.getByRole('button', {name: 'Confirm exit-node', exact: true}).click(); await settled(page);
+  assert.match(await page.locator('.tailnet-notice').innerText(), /acknowledged.*readback failed/);
+  await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
+  assert.equal(await page.getByLabel('Exit node', {exact: true}).inputValue(), '100.64.0.2');
+  assert(await page.getByLabel('Allow local LAN while using exit node').isChecked());
+  assert(await page.getByLabel('Advertise appliance as an exit node').isChecked());
+  assert.equal(posts.length, 1);
+  state.postStatus = 409;
+  await page.getByRole('button', {name: 'Apply advertisement', exact: true}).click();
+  await page.getByRole('button', {name: 'Confirm advertise-exit-node', exact: true}).click(); await settled(page);
+  assert.equal(posts[1]?.body.revision, 'a'.repeat(64));
 });
 
 test('denied operator and actor loss expose no private controls or credentials', behaviorCase, async t => {
