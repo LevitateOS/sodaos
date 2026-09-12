@@ -52,6 +52,11 @@ func TestForgejoPresentationGallery(t *testing.T) {
 	}
 	funcs := template.FuncMap{"dict": forgejoTemplateDict, "AssetUrlPrefix": func() string { return "http://localhost:3300/assets" }, "svg": svg, "AppSubUrl": func() string { return "" }, "DisableWebhooks": func() bool { return false }, "ctx": func() forgejoTemplateContext {
 		return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{
+			"migrate.git.description":      "Import code from any Git repository URL.",
+			"migrate.github.description":   "Bring repositories and available history from GitHub.",
+			"migrate.gitlab.description":   "Bring repositories and available history from GitLab.",
+			"migrate.gitea.description":    "Move repositories from another Gitea instance.",
+			"sign_in":                      "Sign in",
 			"repo.settings":                "Settings",
 			"repo.settings.options":        "Repository",
 			"repo.settings.units.units":    "Repository units",
@@ -113,6 +118,24 @@ func TestForgejoPresentationGallery(t *testing.T) {
 	if _, err = parsed.New("repository-settings-gallery").Parse(string(repositoryFixture)); err != nil {
 		t.Fatal(err)
 	}
+	// Expand visual coverage with actual migration/auth page templates. The base
+	// shell and sign-in fields remain explicit fixtures, not installed route proof.
+	refinement, err := os.ReadFile("../tests/forgejo/presentation/refinement-gallery.tmpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = parsed.New("refinement-gallery").Parse(string(refinement)); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"custom/soda/theme_toggle", "repo/migrate/migrate", "user/auth/signin"} {
+		if _, err = parsed.New(name).Parse(readForgejoTemplate(t, name+".tmpl")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fixtureShell := `{{define "base/head"}}<!doctype html><html lang="en" data-theme="soda-{{.Theme}}" data-soda-login-theme="{{.Theme}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soda page refinement</title><link rel="stylesheet" href="http://localhost:3300/assets/css/index.css"><link rel="stylesheet" href="http://localhost:3300/assets/soda/forgejo/css/theme-soda-{{.Theme}}.css">{{.Registry}}</head><body>{{end}}{{define "base/footer"}}<footer class="page-footer">Soda OS · Rendered template reference</footer></body></html>{{end}}{{define "repo/migrate/helper"}}{{end}}{{define "user/auth/signin_inner"}}<div class="ui container fluid"><form class="ui form" onsubmit="return false"><div class="field"><label for="user_name">Username or email</label><input id="user_name" autocomplete="username"></div><div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password"></div><div class="field"><label><input type="checkbox"> Remember this device</label></div><button class="ui primary button">Sign in</button><a href="#password">Forgot your password?</a></form></div>{{end}}`
+	if _, err = parsed.Parse(fixtureShell); err != nil {
+		t.Fatal(err)
+	}
 	dir := "../.artifacts/forgejo-presentation"
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
@@ -147,4 +170,22 @@ func TestForgejoPresentationGallery(t *testing.T) {
 			t.Fatal(closeErr)
 		}
 	}
+	for _, theme := range []string{"light", "dark"} {
+		data := map[string]any{"Theme": theme, "Registry": template.HTML(registry), "Title": "Migration reference", "ShowRegistrationButton": false, "Services": []migrationChooserService{{1, "git", "Git"}, {2, "github", "GitHub"}, {3, "gitlab", "GitLab"}, {4, "gitea", "Gitea"}}}
+		for _, page := range []struct{ name, source string }{{"refinement", "refinement-gallery"}, {"migration", "repo/migrate/migrate"}, {"signin", "user/auth/signin"}} {
+			f, err := os.Create(filepath.Join(dir, page.name+"-"+theme+".html"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = parsed.ExecuteTemplate(f, page.source, data)
+			closeErr := f.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if closeErr != nil {
+				t.Fatal(closeErr)
+			}
+		}
+	}
+
 }

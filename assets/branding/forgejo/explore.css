@@ -6,7 +6,7 @@
 .soda-explore .flex-list > div:not(.flex-item) { padding: 24px 0; color: var(--soda-page-muted); }
 .soda-explore-people .flex-item-title a { color: var(--soda-page-link); }
 .soda-explore-people .flex-item-body:last-child { font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.soda-explore-people .flex-item-leading img { border-radius: 14px; }
+.soda-explore-people .flex-item-leading img { border-radius: 0; }
 @media (max-width: 700px) {
   .soda-explore .flex-item-header { flex-wrap: wrap; gap: 8px; }
   .soda-explore .flex-item-trailing { flex-wrap: wrap; }

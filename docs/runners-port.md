@@ -3,8 +3,9 @@
 This guide owns Soda's runner capacity, authority, operation, secret-handling and
 compatibility requirements. The [native page guide](forgejo-soda-pages-plan.md)
 owns shared entry/navigation/OAuth/logout; the [combined completion plan](native-pages-runners-plan.md)
-alone owns coordination and Cockpit retirement. Current installations, grants and
-results are recorded in the [handoff](implementation-status.md), not duplicated here.
+alone owns coordination and Cockpit retirement. Installed state and grants remain
+in the [shared handoff](implementation-status.md); current Forgejo integration fixes
+are tracked in the [extension status](forgejo-extension-status.md).
 
 <a id="implementation-lane-boundary"></a>
 <a id="current-source-and-observed-evidence"></a>
@@ -163,6 +164,14 @@ to mutations. The page guide owns fixed native entry/OAuth returns and the
 reading runner state on every runner API, refresh and mutation. A native shell
 or bookmark response is not authorization to read capacity or dispatch an operation.
 
+Creation and every lifecycle mutation also recheck the original session after body
+decoding/validation, immediately before helper dispatch. Use `requireCurrentSession`
+with the original user/context/CSRF and request context; failed validation of that
+session, unavailable storage or cancellation returns `401 reauthentication_required`
+without a helper request. Keep the early gate as well. This is admission safety:
+logout completed before the final check denies the action, but later logout does
+not roll back or guarantee cancellation of an already admitted operation.
+
 The dashboard container runs as UID 2000 with no capabilities, a read-only root,
 and `NoNewPrivileges`; it cannot safely reuse the Cockpit coordinator by pretending
 to be native root or by adding a web-triggered polkit prompt. Preserve the current
@@ -283,10 +292,12 @@ owned by the page integration guide. The runner component additionally preserves
 
 ## Validation ownership
 
-Local runner tests own API admission before decode/native reads, strict requests,
-secret/public-origin projection, unsupported providers, cross-process serialization
-and cancellation-before-dispatch, whole-list failure and staged Remove/creation
-failures. Preserve legacy data and the retained consumers' response/confirmation behavior.
+Local runner tests own API admission before decode/native reads and again after
+decoding before mutation dispatch, including logout, user/context/CSRF drift,
+storage failure and cancellation. They also own strict requests, secret/public-origin
+projection, unsupported providers, cross-process serialization and cancellation-before-dispatch,
+whole-list failure and staged Remove/creation failures. Preserve legacy data and the
+retained consumers' response/confirmation behavior.
 The existing Go and native-page browser tests remain with those production owners;
 use the [source-check guide](typescript.md#local-source-checks) for commands.
 

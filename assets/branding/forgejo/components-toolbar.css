@@ -112,7 +112,7 @@
 .soda-context-switcher .secondary-nav .avatar {
   width: 24px;
   height: 24px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu {
@@ -122,7 +122,7 @@
   max-width: min(360px, calc(100vw - 32px));
   margin-top: 8px !important;
   padding: 8px;
-  box-shadow: 0 12px 32px #0002;
+  box-shadow: none;
 }
 
 .soda-context-switcher .secondary-nav .ui.dropdown.jump > .menu > .ui.header {
@@ -144,7 +144,7 @@
 
 .soda-context-switcher .secondary-nav .ui.dropdown.jump .menu > .item {
   border: 0;
-  border-radius: 8px;
+  border-radius: 0;
   padding: 12px 8px !important;
   font: 600 15px/1.4 Barlow, sans-serif;
   font-weight: 600 !important;
@@ -157,7 +157,7 @@
 }
 
 .soda-context-switcher .secondary-nav .right.menu > .item {
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--soda-page-muted);
 }
 
@@ -216,7 +216,7 @@
   margin: 0;
   padding: 0 8px;
   border: 0 !important;
-  border-radius: 7px !important;
+  border-radius: 0;
   background: transparent !important;
   color: var(--soda-page-muted) !important;
   font: 600 14px/1 Barlow,sans-serif;
@@ -257,7 +257,7 @@
   padding: 0;
   border: 1px solid var(--soda-page-edge);
   border-left: 0;
-  border-radius: 0 var(--soda-control-radius) var(--soda-control-radius) 0;
+  border-radius: 0;
   background: var(--soda-page-canvas);
   color: var(--soda-page-link);
   box-shadow: none;
@@ -443,14 +443,14 @@
 }
 .repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input) {
   flex-shrink: 0;
-  border-radius: 0 !important;
+  border-radius: 0;
 }
 .repo-button-row.soda-toolbar .clone-panel > :is(.ui.button, input):first-child {
   border-radius: var(--soda-button-radius) 0 0 var(--soda-button-radius) !important;
 }
 /* The inline native clone script follows the last visual control. */
 .repo-button-row.soda-toolbar .clone-panel > .ui.button:last-of-type {
-  border-radius: 0 var(--soda-button-radius) var(--soda-button-radius) 0 !important;
+  border-radius: 0;
 }
 .repo-button-row.soda-toolbar .clone-panel > input {
   /* Native action inputs prohibit shrinking; clone text may truncate. */

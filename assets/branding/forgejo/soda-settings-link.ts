@@ -6,11 +6,28 @@ import {id, object, readSodaJSON, sessionResponse} from '../../../frontend/space
 const marker = document.getElementById('soda-settings-link');
 if (marker && id(marker.dataset.actor)) {
   const actor = marker.dataset.actor, sub = marker.dataset.subUrl || '';
+  // The native host already validated the route/selector. URL hints alone must
+  // not mark ordinary dashboards, repository pages or invalid destinations.
+  const host = document.querySelector<HTMLElement>('main.soda-native-page #soda-native-content');
+  const currentView = host?.dataset.actor === actor ? host.dataset.view : undefined;
+  const spaces = document.getElementById('soda-spaces-link');
+  if (currentView === 'spaces' && spaces instanceof HTMLAnchorElement) {
+    spaces.classList.add('active');
+    spaces.setAttribute('aria-current', 'page');
+  }
   const link = document.createElement('a'); link.className = 'item'; link.textContent = 'Runners';
   link.href = sub + '/?soda-view=runners';
   const tailnet = document.createElement('a'); tailnet.className = 'item';
   tailnet.textContent = marker.dataset.tailnetLabel || 'Tailnet';
   tailnet.href = sub + '/?soda-view=tailnet';
+  if (currentView === 'runners') {
+    link.classList.add('active');
+    link.setAttribute('aria-current', 'page');
+  }
+  if (currentView === 'tailnet') {
+    tailnet.classList.add('active');
+    tailnet.setAttribute('aria-current', 'page');
+  }
   let generation = 0;
   const hide = () => {generation++; link.remove(); tailnet.remove();};
   const check = async () => {

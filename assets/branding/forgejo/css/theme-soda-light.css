@@ -1,7 +1,7 @@
-/* Soda website palette: b9e37c7, src/app/styles/{tokens,theme}.css.
+/* Soda brutalist palette: neutral surfaces and red actions.
  * Extend Forgejo 15's native theme; keep its diff, syntax and status palettes. */
 @import "theme-forgejo-light.css";
-@import "../../theme/palette.css";
+@import "../../theme/palette.css?v=2026-09-12.brutalist-2";
 @import "soda-controls.css";
 
 :root {
@@ -38,7 +38,7 @@
   --soda-button-active: var(--soda-light-action-pressed);
   --soda-focus: var(--soda-light-focus);
 
-  /* Warm neutral ramp feeds native borders, menus and secondary controls. */
+  /* Neutral ramp feeds native borders, menus and secondary controls. */
   --zinc-50: var(--soda-light-canvas);
   --zinc-100: var(--soda-light-panel);
   --zinc-150: var(--soda-light-hover);
@@ -105,16 +105,16 @@
   --color-highlight-fg: var(--soda-light-text);
   --color-highlight-bg: var(--soda-light-selected);
 
-  /* Website mint, attention and information roles, not Git diff colors. */
+  /* Success, attention and neutral information roles, not Git diff colors. */
   --color-success-bg: var(--soda-light-success-bg);
   --color-success-border: var(--soda-light-success-border);
   --color-success-text: var(--soda-light-success-text);
   --color-warning-bg: var(--soda-light-warning-bg);
   --color-warning-border: var(--soda-light-warning-border);
   --color-warning-text: var(--soda-light-warning-text);
-  --color-info-bg: var(--soda-light-selected);
-  --color-info-border: var(--soda-light-action);
-  --color-info-text: var(--soda-light-action-pressed);
+  --color-info-bg: var(--soda-light-surface);
+  --color-info-border: var(--soda-light-border);
+  --color-info-text: var(--soda-light-text);
   --is-dark-theme: false;
   color-scheme: light;
 }

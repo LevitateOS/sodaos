@@ -25,6 +25,9 @@ Historical lane links resolve here. Their original text is available with
 - The existing native navigation gains **Spaces**, **Runners** and **Tailnet**. Runners/Tailnet are
   visible for the configured Soda operator after identity/bootstrap verification;
   Forgejo site-administrator status is not substituted for that authority.
+  Spaces/Runners use native active-link styling and `aria-current="page"` only for
+  their matching validated native content host and actor, not a URL hint. This
+  presentation does not authorize Soda operations or reveal an otherwise hidden link.
 - Opening a Soda view reuses a valid matching Soda session. When connection is
   needed on a controlled initial entry, it starts the normal Forgejo OAuth flow
   automatically and returns to the selected view. First authorization can still
@@ -234,7 +237,7 @@ guides, not synthetic operation peers.
 | Native host | Actual Forgejo HTML/header/footer, native account gates, CSP and assets; one main landmark and workspace mount. Suppress only the selected full page's drawer; retain ordinary dashboard/footer behavior. Invalid repository locators expose no controls/private metadata. |
 | Connection/logout | First/repeat consent, decline/missing scopes, actor mismatch, concurrent attempts, pending/completed callback cancellation and both partial logout outcomes. Preserve native drafts and existing matching sessions. |
 | Page/drawer lifetime | Full Spaces → repository drawer → full Spaces preserves exact session selection, finite retention/Return and independently named End. Real Back/BFCache revalidates the original actor; stale/duplicate owners and late responses ignoring abort cannot revive departed work or replay mutations. |
-| Navigation/bookmarks | Native navigation and fixed legacy entry bridges agree; signed-in/out bookmarks preserve expected actor and repository bindings. No arbitrary return URLs, second login harness or automatic lifecycle effects. |
+| Navigation/bookmarks | Native navigation and fixed legacy entry bridges agree; signed-in/out bookmarks preserve expected actor and repository bindings. Current-page cues follow the validated native host, not unknown/duplicate selectors, unrelated routes or mismatched actors. Operator-link retirement and normal native links/drafts remain intact. No arbitrary return URLs, second login harness or automatic lifecycle effects. |
 | Assets/upgrade | Changed entries and transitive imports respect the actual configured cache policy. Distinguish fresh-browser checks, predecessor asset revalidation and a genuinely open predecessor document/backend transition. Preserve the final CSP, staging and notices contracts. |
 | Presentation | Native dark/light themes, narrow/wide layout, scroll/focus/keyboard/profile-menu behavior and unsaved forms remain usable. Use the existing screenshot guide; rendered/synthetic terminal content is not native editor/process proof. |
 

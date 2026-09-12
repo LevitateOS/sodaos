@@ -2,7 +2,7 @@
    is owned by components-settings.css for personal and repository callers. */
 .soda-settings { padding-top: 16px; }
 .soda-settings-identity { display: flex; align-items: center; gap: 12px; color: var(--soda-page-text); min-width: 0; }
-.soda-settings-identity img { flex: none; width: 40px; height: 40px; border-radius: 50%; }
+.soda-settings-identity img { flex: none; width: 40px; height: 40px; border-radius: 0; }
 .soda-settings-identity > span { min-width: 0; overflow-wrap: anywhere; }
 .soda-settings-identity strong, .soda-settings-identity small { display: block; }
 .soda-settings-identity small { color: var(--soda-page-muted); font-size: 14px; }

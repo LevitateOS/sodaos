@@ -4,7 +4,7 @@
 	<main aria-label="{{.Title}}" class="page-content organization packages soda-page soda-packages soda-packages-index" data-signed="{{.IsSigned}}">
 		{{template "org/header" .}}
 		<div class="ui container soda-page-container">
-			{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Package registry" "Title" (ctx.Locale.Tr "packages.title") "Description" "Published artifacts, ready for the next build." "Artwork" "organization-packages-papercraft.png" "Class" "soda-page-intro--compact"}}
+			{{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Package registry" "Title" (ctx.Locale.Tr "packages.title") "Description" "Published artifacts, ready for the next build." "Class" "soda-page-intro--compact"}}
 			{{template "package/shared/list" .}}
 		</div>
 	</main>

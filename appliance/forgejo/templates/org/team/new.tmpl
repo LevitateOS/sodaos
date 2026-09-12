@@ -4,7 +4,7 @@
 	{{template "org/header" .}}
 	<div class="ui container soda-page-container soda-form-layout">
 {{$taskTitle := ctx.Locale.Tr "org.teams.settings"}}{{if .PageIsOrgTeamsNew}}{{$taskTitle = ctx.Locale.Tr "org.create_new_team"}}{{end}}
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Give your team a clear place and the access it needs." "Eyebrow" "Build together" "Artwork" "new-team-papercraft.png" "Class" "soda-form-story"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Give your team a clear place and the access it needs." "Eyebrow" "Build together" "Class" "soda-form-story"}}
 <div class="soda-form-content">
 				<form class="ui form soda-form soda-p-form" action="{{if .PageIsOrgTeamsNew}}{{.OrgLink}}/teams/new{{else}}{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/edit{{end}}" data-delete-url="{{.OrgLink}}/teams/{{.Team.LowerName | PathEscape}}/delete" method="post">
 					<div class="ui attached segment soda-p-section">

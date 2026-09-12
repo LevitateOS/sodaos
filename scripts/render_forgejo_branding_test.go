@@ -22,7 +22,7 @@ func TestForgejoBrandingPNGPlacements(t *testing.T) {
 	}{
 		{"favicon-16.png", 16, false, color.RGBA{}},
 		{"favicon.png", 32, false, color.RGBA{}},
-		{"apple-touch-icon.png", 180, true, color.RGBA{R: 6, G: 36, B: 91, A: 255}},
+		{"apple-touch-icon.png", 180, true, color.RGBA{A: 255}},
 		{"logo.png", 512, false, color.RGBA{}},
 	} {
 		t.Run(asset.name, func(t *testing.T) {

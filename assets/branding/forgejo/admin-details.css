@@ -45,7 +45,7 @@
 
 .soda-admin-details--config .admin-dl-horizontal > dt {
 	color: var(--soda-page-muted);
-	font: 600 12px/1.6 "IBM Plex Mono", monospace;
+	font: 500 12px/1.6 "IBM Plex Mono", monospace;
 }
 
 .soda-admin-details--config .admin-dl-horizontal > dd {
@@ -80,8 +80,6 @@
 	padding-block: 12px;
 	border-color: var(--soda-page-edge);
 }
-
-
 
 /* Large identity and authentication forms use the shared native-form adapter.
    These local rules handle only their page-specific grouping and action rows. */

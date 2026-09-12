@@ -39,3 +39,5 @@
   font-display: swap;
   src: url("./ibm-plex-mono/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
 }
+
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 800; font-display: swap; src: url("./barlow-condensed/barlow-condensed-latin-800-normal.woff2") format("woff2"); }

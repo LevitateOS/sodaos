@@ -1,7 +1,7 @@
 /* Preserve Forgejo notification IDs, forms and live-update hooks. */
 .soda-notifications-toolbar { justify-content: space-between; }
 .soda-notifications #notification_table .notifications-item { border-bottom: 1px solid var(--soda-page-edge); background: transparent; }
-.soda-notifications .notifications-unread-count { background:var(--soda-page-surface); color:var(--soda-page-link); border-radius:5px; font:500 11px/1.2 "IBM Plex Mono",monospace; }
+.soda-notifications .notifications-unread-count { background:var(--soda-page-surface); color:var(--soda-page-link); border-radius:0; font:500 11px/1.2 "IBM Plex Mono",monospace; }
 .soda-notifications-toolbar .button-row { gap:8px; flex-wrap:wrap; }
 .soda-notifications #notification_table .notifications-item:last-child { border-bottom:0; }
 .soda-notifications .notifications-icon { margin:4px 0 0; }
@@ -11,7 +11,7 @@
 .soda-notifications .notifications-updated { color:var(--soda-page-muted); font:400 13px/1.5 Barlow,sans-serif; }
 .soda-notifications .notifications-buttons button { width:44px; height:44px; border-radius:var(--soda-button-radius); color:var(--soda-page-muted); }
 .soda-notifications .notifications-buttons button:hover { background:var(--soda-page-canvas); color:var(--soda-page-link); }
-.soda-notifications .ui.tab.segment { padding:0; background:transparent; border:0; box-shadow:none; }
+.soda-notifications .ui.tab.segment { padding:0; background:transparent; border:0; box-shadow: none; }
 /* Keep available row actions discoverable without requiring hover. */
 .soda-notifications #notification_table .notifications-buttons,
 .soda-notifications #notification_table .notifications-updated { display:flex !important; }

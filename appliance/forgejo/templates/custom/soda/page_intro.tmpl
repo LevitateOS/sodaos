@@ -1,9 +1,8 @@
 {{/* Presentation inputs only. Callers retain native context, translations and permission gates. */}}
-<section class="soda-page-intro{{with .Class}} {{.}}{{end}}" aria-labelledby="{{.TitleID}}">
+<section class="soda-page-intro{{with .Class}} {{.}}{{end}}"{{with .TitleID}} aria-labelledby="{{.}}"{{end}}>
   <div class="soda-page-copy">
     {{with .Eyebrow}}<p class="soda-page-eyebrow">{{.}}</p>{{end}}
-    <h1 class="soda-page-title" id="{{.TitleID}}">{{.Title}}</h1>
+    <h1 class="soda-page-title"{{with .TitleID}} id="{{.}}"{{end}}>{{.Title}}</h1>
     {{with .Description}}<p class="soda-page-description">{{.}}</p>{{end}}
   </div>
-  {{with .Artwork}}<img class="soda-page-art" src="{{AssetUrlPrefix}}/soda/forgejo/{{.}}" width="1536" height="1024" alt="">{{end}}
 </section>

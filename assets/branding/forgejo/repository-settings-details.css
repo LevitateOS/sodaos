@@ -46,7 +46,7 @@
 
 .soda-repo-settings-detail .ui.table th {
 	color: var(--soda-page-muted);
-	font: 600 12px/1.5 "IBM Plex Mono", monospace;
+	font: 500 12px/1.5 "IBM Plex Mono", monospace;
 	letter-spacing: .025em;
 }
 
@@ -80,7 +80,7 @@
 .soda-repo-settings-lfs-file .file-view,
 .soda-repo-settings-lfs-file-find .ui.attached.table,
 .soda-repo-settings-lfs-locks .ui.attached.table {
-	border-radius: 0 0 var(--soda-panel-radius) var(--soda-panel-radius);
+	border-radius: 0;
 }
 
 :is(.soda-repo-settings-actions, .soda-repo-settings-secrets, .soda-repo-settings-lfs-pointers) .flex-list > .flex-item:last-child {
@@ -105,6 +105,8 @@
 }
 
 @media (max-width: 899px) {
- .soda-repository-settings .soda-repo-settings-bar { flex-wrap: wrap; }
- .soda-repository-settings .soda-repo-settings-bar #soda-settings-title { flex: 1 1 180px; }
+ .soda-repository-settings .soda-repo-settings-bar { flex-direction: column; align-items: stretch; }
+ .soda-repository-settings .soda-repo-settings-bar #soda-settings-title { flex: none; }
+ .soda-repository-settings .soda-repo-settings-bar > .soda-settings-nav { margin-left: 0; align-self: flex-start; }
+ .soda-repository-settings .soda-settings-nav.is-enhanced .soda-settings-destinations { left: 0; right: auto; }
 }

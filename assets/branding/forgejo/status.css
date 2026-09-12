@@ -16,7 +16,7 @@
 .soda-status-card .error-code {
   margin: 0 0 16px;
   color: var(--soda-page-link);
-  font: 600 clamp(64px, 14vw, 128px)/.9 "Fraunces Variable", Georgia, serif;
+  font: 800 clamp(64px, 14vw, 128px)/.9 "Barlow Condensed", "Arial Narrow", sans-serif;
   letter-spacing: -.05em;
 }
 
@@ -36,14 +36,6 @@
   margin: 24px 0 0;
   color: var(--soda-page-muted);
   font: 400 12px/1.5 "IBM Plex Mono", monospace;
-}
-
-.soda-status-art {
-  display: block;
-  width: 220px;
-  max-width: 65%;
-  height: auto;
-  margin: 0 auto 16px;
 }
 
 @media (max-width: 700px) { .soda-status-card { padding: 0; } }

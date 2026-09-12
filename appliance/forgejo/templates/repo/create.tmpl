@@ -2,7 +2,7 @@
 <div role="main" aria-label="{{.Title}}" class="page-content repository new repo soda-page soda-create" data-signed="true">
 	<div class="ui container soda-page-container soda-form-layout">
 		<div class="soda-form-story-wrap">
-		{{template "custom/soda/page_intro" dict "Class" "soda-form-story" "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "A home for your code. A starting point for what comes next." "Artwork" "new-repo-papercraft.png"}}
+		{{template "custom/soda/page_intro" dict "Class" "soda-form-story" "TitleID" "soda-page-title" "Eyebrow" "Make room for your next idea" "Title" (ctx.Locale.Tr "new_repo.title") "Description" "A home for your code. A starting point for what comes next."}}
 		{{if or .CanCreateRepo .Orgs}}<div class="soda-form-story-note">{{template "repo/create_helper" .}}</div>{{end}}
 		</div>
 		<form class="ui form soda-form soda-p-form soda-form-content" action="{{.Link}}" method="post">

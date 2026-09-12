@@ -4,7 +4,7 @@
 {{$CustomHeaderTitle := ctx.Locale.Tr "repo.settings.update_webhook"}}
 		{{if .PageIsSettingsHooksNew}}{{$CustomHeaderTitle = ctx.Locale.Tr "repo.settings.add_webhook"}}{{end}}
 <div class="soda-form-layout">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $CustomHeaderTitle "Description" "Send selected events to an external integration." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $CustomHeaderTitle "Description" "Send selected events to an external integration." "Eyebrow" "" "Class" "soda-form-story"}}
 <div class="soda-form-content">
 	<div class="user-setting-content soda-settings-editor">
 

@@ -3,13 +3,11 @@
 	<div class="ui container soda-page-container">
         {{$introTitle := ctx.Locale.Tr "issues"}}
         {{$introDescription := "Small fixes. Good ideas. Forward motion."}}
-        {{$introArtwork := "issues-papercraft.png?v=2"}}
         {{if .PageIsPulls}}
           {{$introTitle = ctx.Locale.Tr "pull_requests"}}
           {{$introDescription = "Good changes start with a conversation."}}
-          {{$introArtwork = "pulls-papercraft.png"}}
         {{end}}
-        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" $introDescription "Artwork" $introArtwork}}
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" $introTitle "Description" $introDescription}}
         {{template "base/alert" .}}
         <div class="soda-list">
 		<div class="list-header soda-toolbar soda-p-toolbar">

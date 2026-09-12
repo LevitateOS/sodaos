@@ -185,7 +185,6 @@
     background: var(--soda-page-canvas);
   }
 
-
   & .field.error :is(input, textarea, select, .selection.dropdown),
   & :is(input, textarea, select, .selection.dropdown).error {
     border-color: var(--color-error-border);
@@ -195,7 +194,6 @@
     & .soda-form-section {
       padding: 0;
     }
-
 
     & .primary.button {
       width: 100%;

@@ -124,7 +124,7 @@ func TestForgejoAdminOrganizationStylesStayFamilyScoped(t *testing.T) {
 		name    string
 		markers []string
 	}{
-		{name: "admin.css", markers: []string{".soda-admin-layout", ".soda-admin .admin-setting-content", "var(--soda-page-surface)", "@media (max-width: 700px)"}},
+		{name: "admin.css", markers: []string{".soda-admin-layout", ".soda-admin .admin-setting-content", "var(--soda-page-surface)", "@media (max-width: 900px)"}},
 		{name: "organization.css", markers: []string{".soda-org-settings-layout", ".page-content.organization:has(.soda-org-header)", "> .ui.container:not(.fluid)", "var(--soda-page-surface)", "@media (max-width: 700px)"}},
 	}
 	for _, style := range styles {
@@ -160,7 +160,10 @@ func TestForgejoSettingsComponentKeepsNativeBoundaries(t *testing.T) {
 		`:is(.user-setting-content, .repo-setting-content, .user-main-content, .admin-setting-content, .org-setting-content) > .ui.top.attached.header`,
 		`> .ui.attached.segment:not(table)`,
 		`:is(.soda-config-heading, .soda-webhook-heading).ui.header`,
-		`var(--soda-page-selected)`,
+		`a.active.item`,
+		`background: var(--soda-page-text)`,
+		`color: var(--soda-page-canvas)`,
+		`border-inline-start: 4px solid var(--soda-page-action)`,
 	} {
 		if !strings.Contains(css, marker) {
 			t.Errorf("shared settings stylesheet lost native composition scope %q", marker)

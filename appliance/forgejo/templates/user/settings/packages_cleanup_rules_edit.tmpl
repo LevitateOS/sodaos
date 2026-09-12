@@ -2,7 +2,7 @@
 {{$taskTitle := ctx.Locale.Tr "packages.owner.settings.cleanuprules.add"}}{{if .IsEditRule}}{{$taskTitle = ctx.Locale.Tr "packages.owner.settings.cleanuprules.edit"}}{{end}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings packages" "title" $taskTitle "parentURL" (printf "%s/user/settings/packages" AppSubUrl) "parentTitle" (ctx.Locale.Tr "packages.title") "formPage" true)}}
 <div class="soda-form-layout">
-{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Choose which package versions to keep and remove." "Eyebrow" "" "Artwork" "" "Class" "soda-form-story"}}
+{{template "custom/soda/page_intro" dict "TitleID" "soda-form-title" "Title" $taskTitle "Description" "Choose which package versions to keep and remove." "Eyebrow" "" "Class" "soda-form-story"}}
 <div class="soda-form-content">
 	<div class="user-setting-content soda-settings-editor">
 		{{template "package/shared/cleanup_rules/edit" (dict "PersonalSettings" true "ctxData" .)}}

@@ -3,7 +3,7 @@
 	{{template "repo/header" .}}
 	<div class="ui container">
 		<div class="ui center segment tw-py-8">
-			<img class="soda-wiki-welcome-art" src="{{AssetUrlPrefix}}/soda/forgejo/wiki-welcome-papercraft.png" width="1536" height="1024" alt="">
+			{{svg "octicon-book" 48}}
 			<h2>{{ctx.Locale.Tr "repo.wiki.welcome"}}</h2>
 			<p>{{ctx.Locale.Tr "repo.wiki.welcome_desc"}}</p>
 			{{if and .CanWriteWiki (not .Repository.IsMirror)}}

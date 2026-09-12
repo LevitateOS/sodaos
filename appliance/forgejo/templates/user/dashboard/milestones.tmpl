@@ -1,7 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard issues repository milestones soda-page soda-milestones" data-signed="true">
 	<div class="ui container soda-page-container">
-        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" (ctx.Locale.Tr "milestones") "Description" "Small steps. Shared progress." "Artwork" "milestones-papercraft.png"}}
+        {{template "custom/soda/page_intro" dict "TitleID" "soda-page-title" "Eyebrow" "Your workbench" "Title" (ctx.Locale.Tr "milestones") "Description" "Small steps. Shared progress."}}
         {{template "base/alert" .}}
 				<div class="list-header soda-toolbar soda-p-toolbar">
 					<div class="switch list-header-toggle soda-tabs">

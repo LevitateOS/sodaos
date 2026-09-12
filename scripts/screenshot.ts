@@ -38,9 +38,10 @@ Keep the dedicated profile closed between runs. Fixtures are managed manually.`;
 export async function setCaptureTheme(page: Page, theme: 'light' | 'dark') {
   await page.evaluate(async theme => {
     const link = document.createElement('link');
-    link.rel = 'stylesheet'; link.href = `/assets/css/theme-forgejo-${theme}.css`;
+    const family = document.documentElement.dataset.theme?.startsWith('soda-') ? 'soda' : 'forgejo';
+    link.rel = 'stylesheet'; link.href = `/assets/css/theme-${family}-${theme}.css`;
     await new Promise((resolve, reject) => { link.onload = resolve; link.onerror = reject; document.head.append(link); });
-    document.documentElement.dataset.theme = `forgejo-${theme}`;
+    document.documentElement.dataset.theme = `${family}-${theme}`;
     document.documentElement.dataset.sodaLoginTheme = theme;
     document.documentElement.style.colorScheme = theme;
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));

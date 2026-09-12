@@ -32,7 +32,7 @@
 }
 
 .soda-list > :where(.flex-list:not(#issue-list),#activity-feed) > :where(.flex-item) .repo-topics .ui.label {
-  border-radius: 5px;
+  border-radius: 0;
   background: var(--soda-page-canvas);
   border: 1px solid var(--soda-page-edge);
   color: var(--soda-page-link);
@@ -135,17 +135,17 @@
 .soda-milestone-row progress {
   height: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--soda-page-edge);
   accent-color: var(--soda-page-link);
 }
 #issue-list .issue-meta .checklist progress::-webkit-progress-bar,
-.soda-milestone-row progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 999px; }
+.soda-milestone-row progress::-webkit-progress-bar { background: var(--soda-page-edge); border-radius: 0; }
 #issue-list .issue-meta .checklist progress::-webkit-progress-value,
-.soda-milestone-row progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 999px; }
+.soda-milestone-row progress::-webkit-progress-value { background: var(--soda-page-link); border-radius: 0; }
 #issue-list .issue-meta .checklist progress::-moz-progress-bar,
-.soda-milestone-row progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 999px; }
+.soda-milestone-row progress::-moz-progress-bar { background: var(--soda-page-link); border-radius: 0; }
 
 @media (max-width: 600px) {
   #issue-list .flex-item-header { grid-template-columns: minmax(0,1fr); }

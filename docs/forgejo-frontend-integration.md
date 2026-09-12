@@ -1,5 +1,12 @@
 # Forgejo customization contract
 
+The [12 September source audit](forgejo-extension-audit.md) maps the current
+extension implementation, native-session/hosting limits and a reproduced runner
+admission defect. It recommends how to extend the existing owners without a plugin
+framework; it is not a new execution plan or installed acceptance receipt.
+The [Forgejo extension status](forgejo-extension-status.md) now owns this agent's
+follow-up implementation order and progress, independently of the Tailnet workstream.
+
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
 and [handoff](implementation-status.md). The read-only hook/drawer/context caller
@@ -19,8 +26,9 @@ acceptance are in the [handoff](implementation-status.md). Open in drawer has lo
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
 extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)
-now renders the three existing Soda page bodies within Forgejo's own dashboard
-and real native shell. Steps 1–4 include connection/logout, normal navigation and
+renders Soda page bodies within Forgejo's own dashboard and real native shell.
+The three earlier views have the recorded native evidence below; Tailnet now has
+source integration and component checks, with native-page acceptance still pending. Steps 1–4 include connection/logout, normal navigation and
 old-URL bookmark bridges; their Go shells are removed. Historical Go HTML placement
 below is not the current source contract. The protected APIs retain authority;
 no cookies or native authentication are borrowed. Step 5 adds whole-module-graph
@@ -36,11 +44,12 @@ global operator-only Sodarunners destination. The current local
 [`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
 already preserves native Actions runners/secrets/variables links. Add Soda links
 through the versioned customization mechanism without replacing those workflows.
-The three current views use Forgejo's existing dashboard handler and the same
+The four current source views use Forgejo's existing dashboard handler and the same
 protected Soda namespace/API/Lit boundary. A template link grants no authority.
 Repository settings keeps its stable-ID native link and native gates; repository
-AI settings remains unimplemented. The shared connection/logout contract uses
-schema v9. See the leading handoff for the source candidate, explicit shared-file
+AI settings remains unimplemented. The shared connection/logout contract uses the
+[credential owner's current schema](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return);
+recorded installed targets remain v9. See the leading handoff for the source candidate, explicit shared-file
 handoff status and pending native/provider proof. Public v15 customization documentation was
 reviewed; the attempted exact-tag upstream navbar fetch was unavailable, so this
 note claims local override inspection rather than fresh upstream source verification.
@@ -91,11 +100,14 @@ not add handlers, authentication or permissions. The later user-requested
 no component ports or eager loading. Use Lit selectively for Soda-owned interactions; do not
 migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
 
-These are official customization mechanisms, with version-sensitive compatibility:
+These are documented customization mechanisms, **not supported extension APIs**:
 [Forgejo's documentation](https://forgejo.org/docs/latest/admin/advanced/customization/)
-explicitly does not guarantee template/custom-resource compatibility across upgrades.
-Review the overridden templates, native partial/script boundaries, CSS adapters and
-local browser behavior against the exact candidate version before an upgrade.
+explicitly calls custom resources/page modifications **unsupported** and warns that
+updates may break them without warning. This is stronger than merely lacking a
+cross-version compatibility guarantee. Local passing checks establish compatibility
+with the tested version, not upstream support or a server-side plugin SDK. Review
+the overridden templates, native partial/script boundaries, CSS adapters and local
+browser behavior against the exact candidate version before an upgrade.
 The [Lit shadow DOM documentation](https://lit.dev/docs/components/shadow-dom/)
 explains the CSS and DOM boundaries that any future Lit component must account for.
 
@@ -134,7 +146,7 @@ Neither source inspection nor fixture tests are authenticated browser proof.
 
 ### Recommended candidate: native fragment plus existing HTMX
 
-Use supported navbar/custom hooks for the bell panel, plus a compact presentation
+Use the documented navbar/custom hooks for the bell panel, plus a compact presentation
 branch in the already overridden notification fragment. A presentation-only query
 flag such as `soda-preview=true` can select that branch; it must not affect native
 identity, permissions or notification queries. Source wiring exposes the web context
@@ -327,7 +339,7 @@ Further source facts informing the [implementation sequence](sodaspaces-plan.md)
   source fixtures exercise the actual staging/preflight logic. No generic merge,
   existing-target upgrade or permission to replace customizations was added.
 
-If supported configuration/templates/assets/APIs cannot meet the requirement,
+If stock configuration/templates/assets/APIs cannot meet the requirement,
 explain the concrete constraint and return for a decision. Do not fork Forgejo,
 ship a custom executable, scrape/relay HTML, borrow credentials or introduce a
 replacement frontend/framework. Keep native Git/LFS/package and administrator flows.
@@ -335,3 +347,9 @@ replacement frontend/framework. Keep native Git/LFS/package and administrator fl
 Overrides/assets require [matching notices and source obligations](licensing.md).
 No image upgrade, ingress change, service restart or provider mutation is authorized
 by this guide. All retained project state, private credentials and evidence stay intact.
+
+## September Forgejo visual redesign
+
+The owner selected an image-light interface: no decorative robots or routine dashboard/profile photography. The complete override set now inherits neutral light/dark surfaces, red actions, square controls, Barlow Condensed headings, Barlow body text and IBM Plex Mono controls. Text-led intros, restrained functional empty-state icons, mobile-first creation/dashboard layouts and symbol-only navigation replace the older presentation. Native forms, permissions, translations, Git status/diff colors, avatars, organization logos and repository content retain their owners.
+
+[The independent redesign status](forgejo-redesign-status.md) records the source changes, browser fixtures and remaining installed verification. Fastfetch ASCII branding is a separate follow-up. Older route-specific art and visual receipts are historical, not the current design contract.

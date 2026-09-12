@@ -87,6 +87,12 @@ See the implementation handoff for actual checks and remaining validation.
 
 ## Presentation component contract
 
+The September brutalist redesign supersedes the older visual receipts below.
+Routine page artwork is retired from templates and delivery; avatars, organization
+logos, repository content and functional icons remain. Current scope and validation
+are tracked in [the redesign status](../../docs/forgejo-redesign-status.md).
+
+
 Soda pages compose a small, opt-in presentation vocabulary around native Forgejo
 templates. `.soda-page` establishes the shared palette, typography, navigation and
 footer treatment; include `data-signed="true"` or `"false"` so account and guest
@@ -120,7 +126,7 @@ share layout and control presentation in `components-forms.css`. Page styles
 should retain only specialized editor behavior; avoid reintroducing per-page
 widths, header cards or independent form-control scales.
 
-Keep spacing compact: shared panels use 18px desktop / 16px narrow insets,
+Keep spacing compact: shared panels use 16px insets,
 general list rows use 16px vertical padding, and section gaps generally use
 16–24px. Milestone, issue and PR rows share 24px vertical padding.
 Use the shared components before adding page-specific spacing; preserve readable
@@ -132,7 +138,7 @@ Each responsibility has one CSS owner:
 | --- | --- |
 | `components-buttons.css` | Shared button type, shape, neutral surfaces, native primary palette binding and joined-group edges. Native colored, loading, disabled and overflow behavior remains upstream. |
 | `components.css` | Full-page shell, semantic colors, shared dimensions, native navbar/footer and page focus. `.soda-page-container` owns content width. |
-| `components-intro.css` | `.soda-page-intro` heading, copy, artwork and compact variant. |
+| `components-intro.css` | `.soda-page-intro` text-only heading, copy and compact variant. |
 | `components-toolbar.css` | `.soda-toolbar` composition; independent `.soda-tabs`, explicit toolbar actions, and bounded native search/dropdown adapters. `.soda-context-switcher` wraps the unchanged native dashboard navbar. |
 | `components-forms.css` | `.soda-form.ui.form` fields, labels, help, control states, actions and `.soda-form-section` fieldsets; a positive structural adapter for principal native settings/auth forms. Nested table/row/dialog action/search forms retain native sizing unless they explicitly opt in. Personal password and key-add forms keep `ignore-dirty` and panel hooks while opting into `soda-p-form`. One native CSS nesting block owns both callers. |
 | `components-settings.css` | Shared personal/repository settings shell, compact grouped navigation, page gutters, open sections, 40px body inset and inventory action placement. Organization/administrator callers keep their native sidebar. Panel padding excludes native tables; nested row/dialog forms are not cards. |
@@ -458,12 +464,17 @@ or `soda-p-title` on headings, `soda-p-section` on open sections, and
 attributes. Existing `soda-form`, `soda-toolbar`, `soda-list` and `soda-empty`
 contracts remain valid; do not add a second implementation of them.
 
-Spacing uses 4/8/12/16/24/32px. Inputs retain an 8px radius; buttons use a 6px
-radius and 600-weight 14px labels. Standard, compact and icon actions all use
-44px targets, including native mini/tiny/small classes. Internal edges
+Spacing uses 4/8/12/16/24/32px. Inputs and buttons are square; buttons use
+500-weight 13px IBM Plex Mono labels. Standard, compact and icon actions all use
+a minimum 44px target, including native mini/tiny/small classes. Text buttons
+grow when labels wrap; icon-only controls retain their 44px square. Internal edges
 of joined repository controls are square even when a native modal lies between
 the action and count. Page and section typography use shared font tokens with
-the existing Fraunces, Barlow and IBM Plex Mono families. Ordinary content is
+Barlow Condensed (800), Barlow and IBM Plex Mono families. Display headings and
+action labels are uppercase. Intro/sidebar labels invert foreground and canvas;
+red edge markers identify current navigation. Primary/secondary actions have 2px
+frames, while intro/settings structural rules use 3px. Keep data/input borders
+quiet and preserve the native status colors. Ordinary content is
 1120px; wide data views remain 1440px or native fluid canvases. Narrow columns
 use the shared 240px token and stack at 900px where the native layout allows it.
 
@@ -581,8 +592,8 @@ API and native locale catalogs remain upstream-owned. The attributed
 while composing the public identity header described below.
 
 
-The selected C — Tonal design uses tinted primary surfaces with blue text and
-fine blue borders, transparent neutral actions, and 14px horizontal padding with
+The selected brutalist design uses red primary surfaces with white text,
+bordered neutral actions, and 14px horizontal padding with
 no decorative shadow. Button-local tokens preserve the canonical page palette.
 `components-buttons.css` owns appearance and dimensions for introductory/empty
 actions, principal forms, repository toolbars and native basic buttons. Bounded
@@ -596,7 +607,7 @@ inputs share the 44px height. Principal-form single-value fields also align at
 44px; textareas and multiple-selection controls retain growing content areas.
 Native joined internal edges stay square. Explore's desktop tab allowance is
 448px to accommodate the 44px overflow trigger; native tab measurement and menu
-behavior remain intact. The 320px header retains the canonical 128px logo with
+behavior remain intact. The 320px header retains the canonical symbol-only identity with
 44px mobile actions and reduced gaps instead of undersized targets.
 
 
@@ -684,7 +695,7 @@ technical data. Generic repository container rules have lower specificity so
 this explicit shell wins at every breakpoint; ordinary repository pages retain
 their zero-padding contract. File inputs use the shared principal-form width
 constraint, including native inline avatar fields. All actions retain the
-selected C — Tonal 44px dimensions.
+shared square 44px dimensions.
 
 General settings use open Basic, Avatar, Federation, Mirrors, Signing,
 Administrator and Danger sections under their existing gates. Units retain one
@@ -766,7 +777,7 @@ payload is fetched. Code search and package version pages remain capability/data
  dependent. The read-only browser regression covers available profile destinations;
 private activity additionally has a source-rendered permission matrix in Go tests.
 
-The Forgejo navigation uses the `soda-forge-logo-horizontal` light/dark SVGs:
-canonical Soda symbol and Soda lettering with a cyan “forge” suffix. These are
-separate from the Soda OS assets used elsewhere. `components.css` reserves 152px
-for the wordmark on mobile and 166px on desktop.
+The Forgejo navigation uses only the canonical Soda symbol, in a 44px target.
+The outer plate is red; the middle plate is dark on light surfaces and white on
+dark surfaces; the inner core is transparent. Guest, explicit account and automatic
+theme choices select the matching SVG. Native image and home-link semantics remain.

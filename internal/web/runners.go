@@ -82,7 +82,13 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 			jsonError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
 			return
 		}
-		err := s.Host.RunnerCreate(ctx, in)
+		// Body decoding may outlive the session verified by the operator gate.
+		cookie, err := requestCookie(r, sessionCookie)
+		if err != nil || s.requireCurrentSession(ctx, cookie.Value, v) != nil {
+			providerError(w, store.ErrGrantUnavailable)
+			return
+		}
+		err = s.Host.RunnerCreate(ctx, in)
 		in.RegistrationToken = ""
 		if err != nil {
 			runnerUnconfirmed(w)
@@ -140,6 +146,12 @@ func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store
 	}
 	if in.ConfirmID != id {
 		jsonError(w, 400, "confirmation_required", "Confirm the exact runner ID and operation effects.")
+		return
+	}
+	// Recheck after decoding and confirmation, immediately before dispatch.
+	cookie, err := requestCookie(r, sessionCookie)
+	if err != nil || s.requireCurrentSession(ctx, cookie.Value, v) != nil {
+		providerError(w, store.ErrGrantUnavailable)
 		return
 	}
 	if s.Host.RunnerAction(ctx, action, runners.RunnerRequest{ID: id}) != nil {

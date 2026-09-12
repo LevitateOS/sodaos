@@ -14,6 +14,36 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet and Forgejo source merge
+
+The user requested pulling upstream and resolving conflicts before further Stage-4
+work. From clean `13d31aa`, `git pull --no-rebase origin main` fetched `e7760d4` and
+produced eight content conflicts. Both histories are retained; no rebase, reset,
+amend or push was used.
+
+Resolved the native header/footer/dashboard/navigation together: retained incoming
+brutalist presentation/style versions and Spaces/Runners current-page cues, preserved
+Tailnet selectors/localized labels/lazy assets/operator authorization, and extended
+the same validated-host current-page cue to Tailnet. All entries/imports share the
+new `2026-09-12.tailnet-merge-1` epoch. Both histories and the latest Tailnet grant/state
+remain alongside the independent Forgejo extension/redesign statuses. Incoming
+runner admission and environment read-publication session fixes are preserved.
+
+The presentation inventory initially rejected the changed override hashes. Reviewed
+and updated only the four merged template source hashes/notes, not pinned native
+control contracts. Added Tailnet template selector/stylesheet/invalid-query checks
+and merged operator/navigation tests for root and `/forge` prefixes, actor mismatch,
+retirement and exactly one current-page cue.
+
+Evidence: `.artifacts/merge-tailnet-forgejo-TSGPpY/`. Strict TypeScript/Lit and its
+negative fixtures passed. Emitted Tailnet/Forgejo source/browser suite: 53 passed,
+24 explicit native/presentation opt-in skips; `browser-01.log` retains the initial
+inventory failure, `browser-02.log` the corrected pass. Pinned Go 1.26.7 race tests
+passed for web/host/Tailnet/scripts, followed by final scripts/nativebuild tests.
+These are local source/component/template checks, not a native bundle or actual
+configured-device acceptance. No fixture repair/start, ARM or other device contact,
+provider operation, deployment or cleanup occurred. Stage 4 remains incomplete.
+
 ## Tailnet stage 4 — enrollment core and incarnation foundations
 
 The user explicitly selected Stage 4 device-independent implementation from clean
@@ -277,6 +307,62 @@ compatibility, project runtime/enrollment and both architectures' installed proo
 remain unclaimed. Both retained targets remain at paired `19824ec`, schema v9, with
 both Cockpit fallbacks. Native proof, delivery, Runners removal and eventual Tailnet
 retirement still need the current target/action-specific grants.
+
+## Forgejo extension source audit
+
+**12 September 2026; baseline `5c2f92a`; documentation-only production diff.**
+The user requested a source audit of seamless/native-feeling Forgejo extensions,
+not a plugin implementation or appliance change. The tree was clean at entry.
+The [audit](forgejo-extension-audit.md) records the implementation map, confirmed
+runner defect and recommendations; existing feature guides retain their contracts.
+
+Reviewed the one-origin proxy, native template host/navigation, shared Lit entry,
+connection/logout and workspace owners, Go session/provider/runner authorization,
+and browser build/payload/staging. Reused the retained Forgejo **15.0.7** source
+in `.artifacts/forgejo-pages-plan-9ncxei8z/`; all eight files listed in `sources.json`
+matched their recorded SHA-256 values. This was not a review of every upstream
+handler or every Soda template.
+
+### Checks and reproduction
+
+Evidence is retained in `.artifacts/forgejo-native-audit-XdXOQq/`.
+
+| Check | Actual result and scope |
+| --- | --- |
+| Selected `internal/web` checks | 35 top-level tests passed, including actor/CSRF/OAuth/cancellation, current-session, existing mutation-admission and runner boundaries; `go-web-go1.26.7.log`. Real local store/router, synthetic provider/helper peers. |
+| Selected `scripts` template checks | 7 top-level tests passed: native host/selector validation, ordinary-dashboard preservation, operator navigation, drawer context/escaping and query-free logging; `go-templates-go1.26.7.log`. |
+| `bun run build:forgejo` | Passed using pinned Bun **1.4.2**; `browser-build.log`. Emitted browser assets, not a native appliance build or installation. |
+| Selected frontend/Forgejo checks | 54 tests passed across `tests/frontend/{drawer-controls,workspace-journey}.test.ts` and `tests/forgejo/{connection,settings-link,lit-build}.test.ts`; `browser-tests.log`. Includes DOM fixtures, build-contract checks and emitted Chromium connection/navigation tests, not a fresh installed Forgejo journey. |
+| Audit-only runner admission probe | Five unchanged-session controls passed. All five logout cases failed the safe expectation: create/start/stop/restart/remove returned 200 and dispatched once after logout completed during body decoding; expected 401/no dispatch. `runner-admission-probe-go1.26.7.log`. |
+
+Go checks used the existing cached **Go 1.26.7 darwin/arm64** toolchain, with
+`GOTOOLCHAIN=local`, `GOWORK=off`, `CGO_ENABLED=0`, read-only modules and `-count=1`.
+`go-checks.json` records exact commands, tool version, logs and exit codes. An initial
+runner probe used the shell's Go 1.27.1; it and the earlier baseline logs remain
+preserved. The pinned repetitions are the Go evidence used here, not native Linux
+or aarch64 appliance proof.
+
+The probe is `runner_admission_audit_test.go`, injected into `internal/web` only
+through `runner-overlay.json` and Go's `-overlay` option. No failing production test
+or implementation patch was added. It completes the real routed Soda logout and
+checks session deletion before allowing the original body's read to continue;
+provider and helper traffic goes only to synthetic test peers. The original runner
+request had already passed actor/operator/Origin/CSRF authorization. This is a
+post-authorization stale-session defect, not unauthenticated operator access.
+
+### Outcome and limits
+
+The audit recommends retaining the early operator gate and adding the existing
+current-session check after decoding/validation, immediately before runner helper
+dispatch, with focused regressions. **The defect remains unfixed.** The separate
+native-session/logout and dashboard-hosting limitations were confirmed from source,
+not presented as problems a new JavaScript framework could solve.
+
+Documentation local links/anchors and whitespace were checked. No full source or
+frontend/typecheck suite, native build, installed/provider acceptance, credential
+use, fixture lifecycle, network/trust change, deployment or cleanup occurred.
+Tailnet remains the separate active workstream. This receipt does not renew any
+execution permission or invalidate the stated scope of historical delivery checks.
 
 ## Tailnet stage 1 — local runtime and enrollment investigation
 

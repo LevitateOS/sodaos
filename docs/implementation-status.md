@@ -1,9 +1,17 @@
 # Current implementation status
 
-This replace-in-place handoff leads with the active workstream, **Tailnet**.
-Installed state is **last verified state**, not a fresh health/liveness observation.
+This replace-in-place handoff tracks **Tailnet** and shared retained-target state.
+[Forgejo extension implementation](forgejo-extension-status.md) is a separately owned
+workstream with its own status and task order; its progress is not maintained here.
+
+Installed state below describes **development fixtures, not customer installations**;
+it is last verified state, not a fresh health/liveness observation.
 Detailed receipts and completed work belong in [implementation history](implementation-history.md);
 historical approvals are not renewed execution permission.
+
+## Isolated Forgejo visual redesign
+
+The `codex/forgejo-redesign` worktree now applies the new visual system across the Forgejo override set. [Its independent status](forgejo-redesign-status.md) owns scope, source checks and browser review evidence. The owner-selected Mac localhost:3300 Forgejo presentation is updated on its existing sodaos-local-forgejo_data volume, with a consistent private backup; the separate builder/VM targets are unchanged. The independent status records parity and delivery evidence. Fastfetch ASCII branding remains separate from this template pass.
 
 ## Active work — Tailnet
 
@@ -79,6 +87,20 @@ ordering and, in a separately approved phase, real enrollment/connectivity. No
 fixture, credential, provider action or maintenance window is currently selected.
 Source/UI completion does not authorize that execution, deployment or native
 configuration changes.
+
+## Forge decision — retain Forgejo
+
+The user [chose to retain Forgejo for now](architecture.md#forge-selection), avoiding
+OneDev's Java/JVM server environment. The [OneDev evaluation](onedev-replacement-research.md)
+is reference research only; its plugin proof and replacement outline are not active
+work. The Go-alternative survey did not establish a full forge with the required
+native Go application-plugin mechanism. No fork or separate frontend is selected.
+
+Public evidence remains at `.artifacts/onedev-research-34y1pE/` and
+`.artifacts/go-forge-alternatives-ANIOFa/` (including `review-summary.json`). No server
+or plugin was built or run during these reviews. The decision changes documentation,
+not runtime state, fixture custody, existing execution permissions or the separate
+Tailnet work.
 
 ## Current permissions
 
@@ -210,11 +232,11 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Started Stage 4 with the enrollment core and native incarnation/recipe primitives.
-Pinned the selected upstream SDK without incidental dependency upgrades. Local
-race-enabled Tailnet/host/web tests passed; `cmd/soda-host` compiled. The core refuses
-same-run replay, changed CID/binding, ambiguous provider metadata and late target
-changes; no credentials enter attempt projections. Evidence:
-`.artifacts/tailnet-stage4-source/`. These are source foundations, not completed
-automation or an activated runtime. No fixture repair/start, ARM/device contact,
-real Tailnet action, native bundle, migration, deployment or Cockpit removal occurred.
+Merged upstream `e7760d4` into the Tailnet work at `13d31aa`, retaining both histories.
+Resolved shared navigation/templates/cache epoch and documentation without dropping
+the redesign, incoming session checks or Tailnet source work. The [merge receipt](implementation-history.md#tailnet-and-forgejo-source-merge)
+records strict TypeScript/Lit, 53 source/browser tests (24 opt-in skips) and race-enabled
+Go checks, including nativebuild/template source contracts. Evidence:
+`.artifacts/merge-tailnet-forgejo-TSGPpY/`. No fixture repair/start, ARM/device contact,
+provider action, deployment, push or cleanup occurred. Stage 4 remains in progress;
+this source merge neither activates automation nor supplies native acceptance.

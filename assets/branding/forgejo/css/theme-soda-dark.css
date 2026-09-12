@@ -1,7 +1,7 @@
-/* Soda website palette: b9e37c7, src/app/styles/{tokens,theme}.css.
- * Brighter link blue and darker filled buttons preserve small-text contrast. */
+/* Soda brutalist palette: neutral surfaces and red actions.
+ * Brighter links and darker filled buttons preserve small-text contrast. */
 @import "theme-forgejo-dark.css";
-@import "../../theme/palette.css";
+@import "../../theme/palette.css?v=2026-09-12.brutalist-2";
 @import "soda-controls.css";
 
 :root {
@@ -111,9 +111,9 @@
   --color-warning-bg: var(--soda-dark-warning-bg);
   --color-warning-border: var(--soda-dark-warning-border);
   --color-warning-text: var(--soda-dark-warning-text);
-  --color-info-bg: var(--soda-dark-selected);
-  --color-info-border: var(--soda-dark-link-ramp-down-1);
-  --color-info-text: var(--soda-dark-link-ramp-up-3);
+  --color-info-bg: var(--soda-dark-surface);
+  --color-info-border: var(--soda-dark-border);
+  --color-info-text: var(--soda-dark-text);
   --is-dark-theme: true;
   color-scheme: dark;
 }

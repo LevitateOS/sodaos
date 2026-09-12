@@ -4,7 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 
 const enabled=process.env.SODA_FORGEJO_LAYOUT_ORIGIN==='http://localhost:3300';
-const gallery=(theme: string)=>new URL(`../../../.artifacts/forgejo-presentation/repository-settings-${theme}.html`,import.meta.url).href;
+const gallery=(theme: string)=>process.env.SODA_FORGEJO_REVIEW_ORIGIN === 'http://localhost:8140' ? `http://localhost:8140/repository-settings-${theme}.html` : new URL(`../../../.artifacts/forgejo-presentation/repository-settings-${theme}.html`,import.meta.url).href;
 const evidence=new URL('../../../.artifacts/repo-settings-overhaul/components/',import.meta.url);
 
 // Production registry, navigation and runner partial, plus small native fixtures.
@@ -28,7 +28,7 @@ test('repository settings compositions and navigation share the settings contrac
     });
     assert.deepEqual(layout,{overflow:false,padding:width<900?'16px':'24px',inset:width<=1000?'16px':'40px',title:'32px',left:width>1168?(width-1120)/2:width<900?16:24});
     for(const heading of await page.locator('.soda-settings-section > h2, .soda-form-section > legend').all()) {
-     assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'24px');
+     assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'22px');
      assert.equal(await heading.evaluate(el=>getComputedStyle(el).marginInlineStart),width<=1000?'-16px':'-40px');
     }
     for(const button of await page.locator('.repo-setting-content button').all()) {

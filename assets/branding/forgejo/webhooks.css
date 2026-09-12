@@ -17,7 +17,7 @@
 
 .soda-repository-settings :is(.soda-webhook-list-header, .soda-webhook-history-header) {
   color: var(--soda-page-text);
-  font-family: "Fraunces Variable", Georgia, serif;
+  font: var(--soda-font-heading);
 }
 
 .soda-webhook-events {
@@ -31,7 +31,7 @@
 .soda-webhook-events > legend {
   padding-inline: 8px;
   color: var(--soda-page-text);
-  font: 600 21px/1.4 "Fraunces Variable",Georgia,serif;
+  font: 800 21px/1.4 "Barlow Condensed","Arial Narrow",sans-serif;
 }
 
 .soda-webhook-events > label {

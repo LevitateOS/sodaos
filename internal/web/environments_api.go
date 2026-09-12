@@ -223,6 +223,11 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	if nativeErr == nil {
 		observed = &env
 	}
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+		return
+	}
 	jsonResponse(w, 200, struct {
 		AuthorityUnavailable bool              `json:"authority_unavailable"`
 		Environment          environmentView   `json:"environment"`
@@ -334,6 +339,11 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 	} else if reader.login != "" {
 		items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), reader.login})
 	}
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+		return
+	}
 	jsonResponse(w, 200, struct {
 		Items                []memberView `json:"items"`
 		AuthorityUnavailable bool         `json:"authority_unavailable"`
@@ -356,6 +366,11 @@ func (s *Server) apiConnection(w http.ResponseWriter, r *http.Request, v store.S
 	connection, err := s.Host.Connection(r.Context(), p.ID)
 	if err != nil {
 		jsonError(w, 503, "native_unavailable", "Current address and public host key are unavailable; do not use a cached address as proof of access.")
+		return
+	}
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return
 	}
 	jsonResponse(w, 200, struct {
