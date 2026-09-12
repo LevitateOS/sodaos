@@ -81,6 +81,13 @@ scripts/build-native.sh x86_64
 
 Use a clean exact-revision checkout with fresh `.artifacts/native/x86_64` output; another attempt requires a fresh checkout, not global artifact removal. The build serializes that checkout, forces matching-native Go/local Podman, builds application commands and separate support tools, builds the Go API/OAuth dashboard command in the same command loop, builds native Forgejo/Lit assets and stages stock Cockpit branding, builds Tea, and builds the Rocky project/dashboard images once from those outputs. There is no standalone Soda frontend or custom Cockpit build. It resolves Forgejo/Caddy and the reviewed Tailscale companion lock for the selected platform, saves all five archives explicitly as OCI, records public native dependency/package/CLI metadata, stages the core configuration, inspects ELF/OCI identity and seals the payload. Read-only, network-disabled image-inspection containers are part of this build recipe, not project lifecycles. No publication, install, VM or product test follows automatically.
 
+The companion is built with `appliance/tailnet.Containerfile`: the immutable
+upstream `tailscale/alpine-base` plus official release archives pinned by SHA-256 in
+`appliance/locks/tailscale-image.json`. Only the native CLI/daemon are extracted; the
+helper invokes them directly, not `containerboot`. Build metadata refuses a CLI or
+daemon version differing from the lock. This preserves the selected release when
+upstream has published its binaries but not a matching container tag.
+
 Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist with the built `tools/soda-artifacts bundle` command as shown in [support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
 
 ## 2. Provision the upstream host

@@ -14,8 +14,6 @@ test('Cockpit branding is independent of retired custom-page tooling and uses cu
   assert(css.includes('soda-symbol-brutalist.svg') && css.includes('soda-symbol-brutalist-dark.svg'));
   assert(css.includes('fonts/fonts.css') && css.includes('Barlow Condensed'));
   assert(!css.includes('login-background-') && !css.includes('<script') && !css.includes('<form'));
-  const image: unknown = await Bun.file(new URL('appliance/locks/tailscale-image.json', source)).json();
-  assert(image && typeof image === 'object' && 'reference' in image && image.reference === 'docker.io/tailscale/tailscale:v1.102.4');
 });
 
 test('branding stylesheet resolves local fonts, flat backgrounds and native theme tokens without an extension', async t => {

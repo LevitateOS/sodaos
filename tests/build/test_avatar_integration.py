@@ -134,6 +134,10 @@ class AvatarPackaging(unittest.TestCase):
             for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
                 (stage / (name + '.iid')).write_text('sha256:' + 'a' * 64)
             def observed_output(args):
+                if '--entrypoint=/usr/local/bin/tailscale' in args:
+                    return json.dumps({'short': json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']})
+                if '--entrypoint=/usr/local/bin/tailscaled' in args:
+                    return json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']
                 if '{{json .RepoDigests}}' in args:
                     return '[]'
                 return 'synthetic build observation'

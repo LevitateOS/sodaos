@@ -202,6 +202,10 @@ class SodaspacesPackaging(unittest.TestCase):
             for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
                 (stage / (name + '.iid')).write_text('sha256:' + '1' * 64)
             def synthetic_output(args):
+                if '--entrypoint=/usr/local/bin/tailscale' in args:
+                    return json.dumps({'short': json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']})
+                if '--entrypoint=/usr/local/bin/tailscaled' in args:
+                    return json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']
                 return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
             with patch.dict(module['collect'].__globals__, output=synthetic_output), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
                 module['collect'](root, 'x86_64', '1' * 40)
