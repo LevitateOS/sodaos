@@ -28,7 +28,7 @@
 }
 
 .soda-repo-work-items-filters {
-  border-inline: 1px solid var(--soda-page-edge);
+  border-inline: 0;
   background: var(--soda-page-surface);
 }
 
