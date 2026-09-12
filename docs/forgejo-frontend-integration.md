@@ -91,11 +91,14 @@ not add handlers, authentication or permissions. The later user-requested
 no component ports or eager loading. Use Lit selectively for Soda-owned interactions; do not
 migrate native forms/lists wholesale or assume their CSS/scripts cross a shadow root.
 
-These are official customization mechanisms, with version-sensitive compatibility:
+These are documented customization mechanisms, **not supported extension APIs**:
 [Forgejo's documentation](https://forgejo.org/docs/latest/admin/advanced/customization/)
-explicitly does not guarantee template/custom-resource compatibility across upgrades.
-Review the overridden templates, native partial/script boundaries, CSS adapters and
-local browser behavior against the exact candidate version before an upgrade.
+explicitly calls custom resources/page modifications **unsupported** and warns that
+updates may break them without warning. This is stronger than merely lacking a
+cross-version compatibility guarantee. Local passing checks establish compatibility
+with the tested version, not upstream support or a server-side plugin SDK. Review
+the overridden templates, native partial/script boundaries, CSS adapters and local
+browser behavior against the exact candidate version before an upgrade.
 The [Lit shadow DOM documentation](https://lit.dev/docs/components/shadow-dom/)
 explains the CSS and DOM boundaries that any future Lit component must account for.
 

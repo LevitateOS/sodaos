@@ -1,7 +1,8 @@
 # Current implementation status
 
 This replace-in-place handoff leads with the active workstream, **Tailnet**.
-Installed state is **last verified state**, not a fresh health/liveness observation.
+Installed state below describes **development fixtures, not customer installations**;
+it is last verified state, not a fresh health/liveness observation.
 Detailed receipts and completed work belong in [implementation history](implementation-history.md);
 historical approvals are not renewed execution permission.
 
@@ -46,6 +47,23 @@ ordering and, in a separately approved phase, real enrollment/connectivity. No
 fixture, credential, provider action or maintenance window is currently selected.
 The present handoff reorganization does not authorize that execution or implement
 stage 2.
+
+## Separate evaluation — OneDev replacement
+
+The [OneDev research](onedev-replacement-research.md) now follows the user's
+[pre-release clean-break scope](architecture.md#pre-release-replacement-scope).
+Removed the customer migration programme and release-scale prerequisites; the
+previous migration-only effort estimates do not apply. Existing fixture maintenance
+items below are not prerequisites for this evaluation.
+
+Remaining work is a small stock-OneDev plugin/native-session/UI proof, followed by
+fresh-state integration if selected. Security, licensing, native product behavior
+and actual runner compatibility still matter; legacy identity/history transfer does
+not. Original public research remains at `.artifacts/onedev-research-34y1pE/`.
+
+Only the planning scope is selected. No plugin build, server/fixture lifecycle,
+provider action or retained-target change was performed. This documentation change
+neither authorizes those effects nor completes the separate Tailnet work.
 
 ## Current permissions
 
@@ -165,8 +183,9 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Reorganized this handoff around Tailnet's completed local stage 1, next source slice
-and unexecuted native proof proposal. Condensed completed Spaces/Runners delivery
-into history links while retaining installed revisions, build identity, resources,
-permissions, limitations and separately pending installed retirement. No application
-code or retained state changed; documentation link/anchor and whitespace checks only.
+Removed assumed customer migration, legacy compatibility, archive/cutover/rollback
+work and premature upgrade/release gates from the OneDev evaluation. Recorded the
+user's clean-break scope in Architecture and distinguished development fixtures from
+customer installations. Retained the source findings and Forgejo support correction.
+Documentation links/anchors, references and whitespace checked; no application tests,
+runtime changes, fixture/data deletion or cleanup performed.
