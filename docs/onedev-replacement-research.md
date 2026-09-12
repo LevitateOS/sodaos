@@ -1,10 +1,10 @@
 # Replacing Forgejo with OneDev — source-grounded research
 
-**Research date:** 12 September 2026. **Status:** source evaluation; clean-break planning scope selected, implementation not started.
+**Research date:** 12 September 2026. **Status:** reference research, not active work. The user [chose to retain Forgejo](architecture.md#forge-selection) rather than introduce OneDev's Java/JVM server environment. No OneDev plugin proof or replacement is selected.
 
-**Scope:** The user clarified **zero users and zero deployed installations**. Follow the [pre-release replacement scope](architecture.md#pre-release-replacement-scope): fresh OneDev application state, not a customer migration programme. Development fixtures do not create a legacy support obligation.
+**Scope if reconsidered:** The user clarified **zero users and zero deployed installations**. The [pre-release replacement scope](architecture.md#pre-release-replacement-scope) excludes a customer migration programme. Development fixtures do not create a legacy support obligation.
 
-**Bottom line:** OneDev has the real server-side plugin architecture that SodaOS's deeper integration needs. It is a substantially better candidate than Forgejo for an extensible forge. Prove a separately packaged Soda plugin, then replace the Forgejo-specific integration directly while reusing useful Soda code. There is no installed-user migration project to build.
+**Finding, not an adoption recommendation:** OneDev genuinely supports native Java/JVM application plugins; it does not provide a native Go plugin API. That capability does not resolve the user's objection to operating the Java environment. The source findings and conditional integration options below are retained for reference.
 
 Current product requirements remain with [Architecture](architecture.md), [Project OS](project-os.md), [native pages](forgejo-soda-pages-plan.md), [Runners](runners-port.md), and [Services/AI](services-and-ai-plan.md). This report evaluates those requirements; it does not silently change them. Installed state and permissions remain in the [handoff](implementation-status.md).
 
@@ -325,11 +325,11 @@ At the baseline, `appliance/forgejo/templates/` contains **253 tracked templates
 | CLI tools/examples | Keep Git; update only Soda-owned Forgejo-specific usage that is still needed. |
 | Tailnet/Services/AI/desktops | Retain their feature ownership; completing these roadmaps does not gate the first plugin proof. |
 
-**Effort:** the customer-migration estimates are withdrawn. Remaining work is native plugin/auth/UI integration, fresh setup and actual runner/runtime changes. Estimate that implementation after the small plugin proof; no replacement schedule is established by this source review.
+**Effort:** the customer-migration estimates are withdrawn. No OneDev implementation work or schedule is selected.
 
-## 12. Recommended work — minimal proof, then fresh integration
+## 12. Conditional integration outline — not active work
 
-These are proposed implementation slices, not work already executed. The [handoff](implementation-status.md#current-permissions) continues to govern fixture, host and provider effects.
+These options apply only if the [forge decision](architecture.md#forge-selection) is reopened. They are not a current task list or execution approval. The [handoff](implementation-status.md#current-permissions) continues to govern fixture, host and provider effects.
 
 ### First: prove the native plugin boundary
 
@@ -351,14 +351,14 @@ Use the existing test owners to cover changed authorization, project persistence
 
 Selected development repositories or files can be copied once if useful. That is optional data handling, not a deliverable requiring a general importer, identity remapper, historical PR archive or migration rehearsal suite. Do not point fresh application state at old fixture account bindings or erase the old fixtures to make tests pass.
 
-## 13. Remaining decisions, at the relevant stage
+## 13. Decisions only if OneDev is reconsidered
 
 - **Platform proof:** current plugin build recipe, native menu placement and session-to-Go authorization. Demonstrate the exact interfaces instead of requiring a broad vendor support guarantee first.
 - **Product selection:** whether the mixed-license distribution and bounded Java plugin layer are acceptable. Native passkeys remain a feature question if required, not a factor-migration task.
 - **When implementing runners/workspaces:** actual Podman/executor compatibility, client update behavior and task credential isolation.
 - **Before distribution:** applicable licensing, dependency security and native build/release checks. No HA/fleet-support programme is selected.
 
-**Recommendation:** evaluate OneDev as a clean-break forge and extension host, reusing Soda's useful runtime/UI code. The real question is whether its native integration fits—not how to migrate a customer base that does not exist.
+**Current decision:** retain Forgejo. This evaluation does not select a JVM dependency, a forge replacement, a custom fork or a new frontend.
 
 ## Sources
 

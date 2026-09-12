@@ -40,23 +40,31 @@ a private supervised server under each original project account. Soda retains
 access/lifetime authority; tmux retains live terminal state. This is not a
 replacement for ordinary SSH or a separate public terminal server.
 
+## Forge selection
+
+The user chose to **retain Forgejo for now**, rather than introduce OneDev's Java/JVM
+server environment and its operational requirements. The
+[OneDev research](onedev-replacement-research.md) remains reference material; no
+OneDev plugin proof or replacement implementation is active.
+
+This decision does not give Forgejo a native application-plugin system. Its
+[documented extension limits](forgejo-frontend-integration.md#shared-presentation-components)
+remain constraints. The existing Go backend, native Forgejo frontend and Project OS
+remain selected; no forge fork or separate Soda frontend is selected by this decision.
+
 ## Pre-release replacement scope
 
 The user clarified that SodaOS has **zero users and zero deployed installations**.
 The retained machines, accounts and roots in the handoff are development fixtures,
 not a supported customer install base.
 
-The [OneDev evaluation](onedev-replacement-research.md) therefore uses a **clean-break
-replacement with fresh application state**. It does not require legacy database or
-configuration compatibility, Forgejo-to-OneDev identity mapping, customer history
-imports, a read-only Forgejo archive, or live cutover/rollback infrastructure.
-Selected development repositories or files may be copied once if useful; no generic
-migration system is required. Plugin upgrade matrices and broader release validation
-are not prerequisites for the first native integration proof.
-
-This removes compatibility work, not the product's authentication, authorization,
-project persistence or host-isolation requirements. It does not authorize deleting
-or recreating retained fixtures/data, nor select a OneDev implementation for execution.
+At this stage, a forge replacement would use **fresh application state**, not a
+customer migration programme. Legacy database/configuration compatibility, identity
+or history migration and archive/cutover/rollback infrastructure are outside that
+scope. Selected development repositories or files may be copied once if useful.
+This is not an active replacement plan, nor permission to delete or recreate retained
+fixtures/data. Authentication, authorization, project persistence and host isolation
+remain product requirements.
 
 ## Topology
 

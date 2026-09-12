@@ -48,22 +48,19 @@ fixture, credential, provider action or maintenance window is currently selected
 The present handoff reorganization does not authorize that execution or implement
 stage 2.
 
-## Separate evaluation — OneDev replacement
+## Forge decision — retain Forgejo
 
-The [OneDev research](onedev-replacement-research.md) now follows the user's
-[pre-release clean-break scope](architecture.md#pre-release-replacement-scope).
-Removed the customer migration programme and release-scale prerequisites; the
-previous migration-only effort estimates do not apply. Existing fixture maintenance
-items below are not prerequisites for this evaluation.
+The user [chose to retain Forgejo for now](architecture.md#forge-selection), avoiding
+OneDev's Java/JVM server environment. The [OneDev evaluation](onedev-replacement-research.md)
+is reference research only; its plugin proof and replacement outline are not active
+work. The Go-alternative survey did not establish a full forge with the required
+native Go application-plugin mechanism. No fork or separate frontend is selected.
 
-Remaining work is a small stock-OneDev plugin/native-session/UI proof, followed by
-fresh-state integration if selected. Security, licensing, native product behavior
-and actual runner compatibility still matter; legacy identity/history transfer does
-not. Original public research remains at `.artifacts/onedev-research-34y1pE/`.
-
-Only the planning scope is selected. No plugin build, server/fixture lifecycle,
-provider action or retained-target change was performed. This documentation change
-neither authorizes those effects nor completes the separate Tailnet work.
+Public evidence remains at `.artifacts/onedev-research-34y1pE/` and
+`.artifacts/go-forge-alternatives-ANIOFa/` (including `review-summary.json`). No server
+or plugin was built or run during these reviews. The decision changes documentation,
+not runtime state, fixture custody, existing execution permissions or the separate
+Tailnet work.
 
 ## Current permissions
 
@@ -183,9 +180,8 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Removed assumed customer migration, legacy compatibility, archive/cutover/rollback
-work and premature upgrade/release gates from the OneDev evaluation. Recorded the
-user's clean-break scope in Architecture and distinguished development fixtures from
-customer installations. Retained the source findings and Forgejo support correction.
-Documentation links/anchors, references and whitespace checked; no application tests,
-runtime changes, fixture/data deletion or cleanup performed.
+Recorded the user's decision to retain Forgejo rather than add OneDev's Java/JVM
+server environment. Marked OneDev research and integration options as inactive,
+retaining the findings and prior clean-break scope. Documentation links/anchors,
+references and whitespace checked; no application tests, runtime changes or cleanup
+performed.
