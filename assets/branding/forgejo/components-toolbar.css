@@ -195,6 +195,7 @@
   min-width: 0 !important;
   max-width: 100%;
   height: 100%;
+  min-height: 0 !important;
   margin: 0;
   border: 0 !important;
   background: transparent !important;
@@ -228,6 +229,20 @@
 .soda-tabs > .secondary-nav > .overflow-menu-items > .active.item {
   background: var(--soda-page-selected) !important;
   color: var(--soda-page-link) !important;
+}
+
+/* Match native overflow tabs to the inset, square state switches. Fomantic's
+   tabular-menu rules otherwise enlarge and round the selected Explore tab. */
+.soda-tabs > .secondary-nav.ui.menu > .overflow-menu-items > .item {
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 0 !important;
+}
+.soda-tabs > .secondary-nav.ui.menu > .overflow-menu-items > .active.item {
+  border-color: var(--soda-page-edge) !important;
 }
 
 .soda-toolbar :is(#repo-search-form,.list-header-search) .ui.action.input > input[type="search"] {
