@@ -47,6 +47,21 @@ test('welcome frame contains all content and selects one responsive background',
    assert.equal(layout.footerBackground, layout.background);
    const featureColumns = await page.locator('.soda-home-features').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
    assert.equal(featureColumns, width < 1024 ? 1 : 3, 'features stay readable beside a desktop terminal');
+   const composition = await page.evaluate(() => {
+    const actions = document.querySelector('.soda-home-actions')!;
+    const hero = document.querySelector('.soda-home-copy')!.getBoundingClientRect();
+    const features = document.querySelector('.soda-home-features')!.getBoundingClientRect();
+    return {actionColumns: getComputedStyle(actions).gridTemplateColumns.split(' ').length,
+     gutterDifference: Math.abs(hero.left - features.left),
+     bottomPadding: parseFloat(getComputedStyle(document.body).paddingBottom)};
+   });
+   assert.equal(composition.actionColumns, width >= 640 && width < 1024 ? 2 : 1);
+   assert(composition.gutterDifference < 1, 'headline and feature rules align');
+   if (width >= 640 && width < 1024) assert.equal(composition.bottomPadding, 32, 'no large empty tail in a split pane');
+   for (const action of await page.locator('.soda-home-actions a').all()) {
+    const bounds = await action.boundingBox(); assert(bounds && bounds.height >= 44);
+    assert(await action.evaluate(el => el.scrollWidth <= el.clientWidth), 'action label fits');
+   }
    assert.equal(layout.panelBorder, '0px');
    assert.equal(layout.footerBorder, '1px', 'footer owns the shared divider');
    assert.deepEqual(failures, []);

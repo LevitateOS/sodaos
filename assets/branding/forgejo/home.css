@@ -16,38 +16,44 @@
 .soda-home-brand .soda-home-logo-dark { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-light { display: none; }
 html[data-soda-login-theme="dark"] .soda-home-brand .soda-home-logo-dark { display: block; }
-.soda-home-hero { display: grid; gap: 32px; max-width: 1280px; margin: auto; padding: 36px 20px; }
+.soda-home-hero { display: grid; gap: 24px; max-width: 1280px; margin: auto; padding: 28px 20px; }
 .soda-home-copy,.soda-home-entry { min-width: 0; }
 .soda-home-eyebrow { display: inline-block; max-width: 100%; padding: 4px 8px; margin: 0 0 20px; color: var(--soda-guest-canvas); background: var(--soda-guest-text); font: 500 11px/1.5 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: .04em; }
-.soda-home h1 { margin: 0; font: 800 clamp(44px, 7vw, 96px)/.95 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
-.soda-home-lede { max-width: 36ch; margin: 0 0 24px; font: 400 20px/1.5 Barlow, sans-serif; color: var(--soda-guest-muted); }
+.soda-home h1 { margin: 0; font: 800 clamp(44px, 8vw, 96px)/.95 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: -.02em; text-transform: uppercase; color: var(--soda-guest-text); }
+.soda-home-lede { max-width: 48ch; margin: 0 0 20px; font: 400 18px/1.5 Barlow, sans-serif; color: var(--soda-guest-muted); }
 .soda-home-actions { display: grid; gap: 12px; }
 .soda-home-actions a { display: flex; justify-content: space-between; align-items: center; gap: 16px; text-decoration: none; }
 .soda-home-account { margin: 20px 0 0; color: var(--soda-guest-muted); font: 400 15px/1.5 Barlow, sans-serif; }
 .soda-home-account a { text-decoration: underline; text-underline-offset: 3px; }
 .soda-home-features { display: grid; max-width: 1248px; margin: 0 20px 16px; border-top: 1px solid var(--soda-guest-edge); }
-.soda-home-features article { display: grid; grid-template-columns: 32px 1fr; gap: 16px; padding-block: 24px; }
+.soda-home-features article { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 12px; padding-block: 18px; }
 .soda-home-features article + article { border-top: 1px solid var(--soda-guest-edge); }
 .soda-home-feature-number { color: var(--soda-guest-link); font: 500 14px/1.5 "IBM Plex Mono", monospace; }
 .soda-home-features h2 { margin: 0 0 8px; color: var(--soda-guest-text); font: 800 22px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; }
 .soda-home-features p { margin: 0; color: var(--soda-guest-muted); font: 400 16px/1.5 Barlow, sans-serif; }
 body:has(.soda-home) footer { background: var(--soda-guest-canvas); color: var(--soda-guest-muted); border-top: 1px solid var(--soda-guest-edge); }
 body:has(.soda-home) footer a { color: var(--soda-guest-link); }
-@media (min-width: 48rem) {
-  .soda-home-nav { padding-inline: 32px; }
-  .soda-home-links > a:first-child { display: inline; }
-  .soda-home-hero { padding: 64px 32px; }
+/* A desktop split pane has room for paired actions, while the reading flow
+   and numbered features stay in one column. */
+@media (min-width: 40rem) {
+  .soda-home-nav { padding-inline: 24px; }
+  .soda-home-hero { padding: 32px 24px; }
+  .soda-home-features { margin-inline: 24px; }
+  .soda-home-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
-/* Split desktop panes keep readable full-width feature rows. */
+@media (min-width: 48rem) {
+  .soda-home-links > a:first-child { display: inline; }
+}
 @media (min-width: 64rem) {
+  .soda-home-nav { padding-inline: 32px; }
+  .soda-home-hero { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items: end; gap: 40px; padding: 64px 32px; }
+  .soda-home-entry { padding-bottom: 4px; }
+  .soda-home-lede { max-width: 36ch; font-size: 20px; }
+  .soda-home-actions { grid-template-columns: minmax(0,1fr); }
   .soda-home-features { grid-template-columns: repeat(3,minmax(0,1fr)); margin-inline: 32px; }
-  .soda-home-features article { padding: 28px 20px; }
+  .soda-home-features article { grid-template-columns: 32px minmax(0,1fr); gap: 16px; padding: 28px 20px; }
   .soda-home-features article:first-child { padding-left: 0; }
   .soda-home-features article + article { border-top: 0; border-left: 1px solid var(--soda-guest-edge); }
-}
-@media (min-width: 64rem) {
-  .soda-home-hero { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); align-items: end; gap: 40px; padding-block: 64px; }
-  .soda-home-entry { padding-bottom: 4px; }
 }
 
 /* The native full-height shell and footer form one opaque, centered frame.
@@ -64,7 +70,7 @@ body:has(.soda-home) {
   justify-content: center;
   min-height: 100svh;
   height: auto;
-  padding: 32px 4% max(48px, 35svh);
+  padding: 24px 4% 96px;
 }
 body:has(.soda-home)::before {
   content: "";
@@ -101,12 +107,19 @@ body:has(.soda-home) footer {
 body:has(.soda-home) footer .ui.dropdown .menu {
   max-width: calc(100vw - 64px);
 }
+@media (min-width: 40rem) {
+  body:has(.soda-home) { padding: 32px 4%; }
+  body:has(.soda-home) footer { padding-inline: 24px; }
+}
 @media (min-width: 48rem) {
   body:has(.soda-home) {
     --soda-home-day: url("./backgrounds/subway-tablet-day.webp");
     --soda-home-night: url("./backgrounds/subway-tablet-night.webp");
-    padding: 48px 7% 64px;
   }
+
+}
+@media (min-width: 64rem) {
+  body:has(.soda-home) { padding: 48px 7% 64px; }
   body:has(.soda-home) footer { padding-inline: 32px; }
 }
 @media (min-width: 75rem) {

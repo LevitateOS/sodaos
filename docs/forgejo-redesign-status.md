@@ -56,6 +56,16 @@ Creation forms and editor metadata now stack through 1100px; homepage feature
 rows stack below 1024px. Repository actions retain their existing container-based
 compact disclosure, and settings keep their existing compact navigation.
 
+A subsequent front-page-only pass tightens the 640–960px composition: paired
+primary/secondary actions, a stronger headline, shorter reading lines, aligned
+24px content gutters and compact numbered feature rows. Split panes use 32px
+outer vertical spacing instead of the former 35svh trailing area; mobile retains
+a modest 96px photographic margin. Full-width desktop keeps its two-column hero.
+The live header now requests `home.css?v=20-compact-home`. All 22 guest homepage
+cases also check action columns, aligned content edges, 44px action targets and
+unclipped labels. Light/dark captures at 390, 720, 960 and 1440px, source/type
+checks and prior delivery files are in `.artifacts/forgejo-home-split/`.
+
 Only `components.css`, `form-pages.css`, `home.css` and their versioned links were
 updated on the canonical local delivery mounts. Prior files are retained under
 `.artifacts/forgejo-half-width/before-delivery/`; native runtime and data are unchanged.
