@@ -360,5 +360,11 @@
   "public/assets/soda/source/soda-symbol-brutalist-dark.svg": "assets/branding/source/soda-symbol-brutalist-dark.svg",
   "public/assets/soda/fonts/barlow-condensed/barlow-condensed-latin-800-normal.woff2": "assets/branding/fonts/barlow-condensed/barlow-condensed-latin-800-normal.woff2",
   "public/assets/soda/fonts/barlow-condensed/LICENSE": "assets/branding/fonts/barlow-condensed/LICENSE",
-  "public/assets/soda/forgejo/form-pages.css": "assets/branding/forgejo/form-pages.css"
+  "public/assets/soda/forgejo/form-pages.css": "assets/branding/forgejo/form-pages.css",
+  "public/assets/soda/forgejo/backgrounds/mobile-day.webp": "assets/branding/forgejo/backgrounds/mobile-day.webp",
+  "public/assets/soda/forgejo/backgrounds/mobile-night.webp": "assets/branding/forgejo/backgrounds/mobile-night.webp",
+  "public/assets/soda/forgejo/backgrounds/tablet-day.webp": "assets/branding/forgejo/backgrounds/tablet-day.webp",
+  "public/assets/soda/forgejo/backgrounds/tablet-night.webp": "assets/branding/forgejo/backgrounds/tablet-night.webp",
+  "public/assets/soda/forgejo/backgrounds/desktop-day.webp": "assets/branding/forgejo/backgrounds/desktop-day.webp",
+  "public/assets/soda/forgejo/backgrounds/desktop-night.webp": "assets/branding/forgejo/backgrounds/desktop-night.webp"
 }

@@ -86,6 +86,34 @@ bytes and native image aliases/icons still load. Public native browser checks,
 source contracts, Go checks, packaging checks and website parity pass.
 See `.artifacts/forgejo-image-cleanup/` for exact removal lists and receipts.
 
+## Framed public welcome page
+
+The public front page now places its native header, welcome content and footer
+inside one centered, opaque 2px frame over the website’s soda-bar photography.
+Mobile keeps 4% gutters; tablet uses 7%, desktop at least 12%, with a 1280px
+maximum panel. Short pages center vertically; taller content scrolls naturally.
+The footer owns the single shared divider. Native content, registration gates,
+routes and theme controls remain unchanged.
+
+Six optimized WebPs are copied byte-for-byte from website commit `4ff11a5`:
+mobile/tablet/desktop, each in day/night. The website retains the PNG masters and
+prompts. The canonical payload stages them; only the selected background downloads
+on the welcome page. Other Forgejo pages retain their existing layouts.
+
+Installed on the existing localhost:3300 presentation mounts. Only `home.css`,
+its versioned header link and the six backgrounds were delivered; previous CSS
+and header are saved in `.artifacts/forgejo-home-background/before`. The local
+container restarted to reload its template; data, credentials and configuration
+were preserved.
+
+The preview build, affected Go templates, branding/presentation inventory and test
+type checks pass. Twelve browser combinations cover both themes at 320, 390, 768,
+1024, 1440 and 2560px, including opposite system preferences, one background
+request, an opaque centered frame, and a joined footer with no doubled divider.
+All 28 existing live public route/theme/viewport checks pass; the live theme toggle
+was also reviewed visually. An optional embedded-upstream inventory check remains
+skipped because its local export is absent. Logs are in `/tmp/forgejo-home-*.log`.
+
 ## Remaining boundaries
 
 The redesign is installed on the selected **local** Forgejo instance. No remote
