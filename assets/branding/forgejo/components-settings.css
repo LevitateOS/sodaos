@@ -142,6 +142,9 @@
 .soda-settings-destinations { display: flex; gap: 8px; }
 .soda-settings-nav-group { position: relative; }
 .soda-settings-nav button { font: var(--soda-font-button); color: var(--soda-page-muted); background: transparent; border: 0; border-radius: var(--soda-button-radius); min-height: 44px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; }
+/* Single destinations are links, not permanently open dropdown panels. */
+.soda-settings-nav .soda-settings-nav-link { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 0; color: var(--soda-page-muted); background: transparent; font: var(--soda-font-button); text-transform: uppercase; letter-spacing: .035em; }
+.soda-settings-nav .soda-settings-nav-link:hover { color: var(--soda-page-link); background: var(--soda-page-hover); }
 .soda-settings-nav button:hover, .soda-settings-nav button[aria-expanded=true], .soda-settings-nav .is-current > button { color: var(--soda-page-link); background: var(--soda-page-hover); }
 .soda-settings-nav :is(button, a):focus-visible, .soda-settings-disclosure > summary:focus-visible { outline: 2px solid var(--soda-page-link); outline-offset: 2px; }
 .soda-settings-menu { display: grid; gap: 4px; padding: 8px; }

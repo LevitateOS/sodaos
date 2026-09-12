@@ -159,7 +159,7 @@ func TestForgejoPresentationGallery(t *testing.T) {
 		}
 		err = parsed.ExecuteTemplate(f, "repository-settings-gallery", map[string]any{
 			"Theme": theme, "Registry": template.HTML(registry),
-			"RepositoryFixture": map[string]any{"Title": "Repository", "RepoLink": "/fixture/repository", "Repository": forgejoSettingsRepository{Code: true}, "SignedUser": map[string]any{"CanEditGitHook": true}, "LFSStartServer": true, "EnableActions": true, "Permission": forgejoSettingsPermission(true), "UnitTypeCode": 1, "UnitTypeActions": 2, "PageIsSettingsOptions": true},
+			"RepositoryFixture": map[string]any{"Title": "Repository", "RepoLink": "/fixture/repository", "IsSigned": true, "Repository": forgejoSettingsRepository{Code: true, ID: 42}, "SignedUser": map[string]any{"CanEditGitHook": true}, "LFSStartServer": true, "EnableActions": true, "Permission": forgejoSettingsPermission(true), "UnitTypeCode": 1, "UnitTypeActions": 2, "PageIsSettingsOptions": true},
 			"RunnerFixture":     map[string]any{"Link": "#runner-fixture", "RunnersListLink": "#runner-fixture", "Runner": map[string]any{"Name": "Fixture runner", "Description": "Production fields; no credential generation or submission."}},
 		})
 		closeErr = f.Close()

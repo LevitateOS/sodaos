@@ -920,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f5110f078f18cf3911a15b19d7db4b085f4bf97d926e30d109a9c63abdaf0d9c",
+      "beforeRoleHash": "54911b1de73d7392a86af9723873ccf9c0f1072f30a36f3bed21e98b8b030579",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -5703,7 +5703,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2d4ad0fe91ff7ac5908df22781f32bc0c39fd01bf770faabf43afad490f93a3c",
+      "beforeRoleHash": "0b04bd6d087784386f09e690d980c37f7df42d1ff84ed00183de306b14493da9",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",

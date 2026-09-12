@@ -37,9 +37,14 @@ test('repository settings compositions and navigation share the settings contrac
     for(const message of await page.locator('.soda-notice').all()) assert(await message.isVisible());
     assert.equal(await page.locator('.soda-form-section').first().evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
     const nav=page.locator('.soda-settings-nav');
+    const spaces=nav.locator('.soda-settings-nav-link');
+    assert.equal(await spaces.getAttribute('href'),'/?soda-view=repository-spaces&repository_id=42');
+    assert.equal(await spaces.evaluate(el=>el.closest('.soda-settings-menu')),null,'single destination must not be a detached dropdown');
+    if(width>=900){assert(await spaces.isVisible());const a=await spaces.boundingBox(),b=await nav.locator('.soda-settings-nav-trigger').first().boundingBox();assert(a&&b&&a.height>=44&&Math.abs(a.y-b.y)<1);}
+
     const trigger=width<900?nav.locator('.soda-settings-current'):nav.locator('.soda-settings-nav-trigger').first();
     await trigger.focus();await page.keyboard.press('Enter');
-    const general=nav.locator('a').first();assert(await general.isVisible());
+    const general=nav.locator('a').first();assert(await general.isVisible());if(width<900)assert(await spaces.isVisible());
     assert.equal(await general.getAttribute('aria-current'),'page');
     await general.focus();await page.keyboard.press('Escape');
     assert(await trigger.evaluate(el=>document.activeElement===el));assert(!(await general.isVisible()));
@@ -73,7 +78,7 @@ test('repository settings navigation remains available without JavaScript',{skip
   const page=await browser.newPage({javaScriptEnabled:false});
   for(const width of [1440,390,320]) {
    await page.setViewportSize({width,height:1000});await page.goto(gallery('dark'));
-   const links=page.locator('.soda-settings-nav a');assert.equal(await links.count(),15);
+   const links=page.locator('.soda-settings-nav a');assert.equal(await links.count(),16);
    for(const link of await links.all()) assert(await link.isVisible());
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   }

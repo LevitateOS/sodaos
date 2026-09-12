@@ -10,6 +10,17 @@ The deleted worktree is no longer used for development or local presentation mou
 The six approved subway backgrounds are now source assets and are installed on
 localhost:3300.
 
+## Settings Sodaspaces destination
+
+The repository settings Sodaspaces entry is now a direct navigation link, replacing
+a triggerless dropdown that remained absolutely positioned and open on desktop.
+Its signed-in gate and repository-ID destination are unchanged. The production
+settings gallery now includes a signed-in repository so this entry is exercised.
+Navigation checks pass across ten widths in both themes, plus three no-JavaScript
+widths; native gates, inventory and TypeScript checks pass. The updated navbar
+and `components-settings.css?v=18-direct-link` are live on localhost:3300, with
+previous files and a component capture in `.artifacts/forgejo-settings-sodaspaces/`.
+
 ## Repository action bar refinement
 
 Watch, star and fork now pair their native action and separately linked count in
