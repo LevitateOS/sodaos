@@ -124,6 +124,39 @@ browser behavior against the exact candidate version before an upgrade.
 The [Lit shadow DOM documentation](https://lit.dev/docs/components/shadow-dom/)
 explains the CSS and DOM boundaries that any future Lit component must account for.
 
+## Repository breadcrumb switcher
+
+The signed-in repository header reuses Forgejo 15.0.7's patched Fomantic dropdown,
+search input, native repository icons and shared theme tokens. Owner and repository
+names remain ordinary links; adjacent controls enhance them only when the native
+widget is available. Guest pages retain the links without empty switchers.
+
+`repository-switcher.ts` supplies data and scope, not a replacement menu framework.
+The existing authenticated `GET /repo/search` uses `uid` and `exclusive=true` for
+one owner, or the current actor's `uid` and `exclusive=false` for “All your
+repositories.” The native handler remains the authority for repository visibility.
+Queries are debounced, cancelled when superseded/closed, and paginated in batches
+of 15. Links and names are inserted through DOM APIs; destinations must remain on
+the current origin and under `AppSubUrl`. No token, new authentication service,
+notification polling or persistent repository cache is introduced.
+
+For owner options, `GET /?soda-switcher-owners=1` selects a presentation-only fragment
+of the existing Home template. Only the signed-in personal dashboard and one exact
+selector emit it. It serializes the same signed-in user and `.Orgs` membership list
+as the native dashboard context selector, with normal template escaping. The client
+checks its actor ID and includes the current owner even when visiting a non-member
+organization or another user's repository. IDs remain strings in the browser.
+Selecting an owner changes the picker scope, then opens the repository menu;
+selecting a repository navigates to its homepage. The current page's breadcrumb
+and owner links do not pretend that the navigation already happened.
+
+The native widget owns selection, keyboard navigation and dismissal. The scoped
+adapter supplies asynchronous loading/empty/retry states, focus transfer between
+the two menus, and viewport-contained positioning. `tests/forgejo/repository-switcher.test.ts`
+reuses the live native header/bundle with controlled GET responses for membership,
+private/fork rows, pagination, cancellation, errors and responsive states. Native
+owner-fragment rendering/escaping is covered by `TestNativeRepositorySwitcherOwners`.
+
 ## Notification bell quick-view investigation
 
 The [implementation plan/evidence](notification-preview-plan.md) sequences compact

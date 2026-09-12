@@ -34,3 +34,5 @@
 <script src="{{AssetUrlPrefix}}/soda/forgejo/notification-preview.js?v=1"></script>
 <script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-settings-link.js?v=2026-09-12.tailnet-merge-1"></script>
 {{end}}
+
+{{if and .IsSigned .Repository}}<script defer src="{{AssetUrlPrefix}}/soda/forgejo/repository-switcher.js?v=2"></script>{{end}}

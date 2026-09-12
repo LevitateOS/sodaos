@@ -1,3 +1,15 @@
+{{/* Read-only owner fragment: reuse Home's signed-in context and membership list. */}}
+{{$sodaOwnerFragment := false}}
+{{if and .IsSigned .PageIsNews (eq .Link AppSubUrl)}}
+  {{$requested := ctx.Context.FormString "soda-switcher-owners"}}
+  {{$sodaOwnerFragment = and (eq $requested "1") (eq (len (ctx.Context.FormStrings "soda-switcher-owners")) 1)}}
+{{end}}
+{{if $sodaOwnerFragment}}
+<select data-soda-switcher-owners data-actor="{{.SignedUserID}}" aria-label="Repository owners">
+  <option value="{{.SignedUserID}}">{{.SignedUser.Name}}</option>
+  {{range .Orgs}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+</select>
+{{else}}
 {{template "base/head" .}}
 {{/* Presentation only: the native Home handler has already enforced account gates.
      FormString initializes Req.Form before FormStrings checks duplicate selectors. */}}
@@ -66,3 +78,5 @@
 </div>
 {{end}}
 {{template "base/footer" .}}
+
+{{end}}

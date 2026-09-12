@@ -29,7 +29,11 @@ type nativePageTemplateContext struct {
 	Context nativePageRequest
 	Locale  forgejoTemplateLocale
 }
-type nativePageUser struct{ IsOrganization bool }
+type nativePageUser struct {
+	IsOrganization bool
+	ID             int64
+	Name           string
+}
 
 func (nativePageUser) ShortName(int) string { return "Fixture user" }
 
@@ -59,7 +63,8 @@ func renderNativePageHost(t *testing.T, prefix, query, link string, signed, news
 	var result bytes.Buffer
 	err = tmpl.ExecuteTemplate(&result, "page", map[string]any{
 		"Title": "Dashboard", "IsSigned": signed, "PageIsNews": news, "Link": link,
-		"SignedUserID": int64(9007199254740993), "SignedUser": nativePageUser{}, "ContextUser": nativePageUser{},
+		"SignedUserID": int64(9007199254740993), "SignedUser": nativePageUser{Name: "fixture-user"}, "ContextUser": nativePageUser{},
+		"Orgs": []nativePageUser{{ID: 42, Name: "studio"}, {ID: 43, Name: "<script>organization</script>"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -165,5 +170,31 @@ func TestNativeSodaPagePreservesOrdinaryDashboardAndOtherRoutes(t *testing.T) {
 				t.Fatal("ordinary drawer changed on an unrelated page")
 			}
 		})
+	}
+}
+
+func TestNativeRepositorySwitcherOwners(t *testing.T) {
+	for _, prefix := range []string{"", "/forge"} {
+		html := renderNativePageHost(t, prefix, "?soda-switcher-owners=1", prefix, true, true)
+		for _, expected := range []string{`data-soda-switcher-owners`, `data-actor="9007199254740993"`, `value="9007199254740993"`, `value="42">studio`, `&lt;script&gt;organization&lt;/script&gt;`} {
+			if !strings.Contains(html, expected) {
+				t.Fatalf("missing %s", expected)
+			}
+		}
+		for _, forbidden := range []string{"NATIVE_HEAD", "NATIVE_FOOTER", "<script>", "sodaspaces-root"} {
+			if strings.Contains(html, forbidden) {
+				t.Fatalf("fragment includes %s", forbidden)
+			}
+		}
+	}
+	for _, query := range []string{"", "?soda-switcher-owners=0", "?soda-switcher-owners=1&soda-switcher-owners=1"} {
+		if strings.Contains(renderNativePageHost(t, "", query, "", true, true), "data-soda-switcher-owners") {
+			t.Fatalf("unexpected fragment for %s", query)
+		}
+	}
+	for _, flags := range [][2]bool{{false, true}, {true, false}} {
+		if strings.Contains(renderNativePageHost(t, "", "?soda-switcher-owners=1", "", flags[0], flags[1]), "data-soda-switcher-owners") {
+			t.Fatal("wrong page context")
+		}
 	}
 }

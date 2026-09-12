@@ -891,7 +891,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7b3c8cc30302a781971645f468ddae0a84a492fcc9c22ce75c1a2a591f10c056",
+      "beforeRoleHash": "2c11433ccab339025794b3422ec38a41c77d951bbf72b79d56f82f13eb130cff",
       "presentationReview": "Merge Tailnet native-view drawer suppression and the combined module epoch; retain notification, repository and signed-in gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -920,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bb019297eb0eba9ffe360af14ddc077c3e9970a7bd6f6c5cac933b1d27f0db19",
+      "beforeRoleHash": "c85934f6e0559a5983bcbfdc9f3028835bf148c963f2fa51078eac02ddefd13a",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -3814,7 +3814,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f3474693e64d2e6bf6fe84e14da40c39843f1804983f03c4709f1c1a577ed0c",
+      "beforeRoleHash": "d5610ad7d2cc173b9ef0d05ff97d841162b49da9878a383150b16e07e473dc30",
       "upstreamCallers": [
         "repo/flags.tmpl",
         "repo/packages.tmpl"
@@ -7815,7 +7815,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "cd395d9515e0713d1c2bb2497a9b21ce4c0e6f4e3443378c1f5d781b52c6ed1b",
+      "beforeRoleHash": "f4309b0727cc93b4bc1c413a89be5373ef4d9f217f6e762dca582b5d0cb59bdf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Merge bounded Tailnet selector, localized labels and lazy assets with the redesigned ordinary dashboard; preserve native account/context and repository-ID gates."
