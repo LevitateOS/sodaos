@@ -6,6 +6,63 @@ work; these records do not grant appliance/provider execution or reopen complete
 steps. The original source audit remains in its
 [existing receipt](implementation-history.md#forgejo-extension-source-audit).
 
+## Environment read session publication
+
+**Baseline `b1ed488`; source and synthetic-peer Go checks only.** The user approved
+investigating the detail/member/connection read boundaries as work independent of
+the active Forgejo redesign. Main was clean; the redesign worktree had no overlapping
+changes in the backend or the documentation edited here. Its uncommitted visual
+work was preserved, and localization was deferred for redesign coordination.
+
+The targeted reproduction confirmed that initially authenticated reads could publish
+data after completed Soda logout or replacement of the original session during I/O.
+Existing inventory/profile/OS reads already rechecked the original session before
+publication. The three direct-ID handlers lacked that final check. This was a late
+response from an admitted request, not anonymous access, a role bypass or evidence
+of atomic native/Soda logout.
+
+`internal/web/environments_api.go` now calls the existing `requireCurrentSession`
+immediately before successful detail/member/connection responses, returning the
+existing inventory-style `401 unauthenticated` JSON without data on failure. Early
+authorization, degraded member reads, explicit operator inspection and own-membership
+connection access remain intact. Earlier error responses keep their existing status.
+No shared auth helper, schema, host protocol, mutation handler, browser asset or
+redesign/Tailnet file changed. The existing project browser caller already retires
+its session/view on 401/403; it was inspected, not modified or freshly browser-tested.
+
+### Checks actually run
+
+Evidence: `.artifacts/environment-read-publication-HCb4VL/`; `checks.json` records
+commands/environment/test names. `environment_read_publication_test.go` reuses the
+existing management fixture, transport doubles, store APIs and routed logout.
+
+| Check | Result and scope |
+| --- | --- |
+| New regressions before the fix | 46 refusal cases returned 200/data. Eight unchanged-session controls passed, as did two membership-store/cancellation errors that already refused before publication. `regression-before.jsonl`. |
+| Focused Go checks after the fix | All 56 new cases passed within 14 top-level tests / 102 subcases. Includes existing ownership/degraded/member/operator, incomplete reservation, connection, current-session, neighboring read-publication and API error/logout checks. `focused-go.jsonl`. |
+| Same selection with `-race` | All passed; no skips or race reports. `focused-race.jsonl`. |
+| Formatting/documentation | Pinned `gofmt`, local documentation links/anchors and whitespace checked. |
+
+The eight read paths cover late provider/organization-owner and helper results,
+operator inspection, degraded member observations and unavailable native inspection.
+Each has unchanged/logout/user/context/CSRF/store/cancel cases. Replacements preserve
+unrelated token/actor/context/CSRF fields to test the original binding; cancellation
+is deliberately ignored by the transport double. Assertions preserve the project,
+members and the other actor's session, and forbid mutation RPCs or secret/error leakage.
+
+Go **1.26.7 darwin/arm64**, `GOTOOLCHAIN=local`, `GOWORK=off`, `-mod=readonly`,
+`-count=1`; `CGO_ENABLED=0` ordinarily and `1` for race instrumentation.
+
+### Outcome and limits
+
+**Source-fixed, not installed.** Logout/session change/cancellation completed before
+the final check withholds the data. No lock spans external I/O or response writing:
+logout after that check is not serialized with publication, and already admitted
+helper reads are not undone or guaranteed cancelled. Provider/native session parity
+and previously issued Linux access are unchanged. No real provider, retained fixture,
+credential, service/VM lifecycle, native build, deployment or frontend operation was
+performed. The shared target/Tailnet handoff and redesign worktree were untouched.
+
 ## Native navigation current-page cues
 
 **Baseline `9ebc3a8`; local source/browser work only.** The user requested further

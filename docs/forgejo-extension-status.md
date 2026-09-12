@@ -29,13 +29,14 @@ architectural limits, not promised fixes in this queue.
 | Source audit | Complete at `e415330`, inspecting Soda `5c2f92a` and stock Forgejo 15.0.7. |
 | First implementation slice | **Complete locally: runner post-decode mutation admission.** Source fixed; focused Go/race checks passed. |
 | Navigation | **Complete locally:** matching Spaces/Runners active styling and current-page accessibility cues; local template/browser/build checks passed. |
-| Localization | Next queued slice; no localization changes yet. |
-| Customization reduction | Conditional review, not a blanket rewrite or release gate. |
+| Environment read publication | **Complete locally:** detail/members/connection recheck the original session before returning data; focused Go/race checks passed. |
+| Localization | Deferred until the incoming redesign's component structure and wording settle. |
+| Customization reduction | Conditional review after coordination with the redesign, not a blanket rewrite or release gate. |
 | Native build / installed validation / delivery | Outside this arm64 macOS source session; the x86 machine handles deployment for the current setup. |
 
-Runner and navigation fixes have their own post-fix evidence, separate from the
-audit's baseline checks. This agent continues source fixes and local checks only,
-not appliance installation, service operations or deployment.
+Runner, navigation and environment-read fixes have their own post-fix evidence,
+separate from the audit's baseline checks. This agent continues source fixes and
+local checks only, not appliance installation, service operations or deployment.
 
 ## Implementation order
 
@@ -65,7 +66,25 @@ entry/import epoch is `2026-09-12.native-pages-8`; the canonical payload invento
 and shared Lit runtime remain unchanged. The [navigation receipt](forgejo-extension-history.md#native-navigation-current-page-cues)
 records the failing-before/passing-after checks and local-only evidence limits.
 
-### 3. Align Soda presentation text with native localization
+### 3. Protect environment read publication — complete locally
+
+The three direct-ID reads in `internal/web/environments_api.go` now use the existing
+`requireCurrentSession` immediately before successful publication. Fresh-session
+checks match original user/context/CSRF after I/O, while ordinary owner/operator,
+degraded-member and own-connection rules remain intact. No shared authentication
+helper, store/host protocol, browser component or redesign file changed.
+
+The [API contract](dashboard-api.md#retained-operations) owns the boundary and its
+non-atomic limits. The [read-publication receipt](forgejo-extension-history.md#environment-read-session-publication)
+records the reproduced late responses and 56 passing regression cases. The user
+selected this backend-only slice so visual work could proceed independently.
+
+### 4. Align Soda presentation text with native localization — deferred
+
+Coordinate with the ongoing `codex/forgejo-redesign` work before changing page
+structure, shared components or text. Do not create a competing design pass or
+localize a presentation being replaced. The existing navigation/accessibility
+behavior remains a contract to preserve through the redesign.
 
 Use the [customization](forgejo-frontend-integration.md#shared-presentation-components)
 and [Lit](lit.md) boundaries for the existing Soda page titles, entry/status messages
@@ -77,7 +96,7 @@ all Forgejo languages have been translated follows from adding localization keys
 Record the exact strings/locales and affected browser checks with the source slice;
 do not silently expand this into restyling every Forgejo page.
 
-### 4. Reduce only demonstrated integration maintenance costs
+### 5. Reduce only demonstrated integration maintenance costs
 
 First make the customization guide's current recipe unambiguous, leaving historical
 evidence in history. For code/assets, select concrete affected overrides or stylesheet
@@ -90,9 +109,12 @@ to rewrite all customization before shipping a bounded fix.
 
 ## Parallel-work boundary
 
-- **This agent:** the work above and this status file. The completed runner slice
-  changed only runner handlers/tests and their documentation, not shared OAuth,
-  migrations, the host protocol, page entry or payload manifests.
+- **This agent:** extension correctness and this status file; the current read
+  correction is backend/tests/documentation only. Presentation integration follows
+  coordination, not competing edits to the redesign.
+- **Redesign agent:** current visual work in `codex/forgejo-redesign`, including
+  templates, styles, fonts and payload inventory. Those files were left untouched
+  by the read-publication correction.
 - **Tailnet agent:** its feature, source state/migrations, enrollment, host/project
   controls, native proof and its own progress. Do not implement, reschedule or mark
   that work complete here.
@@ -109,16 +131,17 @@ network/trust changes or cleanup.
 
 ## Evidence and latest change
 
-**Latest change — native navigation cues:** 7 Go template tests and 10 selected
-frontend/Forgejo tests passed, including 25 navigation fixture scenarios. The emitted
-asset build and full TypeScript/Lit checks passed. New checks reproduced both missing
-active states and the missing stable Spaces target before the fix. Evidence:
-[navigation receipt](forgejo-extension-history.md#native-navigation-current-page-cues)
-and `.artifacts/forgejo-navigation-YFesQX/`.
+**Latest change — environment read publication:** all 56 regression cases passed,
+within 14 selected top-level Go tests / 102 subcases, both ordinarily and with
+`-race` on pinned Go 1.26.7. Before the fix, 46 refusal cases returned 200/data;
+8 unchanged controls and 2 existing store/cancellation error refusals passed.
+Evidence: [read-publication receipt](forgejo-extension-history.md#environment-read-session-publication)
+and `.artifacts/environment-read-publication-HCb4VL/`.
 
-The prior [runner correction](forgejo-extension-history.md#runner-post-decode-mutation-admission)
-retains its 35 regression cases and focused Go/race evidence at
-`.artifacts/runner-admission-fix-ut6yVW/`; it was not changed or retested by the UI slice.
-The [original audit](implementation-history.md#forgejo-extension-source-audit) remains
-baseline evidence. No native fixture login, installed validation, provider action,
-Tailnet implementation or deployment occurred. Localization remains queued.
+The earlier [navigation](forgejo-extension-history.md#native-navigation-current-page-cues)
+and [runner](forgejo-extension-history.md#runner-post-decode-mutation-admission)
+receipts retain their separate evidence; the
+[original audit](implementation-history.md#forgejo-extension-source-audit) remains
+baseline research. No frontend build/test, native fixture login, installed validation,
+provider action, redesign/Tailnet implementation or deployment occurred for this
+backend-only correction. Presentation work remains deferred for coordination.
