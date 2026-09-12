@@ -66,7 +66,8 @@ now has native run/stop supervision, restricted run/key state, companion occupan
 and incarnation checks, resolver binding/recovery checks, explicit managed Create,
 Network controls, own-account SSH projection and compact Spaces summaries wired.
 Fresh-install source selects the companion image and opts into management; old
-configuration remains opt-out. No native image/install or provider action was run.
+configuration remains opt-out. The x86_64 candidate is now built and exported below;
+no installation, enrollment or provider action was run.
 
 **Stock-only Cockpit candidate:** custom Tailnet presentation and its workspace,
 build and unused dependencies are removed. Canonical current-design branding is
@@ -185,19 +186,27 @@ Later source/documentation commits are not installed builds.
 
 ## Latest built source candidate
 
-**`dc38af94c0b6a0eba7db5c06a8a71bcb6828c414`** retired only Cockpit's Runners
-presentation. Native runner services/CLI/backend and Tailnet's Cockpit payload remain.
-Focused checks and a fresh native x86_64 build/check/export/independent verification
-passed. Revised installed contention coverage is authored, not executed on an appliance.
+**`bb3a13c6a421a7dbaa3ebc39c1ffd6cf168c734b`**, native x86_64, now includes the
+Tailnet runtime/UI and stock-only Cockpit candidate. Build/seal, stage verification,
+11 actual-staging tests, export and verification with the exported verifier passed.
+Five OCI archives and 571 inventory entries are sealed; no custom Cockpit package
+is included. Both companion binaries reported the selected Tailscale `1.102.4` in
+networkless, read-only version probes—not daemon/enrollment tests.
 
-Export: `.artifacts/step6-source/export/x86_64/`.
+Export: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/export/x86_64/`.
 `build-info.json` SHA-256:
+`70f426557fe142c400d1571ecd00305e2f81281264e659b5c9cf3a6720263492`.
+The [native build receipt](implementation-history.md#tailnet-x86_64-native-build-and-export)
+records two preserved failed attempts and the packaging fixes. The aggregate
+`check-native.sh` was not run: its mandatory native-page fixture remains unavailable
+and repair declined. Source checks, artifact verification and staging tests do not
+replace that gate or installed runtime/security/connectivity/visual acceptance.
+
+The older Runners-only `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` export remains at
+`.artifacts/step6-source/export/x86_64/`, with recorded `build-info.json` SHA-256
 `8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
-The offline packaging comparison removed 40 old runner entries (38 files), with
-Tailnet byte-identical. It is not an actual installed occupant inventory; older
-hashed assets remain on targets. See the
-[step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
-for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
+Its [step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
+and all retained targets/fallbacks remain unchanged; this new build is not delivery.
 
 ## Remaining work
 

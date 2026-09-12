@@ -14,6 +14,65 @@ not claims that those outputs are still retained.
 
 ---
 
+## Tailnet x86_64 native build and export
+
+The user explicitly ordered the native x86_64 build. The builder is native x86_64
+Linux with Go 1.26.7, Bun 1.4.2, Podman 5.8.2 and Python 3.12.14. The canonical
+checkout stayed the development owner. Its occupied `.artifacts/native/x86_64`
+was not moved, cleared or reused: each attempt used a fresh private build-only
+local clone of its exact commit, without Git worktrees or copied private inputs.
+The original build-info checksum still matched afterward. No retained appliance,
+project, Forgejo fixture or ARM machine was contacted or changed.
+
+Two real packaging failures were retained and corrected in source:
+
+1. `.artifacts/tailnet-native-dd53664-5yh4Zl/`: `dd53664` built application/image
+   outputs but Docker Hub returned `manifest unknown` for Tailscale `v1.102.4`.
+   GHCR also lacked the tag. The published minor image's read-only/networkless
+   version probe reported `1.102.3`, so it was not silently substituted. The exact
+   `1.102.4` release and official binary archives exist. `c514425` now builds the
+   companion using upstream's immutable Alpine base and SHA-256-locked release
+   archives, extracting only the CLI/daemon and retaining the upstream license.
+   No new launcher or change to the selected Tailscale version was introduced. Metadata requires
+   both binary versions to match the lock. Archive/base pins belong in the lock,
+   not this receipt; the AMD64 download matched its recorded upstream checksum.
+2. `.artifacts/tailnet-native-c514425-I0FLec/`: the corrected companion built and
+   both binaries reported `1.102.4`, but sealing rejected `rootfs/etc/fastfetch`.
+   Inspection also found the upstream terminal logo staged into immutable
+   `/usr/share`, outside the installer's writable-prefix delivery. `bb3a13c` moves
+   that delivery/preset reference to `/usr/local/share`, admits only the explicit
+   public config and requires both branding files. Artwork is unchanged; unknown
+   config and undelivered paths remain rejected. The failed stage was not patched
+   or resealed under a different revision.
+
+**Successful candidate:** `bb3a13c6a421a7dbaa3ebc39c1ffd6cf168c734b`.
+Build/evidence: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/`.
+Export: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/export/x86_64/`.
+`build-info.json` SHA-256:
+`70f426557fe142c400d1571ecd00305e2f81281264e659b5c9cf3a6720263492`.
+
+The full native build/seal completed. Stage verification, **11 tests against the
+actual staged rootfs**, export and verification with the exported verifier passed.
+The inventory has 571 entries and five OCI archives: project-os, dashboard, Forgejo,
+Caddy and Tailnet. It has no custom Cockpit package. Both companion version probes
+reported `1.102.4`; they were read-only/networkless CLI observations, not a daemon,
+namespace, enrollment or provider operation. The export totals 756,092,219 file bytes.
+
+Source-fix checks passed: 143 Python build tests (two optional skips), two independent
+Cockpit branding tests, nativebuild race tests, seven focused staging fixtures,
+terminal artwork regeneration check and shell/whitespace checks. The original failed
+build logs and corrected check logs remain in their respective attempt directories.
+No automatic cleanup, rebase/amend, push, publication or installation followed.
+
+`check-native.sh` was not invoked: its mandatory native Forgejo page fixture remains
+unavailable and the owner declined repair. Artifact verification and selected source/
+staging checks do not replace that aggregate gate. Stage-5 installed scenario,
+actual namespace/TUN/LocalAPI/DNS isolation, lifecycle, enrollment, intended-client
+connectivity and native dashboard/Cockpit visual acceptance remain pending on a
+separately selected compatible Soda target. ARM remains only the owner's ephemeral
+Forgejo frontend test bed. Retained v9 data, roots, credentials, host enrollment,
+runner state and installed custom Cockpit fallbacks remain unchanged.
+
 ## Tailnet rebase consistency repair
 
 The user reported possible conflicts after pulling. Inspection found clean `8c3c594`,

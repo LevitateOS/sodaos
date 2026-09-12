@@ -695,6 +695,11 @@ reusable-key support remains out until equivalent containment/rotation is accept
 
 ### Stage 5 — native candidate and isolated proof
 
+The [x86_64 build/export receipt](implementation-history.md#tailnet-x86_64-native-build-and-export)
+now records a sealed candidate, artifact verification and actual staging checks.
+The aggregate native-page/source gate and installed functional/security proof remain
+unrun; no Soda runtime or Cockpit acceptance is inferred from the build.
+
 Build/check/export a clean candidate under the existing native contract. Reuse
 `TestNativeConnectionFixture`, the page consumers, and the installed
 `tests/installed/sodaspaces.ts` driver. Add a Tailnet scenario module and strict

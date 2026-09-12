@@ -12,8 +12,9 @@ Both installed fallbacks remain on the retained targets in the
 The user selected the [Tailnet implementation plan](tailnet-integration-plan.md):
 native dashboard host controls and automatic project enrollment, followed by
 retirement of the last Soda Cockpit extension. Dashboard host controls, project
-runtime/UI and the stock-only source candidate are implemented. Native acceptance,
-clean native build/export and authorized per-target delivery/removal remain pending.
+runtime/UI and the stock-only source candidate are implemented. The
+[x86_64 candidate is built/exported](implementation-status.md#latest-built-source-candidate);
+native acceptance and authorized per-target delivery/removal remain pending.
 The plan owns those stages; this guide owns ordinary Cockpit configuration below.
 The user's source-completion instruction did not authorize installed fallback removal.
 
