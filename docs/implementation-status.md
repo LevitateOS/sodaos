@@ -1,167 +1,172 @@
 # Current implementation status
 
-This is a replace-in-place snapshot, not an execution log. Installed state below is
-**last verified state**, not a fresh health/liveness observation. Detailed receipts,
-failures and past approvals are in [implementation history](implementation-history.md);
-they are evidence, not current instructions or renewed execution permission.
+This replace-in-place handoff leads with the active workstream, **Tailnet**.
+Installed state is **last verified state**, not a fresh health/liveness observation.
+Detailed receipts and completed work belong in [implementation history](implementation-history.md);
+historical approvals are not renewed execution permission.
+
+## Active work — Tailnet
+
+**Stage 1's local investigation is complete; production implementation and native
+runtime proof are pending.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+owns the feature: native dashboard host controls, automatic ephemeral project
+connections and eventual retirement of Soda's remaining Cockpit presentation.
+
+The [stage-1 design](tailnet-integration-plan.md#stage-1-design-decisions) selects:
+
+- Persistent appliance enrollment, separate from independently identified projects.
+- An appliance-owned Tailscale companion sharing the exact project's user/network
+  namespaces, not its filesystem or PID namespace.
+- Upstream Go OAuth/key creation in the existing host helper, addressing the explicit
+  managed Tailnet. Only single-use ephemeral keys reach the companion; reusable
+  credentials stay on the host. The original host-CLI/socket shortcut cannot assume
+  write authority across the shifted user namespace.
+- Run-scoped native state intended to preserve identity across daemon-only restarts,
+  with explicit logout when ending project access. Namespace, DNS and systemd
+  behavior still require native proof.
+
+**Local evidence:** `eed1c2c` records the design and investigation. Upstream OAuth
+and synthetic capability tests, four v2 SDK cases, three temporary-filesystem DNS
+tests and a synthetic Unix LocalAPI CLI probe passed. These are not native companion
+or real-provider proof. Research, including original/corrected probe attempts, is
+retained at `.artifacts/tailnet-stage1-G8Rnza/`; see the
+[stage-1 receipt](implementation-history.md#tailnet-stage-1--local-runtime-and-enrollment-investigation).
+
+### Next step
+
+The next source slice is [stage 2 — Go contracts, state and authorization](tailnet-integration-plan.md#stage-2--go-contracts-state-and-authorization):
+fixed host/helper operations, protected API models, root-owned policy/credential
+handling, the append-only Tailnet OAuth-return migration and focused failure/auth
+checks. Host UI, project automation and Cockpit Tailnet retirement remain unimplemented.
+
+The separate [native proof proposal](tailnet-integration-plan.md#remaining-native-proof-proposal)
+requires a specifically authorized isolated fixture and exact inputs/actions. It
+covers namespace/TUN/LocalAPI isolation, DNS ownership/recovery, systemd stop/restart
+ordering and, in a separately approved phase, real enrollment/connectivity. No
+fixture, credential, provider action or maintenance window is currently selected.
+The present handoff reorganization does not authorize that execution or implement
+stage 2.
+
+## Current permissions
+
+[AGENTS.md](../AGENTS.md#permissions-and-preservation) owns execution policy.
+
+- **Authorized:** routine local source implementation, builds and tests for selected
+  work, including existing local fixtures within their approved scope.
+- **Tailnet:** the approved stage-1 local investigation, synthetic checks and native
+  test proposal are complete. The current request reorganizes this handoff; it is
+  not approval for enrollment, networking/capability changes, new fixture lifecycle
+  or installed Tailnet removal.
+- **Runners:** approved step-6 source retirement/build/check is complete. No installed
+  removal or further retained-target cutover/lifecycle grant remains from that work
+  or the completed step-5 delivery.
+- No outstanding grant for provider jobs/registration, network/trust changes,
+  publishing/automatic CI, cleanup or restoration. The isolated runner fixture's
+  one reboot/exact `probe-one` removal and the two-GET diagnostic grants were used;
+  its old time-bounded VM hold is not a new lifecycle grant.
+- Preserve retained roots, v9 data, credentials, fixtures, archives, stopped records,
+  failed attempts and later writes. Commands, input files and old receipts are not
+  new permission.
 
 ## Installed state
 
-**Combined-plan step 5 is complete on both retained targets. No further step-5
-deployment or unresolved exec-record blocker remains.**
+**Native pages/Runners combined-plan step 5 is complete on both retained targets.**
+There is no outstanding step-5 deployment or exec-record blocker. No Tailnet change
+or installed Cockpit retirement has been delivered.
 
-| Target | Installed affected components | Soda schema | Preserved projects / membership access checks |
+| Target | Installed affected components | Schema | Preserved projects / membership checks |
 | --- | --- | --- | --- |
 | `soda-test` | Paired `19824ec` | v9 | 4 original roots; 7 memberships' SSH/PTY checks passed |
 | `soda-native-spaces-658f2af` | Paired `19824ec` | v9 | 2 original roots; 4 memberships' SSH/PTY checks passed |
 
-- Exact candidate: `19824ec55245baaf5ff5a6ad9557a53aa7f3b0f4`.
-  Verified export: `.artifacts/runner-projection-19824ec/export/x86_64/`.
-  Later source/test/driver/documentation commits are not a new installed build.
-- Delivery paired the dashboard, native helper/runner commands, Forgejo custom files,
-  Cockpit Runners payload and one `project-account` program in each original root.
-  Accounts, keys, memberships, credentials and later writes were preserved.
-- All six original Rocky 9 roots remain; project images/defaults were not changed by
-  this cutover. Only future creation uses the retained Rocky 10.2 image. Neither VM
-  nor project was restarted/recreated during this cutover.
-- Forgejo/Caddy image identities were unchanged. Cockpit Runners remains installed;
-  stock Cockpit and Tailnet remain. Both retained runner inventories were empty.
-- Validation's two stored Podman exec records were confirmed stopped and preserved.
-  The temporary diagnostic listener was stopped; the records are not a prune task.
+- Exact installed candidate: `19824ec55245baaf5ff5a6ad9557a53aa7f3b0f4`.
+  Export: `.artifacts/runner-projection-19824ec/export/x86_64/`.
+- All six original Rocky 9 roots, accounts, keys, memberships, credentials and later
+  writes were preserved. Only future creation uses the retained Rocky 10.2 image.
+  Neither VM nor project was restarted/recreated during the cutover; Forgejo/Caddy
+  image identities were unchanged.
+- Both targets retain **Cockpit Runners and Tailnet**, plus stock administration.
+  Both runner inventories were empty at validation; this is not runner-migration proof.
+- SSH/PTY checks used pinned management forwarding, not demonstrated direct/laptop
+  routing. Managed terminals were quiescent, not active-session continuity proof.
+- Two validation Podman exec records were confirmed stopped and preserved. The
+  temporary diagnostic listener was stopped; neither is a cleanup/reopen task.
 
-Native page/authentication/history, Runners authorization, Cockpit read-path and
-preservation checks passed at their recorded scope. SSH/PTY used **pinned management
-forwarding**, not demonstrated direct/laptop routing. Managed terminals were quiescent;
-this was not active-session continuity proof. Empty runner inventories prove read
-paths, not retained-runner migration. See the [delivery record](implementation-history.md#step-5--bounded-retained-delivery-completed-on-both-targets).
-
-## Current permissions
-
-Execution policy is owned by [AGENTS.md](../AGENTS.md#permissions-and-preservation).
-The active grant record is:
-
-- **Authorized:** routine local source implementation, builds and tests for selected
-  work, including existing local fixtures within their approved scope.
-- **No outstanding grant from the completed delivery** for another retained-target
-  cutover/lifecycle, new native fixture, provider job/registration, network/trust/
-  capability change, publishing/automatic CI or cleanup.
-- **Step-6 source retirement/build/check is approved** by the user's request to do
-  step 6. The [parity review](implementation-history.md#step-6--source-retirement-parity-review)
-  covers the delivered baseline. Installed removal still requires explicit per-target
-  scope/delivery approval; both retained targets keep their fallback until then.
-- **Tailnet:** the user approved stage 1's local investigation, synthetic checks and
-  native test proposal after requesting the [implementation plan](tailnet-integration-plan.md).
-  That bounded investigation is complete. No real enrollment, networking/capability
-  change, new fixture lifecycle or installed Tailnet removal is granted.
-- The isolated runner fixture's one reboot and exact `probe-one` removal grants were
-  used. Its time-bounded VM hold is not a new lifecycle grant. The two-GET diagnostic
-  authorization was also completed, not permission to reopen the listener.
-- Retained roots, current v9 data, credentials, fixtures, archives, stopped records,
-  failed attempts and later writes remain in custody. No cleanup/restore is approved.
-
-## Remaining work
-
-1. **Native pages/Runners:** step-6 source removal and native x86_64 build/check/
-   export/verification passed for **`dc38af9`**. No installed retirement occurred.
-   The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
-   owns remaining actual-occupant inventory, target-specific removal rehearsal and
-   explicit per-target removal delivery. Both retained targets still keep Cockpit Runners.
-2. **Tailnet:** [stage-1 local investigation](tailnet-integration-plan.md#stage-1-design-decisions)
-   is complete: proposed user/net-namespace companion, upstream Go key creation in
-   the host helper, explicit Tailnet binding and per-run ephemeral state. Native
-   namespace/DNS/systemd/provider proof remains separately gated by the
-   [effect proposal](tailnet-integration-plan.md#remaining-native-proof-proposal).
-   Stage-2 backend/state/auth, host UI, project automation and Tailnet retirement
-   remain unimplemented; neither runner step 5 nor installed removal is reopened.
-3. **Broader acceptance:** physical-keyboard/real terminal-editor use, wider
-   Access/error/profile-menu and CLI/provider combinations, intended-client routing,
-   aarch64 and whole-product/release acceptance remain outside the bounded delivery
-   claim. They are not new blockers for completed step 5; follow the
-   [terminal](terminal-integration.md), [CLI](project-clis.md) and
-   [native validation](native-validation.md) owners when that work is selected.
-4. **Other product work:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
-   [Services/AI](services-and-ai-plan.md) and the [installer](coreos-installer.md)
-   retain their own selected scope and remaining work. Runner completion does not
-   complete or authorize those roadmaps; consult the relevant guide, not the full archive.
-
-## Retained fixtures and evidence
-
-- **Isolated runner VM:** `soda-native-runners-2cdc238`, custody under
-  `.artifacts/runners-vm-2cdc238/`. Last installed candidate was `19824ec`; `baseline`
-  remained running/enabled, while `probe-one` local account/state was removed only
-  after a verified private archive. Both provider records/history and credential
-  inputs remain. Check the recorded owner/deadline before any separately authorized
-  reuse; no current VM liveness is asserted here. The [isolated proof record](implementation-history.md#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed)
-  preserves each case's actual revision, including earlier jobs/reboot.
-- **Local browser fixture:** `sodaos-local-forgejo` at `localhost:3300`, volume
-  `soda-pages-0f1d2b1-data`. Retain its account/repository, OAuth state and private
-  inputs. `.local/screenshot-fixture/create-output.txt` is the preserved regular
-  credential file, not a worktree symlink. Use the [screenshot guide](screenshot-capture.md)
-  for login; do not recreate fixtures or expose credentials to recover a stale path.
-- **Worktrees:** the original 17 linked worktrees were removed at the user's request.
-  Step 6 added one fresh detached build checkout at `.artifacts/step6-native-dc38af9/`,
-  retained with its native outputs and restricted copy of the local fixture input.
-  Deleted earlier worktree outputs cannot be cited as retained evidence, even where
-  the archive names them.
-
-| Evidence | Location |
-| --- | --- |
-| Step-6 source/native checks, export and offline packaging delta | `.artifacts/step6-source/`; sealed export `export/x86_64/` |
-| `soda-test` delivery, backups and failed/corrected observers | `.artifacts/step5-cutover-19824ec/` |
-| Validation delivery and final completion receipt | `.artifacts/step5-validation-b5af330/`, including `completion.json` |
-| Guest-side paired backups/rehearsals on both retained targets | `/var/lib/soda-native-pages-19824ec-cutover/` |
-| Stopped exec-record inspection | `.artifacts/step5-exec-api-7e39229/` |
-| Final isolated runner caller/removal/page evidence | `.artifacts/r4-overlap-06/`, `.artifacts/r4-departure-03/`, `.artifacts/r4-remove-01/`, `.artifacts/r4-final-pages/` |
-
-Other retained fixtures and private evidence keep their existing custody; moving
-documentation does not authorize cleanup or re-execution.
+Component delivery, authorization/browser/native checks and preservation details:
+[completed step-5 receipt](implementation-history.md#step-5--bounded-retained-delivery-completed-on-both-targets).
+Later source/documentation commits are not installed builds.
 
 ## Latest built source candidate
 
-**Source candidate:** `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` removes only
-Cockpit's runner presentation and updates staging/verifier, installed operator/
-CLI-native drivers and current operator journeys. Tailnet/React/PatternFly and
-native runner services/CLI/backend remain. Added native browser failure/busy/
-confirmation parity coverage; old Cockpit overlap inputs are rejected in favor of
-separately gated CLI/native contention. That revised installed case is authored,
-not executed on an appliance.
-
-Passed focused local checks, then fresh pinned native x86_64 `build-native.sh`,
-`check-native.sh` (including the full source suite and 11 packaging tests), bundle
-export and independent verification. Two optional Python source checks skipped.
-The verified predecessor-to-candidate comparison removes exactly the old runner
-package's 40 inventory entries (38 files), nothing else; Tailnet files are byte-
-identical. Synthetic staging also proves stale runner dist output is not copied.
-This is an offline packaging comparison, not an installed occupant inventory:
-retained targets include older hashed assets requiring explicit review.
+**`dc38af94c0b6a0eba7db5c06a8a71bcb6828c414`** retired only Cockpit's Runners
+presentation. Native runner services/CLI/backend and Tailnet's Cockpit payload remain.
+Focused checks and a fresh native x86_64 build/check/export/independent verification
+passed. Revised installed contention coverage is authored, not executed on an appliance.
 
 Export: `.artifacts/step6-source/export/x86_64/`.
 `build-info.json` SHA-256:
 `8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
-Logs/delta: `.artifacts/step6-source/`; detailed scope in
-[history](implementation-history.md#step-6--source-retirement-parity-review).
-No retained appliance contact, VM/provider action, installed removal or retained-
-state cleanup occurred. Source/native export acceptance is not per-target retirement.
+The offline packaging comparison removed 40 old runner entries (38 files), with
+Tailnet byte-identical. It is not an actual installed occupant inventory; older
+hashed assets remain on targets. See the
+[step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
+for checks, skips and exact scope. No Tailnet implementation build supersedes it.
+
+## Remaining work
+
+1. **Active — Tailnet:** follow the next source slice and separately gated native
+   proof above. The feature is not complete after moving only the host screen;
+   project automation and replacement acceptance precede Tailnet retirement.
+2. **Separate — installed Runners retirement:** source retirement is complete, but
+   actual-occupant inventory, target-specific removal rehearsal and explicit
+   per-target delivery approval remain. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
+   owns this work. Keep both installed fallbacks; do not reopen step 5 or interpret
+   Tailnet work as removal permission.
+3. **Broader acceptance:** physical-keyboard/real editor use, wider Access/error/
+   profile-menu and CLI/provider combinations, intended-client routing, native
+   aarch64 and whole-product/release acceptance remain outside completed delivery
+   claims. These are not new gates for that completed work; consult the
+   [terminal](terminal-integration.md), [CLI](project-clis.md) and
+   [native validation](native-validation.md) owners when selected.
+4. **Other roadmaps:** [Sodaspaces](sodaspaces-plan.md), [Project OS](project-os.md),
+   [Services/AI](services-and-ai-plan.md) and the [installer](coreos-installer.md)
+   retain their own remaining scope. Moving this handoff's focus does not complete
+   or authorize those roadmaps.
+
+## Retained fixtures and evidence
+
+- **Isolated runner VM:** `soda-native-runners-2cdc238`, custody under
+  `.artifacts/runners-vm-2cdc238/`. Last installed candidate `19824ec`; `baseline`
+  remained running/enabled. Only `probe-one` local account/state was removed after
+  a verified private archive. Both provider records/history and credential inputs
+  remain. Check the recorded owner/deadline before separately authorized reuse;
+  no current liveness is asserted. See the [isolated proof receipt](implementation-history.md#step-4-bounded-x86_64-completion--19824ec-installed-overlap-departure-and-exact-remove-passed).
+- **Local browser fixture:** `sodaos-local-forgejo`, `localhost:3300`, volume
+  `soda-pages-0f1d2b1-data`. Preserve accounts/repositories, OAuth state and private
+  inputs. `.local/screenshot-fixture/create-output.txt` is the retained regular
+  credential file, not a symlink. Follow the [screenshot guide](screenshot-capture.md)
+  for login; do not recreate the fixture or expose credentials to repair access.
+- **Build worktree:** `.artifacts/step6-native-dc38af9/`, with native outputs and its
+  restricted fixture-input copy, remains retained. The earlier 17 linked worktrees
+  were removed at the user's request; their deleted outputs are not retained proof.
+
+| Evidence | Location |
+| --- | --- |
+| Tailnet stage-1 research, synthetic probes and receipt | `.artifacts/tailnet-stage1-G8Rnza/`; preceding research `.artifacts/tailnet-enrollment-TDPVW1/` |
+| Step-6 source/native checks, export and offline packaging delta | `.artifacts/step6-source/` |
+| `soda-test` delivery, backups and failed/corrected observers | `.artifacts/step5-cutover-19824ec/` |
+| Validation delivery and completion receipt | `.artifacts/step5-validation-b5af330/`, including `completion.json` |
+| Guest-side paired backups/rehearsals on both retained targets | `/var/lib/soda-native-pages-19824ec-cutover/` |
+| Stopped exec-record inspection | `.artifacts/step5-exec-api-7e39229/` |
+| Final isolated runner caller/removal/page evidence | `.artifacts/r4-overlap-06/`, `.artifacts/r4-departure-03/`, `.artifacts/r4-remove-01/`, `.artifacts/r4-final-pages/` |
+
+Other retained fixtures/private evidence keep their existing custody. Documentation
+reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Stage-1 Tailnet investigation and in-place design update. Podman's supported
-user/net joins and shared resolver path support the companion candidate. Linux
-peer-credential translation rules out assuming host-root LocalAPI write access
-inside the shifted user namespace; select upstream Go OAuth/key calls in the
-existing host helper and only single-use key delivery to the trusted companion.
-Explicit Tailnet key requests avoid implicit credential-selected rebinding. Native
-state in a run-scoped host `/run` directory preserves identity across daemon-only
-restarts; explicit project logout remains necessary.
-
-Passed upstream OAuth tests plus synthetic single-use capability checks; four
-synthetic v2 SDK key cases; three upstream temporary-filesystem DNS tests; and the
-builder's Tailscale CLI against a synthetic Unix LocalAPI fixture. Initial stub
-protocol mistakes and corrected results are retained, not erased. Checked affected
-documentation links/source references and `git diff --check`.
-
-Tracked changes are documentation only; research/probes remain under
-`.artifacts/tailnet-stage1-G8Rnza/`. No Soda application build/test, container/VM
-lifecycle, namespace/capability/route change, enrollment, retained-target contact or
-cleanup occurred. These local library/CLI checks are not native companion or real
-provider proof. See the [receipt](implementation-history.md#tailnet-stage-1--local-runtime-and-enrollment-investigation).
+Reorganized this handoff around Tailnet's completed local stage 1, next source slice
+and unexecuted native proof proposal. Condensed completed Spaces/Runners delivery
+into history links while retaining installed revisions, build identity, resources,
+permissions, limitations and separately pending installed retirement. No application
+code or retained state changed; documentation link/anchor and whitespace checks only.
