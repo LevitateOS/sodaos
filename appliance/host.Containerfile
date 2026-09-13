@@ -14,6 +14,10 @@ RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.ur
     LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt
 
 COPY rootfs/ /
+# forgejo-runner-12.13.2-1.fc44 ships whitespace-only tab lines that bootc
+# 1.16.7's sysusers parser rejects. Drop only blank lines, preserving every
+# account field and directive. The original package remains in build evidence.
+RUN sed -i '/^[[:space:]]*$/d' /usr/lib/sysusers.d/forgejo-runner.conf
 # Do not enable a competing automatic updater in the candidate. These changes
 # affect only the built image, never the builder's services or trust configuration.
 RUN systemctl mask bootc-fetch-apply-updates.timer && \

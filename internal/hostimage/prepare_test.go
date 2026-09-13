@@ -3,6 +3,7 @@ package hostimage
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -120,6 +121,27 @@ func TestBaseLockAndUnsafeOutputRefusal(t *testing.T) {
 	_, err = Prepare(source, out, "x86_64", "dirty")
 	require.Error(t, err)
 	require.NoDirExists(t, out)
+}
+
+func TestSysusersWhitespaceFixPreservesAccountDirectives(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(sourceRoot(t), "appliance/host.Containerfile"))
+	require.NoError(t, err)
+	var command string
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "RUN sed ") {
+			command = strings.TrimPrefix(line, "RUN ")
+		}
+	}
+	require.NotEmpty(t, command)
+	file := filepath.Join(t.TempDir(), "forgejo-runner.conf")
+	account := `u       forgejo-runner  -       "Forgejo-Runner System User"    /var/lib/forgejo-runner     /bin/bash`
+	require.NoError(t, os.WriteFile(file, []byte("\t\n# comment\n \t\n"+account+"\n"), 0644))
+	command = strings.ReplaceAll(command, "/usr/lib/sysusers.d/forgejo-runner.conf", `"$1"`)
+	output, err := exec.Command("/bin/sh", "-ec", command, "sysusers-fixture", file).CombinedOutput()
+	require.NoError(t, err, string(output))
+	actual, err := os.ReadFile(file)
+	require.NoError(t, err)
+	require.Equal(t, "# comment\n"+account+"\n", string(actual))
 }
 
 func TestRecipeDoesNotInstallOrPublishOnBuilder(t *testing.T) {
