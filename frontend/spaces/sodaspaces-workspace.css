@@ -116,7 +116,27 @@
 .soda-setup-welcome { width: 100%; max-width: 560px; text-align: center; }
 .soda-setup-panel h2, .soda-project-journey h2, .soda-first-terminal h2 { margin: 0 0 var(--soda-space-6); font: var(--soda-font-title); }
 .soda-setup-panel p, .soda-project-journey p { margin: 0 0 var(--soda-space-4); color: var(--soda-page-muted); }
-.soda-setup-welcome > .ui.button { margin-block: var(--soda-space-4) var(--soda-space-6); }
+/* Selected welcome composition: one quiet illustration, one strong action. */
+.soda-workspace.is-welcome .soda-setup-welcome { display: flex; flex-direction: column; align-items: center; }
+.soda-welcome-illustration { display: block; width: clamp(64px, 7vw, 96px); height: auto; flex: 0 0 auto; margin-bottom: var(--soda-space-8); color: var(--soda-page-text); }
+.soda-welcome-outline { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+.soda-welcome-accent { fill: var(--soda-button-primary-bg); }
+.soda-workspace .soda-setup-welcome .soda-welcome-copy { margin: 0; text-wrap: pretty; }
+.soda-welcome-copy span { display: block; }
+.soda-workspace .soda-setup-welcome > .ui.primary.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--soda-space-3); min-width: 224px; max-width: 100%; min-height: calc(var(--soda-control-height) + var(--soda-space-2)) !important; margin-block: var(--soda-space-8) var(--soda-space-6); }
+.soda-workspace .soda-setup-welcome .soda-welcome-help { margin: 0; font: var(--soda-font-meta); }
+.soda-workspace .soda-welcome-help a { color: var(--soda-page-muted); text-underline-offset: .2em; }
+.soda-workspace .soda-welcome-help a:is(:hover, :focus-visible) { color: var(--soda-page-text); }
+.soda-workspace.is-welcome .soda-welcome-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--soda-space-6) var(--soda-space-8); list-style: none; margin-inline: var(--soda-spaces-panel-inset); padding-inline: 0; font: var(--soda-font-button); }
+.soda-welcome-steps li { display: flex; align-items: baseline; gap: var(--soda-space-3); }
+.soda-welcome-steps li > span { color: var(--soda-page-muted); }
+.soda-welcome-steps li:first-child > span { color: var(--soda-page-link); }
+.soda-welcome-steps li + li::before { content: "\2192"; margin-right: var(--soda-space-4); }
+@media (max-width: 640px) {
+  .soda-workspace.is-welcome .soda-welcome-steps { flex-direction: column; align-items: center; gap: var(--soda-space-3); }
+  .soda-welcome-steps li { width: 100%; max-width: 240px; }
+  .soda-welcome-steps li + li::before { content: none; }
+}
 .soda-workspace.is-setup .soda-workspace-body { display: flex; overflow: visible; }
 .soda-workspace.is-setup .soda-workspace-work { flex: 1; justify-content: center; padding: var(--soda-spaces-panel-inset); }
 .soda-workspace.is-setup :is(.soda-workspace-work, .soda-workspace-management, .soda-workspace-management > div, soda-project-controls) { height: auto; overflow: visible; }

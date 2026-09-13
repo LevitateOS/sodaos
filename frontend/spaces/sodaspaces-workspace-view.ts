@@ -3,6 +3,27 @@ import type {TemplateResult} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import type {RepositoryChoices} from './sodaspaces-api.js';
 
+/** Welcome artwork is decorative, theme-bound vector geometry, not a control. */
+export function renderWelcome(blocked: boolean, create: () => void) {
+  return html`
+    <svg class="soda-welcome-illustration" viewBox="0 0 112 112" aria-hidden="true" focusable="false">
+      <path class="soda-welcome-accent" d="M79 19 102 32 79 45 56 32Z"></path>
+      <path class="soda-welcome-outline" d="M56 6 102 32V80L56 106 10 80V32ZM10 32 56 58 102 32M56 58V106"></path>
+    </svg>
+    <h2 tabindex="-1">Create your first project</h2>
+    <p class="soda-welcome-copy"><span>A shared development system, connected to your repository.</span><span>Open terminals and work together, right in your browser.</span></p>
+    <button class="ui primary button" ?disabled=${blocked} @click=${create}><span aria-hidden="true">＋</span> Create project</button>
+    <p class="soda-welcome-help"><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works <span aria-hidden="true">↗</span><span class="soda-visually-hidden"> (opens in a new tab)</span></a></p>`;
+}
+
+export function renderWelcomeSteps() {
+  return html`<ol class="soda-setup-footer soda-welcome-steps" aria-label="Getting started">
+    <li><span aria-hidden="true">01</span> Choose a repository</li>
+    <li><span aria-hidden="true">02</span> Create a project</li>
+    <li><span aria-hidden="true">03</span> Open a terminal</li>
+  </ol>`;
+}
+
 export function renderRepositoryPicker(view: {query: string; result: RepositoryChoices | undefined; selected: string; busy: boolean; error: string; blocked: boolean; createURL: string}, actions: {query: (value: string) => void; search: (page: number) => void; select: (id: string) => void; back: () => void; continue: () => void}) {
   const choice = view.result?.items.find(item => item.id === view.selected);
   return html`<h2 tabindex="-1">Choose a repository</h2>

@@ -14,6 +14,30 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces welcome refinement
+
+On 13 September 2026, implemented the selected welcome composition using the
+existing page frame and Soda visual roles: decorative wireframe cube with a red
+facet, separated explanation lines, one larger red Create project action, subdued
+help link and an inset numbered orientation list. The list stacks on narrow screens.
+[The visual guide](spaces-design.md#welcome-composition) owns this presentation.
+Loading/error recovery and existing project/terminal owners remain unchanged.
+
+`bun run build:forgejo` and `bun run typecheck` passed. The emitted workspace and
+visual-token suites passed 62 tests. After correcting a CSS arrow encoding issue
+found during screenshot review, the affected journey, short-screen keyboard and
+token checks passed again (12 tests). Checks verify one exposed button, no visible
+workspace controls or extra tab stops, reachable short-screen content and no resource
+mutation when Create project opens repository selection. The existing journey cases
+also verify working-terminal input and exact re-entry.
+
+[The local welcome gallery](../.artifacts/spaces-welcome-final/index.html) contains
+both themes at 1440, 800, 640 and 390px, captured by `scripts/screenshot.ts` through
+the synthetic component fixture. Desktop, intermediate and mobile renders were
+visually reviewed. These are local emitted-component results, without native Forgejo
+HTML or appliance delivery; user visual acceptance remains separate. No services,
+real repositories, project roots or native terminals were changed.
+
 ## Spaces visual layout foundation
 
 On 13 September 2026, rebuilt the two page compositions in the canonical checkout:

@@ -111,8 +111,31 @@ entered or cancelled. Page layout rules do not change the native drawer density.
 The existing 256px default sidebar and 220–360px user resize range remain intact;
 compact presentation still follows measured terminal viability. On compact widths,
 project identity leads the header and controls wrap without horizontal overflow.
-Detailed state copy, icons, status treatment and contextual-menu polish remain
-separate visual passes against the selected references.
+The welcome composition is specified below. Other state copy, icons, status
+treatment and contextual-menu polish remain separate visual passes against the
+selected references.
+
+### Welcome composition
+
+The confirmed no-project state follows the selected focused-welcome reference:
+a centered group inside the existing wide frame, with a restrained 64–96px wireframe
+cube, a small Soda-red facet, **Create your first project**, and the two-sentence
+explanation below. Each sentence starts on its own line at desktop reading widths
+and wraps naturally on smaller screens. The illustration is decorative vector
+geometry, hidden from assistive technology and colored through Soda's existing roles.
+
+The only button is **Create project**: solid Soda red, at least 224px wide and 52px
+high, with a decorative plus. It opens Forgejo repository selection without creating
+any resource. **How Spaces works** is a muted underlined help link with an announced
+new-tab destination. The heading, primary action and help link have deliberate
+spacing; no extra card, shadow or animation competes with them.
+
+An inset rule separates the numbered, noninteractive orientation list from the
+welcome. It reads **01 Choose a repository → 02 Create a project → 03 Open a terminal**,
+with only the first number accented. The list stacks at narrow widths; it is not a
+progress indicator or additional navigation. Loading and failed inventory retain
+their recovery states and do not show a guessed welcome. All workspace controls
+remain hidden and absent from the welcome's keyboard and accessibility navigation.
 
 ### State sequence
 

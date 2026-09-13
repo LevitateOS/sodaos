@@ -3,7 +3,7 @@ import type {ReactiveController} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {attentionReason, terminalObservation} from './sodaspaces-attention.js';
 import type {TerminalObservation} from './sodaspaces-attention.js';
-import {renderMenu, renderSessionTab, renderProjectNavigation, renderRename, renderCreation, renderRepositoryPicker} from './sodaspaces-workspace-view.js';
+import {renderMenu, renderSessionTab, renderProjectNavigation, renderRename, renderCreation, renderRepositoryPicker, renderWelcome, renderWelcomeSteps} from './sodaspaces-workspace-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
@@ -208,6 +208,7 @@ export class SodaSpaces extends LitElement {
   }
   private get selectedSpace() { return this.spaces.find(s => s.environment.repository_id === this.project); }
   private get setupScreen() { return this.binding?.kind === 'page' && (!!this.setup || !this.spaces.length); }
+  private get welcomeScreen() { return this.setupScreen && !this.setup && this.available && this.complete; }
   private get firstTerminal() {
     const space = this.selectedSpace;
     return this.binding?.kind === 'page' && !this.setupScreen && this.complete && !!space?.login && !space.authority_unavailable && space.observed?.running === true && space.environment.provisioned && !this.rows(space).length && !this.selected;
@@ -321,7 +322,7 @@ export class SodaSpaces extends LitElement {
   protected render() {
     const blocked = this.stale || !this.available;
     const navigation = this.view === 'sessions' || (!this.compact && this.layout.sidebar !== null);
-    return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
+    return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '') + (this.welcomeScreen ? ' is-welcome' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
       ${this.setupScreen ? html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>` : ''}
       ${this.binding?.kind === 'native' ? this.renderToolbar() : ''}
       <p id="sodaspaces-status" role="status" ?hidden=${!this.status}>${this.status}</p><p role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
@@ -374,7 +375,7 @@ export class SodaSpaces extends LitElement {
           <div class="soda-workspace-management" ?hidden=${this.view !== 'project' || this.stale}></div>
         </div>
       </div>
-      ${this.setupScreen ? html`<p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>` : ''}
+      ${this.welcomeScreen ? renderWelcomeSteps() : this.setupScreen ? html`<p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>` : ''}
       </div>
       ${this.creation ? this.creationForm(this.creation) : ''}
       ${this.editing ? renderRename(this.editing.name, this.slots.find(s => s.key === this.editing?.key)?.binding.projectName || '', !validName(this.editing.name) || this.renaming.has(this.editing.key) || this.stale, name => {
@@ -418,7 +419,7 @@ export class SodaSpaces extends LitElement {
         ${this.setup === 'repositories' ? renderRepositoryPicker({query: this.repositoryQuery, result: this.repositoryResult, selected: this.repositoryChoice, busy: this.repositoryBusy, error: this.repositoryError, blocked, createURL: prefix + '/repo/create'}, {
           query: value => {this.repositoryQuery = value; this.repositoryChoice = ''; this.repositoryResult = undefined; this.repositoryError = ''; this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;},
           search: page => {void this.searchRepositories(page);}, select: value => {this.repositoryChoice = value;}, back: () => this.cancelSetup(), continue: () => this.configureProject()
-        }) : this.available && this.complete ? html`<h2 tabindex="-1">Create your first project</h2><p>A shared development system, connected to your repository. Open terminals and work together, right in your browser.</p><button class="ui primary button" ?disabled=${blocked} @click=${() => this.beginSetup()}>Create project</button><p><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works</a></p>` : html`<h2>${this.busy ? 'Loading projects…' : 'Could not load projects'}</h2><p>Only confirmed inventory can show whether you have projects.</p>${this.stale ? html`<button class="ui button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui button" ?disabled=${this.busy || blocked} @click=${() => this.refresh()}>Retry projects</button>`}`}
+        }) : this.welcomeScreen ? renderWelcome(blocked, () => this.beginSetup()) : html`<h2>${this.busy ? 'Loading projects…' : 'Could not load projects'}</h2><p>Only confirmed inventory can show whether you have projects.</p>${this.stale ? html`<button class="ui button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui button" ?disabled=${this.busy || blocked} @click=${() => this.refresh()}>Retry projects</button>`}`}
       </div></div>`;
   }
   private focusSetup() {

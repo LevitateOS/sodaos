@@ -459,6 +459,12 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   await page.evaluate(theme => {document.documentElement.style.colorScheme = theme;}, theme);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  const surface = page.locator('.soda-workspace');
+  assert.equal(await surface.getByRole('button').count(), 1, 'welcome must expose only Create project');
+  assert.equal(await surface.getByRole('button', {name: 'Create project', exact: true}).isEnabled(), true);
+  assert.equal(await surface.locator('input:visible, select:visible, summary:visible, [role=tab]:visible, [role=separator]:visible').count(), 0, 'workspace controls leaked into welcome');
+  assert.equal(await surface.getByRole('list', {name: 'Getting started'}).getByRole('listitem').count(), 3);
+  assert.equal(await surface.locator('.soda-welcome-illustration[aria-hidden=true]').count(), 1);
   assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
   await page.evaluate(() => document.fonts.ready);
@@ -527,6 +533,28 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
     const f = window.workspaceFixture;
     return {id: f.spaces[0]?.terminals[0]?.id, writes: f.calls.filter(c => c.method !== 'GET'), creates: f.sockets.flatMap(s => s.sent).filter(c => c.action === 'create').length};
   }), before);
+});
+for (const viewport of [{width: 320, height: 568}, {width: 720, height: 422}]) test(`welcome ${viewport.width}/${viewport.height}: keyboard action and short-screen content stay reachable`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  const surface = page.locator('.soda-workspace');
+  assert(await surface.evaluate(node => node.scrollWidth <= node.clientWidth), 'welcome overflows horizontally');
+  await page.getByRole('heading', {name: 'Create your first project'}).focus();
+  await page.keyboard.press('Tab');
+  assert.equal(await page.getByRole('button', {name: 'Create project', exact: true}).evaluate(node => node === document.activeElement), true);
+  await page.keyboard.press('Tab');
+  assert.equal(await page.getByRole('link', {name: /How Spaces works/}).evaluate(node => node === document.activeElement), true, 'hidden controls entered the tab order');
+  const footer = page.getByRole('list', {name: 'Getting started'});
+  await footer.scrollIntoViewIfNeeded();
+  const footerBox = await footer.boundingBox(), surfaceBox = await surface.boundingBox();
+  assert(footerBox && surfaceBox && footerBox.y >= surfaceBox.y && footerBox.y + footerBox.height <= surfaceBox.y + surfaceBox.height + 1, 'orientation footer cannot be reached');
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0, 'welcome action created a resource');
 });
 for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const) test(`first use: ${outcome} creation is inspected, not replayed`, async t => {
   const page = await fixture(t, 'page', undefined, true);
