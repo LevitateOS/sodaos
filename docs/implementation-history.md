@@ -14,6 +14,58 @@ not claims that those outputs are still retained.
 
 ---
 
+## Administrator navigation delivery to fresh VM
+
+The user explicitly approved applying `6c76af924303daeda190b946aac3fc6303fcffb4`
+to `soda-native-tailnet-bb3a13c`, including the brief Forgejo restart. Evidence:
+`.artifacts/admin-settings-delivery-YvHBWD/`. The existing hold was still valid;
+no VM start/extension or older-target contact occurred.
+
+A clean-source browser build and comparison with the sealed `bb3a13c` base selected
+**24 public files / 189,309 bytes**: five changed templates and nineteen changed
+emitted graph modules. No other source asset, image, package, helper or configuration
+was selected. Trusted SSH verified the effective `/data` mount, native config/SQLite
+paths and active service inventory; no established Forgejo HTTP/Git connections
+were present at preflight or immediately before the approved stop.
+
+Every affected occupant had to match its original base hash and expected regular,
+single-link, `1000:1000`, 0644 metadata with nonsymlinked ancestors. Transferred
+script/manifest/archive hashes were compared before execution. Restricted guest
+`/var/lib/soda-candidate-bb3a13c/forgejo-nav-6c76af9/backup/` retains the affected
+public files with ACLs/xattrs/SELinux labels, configuration/key inputs and a
+consistent Forgejo SQLite backup taken with its writer stopped. Public files were
+published with exclusive temporaries, original ownership/modes/xattrs, fsync and
+atomic rename. Only the existing Forgejo service was stopped/started once; nothing
+was restored from an older database, and no setup or OAuth application bootstrap
+was replayed. Final checks verified all 24 new hashes/metadata and 0600 backups.
+
+**Native browser passed:** an isolated browser trusted only the fixture's public
+CA and signed in through native Forgejo as the existing operator. Soda session and
+both protected settings APIs still returned **401**. The native profile-menu
+**Site administration** link led to visible **Soda → Runners / Tailnet** entries,
+with **zero OAuth starts** and no prior Spaces visit. Global navigation contained
+neither settings link. Explicit Runners entry then used the normal existing OAuth
+flow and returned authorized HTTP 200; Tailnet entry reused that matching session
+and returned 200. No registration, lifecycle, enrollment or policy mutation was
+requested. Native coordinated logout returned Soda to 401 and retired only this
+browser login, confirming the retained logout import works on installed pages.
+
+Before/after and final observations preserved boot identity, all three application
+image IDs, dashboard/proxy container IDs/PIDs/start times, configuration hashes,
+helper hash, schema v10, the original one Forgejo user, zero repositories and zero
+project records. Only the approved Forgejo container incarnation changed under its
+native Quadlet lifecycle. SELinux remained enforcing; both browser origins returned
+trusted HTTPS 200. Existing user sessions were not invalidated globally.
+
+The first read-only observer used unsupported Podman template field `.Id`; its
+failure happened before transfer or mutation. `.ID` corrected the observer, with
+the failed output retained; no deployment was replayed to fix it. Native proof here
+is bounded navigation/authentication/read/logout, not all page visuals, nonoperator
+installed-account coverage or the project/provider runtime matrix. This is a recorded
+public UI correction atop the existing base/helper/Cockpit updates, not a new full
+sealed bundle or image. No credentials, older retained targets or unrelated
+workloads were changed. Nothing pushed.
+
 ## Operator settings navigation move
 
 The user reported that Runners/Tailnet appeared only after connecting to Soda,

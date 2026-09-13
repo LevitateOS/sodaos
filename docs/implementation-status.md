@@ -169,6 +169,11 @@ Tailnet work.
   completed. No reboot was needed. This does not select the conditional VM,
   kernel-dump or recording roles, authorize report collection/upload or changes to
   projects/policy/accounts, extend the VM hold, or affect older retained targets.
+- **Forgejo administrator navigation:** the user explicitly approved delivery of
+  `6c76af9` to the fresh VM and its brief Forgejo restart. The 24-file public delta,
+  restricted backups, single Forgejo service restart and native entry/read/logout
+  checks are complete. No other service/VM lifecycle, provider operation, cleanup
+  or repeat restart is granted by that completed action.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -221,6 +226,18 @@ need logout/login to refresh cached navigation; no global Cockpit restart was us
 The pending native deployment also carries the additions for next boot. Source
 provisioning/preflight now requires the addons and no longer stages Accounts
 hiding; the original sealed bundle/old private Ignition remain unchanged.
+
+The [administrator navigation delivery](implementation-history.md#administrator-navigation-delivery-to-fresh-vm)
+subsequently applied the exact `6c76af9` public UI delta: five templates and nineteen
+changed emitted modules, with epoch `2026-09-13.admin-settings-1`. Only Forgejo was
+restarted, retaining its image; dashboard/proxy runtime identities and configuration,
+helper, schema, user/repository identities and project records were unchanged.
+A fresh native operator login found **Site administration → Soda → Runners/Tailnet**
+while Soda still returned 401; both explicit entries then passed authorized reads
+and coordinated logout. Neither link appears in global navigation. No new native
+bundle/image is implied. Guest backups, including the consistent stopped-writer
+Forgejo database snapshot, remain under
+`/var/lib/soda-candidate-bb3a13c/forgejo-nav-6c76af9/backup/`.
 
 ## Installed state
 
@@ -346,7 +363,10 @@ the shared signed-actor/logout owner remain in the header; protected entry/API
 operator checks are unchanged. Epoch `2026-09-13.admin-settings-1` covers the paired
 module graph. Template, emitted browser, TypeScript/Lit and affected web authorization
 checks passed; see the [source receipt](implementation-history.md#operator-settings-navigation-move).
-This UI correction has **not been delivered to any VM**. Applying the template
-change requires an authorized Forgejo restart and exact public-payload delivery;
-no target contact/restart, data mutation or new full native build occurred. The fresh
-VM retains the recorded Cockpit additions and previous Forgejo UI. Nothing pushed.
+The user then approved delivery and the required Forgejo restart on the fresh VM.
+The [installed receipt](implementation-history.md#administrator-navigation-delivery-to-fresh-vm)
+records the exact 24-file delta, backups and successful native no-Soda-session
+navigation, protected reads and logout. Only the Forgejo runtime incarnation changed;
+all application images, other core runtimes and retained data/configuration checks
+were preserved. No older target, project/provider mutation or full native rebuild
+was involved. Nothing pushed.

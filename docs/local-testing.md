@@ -29,8 +29,12 @@ ssh -N -o ExitOnForwardFailure=yes \
 
 Paths are relative to `~/Projects/sodaos`. Open password files privately; never
 print them in tool output/chat/logs. Dashboard authentication uses Forgejo, not a
-third password. Tailnet is `https://localhost:24454/?soda-view=tailnet`; it starts
-unenrolled and automatic project enrollment is unconfigured.
+third password. From the native profile menu, choose **Site administration**, then
+**Soda → Runners / Tailnet**. Direct entry bookmarks are
+`https://localhost:24454/-/soda/settings/runners` and
+`https://localhost:24454/-/soda/settings/tailnet`; they do not require visiting
+Spaces first. See the [handoff](implementation-status.md#fresh-tailnet-access-fixture)
+for installed state.
 
 The public CA is `.artifacts/tailnet-vm-bb3a13c/tls/ca.pem`, SHA-256
 `97b20d81c0678708c198547937ba48d999618c7580511350f6afd39c3a108064`.
