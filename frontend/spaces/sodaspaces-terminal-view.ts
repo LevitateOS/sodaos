@@ -10,6 +10,7 @@ export interface TerminalPresentation {
   readonly connectLabel: string;
   readonly login: string;
   readonly project: string;
+  readonly name: string;
   readonly message: string;
   readonly notice: boolean;
   readonly screenVisible: boolean;
@@ -28,7 +29,7 @@ export interface TerminalCommands {
 }
 function actions(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`
-    <button type="button" class="ui basic button" data-action="end" ?disabled=${!view.canEnd}
+    <button type="button" class="ui basic button danger" data-action="end" ?disabled=${!view.canEnd}
       @click=${commands.end}>End terminal…</button>
   `;
 }
@@ -42,7 +43,7 @@ function confirmation(view: TerminalPresentation, commands: TerminalCommands): T
       <p>Original account: ${view.login}. This ends this terminal and processes in its managed session.
         Unsaved in-process work will be lost. Files and independently managed services remain.</p>
       <button type="button" class="ui button" data-action="cancel-end" @click=${commands.cancelEnd}>Cancel</button>
-      <button type="button" class="ui button" ?disabled=${!view.canConfirm} @click=${commands.confirmEnd}>End terminal</button>
+      <button type="button" class="ui button danger" ?disabled=${!view.canConfirm} @click=${commands.confirmEnd}>End terminal</button>
     </div>
   `;
 }
@@ -54,9 +55,11 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
         <details class="soda-menu" @keydown=${commands.menuKey}>
           <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
           <div>
-            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Project settings</button>
+            <p class="soda-menu-heading" title=${view.name}><span>${view.name}</span></p>
             <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>Rename terminal</button>
             <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide terminal</button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Project settings</button>
+            <div class="soda-menu-separator"></div>
             ${actions(view, commands)}
           </div>
         </details>

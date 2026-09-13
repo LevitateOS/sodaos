@@ -97,11 +97,12 @@ for (const mode of ['native', 'page'] as const) for (const theme of ['light', 'd
   const selected = await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).evaluate(node => {
     const style = getComputedStyle(node), probe = document.createElement('span');
     node.append(probe); probe.style.color = 'var(--soda-page-focus)'; const focus = getComputedStyle(probe).color;
-    probe.style.color = 'var(--soda-button-primary-bg)'; const background = getComputedStyle(probe).color; probe.remove();
+    probe.style.color = node.closest('[data-workspace-kind=page]') ? 'var(--soda-page-hover)' : 'var(--soda-button-primary-bg)'; const background = getComputedStyle(probe).color; probe.remove();
     return {background: style.backgroundColor, expected: background, focus: style.outlineColor, expectedFocus: focus, height: node.getBoundingClientRect().height};
   });
   assert.equal(selected.background, selected.expected); assert.equal(selected.focus, selected.expectedFocus);
-  assert.equal(selected.height, mode === 'native' || width === 390 ? 44 : 36);
+  if (mode === 'native') assert.equal(selected.height, 44);
+  else {const strip = await page.locator('.soda-pane-chrome').boundingBox(); assert(strip && Math.abs(selected.height - strip.height) <= 1, 'page tab must fill its strip');}
   await action(page, 'End terminal…');
   const warning = await page.getByRole('dialog', {name: 'End terminal confirmation'}).evaluate(node => {
     const style = getComputedStyle(node), probe = document.createElement('span'); probe.style.color = 'var(--soda-page-warning-bg)'; node.append(probe);
@@ -323,8 +324,11 @@ test('real xterm owners survive pane moves, keyboard divider, maximize, compact 
   const screens = await page.locator('.xterm').elementHandles(), hosts = await page.locator('.soda-workspace-terminal').elementHandles();
   const before = await page.evaluate(() => window.workspaceFixture.calls.length); await paneAction(page, 'Split right');
   assert.equal(await page.locator('.soda-pane-chrome').count(), 2); assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), before);
-  await page.getByLabel('Move terminal to pane', {exact: true}).click(); await page.getByRole('button', {name: 'Pane 2', exact: true}).click();
+  await page.getByLabel('Move terminal to pane', {exact: true}).click();
+  await captureSpacesComponent(page, 'move-menu-1920');
+  await page.getByRole('button', {name: 'Pane 2', exact: true}).click();
   await page.waitForFunction(() => document.querySelectorAll('.soda-workspace-terminal:not([hidden])').length === 2);
+  await captureSpacesComponent(page, 'split-workspace-1920');
   await page.evaluate(() => {
     const f = window.workspaceFixture, names = [...document.querySelectorAll('.soda-pane-chrome [aria-selected=true]')].map(tab => tab.textContent?.trim());
     const visible = f.spaces.flatMap(space => space.terminals).filter(terminal => names.includes(terminal.name)).map(terminal => terminal.id);
@@ -458,9 +462,35 @@ async function chooseFirstRepository(page: Page, capture?: string) {
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
   return picker;
 }
-for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]) test(`first use ${theme}/${width}: explicit welcome to typed terminal, then exact re-entry`, async t => {
+async function workspaceIntroGeometry(page: Page) {
+  const workspace = page.locator('.soda-workspace');
+  assert.equal(await page.locator('.soda-setup-footer:visible').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Back to workspace', exact: true}).count(), 0);
+  assert.equal(await page.getByLabel('Workspace options', {exact: true}).count(), 0);
+  assert.equal(await page.locator('[role=tab]:visible, .soda-empty-pane:visible').count(), 0);
+  assert.equal(await page.locator('.soda-selected-project h1').innerText(), 'alice/Alpha');
+  assert.equal(await page.locator('.soda-project-state').innerText(), 'Running');
+  assert.equal(await page.locator('.soda-project-profile').innerText(), 'Rocky Linux 9 · Terminal');
+  assert.equal(await page.getByRole('button', {name: 'Project settings', exact: true}).count(), 1);
+  assert.equal(await workspace.locator('.ui.primary.button:visible').count(), 1);
+  return workspace.evaluate(node => {
+    const box = (selector: string) => {
+      const element = node.querySelector(selector); if (!element) throw Error(selector);
+      const rect = element.getBoundingClientRect();
+      return {x: rect.x, y: rect.y, width: rect.width, height: rect.height, center: rect.x + rect.width / 2};
+    };
+    const intro = box('.soda-workspace-intro'), heading = box('.soda-workspace-intro h2'), action = box('.soda-intro-action .primary');
+    const svg = node.querySelector('.soda-workspace-illustration');
+    if (svg?.querySelector('path')?.namespaceURI !== 'http://www.w3.org/2000/svg') throw Error('Artwork lost SVG geometry');
+    if (Math.abs(action.center - intro.center) > 1 || Math.abs(heading.center - intro.center) > 1) throw Error('Intro lost horizontal centering');
+    if (node.scrollWidth > node.clientWidth) throw Error('Intro overflows the viewport');
+    return {header: box('.soda-workspace-toolbar'), intro, heading, action, compact: node.classList.contains('is-compact')};
+  });
+}
+for (const theme of ['light', 'dark']) for (const width of [1536, 1440, 800, 640, 390]) test(`first use ${theme}/${width}: explicit welcome to typed terminal, then exact re-entry`, async t => {
   const page = await fixture(t, 'page', undefined, true);
-  await page.setViewportSize({width, height: 844});
+  const height = width === 1536 ? 1024 : 844;
+  await page.setViewportSize({width, height});
   await page.evaluate(theme => {document.documentElement.style.colorScheme = theme;}, theme);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
@@ -475,7 +505,7 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   await page.evaluate(() => document.fonts.ready);
   const setupBounds = await page.locator('.soda-workspace-frame').boundingBox();
   assert(setupBounds);
-  assert(setupBounds.width >= width * (width >= 1440 ? .85 : .89), 'setup frame is trapped inside native content width');
+  assert(setupBounds.width >= Math.min(1240, width * (width >= 1440 ? .85 : .89)), 'setup frame is trapped inside native content width');
   assert(Math.abs(setupBounds.x - (width - setupBounds.width) / 2) <= 1, 'setup frame is not centered');
   const welcome = await page.locator('.soda-setup-welcome').boundingBox();
   assert(welcome && welcome.width <= 560 && welcome.x > setupBounds.x, 'welcome lacks a focused reading measure');
@@ -487,6 +517,7 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   assert(picker.frame && configureBounds && Math.abs(picker.frame.height - configureBounds.height) <= 1 && Math.abs(picker.frame.y - configureBounds.y) <= 1, 'panel jumps between setup steps');
   assert(picker.heading && configureHeading && Math.abs(picker.heading.x - configureHeading.x) <= 1 && Math.abs(picker.heading.y - configureHeading.y) <= 1, 'setup headings lose their alignment');
   assert(picker.action && configureAction && Math.abs(picker.action.x + picker.action.width - configureAction.x - configureAction.width) <= 1, 'primary actions lose their right alignment');
+  assert(picker.action && configureAction && picker.action.height >= 52 && configureAction.height >= 52, 'setup primary actions need the prominent journey target');
   const footerTop = (await page.locator('.soda-setup-footer').boundingBox())?.y;
   assert(footerTop && picker.action && configureAction && picker.action.y + picker.action.height <= footerTop && configureAction.y + configureAction.height <= footerTop, 'setup actions are clipped below the progress footer');
   assert.equal(await page.getByRole('button', {name: 'Refresh status', exact: true}).count(), 0, 'ready configuration should not show routine recovery controls');
@@ -494,6 +525,8 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   assert(configureBounds && configureBounds.x === setupBounds.x && configureBounds.width === setupBounds.width, 'configuration changed the outer frame');
   const form = await page.locator('.soda-project-journey').boundingBox();
   assert(form && form.width <= 720 && form.width < configureBounds.width, 'configuration needs an inset form measure');
+  assert(await page.locator('.soda-configuration-fields:visible').evaluate(node => node.scrollHeight <= node.clientHeight), 'ordinary configuration clips its helper text');
+  assert(configureBounds.height <= 720, 'tall screens stretch the setup actions away from the form');
   // Scrollable setup must keep its footer/actions reachable on a short viewport.
   await page.locator('.soda-setup-footer').scrollIntoViewIfNeeded();
   assert(await page.locator('.soda-setup-footer').isVisible());
@@ -504,11 +537,21 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+  const joinedLayout = await workspaceIntroGeometry(page);
+  assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), joinedLayout.compact ? 0 : 1);
+  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Refresh status', exact: true}).count(), 0);
   await captureSpacesComponent(page, `join-${theme}-${width}`);
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.some(c => c.path.endsWith('/development-keys'))), false);
   assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
+  const terminalLayout = await workspaceIntroGeometry(page);
+  assert.deepEqual(terminalLayout.header, joinedLayout.header, 'project header jumps after Join');
+  assert.deepEqual(terminalLayout.intro, joinedLayout.intro, 'intro stage jumps after Join');
+  assert(Math.abs(terminalLayout.heading.y - joinedLayout.heading.y) <= 1 && Math.abs(terminalLayout.action.y - joinedLayout.action.y) <= 1, 'centered content jumps after Join');
+  assert.equal(await page.locator('.soda-intro-helper:visible').innerText(), 'Project account: alice');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0, 'Join must not create a terminal');
   await captureSpacesComponent(page, `first-terminal-${theme}-${width}`);
   await page.getByRole('button', {name: 'New terminal', exact: true}).click();
   await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
@@ -527,6 +570,15 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
       nav: box('.soda-workspace-navigation'), compact: node.classList.contains('is-compact'), overflow: node.scrollHeight > node.clientHeight};
   });
   assert(!geometry.overflow, 'working workspace must not scroll outside its terminal');
+  const terminalInsets = await page.locator('.soda-workspace-terminal:visible').evaluate(node => {
+    const screen = node.querySelector('.soda-terminal-screen')!.getBoundingClientRect();
+    const grid = node.querySelector('.xterm-screen')!.getBoundingClientRect();
+    const account = node.querySelector('.soda-terminal-context > span')!.getBoundingClientRect();
+    return {left: grid.x - screen.x, top: grid.y - screen.y, right: screen.right - grid.right, bottom: screen.bottom - grid.bottom, accountOffset: account.x - grid.x};
+  });
+  assert(terminalInsets.left >= 8 && terminalInsets.top >= 8, 'terminal text touches its frame');
+  assert(terminalInsets.right >= 0 && terminalInsets.bottom >= 0, 'fitted terminal cells escape the padded screen');
+  assert(Math.abs(terminalInsets.accountOffset) <= 1, 'account identity and terminal text lose their shared left edge');
   assert(geometry.canvas.height > geometry.workspace.height * .65, 'chrome consumes too much terminal height');
   assert(geometry.workspace.bottom - geometry.canvas.bottom <= 26, 'terminal leaves unused space below it');
   if (!geometry.compact) {
@@ -535,6 +587,30 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
     assert(geometry.nav.bottom >= geometry.canvas.bottom, 'sidebar must extend alongside the terminal');
   }
   await captureSpacesComponent(page, `working-${theme}-${width}`);
+  assert.equal(await page.locator('.soda-workspace-toolbar').getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
+  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
+  assert.equal(await page.locator('.soda-workspace-tabs [aria-selected=true]').innerText(), 'Terminal 1');
+  assert.equal(await page.getByLabel('Open tabs', {exact: true}).count(), 1);
+  assert.equal(await page.getByLabel('Open tabs', {exact: true}).isVisible(), false, 'single terminal needs no tab picker');
+  assert.equal(await page.getByLabel('Move terminal to pane', {exact: true}).count(), 0, 'single tab/pane has no move destination');
+  if (!geometry.compact) assert.equal(await page.locator('.soda-session-list [aria-current=true]').count(), 1);
+  const terminalScreen = await page.locator('.soda-workspace-terminal:visible .xterm').elementHandle();
+  const menuBaseline = await page.evaluate(() => ({calls: window.workspaceFixture.calls.length, sockets: window.workspaceFixture.sockets.length}));
+  await page.locator('.soda-workspace-terminal:visible').getByLabel('Terminal actions', {exact: true}).click();
+  const terminalMenu = page.locator('.soda-workspace-terminal:visible .soda-menu[open] > div');
+  assert.equal(await terminalMenu.locator('.soda-menu-heading').innerText(), 'Terminal 1');
+  assert.deepEqual(await terminalMenu.getByRole('button').allTextContents(), ['Rename terminal', 'Hide terminal', 'Project settings', 'End terminal…']);
+  const menuBounds = await terminalMenu.boundingBox();
+  assert(menuBounds && menuBounds.x >= 0 && menuBounds.x + menuBounds.width <= width && menuBounds.y + menuBounds.height <= height, 'terminal menu is clipped');
+  await captureSpacesComponent(page, `terminal-menu-${theme}-${width}`);
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Pane actions', {exact: true}).click();
+  const paneMenu = page.locator('.soda-pane-chrome .soda-menu[open] > div');
+  assert.deepEqual(await paneMenu.getByRole('button').allTextContents(), ['Split right', 'Split below']);
+  await captureSpacesComponent(page, `pane-menu-${theme}-${width}`);
+  await page.keyboard.press('Escape');
+  assert(await terminalScreen?.evaluate(node => node.isConnected));
+  assert.deepEqual(await page.evaluate(() => ({calls: window.workspaceFixture.calls.length, sockets: window.workspaceFixture.sockets.length})), menuBaseline, 'context menus changed terminal machinery');
   const before = await page.evaluate(() => {
     const f = window.workspaceFixture;
     return {id: f.spaces[0]?.terminals[0]?.id, writes: f.calls.filter(c => c.method !== 'GET'), creates: f.sockets.flatMap(s => s.sent).filter(c => c.action === 'create').length};
@@ -585,6 +661,7 @@ test('setup: pending creation keeps its selection and disables navigation withou
   await page.getByRole('button', {name: 'Creating project…', exact: true}).waitFor();
   for (const name of ['Back', 'Change repository', 'Cancel setup', 'Creating project…']) assert(await page.getByRole('button', {name, exact: true}).isDisabled(), name);
   assert.equal(await page.locator('.soda-config-repository-name').innerText(), 'alice/Alpha\nForgejo');
+  await captureSpacesComponent(page, 'pending-creation');
   await page.evaluate(() => window.dispatchEvent(new Event('release-creation')));
   await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
@@ -668,6 +745,43 @@ for (const administrator of [true, false]) test(`first use: stopped project Star
   } else assert.equal(await page.getByRole('button', {name: 'Start project', exact: true}).count(), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
 });
+for (const viewport of [{width: 320, height: 568}, {width: 720, height: 422}]) test(`workspace intro ${viewport.width}/${viewport.height}: long identity and actions remain reachable`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.setViewportSize(viewport);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(async () => {
+    const f = window.workspaceFixture, space = f.spaces[0]; if (!space) throw Error('fixture');
+    space.environment.repository = 'alice/' + 'a-very-long-project-name-'.repeat(8);
+    await f.api.refresh();
+  });
+  for (const action of ['Join project', 'New terminal']) {
+    await page.getByRole('button', {name: action, exact: true}).scrollIntoViewIfNeeded();
+    const button = await page.getByRole('button', {name: action, exact: true}).boundingBox();
+    assert(button && button.y >= 0 && button.y + button.height <= viewport.height, 'primary action cannot be reached');
+    assert(await page.locator('.soda-workspace').evaluate(node => node.scrollWidth <= node.clientWidth), 'long identity overflows');
+    if (action === 'Join project') await page.getByRole('button', {name: action, exact: true}).click();
+  }
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+});
+for (const state of ['missing-observation', 'native-unavailable', 'authority-unavailable']) test(`project header: ${state} never claims running or stopped`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(async state => {
+    const f = window.workspaceFixture, space = f.spaces[0]; if (!space) throw Error('fixture');
+    if (state === 'missing-observation') space.observed = null;
+    else if (state === 'native-unavailable') space.native_unavailable = true;
+    else {space.authority_unavailable = true; space.environment_administrator = false;}
+    await f.api.refresh();
+  }, state);
+  assert.equal(await page.locator('.soda-project-state').innerText(), 'Status unavailable');
+  assert.equal(await page.locator('.soda-project-status').innerText(), 'Status unavailable');
+  assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+});
 test('first use: failed Join stays scoped; later explicit keyless Join opens no terminal', async t => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
@@ -716,4 +830,71 @@ test('first use: incomplete and failed inventories never render guessed welcome'
 test('departure during authorization cannot dispatch a late collection read', async t => {
   const page = await fixture(t); await page.evaluate(async () => {const f = window.workspaceFixture; let release: (() => void) | undefined; f.pause(new Promise<void>(resolve => {release = resolve;})); const pending = f.api.refresh(); f.api.dispose(); release?.(); await pending;});
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), 1);
+});
+
+for (const theme of ['light', 'dark']) for (const width of [1440, 390]) test(`coherence recovery ${theme}/${width}: retry, stopped and Join failure keep explicit actions`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.setViewportSize({width, height: 844});
+  await page.evaluate(async theme => {document.documentElement.style.colorScheme = theme; window.workspaceFixture.setStatus(503); await window.workspaceFixture.api.refresh();}, theme);
+  await page.getByRole('heading', {name: 'Could not load projects'}).waitFor();
+  assert(await page.getByRole('button', {name: 'Retry projects'}).isEnabled());
+  assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
+  await captureSpacesComponent(page, `inventory-error-${theme}-${width}`);
+  await page.evaluate(() => {const f = window.workspaceFixture; f.setStatus(200); f.pause(new Promise<void>(resolve => window.addEventListener('release-inventory', () => {f.pause(undefined); resolve();}, {once: true})));});
+  await page.getByRole('button', {name: 'Retry projects'}).click();
+  await page.getByRole('heading', {name: 'Loading projects…'}).waitFor();
+  assert.equal(await page.locator('.soda-workspace').getByRole('button').count(), 0);
+  await captureSpacesComponent(page, `loading-${theme}-${width}`);
+  await page.evaluate(() => window.dispatchEvent(new Event('release-inventory')));
+  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  const primary = page.getByRole('button', {name: 'Create project', exact: true});
+  await primary.hover();
+  assert(await primary.evaluate(node => {const probe = document.createElement('span'); probe.style.color = 'var(--soda-button-primary-hover)'; node.append(probe); const match = getComputedStyle(node).backgroundColor === getComputedStyle(probe).color; probe.remove(); return match;}));
+  await primary.click(); await page.getByRole('button', {name: 'Back', exact: true}).click();
+  await page.waitForFunction(() => document.activeElement?.textContent?.includes('Create project'));
+  await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(async () => {const f = window.workspaceFixture, space = f.spaces[0]; if (!space?.observed) throw Error('fixture'); space.observed.running = false; space.environment_administrator = false; await f.api.refresh();});
+  await page.getByRole('heading', {name: 'Project not ready'}).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Start project', exact: true}).count(), 0);
+  await page.getByText('A project administrator must start this project.').waitFor();
+  await captureSpacesComponent(page, `stopped-${theme}-${width}`);
+  await page.evaluate(async () => {const f = window.workspaceFixture, space = f.spaces[0]; if (!space?.observed) throw Error('fixture'); space.observed.running = true; await f.api.refresh(); f.setJoinFailure(true);});
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByText(/Outcome unconfirmed/).waitFor();
+  await captureSpacesComponent(page, `join-error-${theme}-${width}`);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 2);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  assert(await page.locator('.soda-workspace').evaluate(node => node.scrollWidth <= node.clientWidth));
+});
+for (const theme of ['light', 'dark']) test(`coherence short ${theme}: long names, bounded menus and original disconnected identity`, async t => {
+  const page = await fixture(t);
+  await page.setViewportSize({width: 390, height: 422});
+  await page.evaluate(async theme => {document.documentElement.style.colorScheme = theme; const f = window.workspaceFixture, space = f.spaces[0]; if (!space) throw Error('fixture'); space.environment.repository = 'alice/' + 'long-project-name-'.repeat(10); if (space.terminals[0]) space.terminals[0].name = 'Build ' + 'long-terminal-name-'.repeat(3); await f.api.refresh();}, theme);
+  await openSession(page, 'Build');
+  const screen = await page.locator('.soda-workspace-terminal:visible .xterm').elementHandle();
+  const owner = await page.locator('.soda-workspace-terminal:visible').elementHandle();
+  const locator = await page.locator('.soda-workspace-terminal:visible').getAttribute('id');
+  const baseline = await page.evaluate(() => ({writes: window.workspaceFixture.calls.filter(c => c.method !== 'GET').length, sockets: window.workspaceFixture.sockets.length}));
+  await page.locator('.soda-workspace-terminal:visible').getByLabel('Terminal actions', {exact: true}).click();
+  await captureSpacesComponent(page, `short-menu-${theme}-390`);
+  const menu = page.locator('.soda-workspace-terminal:visible .soda-menu[open] > div');
+  const bounds = await menu.boundingBox();
+  assert(bounds && bounds.y + bounds.height <= 422 && bounds.x >= 0, 'short-screen menu is clipped');
+  await menu.getByRole('button', {name: 'End terminal…'}).scrollIntoViewIfNeeded();
+  await page.getByLabel('Workspace options', {exact: true}).click();
+  assert.equal(await page.locator('.soda-menu[open]').count(), 1, 'multiple menus remain open');
+  await page.getByRole('button', {name: 'Refresh Spaces', exact: true}).focus();
+  await page.getByLabel('Workspace options', {exact: true}).focus();
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.locator('.soda-menu[open]').count(), 0, 'Tab departure left a menu open');
+  assert.deepEqual(await page.evaluate(() => ({writes: window.workspaceFixture.calls.filter(c => c.method !== 'GET').length, sockets: window.workspaceFixture.sockets.length})), baseline);
+  assert(await screen?.evaluate(node => node.isConnected));
+  await page.evaluate(() => {const f = window.workspaceFixture; f.setStatus(503); f.sockets[0]?.close();});
+  await page.getByRole('button', {name: 'Reconnect terminal', exact: true}).waitFor();
+  await captureSpacesComponent(page, `disconnected-${theme}-390`);
+  assert(await owner?.evaluate(node => node.isConnected));
+  assert.equal(await page.locator('.soda-workspace-terminal:visible').getAttribute('id'), locator);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), baseline.writes);
 });

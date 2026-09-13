@@ -14,6 +14,137 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces rendered reference review
+
+On 13 September 2026, compared all eight selected welcome-through-terminal/menu
+references with actual emitted-component PNGs, including fresh 1536×1024 captures.
+The [side-by-side gallery](../.artifacts/spaces-reference-comparison/index.html)
+provides each reference, before-review dark capture, final light/dark captures at
+1536/1440/800/640/390px, and explicit notes on intentional differences. Source PNGs
+are unaltered. The component fixture has an unsaved native-input probe and no native
+Forgejo navbar, so its vertical origin differs from the reference.
+
+Visual inspection found undersized primary labels/actions, an oversized sidebar
+project card, a Back action aligned to the form instead of the outer inset, terminal
+text too close to the border, excessive tall-screen panel growth and clipped mobile
+repository/configuration content. Corrected these using canonical type/spacing roles:
+prominent 16px Plex Mono journey actions, 224×52px desktop setup targets, 20px native
+radios, a 720px panel ceiling, compact setup spacing, a roughly 67px project card and
+16px/8px terminal padding aligned with the account label and tab icon. Soda's type,
+256px adjustable sidebar, exact terminal owners, contextual menu locations and actual
+Forgejo eligibility/profile labels remain intentional reference differences.
+
+Build and strict TypeScript/Lit checks passed. After the action/sidebar/terminal
+changes, 114 workspace, terminal and visual-token tests passed. The final panel and
+field-spacing correction passed 26 affected first-use/recovery cases, followed by
+both visual-token checks. New assertions cover the panel ceiling, prominent targets,
+ordinary configuration visibility and fitted terminal bounds/alignment. The visibility
+assertion initially exposed additional 1440px configuration overflow; spacing was
+corrected before the final passing capture. Existing interaction coverage exercised
+explicit Create/Join/New terminal, typed xterm input, exact re-entry, failure/retry,
+menu focus/dismissal, move/split/resize and stable renderer/socket ownership.
+
+Final captures are in `.artifacts/spaces-reference-comparison/`; working split/Move
+and pending-creation evidence is reused from `.artifacts/spaces-reference-after/`.
+Earlier captures and the failed intermediate run remain retained. Logs are
+`/tmp/spaces-reference-{build,types,tests,comparison}.log`. This is local component
+and synthetic-transport evidence, not real provisioning or installed shell proof.
+Read-only Chrome navigation to `https://localhost:24454/?soda-view=spaces` returned
+`ERR_CONNECTION_REFUSED`; no service, deployment or retained project was changed.
+The browser tool also refused the gallery's local file URL under its URL policy;
+the artifact and PNGs remain available by local file links, with no browser-policy
+workaround attempted. Installed journey verification and owner visual acceptance
+remain outstanding.
+
+## Spaces interaction and recovery refinement
+
+On 13 September 2026, refined the whole local Spaces journey on top of the retained
+uncommitted visual passes. Primary/neutral hover, keyboard focus and radio-row focus
+use canonical roles. Back restores focus when its original invoker was replaced.
+Context menus close when another opens, on focus departure or a click elsewhere in
+the workspace; their scroll area is bounded by the viewport and owner. Long tab names
+retain full titles/accessibility text; menu headings stay within two visible lines.
+Short viewports reduce chrome insets without changing terminal ownership or layout
+minima. Inventory loading/failure and stopped/incomplete/unavailable projects share
+the centered composition, while pending/error notices use consistent neutral/warning
+panels. Reconnect feedback stays attached to the original terminal.
+
+Build and strict TypeScript/Lit checks passed. The final workspace, terminal and
+visual-token run passed 112 tests. Coverage includes the full light/dark journey at
+1440/800/640/390px; explicit retry and no controls during inventory loading; Back focus;
+canonical primary hover; unauthorized stopped-project recovery; failed Join without
+terminal creation; bounded menus with long repository/terminal names at 390×422;
+menu focus departure/exclusivity; and preserved original terminal identity after
+connection loss. Existing authorization, pending-operation, End and pane/renderer
+continuity tests passed. Initial new-test failures were corrected to respect the
+existing detach behavior (renderer disposal, stable terminal identity) and the
+80-character terminal-name contract; neither product contract was changed. A final
+menu-title clipping correction passed four affected short-screen/token checks; its
+fresh captures are linked by the gallery.
+
+[Whole-journey gallery](../.artifacts/spaces-coherence-verified/index.html) includes
+happy-path, loading, pending creation, stopped/unavailable, Join-error, short-menu
+and disconnected captures. These use the screenshot owner's emitted-component
+fixture path and synthetic APIs/transport; they are not installed native evidence.
+No deployment, retained project mutation, transport or native lifetime change was
+performed. User visual acceptance and installed journey evidence remain separate.
+
+## Spaces working-terminal refinement
+
+On 13 September 2026, completed the local working-terminal presentation pass on top
+of the uncommitted workspace-transition work. The terminal retains the main canvas;
+New terminal is the red header action with secondary Project settings. Selected tabs
+use a neutral surface/red top edge, icons and normal-case names. Sidebar rows mark
+the selected entry. Pane actions use a labelled menu; one-pane layouts omit irrelevant
+Maximize/Consolidate, and single-tab layouts omit Tabs/Move. Terminal menus name their
+original terminal, keep Rename/Hide and original-project settings, and visually
+separate End while retaining the Cancel-first confirmation. The account/project
+strip and its menu remain inside each stable terminal owner.
+
+Build, strict TypeScript/Lit checks and 106 workspace/terminal/visual-token tests
+passed. The tests cover exact renderer/socket continuity across split/move/resize,
+compact projection and re-entry; unchanged identity/admission/End behavior; selected
+tab styling; header action hierarchy; unclipped contextual menus in light/dark at
+1440, 800, 640 and 390px; and no API/socket effects from opening menus. A final compact
+header-spacing adjustment passed 11 affected journey, pane-continuity and token
+checks while capturing the final gallery.
+
+[Working-terminal gallery](../.artifacts/spaces-working-final/index.html) includes
+terminal/terminal-menu/pane-menu comparisons plus a multiple-terminal Move menu and
+split workspace. These are emitted components with synthetic APIs/transport through
+the screenshot owner, not installed native-page evidence. No transport, session
+identity, native lifetime, xterm screen styling, retained project or deployment was
+changed. User visual acceptance and installed journey proof remain separate.
+
+## Spaces workspace transition refinement
+
+On 13 September 2026, rebuilt the post-creation Join and first-terminal presentation
+around one shared centered composition. Confirmed creation exposes the selected
+project sidebar, visible-project count and owner/name header with observed status
+and installed profile. Both prompts align their illustration area, heading,
+explanation, primary action and helper. Healthy first-use views omit routine
+success/retry prose and unrelated workspace controls. Pending/error feedback and
+explicit Join/New terminal admission remain intact. Long identities and short
+screens preserve reachable controls; unavailable observation is not called stopped.
+
+Build and strict TypeScript/Lit checks passed. The emitted workspace and visual-token
+suites passed 68 tests, including matching Join/first-terminal geometry in light/dark
+at 1440, 800, 640 and 390px, sidebar visibility after creation, one primary action,
+no terminal creation on Join, unavailable-status labels, short-screen reachability
+with a long repository name, failure recovery and existing terminal continuity.
+The first test attempt supplied an invalid authority-unavailable fixture with
+administrator rights still set; the fixture was corrected to match the API contract.
+After removing obsolete sidebar status padding, 15 affected layout/status/token
+checks passed again with final captures.
+
+[Local comparison gallery](../.artifacts/spaces-transition-final/index.html) contains
+Join and first-terminal pairs; the same directory retains all six journey stages
+for those theme/width combinations. These are emitted-component captures using
+synthetic APIs/transport through the screenshot owner's component-fixture path,
+not installed native-page evidence. No retained project, service, preview mount or
+deployment was changed. Working-terminal/contextual-menu polish and user visual
+acceptance remain separate.
+
 ## Spaces repository flow refinement
 
 On 13 September 2026, aligned repository selection and configuration inside the

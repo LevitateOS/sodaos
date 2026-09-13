@@ -1,3 +1,4 @@
+import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import {signOut} from './soda-connection.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
@@ -150,6 +151,7 @@ export class SodaProjectControls extends LitElement {
   private epoch = 0;
   private disposed = false;
   private mutationPending = false;
+  private outcomeNeedsAttention = false;
   get canRestore() { return !this.mutationPending; }
   constructor() {
     super();
@@ -240,21 +242,40 @@ export class SodaProjectControls extends LitElement {
     }, 'Project created. Join explicitly to set up your browser-terminal account.');
   }
   private renderJourney() {
-    const configureReady = !this.environment && this.canCreate && !this.busy && !this.stale && !this.outcome && !this.networkReview;
-    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey" aria-busy=${this.busy ? 'true' : 'false'}>
-      ${!this.environment ? html`<header class="soda-setup-step-heading"><p class="soda-setup-eyebrow">New project</p><h2 tabindex="-1">Configure project</h2><p>Choose the system for your project.</p></header>
+    const joinReady = !this.stale && this.detail?.environment.provisioned && this.running && !this.detail.login && !this.detail.authority_unavailable && !this.detail.native_unavailable;
+    if (joinReady) return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
+      ${renderWorkspaceIntro({kind: 'project', heading: 'Project created',
+        description: html`Join ${this.repositoryName} to set up your personal account<span>on this shared development system.</span>`,
+        action: html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}>${this.mutationPending ? 'Joining project…' : 'Join project'}</button>`,
+        helper: html`Then you can open your first browser terminal.`,
+        feedback: html`<div class="soda-intro-feedback soda-feedback" data-tone=${this.mutationPending ? 'pending' : 'warning'} role="status">${this.mutationPending ? 'Setting up your project account…' : this.outcomeNeedsAttention ? this.outcome : ''}</div>${this.outcomeNeedsAttention && !this.busy ? html`<button class="ui button soda-quiet-action" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>Refresh status</button>` : ''}`})}
+    </section>`;
+
+    if (this.environment) {
+      const unavailable = !this.detail || this.detail.authority_unavailable || this.detail.native_unavailable || !this.detail.observed;
+      const incomplete = this.detail && !this.detail.environment.provisioned;
+      const stopped = !unavailable && this.detail?.observed?.running === false;
+      const accountReady = !unavailable && this.running && !!this.detail?.login;
+      return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment.id} class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
+        ${renderWorkspaceIntro({kind: this.busy ? 'loading' : accountReady ? 'terminal' : stopped ? 'stopped' : 'unavailable',
+          heading: accountReady ? 'Your account is ready' : incomplete ? 'Project needs inspection' : stopped ? 'Project not ready' : 'Project status unavailable',
+          description: html`${accountReady ? 'Your project account is ready for a browser terminal.' : incomplete ? 'Project setup is incomplete. Ask the operator to inspect this project.' : stopped ? 'This project is stopped. Start it before joining or opening a terminal.' : 'Current project access or runtime state could not be confirmed.'}`,
+          action: html`${stopped && this.lifecycle ? html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}>${this.mutationPending ? 'Starting project…' : 'Start project'}</button>` : ''}<button class=${stopped && this.lifecycle ? 'ui button soda-quiet-action' : 'ui primary button'} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>${this.busy && !this.mutationPending ? 'Checking status…' : 'Refresh status'}</button>`,
+          helper: html`${incomplete ? 'Do not recreate a reserved project.' : stopped && !this.lifecycle ? 'A project administrator must start this project.' : 'Refreshing checks the existing project without repeating an operation.'}`,
+          feedback: html`<div class="soda-intro-feedback soda-feedback" data-tone="warning" role="status">${this.outcomeNeedsAttention ? this.outcome : ''}</div>`})}
+      </section>`;
+    }
+
+    const configureReady = this.canCreate && !this.busy && !this.stale && !this.outcome && !this.networkReview;
+    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id="" class="soda-spaces-controls soda-project-journey" aria-busy=${this.busy ? 'true' : 'false'}>
+      <header class="soda-setup-step-heading"><p class="soda-setup-eyebrow">New project</p><h2 tabindex="-1">Configure project</h2><p>Choose the system for your project.</p></header>
         <div class="soda-configuration-fields"><div class="soda-configuration-repository"><p>Repository</p><div class="soda-config-repository"><span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span class="soda-config-repository-name">${this.repositoryName || 'Loading repository…'}<small>Forgejo</small></span><button class="ui button soda-quiet-action" aria-label="Change repository" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => {this.dispatchEvent(new CustomEvent('soda-project-change-repository', {bubbles: true}));})}>Change</button></div></div>
         ${renderProjectOS(this.profiles, this.selectedProfile, undefined, this.blocked, value => {if (this.profiles.some(p => p.id === value)) this.selectedProfile = value;}, 'configure')}
         ${this.networkOptions?.available ? renderNetworkSelection(this.networkOptions, this.networkEnabled, this.blocked, enabled => {this.networkEnabled = enabled; this.networkReview = false;}, 'Enable project Tailnet') : ''}
         ${this.networkReview ? html`<p role="alert">Network availability changed. Review the option before creating.</p><button class="ui button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => {this.networkEnabled = this.networkReview = false;})}>Use without Tailnet</button>` : ''}
         </div><div class="soda-setup-actions"><button class="ui primary button" ?disabled=${this.blocked || !this.canCreate || this.networkReview} @click=${(e: Event) => this.command(e, () => this.createProject())}>${this.mutationPending ? 'Creating project…' : 'Create project'}</button></div>
-      ` : html`<h2>${!this.detail?.environment.provisioned ? 'Project needs inspection' : !this.running ? 'Project not ready' : !this.detail.login ? 'Project created' : 'Your account is ready'}</h2>
-        <p>${this.repository}</p>
-        ${this.running && !this.detail?.login ? html`<p>Join to create your personal account in this shared project. Browser terminals do not require SSH keys.</p><button class="ui primary button" ?disabled=${this.blocked || !!this.detail?.authority_unavailable} @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}>${this.mutationPending ? 'Joining project…' : 'Join project'}</button>` : ''}
-        ${!this.running && this.lifecycle ? html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}>${this.mutationPending ? 'Starting project…' : 'Start project'}</button>` : ''}
-        ${this.detail?.login ? html`<p>Project account: ${this.detail.login}</p>` : ''}
-      `}
-      <p role="status" ?hidden=${configureReady || this.mutationPending}>${this.status}</p><p role="status">${this.mutationPending && !this.environment ? 'Creating your project…' : this.outcome}</p>
+
+      <p class="soda-feedback" data-tone=${this.busy ? 'pending' : 'warning'} role="status" ?hidden=${configureReady || this.mutationPending}>${this.status}</p><p class="soda-feedback" data-tone=${this.mutationPending ? 'pending' : 'warning'} role="status">${this.mutationPending ? 'Creating your project…' : this.outcome}</p>
       <button class="ui button soda-quiet-action" ?hidden=${configureReady || this.busy} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>Refresh status</button>
       ${this.stale ? html`<p>Access changed. Reload Spaces to reconnect; no operation will be repeated.</p>` : ''}
     </section>`;
@@ -566,6 +587,7 @@ export class SodaProjectControls extends LitElement {
       return;
     const n = this.epoch;
     this.busy = true;
+    this.outcomeNeedsAttention = false;
     this.outcome = 'Sending the explicit operation with the original page identity…';
     let dispatched = false, inspectCreation = false;
     const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 255000);
@@ -581,6 +603,7 @@ export class SodaProjectControls extends LitElement {
         check(result && projectId(result.id) && result.repository_id === this.binding?.repositoryId && result.provisioned === true && creationProfile(result.profile).id === body.profile_id);
         if (object(body.tailnet).enabled === true) {
           check(result.tailnet_outcome === 'queued' || result.tailnet_outcome === 'unconfirmed');
+          this.outcomeNeedsAttention = true;
           message = result.tailnet_outcome === 'queued' ? 'Project created. Network policy saved; enrollment queued.' : 'Project created. Network setup unconfirmed; inspect Network and explicitly retry there. Do not recreate the project.';
         }
       }
@@ -629,6 +652,7 @@ export class SodaProjectControls extends LitElement {
         profile_unavailable: 'Installed Project OS unavailable. No reservation was created; refresh before another explicit action.', unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'
       };
       const reason = reasons[e.code || ''];
+      this.outcomeNeedsAttention = true;
       this.outcome = !uncertain && reason ? reason : uncertain ? 'Outcome unconfirmed. Refresh the target before another explicit action; this does not confirm the earlier write. Never recreate a reserved project.' : 'Request rejected. Refresh and review current state before another explicit action.';
     }
     finally {

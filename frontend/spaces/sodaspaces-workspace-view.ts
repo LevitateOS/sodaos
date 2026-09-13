@@ -16,6 +16,22 @@ export function renderWelcome(blocked: boolean, create: () => void) {
     <p class="soda-welcome-help"><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works <span aria-hidden="true">↗</span><span class="soda-visually-hidden"> (opens in a new tab)</span></a></p>`;
 }
 
+/** The two post-creation prompts share one composition and illustration area. */
+export function renderWorkspaceIntro(view: {kind: 'project' | 'terminal' | 'unavailable' | 'stopped' | 'loading'; heading: string; description: TemplateResult; action: TemplateResult; helper: TemplateResult; feedback?: TemplateResult}) {
+  return html`<div class="soda-workspace-intro" data-state=${view.kind}><div class="soda-workspace-intro-content">
+    <svg class="soda-workspace-illustration" viewBox="0 0 128 104" aria-hidden="true" focusable="false">
+      <g ?hidden=${view.kind !== 'project'}><path class="soda-welcome-outline" d="M58 10 94 31V73L58 94 22 73V31ZM22 31 58 52 94 31M58 52V94"></path><circle class="soda-created-check" cx="98" cy="81" r="16"></circle><path class="soda-created-checkmark" d="m91 81 5 5 9-10"></path></g>
+      <g ?hidden=${view.kind !== 'terminal'}><path class="soda-welcome-outline" d="M7 21H121V83H7ZM24 39 35 50 24 61"></path><path class="soda-terminal-cursor" d="M44 61H60"></path></g>
+      <g ?hidden=${!['unavailable', 'stopped', 'loading'].includes(view.kind)}><circle class="soda-welcome-outline" cx="64" cy="52" r="34"></circle><path class="soda-welcome-outline" ?hidden=${view.kind !== 'unavailable'} d="M64 33V55M64 66V69"></path><path class="soda-welcome-outline" ?hidden=${view.kind !== 'stopped'} d="M48 52H80"></path><path class="soda-welcome-outline" ?hidden=${view.kind !== 'loading'} d="M64 30V52L79 61"></path></g>
+    </svg>
+    <h2 tabindex="-1">${view.heading}</h2>
+    <p class="soda-intro-description">${view.description}</p>
+    <div class="soda-intro-action">${view.action}</div>
+    <p class="soda-intro-helper">${view.helper}</p>
+    ${view.feedback || ''}
+  </div></div>`;
+}
+
 export function renderWelcomeSteps(step?: 1 | 2) {
   return html`<ol class="soda-setup-footer soda-welcome-steps" aria-label=${step ? 'New project progress' : 'Getting started'} data-step=${step || 0}>
     <li aria-current=${step === 1 ? 'step' : 'false'}><span aria-hidden="true">${step === 2 ? '✓' : '01'}</span> Choose a repository</li>
@@ -32,7 +48,7 @@ export function renderRepositoryPicker(view: {query: string; result: RepositoryC
       <label><span class="soda-visually-hidden">Search repositories</span><input placeholder="Search repositories…" type="search" maxlength="200" .value=${view.query} ?disabled=${view.blocked} @input=${(e: Event) => {if (e.target instanceof HTMLInputElement) actions.query(e.target.value);}}></label>
       <button class="ui button" ?disabled=${view.busy || view.blocked}>Search</button>
     </form>
-    <div class="soda-repository-notice" role="status">${view.busy ? 'Finding repositories…' : view.error}</div>
+    <div class="soda-repository-notice soda-feedback" data-tone=${view.error ? 'warning' : 'pending'} role="status">${view.busy ? 'Finding repositories…' : view.error}</div>
     <fieldset class="soda-repository-results" ?disabled=${view.busy || view.blocked}><legend>Available repositories</legend><div class="soda-repository-rows">
       ${view.result?.items.map(item => html`<label class="soda-repository-choice">
         <input type="radio" name="soda-repository" .checked=${view.selected === item.id} @change=${() => actions.select(item.id)}>
@@ -70,12 +86,12 @@ export interface SessionTab {
 export function renderSessionTab(tab: SessionTab, navigation: boolean, draggable: boolean, dragover: (event: DragEvent) => void): TemplateResult {
   return html`
     <button id=${(navigation ? 'soda-navtab-' : 'soda-tab-') + tab.key} role="tab" class="ui button"
-      draggable=${draggable ? 'true' : 'false'} title=${tab.project}
+      draggable=${draggable ? 'true' : 'false'} title=${tab.name + ' · ' + tab.project}
       aria-label=${tab.name + ' · ' + tab.project} aria-controls=${'soda-owner-' + tab.key}
       tabindex=${tab.selected ? '0' : '-1'} aria-selected=${tab.selected ? 'true' : 'false'}
       @dragstart=${tab.dragstart} @dragend=${tab.dragend} @dragover=${dragover} @drop=${tab.drop}
       @keydown=${tab.keydown} @click=${tab.select}>
-      ${tab.name}${tab.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}
+      <span class="soda-tab-icon" aria-hidden="true"></span><span class="soda-tab-name">${tab.name}</span>${tab.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}
       ${tab.attention ? html`<span class="soda-attention" title=${tab.attention} aria-label=${tab.attention}> !</span>` : ''}
     </button>
   `;
@@ -83,6 +99,7 @@ export function renderSessionTab(tab: SessionTab, navigation: boolean, draggable
 export interface NavigationSession {
   readonly key: string;
   readonly terminalId: string;
+  readonly active: boolean;
   readonly name: string;
   readonly description: string;
   readonly unread: boolean;
@@ -90,15 +107,15 @@ export interface NavigationSession {
   readonly disabled: boolean;
   readonly select: () => void;
 }
-export function renderProjectNavigation(name: string, status: string, rows: readonly NavigationSession[], disabled: boolean, details: () => void, selection?: {active: boolean; environmentId: string; select: () => void}): TemplateResult {
+export function renderProjectNavigation(name: string, status: string, rows: readonly NavigationSession[], disabled: boolean, details: () => void, selection?: {active: boolean; environmentId: string; state: 'running' | 'stopped' | 'unknown'; select: () => void}): TemplateResult {
   return html`
     <section class="soda-project-group" data-environment-id=${selection?.environmentId || ''}>
-      ${selection ? html`<button class="ui button soda-project-select" aria-pressed=${selection.active ? 'true' : 'false'} aria-describedby=${'soda-project-status-' + selection.environmentId} ?disabled=${disabled} @click=${selection.select}>${name}</button><small class="soda-project-status" id=${'soda-project-status-' + selection.environmentId}>${status}</small>` : ''}
+      ${selection ? html`<button class="ui button soda-project-select" aria-label=${name} aria-pressed=${selection.active ? 'true' : 'false'} aria-describedby=${'soda-project-status-' + selection.environmentId} ?disabled=${disabled} @click=${selection.select}><span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span class="soda-project-select-body"><span>${name}</span><small class="soda-project-status" data-state=${selection.state} id=${'soda-project-status-' + selection.environmentId}>${status}</small></span></button>` : ''}
       <details ?hidden=${!!selection && rows.length === 0} ?open=${rows.length > 0}>
-        <summary>${selection ? 'Terminals' : name} ${!selection ? html`<small>${status}</small>` : ''}</summary>
+        <summary ?hidden=${!!selection}>${selection ? 'Terminals' : name} ${!selection ? html`<small>${status}</small>` : ''}</summary>
         <div class="soda-session-list">
           ${repeat(rows, row => row.key, row => html`
-            <button class="ui button" data-terminal-id=${row.terminalId} ?disabled=${row.disabled} @click=${row.select}>
+            <button class="ui button" data-terminal-id=${row.terminalId} aria-current=${row.active ? 'true' : 'false'} ?disabled=${row.disabled} @click=${row.select}>
               <span>${row.name}${row.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}</span>
               <small>${row.description}</small>
               ${row.attention ? html`<small class="soda-attention">${row.attention}</small>` : ''}

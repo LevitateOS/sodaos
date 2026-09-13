@@ -11,3 +11,15 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal-context > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .soda-terminal > .soda-terminal-status { margin: 0; padding: var(--soda-space-1) var(--soda-space-2); max-height: 30%; overflow: auto; }
 .soda-terminal-confirm { position: absolute; top: 36px; left: var(--soda-space-2); right: var(--soda-space-2); max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: var(--soda-page-warning-bg); color: var(--soda-page-warning); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); box-shadow: var(--soda-elevation-dialog); }
+/* Keep the original account/project strip attached to its stable terminal owner. */
+.soda-workspace[data-workspace-kind=page] .soda-terminal-context { font: var(--soda-font-button); padding-left: var(--soda-space-4); border-bottom: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
+.soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-4); }
+@media (max-width: 640px) {
+  .soda-workspace[data-workspace-kind=page] .soda-terminal-context { padding-left: var(--soda-space-2); }
+  .soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-2); }
+}
+/* Exceptional feedback stays with the exact terminal, above retained output. */
+.soda-workspace .soda-terminal > .soda-terminal-status:not(.soda-visually-hidden) { margin: var(--soda-space-2); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); border-inline-start-width: 3px; color: var(--soda-page-warning); background: var(--soda-page-warning-bg); font: var(--soda-font-meta); flex-shrink: 0; overflow-wrap: anywhere; }
+.soda-workspace .soda-terminal > .ui.primary.button { align-self: flex-start; min-height: var(--soda-control-height) !important; margin: var(--soda-space-2); padding: var(--soda-space-2) var(--soda-space-4) !important; }
+.soda-workspace .soda-terminal-context .soda-menu > div { max-height: min(60dvh, calc(var(--soda-terminal-height, 70dvh) - 60px), var(--soda-menu-available-height, 60dvh)); }
+.soda-terminal-confirm { box-sizing: border-box; overflow-wrap: anywhere; }

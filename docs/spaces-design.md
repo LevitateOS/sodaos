@@ -111,9 +111,8 @@ entered or cancelled. Page layout rules do not change the native drawer density.
 The existing 256px default sidebar and 220–360px user resize range remain intact;
 compact presentation still follows measured terminal viability. On compact widths,
 project identity leads the header and controls wrap without horizontal overflow.
-The welcome composition is specified below. Other state copy, icons, status
-treatment and contextual-menu polish remain separate visual passes against the
-selected references.
+The welcome, setup, post-creation and working-terminal compositions are specified
+below. Local implementation and user visual acceptance remain separate evidence.
 
 ### Welcome composition
 
@@ -163,8 +162,8 @@ invented when the backend supplies only a pending outcome.
 ### Repository selection and configuration
 
 Both steps share the same 1240px maximum outer frame, a 720px form measure and
-identical header/action tracks. The setup frame has a 640px minimum height and can
-grow with the viewport. The Back row and **New project** heading block retain their
+identical header/action tracks. The setup frame has a 640px minimum height and grows only to 720px; tall
+viewports must not stretch the gap between fields and actions. The Back row and **New project** heading block retain their
 position between steps. Longer repository results or configuration fields scroll
 within the form, with space reserved for the primary action and orientation footer.
 On short screens the surrounding setup can also scroll; no action is clipped under
@@ -176,7 +175,12 @@ Pagination appears only when there is another page to visit; bounded-search limi
 notices remain visible independently. The selected repository becomes a matching
 identity row in configuration, with its Forgejo owner/name and a quiet **Change**
 action. **Back**, **Change** and **Cancel setup** remain low-emphasis text buttons;
-**Continue** and **Create project** share the right action edge.
+**Continue** and **Create project** share the right action edge and a 224×52px
+minimum desktop target. Journey primary actions use the canonical prominent Plex
+Mono role (16px/24px); secondary controls retain their quieter density. Back aligns
+with the outer panel inset. On compact screens, reduce footer and field spacing so
+the ordinary configuration helper and two repository rows remain visible; longer
+results and optional fields retain their bounded scrolling.
 
 Use the existing orientation footer as the sole step indicator: repository selection
 is current first, then confirmed selection receives a check and project configuration
@@ -219,8 +223,36 @@ existing projects enter their authorized workspace directly, bypassing welcome.
 Starting another project reuses the setup flow without destroying existing terminal
 owners or the saved pane tree; cancel returns to the previous workspace.
 
-The header shows the selected project and its observed status. Project selection
-changes navigation context only: it never retargets existing shells. Mixed-project
+The sidebar starts beside the header and extends to the workspace bottom. Its
+Projects heading includes the authorized visible-project count. The selected row
+uses a repository icon, normal-case owner/name, a status label beneath it, neutral
+fill and a slim red leading edge. Compact screens expose this navigation through
+**Projects** in the header after creation.
+
+The header gives owner/name the Soda title role, with an inline status dot and text,
+then the validated installed profile label beneath it. Running uses the existing
+success color; stopped uses the danger role. Missing observation or unavailable
+authority/native state reads **Status unavailable**, never an inferred stopped state.
+Long identities truncate visually with the full name retained in the title and
+accessible text. **Project settings** stays outlined at the right on wide screens.
+
+**Project created / Join** and **Open your first terminal** share one centered
+composition in the remaining workspace height: a 560px maximum reading measure,
+a 128×104px decorative illustration area (104×85px on compact screens), 24px to
+the heading and explanation, 32px before the primary action and 24px before the
+helper. The primary action is at least 224×52px. A cube with a success check marks
+confirmed creation; a terminal outline with a red cursor marks account readiness.
+Both use Soda's existing type and color roles. Short screens scroll this content
+without clipping the action; the project header stays in place.
+
+The Join explanation names the actual Forgejo repository and personal account setup.
+The first-terminal helper says **Project account: login**. Routine success prose,
+Refresh, Back to workspace, Workspace options and pane controls are absent from the
+healthy prompt. Pending Join and uncertain/rejected outcomes retain announced
+feedback and explicit recovery. The header and prompt geometry remain aligned
+across a successful Join; membership does not create a terminal automatically.
+
+Project selection changes navigation context only: it never retargets existing shells. Mixed-project
 tabs/panes keep their own trusted original identities. The primary action is
 appropriate to the selected project's readiness; pending/denied state never leaves
 a mysterious enabled `+`. **New terminal** appears once in the empty workspace and
@@ -233,6 +265,30 @@ and **External SSH — Optional**; Network reuses the current Tailnet view. Keep
 out of the work header and retain its shared-impact confirmation. Tab and pane menus
 hold Rename, split/move, Hide and End with the distinctions in sections 4 and 6.
 Drawer/Attention controls remain contextual and are absent from first-use setup.
+
+The working canvas retains the full remaining height with the existing inset and
+one border. Its screen has 16px desktop padding and 8px compact padding, with the
+account label and tab icon sharing the text grid’s left edge. Xterm fitting and
+minimum-size measurement include these insets. The short-name sidebar project card
+is approximately 67px high; long names can grow without clipping status. **New terminal** is the red header action; **Project settings** remains
+outlined. Tabs fill their strip, using a terminal icon, normal-case display name,
+neutral selected fill and a red top edge. Sidebar terminal rows mirror the icon and
+name, mark the currently selected entry and retain genuine attention/status text.
+A single terminal does not need a tab picker or a Move affordance.
+
+**Pane** contains Split right/below; Maximize/Restore and Consolidate appear once
+multiple panes exist. Split admission still follows the measured terminal minima.
+**Move** appears when another pane or tab-order position exists and names the
+selected terminal. **Tabs** offers the existing searchable picker for multiple tabs.
+These contextual controls preserve the original entry and pane targets.
+
+The terminal's own **⋯** menu stays attached to its account/project identity strip,
+inside its existing stable owner. It names the terminal, contains Rename and Hide,
+keeps the original project's settings available for mixed-project panes, and separates
+**End terminal…** with a rule and danger text. End retains its named, Cancel-first
+confirmation. Opening menus never recreates a renderer, connects a replacement or
+writes to the backend. Native drawer density and xterm's screen/ANSI styling remain
+owned by their existing mechanisms.
 
 ### Required branches and responsive behavior
 
@@ -261,6 +317,37 @@ announced pending/error states and 44px touch targets. Back restores sensible fo
 successful user-requested terminal creation focuses the shell, while background
 refresh never steals focus. Check both themes, long repository names, zoom, short
 viewports and mobile keyboards. These requirements complement section 7.
+
+### Interaction and recovery finish
+
+Primary hover/press uses Soda's primary-hover role; neutral actions, selected rows
+and open disclosures use the shared neutral surface. Keyboard focus has a visible
+outline on buttons, links, fields and disclosures, and repository radio focus also
+outlines its whole row. Disabled controls remain visibly subdued and inert. Back
+restores its original visible invoker or a sensible control in the replacement view;
+background refresh does not request focus.
+
+Only one contextual menu stays open at a time. Escape returns focus to its disclosure;
+Tab departure and clicks elsewhere dismiss it. The opened menu's scroll height is
+bounded by the viewport and its owning terminal/canvas. Long terminal names remain
+in accessible text and tab/title tooltips; menu headings use at most two visible
+lines so actions remain reachable. Short viewports reduce header/canvas insets while
+keeping terminal geometry and compact projection under their existing owners.
+
+Inventory loading and failure, stopped projects and incomplete/unavailable project
+state reuse the centered illustration, title, explanation and explicit action
+composition. Loading uses a static clock and explanatory copy rather than simulated
+progress; inventory loading exposes no mutation controls or guessed setup footer.
+Only authorized stopped projects offer Start. Missing authority/observation offers
+read-only recovery, not a guessed lifecycle state.
+
+Pending operations use neutral feedback panels; failures and uncertain outcomes use
+canonical warning background, border and text roles. Recovery keeps the affected
+project or exact terminal in context. Configuration and workspace notices scroll
+within bounded areas on short screens. Terminal reconnect feedback follows the
+existing detach behavior: it preserves identity and offers reconnect without claiming
+that the renderer or output buffer survives a lost connection. No motion is required
+to understand loading, selection or recovery.
 
 ### Selected visual references
 

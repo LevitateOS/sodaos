@@ -29,6 +29,7 @@
   --soda-button-primary-hover: var(--soda-page-action-hover);
   --soda-button-danger: light-dark(var(--soda-light-danger), var(--soda-dark-danger));
   --soda-font-button: 500 13px/20px "IBM Plex Mono", monospace;
+  --soda-font-button-prominent: 500 16px/24px "IBM Plex Mono", monospace;
   --soda-space-1: 4px;
   --soda-space-2: 8px;
   --soda-space-3: 12px;
@@ -49,6 +50,7 @@
   --soda-font-label: 600 15px/1.5 Barlow, Arial, sans-serif;
   --soda-font-meta: 400 14px/1.5 Barlow, Arial, sans-serif;
   --soda-page-focus: light-dark(var(--soda-light-focus), var(--soda-dark-focus));
+  --soda-page-success: light-dark(var(--soda-light-success-text), var(--soda-dark-success-text));
   --soda-page-warning: light-dark(var(--soda-light-warning-text), var(--soda-dark-warning-text));
   --soda-page-warning-bg: light-dark(var(--soda-light-warning-bg), var(--soda-dark-warning-bg));
   --soda-page-warning-edge: light-dark(var(--soda-light-warning-border), var(--soda-dark-warning-border));

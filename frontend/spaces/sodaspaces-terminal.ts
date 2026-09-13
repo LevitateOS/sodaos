@@ -131,7 +131,7 @@ export class SodaTerminal extends LitElement {
       canConnect: !(disabled || this.managedEnded || this.state === 'opening' || this.state === 'ready' || this.actionBusy),
       canEnd: !disabled && !!this.sessionID && !this.actionBusy,
       connectLabel: this.sessionID ? 'Reconnect terminal' : 'Open terminal',
-      login: this.binding?.login || '', project: this.binding?.projectName || this.binding?.environmentId || '',
+      name: this.sessionName || 'Terminal', login: this.binding?.login || '', project: this.binding?.projectName || this.binding?.environmentId || '',
       message: this.message, notice: this.notice, screenVisible: this.screenVisible,
       confirmingName: this.confirming ? this.sessionName || this.confirming : null,
       canConfirm: !disabled && !this.actionBusy && this.confirming === this.sessionID,
